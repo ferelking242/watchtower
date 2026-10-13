@@ -74,10 +74,23 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             ))
           _GenreSpotlight(
             definition: genre,
-            item: ContentItem.genreTile(
-              label: genre.label,
-              imageUrl: genre.imageUrl,
+            item: ContentItem(
               key: 'anime-genre-${genre.label.toLowerCase()}',
+              title: genre.label,
+              posterUrl: genre.imageUrl,
+              backdropUrl: genre.imageUrl,
+              imageUrl: genre.imageUrl,
+              badge: genre.label,
+              coverUrls: [
+                genre.imageUrl!,
+                for (final media in home.allAnimes)
+                  if (media.genres.any(
+                    (candidate) =>
+                        candidate.toLowerCase() ==
+                        (genre.genre ?? genre.label).toLowerCase(),
+                  ))
+                    media.bestBackdrop ?? media.bestCover,
+              ].whereType<String>().toSet().take(4).toList(growable: false),
             ),
           ),
     ];
@@ -93,6 +106,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
       final covers = productions
           .map((media) => media.bestBackdrop ?? media.bestCover)
           .whereType<String>()
+          .toSet()
           .take(4)
           .toList(growable: false);
       if (covers.isEmpty) continue;
@@ -129,12 +143,18 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
         group.representative.coverImage ??
         representative?.bestBackdrop ??
         representative?.bestCover;
+    final coverUrls = [
+      if (image != null) image,
+      for (final media in relatedMedia)
+        media.bestBackdrop ?? media.bestCover,
+    ].whereType<String>().toSet().take(4).toList(growable: false);
     return ContentItem(
       key: 'anilist-$groupLabel-${group.mediaIds.join('-')}',
       title: group.representative.title,
-      posterUrl: image,
+      posterUrl: representative?.bestCover ?? image,
       backdropUrl: image,
       imageUrl: image,
+      coverUrls: coverUrls,
       logoUrl: representative?.mainStudio == null
           ? null
           : studioBrandMarkUrl(representative!.mainStudio!),
@@ -173,43 +193,29 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
   }
 
   List<ContentItem> _countryItems() {
-    const countries = <(String, String)>[
-      ('JP', 'Japon'),
-      ('CN', 'Chine'),
-      ('KR', 'Corée du Sud'),
-      ('TW', 'Taïwan'),
-      ('US', 'États-Unis'),
-      ('FR', 'France'),
-      ('GB', 'Royaume-Uni'),
-      ('DE', 'Allemagne'),
-      ('CA', 'Canada'),
-      ('RU', 'Russie'),
-      ('IT', 'Italie'),
-      ('ES', 'Espagne'),
-      ('SG', 'Singapour'),
-      ('HK', 'Hong Kong'),
-      ('TH', 'Thaïlande'),
-      ('AU', 'Australie'),
-      ('IN', 'Inde'),
-      ('PH', 'Philippines'),
-      ('BR', 'Brésil'),
-      ('MX', 'Mexique'),
-      ('ID', 'Indonésie'),
-      ('VN', 'Vietnam'),
+    final usedArtwork = <String>{};
+    return [
+      for (final country in animeCountryOptions)
+        _countryItem(country, home.allAnimes, usedArtwork),
     ];
-    return [for (final country in countries) _countryItem(country, home.allAnimes)];
   }
 
-  ContentItem _countryItem((String, String) country, List<AnilistMedia> all) {
-    final matching = all.where(
-      (media) =>
-          media.countryOfOrigin?.toUpperCase() == country.$1 &&
-          (media.bestBackdrop != null || media.bestCover != null),
-    );
-    final candidates = matching.isNotEmpty
-        ? matching
-        : all.where((media) => media.bestBackdrop != null || media.bestCover != null);
-    final representative = candidates.isEmpty ? null : candidates.first;
+  ContentItem _countryItem(
+    (String, String) country,
+    List<AnilistMedia> all,
+    Set<String> usedArtwork,
+  ) {
+    final matching = all
+        .where((media) => media.countryOfOrigin?.toUpperCase() == country.$1)
+        .toList(growable: false);
+    AnilistMedia? representative;
+    for (final media in [...matching, ...all]) {
+      final image = media.bestBackdrop ?? media.bestCover;
+      if (image != null && usedArtwork.add(image)) {
+        representative = media;
+        break;
+      }
+    }
     final image = representative?.bestBackdrop ?? representative?.bestCover;
     return ContentItem(
       key: 'anime-country-${country.$1}',
@@ -379,10 +385,18 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
     required List<ContentItem> countries,
   }) {
     final pagePadding = AppUI.pagePadding(context);
+    final previewCountries = countries.take(6).toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AppSectionHeader(title: 'Explorer le monde'),
+        AppSectionHeader(
+          title: 'Explorer le monde',
+          actionLabel: 'Tout voir',
+          onAction: () => context.push(
+            '/animeDirectory',
+            extra: AnimeDirectoryKind.countries,
+          ),
+        ),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: pagePadding),
           child: GridView.builder(
@@ -394,9 +408,9 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
               mainAxisSpacing: 8,
               childAspectRatio: 1.42,
             ),
-            itemCount: countries.length,
+            itemCount: previewCountries.length,
             itemBuilder: (context, index) {
-              final country = countries[index];
+              final country = previewCountries[index];
               final code = country.countryCode;
               final cover = country.imageUrl ?? country.backdropUrl;
               return AnimeDirectoryCard(
@@ -484,6 +498,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             child: HeroCarousel(
               items: home.trendingAnimes.take(8).toList(growable: false),
               onItemTap: _open,
+              topPadding: MediaQuery.paddingOf(context).top,
             ),
           ),
           SliverToBoxAdapter(child: _spotlightCarousel(context)),
@@ -497,7 +512,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                 'subtitle': 'Les mieux notés sur AniList',
                 'flat': true,
                 'fill': true,
-                'width': MediaQuery.sizeOf(context).width,
+                'width': fullCardWidth,
               },
               onOpen: _open,
               onSeeAll: () => _browse(
@@ -511,7 +526,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
               componentId: 'tag',
               items: genreItems.take(8).toList(growable: false),
               title: 'Explorer par tags',
-              params: const {'width': 188},
+              params: const {'width': 154, 'compact': true},
               onOpen: (index) {
                 final genre =
                     genres[index].definition.genre ??
@@ -685,6 +700,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                   width: fullCardWidth,
                   showHeader: false,
                   showPanel: false,
+                  compact: true,
                   columns: 3,
                   tags: [
                     for (final entry in genres)

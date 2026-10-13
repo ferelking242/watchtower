@@ -446,11 +446,13 @@ class TagCard extends StatelessWidget {
     required this.item,
     required this.onTap,
     this.width = 210,
+    this.compact = false,
   });
 
   final ContentItem item;
   final VoidCallback onTap;
   final double width;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -460,15 +462,18 @@ class TagCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
         width: width,
-        height: 72,
+        height: compact ? 58 : 72,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(13),
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ContentImage(
-                url: item.imageUrl ?? item.backdropUrl ?? item.posterUrl,
-                radius: 0,
+              Opacity(
+                opacity: compact ? .30 : 1,
+                child: ContentImage(
+                  url: item.imageUrl ?? item.backdropUrl ?? item.posterUrl,
+                  radius: 0,
+                ),
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
@@ -476,8 +481,8 @@ class TagCard extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      accent.withValues(alpha: .20),
-                      Colors.black.withValues(alpha: .38),
+                      accent.withValues(alpha: compact ? .54 : .20),
+                      Colors.black.withValues(alpha: compact ? .48 : .38),
                       Colors.black.withValues(alpha: .78),
                     ],
                   ),

@@ -713,6 +713,7 @@ class MangaTagsCard extends StatelessWidget {
     this.showHeader = true,
     this.showPanel = true,
     this.columns = 2,
+    this.compact = false,
   });
 
   final List<MangaTagEntry> tags;
@@ -723,6 +724,7 @@ class MangaTagsCard extends StatelessWidget {
   final bool showHeader;
   final bool showPanel;
   final int columns;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -756,7 +758,13 @@ class MangaTagsCard extends StatelessWidget {
                 runSpacing: spacing,
                 children: [
                   for (final tag in tags)
-                    if (tag.imageUrl?.trim().isNotEmpty == true)
+                    if (compact)
+                      _MangaCompactTag(
+                        tag: tag,
+                        width: tileWidth,
+                        accent: accent,
+                      )
+                    else if (tag.imageUrl?.trim().isNotEmpty == true)
                       _MangaCoverTag(
                         tag: tag,
                         width: tileWidth,
@@ -813,6 +821,53 @@ class MangaTagsCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MangaCompactTag extends StatelessWidget {
+  const _MangaCompactTag({
+    required this.tag,
+    required this.width,
+    required this.accent,
+  });
+
+  final MangaTagEntry tag;
+  final double width;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    borderRadius: BorderRadius.circular(20),
+    child: InkWell(
+      onTap: tag.onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: width,
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: tag.isSelected ? .34 : .15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: accent.withValues(alpha: tag.isSelected ? .9 : .36),
+            width: tag.isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          tag.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: tag.isSelected ? Colors.white : accent.withValues(alpha: .95),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _MangaCoverTag extends StatelessWidget {

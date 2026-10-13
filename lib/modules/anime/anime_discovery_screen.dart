@@ -13,6 +13,7 @@ class AnimeDiscoveryScreen extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
+        top: false,
         bottom: false,
         child: asyncHome.when(
           loading: () => const AnimeDiscoveryLoadingScreen(),

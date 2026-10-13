@@ -155,49 +155,62 @@ class MovieDetailsCard extends StatelessWidget {
                         ],
                       ],
                     ),
-                    if (data.genres?.trim().isNotEmpty == true) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 5,
-                        runSpacing: 5,
-                        children: data.genres!
-                            .split(RegExp(r'[,|•·]'))
-                            .map((genre) => genre.trim())
-                            .where((genre) => genre.isNotEmpty)
-                            .take(3)
-                            .map(
-                              (genre) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: accent.withValues(alpha: .18),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  genre,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    if (item.description?.trim().isNotEmpty == true)
-                      _ExpandableDescription(text: item.description!),
                   ],
                 ),
               ),
             ],
           ),
+          if (data.genres?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 7,
+              runSpacing: 6,
+              children: data.genres!
+                  .split(RegExp(r'[,|•·]'))
+                  .map((genre) => genre.trim())
+                  .where((genre) => genre.isNotEmpty)
+                  .take(3)
+                  .map(
+                    (genre) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: .19),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: accent.withValues(alpha: .34),
+                        ),
+                      ),
+                      child: Text(
+                        genre,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+          if (item.description?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Résumé',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            _ExpandableDescription(text: item.description!),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [

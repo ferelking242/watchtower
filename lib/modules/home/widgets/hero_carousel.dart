@@ -165,7 +165,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                           // ── Episode count pill — top left ────────────────
                           if (m.episodes != null && m.episodes! > 0)
                             Positioned(
-                              top: 12,
+                              top: widget.topPadding + 12,
                               left: 12,
                               child: _Badge(
                                 label: '${m.episodes}',
@@ -176,7 +176,7 @@ class _HeroCarouselState extends ConsumerState<HeroCarousel> {
                           // ── Score badge — top right ──────────────────────
                           if (m.averageScore != null)
                             Positioned(
-                              top: 12,
+                              top: widget.topPadding + 12,
                               right: 12,
                               child: _ScoreBadge(m.averageScore!),
                             ),

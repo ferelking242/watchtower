@@ -1198,6 +1198,7 @@ class GalleryComponentRenderer {
       case 'franchise':
         return FranchiseCard(
           data: _collection(ctx, item, onTap: onTap),
+          sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
         );
       case 'saga':
@@ -1208,6 +1209,7 @@ class GalleryComponentRenderer {
       case 'studio':
         return StudioCard(
           data: _collection(ctx, item, onTap: onTap),
+          sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
         );
       case 'network':
@@ -1218,6 +1220,7 @@ class GalleryComponentRenderer {
       case 'genre':
         return GenreCard(
           data: _collection(ctx, item, onTap: onTap),
+          sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
         );
       case 'actor':
@@ -1571,7 +1574,12 @@ class GalleryComponentRenderer {
           onTap: onTap,
         );
       case 'tag':
-        return TagCard(item: item, onTap: onTap);
+        return TagCard(
+          item: item,
+          onTap: onTap,
+          width: w ?? 210,
+          compact: ctx.flag('compact'),
+        );
 
       // ── Discovery cards ──
       case 'discovery':
@@ -1874,6 +1882,20 @@ class GalleryComponentRenderer {
         thumbUrl: items[i].posterUrl,
         rating: items[i].rating,
         rank: ctx.flag('numbered') ? i + 1 : null,
+      ),
+  ];
+
+  static List<CollectionEntry> _sideEntries(
+    ContentItem item,
+    VoidCallback onTap,
+  ) => [
+    for (var index = 1;
+        index < item.coverUrls.length && index <= 3;
+        index++)
+      CollectionEntry(
+        title: '${item.title} · $index',
+        thumbUrl: item.coverUrls[index],
+        onTap: onTap,
       ),
   ];
 

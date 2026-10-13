@@ -6,7 +6,44 @@ import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
-enum AnimeDirectoryKind { studios, genres, tags }
+enum AnimeDirectoryKind { studios, genres, tags, countries }
+
+const animeCountryOptions = <(String, String)>[
+  ('JP', 'Japon'),
+  ('CN', 'Chine'),
+  ('KR', 'Corée du Sud'),
+  ('TW', 'Taïwan'),
+  ('US', 'États-Unis'),
+  ('FR', 'France'),
+  ('GB', 'Royaume-Uni'),
+  ('DE', 'Allemagne'),
+  ('CA', 'Canada'),
+  ('RU', 'Russie'),
+  ('IT', 'Italie'),
+  ('ES', 'Espagne'),
+  ('SG', 'Singapour'),
+  ('HK', 'Hong Kong'),
+  ('TH', 'Thaïlande'),
+  ('AU', 'Australie'),
+  ('IN', 'Inde'),
+  ('PH', 'Philippines'),
+  ('BR', 'Brésil'),
+  ('MX', 'Mexique'),
+  ('ID', 'Indonésie'),
+  ('VN', 'Vietnam'),
+  ('MY', 'Malaisie'),
+  ('NZ', 'Nouvelle-Zélande'),
+  ('BE', 'Belgique'),
+  ('NL', 'Pays-Bas'),
+  ('PL', 'Pologne'),
+  ('SE', 'Suède'),
+  ('NO', 'Norvège'),
+  ('FI', 'Finlande'),
+  ('IE', 'Irlande'),
+  ('ZA', 'Afrique du Sud'),
+  ('EG', 'Égypte'),
+  ('AR', 'Argentine'),
+];
 
 /// Returns an official site's favicon as a real brand mark when a studio has
 /// a known public domain. Unmapped studios use a name mark instead.
@@ -49,6 +86,7 @@ class AnimeDirectoryScreen extends ConsumerWidget {
       AnimeDirectoryKind.studios => 'Studios populaires',
       AnimeDirectoryKind.genres => 'Genres anime',
       AnimeDirectoryKind.tags => 'Explorer par tags',
+      AnimeDirectoryKind.countries => 'Explorer le monde',
     };
     final columns = kind == AnimeDirectoryKind.tags ? 3 : 2;
 
@@ -107,6 +145,7 @@ class AnimeDirectoryScreen extends ConsumerWidget {
                             : entry.coverUrls.first,
                       ),
                       width: gridWidth,
+                      compact: true,
                       onTap: onTap,
                     ),
                   );
@@ -116,6 +155,9 @@ class AnimeDirectoryScreen extends ConsumerWidget {
                   coverUrls: entry.coverUrls,
                   logoUrl: entry.logoUrl,
                   showLogo: entry.logoUrl != null,
+                  flag: entry.countryCode == null
+                      ? null
+                      : countryFlag(entry.countryCode!),
                   height: kind == AnimeDirectoryKind.tags ? 104 : 148,
                   onTap: onTap,
                 );
@@ -128,6 +170,10 @@ class AnimeDirectoryScreen extends ConsumerWidget {
   }
 
   List<_AnimeDirectoryEntry> _entries(AnilistHome home) {
+    if (kind == AnimeDirectoryKind.countries) {
+      return _countryEntries(home);
+    }
+
     if (kind == AnimeDirectoryKind.studios) {
       final fallbackCovers = home.allAnimes
           .map((media) => media.bestBackdrop ?? media.bestCover)
@@ -186,6 +232,40 @@ class AnimeDirectoryScreen extends ConsumerWidget {
         ),
     ];
   }
+
+  List<_AnimeDirectoryEntry> _countryEntries(AnilistHome home) {
+    final usedArtwork = <String>{};
+    final all = home.allAnimes
+        .where((media) => media.bestBackdrop != null || media.bestCover != null)
+        .toList(growable: false);
+    final entries = <_AnimeDirectoryEntry>[];
+    for (final country in animeCountryOptions) {
+      final matching = all
+          .where((media) => media.countryOfOrigin?.toUpperCase() == country.$1)
+          .toList(growable: false);
+      AnilistMedia? representative;
+      for (final media in [...matching, ...all]) {
+        final image = media.bestBackdrop ?? media.bestCover;
+        if (image != null && usedArtwork.add(image)) {
+          representative = media;
+          break;
+        }
+      }
+      final image = representative?.bestBackdrop ?? representative?.bestCover;
+      entries.add(
+        _AnimeDirectoryEntry(
+          title: country.$2,
+          coverUrls: image == null ? const [] : [image],
+          countryCode: country.$1,
+          filter: AnilistBrowseFilter(
+            mediaType: 'ANIME',
+            country: country.$1,
+          ),
+        ),
+      );
+    }
+    return entries;
+  }
 }
 
 class _AnimeDirectoryEntry {
@@ -194,12 +274,14 @@ class _AnimeDirectoryEntry {
     required this.coverUrls,
     required this.filter,
     this.logoUrl,
+    this.countryCode,
   });
 
   final String title;
   final List<String> coverUrls;
   final AnilistBrowseFilter filter;
   final String? logoUrl;
+  final String? countryCode;
 }
 
 class AnimeDirectoryCard extends StatelessWidget {
