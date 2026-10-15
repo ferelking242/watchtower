@@ -2452,6 +2452,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         ],
       );
 
+  /// Memoized so rebuilds do not re-fire the extension call: a fresh
+  /// future on every build serialized getRecommendations behind the
+  /// per-source queue each time the screen rebuilt.
+  Future<List<Map<String, dynamic>>>? _recommendationsFuture;
+
   Widget _buildRecommendationsTab() {
     // Pour vous : appel via l'extension getRecommendations (API native MovieBox).
     final _recSrc = getSource(
@@ -2489,14 +2494,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     if (_recSrc == null) return _empty();
 
+    _recommendationsFuture ??= getIsolateService
+        .get<List<dynamic>>(
+          url: widget.manga.link ?? '',
+          source: _recSrc,
+          serviceType: 'getRecommendations',
+        )
+        .then(
+          (raw) => raw
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList(),
+          onError: (Object error, StackTrace stack) {
+            // A transient failure must not pin the tab to "empty" for the
+            // rest of the screen's life — allow the next build to retry.
+            _recommendationsFuture = null;
+            Error.throwWithStackTrace(error, stack);
+          },
+        );
+
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: getIsolateService
-          .get<List<dynamic>>(
-            url: widget.manga.link ?? '',
-            source: _recSrc,
-            serviceType: 'getRecommendations',
-          )
-          .then((raw) => raw.map((e) => Map<String, dynamic>.from(e as Map)).toList()),
+      future: _recommendationsFuture,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return GridView.builder(

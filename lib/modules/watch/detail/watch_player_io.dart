@@ -273,6 +273,7 @@ class WatchInlinePlayer {
       logLevel: LogLevel.info,
       tag: LogTag.watch,
     );
+    final videoListSw = Stopwatch()..start();
     try {
       final data = await ref.read(
         getVideoListProvider(episode: chapter).future,
@@ -291,6 +292,15 @@ class WatchInlinePlayer {
         return;
       }
 
+      videoListSw.stop();
+      final loadSw = Stopwatch()..start();
+      AppLogger.log(
+        '[PLAYER] TIMELINE getVideoList=${videoListSw.elapsedMilliseconds}ms'
+        '  sources=${videos.length}',
+        logLevel: LogLevel.info,
+        tag: LogTag.watch,
+      );
+
       for (var i = 0; i < videos.length; i++) {
         final v = videos[i];
         AppLogger.log(
@@ -301,16 +311,19 @@ class WatchInlinePlayer {
         );
 
         // Completer: blocks until the video plays OR errors OR watchdog fires
+        final attemptSw = Stopwatch()..start();
         final completer = Completer<bool>(); // true=success false=fail
         StreamSubscription<Duration>? durSub;
         StreamSubscription<String>? errSub;
 
-        final watchdog = Timer(const Duration(seconds: 30), () {
+        // 10 s (was 30 s): a silent first quality must fall back fast so
+        // tap→play stays in the low seconds instead of stacking 30 s per try.
+        final watchdog = Timer(const Duration(seconds: 10), () {
           if (completer.isCompleted) return;
           durSub?.cancel();
           errSub?.cancel();
           AppLogger.log(
-            '[PLAYER] WATCHDOG 30s quality="${v.quality}"'
+            '[PLAYER] WATCHDOG 10s quality="${v.quality}"'
             '  ← Causes: codec, DRM, URL expirée, serveur silencieux',
             logLevel: LogLevel.error,
             tag: LogTag.watch,
@@ -360,9 +373,14 @@ class WatchInlinePlayer {
           if (_ua.isNotEmpty) _req.headers.set('User-Agent', _ua);
           if (_referer.isNotEmpty) _req.headers.set('Referer', _referer);
           _req.headers.set('Accept', '*/*');
-          final _resp = await _req.close();
+          // Bound the wait for response headers too: connectionTimeout only
+          // covers the handshake — a silent server could hang here forever.
+          final probeSw = Stopwatch()..start();
+          final _resp = await _req.close().timeout(const Duration(seconds: 5));
+          probeSw.stop();
           AppLogger.log(
             '[PLAYER] HTTP probe  status=${_resp.statusCode}'
+            '  in ${probeSw.elapsedMilliseconds}ms'
             '  host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
             logLevel: _resp.statusCode == 200 || _resp.statusCode == 206
                 ? LogLevel.info
@@ -422,12 +440,21 @@ class WatchInlinePlayer {
         final success = await completer.future;
         if (success) {
           _applyStartPosition();
+          AppLogger.log(
+            '[PLAYER] TIMELINE attempt[${i + 1}]=${attemptSw.elapsedMilliseconds}ms'
+            '  total=${loadSw.elapsedMilliseconds}ms'
+            '  quality="${v.quality}"'
+            '  (getVideoList=${videoListSw.elapsedMilliseconds}ms)',
+            logLevel: LogLevel.info,
+            tag: LogTag.watch,
+          );
           return;
         }
 
         if (i < videos.length - 1) {
           AppLogger.log(
-            '[PLAYER] qualité="${v.quality}" échouée → essai qualité "${videos[i + 1].quality}"',
+            '[PLAYER] qualité="${v.quality}" échouée → essai qualité "${videos[i + 1].quality}"'
+            '  (attempt took ${attemptSw.elapsedMilliseconds}ms)',
             logLevel: LogLevel.warning,
             tag: LogTag.watch,
           );
@@ -438,7 +465,8 @@ class WatchInlinePlayer {
       loadFailed = true;
       AppLogger.log(
         '[PLAYER] FAILED — all ${videos.length} quality attempts failed '
-        'chapterId=${chapter.id}',
+        'chapterId=${chapter.id}'
+        '  total=${loadSw.elapsedMilliseconds}ms',
         logLevel: LogLevel.error,
         tag: LogTag.watch,
       );

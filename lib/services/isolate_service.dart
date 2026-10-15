@@ -503,7 +503,12 @@ class GetIsolateService {
     final sw = Stopwatch()..start();
 
     // Timeout safeguard — log the timeout clearly
-    final timer = Timer(const Duration(seconds: 40), () {
+    // Video resolution must fail fast: a stuck getVideoList would otherwise
+    // hold the tap→play pipeline (and this worker) for 40 s before retrying.
+    final timeout = serviceType == 'getVideoList'
+        ? const Duration(seconds: 20)
+        : const Duration(seconds: 40);
+    final timer = Timer(timeout, () {
       if (!completer.isCompleted) {
         sw.stop();
         AppLogger.log(

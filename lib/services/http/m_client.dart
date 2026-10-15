@@ -152,6 +152,10 @@ class MClient {
             connectTimeout: reqcopyWith?["connectTimeout"] != null
                 ? Duration(seconds: reqcopyWith?["connectTimeout"])
                 : const Duration(seconds: 30),
+            // Reuse connections across extension requests: without this the
+            // client keeps no idle connections and pays a fresh TCP+TLS
+            // handshake on every extension call (measured ~0.3 s each).
+            keepAliveTimeout: const Duration(seconds: 30),
           ),
           tlsSettings: rhttp.TlsSettings(
             verifyCertificates: reqcopyWith?["verifyCertificates"] ?? true,
@@ -705,10 +709,21 @@ class MCookieManager extends InterceptorContract {
           .map((entry) => entry.value)
           .join(', ');
       if (setCookie.isNotEmpty) {
-        await ExtensionSessionManager.saveResponseCookies(
-          extensionId: sourceId,
-          url: url.toString(),
-          setCookieHeader: setCookie,
+        // Persist off the response path: sites like XNXX send a session cookie
+        // on EVERY response, and awaiting the secure-storage write here put a
+        // Keystore/Keyring round-trip on the critical path of each request.
+        unawaited(
+          ExtensionSessionManager.saveResponseCookies(
+            extensionId: sourceId,
+            url: url.toString(),
+            setCookieHeader: setCookie,
+          ).catchError((Object e, StackTrace _) {
+            AppLogger.log(
+              'Cookie persist failed for ${url.host}: $e',
+              logLevel: LogLevel.warning,
+              tag: LogTag.network,
+            );
+          }),
         );
       }
     }
