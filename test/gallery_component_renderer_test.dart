@@ -76,7 +76,6 @@ void main() {
       'featured-discovery',
       'landscape',
       'episode',
-      'movie-collection',
       'home-airecommender',
       'home-mini-player',
       'expandable-movie',
@@ -86,16 +85,6 @@ void main() {
       'media-preview',
       'movie-details-modal',
       'media-details-modal',
-      'top-movies',
-      'top-series',
-      'top-anime',
-      'top-by-genre',
-      'top-by-country',
-      'global-ranking',
-      'top-rated-ranking',
-      'trending-ranking',
-      'top-by-decade',
-      'must-watch',
       'season-detail',
       'home-genre-tile',
       'home-popular-rail',
@@ -109,6 +98,46 @@ void main() {
         reason: '$id must stay resolvable for old layouts but leave the picker',
       );
     }
+  });
+
+  test('collection variants collapse to a single selectable descriptor', () {
+    // Collection / franchise / saga / studio / network / genre / actor /
+    // director / character / related-media were ten descriptors pointing to
+    // the same widget. They are now aliases of `collection`: old layouts keep
+    // resolving, but the picker only offers one entry.
+    const variants = [
+      'movie-collection',
+      'franchise',
+      'universe',
+      'saga',
+      'studio',
+      'network',
+      'genre',
+      'category-card',
+      'category',
+      'actor',
+      'cast',
+      'director',
+      'character',
+      'related-media',
+    ];
+    for (final id in variants) {
+      expect(
+        GalleryComponentCatalog.canonical(id),
+        'collection',
+        reason: '$id must resolve to the single collection card',
+      );
+    }
+    final collection = LayoutComponentRegistry.resolve('collection');
+    expect(collection, isNotNull);
+    expect(collection!.selectable, isTrue);
+    expect(
+      GalleryComponentCatalog.descriptors
+          .where((d) => d.className == 'CollectionCard')
+          .length,
+      1,
+      reason: 'only one descriptor may render CollectionCard',
+    );
   });
 
   testWidgets('poster aliases use the shared poster with media metadata', (
@@ -130,9 +159,7 @@ void main() {
       await tester.pumpWidget(_app(GalleryComponentRenderer.card(context)));
       await tester.pump(const Duration(milliseconds: 20));
 
-      final poster = tester.widget<PosterCard>(
-        find.byType(PosterCard).first,
-      );
+      final poster = tester.widget<PosterCard>(find.byType(PosterCard).first);
       expect(
         poster.showMediaMetadata,
         isTrue,
@@ -156,7 +183,9 @@ void main() {
     await tester.pumpWidget(_app(GalleryComponentRenderer.section(context)));
     await tester.pumpAndSettle(const Duration(milliseconds: 20));
 
-    final card = tester.widget<TopAnimeCard>(find.byType(TopAnimeCard));
+    final card = tester.widget<RankingSectionCard>(
+      find.byType(RankingSectionCard),
+    );
     expect(card.flat, isTrue);
     expect(card.items.first.onTap, isNotNull);
     card.items.first.onTap!.call();
@@ -202,29 +231,25 @@ void main() {
     expect(find.byType(MangaChapterCard), findsNWidgets(2));
   });
 
-  testWidgets(
-    'poster card always uses the shared flag-left poster style',
-    (tester) async {
-      final ctx = GalleryComponentContext(
-        componentId: 'poster',
-        items: [_items.first],
-        params: const {'compact': true},
-        onOpen: (_) {},
-      );
-      await tester.pumpWidget(_app(GalleryComponentRenderer.rail(ctx)));
-      await tester.pump();
+  testWidgets('poster card always uses the shared flag-left poster style', (
+    tester,
+  ) async {
+    final ctx = GalleryComponentContext(
+      componentId: 'poster',
+      items: [_items.first],
+      params: const {'compact': true},
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.rail(ctx)));
+    await tester.pump();
 
-      expect(find.byType(PosterCard), findsOneWidget);
-      expect(
-        tester.widget<PosterCard>(find.byType(PosterCard)).compact,
-        isFalse,
-      );
-      expect(
-        tester.widget<PosterCard>(find.byType(PosterCard)).showMediaMetadata,
-        isTrue,
-      );
-    },
-  );
+    expect(find.byType(PosterCard), findsOneWidget);
+    expect(tester.widget<PosterCard>(find.byType(PosterCard)).compact, isFalse);
+    expect(
+      tester.widget<PosterCard>(find.byType(PosterCard)).showMediaMetadata,
+      isTrue,
+    );
+  });
 
   testWidgets('expanded movie selection uses the working auto-toggle card', (
     tester,
@@ -443,6 +468,29 @@ void main() {
     await check('manga-chapter', MangaChapterCard);
   });
 
+  testWidgets('production render hides the gallery preview frame', (
+    tester,
+  ) async {
+    // The gallery wraps previews in a panel; a card embedded in a real page
+    // must not. The shared renderer therefore defaults `flat` to true unless a
+    // layout explicitly opts into the framed preview.
+    const framedIds = ['top-movies', 'collection', 'home-language-grid'];
+    for (final id in framedIds) {
+      final ctx = GalleryComponentContext(
+        componentId: id,
+        items: _items,
+        onOpen: (_) {},
+      );
+      await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
+      await tester.pumpAndSettle(const Duration(milliseconds: 20));
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '$id failed to render in production mode',
+      );
+    }
+  });
+
   testWidgets('ranking cards accept per-component title and subtitle', (
     tester,
   ) async {
@@ -455,7 +503,9 @@ void main() {
     await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
     await tester.pumpAndSettle(const Duration(milliseconds: 20));
 
-    final card = tester.widget<TopMoviesCard>(find.byType(TopMoviesCard));
+    final card = tester.widget<RankingSectionCard>(
+      find.byType(RankingSectionCard),
+    );
     expect(card.title, 'Mon top');
     expect(card.subtitle, 'Cette semaine');
   });

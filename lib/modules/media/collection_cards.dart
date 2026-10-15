@@ -30,9 +30,6 @@ class CollectionCardData {
   /// Libellé du bouton : `Voir la collection`, `Voir la saga`…
   final String? actionLabel;
 
-  /// Removes the gallery-preview panel when this card is embedded in a feed.
-  final bool flat;
-
   final VoidCallback onExplore;
   final VoidCallback onTap;
 
@@ -43,7 +40,6 @@ class CollectionCardData {
     this.description,
     this.badge,
     this.actionLabel,
-    this.flat = false,
     this.onExplore = _noop,
     this.onTap = _noop,
   });
@@ -83,17 +79,38 @@ class CollectionEntry {
 }
 
 /// ─────────────────────────────────────────────────────────────────────────
-/// 1 → 11 · Cartes composites (tuile principale + colonne latérale)
+/// 1 · Carte composite (tuile principale + colonne latérale)
+///
+/// Un seul composant, paramétré : collection, franchise, saga, studio, réseau,
+/// genre, acteur, réalisateur, personnage, contenu lié… étaient dix copies du
+/// même widget. Le nom et l'usage changeaient, la carte non. La variante se
+/// choisit désormais par [sideStyle], [bigTitle] et [width].
 /// ─────────────────────────────────────────────────────────────────────────
 
-/// ── 1. CollectionCard ───────────────────────────────────────────────────
-/// Collection de films/séries (ex : MCU, Harry Potter…).
+/// Disposition de la colonne latérale de [CollectionCard].
+enum CollectionSideStyle {
+  /// Trois tuiles image empilées (logos, posters…).
+  tiles,
+
+  /// Rangées vignette + texte (genres, contenus liés…).
+  rows,
+
+  /// Trois tuiles image avec le nom en légende (personnages).
+  captions,
+}
+
+/// Carte « collection / univers » générique.
 class CollectionCard extends StatelessWidget {
   const CollectionCard({
     super.key,
     required this.data,
     this.sideEntries = const [],
     this.width = 420,
+    this.sideStyle = CollectionSideStyle.tiles,
+    this.sideWidth = 72,
+    this.bigTitle = false,
+    this.sideShowMeta = true,
+    this.flat = true,
   });
 
   final CollectionCardData data;
@@ -101,6 +118,20 @@ class CollectionCard extends StatelessWidget {
   /// Tuiles latérales : autres univers de la collection.
   final List<CollectionEntry> sideEntries;
   final double width;
+  final CollectionSideStyle sideStyle;
+
+  /// Largeur de la colonne latérale.
+  final double sideWidth;
+
+  /// Titre agrandi (franchise, mise en avant).
+  final bool bigTitle;
+
+  /// Affiche le sous-titre des entrées de [CollectionSideStyle.rows].
+  final bool sideShowMeta;
+
+  /// Carte intégrée à une page : pas de panneau autour. `false` uniquement
+  /// pour l'aperçu isolé de la galerie.
+  final bool flat;
 
   @override
   Widget build(BuildContext context) {
@@ -108,322 +139,75 @@ class CollectionCard extends StatelessWidget {
       data: data,
       sideEntries: sideEntries,
       width: width,
-      sideWidth: 72,
+      sideWidth: sideWidth,
+      bigTitle: bigTitle,
+      sideAsRows: sideStyle == CollectionSideStyle.rows,
+      sideCaptions: sideStyle == CollectionSideStyle.captions,
+      sideShowMeta: sideShowMeta,
+      flat: flat,
     );
   }
 }
 
-/// ── 2. MovieCollectionCard ──────────────────────────────────────────────
-/// Collection de films (ex : trilogie, saga).
-class MovieCollectionCard extends StatelessWidget {
-  const MovieCollectionCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 46,
-    );
-  }
-}
-
-/// ── 3. FranchiseCard ────────────────────────────────────────────────────
-/// Franchise spécifique (ex : Fast & Furious).
-class FranchiseCard extends StatelessWidget {
-  const FranchiseCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 54,
-      bigTitle: true,
-    );
-  }
-}
-
-/// ── 4. SagaCard ─────────────────────────────────────────────────────────
-/// Saga littéraire / film (ex : Le Seigneur des Anneaux).
-class SagaCard extends StatelessWidget {
-  const SagaCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 46,
-    );
-  }
-}
-
-/// ── 5. StudioCard ───────────────────────────────────────────────────────
-/// Studio de production (ex : Pixar, Marvel Studios).
-class StudioCard extends StatelessWidget {
-  const StudioCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 72,
-    );
-  }
-}
-
-/// ── 6. NetworkCard ──────────────────────────────────────────────────────
-/// Réseau TV (ex : Netflix, HBO, Disney+).
-class NetworkCard extends StatelessWidget {
-  const NetworkCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 72,
-    );
-  }
-}
-
-/// ── 7. GenreCard ────────────────────────────────────────────────────────
-/// Genre de contenu (ex : Action, Romance…).
-class GenreCard extends StatelessWidget {
-  const GenreCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-
-  /// Genres voisins affichés en rangées latérales.
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 150,
-      sideAsRows: true,
-      sideShowMeta: false,
-    );
-  }
-}
-
-/// ── 8. ActorCard ────────────────────────────────────────────────────────
-/// Acteur / Actrice (ex : Tom Holland, Scarlett Johansson…).
-class ActorCard extends StatelessWidget {
-  const ActorCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 58,
-    );
-  }
-}
-
-/// ── 9. DirectorCard ─────────────────────────────────────────────────────
-/// Réalisateur (ex : Christopher Nolan, Steven Spielberg…).
-class DirectorCard extends StatelessWidget {
-  const DirectorCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 58,
-    );
-  }
-}
-
-/// ── 10. CharacterCard ───────────────────────────────────────────────────
-/// Personnage (ex : Darth Vader, Harry Potter…).
-class CharacterCard extends StatelessWidget {
-  const CharacterCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-
-  /// Autres personnages, avec leur nom en légende.
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 62,
-      sideCaptions: true,
-    );
-  }
-}
-
-/// ── 11. RelatedMediaCard ────────────────────────────────────────────────
-/// Contenu lié (ex : même univers, même équipe…).
-class RelatedMediaCard extends StatelessWidget {
-  const RelatedMediaCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-
-  /// Contenus liés affichés en rangées latérales.
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CompositeCollectionCard(
-      data: data,
-      sideEntries: sideEntries,
-      width: width,
-      sideWidth: 150,
-      sideAsRows: true,
-    );
-  }
-}
-
-/// Socle commun des cartes 1 → 11 : tuile principale + colonne latérale.
+/// Socle commun : tuile principale + colonne latérale.
 class _CompositeCollectionCard extends StatelessWidget {
   const _CompositeCollectionCard({
     required this.data,
     required this.sideEntries,
     required this.width,
     required this.sideWidth,
-    this.height = 132,
     this.bigTitle = false,
     this.sideAsRows = false,
     this.sideCaptions = false,
     this.sideShowMeta = true,
+    required this.flat,
   });
 
   final CollectionCardData data;
   final List<CollectionEntry> sideEntries;
   final double width;
   final double sideWidth;
-  final double height;
   final bool bigTitle;
   final bool sideAsRows;
   final bool sideCaptions;
   final bool sideShowMeta;
 
+  static const double _height = 132;
+
+  /// `true` : carte nue intégrée à une page. `false` : panneau de l'aperçu
+  /// isolé de la galerie.
+  final bool flat;
+
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
-      width: data.flat ? width : null,
+      width: flat ? width : null,
       constraints: BoxConstraints(maxWidth: width),
-      padding: EdgeInsets.all(data.flat ? 0 : 10),
-      decoration: data.flat ? null : _collectionDecoration(accent),
+      padding: EdgeInsets.all(flat ? 0 : 10),
+      decoration: flat ? null : _collectionDecoration(accent),
       child: Row(
         children: [
           Expanded(
-            child: _CollectionTile(data: data, height: height, bigTitle: bigTitle),
+            child: _CollectionTile(
+              data: data,
+              height: _height,
+              bigTitle: bigTitle,
+            ),
           ),
           if (sideEntries.isNotEmpty) ...[
             const SizedBox(width: 8),
             if (sideAsRows)
               _SideRowColumn(
                 entries: sideEntries,
-                height: height,
+                height: _height,
                 width: sideWidth,
                 showMeta: sideShowMeta,
               )
             else
               _SideTileColumn(
                 entries: sideEntries,
-                height: height,
+                height: _height,
                 width: sideWidth,
                 withCaption: sideCaptions,
               ),
@@ -1023,67 +807,6 @@ class _CarouselArrow extends StatelessWidget {
 }
 
 /// ─────────────────────────────────────────────────────────────────────────
-/// Alias génériques
-/// ─────────────────────────────────────────────────────────────────────────
-
-/// ── UniverseCard ── Alias générique de [FranchiseCard].
-class UniverseCard extends StatelessWidget {
-  const UniverseCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return FranchiseCard(data: data, sideEntries: sideEntries, width: width);
-  }
-}
-
-/// ── CategoryCard ── Alias générique de [GenreCard].
-class CategoryCard extends StatelessWidget {
-  const CategoryCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return GenreCard(data: data, sideEntries: sideEntries, width: width);
-  }
-}
-
-/// ── CastCard ── Alias générique de [ActorCard].
-class CastCard extends StatelessWidget {
-  const CastCard({
-    super.key,
-    required this.data,
-    this.sideEntries = const [],
-    this.width = 400,
-  });
-
-  final CollectionCardData data;
-  final List<CollectionEntry> sideEntries;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActorCard(data: data, sideEntries: sideEntries, width: width);
-  }
-}
-
-/// ─────────────────────────────────────────────────────────────────────────
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
@@ -1611,11 +1334,7 @@ class _PosterTile extends StatelessWidget {
               child: ContentImage(url: entry.thumbUrl, radius: 10),
             ),
             if (showRank && entry.rank != null)
-              Positioned(
-                left: 5,
-                top: 5,
-                child: _RankChip(rank: entry.rank!),
-              ),
+              Positioned(left: 5, top: 5, child: _RankChip(rank: entry.rank!)),
             if (showViews && entry.viewsLabel != null)
               Positioned(
                 left: 5,

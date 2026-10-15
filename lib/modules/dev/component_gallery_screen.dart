@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
@@ -111,16 +112,6 @@ enum _PreviewKind {
   streamWatchProgress,
   streamProgressMedia,
   collCollection,
-  collMovieCollection,
-  collFranchise,
-  collSaga,
-  collStudio,
-  collNetwork,
-  collGenre,
-  collActor,
-  collDirector,
-  collCharacter,
-  collRelated,
   collSimilar,
   collTrending,
   collPopular,
@@ -306,10 +297,6 @@ const _hiddenGalleryCards = <String>{
   'HomeAIRecommenderCard',
   'HomeMiniPlayerCard',
   'EpisodeCard',
-  'LandscapeFilmsSection',
-  'LandscapeSeriesSection',
-  'LandscapeMangaSection',
-  'LandscapeNovelsSection',
   // Structural variants folded into a single canonical card.
   'SeasonDetailCard',
   'HomeGenreTileCard',
@@ -375,7 +362,9 @@ class _ComponentSpec {
   String get searchableText {
     final aliases = layoutComponent == null
         ? ''
-        : LayoutComponentRegistry.resolve(layoutComponent!)?.aliases.join(' ') ??
+        : LayoutComponentRegistry.resolve(
+                layoutComponent!,
+              )?.aliases.join(' ') ??
               '';
     return '$title $className $path $usage ${layoutComponent ?? ''} $aliases'
         .toLowerCase();
@@ -407,6 +396,10 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   _GalleryState _state = _GalleryState.result;
   _GalleryTab _tab = _GalleryTab.cards;
   String _query = '';
+
+  /// Aperçu « carte nue » : masque le cadre de la galerie pour vérifier que la
+  /// carte n'embarque aucun panneau quand elle est utilisée dans une page.
+  bool _barePreview = false;
 
   /// Filtre de section actif (`null` = toutes les sections).
   String? _sectionFilter;
@@ -440,10 +433,9 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
   /// `build`, via `_sectionsFor` puis `_visibleComponents`) gelait la page.
   late final List<_ComponentSpec> _catalog = _buildGalleryComponents();
   List<_ComponentSpec> get _components => _catalog;
-  List<_ComponentSpec> get _activeComponents =>
-      widget.selectionMode
-          ? _buildLayoutPickerComponents(widget.selectionContext)
-          : _components;
+  List<_ComponentSpec> get _activeComponents => widget.selectionMode
+      ? _buildLayoutPickerComponents(widget.selectionContext)
+      : _components;
 
   List<_ComponentSpec> _buildGalleryComponents() {
     final descriptorsByClassName = {
@@ -511,10 +503,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
       ...allComponents.where((component) {
         final id = component.layoutComponent;
         return id == null ||
-            !LayoutComponentRegistry.supports(
-              id,
-              LayoutComponentContext.home,
-            );
+            !LayoutComponentRegistry.supports(id, LayoutComponentContext.home);
       }),
       ...layoutComponents,
     ];
@@ -529,38 +518,36 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
       if (id != null) galleryPreviews.putIfAbsent(id, () => component);
     }
 
-    return LayoutComponentRegistry.forContext(
-      context,
-      selectableOnly: true,
-    ).map((definition) {
-      final preview = galleryPreviews[definition.id];
-      final kind =
-          preview?.kind ?? _previewKindFor(definition.renderer);
-      final result =
-          preview?.result ??
-          ((_) => ExtensionLayoutPreview(
-            title: definition.label,
-            component: definition.id,
-            source: _gallerySource,
-            items: _extensionItems,
-            onOpen: (_) {},
-            onSeeAll: () {},
-          ));
+    return LayoutComponentRegistry.forContext(context, selectableOnly: true)
+        .map((definition) {
+          final preview = galleryPreviews[definition.id];
+          final kind = preview?.kind ?? _previewKindFor(definition.renderer);
+          final result =
+              preview?.result ??
+              ((_) => ExtensionLayoutPreview(
+                title: definition.label,
+                component: definition.id,
+                source: _gallerySource,
+                items: _extensionItems,
+                onOpen: (_) {},
+                onSeeAll: () {},
+              ));
 
-      return _ComponentSpec(
-        title: definition.label,
-        className: definition.id,
-        path:
-            preview?.path ??
-            'lib/modules/watch/home/watch_extension_home_screen.dart',
-        usage: definition.description,
-        section: definition.category,
-        icon: preview?.icon ?? _layoutIconFor(definition.renderer),
-        kind: kind,
-        layoutComponent: definition.id,
-        result: result,
-      );
-    }).toList(growable: false);
+          return _ComponentSpec(
+            title: definition.label,
+            className: definition.id,
+            path:
+                preview?.path ??
+                'lib/modules/watch/home/watch_extension_home_screen.dart',
+            usage: definition.description,
+            section: definition.category,
+            icon: preview?.icon ?? _layoutIconFor(definition.renderer),
+            kind: kind,
+            layoutComponent: definition.id,
+            result: result,
+          );
+        })
+        .toList(growable: false);
   }
 
   _PreviewKind _previewKindFor(LayoutComponentRenderer renderer) =>
@@ -638,6 +625,18 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               matchesTab;
         })
         .toList(growable: false);
+  }
+
+  /// Ferme la galerie. Elle est ouverte via `context.go('/componentGallery')`,
+  /// qui REMPLACE l'historique : `maybePop()` ne ramène donc nulle part et le
+  /// bouton semblait mort. On revient explicitement sur l'écran précédent
+  /// (l'accueil) quand on n'a pas d'`onClose` fourni par l'appelant.
+  void _closeGallery(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/WatchtowerHome');
+    }
   }
 
   void _resetFilters() {
@@ -729,6 +728,17 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                   onChanged: (state) => setState(() => _state = state),
                 ),
               ),
+            // Aperçu sans le cadre de la galerie : montre la carte telle
+            // qu'elle apparaît dans une page (aucun panneau autour).
+            IconButton(
+              tooltip: _barePreview
+                  ? 'Afficher les cadres de la galerie'
+                  : 'Afficher les cartes sans cadre',
+              isSelected: _barePreview,
+              onPressed: () => setState(() => _barePreview = !_barePreview),
+              icon: const Icon(Icons.crop_free_rounded),
+              selectedIcon: const Icon(Icons.filter_frames_rounded),
+            ),
             IconButton(
               tooltip: 'Réinitialiser les filtres',
               onPressed: _resetFilters,
@@ -738,8 +748,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               padding: EdgeInsets.only(right: padding - 8),
               child: IconButton(
                 tooltip: 'Fermer la galerie',
-                onPressed:
-                    widget.onClose ?? () => Navigator.of(context).maybePop(),
+                onPressed: widget.onClose ?? () => _closeGallery(context),
                 icon: const Icon(Broken.close_circle),
               ),
             ),
@@ -773,6 +782,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               : _UnifiedGallerySliver(
                   components: visible,
                   state: _state,
+                  bare: _barePreview,
                   onSelectLayoutComponent: widget.onSelectLayoutComponent,
                 ),
         ),
@@ -1309,11 +1319,13 @@ class _StateOption extends StatelessWidget {
 class _UnifiedGallerySliver extends StatelessWidget {
   final _GalleryState state;
   final List<_ComponentSpec> components;
+  final bool bare;
   final ValueChanged<String>? onSelectLayoutComponent;
 
   const _UnifiedGallerySliver({
     required this.state,
     required this.components,
+    this.bare = false,
     this.onSelectLayoutComponent,
   });
 
@@ -1361,6 +1373,7 @@ class _UnifiedGallerySliver extends StatelessWidget {
                   _ComponentGrid(
                     components: entry.value,
                     state: state,
+                    bare: bare,
                     onSelectLayoutComponent: onSelectLayoutComponent,
                   ),
                 ],
@@ -1454,11 +1467,13 @@ class _UnifiedSectionLabel extends StatelessWidget {
 class _ComponentGrid extends StatelessWidget {
   final List<_ComponentSpec> components;
   final _GalleryState state;
+  final bool bare;
   final ValueChanged<String>? onSelectLayoutComponent;
 
   const _ComponentGrid({
     required this.components,
     required this.state,
+    this.bare = false,
     this.onSelectLayoutComponent,
   });
 
@@ -1503,6 +1518,7 @@ class _ComponentGrid extends StatelessWidget {
                 child: _ComponentTile(
                   component: component,
                   state: state,
+                  bare: bare,
                   onSelectLayoutComponent: onSelectLayoutComponent,
                 ),
               ),
@@ -1561,11 +1577,13 @@ const _widePreviewKinds = <_PreviewKind>{
 class _ComponentTile extends StatelessWidget {
   final _ComponentSpec component;
   final _GalleryState state;
+  final bool bare;
   final ValueChanged<String>? onSelectLayoutComponent;
 
   const _ComponentTile({
     required this.component,
     required this.state,
+    this.bare = false,
     this.onSelectLayoutComponent,
   });
 
@@ -1579,10 +1597,53 @@ class _ComponentTile extends StatelessWidget {
         : component.copyName;
     final aliases = selectingLayoutComponent
         ? (LayoutComponentRegistry.resolve(
-                    component.layoutComponent ?? '',
-                  )?.aliases ??
-                  const <String>[])
+                component.layoutComponent ?? '',
+              )?.aliases ??
+              const <String>[])
         : const <String>[];
+
+    // Mode « carte nue » : uniquement l'aperçu réel, sans le cadre de la
+    // galerie, pour vérifier que la carte n'embarque aucun panneau.
+    if (bare) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Align(
+            alignment: Alignment.topLeft,
+            child: ClipRect(
+              child: state == _GalleryState.result
+                  ? component.result(context)
+                  : _CardSkeleton(kind: component.kind),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            selectingLayoutComponent ? component.title : component.className,
+            softWrap: true,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 10.5,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (onSelectLayoutComponent != null &&
+              component.layoutComponent != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () =>
+                    onSelectLayoutComponent!(component.layoutComponent!),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: const Text('Utiliser ce composant'),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 11 : 16),
@@ -1608,9 +1669,7 @@ class _ComponentTile extends StatelessWidget {
               onTap: () async {
                 var copied = false;
                 try {
-                  await Clipboard.setData(
-                    ClipboardData(text: copyName),
-                  );
+                  await Clipboard.setData(ClipboardData(text: copyName));
                   copied = true;
                 } catch (error) {
                   // Browser clipboard access can be denied by permissions or
@@ -1910,16 +1969,6 @@ class _CardSkeleton extends StatelessWidget {
       ),
       // ── Collections & franchises ──
       _PreviewKind.collCollection => const _CollectionSkeleton(),
-      _PreviewKind.collMovieCollection => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collFranchise => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collSaga => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collStudio => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collNetwork => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collGenre => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collActor => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collDirector => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collCharacter => const _CollectionSkeleton(width: 400),
-      _PreviewKind.collRelated => const _CollectionSkeleton(width: 400),
       _PreviewKind.collSimilar => const _PosterRowSkeleton(),
       _PreviewKind.collTrending => const _PosterRowSkeleton(count: 5),
       _PreviewKind.collPopular => const _PosterRowSkeleton(),
@@ -1948,7 +1997,7 @@ class _CardSkeleton extends StatelessWidget {
         ratio: 2.2,
       ),
       _PreviewKind.epLatest => const WallpaperSkeleton(),
-      _PreviewKind.epSelector => const _CollectionSkeleton(width: 420),
+      _PreviewKind.epSelector => const _CollectionSkeleton(),
       _PreviewKind.epSeriesList => const _StreamEpisodeListSkeleton(),
       _PreviewKind.epProgress => const ListRowSkeleton(width: 380, thumb: 70),
       _PreviewKind.epMediaProgress => const ListRowSkeleton(
@@ -3748,15 +3797,14 @@ class _StreamPanelSkeleton extends StatelessWidget {
 
 /// Collections skeleton: main tile + column of three side tiles.
 class _CollectionSkeleton extends StatelessWidget {
-  const _CollectionSkeleton({this.width = 420, this.height = 132});
+  const _CollectionSkeleton({this.height = 132});
 
-  final double width;
   final double height;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(maxWidth: width),
+      constraints: const BoxConstraints(maxWidth: 420),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFF171C23),
@@ -5105,14 +5153,18 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   // ── COLLECTIONS & FRANCHISES ──
+  // Une seule carte composite : collection, franchise, saga, studio, réseau,
+  // genre, acteur, réalisateur, personnage, contenu lié… étaient dix copies
+  // identiques. La variante se choisit via `flat`/params dans layout.json.
   _ComponentSpec(
-    title: 'Collection de films/séries',
+    title: 'Carte collection / univers',
     className: 'CollectionCard',
     path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Univers principal + tuiles d’autres collections',
+    usage: 'Univers principal + colonne latérale (tuiles ou rangées)',
     section: 'COLLECTIONS & FRANCHISES',
     icon: Icons.collections_bookmark_outlined,
     kind: _PreviewKind.collCollection,
+    layoutComponent: 'collection',
     result: (_) => CollectionCard(
       data: _collectionData(
         _collItem(
@@ -5127,271 +5179,6 @@ List<_ComponentSpec> _buildComponents() => [
         _collectionEntry('Star Wars', thumbUrl: _posterThrones),
         _collectionEntry('Harry Potter', thumbUrl: _posterInterstellar),
         _collectionEntry('DC', thumbUrl: _posterArcane),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Collection de films',
-    className: 'MovieCollectionCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Trilogie / saga + posters latéraux',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.local_movies_outlined,
-    kind: _PreviewKind.collMovieCollection,
-    result: (_) => MovieCollectionCard(
-      data: _collectionData(
-        _collItem(
-          'The Dark Knight Trilogy',
-          poster: _posterInterstellar,
-          backdrop: _backdropInterstellar,
-        ),
-        stats: '3 films · Action · Thriller',
-        actionLabel: 'Voir la saga',
-      ),
-      sideEntries: [
-        _collectionEntry('Batman Begins', thumbUrl: _posterThrones),
-        _collectionEntry('The Dark Knight', thumbUrl: _posterArcane),
-        _collectionEntry('The Dark Knight Rises', thumbUrl: _posterDune),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Franchise',
-    className: 'FranchiseCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Franchise spécifique, titre en grand',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.public,
-    kind: _PreviewKind.collFranchise,
-    result: (_) => FranchiseCard(
-      data: _collectionData(
-        _collItem(
-          'Fast & Furious',
-          poster: _posterOppenheimer,
-          backdrop: _backdropOppenheimer,
-        ),
-        stats: '9 films · Action · Crime',
-        actionLabel: 'Voir la franchise',
-      ),
-      sideEntries: [
-        _collectionEntry('Fast X', thumbUrl: _posterDune),
-        _collectionEntry('Hobbs & Shaw', thumbUrl: _posterThrones),
-        _collectionEntry('Tokyo Drift', thumbUrl: _posterInterstellar),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Saga',
-    className: 'SagaCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Saga littéraire ou film',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.auto_stories_outlined,
-    kind: _PreviewKind.collSaga,
-    result: (_) => SagaCard(
-      data: _collectionData(
-        _collItem(
-          'Le Seigneur des Anneaux',
-          poster: _posterArcane,
-          backdrop: _backdropArcane,
-        ),
-        stats: '3 films · Aventure · Fantastique',
-        actionLabel: 'Voir la saga',
-      ),
-      sideEntries: [
-        _collectionEntry('La Communauté', thumbUrl: _posterInterstellar),
-        _collectionEntry('Les Deux Tours', thumbUrl: _posterOppenheimer),
-        _collectionEntry('Le Retour du Roi', thumbUrl: _posterThrones),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Studio de production',
-    className: 'StudioCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Studio + tuiles d’autres studios',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.business_center_outlined,
-    kind: _PreviewKind.collStudio,
-    result: (_) => StudioCard(
-      data: _collectionData(
-        _collItem(
-          'Pixar Animation Studios',
-          poster: _posterArcane,
-          backdrop: _backdropArcane,
-        ),
-        stats: '28 films · Animation · Famille',
-        actionLabel: 'Voir les films',
-      ),
-      sideEntries: [
-        _collectionEntry('Marvel Studios', thumbUrl: _posterDune),
-        _collectionEntry('DreamWorks', thumbUrl: _posterInterstellar),
-        _collectionEntry('DC Studios', thumbUrl: _posterOppenheimer),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Réseau TV',
-    className: 'NetworkCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Réseau / plateforme + tuiles voisines',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.live_tv_outlined,
-    kind: _PreviewKind.collNetwork,
-    result: (_) => NetworkCard(
-      data: _collectionData(
-        _collItem(
-          'Netflix Originals',
-          poster: _posterDune,
-          backdrop: _backdropDune,
-        ),
-        stats: '120 titres · Séries · Films',
-        actionLabel: 'Voir la sélection',
-      ),
-      sideEntries: [
-        _collectionEntry('HBO Max', thumbUrl: _posterThrones),
-        _collectionEntry('Disney+', thumbUrl: _posterArcane),
-        _collectionEntry('Prime Video', thumbUrl: _posterInterstellar),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Genre de contenu',
-    className: 'GenreCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Genre + rangées de genres voisins',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.category_outlined,
-    kind: _PreviewKind.collGenre,
-    result: (_) => GenreCard(
-      data: _collectionData(
-        _collItem(
-          'Action',
-          poster: _posterOppenheimer,
-          backdrop: _backdropOppenheimer,
-        ),
-        stats: '1 248 titres',
-        description:
-            'Des films et séries pleins d’adrénaline, d’aventure et de combats.',
-        actionLabel: 'Voir tout',
-      ),
-      sideEntries: [
-        _collectionEntry('Romance', thumbUrl: _posterArcane),
-        _collectionEntry('Science-Fiction', thumbUrl: _posterInterstellar),
-        _collectionEntry('Fantastique', thumbUrl: _posterThrones),
-        _collectionEntry('Horreur', thumbUrl: _posterDune),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Acteur / Actrice',
-    className: 'ActorCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Portrait, âge et filmographie',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.face_outlined,
-    kind: _PreviewKind.collActor,
-    result: (_) => ActorCard(
-      data: _collectionData(
-        _collItem(
-          'Tom Holland',
-          poster: _posterDune,
-          backdrop: _backdropInterstellar,
-        ),
-        subtitle: 'Acteur · 27 ans',
-        actionLabel: 'Voir la filmographie',
-      ),
-      sideEntries: [
-        _collectionEntry('Spider-Man', thumbUrl: _posterThrones),
-        _collectionEntry('Uncharted', thumbUrl: _posterArcane),
-        _collectionEntry('The Crowded Room', thumbUrl: _posterInterstellar),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Réalisateur',
-    className: 'DirectorCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Portrait et films marquants',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.videocam_outlined,
-    kind: _PreviewKind.collDirector,
-    result: (_) => DirectorCard(
-      data: _collectionData(
-        _collItem(
-          'Christopher Nolan',
-          poster: _posterOppenheimer,
-          backdrop: _backdropDune,
-        ),
-        subtitle: 'Réalisateur · 54 ans',
-        actionLabel: 'Voir les films',
-      ),
-      sideEntries: [
-        _collectionEntry('Inception', thumbUrl: _posterInterstellar),
-        _collectionEntry('Interstellar', thumbUrl: _posterDune),
-        _collectionEntry('The Dark Knight', thumbUrl: _posterThrones),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Personnage',
-    className: 'CharacterCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Fiche personnage + autres rôles',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.theater_comedy_outlined,
-    kind: _PreviewKind.collCharacter,
-    result: (_) => CharacterCard(
-      data: _collectionData(
-        _collItem(
-          'Darth Vader',
-          poster: _posterThrones,
-          backdrop: _backdropOppenheimer,
-        ),
-        subtitle: 'Star Wars',
-        actionLabel: 'Voir la fiche',
-      ),
-      sideEntries: [
-        _collectionEntry('Luke Skywalker', thumbUrl: _posterArcane),
-        _collectionEntry('Yoda', thumbUrl: _posterInterstellar),
-        _collectionEntry('Leia Organa', thumbUrl: _posterDune),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Contenu lié',
-    className: 'RelatedMediaCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Même univers, même équipe…',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.link_rounded,
-    kind: _PreviewKind.collRelated,
-    result: (_) => RelatedMediaCard(
-      data: _collectionData(
-        _collItem(
-          'The Witcher',
-          poster: _posterInterstellar,
-          backdrop: _backdropInterstellar,
-        ),
-        subtitle: 'Même univers',
-        actionLabel: 'Voir les contenus',
-      ),
-      sideEntries: [
-        _collectionEntry(
-          'The Witcher: Blood Origin',
-          meta: 'Série',
-          thumbUrl: _posterArcane,
-        ),
-        _collectionEntry(
-          'The Witcher',
-          meta: 'Jeux vidéo',
-          thumbUrl: _posterDune,
-        ),
-        _collectionEntry(
-          'Séries similaires',
-          meta: 'Sélection',
-          thumbUrl: _posterThrones,
-        ),
       ],
     ),
   ),
@@ -5702,82 +5489,6 @@ List<_ComponentSpec> _buildComponents() => [
           meta: 'Films · Livres',
           thumbUrl: _backdropInterstellar,
         ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Univers (alias)',
-    className: 'UniverseCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Alias générique de FranchiseCard',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.explore_outlined,
-    kind: _PreviewKind.collFranchise,
-    result: (_) => UniverseCard(
-      data: _collectionData(
-        _collItem(
-          'Star Wars Universe',
-          poster: _posterThrones,
-          backdrop: _backdropArcane,
-        ),
-        stats: '12 films · 9 séries',
-        actionLabel: 'Explorer l’univers',
-      ),
-      sideEntries: [
-        _collectionEntry('Mandalorian', thumbUrl: _posterArcane),
-        _collectionEntry('Andor', thumbUrl: _posterDune),
-        _collectionEntry('Ahsoka', thumbUrl: _posterInterstellar),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Catégorie (alias)',
-    className: 'CategoryCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Alias générique de GenreCard',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.category_rounded,
-    kind: _PreviewKind.collGenre,
-    result: (_) => CategoryCard(
-      data: _collectionData(
-        _collItem(
-          'Science-Fiction',
-          poster: _posterInterstellar,
-          backdrop: _backdropInterstellar,
-        ),
-        stats: '864 titres',
-        description: 'Anticipations, space opera et dystopies.',
-        actionLabel: 'Voir la catégorie',
-      ),
-      sideEntries: [
-        _collectionEntry('Space opera', thumbUrl: _posterDune),
-        _collectionEntry('Dystopie', thumbUrl: _posterOppenheimer),
-        _collectionEntry('Cyberpunk', thumbUrl: _posterArcane),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Casting (alias)',
-    className: 'CastCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Alias générique de ActorCard',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.people_outline,
-    kind: _PreviewKind.collActor,
-    result: (_) => CastCard(
-      data: _collectionData(
-        _collItem(
-          'Scarlett Johansson',
-          poster: _posterArcane,
-          backdrop: _backdropOppenheimer,
-        ),
-        subtitle: 'Actrice · 41 ans',
-        actionLabel: 'Voir la filmographie',
-      ),
-      sideEntries: [
-        _collectionEntry('Black Widow', thumbUrl: _posterThrones),
-        _collectionEntry('Her', thumbUrl: _posterInterstellar),
-        _collectionEntry('Lucy', thumbUrl: _posterDune),
       ],
     ),
   ),
@@ -6292,16 +6003,23 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   // ── CLASSEMENTS & TOP 10 ──
+  // Un seul widget pour les dix classements (films, séries, animés, genres,
+  // pays, décennies…). La galerie expose deux entrées représentatives ; le
+  // reste reste résolu par alias pour les anciens layouts.
   _ComponentSpec(
-    title: 'Top 10 Films du moment',
-    className: 'TopMoviesCard',
+    title: 'Classement Top 10',
+    className: 'RankingSectionCard',
     path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Films les plus populaires',
+    usage: 'Films · séries · animés · classements',
     section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.whatshot_rounded,
-    kind: _PreviewKind.rankMovies,
-    result: (_) => TopMoviesCard(
+    icon: Icons.format_list_numbered_rounded,
+    kind: _PreviewKind.ranked,
+    layoutComponent: 'top-movies',
+    result: (_) => RankingSectionCard(
       onSeeAll: () {},
+      title: 'Top 10 Films du moment',
+      subtitle: 'Les films les plus populaires en ce moment.',
+      icon: Icons.whatshot_rounded,
       items: [
         _rankEntry(
           'Dune: Part Two',
@@ -6338,652 +6056,9 @@ List<_ComponentSpec> _buildComponents() => [
           rank: 5,
           thumbUrl: _posterArcane,
         ),
-        _rankEntry(
-          'The Dark Knight',
-          meta: '2008',
-          rating: 9.0,
-          rank: 6,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'Inception',
-          meta: '2010',
-          rating: 8.8,
-          rank: 7,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Fight Club',
-          meta: '1999',
-          rating: 8.8,
-          rank: 8,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry(
-          'Forrest Gump',
-          meta: '1994',
-          rating: 8.8,
-          rank: 9,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'The Shawshank Redemption',
-          meta: '1994',
-          rating: 9.3,
-          rank: 10,
-          thumbUrl: _posterThrones,
-        ),
       ],
     ),
   ),
-  _ComponentSpec(
-    title: 'Top 10 Séries du moment',
-    className: 'TopSeriesCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Séries les plus regardées',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.tv_rounded,
-    kind: _PreviewKind.rankSeries,
-    result: (_) => TopSeriesCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          'The Last of Us',
-          meta: 'S1 · 2023',
-          rating: 9.0,
-          rank: 1,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'Breaking Bad',
-          meta: 'S1-S5 · 2008',
-          rating: 9.5,
-          rank: 2,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'Game of Thrones',
-          meta: 'S1-S8 · 2011',
-          rating: 9.2,
-          rank: 3,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Stranger Things',
-          meta: 'S1-S4 · 2016',
-          rating: 8.7,
-          rank: 4,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Wednesday',
-          meta: 'S1 · 2022',
-          rating: 8.1,
-          rank: 5,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry(
-          'Loki',
-          meta: 'S1-S2 · 2021',
-          rating: 8.2,
-          rank: 6,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'The Walking Dead',
-          meta: 'S1-S11 · 2010',
-          rating: 8.1,
-          rank: 7,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'Peaky Blinders',
-          meta: 'S1-S6 · 2013',
-          rating: 8.8,
-          rank: 8,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Lucifer',
-          meta: 'S1-S6 · 2016',
-          rating: 8.1,
-          rank: 9,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Dark',
-          meta: 'S1-S3 · 2017',
-          rating: 8.8,
-          rank: 10,
-          thumbUrl: _posterOppenheimer,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Top 10 Animés',
-    className: 'TopAnimeCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Animés les plus populaires',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.star_outline_rounded,
-    kind: _PreviewKind.rankAnime,
-    result: (_) => TopAnimeCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          'Attack on Titan',
-          meta: 'S1-S4 · 2013',
-          rating: 9.1,
-          rank: 1,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'Jujutsu Kaisen',
-          meta: 'S1-S2 · 2020',
-          rating: 8.8,
-          rank: 2,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'One Piece',
-          meta: 'S1+ · 1999',
-          rating: 9.0,
-          rank: 3,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Demon Slayer',
-          meta: 'S1-S4 · 2019',
-          rating: 8.7,
-          rank: 4,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Death Note',
-          meta: 'S1 · 2006',
-          rating: 8.9,
-          rank: 5,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry(
-          'Naruto',
-          meta: 'S1-S9 · 2002',
-          rating: 9.3,
-          rank: 6,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'Fullmetal Alchemist',
-          meta: 'S1 · 2009',
-          rating: 9.1,
-          rank: 7,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'Tokyo Ghoul',
-          meta: 'S1-S2 · 2019',
-          rating: 8.8,
-          rank: 8,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Vinland Saga',
-          meta: 'S1-S2 · 2019',
-          rating: 8.8,
-          rank: 9,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Hunter x Hunter',
-          meta: 'S1-S6 · 2011',
-          rating: 9.0,
-          rank: 10,
-          thumbUrl: _posterOppenheimer,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Top 10 par genre',
-    className: 'TopByGenreCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Tuiles de genres 1-10',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.category_rounded,
-    kind: _PreviewKind.rankByGenre,
-    result: (_) => TopByGenreCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          'Action',
-          meta: '1-10',
-          rank: 1,
-          thumbUrl: _backdropDune,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Aventure',
-          meta: '1-10',
-          rank: 2,
-          thumbUrl: _backdropInterstellar,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Comédie',
-          meta: '1-10',
-          rank: 3,
-          thumbUrl: _backdropOppenheimer,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Drame',
-          meta: '1-10',
-          rank: 4,
-          thumbUrl: _backdropArcane,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Fantastique',
-          meta: '1-10',
-          rank: 5,
-          thumbUrl: _backdropDune,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Horreur',
-          meta: '1-10',
-          rank: 6,
-          thumbUrl: _backdropInterstellar,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Romance',
-          meta: '1-10',
-          rank: 7,
-          thumbUrl: _backdropOppenheimer,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Science-Fiction',
-          meta: '1-10',
-          rank: 8,
-          thumbUrl: _backdropArcane,
-          isLabelTile: true,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Top 10 par pays',
-    className: 'TopByCountryCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Tuiles de pays 1-10',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.public,
-    kind: _PreviewKind.rankByCountry,
-    result: (_) => TopByCountryCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          'USA',
-          meta: '1-10',
-          rank: 1,
-          thumbUrl: _backdropDune,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'UK',
-          meta: '1-10',
-          rank: 2,
-          thumbUrl: _backdropInterstellar,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'France',
-          meta: '1-10',
-          rank: 3,
-          thumbUrl: _backdropOppenheimer,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Japon',
-          meta: '1-10',
-          rank: 4,
-          thumbUrl: _backdropArcane,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Corée du Sud',
-          meta: '1-10',
-          rank: 5,
-          thumbUrl: _backdropDune,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Allemagne',
-          meta: '1-10',
-          rank: 6,
-          thumbUrl: _backdropInterstellar,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Canada',
-          meta: '1-10',
-          rank: 7,
-          thumbUrl: _backdropOppenheimer,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          'Espagne',
-          meta: '1-10',
-          rank: 8,
-          thumbUrl: _backdropArcane,
-          isLabelTile: true,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Classement global',
-    className: 'GlobalRankingCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Top 20 tous contenus confondus',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.emoji_events_outlined,
-    kind: _PreviewKind.rankGlobal,
-    result: (_) => GlobalRankingCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          'The Last of Us',
-          rating: 9.0,
-          rank: 1,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'Dune: Part Two',
-          rating: 8.8,
-          rank: 2,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'Breaking Bad',
-          rating: 9.5,
-          rank: 3,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Game of Thrones',
-          rating: 9.2,
-          rank: 4,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Avengers Endgame',
-          rating: 8.4,
-          rank: 5,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry(
-          'Stranger Things',
-          rating: 8.7,
-          rank: 6,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'Interstellar',
-          rating: 8.6,
-          rank: 7,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'Spider-Man: NWH',
-          rating: 8.3,
-          rank: 8,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Inception',
-          rating: 8.8,
-          rank: 9,
-          thumbUrl: _posterInterstellar,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Top 10 des plus notés',
-    className: 'TopRatedRankingCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Notes des utilisateurs',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.star_rounded,
-    kind: _PreviewKind.rankTopRated,
-    result: (_) => TopRatedRankingCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry('Breaking Bad', rating: 9.5, rank: 1, thumbUrl: _posterDune),
-        _rankEntry(
-          'Planet Earth II',
-          rating: 9.4,
-          rank: 2,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'The Shawshank Redemption',
-          rating: 9.3,
-          rank: 3,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry(
-          'The Godfather',
-          rating: 9.2,
-          rank: 4,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Band of Brothers',
-          rating: 9.1,
-          rank: 5,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry('Pulp Fiction', rating: 8.9, rank: 6, thumbUrl: _posterDune),
-        _rankEntry(
-          'The Dark Knight',
-          rating: 9.0,
-          rank: 7,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'Forrest Gump',
-          rating: 8.8,
-          rank: 8,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry('Fight Club', rating: 8.8, rank: 9, thumbUrl: _posterArcane),
-        _rankEntry(
-          'Spirited Away',
-          rating: 8.6,
-          rank: 10,
-          thumbUrl: _posterInterstellar,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Top 10 tendances',
-    className: 'TrendingRankingCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Ce qui fait le plus parler',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.trending_up_rounded,
-    kind: _PreviewKind.rankTrending,
-    result: (_) => TrendingRankingCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          'The Last of Us',
-          rating: 9.0,
-          rank: 1,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'The Mandalorian',
-          rating: 8.7,
-          rank: 2,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry('Wednesday', rating: 8.1, rank: 3, thumbUrl: _posterArcane),
-        _rankEntry(
-          'Demon Slayer',
-          rating: 8.7,
-          rank: 4,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry(
-          'Jujutsu Kaisen',
-          rating: 8.8,
-          rank: 5,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry('One Piece', rating: 9.0, rank: 6, thumbUrl: _posterDune),
-        _rankEntry('Loki', rating: 8.2, rank: 7, thumbUrl: _posterThrones),
-        _rankEntry(
-          'House of the Dragon',
-          rating: 8.5,
-          rank: 8,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry(
-          'Arcane',
-          rating: 9.3,
-          rank: 9,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Attack on Titan',
-          rating: 9.1,
-          rank: 10,
-          thumbUrl: _posterOppenheimer,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Top 10 par décennie',
-    className: 'TopByDecadeCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Tuiles de décennies',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.history_rounded,
-    kind: _PreviewKind.rankByDecade,
-    result: (_) => TopByDecadeCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          '80’s',
-          meta: '1-10',
-          rank: 1,
-          thumbUrl: _backdropDune,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          '90’s',
-          meta: '1-10',
-          rank: 2,
-          thumbUrl: _backdropInterstellar,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          '2000’s',
-          meta: '1-10',
-          rank: 3,
-          thumbUrl: _backdropOppenheimer,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          '2010’s',
-          meta: '1-10',
-          rank: 4,
-          thumbUrl: _backdropArcane,
-          isLabelTile: true,
-        ),
-        _rankEntry(
-          '2020’s',
-          meta: '1-10',
-          rank: 5,
-          thumbUrl: _backdropDune,
-          isLabelTile: true,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Top 10 à voir absolument',
-    className: 'MustWatchCard',
-    path: 'lib/modules/media/ranking_cards.dart',
-    usage: 'Sélection des incontournables',
-    section: 'CLASSEMENTS & TOP 10',
-    icon: Icons.favorite_rounded,
-    kind: _PreviewKind.rankMustWatch,
-    result: (_) => MustWatchCard(
-      onSeeAll: () {},
-      items: [
-        _rankEntry(
-          'The Godfather',
-          rating: 9.2,
-          rank: 1,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'The Dark Knight',
-          rating: 9.0,
-          rank: 2,
-          thumbUrl: _posterDune,
-        ),
-        _rankEntry(
-          'Pulp Fiction',
-          rating: 8.9,
-          rank: 3,
-          thumbUrl: _posterArcane,
-        ),
-        _rankEntry('Dune', rating: 8.8, rank: 4, thumbUrl: _posterDune),
-        _rankEntry(
-          'Inception',
-          rating: 8.8,
-          rank: 5,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry(
-          'Forrest Gump',
-          rating: 8.8,
-          rank: 6,
-          thumbUrl: _posterOppenheimer,
-        ),
-        _rankEntry(
-          'The Matrix',
-          rating: 8.7,
-          rank: 7,
-          thumbUrl: _posterThrones,
-        ),
-        _rankEntry(
-          'Interstellar',
-          rating: 8.6,
-          rank: 8,
-          thumbUrl: _posterInterstellar,
-        ),
-        _rankEntry('Fight Club', rating: 8.6, rank: 9, thumbUrl: _posterArcane),
-        _rankEntry(
-          'The Prestige',
-          rating: 8.5,
-          rank: 10,
-          thumbUrl: _posterOppenheimer,
-        ),
-      ],
-    ),
-  ),
-  // ═════════ MANGA & LECTURE — Section 1 : Chapitres & Sorties ═════════
   _ComponentSpec(
     title: 'Carte chapitre',
     className: 'MangaChapterCard',
@@ -9139,174 +8214,6 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    title: 'Films — À l’affiche',
-    className: 'LandscapeFilmsSection',
-    path: 'lib/modules/media/landscape_cards.dart',
-    usage: 'Rail 16:9 des films du moment',
-    section: 'FILMS & SÉRIES · SECTIONS',
-    icon: Icons.live_tv_outlined,
-    kind: _PreviewKind.lsFilms,
-    result: (_) => LandscapeFilmsSection(
-      onSeeAll: () {},
-      items: [
-        _lsEntry(
-          'Dune: Part Two',
-          'Action · Aventure · Science-fiction',
-          '2h 46m',
-          '8.7',
-          _backdropDune,
-        ),
-        _lsEntry(
-          'The Batman',
-          'Action · Policier · Thriller',
-          '2h 56m',
-          '7.8',
-          _backdropInterstellar,
-        ),
-        _lsEntry(
-          'Interstellar',
-          'Drame · Science-fiction',
-          '2h 49m',
-          '8.6',
-          _backdropOppenheimer,
-        ),
-        _lsEntry(
-          'John Wick 4',
-          'Action · Thriller',
-          '2h 49m',
-          '7.6',
-          _backdropArcane,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Séries — Populaires',
-    className: 'LandscapeSeriesSection',
-    path: 'lib/modules/media/landscape_cards.dart',
-    usage: 'Rail 16:9 des séries à la mode',
-    section: 'FILMS & SÉRIES · SECTIONS',
-    icon: Icons.live_tv_outlined,
-    kind: _PreviewKind.lsSeries,
-    result: (_) => LandscapeSeriesSection(
-      onSeeAll: () {},
-      items: [
-        _lsEntry(
-          'The Last of Us',
-          'Drame · Action · Thriller',
-          'S2 · 9 épisodes',
-          '9.2',
-          _backdropDune,
-        ),
-        _lsEntry(
-          'Stranger Things',
-          'Mystère · Science-fiction · Thriller',
-          'S4 · 9 épisodes',
-          '8.7',
-          _backdropInterstellar,
-        ),
-        _lsEntry(
-          'Wednesday',
-          'Comédie · Fantastique · Mystère',
-          'S1 · 8 épisodes',
-          '8.1',
-          _backdropOppenheimer,
-        ),
-        _lsEntry(
-          'Supernatural',
-          'Fantastique · Drame · Action',
-          'S15 · 20 épisodes',
-          '8.4',
-          _backdropArcane,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Mangas — Coup de cœur',
-    className: 'LandscapeMangaSection',
-    path: 'lib/modules/media/landscape_cards.dart',
-    usage: 'Rail 16:9 des mangas appréciés',
-    section: 'FILMS & SÉRIES · SECTIONS',
-    icon: Icons.menu_book_outlined,
-    kind: _PreviewKind.lsManga,
-    result: (_) => LandscapeMangaSection(
-      onSeeAll: () {},
-      items: [
-        _lsEntry(
-          'Solo Leveling',
-          'Action · Fantasy · Aventure',
-          'Ch. 160+',
-          '9.4',
-          _backdropDune,
-        ),
-        _lsEntry(
-          'Jujutsu Kaisen',
-          'Action · Surnaturel · Combat',
-          'Ch. 270+',
-          '9.1',
-          _backdropArcane,
-        ),
-        _lsEntry(
-          'One Piece',
-          'Action · Aventure · Comédie',
-          'Ch. 1100+',
-          '9.2',
-          _backdropOppenheimer,
-        ),
-        _lsEntry(
-          'Chainsaw Man',
-          'Action · Surnaturel · Thriller',
-          'Ch. 167+',
-          '8.8',
-          _backdropInterstellar,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Novels — Recommandés',
-    className: 'LandscapeNovelsSection',
-    path: 'lib/modules/media/landscape_cards.dart',
-    usage: 'Rail 16:9 des novels à lire',
-    section: 'FILMS & SÉRIES · SECTIONS',
-    icon: Icons.menu_book_outlined,
-    kind: _PreviewKind.lsNovels,
-    result: (_) => LandscapeNovelsSection(
-      onSeeAll: () {},
-      items: [
-        _lsEntry(
-          'The Beginning After The End',
-          'Fantastique · Aventure',
-          'Ch. 218+',
-          '9.3',
-          _backdropDune,
-        ),
-        _lsEntry(
-          'Lord of the Mysteries',
-          'Mystère · Fantasy',
-          'Ch. 1430+',
-          '9.1',
-          _backdropInterstellar,
-        ),
-        _lsEntry(
-          'Omniscient Reader',
-          'Action · Fantasy',
-          'Ch. 551+',
-          '9.2',
-          _backdropOppenheimer,
-        ),
-        _lsEntry(
-          'Trash of the Count’s Family',
-          'Fantasy · Aventure',
-          'Ch. 600+',
-          '8.9',
-          _backdropArcane,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
     title: 'Musique — Playlists',
     className: 'LandscapePlaylistCard',
     path: 'lib/modules/media/landscape_cards.dart',
@@ -9609,45 +8516,47 @@ List<_ComponentSpec> _buildComponents() => [
     section: 'ACCUEIL & LECTURE',
     icon: Icons.public_rounded,
     kind: _PreviewKind.hmCountries,
+    layoutComponent: 'home-language-grid',
     result: (_) => HomeLanguageGridCard(
+      flat: false,
       onSeeAll: () {},
       chips: const [
-          HomeCountryChip(
-            label: 'États-Unis',
-            code: 'US',
-            backgroundUrl:
-                'https://images.unsplash.com/photo-1496588152823-86ff7695e68f?auto=format&fit=crop&w=420&q=80',
-          ),
-          HomeCountryChip(
-            label: 'Royaume-Uni',
-            code: 'GB',
-            backgroundUrl:
-                'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=420&q=80',
-          ),
-          HomeCountryChip(
-            label: 'France',
-            code: 'FR',
-            backgroundUrl:
-                'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=420&q=80',
-          ),
-          HomeCountryChip(
-            label: 'Japon',
-            code: 'JP',
-            backgroundUrl:
-                'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=420&q=80',
-          ),
-          HomeCountryChip(
-            label: 'Corée du Sud',
-            code: 'KR',
-            backgroundUrl:
-                'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=420&q=80',
-          ),
-          HomeCountryChip(
-            label: 'Allemagne',
-            code: 'DE',
-            backgroundUrl:
-                'https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=420&q=80',
-          ),
+        HomeCountryChip(
+          label: 'États-Unis',
+          code: 'US',
+          backgroundUrl:
+              'https://images.unsplash.com/photo-1496588152823-86ff7695e68f?auto=format&fit=crop&w=420&q=80',
+        ),
+        HomeCountryChip(
+          label: 'Royaume-Uni',
+          code: 'GB',
+          backgroundUrl:
+              'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=420&q=80',
+        ),
+        HomeCountryChip(
+          label: 'France',
+          code: 'FR',
+          backgroundUrl:
+              'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=420&q=80',
+        ),
+        HomeCountryChip(
+          label: 'Japon',
+          code: 'JP',
+          backgroundUrl:
+              'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=420&q=80',
+        ),
+        HomeCountryChip(
+          label: 'Corée du Sud',
+          code: 'KR',
+          backgroundUrl:
+              'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?auto=format&fit=crop&w=420&q=80',
+        ),
+        HomeCountryChip(
+          label: 'Allemagne',
+          code: 'DE',
+          backgroundUrl:
+              'https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=420&q=80',
+        ),
       ],
     ),
   ),

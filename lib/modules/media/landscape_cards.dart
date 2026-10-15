@@ -200,10 +200,7 @@ class _LandscapeTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: ContentImage(
-                      url: entry.thumbUrl,
-                      fit: BoxFit.cover,
-                    ),
+                    child: ContentImage(url: entry.thumbUrl, fit: BoxFit.cover),
                   ),
                 ),
                 Positioned.fill(
@@ -357,114 +354,6 @@ class LandscapeShowcaseSection extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// ── 2. LandscapeFilmsSection ────────────────────────────────────────────
-/// Films — À l'affiche.
-class LandscapeFilmsSection extends StatelessWidget {
-  const LandscapeFilmsSection({
-    super.key,
-    required this.items,
-    this.width = 900,
-    this.onSeeAll,
-  });
-
-  final List<LandscapeEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return LandscapeShowcaseSection(
-      title: 'Films — À l’affiche',
-      subtitle: 'Les meilleurs films du moment, en format paysage.',
-      icon: Icons.live_tv_outlined,
-      items: items,
-      width: width,
-      onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 3. LandscapeSeriesSection ───────────────────────────────────────────
-/// Séries — Populaires.
-class LandscapeSeriesSection extends StatelessWidget {
-  const LandscapeSeriesSection({
-    super.key,
-    required this.items,
-    this.width = 900,
-    this.onSeeAll,
-  });
-
-  final List<LandscapeEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return LandscapeShowcaseSection(
-      title: 'Séries — Populaires',
-      subtitle: 'Les séries qui font le buzz, ne les manquez pas.',
-      icon: Icons.live_tv_outlined,
-      items: items,
-      width: width,
-      onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 4. LandscapeMangaSection ────────────────────────────────────────────
-/// Mangas — Coup de cœur.
-class LandscapeMangaSection extends StatelessWidget {
-  const LandscapeMangaSection({
-    super.key,
-    required this.items,
-    this.width = 900,
-    this.onSeeAll,
-  });
-
-  final List<LandscapeEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return LandscapeShowcaseSection(
-      title: 'Mangas — Coup de cœur',
-      subtitle: 'Les mangas les plus appréciés du moment.',
-      icon: Icons.menu_book_outlined,
-      items: items,
-      width: width,
-      onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 5. LandscapeNovelsSection ───────────────────────────────────────────
-/// Novels — Recommandés.
-class LandscapeNovelsSection extends StatelessWidget {
-  const LandscapeNovelsSection({
-    super.key,
-    required this.items,
-    this.width = 900,
-    this.onSeeAll,
-  });
-
-  final List<LandscapeEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return LandscapeShowcaseSection(
-      title: 'Novels — Recommandés',
-      subtitle: 'Des histoires captivantes à lire absolument.',
-      icon: Icons.menu_book_outlined,
-      items: items,
-      width: width,
-      onSeeAll: onSeeAll,
     );
   }
 }
@@ -646,7 +535,8 @@ class LandscapeGenreRow extends StatelessWidget {
           _RailHeader(
             icon: Icons.explore_outlined,
             title: 'Découvertes par genre',
-            subtitle: 'Explorez par genre et trouvez votre prochaine obsession.',
+            subtitle:
+                'Explorez par genre et trouvez votre prochaine obsession.',
             onSeeAll: onSeeAll,
           ),
           const SizedBox(height: 12),
@@ -686,10 +576,7 @@ class _GenreSmallTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
-                child: ContentImage(
-                  url: tile.thumbUrl,
-                  fit: BoxFit.cover,
-                ),
+                child: ContentImage(url: tile.thumbUrl, fit: BoxFit.cover),
               ),
             ),
             const SizedBox(height: 5),

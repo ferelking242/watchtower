@@ -43,10 +43,16 @@ class RankingEntry {
   });
 }
 
-/// ── 1. TopMoviesCard ────────────────────────────────────────────────────
-/// Top 10 Films du moment.
-class TopMoviesCard extends StatelessWidget {
-  const TopMoviesCard({
+/// ── 1. RankingSectionCard ───────────────────────────────────────────────
+/// Section « Top 10 / classement » : en-tête (icône + titre + sous-titre +
+/// « Voir tout ») et rangée horizontale défilante de [RankingEntry].
+///
+/// Films, séries, animés, genres, pays, décennies… étaient dix widgets
+/// identiques qui ne différaient que par un titre, un sous-titre et une icône.
+/// Il n'en reste qu'un, paramétré par [title], [subtitle], [icon] et
+/// [labelTiles] — donc un seul composant à corriger dans toute l'application.
+class RankingSectionCard extends StatelessWidget {
+  const RankingSectionCard({
     super.key,
     required this.items,
     this.width = 430,
@@ -54,349 +60,38 @@ class TopMoviesCard extends StatelessWidget {
     this.title,
     this.subtitle,
     this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 Films du moment',
-      subtitle: subtitle ?? 'Les films les plus populaires en ce moment.',
-      icon: icon ?? Icons.whatshot_rounded,
-      onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 2. TopSeriesCard ────────────────────────────────────────────────────
-/// Top 10 Séries du moment.
-class TopSeriesCard extends StatelessWidget {
-  const TopSeriesCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 Séries du moment',
-      subtitle: subtitle ?? 'Les séries les plus regardées et appréciées.',
-      icon: icon ?? Icons.tv_rounded,
-      onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 3. TopAnimeCard ─────────────────────────────────────────────────────
-/// Top 10 Animés.
-class TopAnimeCard extends StatelessWidget {
-  const TopAnimeCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
+    this.labelTiles = false,
     this.flat = false,
   });
 
-  /// Overrides the default heading text/icon (per-component params).
+  final List<RankingEntry> items;
+  final double width;
+  final VoidCallback? onSeeAll;
+
+  /// En-tête de la section. Un `null` laisse l'en-tête vide plutôt que de
+  /// retomber sur un libellé par défaut : c'est le layout.json qui décide.
   final String? title;
   final String? subtitle;
   final IconData? icon;
-  /// Removes the gallery preview panel treatment when embedded in a feed.
+
+  /// Force toutes les tuiles en mode « libellé » (genres, pays, décennies).
+  final bool labelTiles;
+
+  /// Carte intégrée à une page : pas de panneau autour. `false` uniquement
+  /// pour l'aperçu isolé de la galerie.
   final bool flat;
 
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
   @override
   Widget build(BuildContext context) {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: title ?? 'Top 10 Animés',
-      subtitle: subtitle ?? 'Les animés les plus populaires du moment.',
-      icon: icon ?? Icons.star_outline_rounded,
-      onSeeAll: onSeeAll,
-      flat: flat,
-    );
-  }
-}
-
-/// ── 4. TopByGenreCard ───────────────────────────────────────────────────
-/// Top 10 par genre.
-class TopByGenreCard extends StatelessWidget {
-  const TopByGenreCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 par genre',
-      subtitle: subtitle ?? 'Les meilleurs contenus par genre.',
-      icon: icon ?? Icons.category_rounded,
-      onSeeAll: onSeeAll,
-      labelTiles: true,
-    );
-  }
-}
-
-/// ── 5. TopByCountryCard ─────────────────────────────────────────────────
-/// Top 10 par pays.
-class TopByCountryCard extends StatelessWidget {
-  const TopByCountryCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 par pays',
-      subtitle:
-          subtitle ?? 'Les contenus les plus populaires par pays d’origine.',
-      icon: icon ?? Icons.public,
-      onSeeAll: onSeeAll,
-      labelTiles: true,
-    );
-  }
-}
-
-/// ── 6. GlobalRankingCard ────────────────────────────────────────────────
-/// Classement global (tous contenus confondus).
-class GlobalRankingCard extends StatelessWidget {
-  const GlobalRankingCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Classement global',
-      subtitle: subtitle ?? 'Top 20 tous contenus confondus.',
+      title: title ?? '',
+      subtitle: subtitle,
       icon: icon ?? Icons.emoji_events_outlined,
       onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 7. TopRatedRankingCard ──────────────────────────────────────────────
-/// Top 10 des plus notés.
-class TopRatedRankingCard extends StatelessWidget {
-  const TopRatedRankingCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 des plus notés',
-      subtitle: subtitle ?? 'Les meilleurs selon les notes des utilisateurs.',
-      icon: icon ?? Icons.star_rounded,
-      onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 8. TrendingRankingCard ──────────────────────────────────────────────
-/// Top 10 tendances.
-class TrendingRankingCard extends StatelessWidget {
-  const TrendingRankingCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 tendances',
-      subtitle: subtitle ?? 'Ce qui fait le plus parler en ce moment.',
-      icon: icon ?? Icons.trending_up_rounded,
-      onSeeAll: onSeeAll,
-    );
-  }
-}
-
-/// ── 9. TopByDecadeCard ──────────────────────────────────────────────────
-/// Top 10 par décennie.
-class TopByDecadeCard extends StatelessWidget {
-  const TopByDecadeCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 par décennie',
-      subtitle: subtitle ?? 'Les incontournables de chaque époque.',
-      icon: icon ?? Icons.history_rounded,
-      onSeeAll: onSeeAll,
-      labelTiles: true,
-    );
-  }
-}
-
-/// ── 10. MustWatchCard ───────────────────────────────────────────────────
-/// Top 10 à voir absolument.
-class MustWatchCard extends StatelessWidget {
-  const MustWatchCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
-  });
-
-  /// Overrides the default heading text/icon (per-component params).
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
-
-  final List<RankingEntry> items;
-  final double width;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RankingSectionCard(
-      items: items,
-      width: width,
-      title: title ?? 'Top 10 à voir absolument',
-      subtitle: subtitle ?? 'Notre sélection des incontournables.',
-      icon: icon ?? Icons.favorite_rounded,
-      onSeeAll: onSeeAll,
+      labelTiles: labelTiles,
+      flat: flat,
     );
   }
 }

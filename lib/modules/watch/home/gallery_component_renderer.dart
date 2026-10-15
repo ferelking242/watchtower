@@ -75,7 +75,36 @@ class GalleryComponentContext {
 
   /// Effective section title: explicit param wins over the layout title.
   String? get header => text('title') ?? title;
+
+  /// Optional header icon chosen by the layout via the `icon` param name.
+  IconData? get icon => layoutIconFor(text('icon'));
 }
+
+/// Resolves a layout `icon` param (a stable name) to a Material icon. Unknown
+/// names return `null` so the card keeps its own default.
+IconData? layoutIconFor(String? name) {
+  if (name == null) return null;
+  return _layoutIcons[name.trim().toLowerCase().replaceAll('_', '-')];
+}
+
+const Map<String, IconData> _layoutIcons = {
+  'whatshot': Icons.whatshot_rounded,
+  'fire': Icons.local_fire_department_rounded,
+  'tv': Icons.tv_rounded,
+  'series': Icons.tv_rounded,
+  'star': Icons.star_rounded,
+  'star-outline': Icons.star_outline_rounded,
+  'trending': Icons.trending_up_rounded,
+  'category': Icons.category_rounded,
+  'genre': Icons.category_rounded,
+  'public': Icons.public,
+  'country': Icons.public,
+  'history': Icons.history_rounded,
+  'decade': Icons.history_rounded,
+  'trophy': Icons.emoji_events_outlined,
+  'favorite': Icons.favorite_rounded,
+  'must-watch': Icons.favorite_rounded,
+};
 
 /// Renders every component documented by the developer gallery from
 /// provider-neutral [ContentItem] data.
@@ -169,10 +198,7 @@ class GalleryComponentRenderer {
     // Responsive sections and grids must consume the section width; only
     // fixed-width composite cards are allowed to scroll horizontally.
     if (ctx.flag('fill') || _isResponsive(ctx)) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 16),
-        child: child,
-      );
+      return Padding(padding: const EdgeInsets.only(top: 16), child: child);
     }
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -226,9 +252,7 @@ class GalleryComponentRenderer {
     final spacing = ctx.decimal('spacing') ?? 12;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(
-        horizontal: AppUI.pagePadding(context),
-      ),
+      padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -430,86 +454,27 @@ class GalleryComponentRenderer {
 
     switch (id) {
       // ── Ranking panels ──
+      // Dix classements, une seule carte. Titre, sous-titre et icône viennent
+      // du layout ; `labelTiles` bascule les tuiles genre / pays / décennie.
       case 'top-movies':
-        return TopMoviesCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'top-series':
-        return TopSeriesCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'top-anime':
-        return TopAnimeCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-          flat: ctx.flag('flat'),
-        );
       case 'top-by-genre':
-        return TopByGenreCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'top-by-country':
-        return TopByCountryCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'global-ranking':
-        return GlobalRankingCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'top-rated-ranking':
-        return TopRatedRankingCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'trending-ranking':
-        return TrendingRankingCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'top-by-decade':
-        return TopByDecadeCard(
-          items: _rank(ctx, items),
-          width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          onSeeAll: seeAll,
-        );
       case 'must-watch':
-        return MustWatchCard(
+        return RankingSectionCard(
           items: _rank(ctx, items),
           width: w ?? 430,
           title: ctx.text('title'),
           subtitle: ctx.text('subtitle'),
+          icon: ctx.icon,
+          labelTiles: ctx.flag('labelTiles'),
           onSeeAll: seeAll,
+          flat: ctx.flag('flat', fallback: true),
         );
 
       // ── Collection rails ──
@@ -865,6 +830,8 @@ class GalleryComponentRenderer {
           chips: _countryChips(ctx, items),
           width: w ?? 360,
           onSeeAll: seeAll,
+          columns: ctx.number('columns') ?? 2,
+          flat: ctx.flag('flat', fallback: true),
           title: ctx.header ?? 'Univers par pays / langue',
           subtitle:
               ctx.text('subtitle') ?? 'Explorez des contenus du monde entier.',
@@ -1128,7 +1095,10 @@ class GalleryComponentRenderer {
           onTap: onTap,
         );
       case 'media-preview':
-        return MediaPreview(data: _rich(ctx, item, onTap: onTap), onTap: onTap);
+        return MediaPreview(
+          data: _rich(ctx, item, onTap: onTap),
+          onTap: onTap,
+        );
       case 'movie-details-modal':
         return MovieDetailsModal(data: _rich(ctx, item, onTap: onTap));
       case 'media-details-modal':
@@ -1184,64 +1154,66 @@ class GalleryComponentRenderer {
           seasonLabel: ctx.text('subtitle') ?? 'Saison 1',
         );
 
-      // ── Collections ──
+      // ── Collections (une seule carte, paramétrée par sideStyle) ──
       case 'collection':
+      case 'universe':
+      case 'category-card':
+      case 'cast':
+      case 'movie-collection':
         return CollectionCard(
           data: _collection(ctx, item, onTap: onTap),
+          sideEntries: _sideEntries(item, onTap),
           width: w ?? 420,
-        );
-      case 'movie-collection':
-        return MovieCollectionCard(
-          data: _collection(ctx, item, onTap: onTap),
-          width: w ?? 400,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'franchise':
-        return FranchiseCard(
+        return CollectionCard(
           data: _collection(ctx, item, onTap: onTap),
           sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
+          sideWidth: 54,
+          bigTitle: true,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'saga':
-        return SagaCard(
-          data: _collection(ctx, item, onTap: onTap),
-          width: w ?? 400,
-        );
       case 'studio':
-        return StudioCard(
+      case 'network':
+      case 'actor':
+      case 'director':
+        return CollectionCard(
           data: _collection(ctx, item, onTap: onTap),
           sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
-        );
-      case 'network':
-        return NetworkCard(
-          data: _collection(ctx, item, onTap: onTap),
-          width: w ?? 400,
+          sideWidth: 58,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'genre':
-        return GenreCard(
+        return CollectionCard(
           data: _collection(ctx, item, onTap: onTap),
           sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
-        );
-      case 'actor':
-        return ActorCard(
-          data: _collection(ctx, item, onTap: onTap),
-          width: w ?? 400,
-        );
-      case 'director':
-        return DirectorCard(
-          data: _collection(ctx, item, onTap: onTap),
-          width: w ?? 400,
+          sideWidth: 150,
+          sideStyle: CollectionSideStyle.rows,
+          sideShowMeta: false,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'character':
-        return CharacterCard(
+        return CollectionCard(
           data: _collection(ctx, item, onTap: onTap),
+          sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
+          sideWidth: 62,
+          sideStyle: CollectionSideStyle.captions,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'related-media':
-        return RelatedMediaCard(
+        return CollectionCard(
           data: _collection(ctx, item, onTap: onTap),
+          sideEntries: _sideEntries(item, onTap),
           width: w ?? 400,
+          sideWidth: 150,
+          sideStyle: CollectionSideStyle.rows,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'featured':
         return FeaturedCard(
@@ -1254,13 +1226,6 @@ class GalleryComponentRenderer {
           data: _collection(ctx, item, onTap: onTap),
           width: w ?? 300,
           height: ctx.decimal('height') ?? 170,
-        );
-      case 'universe':
-      case 'category-card':
-      case 'cast':
-        return UniverseCard(
-          data: _collection(ctx, item, onTap: onTap),
-          width: w ?? 400,
         );
 
       // ── Episodes ──
@@ -1644,7 +1609,12 @@ class GalleryComponentRenderer {
           width: w ?? 400,
         );
       case GalleryComponentFamily.ranking:
-        return TopMoviesCard(items: _rank(ctx, items), width: w ?? 430);
+        return RankingSectionCard(
+          items: _rank(ctx, items),
+          width: w ?? 430,
+          title: ctx.text('title'),
+          onSeeAll: ctx.onSeeAll,
+        );
       case GalleryComponentFamily.mangaChapter:
         return MangaChapterCard(
           item: _chapter(ctx, item, index),
@@ -1741,7 +1711,8 @@ class GalleryComponentRenderer {
   }) => RichMediaCardData(
     item: item,
     meta: item.badge,
-    genres: ctx.text('genres') ??
+    genres:
+        ctx.text('genres') ??
         (item.genres.isEmpty ? null : item.genres.join(', ')),
     runtimeMinutes: ctx.number('runtime'),
     onPlay: onTap ?? () {},
@@ -1766,16 +1737,15 @@ class GalleryComponentRenderer {
 
   static CollectionCardData _collection(
     GalleryComponentContext ctx,
-    ContentItem item,
-    {VoidCallback? onTap}
-  ) => CollectionCardData(
+    ContentItem item, {
+    VoidCallback? onTap,
+  }) => CollectionCardData(
     item: item,
     stats: ctx.text('stats'),
     subtitle: ctx.text('subtitle'),
     description: item.description,
     badge: ctx.text('badge') ?? item.badge,
     actionLabel: ctx.text('actionLabel'),
-    flat: ctx.flag('flat'),
     onExplore: onTap ?? () {},
     onTap: onTap ?? () {},
   );
@@ -1889,9 +1859,7 @@ class GalleryComponentRenderer {
     ContentItem item,
     VoidCallback onTap,
   ) => [
-    for (var index = 1;
-        index < item.coverUrls.length && index <= 3;
-        index++)
+    for (var index = 1; index < item.coverUrls.length && index <= 3; index++)
       CollectionEntry(
         title: '${item.title} · $index',
         thumbUrl: item.coverUrls[index],

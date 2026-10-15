@@ -963,6 +963,8 @@ class HomeLanguageGridCard extends StatelessWidget {
     this.onSeeAll,
     this.title = 'Univers par pays / langue',
     this.subtitle = 'Explorez des contenus du monde entier.',
+    this.columns = 2,
+    this.flat = true,
   });
 
   final List<HomeCountryChip> chips;
@@ -971,14 +973,21 @@ class HomeLanguageGridCard extends StatelessWidget {
   final String title;
   final String subtitle;
 
+  /// Colonnes de la grille de pays (2 par défaut).
+  final int columns;
+
+  /// Carte intégrée à une page : pas de panneau autour. `false` uniquement
+  /// pour l'aperçu isolé de la galerie.
+  final bool flat;
+
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    final chipWidth = ((width - 36) / 2).clamp(120.0, 146.0).toDouble();
     return Container(
+      width: flat ? width : null,
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
+      padding: EdgeInsets.all(flat ? 0 : 12),
+      decoration: flat ? null : _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -989,83 +998,102 @@ class HomeLanguageGridCard extends StatelessWidget {
             onSeeAll: onSeeAll,
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final chip in chips)
-                InkWell(
-                  onTap: chip.onTap,
-                  borderRadius: BorderRadius.circular(11),
-                  child: SizedBox(
-                    width: chipWidth,
-                    height: 82,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(11),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ContentImage(
-                            url:
-                                chip.backgroundUrl ??
-                                _countryScenery(chip.code),
-                            radius: 11,
-                          ),
-                          const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color(0x26000000),
-                                  Color(0x22000000),
-                                  Color(0xD9000000),
-                                ],
-                                stops: [0, .35, 1],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 7,
-                            left: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: .48),
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                              child: Text(
-                                _countryFlag(chip.code),
-                                style: const TextStyle(fontSize: 15),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 9,
-                            right: 7,
-                            bottom: 8,
-                            child: Text(
-                              chip.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+          // Grille régulière : `columns` tuiles par ligne, sur plusieurs
+          // lignes. Un `Wrap` à largeur fixe tombait en colonne unique dès que
+          // le conteneur était plus étroit que la somme des tuiles.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final count = columns.clamp(1, 4);
+              final spacing = 8.0;
+              final available = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : width;
+              final tileWidth = (available - spacing * (count - 1)) / count;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: [
+                  for (final chip in chips)
+                    SizedBox(
+                      width: tileWidth,
+                      height: 82,
+                      child: _LanguageChipTile(chip: chip),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              );
+            },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LanguageChipTile extends StatelessWidget {
+  const _LanguageChipTile({required this.chip});
+
+  final HomeCountryChip chip;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: chip.onTap,
+      borderRadius: BorderRadius.circular(11),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ContentImage(
+              url: chip.backgroundUrl ?? _countryScenery(chip.code),
+              radius: 11,
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x26000000),
+                    Color(0x22000000),
+                    Color(0xD9000000),
+                  ],
+                  stops: [0, .35, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 7,
+              left: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .48),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Text(
+                  _countryFlag(chip.code),
+                  style: const TextStyle(fontSize: 15),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 9,
+              right: 7,
+              bottom: 8,
+              child: Text(
+                chip.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
