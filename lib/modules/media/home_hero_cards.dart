@@ -999,26 +999,37 @@ class HomeLanguageGridCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           // Grille régulière : `columns` tuiles par ligne, sur plusieurs
-          // lignes. Un `Wrap` à largeur fixe tombait en colonne unique dès que
-          // le conteneur était plus étroit que la somme des tuiles.
+          // lignes. Un `Wrap` à largeur fixe tombait en colonne unique dès
+          // que le conteneur était plus étroit que la somme des tuiles ; on
+          // pose donc les rangées explicitement pour garantir le nombre de
+          // colonnes demandé, quelle que soit la largeur disponible.
           LayoutBuilder(
             builder: (context, constraints) {
               final count = columns.clamp(1, 4);
               final spacing = 8.0;
-              final available = constraints.maxWidth.isFinite
-                  ? constraints.maxWidth
-                  : width;
-              final tileWidth = (available - spacing * (count - 1)) / count;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
+              final rowCount = (chips.length / count).ceil();
+              return Column(
                 children: [
-                  for (final chip in chips)
-                    SizedBox(
-                      width: tileWidth,
-                      height: 82,
-                      child: _LanguageChipTile(chip: chip),
+                  for (var row = 0; row < rowCount; row++) ...[
+                    if (row > 0) SizedBox(height: spacing),
+                    Row(
+                      children: [
+                        for (var col = 0; col < count; col++) ...[
+                          if (col > 0) SizedBox(width: spacing),
+                          Expanded(
+                            child: row * count + col < chips.length
+                                ? SizedBox(
+                                    height: 82,
+                                    child: _LanguageChipTile(
+                                      chip: chips[row * count + col],
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ],
                     ),
+                  ],
                 ],
               );
             },

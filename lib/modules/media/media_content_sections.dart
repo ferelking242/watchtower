@@ -476,6 +476,7 @@ class MediaGridSection extends StatelessWidget {
     this.columns,
     this.rows,
     this.scrollDirection,
+    this.cardStyle,
     this.itemCardBuilder,
     super.key,
   });
@@ -487,12 +488,18 @@ class MediaGridSection extends StatelessWidget {
   final int? columns;
   final int? rows;
   final String? scrollDirection;
+
+  /// Presentation hint from the layout (`tag`, `thumbnail`…). `tag` renders the
+  /// shared [TagCard] instead of the poster default, so a tag grid uses the
+  /// real component rather than a bespoke card.
+  final String? cardStyle;
   final Widget Function(
     BuildContext context,
     ContentItem item,
     double width,
     VoidCallback onTap,
-  )? itemCardBuilder;
+  )?
+  itemCardBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -503,6 +510,12 @@ class MediaGridSection extends StatelessWidget {
         .toInt();
     final horizontal = scrollDirection == 'horizontal';
     final visible = items.take(columnCount * rowCount).toList(growable: false);
+    final isTagGrid = cardStyle == 'tag';
+    // TagCard has a fixed 72 px height; reserve that per row (plus the row
+    // spacing) so the tile never gets clipped by the grid's fixed extent.
+    final tagSpacing = 10.0;
+    final tagsHeight = rowCount * 72 + (rowCount - 1) * tagSpacing;
+    final tileHeight = isTagGrid ? 72.0 : 215.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,7 +526,11 @@ class MediaGridSection extends StatelessWidget {
           onAction: onSeeAll,
         ),
         SizedBox(
-          height: horizontal ? rowCount * 166 : rowCount * 215,
+          height: horizontal
+              ? rowCount * 166
+              : isTagGrid
+              ? tagsHeight
+              : rowCount * tileHeight,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final horizontalPadding = AppUI.pagePadding(context);
@@ -535,8 +552,14 @@ class MediaGridSection extends StatelessWidget {
                 itemCount: visible.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: horizontal ? rowCount : columnCount,
-                  mainAxisExtent: horizontal ? 132 : null,
-                  mainAxisSpacing: 16,
+                  // A tag tile keeps the TagCard's own 72 px height whatever
+                  // the column width, so it is never clipped on narrow phones.
+                  mainAxisExtent: horizontal
+                      ? 132
+                      : isTagGrid
+                      ? 72
+                      : null,
+                  mainAxisSpacing: isTagGrid ? tagSpacing : 16,
                   crossAxisSpacing: 12,
                   // Cellules un peu plus hautes : à .55, l'affiche et son titre
                   // dépassaient de la cellule sur les grilles serrées.
@@ -545,6 +568,13 @@ class MediaGridSection extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final item = visible[index];
                   final onTap = () => onOpen(index);
+                  if (isTagGrid) {
+                    return TagCard(
+                      item: item,
+                      width: double.infinity,
+                      onTap: onTap,
+                    );
+                  }
                   return itemCardBuilder?.call(
                         context,
                         item,
