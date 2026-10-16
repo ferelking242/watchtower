@@ -17,11 +17,11 @@ import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
-import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 // ─── Design tokens (resolved from theme at build time) ─────────────────────
@@ -364,16 +364,14 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   // ── Shared filter overlay content ─────────────────────────────────────────
   Widget _buildFilterOverlayContent(VoidCallback close) {
     if (_cachedSettings == null) return const SizedBox.shrink();
-    return FilterWidget.custom(
-      builder: (_) => LibraryFilterSortMenu(
-        itemType: _currentType,
-        settings: _cachedSettings!,
-        entries: _cachedMangaList,
-        close: close,
-        onSelect: () {
-          ref.read(isLongPressedStateProvider.notifier).update(true);
-        },
-      ),
+    return LibraryFilterSortMenu(
+      itemType: _currentType,
+      settings: _cachedSettings!,
+      entries: _cachedMangaList,
+      close: close,
+      onSelect: () {
+        ref.read(isLongPressedStateProvider.notifier).update(true);
+      },
     );
   }
 
@@ -402,59 +400,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 
-  void _showLibraryFilterSheet() {
-    if (_cachedSettings == null) return;
-    final l10n = l10nLocalizations(context)!;
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        final cs = Theme.of(sheetContext).colorScheme;
-        return SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * 0.78,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Icon(Broken.filter, color: cs.primary, size: 21),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        l10n.filter,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: MaterialLocalizations.of(
-                        sheetContext,
-                      ).closeButtonTooltip,
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                Divider(color: cs.outlineVariant.withValues(alpha: 0.6)),
-                Expanded(
-                  child: _buildFilterOverlayContent(
-                    () => Navigator.of(sheetContext).pop(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
@@ -480,11 +425,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       data: (c) => c,
       orElse: () => <Category>[],
     );
-    final filterButton = Tooltip(
-      message: l10n.filter,
-      child: InkWell(
-        onTap: _showLibraryFilterSheet,
-        borderRadius: BorderRadius.circular(20),
+    final filterButton = AdaptiveOverlayMenuButton(
+      menuWidth: 250,
+      trigger: Tooltip(
+        message: l10n.filter,
         child: Container(
           width: 34,
           height: 34,
@@ -501,6 +445,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ),
         ),
       ),
+      contentBuilder: _buildFilterOverlayContent,
     );
 
     final int? selectedCatId = _selectedCatIndex == 0
@@ -723,11 +668,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
           ),
 
-          // Filter sheet button
-          InkWell(
-            onTap: _showLibraryFilterSheet,
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
+          // Multi-level filter overlay from the Sep 17 Library UI.
+          AdaptiveOverlayMenuButton(
+            menuWidth: 250,
+            trigger: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Icon(
                 Broken.filter,
@@ -737,6 +681,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     : cs.onSurface.withValues(alpha: 0.38),
               ),
             ),
+            contentBuilder: _buildFilterOverlayContent,
           ),
 
           IconButton(
