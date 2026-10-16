@@ -26,6 +26,7 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -113,9 +114,32 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _player = WatchInlinePlayer();
     _player.onQualityChanged = () { if (mounted) setState(() {}); };
     _nestedScrollCtrl.addListener(_onScroll);
+  }
+
+  /// Lets the user open a decorative tab while playback is still resolving.
+  /// Without this the gated tabs would keep showing a spinner forever, because
+  /// they only auto-fetch once the player has a URL.
+  void _onTabChanged() {
+    if (!mounted) return;
+    if (_tabController.index == 0 && !_recommendationsRequested) {
+      AppLogger.log(
+        '[WATCH] tab "Pour vous" opened → getRecommendations un-gated',
+        logLevel: LogLevel.debug,
+        tag: LogTag.watch,
+      );
+      setState(() => _recommendationsRequested = true);
+    } else if (_tabController.index == 1 && !_commentsRequested) {
+      AppLogger.log(
+        '[WATCH] tab "Commentaires" opened → getComments un-gated',
+        logLevel: LogLevel.debug,
+        tag: LogTag.watch,
+      );
+      setState(() => _commentsRequested = true);
+    }
   }
 
   void _onScroll() {
@@ -190,6 +214,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     }
 
     _player.loadedChapterId = chapters.first.id;
+    AppLogger.log(
+      '[WATCH] [PLAYER] auto-load scheduled chapterId=${chapters.first.id}'
+      '  ← post-frame callback, runs after the current build',
+      logLevel: LogLevel.debug,
+      tag: LogTag.watch,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await _player.load(ref: ref, chapter: chapters.first);
@@ -2457,6 +2487,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   /// per-source queue each time the screen rebuilt.
   Future<List<Map<String, dynamic>>>? _recommendationsFuture;
 
+  /// Latched when the user opens the "Pour vous" tab, so the gate below lets
+  /// the request through even while playback is still resolving.
+  bool _recommendationsRequested = false;
+
+  /// Latched when the user opens the "Commentaires" tab, so the gate below
+  /// lets the request through even while playback is still resolving.
+  bool _commentsRequested = false;
+
   Widget _buildRecommendationsTab() {
     // Pour vous : appel via l'extension getRecommendations (API native MovieBox).
     final _recSrc = getSource(
@@ -2493,6 +2531,31 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         );
 
     if (_recSrc == null) return _empty();
+
+    // The player's post-frame callback launches `getVideoList`; the "Pour
+    // vous" grid is built by the TabBarView in the same frame. Because one
+    // source runs on one non-reentrant runtime, starting the tab's
+    // `getRecommendations` here would queue *behind* a full page fetch and
+    // push playback back by seconds. Stay empty until the player has a URL
+    // (setState from `_maybeStartVideo` re-runs this build).
+    if (_player.loadedChapterId != null &&
+        !_player.hasVideoUrl &&
+        !_player.loadFailed &&
+        !_recommendationsRequested) {
+      // Playback is still resolving: show the same shimmer the real list uses
+      // rather than flashing "Aucune recommandation" for a second.
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.62,
+        ),
+        itemCount: 6,
+        itemBuilder: (_, _) => _SkeletonBox(radius: 8, aspect: null),
+      );
+    }
 
     _recommendationsFuture ??= getIsolateService
         .get<List<dynamic>>(
@@ -2599,6 +2662,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       grey: _grey,
       faint: _faint,
       textPrimary: _textPrimary,
+      // Hidden tab: don't fetch until playback has a URL or the user opens it.
+      autoLoad: _commentsRequested ||
+          !(_player.loadedChapterId != null &&
+              !_player.hasVideoUrl &&
+              !_player.loadFailed),
     );
   }
   // ─── DOWNLOAD SHEET ─────────────────────────────────────────────────────────
@@ -3932,6 +4000,12 @@ class _CommentsSection extends StatefulWidget {
   final Color faint;
   final Color textPrimary;
 
+  /// The comments tab is built eagerly by the TabBarView even while hidden.
+  /// Fetching immediately made `getComments` occupy the source's single
+  /// non-reentrant runtime before `getVideoList` could start. When false the
+  /// section stays idle until the user opens the tab (or playback is ready).
+  final bool autoLoad;
+
   const _CommentsSection({
     required this.url,
     required this.title,
@@ -3943,6 +4017,7 @@ class _CommentsSection extends StatefulWidget {
     required this.grey,
     required this.faint,
     required this.textPrimary,
+    this.autoLoad = true,
   });
 
   @override
@@ -3950,17 +4025,24 @@ class _CommentsSection extends StatefulWidget {
 }
 
 class _CommentsSectionState extends State<_CommentsSection> {
-  late List<_Comment> _comments;
+  List<_Comment> _comments = [];
   bool _loading = true;
   String? _replyingToId;
   final _replyController = TextEditingController();
   final _commentController = TextEditingController();
   String _sortMode = 'Meilleures';
-
   @override
   void initState() {
     super.initState();
-    _loadComments();
+    if (widget.autoLoad) _loadComments();
+  }
+
+  @override
+  void didUpdateWidget(_CommentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.autoLoad && !oldWidget.autoLoad && _comments.isEmpty) {
+      _loadComments();
+    }
   }
 
   @override

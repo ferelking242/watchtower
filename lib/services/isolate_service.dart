@@ -62,6 +62,14 @@ class GetIsolateService {
   final Map<String, _ExtensionWorker> _sourceWorkers = {};
   int _nextWorker = 0;
 
+  /// Service types that must fail fast because they sit on the tap→play path
+  /// or share the source's single runtime with it. See the timeout in [get].
+  static bool _fastFailService(String? serviceType) =>
+      serviceType == 'getVideoList' ||
+      serviceType == 'getRecommendations' ||
+      serviceType == 'getComments' ||
+      serviceType == 'getSuggestions';
+
   /// Whether the extension worker pool is currently running. Exposed so the
   /// headless CLI can report health via `doctor`.
   bool get isRunning => _isRunning;
@@ -318,6 +326,7 @@ class GetIsolateService {
                         throw Exception('Unknown service type: $serviceType');
                     }
                   },
+                  serviceType: serviceType,
                 );
                 sw.stop();
 
@@ -442,6 +451,7 @@ class GetIsolateService {
             throw Exception('Unknown service type: $serviceType');
         }
       },
+      serviceType: serviceType,
     );
   }
 
@@ -505,7 +515,10 @@ class GetIsolateService {
     // Timeout safeguard — log the timeout clearly
     // Video resolution must fail fast: a stuck getVideoList would otherwise
     // hold the tap→play pipeline (and this worker) for 40 s before retrying.
-    final timeout = serviceType == 'getVideoList'
+    // Decorative tab calls get the same short budget: they share the source's
+    // single runtime, so a hanging getRecommendations/getComments would block
+    // playback for the full 40 s otherwise.
+    final timeout = _fastFailService(serviceType)
         ? const Duration(seconds: 20)
         : const Duration(seconds: 40);
     final timer = Timer(timeout, () {

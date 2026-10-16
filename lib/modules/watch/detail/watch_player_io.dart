@@ -174,6 +174,31 @@ class WatchInlinePlayer {
 
   bool _isDisposed = false; // guard against post-dispose async calls
 
+  /// libmpv's built-in defaults are tuned for local files, not for network
+  /// streams, and they are applied before playback can start. Two of them
+  /// cost several seconds of pure dead time on an HLS source:
+  ///
+  /// * `avformat_find_stream_info()` scans up to 5 s of the stream
+  ///   (libavformat's default `analyzeduration`) before the demuxer reports
+  ///   a duration, which is what we wait on to show the first frame. A
+  ///   browser plays the same URL almost instantly because hls.js starts on
+  ///   the first segment instead of probing.
+  /// * `cache-on-disk=yes` (a media_kit default) writes the stream to a
+  ///   temp file before decoding, adding I/O latency for no benefit here.
+  ///
+  /// These properties are set once, before the first `open()`, and persist
+  /// for the lifetime of the native player.
+  bool _startupTuned = false;
+
+  /// Which stream event unblocked the loading overlay for the attempt
+  /// currently in flight (position / duration / width). Diagnostic only.
+  String? _readySignal;
+
+  /// Stops at the moment `_player.open()` returned for the current attempt,
+  /// so "first frame after open()" can be measured separately from the
+  /// network fetch that happens before it. Diagnostic only.
+  Stopwatch? _openDoneSw;
+
   /// Notifier for portrait overlay controls visibility (back/aide buttons sync).
   final ValueNotifier<bool> controlsVisible = ValueNotifier(true);
 
@@ -236,10 +261,22 @@ class WatchInlinePlayer {
       if (referer.isNotEmpty) await plat.setProperty('referrer', referer);
     } catch (_) {}
     if (_isDisposed) return;
-    await _player.open(
-      Media(targetVideo.url, httpHeaders: targetVideo.headers),
-      play: true,
-    );
+    await _tuneStartupForNetworkStreams();
+    // Bounded like the load() path: a stalled socket must not freeze the
+    // settings sheet forever with no visible error.
+    await _player
+        .open(
+          Media(targetVideo.url, httpHeaders: targetVideo.headers),
+          play: true,
+        )
+        .timeout(const Duration(seconds: 8), onTimeout: () {
+      AppLogger.log(
+        '[PLAYER] switchQuality open() did not return in 8s'
+        '  quality="${targetVideo.quality}"  ← CDN socket stalled',
+        logLevel: LogLevel.warning,
+        tag: LogTag.watch,
+      );
+    });
     // Restore position after the new stream is ready
     if (savedPos > Duration.zero) {
       try {
@@ -258,6 +295,61 @@ class WatchInlinePlayer {
   void reset() {
     hasVideoUrl = false;
     loadFailed = false;
+  }
+
+  /// Applies the network-stream libmpv properties described on
+  /// [_startupTuned]. Runs at most once per [WatchInlinePlayer].
+  Future<void> _tuneStartupForNetworkStreams() async {
+    if (_startupTuned || _isDisposed) return;
+    _startupTuned = true;
+    try {
+      final plat = _player.platform as dynamic;
+      // Bound the pre-playback probe instead of letting libavformat spend
+      // its 5 s default: that probe must finish before the demuxer reports a
+      // duration, and we hold the loading overlay until it does.
+      await plat.setProperty('demuxer-lavf-analyzeduration', '1');
+      // media_kit writes the packet cache to disk by default; for a network
+      // stream that only adds write latency before the first frame.
+      await plat.setProperty('cache-on-disk', 'no');
+    } catch (_) {}
+  }
+
+  /// HEAD-probes [url] only to log the CDN's real status code. Never gates
+  /// playback: callers start it with [unawaited].
+  Future<void> _probeStreamStatus(
+    String url,
+    String ua,
+    String referer,
+  ) async {
+    try {
+      final cli = HttpClient();
+      cli.connectionTimeout = const Duration(seconds: 8);
+      final req = await cli.headUrl(Uri.parse(url));
+      if (ua.isNotEmpty) req.headers.set('User-Agent', ua);
+      if (referer.isNotEmpty) req.headers.set('Referer', referer);
+      req.headers.set('Accept', '*/*');
+      // Bound the wait for response headers too: connectionTimeout only
+      // covers the handshake — a silent server could hang here forever.
+      final probeSw = Stopwatch()..start();
+      final resp = await req.close().timeout(const Duration(seconds: 5));
+      probeSw.stop();
+      AppLogger.log(
+        '[PLAYER] HTTP probe  status=${resp.statusCode}'
+        '  in ${probeSw.elapsedMilliseconds}ms'
+        '  host=${Uri.tryParse(url)?.host ?? "unknown"}',
+        logLevel: resp.statusCode == 200 || resp.statusCode == 206
+            ? LogLevel.info
+            : LogLevel.error,
+        tag: LogTag.watch,
+      );
+      cli.close(force: true);
+    } catch (probeErr) {
+      AppLogger.log(
+        '[PLAYER] HTTP probe exc: $probeErr',
+        logLevel: LogLevel.warning,
+        tag: LogTag.watch,
+      );
+    }
   }
 
   Future<void> load({required WidgetRef ref, required Chapter chapter}) async {
@@ -312,16 +404,26 @@ class WatchInlinePlayer {
 
         // Completer: blocks until the video plays OR errors OR watchdog fires
         final attemptSw = Stopwatch()..start();
+        _readySignal = null;
+        _openDoneSw = null;
         final completer = Completer<bool>(); // true=success false=fail
         StreamSubscription<Duration>? durSub;
         StreamSubscription<String>? errSub;
+        StreamSubscription<int?>? vidSub;
+        StreamSubscription<Duration>? posSub;
 
+        // First decoded frame is a far better "ready" signal than `duration`:
+        // for HLS, mpv only learns the duration after demuxing the whole
+        // playlist, so waiting on it delayed the first frame by seconds even
+        // though the picture was already decodable.
         // 10 s (was 30 s): a silent first quality must fall back fast so
         // tap→play stays in the low seconds instead of stacking 30 s per try.
         final watchdog = Timer(const Duration(seconds: 10), () {
           if (completer.isCompleted) return;
           durSub?.cancel();
           errSub?.cancel();
+          vidSub?.cancel();
+          posSub?.cancel();
           AppLogger.log(
             '[PLAYER] WATCHDOG 10s quality="${v.quality}"'
             '  ← Causes: codec, DRM, URL expirée, serveur silencieux',
@@ -331,28 +433,69 @@ class WatchInlinePlayer {
           completer.complete(false);
         });
 
-        durSub = _player.stream.duration.listen((dur) {
-          if (completer.isCompleted || dur <= Duration.zero) return;
+        void succeed() {
+          if (completer.isCompleted) return;
           watchdog.cancel();
           errSub?.cancel();
-          durSub
-              ?.cancel(); // cancel self to avoid accumulating listeners across loads
+          durSub?.cancel();
+          vidSub?.cancel();
+          posSub?.cancel();
           hasVideoUrl = true;
           selectedQuality = v.quality;
           AppLogger.log(
             '[PLAYER] PLAYING quality="${v.quality}" '
-            'duration=${dur.inSeconds}s chapterId=${chapter.id}',
+            'duration=${_player.state.duration.inSeconds}s chapterId=${chapter.id}',
             logLevel: LogLevel.info,
+            tag: LogTag.watch,
+          );
+          AppLogger.log(
+            '[PLAYER] ready signal=${_readySignal ?? "unknown"}'
+            '  after open()=${_openDoneSw?.elapsedMilliseconds ?? 0}ms',
+            logLevel: LogLevel.debug,
             tag: LogTag.watch,
           );
           _startPortraitDetection();
           completer.complete(true);
-        });
+        }
+
+        // Playback position moving means the stream is genuinely decoding:
+        // it arrives before `duration` on HLS and does not need the video
+        // surface to be attached. Subscribed only after `open()` so these
+        // listeners can only ever see the newly-opened stream.
+        void loadSubs() {
+          posSub = _player.stream.position.listen((pos) {
+            if (pos > Duration.zero) {
+              _readySignal = 'position=${pos.inMilliseconds}ms';
+              succeed();
+            }
+          });
+          // Fallback for audio-only streams, which report no video dimensions.
+          durSub = _player.stream.duration.listen((dur) {
+            if (dur > Duration.zero) {
+              _readySignal = 'duration=${dur.inSeconds}s';
+              succeed();
+            }
+          });
+          vidSub = _player.stream.width.listen((w) {
+            if (w != null && w > 0) {
+              _readySignal = 'width=${w}px';
+              succeed();
+            }
+          });
+          AppLogger.log(
+            '[PLAYER] stream listeners attached (waiting for first frame)'
+            '  after open()=${_openDoneSw?.elapsedMilliseconds ?? 0}ms',
+            logLevel: LogLevel.debug,
+            tag: LogTag.watch,
+          );
+        }
 
         errSub = _player.stream.error.listen((err) {
           if (completer.isCompleted) return;
           watchdog.cancel();
           durSub?.cancel();
+          vidSub?.cancel();
+          posSub?.cancel();
           AppLogger.log(
             '[PLAYER] ERREUR qualité="${v.quality}": $err',
             logLevel: LogLevel.error,
@@ -364,37 +507,6 @@ class WatchInlinePlayer {
         // ── MPV headers + Dart HTTP probe (captures real CDN status code) ────────
         final _ua = v.headers?['User-Agent'] ?? v.headers?['user-agent'] ?? '';
         final _referer = v.headers?['Referer'] ?? v.headers?['referer'] ?? '';
-
-        // Dart HttpClient probe: log real HTTP status BEFORE libmpv tries
-        try {
-          final _cli = HttpClient();
-          _cli.connectionTimeout = const Duration(seconds: 8);
-          final _req = await _cli.headUrl(Uri.parse(v.url));
-          if (_ua.isNotEmpty) _req.headers.set('User-Agent', _ua);
-          if (_referer.isNotEmpty) _req.headers.set('Referer', _referer);
-          _req.headers.set('Accept', '*/*');
-          // Bound the wait for response headers too: connectionTimeout only
-          // covers the handshake — a silent server could hang here forever.
-          final probeSw = Stopwatch()..start();
-          final _resp = await _req.close().timeout(const Duration(seconds: 5));
-          probeSw.stop();
-          AppLogger.log(
-            '[PLAYER] HTTP probe  status=${_resp.statusCode}'
-            '  in ${probeSw.elapsedMilliseconds}ms'
-            '  host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
-            logLevel: _resp.statusCode == 200 || _resp.statusCode == 206
-                ? LogLevel.info
-                : LogLevel.error,
-            tag: LogTag.watch,
-          );
-          _cli.close(force: true);
-        } catch (_probeErr) {
-          AppLogger.log(
-            '[PLAYER] HTTP probe exc: $_probeErr',
-            logLevel: LogLevel.warning,
-            tag: LogTag.watch,
-          );
-        }
 
         // Set MPV props: 'referrer' (dedicated mpv property, more reliable than http-header-fields)
         if (!_isDisposed && v.headers != null && v.headers!.isNotEmpty) {
@@ -417,19 +529,69 @@ class WatchInlinePlayer {
             );
           }
         }
+
+        // Dart HttpClient probe: log the real HTTP status. It runs in parallel
+        // with mpv: awaiting it here used to delay `open()` by up to 5 s, and
+        // it only exists for diagnostics — it must never gate playback.
+        unawaited(_probeStreamStatus(v.url, _ua, _referer));
+
         if (_isDisposed) {
           watchdog.cancel();
           durSub?.cancel();
           errSub?.cancel();
+          vidSub?.cancel();
+          posSub?.cancel();
+          return;
+        }
+        await _tuneStartupForNetworkStreams();
+        if (_isDisposed) {
+          watchdog.cancel();
+          durSub?.cancel();
+          errSub?.cancel();
+          vidSub?.cancel();
+          posSub?.cancel();
           return;
         }
         try {
-          await _player.open(Media(v.url, httpHeaders: v.headers), play: true);
+          AppLogger.log(
+            '[PLAYER] calling open()  quality="${v.quality}"'
+            '  host=${Uri.tryParse(v.url)?.host ?? "unknown"}'
+            '  after ${attemptSw.elapsedMilliseconds}ms of prep',
+            logLevel: LogLevel.debug,
+            tag: LogTag.watch,
+          );
+          final openSw = Stopwatch()..start();
+          // `open()` itself can block on a stalled CDN socket. The watchdog
+          // below only starts counting down once `open()` returns, so an
+          // unbounded await here would hang the whole quality loop. Cap it
+          // under the watchdog and fail the attempt so the next quality runs.
+          await _player
+              .open(Media(v.url, httpHeaders: v.headers), play: true)
+              .timeout(const Duration(seconds: 8), onTimeout: () {
+            AppLogger.log(
+              '[PLAYER] open() did not return in 8s  quality="${v.quality}"'
+              '  ← CDN socket stalled; falling back to the next quality',
+              logLevel: LogLevel.warning,
+              tag: LogTag.watch,
+            );
+            if (!completer.isCompleted) completer.complete(false);
+          });
+          openSw.stop();
+          _openDoneSw = openSw;
+          AppLogger.log(
+            '[PLAYER] open() returned in ${openSw.elapsedMilliseconds}ms'
+            '  quality="${v.quality}"  ← mpv accepted the URL, waiting for decode',
+            logLevel: LogLevel.info,
+            tag: LogTag.watch,
+          );
+          loadSubs();
         } catch (openError) {
           if (completer.isCompleted) continue;
           watchdog.cancel();
           durSub?.cancel();
           errSub?.cancel();
+          vidSub?.cancel();
+          posSub?.cancel();
           AppLogger.log(
             '[PLAYER] ouverture échouée qualité="${v.quality}": $openError',
             logLevel: LogLevel.error,
@@ -444,6 +606,8 @@ class WatchInlinePlayer {
             '[PLAYER] TIMELINE attempt[${i + 1}]=${attemptSw.elapsedMilliseconds}ms'
             '  total=${loadSw.elapsedMilliseconds}ms'
             '  quality="${v.quality}"'
+            '  open=${_openDoneSw?.elapsedMilliseconds ?? 0}ms'
+            '  readySignal=${_readySignal ?? "unknown"}'
             '  (getVideoList=${videoListSw.elapsedMilliseconds}ms)',
             logLevel: LogLevel.info,
             tag: LogTag.watch,

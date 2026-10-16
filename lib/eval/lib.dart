@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:watchtower/eval/interface.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 import 'dart/service.dart';
 import 'javascript/service.dart';
@@ -47,48 +48,109 @@ class ExtensionServiceRegistry {
 
   /// Runs calls for one source in order. Extension runtimes are not reentrant:
   /// two async JS/Dart calls can otherwise interleave on the same interpreter.
+  ///
+  /// Calls are served by [priorityFor], so the call that actually starts the
+  /// video (`getVideoList`) overtakes the detail metadata fetch and the
+  /// decorative tabs (`getRecommendations`/`getComments`).
   static Future<T> run<T>(
     Source source,
-    Future<T> Function(ExtensionService service) action,
-  ) {
+    Future<T> Function(ExtensionService service) action, {
+    String? serviceType,
+  }) {
     final key = _key(source);
     final queue = _queues.putIfAbsent(key, _ExtensionSourceQueue.new);
     final generation = queue.generation;
-    final result = Completer<T>();
+    final completer = Completer<T>();
+    final priority = priorityFor(serviceType);
+    final call = _ExtensionCall(completer, priority);
+    queue.enqueue(call);
 
-    late final Future<void> current;
-    current = queue.tail.then<void>((_) async {
+    if (queue.running != null || queue.pending > 1) {
+      AppLogger.log(
+        '… extension call queued  service=$serviceType  priority=$priority '
+        'pending=${queue.pending}  [$key]  (another call holds the runtime)',
+        logLevel: LogLevel.debug,
+        tag: LogTag.extension_,
+      );
+    }
+
+    void pump() {
+      if (queue.running != null) return;
+      final next = queue.dequeue();
+      if (next == null) {
+        _removeQueueIfIdle(key, queue);
+        return;
+      }
       if (queue.generation != generation ||
           !identical(_queues[key], queue) ||
           queue.disposing) {
-        result.completeError(
-          StateError('Extension source was disposed before the request ran'),
-        );
+        if (!next.completer.isCompleted) {
+          next.completer.completeError(
+            StateError('Extension source was disposed before the request ran'),
+          );
+        }
+        pump();
         return;
       }
 
-      try {
-        result.complete(await action(get(source)));
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
+      final waitMs = DateTime.now().difference(next.queuedAt).inMilliseconds;
+      if (waitMs >= 250) {
+        AppLogger.log(
+          '… extension call waited ${waitMs}ms in queue  priority=${next.priority} '
+          '← a slower call held the runtime  [$key]',
+          logLevel: LogLevel.debug,
+          tag: LogTag.extension_,
+        );
       }
-    });
-    queue.tail = current;
 
-    current.then<void>(
-      (_) => _removeQueueIfIdle(key, queue, current),
-      onError: (Object _, StackTrace _) =>
-          _removeQueueIfIdle(key, queue, current),
-    );
-    return result.future;
+      final running = Future<void>.sync(() async {
+        try {
+          final result = await action(get(source));
+          if (!next.completer.isCompleted) next.completer.complete(result);
+        } catch (error, stackTrace) {
+          if (!next.completer.isCompleted) {
+            next.completer.completeError(error, stackTrace);
+          }
+        }
+      });
+      queue.running = running;
+      running.whenComplete(() {
+        if (identical(queue.running, running)) queue.running = null;
+        pump();
+      });
+    }
+
+    pump();
+    return completer.future;
   }
 
-  static void _removeQueueIfIdle(
-    String key,
-    _ExtensionSourceQueue queue,
-    Future<void> completed,
-  ) {
-    if (identical(_queues[key], queue) && identical(queue.tail, completed)) {
+  /// Scheduling priority for [serviceType]. Lower runs first.
+  ///
+  /// * `0` — playback: the call that resolves the video URL must never wait
+  ///   behind metadata scrolling. Nothing else may be added here.
+  /// * `2` — decorative tabs (related videos, comments, search suggestions)
+  ///   that render after the player is already visible.
+  /// * `1` — everything else (detail, listings, search): user-visible but not
+  ///   on the tap→play path.
+  static int priorityFor(String? serviceType) {
+    switch (serviceType) {
+      case 'getVideoList':
+      case 'getHeaders':
+      case 'getPageList':
+        return 0;
+      case 'getRecommendations':
+      case 'getComments':
+      case 'getSuggestions':
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
+  static void _removeQueueIfIdle(String key, _ExtensionSourceQueue queue) {
+    if (identical(_queues[key], queue) &&
+        queue.running == null &&
+        queue.pending == 0) {
       _queues.remove(key);
     }
   }
@@ -101,6 +163,7 @@ class ExtensionServiceRegistry {
     if (queue != null) {
       queue.generation++;
       queue.disposing = true;
+      queue.drain();
     }
 
     final svc = _cache.remove(sourceId);
@@ -111,7 +174,7 @@ class ExtensionServiceRegistry {
       return;
     }
 
-    queue.tail.then<void>(
+    (queue.running ?? Future<void>.value()).then<void>(
       (_) => _dispose(svc),
       onError: (Object _, StackTrace _) => _dispose(svc),
     );
@@ -124,6 +187,7 @@ class ExtensionServiceRegistry {
     for (final queue in queues.values) {
       queue.generation++;
       queue.disposing = true;
+      queue.drain();
     }
 
     final services = Map<String, ExtensionService>.from(_cache);
@@ -135,7 +199,7 @@ class ExtensionServiceRegistry {
       if (queue == null) {
         _dispose(service);
       } else {
-        queue.tail.then<void>(
+        (queue.running ?? Future<void>.value()).then<void>(
           (_) => _dispose(service),
           onError: (Object _, StackTrace _) => _dispose(service),
         );
@@ -151,18 +215,74 @@ class ExtensionServiceRegistry {
 }
 
 class _ExtensionSourceQueue {
-  Future<void> tail = Future<void>.value();
+  /// The call currently occupying the (non-reentrant) extension runtime.
+  Future<void>? running;
+  /// Calls waiting for the runtime, bucketed by [ExtensionServiceRegistry.priorityFor].
+  /// Split so playback (`getVideoList`, bucket 0) can overtake `getDetail`
+  /// (bucket 1) and the decorative tabs (bucket 2) instead of queueing behind
+  /// them — the tap→play path must never wait on a metadata or tab fetch.
+  final List<List<_ExtensionCall>> _buckets = [[], [], []];
   int generation = 0;
   bool disposing = false;
+
+  int get pending => _buckets.fold(0, (sum, bucket) => sum + bucket.length);
+
+  void enqueue(_ExtensionCall call) {
+    call.bucket = _buckets[call.priority];
+    call.bucket.add(call);
+  }
+
+  /// Next call to run: lowest non-empty bucket, oldest first within it.
+  _ExtensionCall? dequeue() {
+    for (final bucket in _buckets) {
+      if (bucket.isNotEmpty) return bucket.removeAt(0);
+    }
+    return null;
+  }
+
+  /// Drops waiting calls, completing each with [error]. The call that is
+  /// already running is left alone: it owns the runtime and cannot be
+  /// interrupted safely.
+  void drain([Object? error]) {
+    final pending = _buckets.expand((bucket) => bucket).toList();
+    for (final bucket in _buckets) {
+      bucket.clear();
+    }
+    for (final call in pending) {
+      if (!call.completer.isCompleted) {
+        call.completer.completeError(
+          error ?? StateError('Extension source was disposed'),
+        );
+      }
+    }
+  }
+}
+
+/// One queued extension call, with the priority that decides when it runs.
+class _ExtensionCall {
+  final Completer<dynamic> completer;
+  /// Scheduling bucket from [ExtensionServiceRegistry.priorityFor];
+  /// [_ExtensionSourceQueue] keeps a list per bucket.
+  final int priority;
+  /// Kept in sync with [_ExtensionSourceQueue._buckets] by `enqueue`.
+  late List<_ExtensionCall> bucket;
+  /// When the call entered the queue, used to report how long it waited.
+  final DateTime queuedAt;
+
+  _ExtensionCall(this.completer, this.priority) : queuedAt = DateTime.now();
 }
 
 /// Returns the cached [ExtensionService] for [source] via
 /// [ExtensionServiceRegistry].  The service is intentionally NOT disposed
 /// after each call — it is reused to avoid concurrent QuickJS runtime crashes.
+///
+/// Pass [serviceType] so the scheduler can serve the playback-critical calls
+/// (`getVideoList`) before metadata and decorative ones
+/// (see [ExtensionServiceRegistry.priorityFor]).
 Future<T> withExtensionService<T>(
   Source source,
-  Future<T> Function(ExtensionService service) action,
-) {
-  return ExtensionServiceRegistry.run(source, action);
+  Future<T> Function(ExtensionService service) action, {
+  String? serviceType,
+}) {
+  return ExtensionServiceRegistry.run(source, action, serviceType: serviceType);
 }
-  

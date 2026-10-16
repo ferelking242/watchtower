@@ -195,3 +195,62 @@ production home screens render the *same* widgets. The contract:
 `dart format lib/` with the local SDK rewrites ~740 files because the tree was
 formatted with a different page width; **do not** mass-reformat `lib/`, it
 produces a huge diff unrelated to any fix. Format only the files you touch.
+
+## Video player startup invariants (do not regress)
+The inline player (`lib/modules/watch/detail/watch_player_io.dart`) used to
+stall for seconds before the first frame while the extension itself resolved in
+~1 s. Three causes, all fixed - do not reintroduce them:
+
+- **`duration` is not the "ready" signal.** `mpv` only learns the duration of an
+  HLS stream after demuxing the whole playlist, so waiting on
+  `_player.stream.duration` held the loading overlay well past the point where
+  the picture was already decodable. Playback is now declared ready on the first
+  non-zero `_player.stream.position` (fallbacks: non-zero `duration` for
+  audio-only, non-null `width`). Those listeners are subscribed *after*
+  `open()`, inside `loadSubs()`.
+- **libmpv's defaults are for local files.**
+  `_tuneStartupForNetworkStreams()` sets `demuxer-lavf-analyzeduration=1`
+  (libavformat otherwise spends up to 5 s in `avformat_find_stream_info()`) and
+  `cache-on-disk=no` (media_kit's default writes the packet cache to disk). It
+  runs once, before the first `open()`. Avoid also lowering `probesize`
+  (`demuxer-lavf-probesize`): it governs codec detection, and the
+  `analyzeduration` cap already bounds probe time, so shrinking the byte window
+  would only risk misdetecting on slower sources.
+- **The Dart HTTP probe must never gate playback.** `_probeStreamStatus()` only
+  logs the CDN status; it is started with `unawaited()`. Awaiting it delayed
+  `open()` by up to its 5 s response timeout.
+
+`switchQuality()` must also call `_tuneStartupForNetworkStreams()` before its
+`open()`. Only the code paths are covered by inspection: there is no Flutter SDK
+in the agent environment, so this file is not compiled or unit-tested locally.
+
+`_player.open()` is awaited through a `.timeout(8 s)` that completes the
+attempt with `false`. The 10 s watchdog only starts counting once `open()`
+returns, so an unbounded await on a stalled CDN socket would freeze the whole
+quality loop instead of falling back.
+
+## Extension call scheduling invariants (do not regress)
+One source runs on **one** non-reentrant extension runtime
+(`ExtensionServiceRegistry._queues`, keyed by source). Every call for that
+source is therefore serialized, and a slow decorative call delays the call that
+starts the video.
+
+- `ExtensionServiceRegistry.priorityFor` buckets calls: `0` playback
+  (`getVideoList`/`getHeaders`/`getPageList`), `2` decorative tabs
+  (`getRecommendations`/`getComments`/`getSuggestions`), `1` everything else.
+  Dequeue order is lowest bucket first, FIFO within a bucket.
+  `test/extension_call_priority_test.dart` pins this ordering; adding a tier
+  means extending `_ExtensionSourceQueue._buckets` too.
+- `watch_detail_view.dart` builds both tabs eagerly via `TabBarView`, so
+  `getRecommendations` (Pour vous) and `getComments` (Commentaires, via
+  `_CommentsSection.initState`) used to fire during the same frame as the
+  post-frame callback that calls `_player.load()`. Both are now gated on
+  `_player.loadedChapterId != null && !_player.hasVideoUrl && !_player.loadFailed`
+  and un-gated by the tab listener (`_recommendationsRequested` /
+  `_commentsRequested`) so a user can still open them while playback resolves.
+  Keep those latches when touching the tabs, otherwise the tabs spin forever.
+- `getRecommendations`/`getComments` must stay `serviceType:`-tagged all the way
+  through `isolate_service.dart` (both the isolate worker and
+  `_runOnMainThread`); an untagged call lands in bucket 1 and can again block
+  playback.
+
