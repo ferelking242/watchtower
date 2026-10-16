@@ -304,10 +304,14 @@ class WatchInlinePlayer {
     _startupTuned = true;
     try {
       final plat = _player.platform as dynamic;
-      // Bound the pre-playback probe instead of letting libavformat spend
-      // its 5 s default: that probe must finish before the demuxer reports a
-      // duration, and we hold the loading overlay until it does.
-      await plat.setProperty('demuxer-lavf-analyzeduration', '1');
+      // libavformat's pre-playback probe must finish before the demuxer
+      // reports streams/duration, and the loading overlay waits on it.
+      // Defaults target local files (5 s analyzeduration, full
+      // avformat_find_stream_info). The browser starts on the first HLS
+      // segment instead. These mirror mpv's own builtin.conf, which sets
+      // analyzeduration=0.1 and probe-info=nostreams for the same reason.
+      await plat.setProperty('demuxer-lavf-analyzeduration', '0.1');
+      await plat.setProperty('demuxer-lavf-probe-info', 'nostreams');
       // media_kit writes the packet cache to disk by default; for a network
       // stream that only adds write latency before the first frame.
       await plat.setProperty('cache-on-disk', 'no');
