@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -2573,6 +2575,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             _recommendationsFuture = null;
             Error.throwWithStackTrace(error, stack);
           },
+        )
+        // A stuck source would otherwise leave the grid shimmering forever.
+        // Fail the future so the retry path above (and the "empty" state) can
+        // take over instead of an infinite skeleton.
+        .timeout(
+          const Duration(seconds: 20),
+          onTimeout: () {
+            _recommendationsFuture = null;
+            throw TimeoutException('getRecommendations timed out');
+          },
         );
 
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -3964,11 +3976,26 @@ class _ModernCheckbox extends StatelessWidget {
 
 // ─── COMMENT MODEL ──────────────────────────────────────────────────────────
 
+/// One media attachment inside a comment body (image or short video). The
+/// extension hands these over as plain URLs plus an optional type hint.
+class _CommentMedia {
+  final String url;
+  /// `image` or `video`; anything else falls back to `image`.
+  final String kind;
+  final String? thumb;
+
+  const _CommentMedia({required this.url, this.kind = 'image', this.thumb});
+
+  bool get isVideo => kind == 'video';
+}
+
 class _Comment {
   final String id;
   final String author;
+  final String? avatarUrl;
   final String timeAgo;
   final String body;
+  final List<_CommentMedia> media;
   int likes;
   bool liked;
   bool collapsed;
@@ -3977,13 +4004,80 @@ class _Comment {
   _Comment({
     required this.id,
     required this.author,
+    this.avatarUrl,
     required this.timeAgo,
     required this.body,
+    this.media = const [],
     this.likes = 0,
     this.liked = false,
     this.collapsed = false,
     List<_Comment>? replies,
   }) : replies = replies ?? [];
+
+  /// Builds a comment (and its replies, recursively) from the raw map returned
+  /// by an extension `getComments()`. Accepts the common key spellings so a
+  /// source that names its fields differently still renders fully.
+  factory _Comment.fromJson(Map<String, dynamic> m, {int depth = 0}) {
+    final author = (m['author'] ?? m['name'] ?? m['user'] ?? 'Anonyme')
+        .toString()
+        .trim();
+    final avatar = (m['avatar'] ?? m['avatarUrl'] ?? m['image'] ?? m['userImage'])
+        ?.toString()
+        .trim();
+    final date = (m['date'] ?? m['time_diff'] ?? m['timeAgo'] ?? '').toString();
+    final scoreVal = m['score'] ?? m['votes'] ?? m['likes'];
+    final score = scoreVal is num ? scoreVal.toInt() : 0;
+
+    final media = <_CommentMedia>[];
+    void addMedia(Object? raw, [String? kind, String? thumb]) {
+      if (raw is String && raw.trim().isNotEmpty) {
+        media.add(_CommentMedia(
+          url: raw.trim(),
+          kind: kind ?? 'image',
+          thumb: thumb,
+        ));
+      }
+    }
+
+    for (final key in const ['images', 'medias', 'attachments']) {
+      final list = m[key];
+      if (list is List) {
+        for (final e in list) {
+          if (e is Map) {
+            addMedia(e['url'] ?? e['src'] ?? e['image'], e['type']?.toString());
+          } else {
+            addMedia(e);
+          }
+        }
+      }
+    }
+    addMedia(m['imageUrl'], 'image', m['thumb']?.toString());
+    addMedia(m['videoUrl'] ?? m['video'], 'video', m['thumb']?.toString());
+
+    final replies = <_Comment>[];
+    final rawReplies = m['replies'] ?? m['children'];
+    if (depth < 8 && rawReplies is List) {
+      for (final r in rawReplies) {
+        if (r is Map) {
+          replies.add(_Comment.fromJson(
+            Map<String, dynamic>.from(r),
+            depth: depth + 1,
+          ));
+        }
+      }
+    }
+
+    return _Comment(
+      id: '$author$date${m['id'] ?? ''}',
+      author: author.isEmpty ? 'Anonyme' : author,
+      avatarUrl: (avatar == null || avatar.isEmpty) ? null : avatar,
+      timeAgo: date,
+      body: (m['content'] ?? m['message'] ?? m['body'] ?? '').toString().trim(),
+      media: media,
+      likes: score,
+      replies: replies,
+    );
+  }
 }
 
 // ─── COMMENTS SECTION ────────────────────────────────────────────────────────
@@ -4066,18 +4160,10 @@ class _CommentsSectionState extends State<_CommentsSection> {
         serviceType: 'getComments',
       );
       if (!mounted) return;
-      final mapped = raw.map((e) {
-        final m = Map<String, dynamic>.from(e as Map);
-        final sv = m['score']; final sc = sv is num ? sv.toDouble() : -1.0;
-        final dt = (m['date'] as String?) ?? '';
-        return _Comment(
-          id: ((m['author'] ?? 'anon') as String) + dt,
-          author: (m['author'] as String?) ?? 'Anonyme',
-          timeAgo: dt,
-          body: ((m['content'] as String?) ?? '').trim() +
-              (sc > 0 ? '  ★' + sc.toStringAsFixed(1) : ''),
-        );
-      }).toList();
+      final mapped = raw
+          .whereType<Map>()
+          .map((e) => _Comment.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
       setState(() { _comments = mapped; _loading = false; });
     } catch (_) {
       if (!mounted) return;
@@ -4511,6 +4597,7 @@ class _CommentTile extends StatelessWidget {
                           children: [
                             _CommentAvatar(
                               author: comment.author,
+                              avatarUrl: comment.avatarUrl,
                               size: depth == 0 ? 30 : 24,
                               accent: _threadColor,
                               isLight: false,
@@ -4557,14 +4644,24 @@ class _CommentTile extends StatelessWidget {
                         if (!comment.collapsed) ...[
                           const SizedBox(height: 6),
                           // Body
-                          Text(
-                            comment.body,
-                            style: TextStyle(
-                              color: textPrimary.withValues(alpha: 0.88),
-                              fontSize: 13.5,
-                              height: 1.45,
+                          if (comment.body.isNotEmpty)
+                            Text(
+                              comment.body,
+                              style: TextStyle(
+                                color: textPrimary.withValues(alpha: 0.88),
+                                fontSize: 13.5,
+                                height: 1.45,
+                              ),
                             ),
-                          ),
+                          // Attached images / videos
+                          if (comment.media.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            _CommentMediaGrid(
+                              media: comment.media,
+                              accent: _threadColor,
+                              faint: faint,
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           // Action bar
                           Row(
@@ -4678,16 +4775,165 @@ class _CommentTile extends StatelessWidget {
   }
 }
 
+// ─── COMMENT MEDIA ───────────────────────────────────────────────────────────
+
+/// Renders the images/videos attached to a comment. A single item shows as a
+/// large preview; several show as a compact two-column grid, mirroring the
+/// Reddit comment layout.
+class _CommentMediaGrid extends StatelessWidget {
+  final List<_CommentMedia> media;
+  final Color accent;
+  final Color faint;
+
+  const _CommentMediaGrid({
+    required this.media,
+    required this.accent,
+    required this.faint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final single = media.length == 1;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fullWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width - 80;
+        final itemWidth = single ? fullWidth : (fullWidth - 6) / 2;
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final m in single ? media : media.take(4))
+              SizedBox(
+                width: itemWidth,
+                child: _CommentMediaThumb(media: m, accent: accent, faint: faint),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CommentMediaThumb extends StatelessWidget {
+  final _CommentMedia media;
+  final Color accent;
+  final Color faint;
+
+  const _CommentMediaThumb({
+    required this.media,
+    required this.accent,
+    required this.faint,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final previewUrl =
+        media.thumb != null && media.thumb!.isNotEmpty ? media.thumb! : media.url;
+    return GestureDetector(
+      onTap: () => _open(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              cachedNetworkImage(
+                imageUrl: previewUrl,
+                width: null,
+                height: null,
+                fit: BoxFit.cover,
+                errorWidget: Container(
+                  color: faint,
+                  child: Icon(
+                    media.isVideo
+                        ? Icons.videocam_off_outlined
+                        : Icons.image_not_supported_outlined,
+                    color: accent,
+                    size: 22,
+                  ),
+                ),
+              ),
+              if (media.isVideo)
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.play_arrow_rounded,
+                        color: Colors.white, size: 22),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _open(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      barrierDismissible: true,
+      builder: (dialogContext) => GestureDetector(
+        onTap: () => Navigator.of(dialogContext).pop(),
+        child: InteractiveViewer(
+          maxScale: 5,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: media.isVideo
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_circle_outline_rounded,
+                            color: Colors.white, size: 64),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Vidéo du commentaire',
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          media.url,
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 11),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    )
+                  : cachedNetworkImage(
+                      imageUrl: media.url,
+                      width: null,
+                      height: null,
+                      fit: BoxFit.contain,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── COMMENT AVATAR ──────────────────────────────────────────────────────────
 
 class _CommentAvatar extends StatelessWidget {
   final String author;
+  final String? avatarUrl;
   final double size;
   final Color accent;
   final bool isLight;
 
   const _CommentAvatar({
     required this.author,
+    this.avatarUrl,
     required this.size,
     required this.accent,
     required this.isLight,
@@ -4695,6 +4941,31 @@ class _CommentAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final border = Border.all(color: accent.withValues(alpha: 0.40), width: 1.5);
+    final url = avatarUrl;
+    if (url != null && url.isNotEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: accent.withValues(alpha: 0.18),
+          border: border,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: cachedNetworkImage(
+          imageUrl: url,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorWidget: _initials(),
+        ),
+      );
+    }
+    return _initials(border);
+  }
+
+  Widget _initials([BoxBorder? border]) {
     final initials = author.isEmpty
         ? '?'
         : author.trim().split(' ').map((w) => w.isNotEmpty ? w[0].toUpperCase() : '').take(2).join();
@@ -4704,7 +4975,7 @@ class _CommentAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: accent.withValues(alpha: 0.18),
-        border: Border.all(color: accent.withValues(alpha: 0.40), width: 1.5),
+        border: border ?? Border.all(color: accent.withValues(alpha: 0.40), width: 1.5),
       ),
       alignment: Alignment.center,
       child: Text(
