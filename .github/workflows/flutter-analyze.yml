@@ -125,6 +125,12 @@ jobs:
             test/search_result_card_test.dart \
             test/moviebox_progress_bar_test.dart
 
+      - name: Run extension scheduling and queue dispatch tests
+        run: |
+          flutter test \
+            test/extension_call_priority_test.dart \
+            test/extension_queue_dispatch_test.dart
+
       - name: Run logging and cookie snapshot tests
         run: |
           flutter test \
