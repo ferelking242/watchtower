@@ -253,6 +253,18 @@ starts the video.
   through `isolate_service.dart` (both the isolate worker and
   `_runOnMainThread`); an untagged call lands in bucket 1 and can again block
   playback.
+- The queued action + completer must be owned by the `_ExtensionCall`, not by
+  the `pump()` closure in `ExtensionServiceRegistry.run`. Because each
+  invocation creates its own `pump()` but they all drain the *shared* queue, a
+  `pump()` that closed over the caller's `action` ran the wrong extension
+  method for a call that had queued behind another — `getVideoList`/`getRecommendations`
+  returned the pending `getDetail` `MManga` ("type 'MManga' is not a subtype of
+  type 'List<Video>'") and the player loaded forever. `test/extension_queue_dispatch_test.dart`
+  pins this.
+- `isolate_service.dart`'s response listener must never `complete` via an
+  unguarded `data as T`: a wrong-typed payload threw inside the listener and
+  left the caller's future uncompleted (infinite spinner). Cast inside a `try`
+  and `completeError` on mismatch.
 
 
 ## Rust dependency invariants (do not regress)
