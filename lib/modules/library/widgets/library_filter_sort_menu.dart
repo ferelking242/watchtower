@@ -394,6 +394,11 @@ class _LibraryFilterSortMenuState
                   settings: settings,
                 ).notifier)
                 .setType(0);
+            // Sources/Categories are separate client-side selections; clearing
+            // only the tri-state filters left them applied, so the library
+            // stayed narrowed after "Retirer les filtres".
+            selectedLibrarySourcesFilter(itemType).value = <String>{};
+            selectedLibraryCategoriesFilter(itemType).value = <int>{};
             HapticFeedback.lightImpact();
           },
         ),
