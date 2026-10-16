@@ -352,14 +352,38 @@ class WatchInlinePlayer {
     }
   }
 
+  /// Stops the player without ever letting a stuck teardown gate the next
+  /// load. The stop is best-effort: if it does not return quickly we proceed,
+  /// because the upcoming `open()` replaces the media anyway.
+  Future<void> _stopBestEffort(String where) async {
+    final sw = Stopwatch()..start();
+    try {
+      await _player.stop().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          AppLogger.log(
+            '[PLAYER] stop() did not return in 2s ($where)'
+            '  ← previous stream teardown stalled; proceeding anyway',
+            logLevel: LogLevel.warning,
+            tag: LogTag.watch,
+          );
+        },
+      );
+    } catch (_) {}
+    if (sw.elapsedMilliseconds < 200) return;
+    AppLogger.log(
+      '[PLAYER] stop() took ${sw.elapsedMilliseconds}ms ($where)',
+      logLevel: LogLevel.debug,
+      tag: LogTag.watch,
+    );
+  }
+
   Future<void> load({required WidgetRef ref, required Chapter chapter}) async {
     loadFailed = false;
     hasVideoUrl = false;
     // Kill any ongoing playback immediately so the old audio doesn't bleed
     // into the next episode while the network request is in flight.
-    try {
-      await _player.stop();
-    } catch (_) {}
+    await _stopBestEffort('load');
     AppLogger.log(
       '[PLAYER] load START chapterId=${chapter.id}',
       logLevel: LogLevel.info,
