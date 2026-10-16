@@ -155,7 +155,11 @@ fn extract_resources_from_archive<R: Read + Seek>(
             .by_index(i)
             .map_err(|e| format!("Cannot read archive entry: {}", e))?;
 
-        let name = file.name().to_string();
+        // zip 9 returns `ZipResult<Cow<str>>` here, not a plain `&str`.
+        let name = file
+            .name()
+            .map_err(|e| format!("Cannot read archive entry name: {}", e))?
+            .into_owned();
 
         if name.ends_with(".css") {
             let mut content = Vec::new();

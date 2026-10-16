@@ -35,6 +35,16 @@ codegen-units = 1
   tokio = { version = "1", features = ["full"] }
   tokio-util = "0.7.16"
   epub = "2.1.5"
+  # `zip` publishes only 9.0.3 now: every earlier release (3.0.0 through 8.6.0)
+  # was yanked from crates.io, so a loose 8.x/3.x requirement can no longer be
+  # resolved and the build fails before compiling anything.
   zip = "9.0.3"
+
+  # epub 2.1.5 pins `zip = "^3.0.0"`, and zip 3.0.0 is yanked, so the registry
+  # copy of epub is unresolvable too. Point at the vendored copy (same 2.1.5
+  # sources) whose only change is building against zip 9. Remove both this patch
+  # and rust/vendor/epub once epub-rs publishes a zip-9-compatible release.
+  [patch.crates-io]
+  epub = { path = "vendor/epub" }
   
   

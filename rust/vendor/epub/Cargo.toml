@@ -1,0 +1,33 @@
+[package]
+authors = ["Daniel Garcia Moreno <dani@danigm.net>"]
+description = "Library to support the reading of epub files."
+documentation = "https://docs.rs/epub/"
+keywords = ["epub", "ebook"]
+license = "GPL-3.0"
+name = "epub"
+repository = "https://github.com/danigm/epub-rs.git"
+# Vendored from crates.io `epub 2.1.5`, patched to build against `zip 9`.
+# Every zip release <= 8.6.0 (including 3.0.0, the one epub 2.1.5 requires) was
+# yanked from crates.io, so the registry copy can no longer resolve. Only the
+# two `zip` API call sites in `src/archive.rs` needed adapting; see the in-file
+# comments. Keep the version in sync with `rust/Cargo.toml`'s `[patch]`.
+version = "2.1.5"
+edition = "2024"
+
+[dependencies]
+xml-rs = "1.0.0"
+percent-encoding = "2.3.2"
+thiserror = "2.0.17"
+
+[features]
+mock = []
+
+[dependencies.zip]
+version = "9.0.3"
+default-features = false
+features = ["deflate"]
+
+[dependencies.regex]
+version = "1.12.2"
+default-features = false
+features = ["std", "unicode", "perf-cache", "perf-dfa", "perf-inline"]

@@ -254,3 +254,21 @@ starts the video.
   `_runOnMainThread`); an untagged call lands in bucket 1 and can again block
   playback.
 
+
+## Rust dependency invariants (do not regress)
+- The Android/iOS/Linux/Windows native builds compile `rust/Cargo.toml`. It now
+  pins `zip = "9.0.3"`, the **only** zip release still published: every earlier
+  version (3.0.0 through 8.6.0) was yanked from crates.io, so a loose `8.x`/`3.x`
+  requirement fails dependency resolution before any code compiles
+  (`failed to select a version for the requirement 'zip = "^8.5.0"'`).
+- `epub 2.1.5` pins `zip = "^3.0.0"`, which is yanked, so the registry copy of
+  `epub` is unresolvable too. `rust/vendor/epub` is the same 2.1.5 source with
+  only its zip call sites adapted to zip 9, wired in via `[patch.crates-io]`.
+  Delete the patch and the vendor directory only once epub-rs publishes a
+  zip-9-compatible release.
+- `rust/Cargo.lock` is committed so the resolved graph (including `zip 9.0.3`)
+  cannot silently drift onto a yanked or incompatible version. Regenerate with
+  `cargo generate-lockfile` in `rust/` when dependencies change.
+- Two zip 9 API breaks matter here: `ZipArchive::file_names()` now yields
+  `ZipResult<Cow<str>>` (was `&str`), and `ZipFile::name()` returns
+  `ZipResult<Cow<str>>` (was `&str`). Both call sites are adapted.
