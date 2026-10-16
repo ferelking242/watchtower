@@ -46,6 +46,15 @@ class ExtensionServiceRegistry {
     return _cache.putIfAbsent(key, () => getExtensionService(source));
   }
 
+  /// Injects a pre-built [service] for [source], bypassing the JS/Dart runtime
+  /// factory. Test-only: lets a unit test drive the queue without booting
+  /// QuickJS, so the scheduling/dispatch contract can be asserted directly.
+  static void debugRegisterService(Source source, ExtensionService service) {
+    final key = _key(source);
+    _cache[key] = service;
+    _signatures[key] = _signature(source);
+  }
+
   /// Runs calls for one source in order. Extension runtimes are not reentrant:
   /// two async JS/Dart calls can otherwise interleave on the same interpreter.
   ///
@@ -59,10 +68,28 @@ class ExtensionServiceRegistry {
   }) {
     final key = _key(source);
     final queue = _queues.putIfAbsent(key, _ExtensionSourceQueue.new);
-    final generation = queue.generation;
     final completer = Completer<T>();
     final priority = priorityFor(serviceType);
-    final call = _ExtensionCall(completer, priority);
+    // The closure is bound to *this* call's action, completer and source, so
+    // whichever invocation drains it runs the right extension method. Sharing
+    // a `pump()` that closed over the caller's `action` made a later call
+    // execute the previous call's method (e.g. `getVideoList` returning the
+    // pending `getDetail` MManga → "type 'MManga' is not a subtype of
+    // 'List<Video>'" and an infinite loading state).
+    final call = _ExtensionCall(
+      completer,
+      priority,
+      () async {
+        try {
+          final result = await action(get(source));
+          if (!completer.isCompleted) completer.complete(result);
+        } catch (error, stackTrace) {
+          if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        }
+      },
+    );
     queue.enqueue(call);
 
     if (queue.running != null || queue.pending > 1) {
@@ -81,9 +108,7 @@ class ExtensionServiceRegistry {
         _removeQueueIfIdle(key, queue);
         return;
       }
-      if (queue.generation != generation ||
-          !identical(_queues[key], queue) ||
-          queue.disposing) {
+      if (!identical(_queues[key], queue) || queue.disposing) {
         if (!next.completer.isCompleted) {
           next.completer.completeError(
             StateError('Extension source was disposed before the request ran'),
@@ -103,16 +128,7 @@ class ExtensionServiceRegistry {
         );
       }
 
-      final running = Future<void>.sync(() async {
-        try {
-          final result = await action(get(source));
-          if (!next.completer.isCompleted) next.completer.complete(result);
-        } catch (error, stackTrace) {
-          if (!next.completer.isCompleted) {
-            next.completer.completeError(error, stackTrace);
-          }
-        }
-      });
+      final running = Future<void>.sync(next.execute);
       queue.running = running;
       running.whenComplete(() {
         if (identical(queue.running, running)) queue.running = null;
@@ -161,7 +177,6 @@ class ExtensionServiceRegistry {
   static void disposeSource(String sourceId) {
     final queue = _queues.remove(sourceId);
     if (queue != null) {
-      queue.generation++;
       queue.disposing = true;
       queue.drain();
     }
@@ -185,7 +200,6 @@ class ExtensionServiceRegistry {
     final queues = Map<String, _ExtensionSourceQueue>.from(_queues);
     _queues.clear();
     for (final queue in queues.values) {
-      queue.generation++;
       queue.disposing = true;
       queue.drain();
     }
@@ -222,7 +236,6 @@ class _ExtensionSourceQueue {
   /// (bucket 1) and the decorative tabs (bucket 2) instead of queueing behind
   /// them — the tap→play path must never wait on a metadata or tab fetch.
   final List<List<_ExtensionCall>> _buckets = [[], [], []];
-  int generation = 0;
   bool disposing = false;
 
   int get pending => _buckets.fold(0, (sum, bucket) => sum + bucket.length);
@@ -264,12 +277,17 @@ class _ExtensionCall {
   /// Scheduling bucket from [ExtensionServiceRegistry.priorityFor];
   /// [_ExtensionSourceQueue] keeps a list per bucket.
   final int priority;
+  /// Runs this call's extension method and completes [completer]. Owned by
+  /// the call rather than by the pump closure, so whichever invocation drains
+  /// the shared queue executes the correct action.
+  final Future<void> Function() execute;
   /// Kept in sync with [_ExtensionSourceQueue._buckets] by `enqueue`.
   late List<_ExtensionCall> bucket;
   /// When the call entered the queue, used to report how long it waited.
   final DateTime queuedAt;
 
-  _ExtensionCall(this.completer, this.priority) : queuedAt = DateTime.now();
+  _ExtensionCall(this.completer, this.priority, this.execute)
+    : queuedAt = DateTime.now();
 }
 
 /// Returns the cached [ExtensionService] for [source] via

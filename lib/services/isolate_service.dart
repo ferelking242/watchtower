@@ -558,7 +558,22 @@ class GetIsolateService {
             logLevel: LogLevel.debug,
             tag: LogTag.extension_,
           );
-          completer.complete(response['data'] as T);
+          // Never cast inside the listener without a guard: a wrong-typed
+          // payload would throw here, leaving [completer] uncompleted and the
+          // caller's FutureBuilder spinning forever ("chargement infini").
+          try {
+            completer.complete(response['data'] as T);
+          } catch (castError, castStack) {
+            AppLogger.log(
+              '✗ $serviceType [$srcLabel] returned an unexpected payload type '
+              'for the caller: $castError',
+              logLevel: LogLevel.error,
+              tag: LogTag.extension_,
+              error: castError,
+              stackTrace: castStack,
+            );
+            completer.completeError(castError, castStack);
+          }
         } else {
           sw.stop();
           // Error detail already logged in the isolate; echo at ERROR level here
