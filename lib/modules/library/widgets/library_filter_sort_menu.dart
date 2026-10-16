@@ -593,11 +593,23 @@ ValueNotifier<Set<int>> selectedLibraryCategoriesFilter(ItemType itemType) =>
 /// filtered+sorted list. No-op when nothing is selected.
 List<Manga> applyLibrarySourceAndCategoryFilters(
   ItemType itemType,
-  List<Manga> mangas,
-) {
-  final sources = selectedLibrarySourcesFilter(itemType).value;
+  List<Manga> mangas, {
+  Set<String>? selectedSources,
+  Set<int>? selectedCategories,
+}) {
+  final sources =
+      selectedSources ?? selectedLibrarySourcesFilter(itemType).value;
+  final categories =
+      selectedCategories ?? selectedLibraryCategoriesFilter(itemType).value;
   if (sources.isNotEmpty) {
     mangas = mangas.where((m) => sources.contains(m.source)).toList();
+  }
+  if (categories.isNotEmpty) {
+    mangas = mangas
+        .where(
+          (manga) => manga.categories?.any(categories.contains) ?? false,
+        )
+        .toList();
   }
   return mangas;
 }
