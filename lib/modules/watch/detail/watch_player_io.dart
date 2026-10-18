@@ -315,7 +315,40 @@ class WatchInlinePlayer {
       // media_kit writes the packet cache to disk by default; for a network
       // stream that only adds write latency before the first frame.
       await plat.setProperty('cache-on-disk', 'no');
-    } catch (_) {}
+      // Confirm the options really landed: a silently rejected property
+      // (wrong name/type) is indistinguishable from "the tuning did nothing"
+      // in a user log, which is exactly how this stayed unexplained.
+      final applied = <String, String>{};
+      for (final name in const [
+        'demuxer-lavf-analyzeduration',
+        'demuxer-lavf-probe-info',
+        'cache-on-disk',
+        'cache',
+        'cache-pause',
+        'cache-pause-initial',
+        'cache-pause-wait',
+        'demuxer-max-bytes',
+        'hls-bitrate',
+        'network-timeout',
+      ]) {
+        try {
+          applied[name] = await plat.getProperty(name) as String;
+        } catch (_) {
+          applied[name] = '<unreadable>';
+        }
+      }
+      AppLogger.log(
+        '[PLAYER] mpv startup tuning applied  $applied',
+        logLevel: LogLevel.info,
+        tag: LogTag.watch,
+      );
+    } catch (tuneErr) {
+      AppLogger.log(
+        '[PLAYER] mpv startup tuning FAILED: $tuneErr',
+        logLevel: LogLevel.warning,
+        tag: LogTag.watch,
+      );
+    }
   }
 
   /// HEAD-probes [url] only to log the CDN's real status code. Never gates
