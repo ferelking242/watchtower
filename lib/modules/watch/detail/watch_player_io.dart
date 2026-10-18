@@ -25,6 +25,7 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
 import 'package:watchtower/services/get_video_list.dart';
+import 'package:watchtower/services/hls_adaptive_quality.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
 import 'package:cached_network_image/cached_network_image.dart';
@@ -263,6 +264,10 @@ class WatchInlinePlayer {
     } catch (_) {}
     if (_isDisposed) return;
     await _tuneStartupForNetworkStreams();
+    // Switching back to the adaptive entry must re-decide the rendition for
+    // the current connection: `hls-bitrate` still holds whatever the previous
+    // master was opened with, and it is read at open() time.
+    await _applyAdaptiveQuality(targetVideo);
     // Bounded like the load() path: a stalled socket must not freeze the
     // settings sheet forever with no visible error.
     await _player
@@ -298,6 +303,125 @@ class WatchInlinePlayer {
     loadFailed = false;
   }
 
+  /// Chooses the HLS rendition for [url] from the measured connection speed
+  /// and pushes it to libmpv as `hls-bitrate`.
+  ///
+  /// FFmpeg's HLS demuxer reads `hls-bitrate` once, at `open()`, and never
+  /// switches afterwards — there is no client-side ABR (a browser's hls.js
+  /// does its own). Its default, `max`, is therefore a static "always take the
+  /// best rendition" policy, which on a connection slower than the top
+  /// rendition's bitrate means stalling on the first segments. This measures
+  /// the real throughput and asks mpv for the best rendition that fits, which
+  /// is what the browser does before its first frame.
+  ///
+  /// Runs only for HLS and only on the first attempt of a load: retries happen
+  /// because a rendition failed, and re-probing would only delay the fallback.
+  /// Every failure path leaves the default in place, so this can never make
+  /// playback worse than before.
+  Future<void> _applyAdaptiveQuality(wt.Video video) async {
+    if (!_isHlsUrl(video.url)) return;
+    try {
+      final probe = HlsAdaptiveProbe(
+        fetchText: _fetchTextBounded,
+        fetchRange: _fetchRangeBounded,
+      );
+      final sw = Stopwatch()..start();
+      final plan = await probe.planFor(video.url, headers: video.headers);
+      sw.stop();
+      if (plan == null) {
+        AppLogger.log(
+          '[PLAYER] ABR probe inconclusive in ${sw.elapsedMilliseconds}ms '
+          '— keeping mpv hls-bitrate=max',
+          logLevel: LogLevel.info,
+          tag: LogTag.watch,
+        );
+        return;
+      }
+      AppLogger.log(
+        '[PLAYER] ABR ${plan.reason} (probe ${sw.elapsedMilliseconds}ms)',
+        logLevel: LogLevel.info,
+        tag: LogTag.watch,
+      );
+      if (plan.bitrate == null) return;
+      final plat = _player.platform as dynamic;
+      await plat.setProperty('hls-bitrate', plan.bitrate.toString());
+    } catch (error) {
+      AppLogger.log(
+        '[PLAYER] ABR probe skipped: $error',
+        logLevel: LogLevel.warning,
+        tag: LogTag.watch,
+      );
+    }
+  }
+
+  static bool _isHlsUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('.m3u8') || lower.contains('/hls');
+  }
+
+  /// Text GET with the source's own headers, bounded by a short timeout.
+  /// Used only by the ABR probe, which must never hold up `open()`.
+  Future<String?> _fetchTextBounded(
+    String url,
+    Map<String, String>? headers,
+  ) async {
+    HttpClient? cli;
+    try {
+      cli = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+      final req = await cli.getUrl(Uri.parse(url));
+      _applyProbeHeaders(req, headers);
+      final resp = await req.close().timeout(const Duration(seconds: 5));
+      if (resp.statusCode != 200) return null;
+      return await resp
+          .transform(const Utf8Decoder())
+          .join()
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      return null;
+    } finally {
+      cli?.close(force: true);
+    }
+  }
+
+  /// Bounded byte read used to measure throughput: reads at most [maxBytes]
+  /// and stops as soon as the caller cancels by closing the client.
+  Future<HttpRangeResponse?> _fetchRangeBounded(
+    String url,
+    int maxBytes,
+    Map<String, String>? headers,
+  ) async {
+    HttpClient? cli;
+    try {
+      cli = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+      final req = await cli.getUrl(Uri.parse(url));
+      _applyProbeHeaders(req, headers);
+      req.headers.set('Range', 'bytes=0-${maxBytes - 1}');
+      final resp = await req.close().timeout(const Duration(seconds: 5));
+      if (resp.statusCode != 200 && resp.statusCode != 206) return null;
+      var received = 0;
+      await for (final chunk in resp) {
+        received += chunk.length;
+        // Stop reading the moment we have the sample: the rest of the segment
+        // would only waste bandwidth the video needs.
+        if (received >= maxBytes) break;
+      }
+      return HttpRangeResponse(bytes: received);
+    } catch (_) {
+      return null;
+    } finally {
+      cli?.close(force: true);
+    }
+  }
+
+  void _applyProbeHeaders(HttpClientRequest req, Map<String, String>? headers) {
+    headers?.forEach((key, value) {
+      if (value.isNotEmpty) req.headers.set(key, value);
+    });
+    if (_ua.isNotEmpty) req.headers.set('User-Agent', _ua);
+    if (_referer.isNotEmpty) req.headers.set('Referer', _referer);
+    req.headers.set('Accept', '*/*');
+  }
+
   /// Applies the network-stream libmpv properties described on
   /// [_startupTuned]. Runs at most once per [WatchInlinePlayer].
   ///
@@ -321,6 +445,23 @@ class WatchInlinePlayer {
       // media_kit writes the packet cache to disk by default; for a network
       // stream that only adds write latency before the first frame.
       await plat.setProperty('cache-on-disk', 'no');
+      // Keep the cache, but never let it gate the first frame: the browser
+      // starts as soon as one segment is decodable, and `cache-pause-initial`
+      // would instead wait for the read-ahead to fill, which is exactly the
+      // startup delay this player is trying to remove. The adaptive rendition
+      // choice below is what prevents the stalls a deeper buffer would hide.
+      await plat.setProperty('cache', 'yes');
+      await plat.setProperty('cache-pause', 'yes');
+      await plat.setProperty('cache-pause-initial', 'no');
+      // 64 MiB of read-ahead: enough for ~3 min at 2.7 Mbps, still bounded.
+      await plat.setProperty('demuxer-max-bytes', '67108864');
+      // Give up on a silent CDN instead of hanging the demuxer forever.
+      await plat.setProperty('network-timeout', '20');
+      // HLS: FFmpeg's demuxer reads this once at open() and never switches
+      // (no client-side ABR, unlike hls.js). Its `max` default is why a
+      // 1080p rendition gets picked even on a slow link. `_applyAdaptiveQuality`
+      // sets a numeric value that fits the measured throughput before opening.
+      await plat.setProperty('hls-bitrate', 'max');
       // Confirm the options really landed: a silently rejected property
       // (wrong name/type) is indistinguishable from "the tuning did nothing"
       // in a user log, which is exactly how this stayed unexplained.
@@ -610,6 +751,9 @@ class WatchInlinePlayer {
           return;
         }
         await _tuneStartupForNetworkStreams();
+        // First attempt only: a retry means this rendition already failed, so
+        // re-probing would only add latency to the fallback.
+        if (i == 0) await _applyAdaptiveQuality(v);
         if (_isDisposed) {
           watchdog.cancel();
           durSub?.cancel();

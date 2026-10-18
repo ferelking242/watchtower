@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -9,6 +10,7 @@ import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/get_source_preference.dart';
+import 'package:watchtower/services/hls_variant_resolver.dart';
 import 'package:watchtower/services/youtube_watch_resolver.dart';
 import 'package:watchtower/services/torrent_server.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -287,6 +289,15 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
       }
     }
 
+    // Extensions report one opaque "Auto" entry for an HLS master playlist,
+    // so the real renditions (250p..1080p) stay invisible and the picker can
+    // only offer the CDN's default. Parsing the master costs one small GET and
+    // turns that entry into a full, labelled list.
+    videos = await expandHlsVariants(
+      videos,
+      fetchPlaylist: (url) => _fetchHlsPlaylist(url, videos),
+    );
+
     // Some source extensions (lightweight FR streaming wrappers, mostly)
     // have no real CDN backend of their own — they just relay the official
     // YouTube embed the site uses, so they hand back the YouTube watch/embed
@@ -352,6 +363,56 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
     // the whole watch screen. The player already handles an empty result as
     // a recoverable "no playable source" state.
     return (<Video>[], false, <String>[], null);
+  }
+}
+
+/// Fetches an HLS playlist body for [expandHlsVariants].
+///
+/// Reuses the headers the extension attached to the adaptive entry, because
+/// these CDNs sign the URL *and* check the Referer. Bounded hard (2 s): this
+/// only ever adds optional quality entries, and it sits on the startup path,
+/// so a slow CDN must not delay `getVideoList` returning the playable stream.
+Future<String?> _fetchHlsPlaylist(String url, List<Video> videos) async {
+  final headers = videos
+      .firstWhere(
+        (video) => video.url == url,
+        orElse: () => Video(url, '', url),
+      )
+      .headers;
+  final sw = Stopwatch()..start();
+  HttpClient? cli;
+  try {
+    cli = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    final req = await cli.getUrl(Uri.parse(url));
+    headers?.forEach((key, value) {
+      if (value.isNotEmpty) req.headers.set(key, value);
+    });
+    req.headers.set('Accept', '*/*');
+    final resp = await req.close().timeout(const Duration(seconds: 2));
+    if (resp.statusCode != 200) {
+      AppLogger.log(
+        '[$url] HLS master probe status=${resp.statusCode} — keeping the '
+        'extension entry only',
+        logLevel: LogLevel.warning,
+        tag: LogTag.watch,
+      );
+      return null;
+    }
+    final body = await resp
+        .transform(const Utf8Decoder())
+        .join()
+        .timeout(const Duration(seconds: 2));
+    return body;
+  } catch (error) {
+    AppLogger.log(
+      'HLS master probe failed in ${sw.elapsedMilliseconds}ms: $error '
+      '— keeping the extension entry only',
+      logLevel: LogLevel.warning,
+      tag: LogTag.watch,
+    );
+    return null;
+  } finally {
+    cli?.close(force: true);
   }
 }
 

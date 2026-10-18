@@ -245,6 +245,35 @@ attempt with `false`. The 10 s watchdog only starts counting once `open()`
 returns, so an unbounded await on a stalled CDN socket would freeze the whole
 quality loop instead of falling back.
 
+### HLS rendition selection (do not regress)
+Neither backend adapts on its own: FFmpeg's HLS demuxer reads `hls-bitrate`
+**once** at `open()` and never switches, and libmpv exposes no client-side ABR.
+Its `max` default is therefore a static "always take the heaviest rendition"
+policy — the browser equivalent (hls.js) instead starts on a level that fits
+the measured throughput. On a connection slower than the top rendition this is
+what makes the app buffer where the site plays, and no amount of buffering
+tuning fixes it.
+
+- `lib/services/hls_adaptive_quality.dart` measures throughput on a **real
+  media segment** (a playlist is ~1 KB and only times round-trip latency) and
+  derives the `hls-bitrate` value to set before `open()`. Bounded end to end
+  (~400 ms on a normal link, 1.5 s worst case per request); any failure returns
+  `null` and leaves the default, so it can never make playback worse.
+- A rendition is only chosen when the master advertises a plausible
+  `BANDWIDTH`; below the lightest one it forces that lightest rendition rather
+  than letting mpv pick the heaviest.
+- `_applyAdaptiveQuality()` runs on the **first** attempt only: a retry exists
+  because that rendition already failed, so re-probing would just add latency
+  to the fallback. `switchQuality()` must re-run it, since `hls-bitrate` is
+  read at `open()` time.
+- Do **not** set `cache-pause-initial=yes`: it waits for the read-ahead to fill
+  before the first frame, which is the startup delay this player removes.
+- The rendition list shown in the picker comes from
+  `lib/services/hls_variant_resolver.dart` (`expandHlsVariants`), which parses
+  the master the extension returned as a single opaque "Auto" entry. Entries
+  are ordered by ascending bitrate so they double as step-down fallbacks.
+  Extensions must not list renditions themselves.
+
 ## Extension call scheduling invariants (do not regress)
 One source runs on **one** non-reentrant extension runtime
 (`ExtensionServiceRegistry._queues`, keyed by source). Every call for that
