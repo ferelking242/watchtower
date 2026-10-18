@@ -216,9 +216,25 @@ stall for seconds before the first frame while the extension itself resolved in
   (`demuxer-lavf-probesize`): it governs codec detection, and the
   `analyzeduration` cap already bounds probe time, so shrinking the byte window
   would only risk misdetecting on slower sources.
+- **Never skip `avformat_find_stream_info()` on an HLS/TS source.**
+  `demuxer-lavf-probe-info=nostreams` was briefly forced here (mirroring mpv's
+  `low-latency` profile) and broke *every* HLS attempt on xnxx: without the
+  probe mpv cannot read the H.264 extradata, decoder init fails with
+  "Could not open codec" after ~4.6 s, and the player falls back to the MP4
+  source - a 4.6 s stall the user sees as "the app is slow". The option is only
+  safe where the container already carries full codec parameters, which is why
+  mpv ships it inside `[low-latency]` (never as a default) and never alone.
+  Keep `probe-info` at its `auto` default: mpv's `format_hack.skipinfo` already
+  skips the probe for mp4/matroska and only the probe call can set `skipinfo`.
+- **`demuxer-lavf-analyzeduration=1`** bounds the probe without removing it.
+  Going lower (`0.1`) removes the extradata window the HLS decoder needs.
 - **The Dart HTTP probe must never gate playback.** `_probeStreamStatus()` only
   logs the CDN status; it is started with `unawaited()`. Awaiting it delayed
   `open()` by up to its 5 s response timeout.
+- **Log the options that were actually applied.** `_tuneStartupForNetworkStreams()`
+  reads each option back with `getProperty` and logs the map. `setProperty`
+  silently ignores an unknown name/type, so without the read-back a rejected
+  tuning is indistinguishable from a tuning that had no effect.
 
 `switchQuality()` must also call `_tuneStartupForNetworkStreams()` before its
 `open()`. Only the code paths are covered by inspection: there is no Flutter SDK

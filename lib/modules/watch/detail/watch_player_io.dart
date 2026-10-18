@@ -182,7 +182,8 @@ class WatchInlinePlayer {
   ///   (libavformat's default `analyzeduration`) before the demuxer reports
   ///   a duration, which is what we wait on to show the first frame. A
   ///   browser plays the same URL almost instantly because hls.js starts on
-  ///   the first segment instead of probing.
+  ///   the first segment instead of probing. We cap this at 1 s rather than
+  ///   skipping the probe: see `_tuneStartupForNetworkStreams()`.
   /// * `cache-on-disk=yes` (a media_kit default) writes the stream to a
   ///   temp file before decoding, adding I/O latency for no benefit here.
   ///
@@ -299,19 +300,24 @@ class WatchInlinePlayer {
 
   /// Applies the network-stream libmpv properties described on
   /// [_startupTuned]. Runs at most once per [WatchInlinePlayer].
+  ///
+  /// Only options that *bound* work are set here, never options that *skip*
+  /// it. `demuxer-lavf-probe-info=nostreams` used to be forced and broke
+  /// every HLS attempt on xnxx: without `avformat_find_stream_info()` mpv
+  /// cannot see the H.264 extradata, so decoder init failed with
+  /// "Could not open codec" ~4.6 s in and the player fell back to the MP4
+  /// source. `nostreams` is only safe for containers that already expose
+  /// full codec parameters (mpv ships it inside its `low-latency` profile,
+  /// not as a default, and never alone).
   Future<void> _tuneStartupForNetworkStreams() async {
     if (_startupTuned || _isDisposed) return;
     _startupTuned = true;
     try {
       final plat = _player.platform as dynamic;
-      // libavformat's pre-playback probe must finish before the demuxer
-      // reports streams/duration, and the loading overlay waits on it.
-      // Defaults target local files (5 s analyzeduration, full
-      // avformat_find_stream_info). The browser starts on the first HLS
-      // segment instead. These mirror mpv's own builtin.conf, which sets
-      // analyzeduration=0.1 and probe-info=nostreams for the same reason.
-      await plat.setProperty('demuxer-lavf-analyzeduration', '0.1');
-      await plat.setProperty('demuxer-lavf-probe-info', 'nostreams');
+      // Cap libavformat's pre-playback analysis. Its 5 s default targets
+      // local files; 1 s still gives the demuxer room to find codec
+      // extradata while bounding the wait on a network stream.
+      await plat.setProperty('demuxer-lavf-analyzeduration', '1');
       // media_kit writes the packet cache to disk by default; for a network
       // stream that only adds write latency before the first frame.
       await plat.setProperty('cache-on-disk', 'no');
@@ -326,7 +332,6 @@ class WatchInlinePlayer {
         'cache',
         'cache-pause',
         'cache-pause-initial',
-        'cache-pause-wait',
         'demuxer-max-bytes',
         'hls-bitrate',
         'network-timeout',
