@@ -135,11 +135,12 @@ Future<List<Video>> expandHlsVariants(
   final master = videos[masterIndex];
   String? body;
   try {
-    body = await fetchPlaylist(master.url);
+    body = HlsPlaylistCache.get(master.url) ?? await fetchPlaylist(master.url);
   } catch (_) {
     return videos;
   }
   if (body == null) return videos;
+  HlsPlaylistCache.put(master.url, body);
 
   final Uri? masterUri = Uri.tryParse(master.url);
   if (masterUri == null) return videos;
@@ -193,4 +194,60 @@ Future<List<Video>> expandHlsVariants(
 bool _looksLikeHls(Video video) {
   final url = video.url.toLowerCase();
   return url.contains('.m3u8') || video.quality.toLowerCase() == 'auto';
+}
+
+/// Short-lived cache of fetched playlist bodies.
+///
+/// One startup reads the same master playlist twice: [expandHlsVariants]
+/// fetches it to enumerate the renditions, then the player's ABR probe fetches
+/// it again to measure the connection. Both happen within a second of each
+/// other and a signed master URL is immutable for its lifetime, so the second
+/// fetch is pure latency on the tap-to-play path — the very path this player
+/// exists to shorten.
+///
+/// Deliberately tiny and time-bounded: entries expire after [ttl] and the map
+/// never holds more than [maxEntries], so this can only ever save a request,
+/// never serve a stale rendition list to a later session.
+class HlsPlaylistCache {
+  HlsPlaylistCache._();
+
+  /// How long a fetched body stays reusable. Long enough to cover the gap
+  /// between `getVideoList` and the player's first `open()`, short enough that
+  /// a retry or a re-entered screen refetches.
+  static Duration ttl = const Duration(seconds: 30);
+
+  static const int maxEntries = 16;
+
+  static final Map<String, _HlsCacheEntry> _entries = {};
+
+  /// Returns the cached body for [url], or `null` when absent or expired.
+  static String? get(String url) {
+    final entry = _entries[url];
+    if (entry == null) return null;
+    if (DateTime.now().difference(entry.storedAt) > ttl) {
+      _entries.remove(url);
+      return null;
+    }
+    return entry.body;
+  }
+
+  /// Stores [body] for [url], evicting the oldest entry beyond [maxEntries].
+  static void put(String url, String body) {
+    _entries[url] = _HlsCacheEntry(body, DateTime.now());
+    if (_entries.length <= maxEntries) return;
+    final oldest = _entries.entries.reduce(
+      (a, b) => a.value.storedAt.isBefore(b.value.storedAt) ? a : b,
+    );
+    _entries.remove(oldest.key);
+  }
+
+  /// Drops every entry. For tests and for callers that know a URL changed.
+  static void clear() => _entries.clear();
+}
+
+class _HlsCacheEntry {
+  final String body;
+  final DateTime storedAt;
+
+  const _HlsCacheEntry(this.body, this.storedAt);
 }

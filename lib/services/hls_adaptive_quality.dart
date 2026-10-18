@@ -181,12 +181,23 @@ class HlsAdaptiveProbe {
   /// push the selection down.
   final Duration probeBudget;
 
+  /// Wall-clock cap for the whole probe, covering every step.
+  ///
+  /// The probe runs before the first `open()`, so its cost is startup latency
+  /// the user pays directly. Per-request timeouts alone do not bound it — a
+  /// stalling CDN can hit each one in turn and stack them — so the plan is
+  /// abandoned once this budget is spent and mpv keeps its default. Only a
+  /// *rejected* probe is safe to abandon: the plan is an optimisation, never a
+  /// requirement.
+  final Duration totalBudget;
+
   const HlsAdaptiveProbe({
     required this.fetchText,
     required this.fetchRange,
     this.requestTimeout = const Duration(milliseconds: 1500),
     this.probeBytes = 192 * 1024,
     this.probeBudget = const Duration(milliseconds: 900),
+    this.totalBudget = const Duration(milliseconds: 1800),
   });
 
   /// Returns the plan to apply, or `null` when nothing could be measured.
@@ -194,8 +205,25 @@ class HlsAdaptiveProbe {
     String masterUrl, {
     Map<String, String>? headers,
   }) async {
-    final masterBody =
-        await fetchText(masterUrl, headers).timeout(requestTimeout, onTimeout: () => null);
+    try {
+      return await _plan(masterUrl, headers: headers).timeout(
+        totalBudget,
+        onTimeout: () => null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<AdaptiveQualityPlan?> _plan(
+    String masterUrl, {
+    Map<String, String>? headers,
+  }) async {
+    // `getVideoList` already fetched this master to expand the variants; a
+    // second fetch only delays `open()`. The cache is short-lived and the URL
+    // is signed/immutable, so reuse it when present.
+    final masterBody = HlsPlaylistCache.get(masterUrl) ??
+        await _fetchTextOrNull(masterUrl, headers);
     if (masterBody == null) return null;
 
     final Uri? masterUri = Uri.tryParse(masterUrl);
@@ -208,8 +236,7 @@ class HlsAdaptiveProbe {
     // Probe the heaviest rendition: measuring the lightest would only prove
     // the connection clears the floor we already assume.
     final probeTarget = variants.first;
-    final variantBody = await fetchText(probeTarget.url, headers)
-        .timeout(requestTimeout, onTimeout: () => null);
+    final variantBody = await _fetchTextOrNull(probeTarget.url, headers);
     if (variantBody == null) return null;
 
     final segmentUrl = firstSegmentUrl(variantBody, probeTarget.url);
@@ -218,8 +245,8 @@ class HlsAdaptiveProbe {
     final throughput = await measureThroughput(
       segmentUrl,
       headers: headers,
-      fetchRange: (url, maxBytes, hdrs) => fetchRange(url, maxBytes, hdrs)
-          .timeout(requestTimeout, onTimeout: () => null),
+      fetchRange: (url, maxBytes, hdrs) =>
+          _fetchRangeOrNull(url, maxBytes, hdrs),
       maxBytes: probeBytes,
       budget: probeBudget,
     );
@@ -229,6 +256,38 @@ class HlsAdaptiveProbe {
       variants: variants,
       throughputBitsPerSecond: throughput,
     );
+  }
+
+  /// Bounded [fetchText] that resolves to `null` on timeout or error.
+  ///
+  /// Deliberately a widening wrapper rather than `Future.timeout(onTimeout:)`:
+  /// `Future<String>.timeout` expects `() => FutureOr<String>`, which a `null`
+  /// default cannot satisfy, so `onTimeout: () => null` throws
+  /// `type '() => Null' is not a subtype of type '(() => FutureOr<String>)?'`
+  /// at runtime whenever [fetchText] is not itself declared nullable. Catching
+  /// the timeout here sidesteps the variance trap entirely.
+  Future<String?> _fetchTextOrNull(
+    String url,
+    Map<String, String>? headers,
+  ) async {
+    try {
+      return await fetchText(url, headers).timeout(requestTimeout);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Bounded [fetchRange] that resolves to `null` on timeout or error.
+  Future<HttpRangeResponse?> _fetchRangeOrNull(
+    String url,
+    int maxBytes,
+    Map<String, String>? headers,
+  ) async {
+    try {
+      return await fetchRange(url, maxBytes, headers).timeout(requestTimeout);
+    } catch (_) {
+      return null;
+    }
   }
 }
 

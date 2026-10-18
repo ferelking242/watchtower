@@ -32,6 +32,10 @@ seg-2.ts
 ''';
 
 void main() {
+  // The playlist cache is process-wide and keyed by URL; these tests reuse a
+  // few URLs on purpose, so each one must start from a cold cache.
+  setUp(HlsPlaylistCache.clear);
+
   group('HlsVariantResolver.parseMaster', () {
     test('detects a master playlist but not a media playlist', () {
       expect(HlsVariantResolver.isMasterPlaylist(_xnxxMaster), isTrue);
@@ -201,6 +205,57 @@ v-360bw.m3u8
       );
 
       expect(expanded.every((v) => v.headers?['Referer']?.contains('xnxx') ?? false), isTrue);
+    });
+  });
+
+  group('HlsPlaylistCache', () {
+    test('a second expansion of the same master does not refetch it', () async {
+      final adaptive = Video(
+        'https://cdn.example/x/master.m3u8',
+        'Auto',
+        'https://cdn.example/x/master.m3u8',
+      );
+      var fetches = 0;
+      Future<String?> fetch(String _) async {
+        fetches++;
+        return _xnxxMaster;
+      }
+
+      await expandHlsVariants([adaptive], fetchPlaylist: fetch);
+      await expandHlsVariants([adaptive], fetchPlaylist: fetch);
+
+      expect(fetches, 1);
+    });
+
+    test('a failed fetch is not cached', () async {
+      final videos = [
+        Video('https://cdn.example/y/master.m3u8', 'Auto', 'https://cdn.example/y/master.m3u8'),
+      ];
+
+      await expandHlsVariants(
+        videos,
+        fetchPlaylist: (_) async => throw Exception('offline'),
+      );
+
+      expect(HlsPlaylistCache.get(videos.first.url), isNull);
+    });
+
+    test('an expired entry is not served', () async {
+      HlsPlaylistCache.put('https://cdn.example/z/master.m3u8', _xnxxMaster);
+      HlsPlaylistCache.ttl = Duration.zero;
+      addTearDown(() => HlsPlaylistCache.ttl = const Duration(seconds: 30));
+
+      expect(HlsPlaylistCache.get('https://cdn.example/z/master.m3u8'), isNull);
+    });
+
+    test('stays bounded under many distinct URLs', () {
+      for (var i = 0; i < HlsPlaylistCache.maxEntries * 3; i++) {
+        HlsPlaylistCache.put('https://cdn.example/$i/master.m3u8', _xnxxMaster);
+      }
+      expect(
+        HlsPlaylistCache.get('https://cdn.example/${HlsPlaylistCache.maxEntries * 3 - 1}/master.m3u8'),
+        isNotNull,
+      );
     });
   });
 }

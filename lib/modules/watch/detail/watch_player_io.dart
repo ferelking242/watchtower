@@ -52,6 +52,15 @@ const _kAllSpeeds = <double>[
 // "Plein écran" (Fullscreen) = BoxFit.cover: the video is scaled up just
 // enough to cover the whole surface with zero black bars/margins on any
 // side (cropping overflow instead of letterboxing it).
+
+/// Wall-clock budget for trying sources, across all attempts.
+///
+/// The per-attempt watchdog is 10 s, and expanding an HLS master into its
+/// renditions can turn one entry into six. A source that answers nothing would
+/// otherwise stack those watchdogs well past the point a user gives up, so the
+/// loop stops here and reports the failure.
+const _kMaxLoadAttemptBudgetMs = 25000;
+
 const _kFitCycle = <BoxFit>[
   BoxFit.contain,
   BoxFit.cover,
@@ -602,6 +611,20 @@ class WatchInlinePlayer {
 
       for (var i = 0; i < videos.length; i++) {
         final v = videos[i];
+        // Rendition expansion can turn one entry into six, and the watchdog
+        // below is per attempt: without a global cap a source that answers
+        // nothing would stack 10 s per rendition. Stop while the user is still
+        // willing to wait and report the failure instead.
+        if (i > 0 && loadSw.elapsedMilliseconds > _kMaxLoadAttemptBudgetMs) {
+          AppLogger.log(
+            '[PLAYER] attempt budget ${_kMaxLoadAttemptBudgetMs}ms reached '
+            'after ${i} of ${videos.length} source(s)'
+            '  ← stopping instead of stacking another 10s watchdog',
+            logLevel: LogLevel.error,
+            tag: LogTag.watch,
+          );
+          break;
+        }
         AppLogger.log(
           '[PLAYER] try [${i + 1}/${videos.length}] quality="${v.quality}" '
           'host=${Uri.tryParse(v.url)?.host ?? "unknown"}',
