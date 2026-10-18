@@ -173,7 +173,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       },
       child: PageView.builder(
         controller: _arcPageCtrl,
-        padEnds: false,
+        // Keep the current/selected type in the center; the two adjacent types
+        // stay visible on its left and right.
+        padEnds: true,
         clipBehavior: Clip.hardEdge,
         itemCount: _kTypes.length * _kCarouselCopies,
         physics: const BouncingScrollPhysics(),
@@ -462,10 +464,15 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         children: [
           // ── Row 1: arc type selector + action icons ────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(4, 14, 14, 0),
+            padding: const EdgeInsets.fromLTRB(12, 14, 14, 0),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final rowWidth = constraints.maxWidth;
+                const actionStripWidth = 34 * 3 + 6 * 2;
+                const selectorGap = 8.0;
+                final selectorWidth = (rowWidth - actionStripWidth - selectorGap)
+                    .clamp(0.0, 260.0)
+                    .toDouble();
                 return SizedBox(
                   width: rowWidth,
                   height: 56,
@@ -480,13 +487,12 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                             ignoring: _showSearch,
                             child: Row(
                               children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 56,
-                                    child: _buildArcTypeSelector(cs, isDark),
-                                  ),
+                                SizedBox(
+                                  width: selectorWidth,
+                                  height: 56,
+                                  child: _buildArcTypeSelector(cs, isDark),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: selectorGap),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -538,6 +544,14 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   ),
                 );
               },
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+            child: Container(
+              height: 1,
+              color: cs.outlineVariant.withValues(alpha: 0.42),
             ),
           ),
 
