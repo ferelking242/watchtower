@@ -348,3 +348,24 @@ must not leak into watch code paths or logs:
 - Two zip 9 API breaks matter here: `ZipArchive::file_names()` now yields
   `ZipResult<Cow<str>>` (was `&str`), and `ZipFile::name()` returns
   `ZipResult<Cow<str>>` (was `&str`). Both call sites are adapted.
+
+## HLS startup path (do not regress)
+- `getVideoList` and the player's ABR probe read the **same** master playlist.
+  `HlsPlaylistCache` (`lib/services/hls_variant_resolver.dart`) is what keeps
+  that to one request: `expandHlsVariants` stores the body, `HlsAdaptiveProbe`
+  reuses it. The cache is TTL-bounded (30 s) and size-bounded (16 entries), so
+  it can only ever save a request, never serve a stale rendition list.
+- The ABR probe runs **before** the first `open()`, so its whole cost is
+  startup latency. It is bounded twice: `requestTimeout` per request and
+  `totalBudget` (1.8 s) for the sequence. Per-request timeouts alone do not
+  bound it — a CDN answering each request just under the limit would stack
+  them. A timed-out probe must return `null` (mpv keeps `hls-bitrate=max`),
+  never throw.
+- Never bound a `Future<String>` with `.timeout(onTimeout: () => null)`: that
+  throws `type '() => Null' is not a subtype of type
+  '(() => FutureOr<String>)?'` because `FutureOr<String>` is not nullable. It
+  only *looks* safe when the callee is declared `Future<String?>`; any
+  non-nullable stub (a test double, a future caller) turns the call into a
+  silent no-op. Wrap in a nullable-returning helper that catches the timeout
+  instead (see `_fetchTextOrNull` / `_fetchRangeOrNull`).
+
