@@ -4,6 +4,7 @@
 //   import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:math' as math;
@@ -426,8 +427,6 @@ class WatchInlinePlayer {
     headers?.forEach((key, value) {
       if (value.isNotEmpty) req.headers.set(key, value);
     });
-    if (_ua.isNotEmpty) req.headers.set('User-Agent', _ua);
-    if (_referer.isNotEmpty) req.headers.set('Referer', _referer);
     req.headers.set('Accept', '*/*');
   }
 
