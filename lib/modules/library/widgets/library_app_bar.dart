@@ -20,20 +20,15 @@ import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 
 /// AppBar for the standalone library screen.
 ///
-/// Actions order (per design spec): Search → Notifications → Three-dots menu
-/// Filter is accessible:
-///   • Inside the search field when search mode is active (filter overlay).
-///   • Via the three-dots menu ("Filters & Sort") when search is inactive.
-///
-/// All icons use the Broken icon set — no Material icons in the action area.
+/// The action carousel keeps three commands visible at once and exposes the
+/// remaining actions through horizontal swipes. The search-field filter overlay
+/// remains available while searching.
 class LibraryAppBar extends ConsumerStatefulWidget
     implements PreferredSizeWidget {
   final ItemType itemType;
@@ -72,7 +67,8 @@ class LibraryAppBar extends ConsumerStatefulWidget
   });
 
   @override
-  Size get preferredSize => Size.fromHeight(AppBar().preferredSize.height);
+  Size get preferredSize =>
+      Size.fromHeight(AppBar().preferredSize.height + 1);
 
   @override
   ConsumerState<LibraryAppBar> createState() => _LibraryAppBarState();
@@ -141,7 +137,20 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
 
     return AppBar(
       elevation: 0,
+      scrolledUnderElevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(
+                alpha: 0.45,
+              ),
+        ),
+      ),
       title: widget.isSearch
           ? null
           : Row(
@@ -168,7 +177,6 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
               ],
             ),
       actions: [
-        // ── 1. Search ──────────────────────────────────────────────────────
         if (widget.isSearch)
           SeachFormTextField(
             onChanged: (_) => widget.onSearchClear(),
@@ -179,18 +187,7 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
               widget.onSearchClear();
             },
             filterButton: filterBtn,
-          )
-        else
-          IconButton(
-            splashRadius: 20,
-            onPressed: () {
-              widget.textEditingController.clear();
-              widget.onSearchToggle();
-            },
-            icon: const Icon(Broken.search_normal_1),
           ),
-
-        // Ignore-filters checkbox (only when searching, mobile)
         if (widget.isSearch)
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -210,115 +207,324 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
               ),
             ],
           ),
-
-        // ── 2. Notifications ───────────────────────────────────────────────
-        IconButton(
-          splashRadius: 20,
-          onPressed: () => context.push('/notifications'),
-          icon: const Icon(Broken.notification),
-          tooltip: l10n.updates,
-        ),
-
-        // ── 3. Three-dots popup ────────────────────────────────────────────
-        ArrowPopupMenuButton<int>(
-          popUpAnimationStyle: popupAnimationStyle,
-          icon: const Icon(Broken.more_2),
-          itemBuilder: (context) {
-            return [
-              PopupMenuItem<int>(
-                value: 0,
-                child: Row(
-                  children: [
-                    const Icon(Broken.refresh_left_square, size: 18),
-                    const SizedBox(width: 10),
-                    Text(context.l10n.update_library),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 1,
-                child: Row(
-                  children: [
-                    const Icon(Broken.programming_arrows, size: 18),
-                    const SizedBox(width: 10),
-                    Text(l10n.open_random_entry),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 2,
-                child: Row(
-                  children: [
-                    const Icon(Broken.arrow_square, size: 18),
-                    const SizedBox(width: 10),
-                    Text(l10n.import),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 4,
-                child: Row(
-                  children: [
-                    const Icon(Broken.slider_horizontal, size: 18),
-                    const SizedBox(width: 10),
-                    Text(l10n.filter),
-                  ],
-                ),
-              ),
-              if (widget.itemType == ItemType.anime)
-                PopupMenuItem<int>(
-                  value: 3,
-                  child: Row(
-                    children: [
-                      const Icon(Broken.video_play, size: 18),
-                      const SizedBox(width: 10),
-                      Text(l10n.torrent_stream),
-                    ],
-                  ),
-                ),
-            ];
-          },
-          onSelected: (value) {
-            if (value == 0) {
-              manga.whenData((value) {
-                updateLibrary(
-                  ref: ref,
-                  context: context,
-                  mangaList: value,
-                  itemType: widget.itemType,
-                );
-              });
-            } else if (value == 1) {
-              manga.whenData((value) {
-                var randomManga = (value..shuffle()).first;
-                pushToMangaReaderDetail(
-                  ref: ref,
-                  archiveId: randomManga.isLocalArchive ?? false
-                      ? randomManga.id
-                      : null,
-                  context: context,
-                  lang: randomManga.lang!,
-                  mangaM: randomManga,
-                  source: randomManga.source!,
-                  sourceId: randomManga.sourceId,
-                );
-              });
-            } else if (value == 2) {
-              showImportLocalDialog(context, widget.itemType);
-            } else if (value == 3 && widget.itemType == ItemType.anime) {
-              addTorrent(context);
-            } else if (value == 4) {
-              showLibrarySettingsSheet(
+        _LibraryActionCarousel(
+          actions: [
+            _LibraryAction(
+              id: 'search',
+              icon: Broken.search_normal_1,
+              label: l10n.search,
+              onPressed: () {
+                if (!widget.isSearch) widget.textEditingController.clear();
+                widget.onSearchToggle();
+              },
+            ),
+            _LibraryAction(
+              id: 'notifications',
+              icon: Broken.notification,
+              label: l10n.updates,
+              onPressed: () => context.push('/notifications'),
+            ),
+            _LibraryAction(
+              id: 'update-library',
+              icon: Broken.refresh_left_square,
+              label: l10n.update_library,
+              onPressed: () {
+                manga.whenData((entries) {
+                  updateLibrary(
+                    ref: ref,
+                    context: context,
+                    mangaList: entries,
+                    itemType: widget.itemType,
+                  );
+                });
+              },
+            ),
+            _LibraryAction(
+              id: 'random-entry',
+              icon: Broken.programming_arrows,
+              label: l10n.open_random_entry,
+              onPressed: () {
+                manga.whenData((entries) {
+                  if (entries.isEmpty) return;
+                  final shuffledEntries = List<Manga>.of(entries)..shuffle();
+                  final randomManga = shuffledEntries.first;
+                  pushToMangaReaderDetail(
+                    ref: ref,
+                    archiveId: randomManga.isLocalArchive ?? false
+                        ? randomManga.id
+                        : null,
+                    context: context,
+                    lang: randomManga.lang!,
+                    mangaM: randomManga,
+                    source: randomManga.source!,
+                    sourceId: randomManga.sourceId,
+                  );
+                });
+              },
+            ),
+            _LibraryAction(
+              id: 'import',
+              icon: Broken.arrow_square,
+              label: l10n.import,
+              onPressed: () => showImportLocalDialog(context, widget.itemType),
+            ),
+            _LibraryAction(
+              id: 'filters-sort',
+              icon: Broken.slider_horizontal,
+              label: l10n.filter,
+              onPressed: () => showLibrarySettingsSheet(
                 context: context,
                 vsync: widget.vsync,
                 settings: widget.settings,
                 itemType: widget.itemType,
                 entries: widget.entries,
-              );
-            }
-          },
+              ),
+            ),
+            if (widget.itemType == ItemType.anime)
+              _LibraryAction(
+                id: 'torrent-stream',
+                icon: Broken.video_play,
+                label: l10n.torrent_stream,
+                onPressed: () => addTorrent(context),
+              ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _LibraryAction {
+  final String id;
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _LibraryAction({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+}
+
+/// A three-item action carousel with a shallow arc and a swipeable sequence.
+class _LibraryActionCarousel extends StatefulWidget {
+  final List<_LibraryAction> actions;
+
+  const _LibraryActionCarousel({super.key, required this.actions});
+
+  @override
+  State<_LibraryActionCarousel> createState() =>
+      _LibraryActionCarouselState();
+}
+
+class _LibraryActionCarouselState extends State<_LibraryActionCarousel> {
+  static const double _leftPosition = 0;
+  static const double _centerPosition = 56;
+  static const double _rightPosition = 112;
+  static const double _width = 160;
+  static const double _height = 56;
+
+  int _centerIndex = 1;
+  String? _enteringActionId;
+  double _dragDistance = 0;
+
+  int _wrappedIndex(int index) =>
+      (index % widget.actions.length + widget.actions.length) %
+      widget.actions.length;
+
+  List<String> _visibleIds(int centerIndex) {
+    if (widget.actions.isEmpty) return const [];
+    return [
+      widget.actions[_wrappedIndex(centerIndex - 1)].id,
+      widget.actions[_wrappedIndex(centerIndex)].id,
+      widget.actions[_wrappedIndex(centerIndex + 1)].id,
+    ];
+  }
+
+  void _move(int direction) {
+    final count = widget.actions.length;
+    if (count < 3) return;
+
+    final previousIds = _visibleIds(_centerIndex);
+    final nextCenter = _wrappedIndex(_centerIndex + direction);
+    final nextIds = _visibleIds(nextCenter);
+    final incomingIds = nextIds.where((id) => !previousIds.contains(id));
+    final newId = incomingIds.isEmpty ? null : incomingIds.first;
+
+    setState(() {
+      _centerIndex = nextCenter;
+      _enteringActionId = newId;
+    });
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final direction = velocity.abs() > 220
+        ? (velocity > 0 ? 1 : -1)
+        : _dragDistance.abs() > 30
+        ? (_dragDistance > 0 ? 1 : -1)
+        : 0;
+    _dragDistance = 0;
+    if (direction != 0) _move(direction);
+  }
+
+  Widget _buildSlot(int center, int slot) {
+    final action = widget.actions[_wrappedIndex(center + slot)];
+    final left = slot < 0
+        ? _leftPosition
+        : slot > 0
+        ? _rightPosition
+        : _centerPosition;
+    return _LibraryArcActionIcon(
+      key: ValueKey(action.id),
+      action: action,
+      left: left,
+      isCenter: slot == 0,
+      isEntering: action.id == _enteringActionId,
+      centerPosition: _centerPosition,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _LibraryActionCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.actions.isNotEmpty && _centerIndex >= widget.actions.length) {
+      _centerIndex = widget.actions.length - 1;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.actions.length < 3) return const SizedBox(width: _width);
+
+    final center = _wrappedIndex(_centerIndex);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragUpdate: (details) => _dragDistance += details.delta.dx,
+      onHorizontalDragEnd: _handleDragEnd,
+      onHorizontalDragCancel: () => _dragDistance = 0,
+      child: SizedBox(
+        width: _width,
+        height: _height,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (final slot in const [-1, 1, 0]) _buildSlot(center, slot),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryArcActionIcon extends StatefulWidget {
+  final _LibraryAction action;
+  final double left;
+  final bool isCenter;
+  final bool isEntering;
+  final double centerPosition;
+
+  const _LibraryArcActionIcon({
+    super.key,
+    required this.action,
+    required this.left,
+    required this.isCenter,
+    required this.isEntering,
+    required this.centerPosition,
+  });
+
+  @override
+  State<_LibraryArcActionIcon> createState() => _LibraryArcActionIconState();
+}
+
+class _LibraryArcActionIconState extends State<_LibraryArcActionIcon> {
+  static const _duration = Duration(milliseconds: 260);
+
+  late double _left;
+  late double _top;
+  late double _scale;
+  late double _opacity;
+  late double _rotation;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isEntering) {
+      _left = widget.centerPosition;
+      _top = 2;
+      _scale = 0.52;
+      _opacity = 0;
+      _rotation = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(_setTargetPosition);
+      });
+    } else {
+      _setTargetPosition();
+    }
+  }
+
+  void _setTargetPosition() {
+    _left = widget.left;
+    _top = widget.isCenter ? 2 : 8;
+    _scale = widget.isCenter ? 1.08 : 0.82;
+    _opacity = widget.isCenter ? 1 : 0.62;
+    _rotation = widget.isCenter
+        ? 0
+        : (widget.left < widget.centerPosition ? -0.1 : 0.1);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LibraryArcActionIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.left != widget.left || oldWidget.isCenter != widget.isCenter) {
+      _setTargetPosition();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurface.withValues(
+          alpha: widget.isCenter ? 0.94 : 0.58,
+        );
+
+    return AnimatedPositioned(
+      duration: _duration,
+      curve: Curves.easeOutCubic,
+      left: _left,
+      top: _top,
+      width: 48,
+      height: 48,
+      child: AnimatedOpacity(
+        duration: _duration,
+        curve: Curves.easeOutCubic,
+        opacity: _opacity,
+        child: AnimatedScale(
+          duration: _duration,
+          curve: Curves.easeOutCubic,
+          scale: _scale,
+          child: Transform.rotate(
+            angle: _rotation,
+            child: IconButton(
+              tooltip: widget.action.label,
+              onPressed: widget.action.onPressed,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              icon: Icon(
+                widget.action.icon,
+                size: widget.isCenter ? 22 : 19,
+                color: color,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
