@@ -216,18 +216,28 @@ stall for seconds before the first frame while the extension itself resolved in
   (`demuxer-lavf-probesize`): it governs codec detection, and the
   `analyzeduration` cap already bounds probe time, so shrinking the byte window
   would only risk misdetecting on slower sources.
-- **Never skip `avformat_find_stream_info()` on an HLS/TS source.**
-  `demuxer-lavf-probe-info=nostreams` was briefly forced here (mirroring mpv's
-  `low-latency` profile) and broke *every* HLS attempt on xnxx: without the
-  probe mpv cannot read the H.264 extradata, decoder init fails with
-  "Could not open codec" after ~4.6 s, and the player falls back to the MP4
-  source - a 4.6 s stall the user sees as "the app is slow". The option is only
-  safe where the container already carries full codec parameters, which is why
-  mpv ships it inside `[low-latency]` (never as a default) and never alone.
-  Keep `probe-info` at its `auto` default: mpv's `format_hack.skipinfo` already
-  skips the probe for mp4/matroska and only the probe call can set `skipinfo`.
-- **`demuxer-lavf-analyzeduration=1`** bounds the probe without removing it.
-  Going lower (`0.1`) removes the extradata window the HLS decoder needs.
+- **Skip `avformat_find_stream_info()` on HLS, with a retry as the safety
+  net.** `demuxer-lavf-probe-info=nostreams` is forced in
+  `_tuneStartupForNetworkStreams()`. On a multi-rendition master the probe makes
+  ffmpeg fetch the head of *every* variant in parallel: the server-side request
+  log shows the 1080p, 480p and 360p segments all opened at once, so the
+  rendition the link can sustain starves behind the others. Measured on a
+  throttled 2.5 Mbps link (360p/480p/1080p master, 10 s segments): ~10.7 s to
+  the first frame with the probe, ~1.1 s without; on a faithful xnxx-like
+  High-profile TS source, 10.0 s vs 3.4 s. `analyzeduration` does not bound this
+  because the cost is bandwidth, not analysis time. A browser's hls.js never
+  pays it: it starts on a single level.
+  The earlier note here claimed `nostreams` broke every xnxx attempt with
+  "Could not open codec"; re-testing shows the opposite — `nostreams` was
+  *faster and decodable* in every case measured, and the historic failure came
+  from `demuxer-lavf-analyzeduration=0.1` (the commit set both at once and
+  blamed the wrong one). When a container really does need the probe, `load()`
+  detects the codec error (`_looksLikeCodecError`), calls `_restoreFullProbe()`
+  to set `probe-info=auto` and re-opens once, so skipping the probe can only
+  cost a retry, never playback.
+- **`demuxer-lavf-analyzeduration=1`**, never `0.1`: `0.1` removes the
+  extradata window the HLS decoder needs (reproduced "Could not open codec"
+  on a multi-rendition TS stream).
 - **The Dart HTTP probe must never gate playback.** `_probeStreamStatus()` only
   logs the CDN status; it is started with `unawaited()`. Awaiting it delayed
   `open()` by up to its 5 s response timeout.
