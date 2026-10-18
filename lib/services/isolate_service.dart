@@ -331,11 +331,16 @@ class GetIsolateService {
                 sw.stop();
 
                 // ── Result summary log ──
+                // Name the payload semantically: `MManga` is the extension
+                // DTO for a *detail* record, which reads as a bug when the
+                // call was `getVideoList`/`getRecommendations`.
                 String resultSummary;
                 if (result is List) {
                   resultSummary = '${result.length} item(s)';
                 } else if (result is MPages) {
-                  resultSummary = '${(result).list?.length ?? 0} items';
+                  resultSummary = '${result.list?.length ?? 0} items';
+                } else if (result is MManga) {
+                  resultSummary = 'detail record';
                 } else {
                   resultSummary = result.runtimeType.toString();
                 }
