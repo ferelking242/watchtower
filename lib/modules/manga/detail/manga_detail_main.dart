@@ -52,23 +52,30 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
   Future<void> _init() async {
     // Wait for the widget tree to settle before loading detail
     await WidgetsBinding.instance.endOfFrame;
+    // `Manga` is the shared item model for every medium (manga, watch, novel,
+    // …), so a watch entry must not be logged under the MANGA tag. Read the
+    // stored type first and label the line with the item's real kind.
+    final itemType = isar.mangas.getSync(widget.mangaId)?.itemType;
+    final isWatch = itemType == ItemType.anime;
+    final kind = isWatch ? 'watch' : 'manga';
+    final tag = isWatch ? LogTag.watch : LogTag.manga;
     AppLogger.log(
-      'Open detail page · mangaId=${widget.mangaId}',
-      tag: LogTag.manga,
+      'Open detail page · ${kind}Id=${widget.mangaId}',
+      tag: tag,
     );
     try {
       await ref.read(
         updateMangaDetailProvider(mangaId: widget.mangaId, isInit: true).future,
       );
       AppLogger.log(
-        'Detail loaded · mangaId=${widget.mangaId}',
-        tag: LogTag.manga,
+        'Detail loaded · ${kind}Id=${widget.mangaId}',
+        tag: tag,
       );
     } catch (e, st) {
       AppLogger.log(
-        'Detail load FAILED · mangaId=${widget.mangaId}',
+        'Detail load FAILED · ${kind}Id=${widget.mangaId}',
         logLevel: LogLevel.error,
-        tag: LogTag.manga,
+        tag: tag,
         error: e,
         stackTrace: st,
       );

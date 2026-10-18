@@ -129,14 +129,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     if (!mounted) return;
     if (_tabController.index == 0 && !_recommendationsRequested) {
       AppLogger.log(
-        '[WATCH] tab "Pour vous" opened → getRecommendations un-gated',
+        'tab "Pour vous" opened → getRecommendations un-gated',
         logLevel: LogLevel.debug,
         tag: LogTag.watch,
       );
       setState(() => _recommendationsRequested = true);
     } else if (_tabController.index == 1 && !_commentsRequested) {
       AppLogger.log(
-        '[WATCH] tab "Commentaires" opened → getComments un-gated',
+        'tab "Commentaires" opened → getComments un-gated',
         logLevel: LogLevel.debug,
         tag: LogTag.watch,
       );
@@ -217,7 +217,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     _player.loadedChapterId = chapters.first.id;
     AppLogger.log(
-      '[WATCH] [PLAYER] auto-load scheduled chapterId=${chapters.first.id}'
+      '[PLAYER] auto-load scheduled chapterId=${chapters.first.id}'
       '  ← post-frame callback, runs after the current build',
       logLevel: LogLevel.debug,
       tag: LogTag.watch,

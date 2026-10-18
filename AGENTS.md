@@ -267,6 +267,25 @@ starts the video.
   and `completeError` on mismatch.
 
 
+## Item naming conventions (do not regress)
+`Manga` is the **shared** Isar model for every medium — manga, watch, novel,
+music, game, plugin (`ItemType`). `MangaReaderDetail` (`/manga-reader/detail`)
+therefore renders both `MangaDetailsView` and `WatchDetailView`. Legacy names
+must not leak into watch code paths or logs:
+
+- `ItemType.anime` is the **watch** type (`ItemTypeLocalization.localized` maps
+  it to `l10n.watch`). Prefer `isWatch`/`LogTag.watch` over "anime" when the
+  intent is "a watchable video".
+- A watch entry must never log under `LogTag.manga`. `manga_detail_main.dart`
+  reads `isar.mangas.getSync(id)?.itemType` and picks `LogTag.watch` + the
+  `watchId=` label for `ItemType.anime`, `LogTag.manga` + `mangaId=` otherwise.
+- `AppLogger.log` already prints the `tag:` as a bracketed prefix. Do not repeat
+  it in the message: `tag: LogTag.watch` plus a `'[WATCH] …'` message renders as
+  `[WATCH] [WATCH] …`. Same for every other tag.
+- `MManga`/`MPages` are the extension-boundary DTOs (`lib/eval/model/`); `Manga`
+  is the persisted model. Keep that split — do not rename `MManga` to `Manga`.
+
+
 ## Rust dependency invariants (do not regress)
 - The Android/iOS/Linux/Windows native builds compile `rust/Cargo.toml`. It now
   pins `zip = "9.0.3"`, the **only** zip release still published: every earlier
