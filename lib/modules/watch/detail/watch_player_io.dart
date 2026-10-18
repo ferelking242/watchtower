@@ -816,7 +816,9 @@ class WatchInlinePlayer {
           vidSub?.cancel();
           posSub?.cancel();
           AppLogger.log(
-            '[PLAYER] ERREUR qualité="${v.quality}": $err',
+            '[PLAYER] ERREUR qualité="${v.quality}": $err'
+            '  classified=${isCodecError(err) ? "codec" : "network/other"}'
+            '  probe=${_probeSkipped ? "skipped(nostreams)" : "full(auto)"}',
             logLevel: LogLevel.error,
             tag: LogTag.watch,
           );
@@ -962,6 +964,21 @@ class WatchInlinePlayer {
             );
             return;
           }
+          AppLogger.log(
+            '[PLAYER] probe restore did not recover "${v.quality}"'
+            '  ← retrying with probe-info=auto did not play either; the probe '
+            'was not the cause',
+            logLevel: LogLevel.warning,
+            tag: LogTag.watch,
+          );
+        } else if (_probeSkipped && _lastError != null) {
+          AppLogger.log(
+            '[PLAYER] no probe restore for "${v.quality}"'
+            '  ← error classified as network/other, not codec; the probe would '
+            'not help (lastError=$_lastError)',
+            logLevel: LogLevel.debug,
+            tag: LogTag.watch,
+          );
         }
 
         if (i < videos.length - 1) {
