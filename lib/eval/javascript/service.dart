@@ -169,6 +169,7 @@ class MProvider {
     }
     async getRecommendations(url) { return []; }
     async getComments(url) { return []; }
+    async getSuggestions(query) { return []; }
     async getAccount() { return null; }
     async getFavorites() { return []; }
     async getSubscription() { return null; }

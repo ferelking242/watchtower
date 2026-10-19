@@ -249,7 +249,15 @@ Map<String, dynamic> _extensionJson(CliExtension item) => {
 
 /// Builds the extension selection filter from CLI options. Mirrors the app's
 /// diagnostic-screen filters so the same subset can be tested headlessly.
-CliExtensionFilter _extensionFilter(CliInvocation invocation) {
+///
+/// [operationArguments] must be set when the caller also reads `--query` and
+/// friends as *operation* arguments (the local `source` command): those flags
+/// then name the extension query, not a catalogue filter, and reusing them here
+/// would filter the catalogue down to nothing.
+CliExtensionFilter _extensionFilter(
+  CliInvocation invocation, {
+  bool operationArguments = false,
+}) {
   final nsfw = switch (true) {
     _ when invocation.hasFlag('nsfw') => CliNsfwFilter.nsfw,
     _ when invocation.hasFlag('sfw') || invocation.hasFlag('exclude-nsfw') =>
@@ -275,12 +283,18 @@ CliExtensionFilter _extensionFilter(CliInvocation invocation) {
   }
   return CliExtensionFilter(
     type: invocation.firstOption(['type', 'item-type']),
-    languages: invocation.listOption(['lang', 'language', 'languages']),
+    languages: operationArguments
+        ? const <String>{}
+        : invocation.listOption(['lang', 'language', 'languages']),
     nsfw: nsfw,
     engine: engine?.toLowerCase(),
     tags: tags,
-    query: invocation.firstOption(['query', 'search']),
-    ids: invocation.listOption(['only', 'id', 'source']),
+    query: operationArguments
+        ? null
+        : invocation.firstOption(['query', 'search']),
+    ids: operationArguments
+        ? const <String>{}
+        : invocation.listOption(['only', 'id', 'source']),
     includeUnindexed:
         invocation.hasFlag('include-unindexed') ||
         invocation.hasFlag('scan-unindexed'),
@@ -336,7 +350,7 @@ Future<int> _runLocalSource(CliInvocation invocation, CliOutput output) async {
   try {
     catalog = await loadCliExtensionCatalog(
       root: root,
-      filter: _extensionFilter(invocation),
+      filter: _extensionFilter(invocation, operationArguments: true),
     );
   } on ArgumentError catch (error) {
     output.error(error.message);
