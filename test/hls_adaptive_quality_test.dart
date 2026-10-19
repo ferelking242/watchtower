@@ -27,9 +27,9 @@ void main() {
   );
 
   AdaptiveQualityPlan at(double mbps) => AdaptiveQualityController.plan(
-        variants: variants,
-        throughputBitsPerSecond: (mbps * 1000000).round(),
-      );
+    variants: variants,
+    throughputBitsPerSecond: (mbps * 1000000).round(),
+  );
 
   group('AdaptiveQualityController.plan', () {
     test('picks the heaviest rendition that fits the measured budget', () {
@@ -45,6 +45,20 @@ void main() {
       // 2.761 Mbps is the 1080p peak; at 3 Mbps the budget (2.25) still
       // excludes it, which is what keeps a peaky stream from stalling.
       expect(at(3).variant?.label, '720p');
+    });
+
+    test('the chosen variant URL is a variant playlist, never the master', () {
+      // The player opens this URL *instead of* the master. If it ever pointed
+      // back at the master, `hls-bitrate=max` would apply again and the
+      // 1080p-first buffering this avoids would come back.
+      final master = 'https://cdn.example/x/master.m3u8';
+      for (final mbps in [10.0, 2.0, 1.2, 0.8, 0.25, 0.1]) {
+        final url = at(mbps).variant?.url;
+        expect(url, isNotNull);
+        expect(url, isNot(master));
+        expect(url, endsWith('.m3u8'));
+      }
+      expect(at(1.2).variant?.url, 'https://cdn.example/x/hls-480p-b22c2.m3u8');
     });
 
     test('forces the lightest rendition when nothing fits', () {
@@ -135,16 +149,19 @@ void main() {
       );
     });
 
-    test('rejects an instantaneous read instead of reporting a huge rate', () async {
-      expect(
-        await measureThroughput(
-          'https://cdn.example/seg.ts',
-          fetchRange: (url, maxBytes, headers) async =>
-              const HttpRangeResponse(bytes: 256 * 1024),
-        ),
-        isNull,
-      );
-    });
+    test(
+      'rejects an instantaneous read instead of reporting a huge rate',
+      () async {
+        expect(
+          await measureThroughput(
+            'https://cdn.example/seg.ts',
+            fetchRange: (url, maxBytes, headers) async =>
+                const HttpRangeResponse(bytes: 256 * 1024),
+          ),
+          isNull,
+        );
+      },
+    );
   });
 
   group('HlsAdaptiveProbe.planFor', () {

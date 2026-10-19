@@ -216,25 +216,40 @@ stall for seconds before the first frame while the extension itself resolved in
   (`demuxer-lavf-probesize`): it governs codec detection, and the
   `analyzeduration` cap already bounds probe time, so shrinking the byte window
   would only risk misdetecting on slower sources.
+- **`hls-bitrate=max` is the dominant startup cost, not the probe.**
+  Measured with **mpv itself** (the app's runtime) on a live xnxx master
+  (360p/480p/1080p, 10 s segments), median time to first frame over 7 runs:
+
+  | opening | probe-info | hls-bitrate | first frame |
+  |---|---|---|---|
+  | master | default | max | 5793 ms |
+  | master | nostreams | max | 5793 ms |
+  | master | default | 815104 | 1582 ms |
+  | master | nostreams | 815104 | 1512 ms |
+  | 480p playlist | nostreams | n/a | 919 ms |
+
+  `max` makes the demuxer start on the 1080p rendition and buffer it before the
+  picture appears. So `_applyAdaptiveQuality()` no longer only sets a numeric
+  `hls-bitrate`: it now returns the **variant playlist** it resolved and the
+  player opens that directly (`openUrl` in `load()`), which is both faster than
+  the master and immune to `max`. `nostreams` is a smaller real win (~70 ms).
+- **Do not measure libmpv options with the ffmpeg CLI.** An earlier note here
+  claimed the probe cost 10.7 s on a throttled link; that number came from an
+  `ffmpeg` CLI run, and the CLI cannot express `demuxer-lavf-probe-info` at all
+  (there is no `-probe_info` option — it fails with `Unrecognized option`). Use
+  `tools/mpv_startup_bench.mjs` in the extensions repo, which drives real mpv.
+  The historic xnxx "Could not open codec" failure came from
+  `demuxer-lavf-analyzeduration=0.1`, not from `nostreams`.
 - **Skip `avformat_find_stream_info()` on HLS, with a retry as the safety
   net.** `demuxer-lavf-probe-info=nostreams` is forced in
-  `_tuneStartupForNetworkStreams()`. On a multi-rendition master the probe makes
-  ffmpeg fetch the head of *every* variant in parallel: the server-side request
-  log shows the 1080p, 480p and 360p segments all opened at once, so the
-  rendition the link can sustain starves behind the others. Measured on a
-  throttled 2.5 Mbps link (360p/480p/1080p master, 10 s segments): ~10.7 s to
-  the first frame with the probe, ~1.1 s without; on a faithful xnxx-like
-  High-profile TS source, 10.0 s vs 3.4 s. `analyzeduration` does not bound this
-  because the cost is bandwidth, not analysis time. A browser's hls.js never
-  pays it: it starts on a single level.
-  The earlier note here claimed `nostreams` broke every xnxx attempt with
-  "Could not open codec"; re-testing shows the opposite — `nostreams` was
-  *faster and decodable* in every case measured, and the historic failure came
-  from `demuxer-lavf-analyzeduration=0.1` (the commit set both at once and
-  blamed the wrong one). When a container really does need the probe, `load()`
-  detects the codec error (`_looksLikeCodecError`), calls `_restoreFullProbe()`
-  to set `probe-info=auto` and re-opens once, so skipping the probe can only
-  cost a retry, never playback.
+  `_tuneStartupForNetworkStreams()`, which stops ffmpeg fetching the head of
+  every rendition of a multi-rendition master in parallel. When a container
+  really does need the probe, `load()` calls `_restoreFullProbe()` to set
+  `probe-info=auto` and re-opens once. That recovery is gated on a codec error
+  **or a silent watchdog**: an attempt that produced no frame and no error
+  message is exactly what an unprobeable container looks like, and gating on
+  the error alone left the recovery unreachable (the watchdog path completes
+  without ever setting `_lastError`).
 - **`demuxer-lavf-analyzeduration=1`**, never `0.1`: `0.1` removes the
   extradata window the HLS decoder needs (reproduced "Could not open codec"
   on a multi-rendition TS stream).
