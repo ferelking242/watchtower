@@ -4,16 +4,16 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Project-level configuration.
-set(PROJECT_NAME "rust_lib_mangayomi")
+set(PROJECT_NAME "rust_lib_watchtower")
 project(${PROJECT_NAME} LANGUAGES CXX)
 
 include("../cargokit/cmake/cargokit.cmake")
-apply_cargokit(${PROJECT_NAME} ../../rust rust_lib_mangayomi "")
+apply_cargokit(${PROJECT_NAME} ../../rust rust_lib_watchtower "")
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
-set(rust_lib_mangayomi_bundled_libraries
+set(rust_lib_watchtower_bundled_libraries
   "${${PROJECT_NAME}_cargokit_lib}"
   PARENT_SCOPE
 )
