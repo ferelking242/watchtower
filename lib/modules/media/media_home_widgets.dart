@@ -26,6 +26,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/services/extension_worker_count.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
@@ -2143,8 +2144,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     ],
   );
 
-  /// Met en file de téléchargement les [count] premiers éléments chargés
-  /// (tous si [count] est nul), comme le menu de la page détail.
+  /// Récupère les vidéos du lot en parallèle (pool de créateurs), avec une
+  /// boîte de progression annulable ; chaque chapitre est mis en file.
   Future<void> _bulkDownload({int? count}) async {
     if (!_isExtension || widget.extensionSource == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2170,27 +2171,72 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       );
       return;
     }
-    final messenger = ScaffoldMessenger.of(context);
-    var queued = 0;
-    var failed = 0;
-    for (final item in targets) {
-      try {
-        queued += await _enqueueItemDownloads(source, item);
-      } catch (_) {
-        failed++;
+
+    final progress = ValueNotifier<_BulkDownloadProgress>(
+      _BulkDownloadProgress(total: targets.length),
+    );
+    BuildContext? dialogContext;
+    void closeDialog() {
+      final ctx = dialogContext;
+      if (ctx != null && ctx.mounted) Navigator.of(ctx).pop();
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        dialogContext = ctx;
+        return _BulkDownloadProgressDialog(
+          progress: progress,
+          onCancel: () => progress.value = progress.value.cancel(),
+        );
+      },
+    );
+
+    // Pool de travailleurs : récupère les détails de plusieurs items en
+    // parallèle, arrête de prendre de nouveaux items dès l'annulation.
+    final concurrency = getRecommendedExtensionWorkerCount();
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (true) {
+        if (progress.value.cancelled || nextIndex >= targets.length) return;
+        final index = nextIndex++;
+        try {
+          final chapters = await _enqueueItemDownloads(source, targets[index]);
+          progress.value = progress.value.withResult(queued: chapters, done: 1);
+        } catch (_) {
+          progress.value = progress.value.withResult(failed: 1, done: 1);
+        }
       }
     }
-    ref.read(processDownloadsProvider());
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          failed == 0
-              ? 'Téléchargements ajoutés à la file : $queued.'
-              : '$queued téléchargement(s) mis en file, $failed échec(s).',
-        ),
-      ),
-    );
+
+    try {
+      await Future.wait([
+        for (var i = 0; i < concurrency; i++) worker(),
+      ]);
+      ref.read(processDownloadsProvider());
+    } finally {
+      final finalProgress = progress.value;
+      final remaining = targets.length - finalProgress.done;
+      closeDialog();
+      progress.dispose();
+      if (mounted && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              finalProgress.cancelled
+                  ? 'Annulé · ${finalProgress.queued} ajouté(s), '
+                      '${finalProgress.failed} échec(s), $remaining restant(s).'
+                  : finalProgress.failed == 0
+                  ? 'Téléchargements ajoutés à la file : '
+                      '${finalProgress.queued}.'
+                  : '${finalProgress.queued} téléchargement(s) mis en file, '
+                      '${finalProgress.failed} échec(s).',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   /// Récupère les vidéos d'un item (getDetail), crée l'entrée Isar
@@ -2813,6 +2859,115 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       orElse: () => null,
     );
     if (first != null) _openExtensionItem(first);
+  }
+}
+
+/// État du téléchargement en masse de la page « voir tout » (immuable,
+/// chaque étape émet une copie dans le ValueNotifier).
+class _BulkDownloadProgress {
+  const _BulkDownloadProgress({
+    required this.total,
+    this.done = 0,
+    this.queued = 0,
+    this.failed = 0,
+    this.cancelled = false,
+  });
+
+  final int total;
+  final int done;
+  final int queued;
+  final int failed;
+  final bool cancelled;
+
+  _BulkDownloadProgress cancel() => _BulkDownloadProgress(
+    total: total,
+    done: done,
+    queued: queued,
+    failed: failed,
+    cancelled: true,
+  );
+
+  _BulkDownloadProgress withResult({int queued = 0, int failed = 0, int done = 0}) =>
+      _BulkDownloadProgress(
+        total: total,
+        done: this.done + done,
+        queued: this.queued + queued,
+        failed: this.failed + failed,
+        cancelled: cancelled,
+      );
+}
+
+/// Boîte de progression du téléchargement en masse : barre déterminée,
+/// compteurs, et bouton Annuler (les travailleurs s'arrêtent en douceur).
+class _BulkDownloadProgressDialog extends StatelessWidget {
+  const _BulkDownloadProgressDialog({
+    required this.progress,
+    required this.onCancel,
+  });
+
+  final ValueNotifier<_BulkDownloadProgress> progress;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Text(
+        'Mise en file des téléchargements',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      content: ValueListenableBuilder<_BulkDownloadProgress>(
+        valueListenable: progress,
+        builder: (context, p, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: p.cancelled || p.total == 0
+                    ? null
+                    : (p.done / p.total).clamp(0.0, 1.0),
+                backgroundColor: Colors.white10,
+                color: Colors.orange,
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              p.cancelled ? 'Annulation…' : '${p.done}/${p.total} éléments',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (p.queued > 0 || p.failed > 0) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${p.queued} vidéo(s) ajoutée(s)'
+                '${p.failed > 0 ? ' · ${p.failed} échec(s)' : ''}',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: onCancel,
+          child: const Text(
+            'Annuler',
+            style: TextStyle(color: Colors.white54),
+          ),
+        ),
+      ],
+    );
   }
 }
 
