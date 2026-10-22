@@ -456,9 +456,14 @@ class _ChipGroup {
   /// Titre d'une sous-section repliable contenant [options].
   final String? subTitle;
 
-  const _ChipGroup.single(this.options) : multi = false, subTitle = null;
-  const _ChipGroup.multi(this.options) : multi = true, subTitle = null;
-  const _ChipGroup.sub(this.subTitle, this.options) : multi = false;
+  const _ChipGroup.single({required this.options})
+      : multi = false,
+        subTitle = null;
+  const _ChipGroup.multi({required this.options})
+      : multi = true,
+        subTitle = null;
+  const _ChipGroup.sub({required this.subTitle, required this.options})
+      : multi = false;
 }
 
 /// Bloc « Titre + sous-titre (valeur active) + groupes de puces », avec ou
@@ -642,7 +647,8 @@ class _AffichageSection extends StatelessWidget {
 
 Widget _buildChip(BuildContext context, _Chip chip, _ChipGroup group) {
   final cs = Theme.of(context).colorScheme;
-  final (:selected, :onTap) = chip;
+  final selected = chip.selected;
+  final onTap = chip.onTap;
   final color = selected
       ? cs.primary
       : cs.onSurface.withValues(alpha: 0.12);
@@ -657,8 +663,6 @@ Widget _buildChip(BuildContext context, _Chip chip, _ChipGroup group) {
     backgroundColor: selected
         ? cs.primary.withValues(alpha: 0.12)
         : Colors.transparent,
-    showCheckmark: false,
-    checkmarkColor: cs.primary,
     avatar: selected
         ? Icon(group.multi ? Icons.check_rounded : Icons.circle_rounded, size: group.multi ? 14 : 8, color: cs.primary)
         : null,

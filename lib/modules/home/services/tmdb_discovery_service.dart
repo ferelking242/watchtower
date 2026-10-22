@@ -1205,8 +1205,10 @@ List<String> tmdbMovieGenreNames(List<int> ids) =>
     ids.map(tmdbMovieGenreName).where((g) => g != 'Autre').take(3).toList();
 
 /// Tous les libellés de genres TMDB (films + séries), utilisés par la feuille
-/// de filtres de la page « voir tout ».
-const Map<int, String> tmdbGenreNamesById = {
+/// de filtres de la page « voir tout ». Fusion à l'exécution car plusieurs
+/// clés existent dans les deux maps (une const avec clés dupliquées est un
+/// refusé à la compilation).
+Map<int, String> get tmdbGenreNamesById => {
   ..._movieGenres,
   ..._tvGenres,
 };

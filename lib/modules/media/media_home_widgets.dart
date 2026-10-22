@@ -2250,10 +2250,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         .filter()
         .sourceIdEqualTo(source.id)
         .findAllSync();
-    Manga? manga;
+    Manga? existing;
     for (final candidate in mangaCandidates) {
       if (candidate.link == url) {
-        manga = candidate;
+        existing = candidate;
         break;
       }
     }
@@ -2261,20 +2261,23 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         item.name?.trim().isNotEmpty == true
             ? item.name!.trim()
             : (detail.name ?? url);
-    manga ??= Manga(
-      source: source.name ?? '',
-      lang: source.lang ?? '',
-      link: url,
-      name: name,
-      status: Status.unknown,
-      imageUrl: detail.imageUrl ?? item.imageUrl,
-      genre: detail.genre ?? item.genre,
-      description: detail.description ?? '',
-      sourceId: source.id,
-      itemType: source.itemType,
-      isManga: source.itemType == ItemType.manga,
-    );
-    final loaded = manga;
+    final loaded =
+        existing ??
+        Manga(
+          source: source.name ?? '',
+          author: detail.author ?? '',
+          artist: detail.artist ?? '',
+          genre: detail.genre ?? item.genre,
+          imageUrl: detail.imageUrl ?? item.imageUrl,
+          lang: source.lang ?? '',
+          link: url,
+          name: name,
+          status: Status.unknown,
+          description: detail.description ?? '',
+          sourceId: source.id,
+          itemType: source.itemType,
+          isManga: source.itemType == ItemType.manga,
+        );
     final existingChapters = loaded.id == Isar.autoIncrement
         ? <Chapter>[]
         : isar.chapters.filter().mangaIdEqualTo(loaded.id).findAllSync();
