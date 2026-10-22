@@ -1204,6 +1204,13 @@ String tmdbTvGenreName(int id) => _tvGenres[id] ?? 'Autre';
 List<String> tmdbMovieGenreNames(List<int> ids) =>
     ids.map(tmdbMovieGenreName).where((g) => g != 'Autre').take(3).toList();
 
+/// Tous les libellés de genres TMDB (films + séries), utilisés par la feuille
+/// de filtres de la page « voir tout ».
+const Map<int, String> tmdbGenreNamesById = {
+  ..._movieGenres,
+  ..._tvGenres,
+};
+
 List<String> tmdbTvGenreNames(List<int> ids) =>
     ids.map(tmdbTvGenreName).where((g) => g != 'Autre').take(3).toList();
 
