@@ -23,6 +23,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_source_preference.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/extension_session_manager.dart';
+import 'package:watchtower/services/http/extension_session_urls.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -35,6 +36,7 @@ import 'package:watchtower/services/fetch_sources_list.dart'
 enum _SiteSessionStatus {
   checking,
   loggingIn,
+  loggingOut,
   sessionSaved,
   authenticated,
   notConnected,
@@ -59,6 +61,21 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   List<Map<String, dynamic>> _extensionFavorites = [];
   Map<String, dynamic>? _extensionSubscription;
   bool? _extensionPremiumStatus;
+  int _siteSessionRefreshRevision = 0;
+
+  List<String> get _siteSessionUrls => extensionSessionUrls(
+        baseUrl: source.baseUrl,
+        loginUrl: source.loginUrl,
+      );
+
+  bool get _isSiteSessionBusy =>
+      _siteSessionStatus == _SiteSessionStatus.checking ||
+      _siteSessionStatus == _SiteSessionStatus.loggingIn ||
+      _siteSessionStatus == _SiteSessionStatus.loggingOut;
+
+  bool get _isSiteSessionActionInProgress =>
+      _siteSessionStatus == _SiteSessionStatus.loggingIn ||
+      _siteSessionStatus == _SiteSessionStatus.loggingOut;
 
   @override
   void initState() {
@@ -156,12 +173,14 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Future<void> _signInToSite() async {
+    if (_isSiteSessionActionInProgress) return;
     final url = Uri.tryParse(source.loginUrl ?? source.baseUrl ?? '');
     if (url == null || !url.hasAuthority ||
         (url.scheme != 'https' && url.scheme != 'http')) {
       botToast('URL du site invalide.');
       return;
     }
+    ++_siteSessionRefreshRevision;
     setState(() => _siteSessionStatus = _SiteSessionStatus.loggingIn);
     try {
       await context.push('/mangawebview', extra: {
@@ -169,6 +188,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         'sourceId': source.id.toString(),
         'title': '${source.name ?? 'Extension'} — connexion',
       });
+    } catch (_) {
+      if (mounted) botToast('Impossible d’ouvrir la page de connexion.');
     } finally {
       if (mounted) await _refreshSiteSessionStatus();
     }
@@ -176,30 +197,39 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
 
   Future<void> _signOutFromSite() async {
     final id = source.id;
-    final baseUrl = source.baseUrl ?? '';
-    if (id == null || baseUrl.isEmpty) return;
-    await MClient.logoutExtension(id, baseUrl);
-    if (!mounted) return;
-    setState(() {
-      _accountInfo = null;
-      _extensionFavorites = [];
-      _extensionSubscription = null;
-      _extensionPremiumStatus = null;
-      _siteSessionStatus = _SiteSessionStatus.notConnected;
-    });
-    botToast('Session effacée pour cette extension.');
+    if (id == null || _isSiteSessionActionInProgress) return;
+    ++_siteSessionRefreshRevision;
+    setState(() => _siteSessionStatus = _SiteSessionStatus.loggingOut);
+    try {
+      final logoutUrl = _siteSessionUrls.isEmpty ? null : _siteSessionUrls.first;
+      await MClient.logoutExtension(id, logoutUrl);
+      if (!mounted) return;
+      setState(() {
+        _accountInfo = null;
+        _extensionFavorites = [];
+        _extensionSubscription = null;
+        _extensionPremiumStatus = null;
+      });
+      botToast('Session effacée pour cette extension.');
+    } catch (_) {
+      if (mounted) {
+        botToast('Impossible d’effacer la session de cette extension.');
+      }
+    } finally {
+      if (mounted) await _refreshSiteSessionStatus();
+    }
   }
 
   Future<void> _refreshSiteSessionStatus() async {
     if (!mounted) return;
+    final revision = ++_siteSessionRefreshRevision;
     if (_siteSessionStatus != _SiteSessionStatus.checking) {
       setState(() => _siteSessionStatus = _SiteSessionStatus.checking);
     }
     try {
       await ExtensionSessionManager.load(source.id);
-      final hasSessionData = ExtensionSessionManager.hasSessionDataForUrl(
-        source.id,
-        source.baseUrl ?? '',
+      final hasSessionData = _siteSessionUrls.any(
+        (url) => ExtensionSessionManager.hasSessionDataForUrl(source.id, url),
       );
       ExtensionAccount? account;
       if (hasSessionData && source.accountAvailable) {
@@ -241,7 +271,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           // One unavailable capability must not hide the other account data.
         }
       }
-      if (mounted) {
+      if (mounted && revision == _siteSessionRefreshRevision) {
         setState(() {
           _accountInfo = account;
           _extensionFavorites = favorites;
@@ -255,7 +285,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && revision == _siteSessionRefreshRevision) {
         setState(() {
           _accountInfo = null;
           _extensionFavorites = [];
@@ -279,6 +309,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         break;
       case _SiteSessionStatus.loggingIn:
         label = 'Connexion en cours…';
+        icon = Icons.check_circle_rounded;
+        color = colors.onSurfaceVariant;
+        break;
+      case _SiteSessionStatus.loggingOut:
+        label = 'Déconnexion en cours…';
         icon = Icons.check_circle_rounded;
         color = colors.onSurfaceVariant;
         break;
@@ -308,7 +343,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     return Row(
       children: [
         if (_siteSessionStatus == _SiteSessionStatus.checking ||
-            _siteSessionStatus == _SiteSessionStatus.loggingIn)
+            _siteSessionStatus == _SiteSessionStatus.loggingIn ||
+            _siteSessionStatus == _SiteSessionStatus.loggingOut)
           SizedBox(
             width: 16,
             height: 16,
@@ -332,10 +368,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         IconButton(
           tooltip: 'Vérifier la connexion',
           visualDensity: VisualDensity.compact,
-          onPressed: _siteSessionStatus == _SiteSessionStatus.checking ||
-                  _siteSessionStatus == _SiteSessionStatus.loggingIn
-              ? null
-              : _refreshSiteSessionStatus,
+          onPressed: _isSiteSessionBusy ? null : _refreshSiteSessionStatus,
           icon: const Icon(Icons.refresh_rounded, size: 19),
         ),
       ],
@@ -1436,7 +1469,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                           Text(
                             source.loginAvailable
                                 ? 'La connexion et les informations affichées sont propres à cette extension. '
-                                    'Les cookies et le stockage du site restent isolés.'
+                                    'Les données de session utilisées par ses requêtes restent séparées.'
                                 : 'Les informations affichées sont fournies par les méthodes déclarées par cette extension.',
                             style: TextStyle(
                               fontSize: 12,
@@ -1455,8 +1488,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                             children: [
                               if (source.loginAvailable)
                                 FilledButton.tonalIcon(
-                                  onPressed: _siteSessionStatus ==
-                                          _SiteSessionStatus.loggingIn
+                                  onPressed: _isSiteSessionActionInProgress
                                       ? null
                                       : _signInToSite,
                                   icon: const Icon(
@@ -1468,8 +1500,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                               if (source.loginAvailable ||
                                   source.accountAvailable)
                                 OutlinedButton.icon(
-                                  onPressed: _siteSessionStatus ==
-                                          _SiteSessionStatus.notConnected
+                                  onPressed:
+                                      _isSiteSessionActionInProgress ||
+                                          _siteSessionStatus ==
+                                              _SiteSessionStatus.notConnected
                                       ? null
                                       : _signOutFromSite,
                                   icon: const Icon(

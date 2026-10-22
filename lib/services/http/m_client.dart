@@ -563,9 +563,18 @@ class MClient {
     }
   }
 
-  static Future<void> logoutExtension(int extensionId, String url) async {
+  static Future<void> logoutExtension(int extensionId, String? siteUrl) async {
     await ExtensionSessionManager.clearSession(extensionId);
-    await deleteAllCookies(url);
+    final uri = Uri.tryParse(siteUrl?.trim() ?? '');
+    if (uri == null ||
+        !uri.hasAuthority ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'https' && uri.scheme != 'http')) {
+      return;
+    }
+    // Do not clear cookies for an external identity provider: the native
+    // WebView cookie store is shared with the rest of the app.
+    await deleteAllCookies(uri.toString());
   }
 
   static List<MCookie> removeCookiesForHost(
