@@ -220,6 +220,7 @@ class _CatalogFilterSheetState extends State<_CatalogFilterSheet> {
                 for (final genre in widget.genreOptions)
                   (
                     genre,
+                    genre,
                     selected: _draft.genres.contains(genre),
                     onTap: () => setState(() {
                       _draft.genres.contains(genre)
@@ -421,7 +422,7 @@ class _CatalogFilterSheetState extends State<_CatalogFilterSheet> {
           ],
         ),
         _ChipGroup.sub(
-          title: 'Toutes les années',
+          subTitle: 'Toutes les années',
           options: [
             for (var year = now; year >= 2000; year--)
               (
