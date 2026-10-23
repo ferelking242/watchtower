@@ -225,6 +225,20 @@ jobs:
           cp "$SRC" "$DST"
           echo "APK: $(du -sh $DST | cut -f1)"
 
+      # Expose the checksum + exact byte size in the release notes and as a
+      # sidecar .sha256 file so a truncated download (which surfaces on-device
+      # as a misleading "missing certificates" install error) is trivially
+      # diagnosable by comparing the size/sha on the phone.
+      - name: Write APK checksum
+        id: checksum
+        run: |
+          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
+          sha256sum "$APK" > "$APK.sha256"
+          echo "sha256=$(sha256sum "$APK" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "size=$(stat -c '%s' "$APK")" >> "$GITHUB_OUTPUT"
+          echo "SHA-256: $(sha256sum "$APK" | cut -d' ' -f1)"
+          echo "Size: $(stat -c '%s' "$APK") bytes"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v5
         with:
@@ -246,9 +260,9 @@ jobs:
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
             tag -a android-latest -m "Android rolling release"
           git push origin android-latest
-          gh release create android-latest "$APK" \
+          gh release create android-latest "$APK" "$APK.sha256" \
             --title "Watchtower Android (latest)" \
-            --notes "APK Android arm64 auto depuis main (logo oeil, sans tour)." \
+            --notes "APK Android arm64 auto depuis main (logo oeil, sans tour).\n\nSHA-256 : ${{ steps.checksum.outputs.sha256 }}\nTaille attendue : ${{ steps.checksum.outputs.size }} octets (exactement — si le fichier téléchargé est plus petit, il est tronqué et l'installation échoue)." \
             --prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
