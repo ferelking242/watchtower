@@ -260,9 +260,13 @@ jobs:
           git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
             tag -a android-latest -m "Android rolling release"
           git push origin android-latest
+          SUM=$(sha256sum "$APK" | cut -d' ' -f1)
+          BYTES=$(stat -c '%s' "$APK")
+          NOTES=$(mktemp)
+          printf "APK Android arm64 auto depuis \"main\" (logo œil, sans tour).\n\nSHA-256 : %s\nTaille attendue : %s octets (exactement — si le fichier téléchargé est plus petit, il est tronqué et l'installation échoue).\n" "$SUM" "$BYTES" > "$NOTES"
           gh release create android-latest "$APK" "$APK.sha256" \
             --title "Watchtower Android (latest)" \
-            --notes "APK Android arm64 auto depuis main (logo oeil, sans tour).\n\nSHA-256 : ${{ steps.checksum.outputs.sha256 }}\nTaille attendue : ${{ steps.checksum.outputs.size }} octets (exactement — si le fichier téléchargé est plus petit, il est tronqué et l'installation échoue)." \
+            --notes-file "$NOTES" \
             --prerelease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
