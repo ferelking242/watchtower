@@ -224,7 +224,7 @@ class HlsPlaylistCache {
   static String? get(String url) {
     final entry = _entries[url];
     if (entry == null) return null;
-    if (DateTime.now().difference(entry.storedAt) > ttl) {
+    if (DateTime.now().difference(entry.storedAt) >= ttl) {
       _entries.remove(url);
       return null;
     }
@@ -233,12 +233,13 @@ class HlsPlaylistCache {
 
   /// Stores [body] for [url], evicting the oldest entry beyond [maxEntries].
   static void put(String url, String body) {
+    // Refresh insertion order when a URL is written again. Map preserves
+    // insertion order on all supported platforms, unlike DateTime precision
+    // which can tie multiple entries on Windows.
+    _entries.remove(url);
     _entries[url] = _HlsCacheEntry(body, DateTime.now());
     if (_entries.length <= maxEntries) return;
-    final oldest = _entries.entries.reduce(
-      (a, b) => a.value.storedAt.isBefore(b.value.storedAt) ? a : b,
-    );
-    _entries.remove(oldest.key);
+    _entries.remove(_entries.keys.first);
   }
 
   /// Drops every entry. For tests and for callers that know a URL changed.
