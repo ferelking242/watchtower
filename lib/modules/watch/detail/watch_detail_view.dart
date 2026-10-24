@@ -1221,24 +1221,34 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
             const Spacer(),
             if (source != null) ...[
-              // Extension icon (extreme right, before options btn)
+              Text(
+                'Fourni par',
+                style: TextStyle(color: _grey, fontSize: 11),
+              ),
+              const SizedBox(width: 5),
               if ((source.iconUrl ?? '').isNotEmpty)
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(5),
                   child: cachedNetworkImage(
                     imageUrl: source.iconUrl!,
-                    width: 16,
-                    height: 16,
+                    width: 18,
+                    height: 18,
                     fit: BoxFit.cover,
                   ),
                 ),
               const SizedBox(width: 4),
-              Text(
-                source.name ?? '',
-                style: TextStyle(
-                    color: _grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500),
+              Flexible(
+                child: Text(
+                  source.name?.trim().isNotEmpty == true
+                      ? source.name!.trim()
+                      : 'Extension',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: _grey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500),
+                ),
               ),
               const SizedBox(width: 8),
             ],
@@ -1595,7 +1605,23 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       final nb = _epNum(b.value.name, b.key);
       return na.compareTo(nb); // ascending — ep 1 first
     });
-    return indexed.map((e) => e.value).toList();
+    final result = <Chapter>[];
+    final positionByEpisode = <String, int>{};
+    for (final entry in indexed) {
+      final chapter = entry.value;
+      final key =
+          '${chapter.mangaId}\u0000${chapter.name}\u0000${chapter.url}\u0000${chapter.scanlator}';
+      final existingIndex = positionByEpisode[key];
+      if (existingIndex == null) {
+        positionByEpisode[key] = result.length;
+        result.add(chapter);
+      } else if (chapter.id == _player.loadedChapterId) {
+        // A completed quality clone may be the chapter opened from Downloads.
+        // Keep it selected without listing every resolution as another episode.
+        result[existingIndex] = chapter;
+      }
+    }
+    return result;
   }
 
   int _epNum(String? name, int fallback) {
@@ -3097,8 +3123,12 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   }
 
   static final _langRe =
-      RegExp(r'\b(VF|VO|VOSTFR|VOSTA|MULTI|EN|FR|JAP?|ENG?)\b',
-          caseSensitive: false);
+      RegExp(
+        r'\b(VOSTFR|VOSTA|MULTI|ENGLISH|FRENCH|FRANÇAIS|SPANISH|ESPAÑOL|'
+        r'JAPANESE|JAPONAIS|PORTUGUESE|PORTUGAIS|GERMAN|DEUTSCH|ITALIAN|'
+        r'ITALIANO|KOREAN|CHINESE|ARABIC|RUSSIAN|VF|VO|EN|FR|JAP?|ENG?)\b',
+        caseSensitive: false,
+      );
   static final _seasonRe =
       RegExp(r'(?:[Ss]aison|[Ss]eason|\bS)[ ]*(\d+)');
 
@@ -3198,43 +3228,18 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
 
   static String _normQ(String raw) {
     if (raw.trim().isEmpty) return 'Auto';
-    final m = RegExp(r'^(\d{3,4})[pP]').firstMatch(raw);
-    if (m != null) return '${m.group(1)}P';
     final s = raw.toLowerCase();
+    if (s.contains('8k') || s.contains('4320')) return '8K';
     if (s.contains('4k') || s.contains('2160')) return '4K';
-    if (s.contains('1080') || s.contains('fhd')) return '1080P';
-    if (s.contains('720') || s.contains('hd')) return '720P';
-    if (s.contains('480') || s.contains('sd')) return '480P';
-    if (s.contains('360')) return '360P';
-    if (s.contains('240')) return '240P';
+    final resolution = RegExp(
+      r'(1440|1080|720|540|480|360|240)\s*p?',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (resolution != null) return '${resolution.group(1)}p';
+    if (s.contains('fhd')) return '1080P';
+    if (s.contains('hd')) return '720P';
+    if (s.contains('sd')) return '480P';
     return raw.trim();
-  }
-
-  // ── Total size ────────────────────────────────────────────────────────────────
-  String _totalSizeLabel() {
-    if (_selected.isEmpty) return '';
-    double totalMB = 0;
-    bool anyKnown = false;
-    for (final ch in _selected) {
-      final sz = ch.downloadSize;
-      if (sz != null && sz.trim().isNotEmpty) {
-        final m = RegExp(r'([\d.]+)\s*(MB|GB|KB)', caseSensitive: false)
-            .firstMatch(sz);
-        if (m != null) {
-          anyKnown = true;
-          final num = double.tryParse(m.group(1)!) ?? 0;
-          final unit = m.group(2)!.toUpperCase();
-          if (unit == 'GB') totalMB += num * 1024;
-          else if (unit == 'KB') totalMB += num / 1024;
-          else totalMB += num;
-        }
-      }
-    }
-    if (!anyKnown) return '';
-    if (totalMB >= 1024) {
-      return '${(totalMB / 1024).toStringAsFixed(1)} GB';
-    }
-    return '${totalMB.toStringAsFixed(1)} MB';
   }
 
   String _epLabel(Chapter ch, int fallback) {
@@ -3311,30 +3316,25 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
         }
       }
     } else {
-      // Language preference — applied by downloadChapter() the same way as
-      // quality: each chapter re-fetches its own videos and the label is
-      // matched against them at actual download time.
-      if (_selectedLang != null && _langs.length > 1) {
-        for (final ch in chapters) {
-          if (ch.id == null) continue;
-          chapterPreferredLang[ch.id!] = _selectedLang!;
-        }
-      }
+      var queueChapters = chapters;
       if (_selectedQuality != null) {
-        // Store the chosen quality LABEL, not a URL: `_videos` was only ever
-        // loaded for widget.chapters.first, so its URLs are meaningless for
-        // every other selected episode (each episode has its own distinct
-        // video list). downloadChapter() re-fetches each chapter's own
-        // videos and matches this label against them at actual download time.
-        final digitsMatch = RegExp(r'(\d{3,4})').firstMatch(_selectedQuality!);
-        final qualityKey =
-            digitsMatch?.group(1) ?? _selectedQuality!.trim().toLowerCase();
-        for (final ch in chapters) {
-          if (ch.id == null) continue;
-          chapterPreferredQuality[ch.id!] = qualityKey;
+        queueChapters = chapters
+            .map(
+              (chapter) => prepareVideoQualityDownloadChapter(
+                chapter,
+                quality: _selectedQuality!,
+                language: _selectedLang,
+              ),
+            )
+            .toList();
+      } else if (_selectedLang != null && _langs.length > 1) {
+        for (final chapter in chapters) {
+          if (chapter.id != null) {
+            chapterPreferredLang[chapter.id!] = _selectedLang!;
+          }
         }
       }
-      await widget.onDownload(chapters);
+      await widget.onDownload(queueChapters);
     }
   }
 
@@ -3347,7 +3347,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     final maxH       = screenH - 230 - statusH;
     final seasons    = _seasons;
     final qualities  = _qualities;
-    final totalSz    = _totalSizeLabel();
 
     return Container(
       height: maxH,
@@ -3369,7 +3368,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
 
           // ── [Saison] [Qualité] [⬇ Télécharger] — 3 left-aligned box pills ────
           if (!_loading)
-            _buildActionPillsRow(seasons, qualities, totalSz),
+            _buildActionPillsRow(seasons, qualities),
 
           // ── Divider ───────────────────────────────────────────────────────────
           Divider(height: 1, thickness: 0.8, color: _faint),
@@ -3400,8 +3399,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                   ),
           ),
 
-          // ── Bottom-centered download CTA (MovieBox style) ─────────────────────
-          if (!_loading) _buildDownloadFooter(),
         ],
       ),
     );
@@ -3436,6 +3433,8 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   Widget _buildPill({
     required String label,
     required VoidCallback onTap,
+    IconData? leadingIcon,
+    bool showChevron = true,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -3449,10 +3448,16 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (leadingIcon != null) ...[
+              Icon(leadingIcon, color: _accent, size: 16),
+              const SizedBox(width: 6),
+            ],
             Text(label,
                 style: TextStyle(color: _text.withValues(alpha: 0.75), fontSize: 13)),
-            const SizedBox(width: 6),
-            Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
+            if (showChevron) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.keyboard_arrow_down_rounded, color: _grey, size: 18),
+            ],
           ],
         ),
       ),
@@ -3540,11 +3545,11 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     );
   }
 
-  // ── 3 left-aligned boxes: [Saison] [Qualité] [⬇ Télécharger] ─────────────────
-  // "Télécharger avec" removed per user request.
-  // The download CTA is the 3rd box — highlighted when episodes are selected.
+  // ── Same-height selector pills for season, audio, quality and download. ──────
   Widget _buildActionPillsRow(
-      List<String> seasons, List<String> qualities, String totalSz) {
+    List<String> seasons,
+    List<String> qualities,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(
@@ -3592,83 +3597,11 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
             ),
             const SizedBox(width: 8),
           ],
-        ],
-      ),
-    );
-  }
-
-  // ── Bottom-centered download CTA — full-width box, same height as the
-  // Saison/Langue/Résolution boxes above, no shadow and no focus ring so the
-  // sheet stays calm while the video keeps playing behind it. ──────────────────
-  Widget _buildDownloadFooter() {
-    final displayedCount = _displayChapters.length;
-    final selectedCount =
-        _selected.isEmpty ? displayedCount : _selected.length;
-    final empty = selectedCount == 0;
-    final totalSz = _totalSizeLabel();
-    final label = empty
-        ? 'Télécharger'
-        : totalSz.isNotEmpty && _selected.isNotEmpty
-            ? 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''} • $totalSz'
-            : _isFilm
-                ? 'Télécharger le film'
-                : 'Télécharger $selectedCount épisode${selectedCount > 1 ? 's' : ''}';
-
-    // Quality/lang recap line so the user always sees what will be downloaded.
-    final recap = [
-      if (_langs.length > 1 && _selectedLang != null) _selectedLang!,
-      if (_qualities.isNotEmpty) _selectedQuality ?? _qualities.first,
-    ].join(' • ');
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
-      decoration: BoxDecoration(
-        color: _bg,
-        border: Border(top: BorderSide(color: _faint, width: 0.8)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (recap.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(recap, style: TextStyle(color: _grey, fontSize: 11)),
-            ),
-          GestureDetector(
-            onTap: empty ? null : _startDownload,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: empty ? _card : _accent,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: empty ? _faint : _accent,
-                  width: 0.8,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.download_rounded,
-                      size: 18, color: empty ? _grey : Colors.white),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: empty ? _grey : Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          _buildPill(
+            label: 'Télécharger',
+            leadingIcon: Icons.download_rounded,
+            showChevron: false,
+            onTap: _startDownload,
           ),
         ],
       ),
@@ -3740,8 +3673,7 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
   Widget _buildEpisodeCard(Chapter chapter, int index) {
     final sel = _selected.contains(chapter);
     final epLabel = _epLabel(chapter, index);
-    final rawSize = chapter.downloadSize?.trim();
-    final sizeLabel = (rawSize != null && rawSize.isNotEmpty) ? rawSize : null;
+    final duration = chapter.duration?.trim();
 
     return GestureDetector(
       onTap: () => setState(() {
@@ -3771,10 +3703,10 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (sizeLabel != null) ...[
+                  if (duration != null && duration.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
-                      sizeLabel,
+                      duration,
                       style: TextStyle(color: _grey, fontSize: 9),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -3803,7 +3735,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
     final epLabel = _epLabel(chapter, index);
     final name = (chapter.name ?? '').trim();
     final desc = (chapter.description ?? '').trim();
-    final rawSize = chapter.downloadSize?.trim();
     final duration = chapter.duration?.trim();
 
     return GestureDetector(
@@ -3909,8 +3840,6 @@ class _DownloadSheetState extends ConsumerState<_DownloadSheet> {
                     children: [
                       if (duration != null && duration.isNotEmpty)
                         _badge(duration),
-                      if (rawSize != null && rawSize.isNotEmpty)
-                        _badge(rawSize),
                       if (_langs.length > 1 && _selectedLang != null)
                         _badge(_selectedLang!),
                       if (_qualities.isNotEmpty &&

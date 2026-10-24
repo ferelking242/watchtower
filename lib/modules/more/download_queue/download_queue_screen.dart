@@ -2393,7 +2393,25 @@ class _DownloadCard extends ConsumerWidget {
         : itemType == ItemType.manga
         ? mangaProgress!.value
         : 0.0;
-    final progressLabel = _buildProgressLabel(
+    final fileMetadata = <String>[];
+    if (itemType == ItemType.anime && isComplete) {
+      final quality = download.quality?.trim();
+      if (quality != null && quality.isNotEmpty) {
+        fileMetadata.add(_displayQualityLabel(quality));
+      }
+      final exactBytes = trustedDownloadByteCount(download.totalBytes);
+      if (exactBytes != null && exactBytes > 0) {
+        fileMetadata.add(_formatBytes(exactBytes));
+      }
+      final duration = chapter?.duration?.trim();
+      if (duration != null && duration.isNotEmpty) {
+        fileMetadata.add(duration);
+      }
+    }
+    final fileDetails = fileMetadata.join(' • ');
+    final progressLabel = isComplete && itemType == ItemType.anime
+        ? ''
+        : _buildProgressLabel(
       itemType,
       succeeded,
       total,
@@ -2434,7 +2452,7 @@ class _DownloadCard extends ConsumerWidget {
     if (isCompressing) {
       statusText = 'Compression';
     } else if (isComplete) {
-      statusText = 'Terminé';
+      statusText = fileDetails.isNotEmpty ? fileDetails : 'Terminé';
     } else if (hasFailed) {
       statusText = 'Échec';
     } else if (isCancelled) {
@@ -2543,7 +2561,9 @@ class _DownloadCard extends ConsumerWidget {
       final childTitle = chapterLabel == null || chapterLabel.isEmpty
           ? 'Chapitre'
           : chapterLabel;
-      final childDetails = hasFailed
+      final childDetails = isComplete && fileDetails.isNotEmpty
+          ? fileDetails
+          : hasFailed
           ? 'Échec'
           : isCancelled
           ? 'Annulé'
@@ -2700,6 +2720,19 @@ class _DownloadCard extends ConsumerWidget {
                 ),
               ],
             ),
+            if (isComplete && fileDetails.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  fileDetails,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
             if (progressBar != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -3197,6 +3230,20 @@ class _DownloadCard extends ConsumerWidget {
       return '${(bytes / 1024).toStringAsFixed(1)} KB';
     }
     return '$bytes B';
+  }
+
+  String _displayQualityLabel(String quality) {
+    final k = RegExp(r'\b(8k|4k)\b', caseSensitive: false).firstMatch(quality);
+    if (k != null) return k.group(1)!.toUpperCase();
+    final resolution = RegExp(
+      r'(4320|2160|1440|1080|720|540|480|360|240)\s*p?',
+      caseSensitive: false,
+    ).firstMatch(quality);
+    if (resolution == null) return quality.trim();
+    final number = resolution.group(1)!;
+    if (number == '4320') return '8K';
+    if (number == '2160') return '4K';
+    return '${number}p';
   }
 }
 

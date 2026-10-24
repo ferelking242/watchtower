@@ -11,7 +11,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/services/watch_resume_store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -24,6 +23,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/video.dart' as wt;
+import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/hls_adaptive_quality.dart';
@@ -77,6 +77,34 @@ const _kFitNames = <BoxFit, String>{
   BoxFit.fitWidth: '16:9 →',
   BoxFit.fitHeight: '↕ Hauteur',
 };
+
+bool _isLocalVideoPath(String value) {
+  if (value.isEmpty) return false;
+  try {
+    if (File(value).existsSync()) return true;
+  } catch (_) {}
+  final uri = Uri.tryParse(value);
+  if (uri?.scheme == 'file') {
+    try {
+      return File.fromUri(uri!).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+  return false;
+}
+
+String _displayVideoQuality(String quality) {
+  final k = RegExp(r'\b(8k|4k)\b', caseSensitive: false).firstMatch(quality);
+  if (k != null) return k.group(1)!.toUpperCase();
+  final resolution = RegExp(r'(\d{3,4})\s*p?', caseSensitive: false)
+      .firstMatch(quality);
+  if (resolution != null) return '${resolution.group(1)}p';
+  return quality.trim();
+}
+
+String _videoQualityKey(String quality) =>
+    _displayVideoQuality(quality).toLowerCase();
 
 // ─── Native-style toast (used app-wide inside the player, replaces the old
 // custom purple toasts / SnackBars) ─────────────────────────────────────────
@@ -179,6 +207,8 @@ class WatchInlinePlayer {
   int? loadedChapterId;
   List<wt.Video> loadedVideos = [];
   String? selectedQuality;
+  Chapter? _activeChapter;
+  StreamSubscription<Duration>? _actualDurationSub;
 
   /// When set, the next successful [load] seeks to this position. Used to
   /// resume a partially-watched episode opened from History.
@@ -255,6 +285,7 @@ class WatchInlinePlayer {
 
   void dispose() {
     _isDisposed = true;
+    _actualDurationSub?.cancel();
     _widthSub?.cancel();
     _heightSub?.cancel();
     _player.dispose();
@@ -270,6 +301,7 @@ class WatchInlinePlayer {
   /// Switch to a different quality, preserving current playback position.
   Future<void> switchQuality(wt.Video targetVideo) async {
     final savedPos = _player.state.position;
+    final previousDuration = _player.state.duration;
     selectedQuality = targetVideo.quality;
     final ua =
         targetVideo.headers?['User-Agent'] ??
@@ -285,16 +317,20 @@ class WatchInlinePlayer {
       if (referer.isNotEmpty) await plat.setProperty('referrer', referer);
     } catch (_) {}
     if (_isDisposed) return;
-    await _tuneStartupForNetworkStreams();
+    final isLocal = _isLocalVideoPath(targetVideo.url);
+    if (!isLocal) await _tuneStartupForNetworkStreams();
     // Switching back to the adaptive entry must re-decide the rendition for
     // the current connection: the previous attempt may have left `hls-bitrate`
     // or a variant URL in place, and mpv reads the rendition at open() time.
-    final abrUrl = await _applyAdaptiveQuality(targetVideo);
+    final abrUrl = isLocal ? null : await _applyAdaptiveQuality(targetVideo);
     // Bounded like the load() path: a stalled socket must not freeze the
     // settings sheet forever with no visible error.
     await _player
         .open(
-          Media(abrUrl ?? targetVideo.url, httpHeaders: targetVideo.headers),
+          Media(
+            abrUrl ?? targetVideo.url,
+            httpHeaders: isLocal ? null : targetVideo.headers,
+          ),
           play: true,
         )
         .timeout(
@@ -308,6 +344,10 @@ class WatchInlinePlayer {
             );
           },
         );
+    final activeChapter = _activeChapter;
+    if (activeChapter != null) {
+      _watchActualDuration(activeChapter, ignore: previousDuration);
+    }
     // Restore position after the new stream is ready
     if (savedPos > Duration.zero) {
       try {
@@ -326,6 +366,95 @@ class WatchInlinePlayer {
   void reset() {
     hasVideoUrl = false;
     loadFailed = false;
+  }
+
+  List<wt.Video> _localQualityVideos(Chapter chapter) {
+    if (chapter.mangaId == null) return const [];
+    final videos = <String, wt.Video>{};
+    for (final download in isar.downloads.where().findAllSync()) {
+      final path = download.filePath;
+      final quality = download.quality;
+      if (download.isDownload != true ||
+          path == null ||
+          path.isEmpty ||
+          quality == null ||
+          quality.isEmpty) {
+        continue;
+      }
+      Chapter? savedChapter = download.chapter.value;
+      if (savedChapter == null && !download.chapter.isLoaded) {
+        try {
+          download.chapter.loadSync();
+          savedChapter = download.chapter.value;
+        } catch (_) {}
+      }
+      savedChapter ??= download.id == null
+          ? null
+          : isar.chapters.getSync(download.id!);
+      if (savedChapter == null ||
+          savedChapter.mangaId != chapter.mangaId ||
+          savedChapter.name != chapter.name ||
+          savedChapter.url != chapter.url ||
+          savedChapter.scanlator != chapter.scanlator) {
+        continue;
+      }
+      if (!_isLocalVideoPath(path)) continue;
+      final key = _videoQualityKey(quality);
+      videos[key] = wt.Video(path, quality, path);
+    }
+    return videos.values.toList();
+  }
+
+  List<wt.Video> _mergeLocalQualityVideos(
+    List<wt.Video> online,
+    List<wt.Video> local,
+  ) {
+    final localByQuality = <String, wt.Video>{
+      for (final video in local) _videoQualityKey(video.quality): video,
+    };
+    final merged = <wt.Video>[];
+    final seen = <String>{};
+    for (final video in online) {
+      final key = _videoQualityKey(video.quality);
+      if (!seen.add(key)) continue;
+      merged.add(localByQuality.remove(key) ?? video);
+    }
+    for (final video in localByQuality.values) {
+      final key = _videoQualityKey(video.quality);
+      if (seen.add(key)) merged.add(video);
+    }
+    return merged;
+  }
+
+  void _watchActualDuration(Chapter chapter, {Duration? ignore}) {
+    _actualDurationSub?.cancel();
+    _actualDurationSub = _player.stream.duration.listen((duration) {
+      if (duration <= Duration.zero || duration == ignore) return;
+      _persistActualDuration(chapter, duration);
+    });
+  }
+
+  void _persistActualDuration(Chapter chapter, Duration duration) {
+    if (duration <= Duration.zero || chapter.id == null) return;
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final label = duration.inHours > 0
+        ? '${duration.inHours}:'
+              '${minutes.remainder(60).toString().padLeft(2, '0')}:$seconds'
+        : '$minutes:$seconds';
+    chapter.duration = label;
+    try {
+      final stored = isar.chapters.getSync(chapter.id!);
+      if (stored == null) return;
+      ensureChapterLinksLoaded(stored);
+      if (stored.duration == label) return;
+      stored.duration = label;
+      isar.writeTxnSync(() {
+        isar.chapters.putSync(stored);
+      });
+    } catch (_) {
+      // Playback should never fail because a legacy Isar relation is unreadable.
+    }
   }
 
   /// Chooses the HLS rendition for [url] from the measured connection speed
@@ -703,6 +832,9 @@ class WatchInlinePlayer {
   Future<void> load({required WidgetRef ref, required Chapter chapter}) async {
     loadFailed = false;
     hasVideoUrl = false;
+    final previousDuration = _player.state.duration;
+    _activeChapter = chapter;
+    _actualDurationSub?.cancel();
     // Kill any ongoing playback immediately so the old audio doesn't bleed
     // into the next episode while the network request is in flight.
     await _stopBestEffort('load');
@@ -713,10 +845,24 @@ class WatchInlinePlayer {
     );
     final videoListSw = Stopwatch()..start();
     try {
-      final data = await ref.read(
-        getVideoListProvider(episode: chapter).future,
+      List<wt.Video> onlineVideos = [];
+      try {
+        final data = await ref.read(
+          getVideoListProvider(episode: chapter).future,
+        );
+        onlineVideos = data.$1;
+      } catch (error) {
+        AppLogger.log(
+          '[PLAYER] network source lookup failed; checking local quality files',
+          logLevel: LogLevel.warning,
+          tag: LogTag.watch,
+          error: error,
+        );
+      }
+      final videos = _mergeLocalQualityVideos(
+        onlineVideos,
+        _localQualityVideos(chapter),
       );
-      final (videos, _, __, ___) = data;
       loadedVideos = videos;
 
       if (videos.isEmpty) {
@@ -814,6 +960,11 @@ class WatchInlinePlayer {
           posSub?.cancel();
           hasVideoUrl = true;
           selectedQuality = v.quality;
+          final actualDuration = _player.state.duration;
+          if (actualDuration > Duration.zero) {
+            _persistActualDuration(chapter, actualDuration);
+          }
+          _watchActualDuration(chapter, ignore: previousDuration);
           AppLogger.log(
             '[PLAYER] PLAYING quality="${v.quality}" '
             'duration=${_player.state.duration.inSeconds}s chapterId=${chapter.id}',
@@ -908,7 +1059,10 @@ class WatchInlinePlayer {
         // Dart HttpClient probe: log the real HTTP status. It runs in parallel
         // with mpv: awaiting it here used to delay `open()` by up to 5 s, and
         // it only exists for diagnostics — it must never gate playback.
-        unawaited(_probeStreamStatus(v.url, _ua, _referer));
+        final isLocalVideo = _isLocalVideoPath(v.url);
+        if (!isLocalVideo) {
+          unawaited(_probeStreamStatus(v.url, _ua, _referer));
+        }
 
         if (_isDisposed) {
           watchdog.cancel();
@@ -918,11 +1072,13 @@ class WatchInlinePlayer {
           posSub?.cancel();
           return;
         }
-        await _tuneStartupForNetworkStreams();
+        if (!isLocalVideo) await _tuneStartupForNetworkStreams();
         // First attempt only: a retry means this rendition already failed, so
         // re-probing would only add latency to the fallback. The ABR may hand
         // back a variant playlist to open directly instead of the master.
-        final abrUrl = i == 0 ? await _applyAdaptiveQuality(v) : null;
+        final abrUrl = i == 0 && !isLocalVideo
+            ? await _applyAdaptiveQuality(v)
+            : null;
         final openUrl = abrUrl ?? v.url;
         if (_isDisposed) {
           watchdog.cancel();
@@ -947,7 +1103,13 @@ class WatchInlinePlayer {
           // unbounded await here would hang the whole quality loop. Cap it
           // under the watchdog and fail the attempt so the next quality runs.
           await _player
-              .open(Media(openUrl, httpHeaders: v.headers), play: true)
+              .open(
+                Media(
+                  openUrl,
+                  httpHeaders: isLocalVideo ? null : v.headers,
+                ),
+                play: true,
+              )
               .timeout(
                 const Duration(seconds: 8),
                 onTimeout: () {
@@ -1403,6 +1565,7 @@ class _FullscreenControlsOverlayState
   // ── Speed / Quality / Language / More inline pickers ──────────────────────
   bool _showSpeedPicker = false;
   bool _showQualityPicker = false;
+  bool _downloadPickerMode = false;
   bool _showMorePanel = false;
   bool _showEpPanel = false;
 
@@ -2788,136 +2951,64 @@ class _FullscreenControlsOverlayState
     );
   }
 
-  // ── Télécharge la source en cours (qualité sélectionnée) ────────────────────
+  // The download action opens the same resolution list as the player quality
+  // picker; the selected item is queued through the persistent download manager.
   Future<void> _startDownload() async {
-    final vids = widget.loadedVideos;
-    wt.Video? video;
-    for (final candidate in vids) {
-      if (candidate.quality == _currentQuality) {
-        video = candidate;
-        break;
-      }
-    }
-    video ??= _currentVideo;
-    if (video == null || video.url.isEmpty) {
-      AppLogger.log(
-        'Watch player download aborted: no playable source',
-        logLevel: LogLevel.warning,
-        tag: LogTag.download,
-      );
+    if (widget.loadedVideos.isEmpty) {
       _playerToast('Aucune source à télécharger');
       return;
     }
-    final selectedVideo = video;
-
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 20);
-    File? temporaryFile;
-    IOSink? sink;
+    setState(() => _downloadPickerMode = true);
     try {
-      AppLogger.log(
-        'Watch player download started quality=${selectedVideo.quality}',
-        logLevel: LogLevel.info,
-        tag: LogTag.download,
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: _buildQualityPickerOverlay(),
+          ),
+        ),
       );
-      final request = await client.getUrl(Uri.parse(selectedVideo.url));
-      selectedVideo.headers?.forEach(
-        (key, value) => request.headers.set(key, value),
-      );
-      final response = await request.close();
-      AppLogger.log(
-        'Watch player response status=${response.statusCode} '
-        'contentLength=${response.contentLength} '
-        'contentType=${response.headers.contentType?.mimeType ?? "unknown"}',
-        logLevel: LogLevel.info,
-        tag: LogTag.download,
-      );
-      if (response.statusCode != HttpStatus.ok &&
-          response.statusCode != HttpStatus.partialContent) {
-        await response.drain<void>();
-        throw HttpException('Download returned HTTP ${response.statusCode}');
-      }
+    } finally {
+      if (mounted) setState(() => _downloadPickerMode = false);
+    }
+  }
 
-      final base = await getApplicationDocumentsDirectory();
-      final dir = Directory('${base.path}/Watchtower/Downloads');
-      await dir.create(recursive: true);
-      final clean = widget.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final cleanQuality = selectedVideo.quality.replaceAll(
-        RegExp(r'[\\/:*?"<>|]'),
-        '_',
+  Future<void> _queuePlayerQualityDownload(wt.Video video) async {
+    if (_isLocalVideoPath(video.url)) {
+      _playerToast('Cette résolution est déjà téléchargée');
+      return;
+    }
+    final chapterId = widget.currentChapterId;
+    final chapter = chapterId == null ? null : isar.chapters.getSync(chapterId);
+    if (chapter == null) {
+      _playerToast('Épisode introuvable dans la bibliothèque');
+      return;
+    }
+    try {
+      final queued = await queueVideoQualityDownload(
+        container: ProviderScope.containerOf(context, listen: false),
+        chapter: chapter,
+        quality: video.quality,
+        originalUrl: video.originalUrl,
       );
-      final destination = File('${dir.path}/$clean ($cleanQuality).mp4');
-      // Keep the temporary file beside its destination for an atomic rename.
-      final temporary = File('${destination.path}.part');
-      temporaryFile = temporary;
-      final output = temporary.openWrite();
-      sink = output;
-      _playerToast('Téléchargement démarré…');
-
-      var receivedBytes = 0;
-      var lastLoggedBucket = -1;
-      var nextUnknownSizeLog = 25 * 1024 * 1024;
-      await for (final chunk in response) {
-        output.add(chunk);
-        receivedBytes += chunk.length;
-        final totalBytes = response.contentLength;
-        if (totalBytes > 0) {
-          final percent = (receivedBytes * 100 / totalBytes)
-              .clamp(0, 100)
-              .toInt();
-          final bucket = (percent ~/ 10) * 10;
-          if (bucket >= 10 && bucket > lastLoggedBucket) {
-            lastLoggedBucket = bucket;
-            AppLogger.log(
-              'Watch player transfer progress=$bucket% '
-              'bytes=$receivedBytes/$totalBytes',
-              logLevel: LogLevel.debug,
-              tag: LogTag.download,
-            );
-          }
-        } else if (receivedBytes >= nextUnknownSizeLog) {
-          AppLogger.log(
-            'Watch player transfer progress bytes=$receivedBytes '
-            '(server did not provide a length)',
-            logLevel: LogLevel.debug,
-            tag: LogTag.download,
-          );
-          nextUnknownSizeLog += 25 * 1024 * 1024;
-        }
-      }
-      await output.flush();
-      await output.close();
-      sink = null;
-      if (await destination.exists()) {
-        await destination.delete();
-      }
-      await temporary.rename(destination.path);
-      AppLogger.log(
-        'Watch player download completed bytes=$receivedBytes',
-        logLevel: LogLevel.info,
-        tag: LogTag.download,
+      if (!mounted) return;
+      _playerToast(
+        queued
+            ? 'Téléchargement ${_displayVideoQuality(video.quality)} ajouté'
+            : 'Cette résolution est déjà téléchargée ou en cours',
       );
-      _playerToast('Téléchargement terminé ✔');
     } catch (error, stackTrace) {
-      try {
-        await sink?.close();
-      } catch (_) {}
-      try {
-        final failedTemp = temporaryFile;
-        if (failedTemp != null && await failedTemp.exists()) {
-          await failedTemp.delete();
-        }
-      } catch (_) {}
       AppLogger.log(
-        'Watch player download failed',
+        'Watch player queue request failed',
         logLevel: LogLevel.warning,
         tag: LogTag.download,
         error: error,
         stackTrace: stackTrace,
       );
-      _playerToast('Échec du téléchargement');
-    } finally {
-      client.close(force: true);
+      if (mounted) _playerToast('Impossible de mettre en file');
     }
   }
 
@@ -3601,9 +3692,9 @@ class _FullscreenControlsOverlayState
   // ─── Quality label for chip ────────────────────────────────────────────────
   String _qualityLabel() {
     if (_currentQuality != null && _currentQuality!.isNotEmpty)
-      return _currentQuality!;
+      return _displayVideoQuality(_currentQuality!);
     if (widget.loadedVideos.isNotEmpty)
-      return widget.loadedVideos.first.quality;
+      return _displayVideoQuality(widget.loadedVideos.first.quality);
     return 'Qualité';
   }
 
@@ -3632,10 +3723,10 @@ class _FullscreenControlsOverlayState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(14, 10, 14, 6),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
                 child: Text(
-                  'Qualité',
+                  _downloadPickerMode ? 'Télécharger · qualité' : 'Qualité',
                   style: TextStyle(
                     color: Colors.white54,
                     fontSize: 11,
@@ -3661,12 +3752,19 @@ class _FullscreenControlsOverlayState
                         final isCurrent = _currentQuality == v.quality;
                         return GestureDetector(
                           onTap: () async {
+                            if (_downloadPickerMode) {
+                              Navigator.of(context).pop();
+                              await _queuePlayerQualityDownload(v);
+                              return;
+                            }
                             _currentQuality = v.quality;
                             setState(() => _showQualityPicker = false);
                             _resetHideTimer();
                             if (widget.onSwitchQuality != null)
                               await widget.onSwitchQuality!(v);
-                            _playerToast('Qualité : ${v.quality}');
+                            _playerToast(
+                              'Qualité : ${_displayVideoQuality(v.quality)}',
+                            );
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 120),
@@ -3683,7 +3781,7 @@ class _FullscreenControlsOverlayState
                                 SizedBox(
                                   width: 80,
                                   child: Text(
-                                    v.quality,
+                                    _displayVideoQuality(v.quality),
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: isCurrent
@@ -3696,7 +3794,13 @@ class _FullscreenControlsOverlayState
                                     ),
                                   ),
                                 ),
-                                if (isCurrent)
+                                if (_isLocalVideoPath(v.url))
+                                  const Icon(
+                                    Icons.download_done_rounded,
+                                    color: Colors.white70,
+                                    size: 14,
+                                  )
+                                else if (isCurrent)
                                   Icon(
                                     Icons.check_rounded,
                                     color: Theme.of(context).primaryColor,

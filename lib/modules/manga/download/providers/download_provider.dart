@@ -40,6 +40,9 @@ import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/engine_selector.dart';
+import 'package:watchtower/services/video_duration_probe_stub.dart'
+    if (dart.library.ffi)
+        'package:watchtower/services/video_duration_probe_io.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
@@ -450,6 +453,120 @@ String _qualityDigits(String raw) {
   return raw.trim().toLowerCase();
 }
 
+/// Persist one download row per selected resolution while keeping every
+/// resolution attached to the same series and episode identity.
+Chapter prepareVideoQualityDownloadChapter(
+  Chapter source, {
+  required String quality,
+  String? language,
+}) {
+  if (source.id == null) {
+    throw StateError('Impossible de télécharger un épisode sans identifiant.');
+  }
+  ensureChapterLinksLoaded(source);
+  final sourceManga = resolveChapterManga(source);
+  final requestedKey = _qualityDigits(quality);
+
+  for (final candidate in isar.chapters.where().findAllSync()) {
+    if (candidate.mangaId != source.mangaId ||
+        candidate.name != source.name ||
+        candidate.url != source.url ||
+        candidate.scanlator != source.scanlator ||
+        candidate.id == null) {
+      continue;
+    }
+    final existing = isar.downloads.getSync(candidate.id!);
+    final existingQuality = existing?.quality;
+    if (existingQuality != null &&
+        _qualityDigits(existingQuality) == requestedKey) {
+      chapterPreferredQuality[candidate.id!] = quality;
+      if (language != null && language.isNotEmpty) {
+        chapterPreferredLang[candidate.id!] = language;
+      }
+      return candidate;
+    }
+  }
+
+  final variant = Chapter(
+    id: Isar.autoIncrement,
+    mangaId: source.mangaId,
+    name: source.name,
+    url: source.url,
+    dateUpload: source.dateUpload,
+    scanlator: source.scanlator,
+    thumbnailUrl: source.thumbnailUrl,
+    description: source.description,
+    duration: source.duration,
+    updatedAt: source.updatedAt,
+  )..manga.value = sourceManga;
+  isar.writeTxnSync(() {
+    isar.chapters.putSync(variant);
+  });
+  final variantId = variant.id!;
+  chapterPreferredQuality[variantId] = quality;
+  if (language != null && language.isNotEmpty) {
+    chapterPreferredLang[variantId] = language;
+  }
+  return variant;
+}
+
+/// Queue a selected resolution through Watchtower's normal download pipeline.
+/// The queue row stores the exact quality label; the chapter clone has the
+/// same manga/episode identity so all variants remain grouped together.
+Future<bool> queueVideoQualityDownload({
+  required ProviderContainer container,
+  required Chapter chapter,
+  required String quality,
+  String? originalUrl,
+  String? language,
+}) async {
+  final variant = prepareVideoQualityDownloadChapter(
+    chapter,
+    quality: quality,
+    language: language,
+  );
+  final id = variant.id!;
+  final existing = isar.downloads.getSync(id);
+  if (existing?.isDownload == true) {
+    final path = existing?.filePath;
+    if (path != null && path.isNotEmpty && File(path).existsSync()) {
+      return false;
+    }
+    isar.writeTxnSync(() {
+      final stored = isar.downloads.getSync(id);
+      if (stored != null) {
+        isar.downloads.putSync(
+          stored
+            ..isDownload = false
+            ..isStartDownload = false
+            ..status = 'failed'
+            ..filePath = null,
+        );
+      }
+    });
+  }
+  if (ActiveDownloadRegistry.isActive(id)) return false;
+
+  chapterPreferredQuality[id] = quality;
+  if (originalUrl != null && originalUrl.isNotEmpty) {
+    chapterPreferredOriginalUrl[id] = originalUrl;
+  }
+  if (language != null && language.isNotEmpty) {
+    chapterPreferredLang[id] = language;
+  }
+  await container.read(addDownloadToQueueProvider(chapter: variant).future);
+  container.read(downloadQueueStateProvider.notifier).setPaused(id, false);
+  container.read(processDownloadsProvider());
+  return true;
+}
+
+String _actualDurationLabel(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
+}
+
 /// Resolve (and persist) the manga owning [chapter] as safely as possible.
 ///
 /// Root cause of "le téléchargement ne démarre pas" : un chapitre chargé
@@ -656,15 +773,12 @@ Future<bool> showAnimeQualityPickerAndQueue({
     return launched;
   }
 
-  if (chapter.id != null) {
-    chapterPreferredOriginalUrl[chapter.id!] = selected!.originalUrl;
-  }
-  await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
-  if (chapter.id != null) {
-    ref.read(downloadQueueStateProvider.notifier).setPaused(chapter.id!, false);
-  }
-  ref.read(processDownloadsProvider());
-  return true;
+  return queueVideoQualityDownload(
+    container: ProviderScope.containerOf(context, listen: false),
+    chapter: chapter,
+    quality: selected!.quality,
+    originalUrl: selected!.originalUrl,
+  );
 }
 
 // ── Quality picker dialog widget ──────────────────────────────────────────────
@@ -1110,7 +1224,7 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       ..filePath = null
       ..title = chapter.name
       ..posterUrl = chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
-      ..quality = chapterPreferredQuality[id]
+      ..quality = chapterPreferredQuality[id] ?? download.quality
       ..status = 'queued';
 
     final storedChapter = isar.chapters.getSync(id);
@@ -1254,8 +1368,20 @@ Future<void> downloadChapter(
       chapter,
     );
     List<Track>? subtitles;
-    final chapterName = chapter.name!.replaceForbiddenCharacters(' ');
     final itemType = manga.itemType;
+    final storedQuality = chapterId == null
+        ? null
+        : chapterPreferredQuality[chapterId] ??
+              isar.downloads.getSync(chapterId)?.quality;
+    final resolution =
+        storedQuality == null ? '' : _qualityDigits(storedQuality);
+    final qualitySuffix =
+        itemType == ItemType.anime &&
+            RegExp(r'^\d{3,4}$').hasMatch(resolution)
+        ? ' [${resolution}p]'
+        : '';
+    final chapterName =
+        '${chapter.name!.replaceForbiddenCharacters(' ')}$qualitySuffix';
     final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
       chapter,
       mangaMainDirectory: mangaMainDirectory,
@@ -1771,7 +1897,8 @@ Future<void> downloadChapter(
               downloadedBytes: exactDownloadedBytes,
               totalBytes: exactTotalBytes,
               title: chapter.name,
-              quality: chapterPreferredQuality[chapter.id],
+              quality:
+                  chapterPreferredQuality[chapter.id] ?? download?.quality,
               posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
               status: progressStatus,
             );
@@ -1799,7 +1926,9 @@ Future<void> downloadChapter(
                   ..downloadedBytes = exactDownloadedBytes
                   ..totalBytes = exactTotalBytes
                   ..title = chapter.name
-                  ..quality = chapterPreferredQuality[chapter.id]
+                  ..quality =
+                      chapterPreferredQuality[chapter.id] ??
+                      downloadNonNull.quality
                   ..posterUrl =
                       chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
                   ..status = progressStatus,
@@ -1984,6 +2113,10 @@ Future<void> downloadChapter(
             : null;
         if (completedPath != null) {
           try {
+            final actualFileBytes = await File(completedPath).length();
+            final actualDuration = progress.itemType == ItemType.anime
+                ? await probeActualVideoDuration(completedPath)
+                : null;
             final completedRecord = isar.downloads.getSync(chapter.id!);
             if (completedRecord != null) {
               isar.writeTxnSync(() {
@@ -1991,9 +2124,29 @@ Future<void> downloadChapter(
                   completedRecord
                     ..filePath = completedPath
                     ..status = 'completed'
-                    ..isDownload = true,
+                    ..isDownload = true
+                    ..downloadedBytes = actualFileBytes
+                    ..totalBytes = actualFileBytes,
                 );
               });
+            }
+            if (progress.itemType == ItemType.anime) {
+              try {
+                final completedChapter =
+                    isar.chapters.getSync(chapter.id!) ?? chapter;
+                ensureChapterLinksLoaded(completedChapter);
+                completedChapter
+                  ..downloadSize = '$actualFileBytes B'
+                  ..duration = actualDuration == null
+                      ? null
+                      : _actualDurationLabel(actualDuration);
+                isar.writeTxnSync(() {
+                  isar.chapters.putSync(completedChapter);
+                });
+              } catch (_) {
+                // Real file bytes remain available on the Download row even
+                // if a legacy chapter link cannot be reattached.
+              }
             }
           } catch (_) {
             // Notification d'achèvement : on ne fait pas planter la fin du
@@ -2215,17 +2368,25 @@ Future<void> downloadChapter(
         // back to the first entry (often 1080p/auto), so a user asking for
         // 360p could end up with a 1 GB file.
         final preferredQuality = chapter.id != null
-            ? chapterPreferredQuality[chapter.id!]
+            ? chapterPreferredQuality[chapter.id!] ??
+                  isar.downloads.getSync(chapter.id!)?.quality
             : null;
+        final preferredQualityDigits = preferredQuality == null
+            ? null
+            : _qualityDigits(preferredQuality);
         if (preferredQuality != null && videosUrls.isNotEmpty) {
           final exactMatches = videosUrls
-              .where((v) => _qualityDigits(v.quality) == preferredQuality)
+              .where(
+                (v) => _qualityDigits(v.quality) == preferredQualityDigits,
+              )
               .toList();
-          if (exactMatches.isNotEmpty) {
-            videosUrls = exactMatches;
+          if (exactMatches.isEmpty) {
+            throw StateError(
+              'La résolution ${preferredQuality} n’est pas disponible pour '
+              'cet épisode.',
+            );
           }
-          // No exact match: keep the source order as fallback rather than
-          // guessing a different resolution.
+          videosUrls = exactMatches;
           // One-shot: clear so a future re-download asks again.
           chapterPreferredQuality.remove(chapter.id!);
         }
