@@ -61,6 +61,12 @@ class AntiBotAssessment {
 /// Interactive challenge markers. Deliberately specific: the bare word
 /// “challenge” is NOT part of this list (OAuth `code_challenge`, captchas,
 /// game challenges… must not trigger a Cloudflare UI).
+///
+/// These markers only appear on an actual Cloudflare interstitial. Markers that
+/// every Cloudflare-fronted page can carry (the `challenge-platform` script,
+/// a Turnstile widget in a login form) live in [kWeakChallengeMarkers] instead:
+/// they used to be treated as a challenge on healthy sites, which opened the
+/// bypass panel and raised the toast for pages that were never blocked.
 const List<String> kChallengeMarkers = [
   'just a moment',
   'checking your browser',
@@ -68,11 +74,9 @@ const List<String> kChallengeMarkers = [
   'verify you are human',
   'verify that you are human',
   'performing security verification',
-  'challenge-platform',
   'cf-challenge-running',
   'cf-chl',
   'cf_chl',
-  'turnstile',
   'enable javascript and cookies to continue',
   'challenge required',
   // Cloudflare localises the interstitial, so the same challenge can be shown
@@ -88,6 +92,18 @@ const List<String> kChallengeMarkers = [
   'verificacao de seguranca',
   'sicherheitsüberprüfung',
   'sicherheitsuberprufung',
+];
+
+/// Cloudflare markers that are also present on perfectly healthy pages.
+///
+/// The Bot Fight Mode script (`/cdn-cgi/challenge-platform/...`) is injected in
+/// the HTML of normal pages, and many sites embed a Turnstile widget in their
+/// own forms. On their own they are NOT evidence of an interstitial: they only
+/// escalate to [AntiBotPageType.challenge] when the response itself is an error
+/// (403/503/429…) or when `cf-mitigated: challenge` is set.
+const List<String> kWeakChallengeMarkers = [
+  'challenge-platform',
+  'turnstile',
 ];
 
 /// Block-page markers (no interactive challenge).
@@ -174,15 +190,27 @@ AntiBotAssessment assessHttpResponse({
       ? ''
       : (body ?? '').toLowerCase();
   final challengeMarkers = _foundMarkers(haystack, kChallengeMarkers);
+  final weakMarkers = _foundMarkers(haystack, kWeakChallengeMarkers);
   final blockMarkers = _foundMarkers(haystack, kBlockMarkers);
 
   final cfOnlyHit = _foundMarkers(haystack, _kCloudflareOnlyMarkers).isNotEmpty;
   if (cfOnlyHit) cloudflareInvolved = true;
+  if (weakMarkers.isNotEmpty) cloudflareInvolved = true;
 
   final challengeRequested = cfMitigated.contains('challenge');
-  if (challengeMarkers.isNotEmpty || challengeRequested) {
+  // A weak marker is only an interstitial when the response is itself a
+  // refusal (Cloudflare answers 403/503/429) — never on a 200 page that merely
+  // embeds the challenge script or a Turnstile widget.
+  final refusal =
+      statusCode == 403 || statusCode == 429 || statusCode >= 500;
+  final weakChallengeConfirmed =
+      weakMarkers.isNotEmpty && (challengeRequested || refusal);
+  if (challengeMarkers.isNotEmpty ||
+      challengeRequested ||
+      weakChallengeConfirmed) {
     if (challengeRequested) evidence.add('header:cf-mitigated=challenge');
     evidence.addAll(challengeMarkers.map((m) => 'body:$m'));
+    evidence.addAll(weakMarkers.map((m) => 'body:$m'));
     return AntiBotAssessment(
       pageType: AntiBotPageType.challenge,
       cloudflareInvolved: true,
@@ -260,6 +288,24 @@ AntiBotAssessment assessErrorMessage(String? message) {
       pageType: AntiBotPageType.challenge,
       cloudflareInvolved: true,
       evidence: [for (final m in challengeMarkers) 'message:$m'],
+    );
+  }
+
+  // Extensions report a challenge with their own wording (e.g. `MissAV:
+  // Cloudflare challenge — https://…`). Those phrases are Cloudflare-specific,
+  // so they are actionable even though the bare word “challenge” is not.
+  const errorChallengeMarkers = [
+    'cloudflare challenge',
+    'cloudflare captcha',
+    'cloudflare verification',
+    'challenge cloudflare',
+  ];
+  final errorChallengeHits = _foundMarkers(haystack, errorChallengeMarkers);
+  if (errorChallengeHits.isNotEmpty) {
+    return AntiBotAssessment(
+      pageType: AntiBotPageType.challenge,
+      cloudflareInvolved: true,
+      evidence: [for (final m in errorChallengeHits) 'message:$m'],
     );
   }
 

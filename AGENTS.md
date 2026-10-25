@@ -43,6 +43,13 @@ failing URL in the error message (`https?://\S+` as the last token).
 specific heading (HTTP code, Cloudflare block, connection error). The old
 catch-all "Impossible de charger le contenu" must not come back.
 
+A challenge is only claimed with real evidence. `challenge-platform` and
+`turnstile` are in `kWeakChallengeMarkers`: Cloudflare injects that script into
+healthy pages and sites embed the widget in their own forms, so they escalate
+to a challenge only when the response itself is a refusal (403/429/5xx) or
+carries `cf-mitigated: challenge`. Error strings are matched on Cloudflare
+phrases (`cloudflare challenge`…), never on the bare word “challenge”.
+
 Covered by `test/extension_home_empty_state_test.dart`,
 `test/cloudflare_detection_test.dart`, `test/cloudflare_challenge_url_test.dart`.
 

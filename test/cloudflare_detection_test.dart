@@ -133,6 +133,48 @@ void main() {
       expect(a.evidence, contains('header:cf-mitigated=challenge'));
     });
 
+    test('a healthy page may embed the challenge script without being one',
+        () {
+      // Bot Fight Mode injects /cdn-cgi/challenge-platform/... into every page
+      // of a protected zone and many sites embed a Turnstile widget in their
+      // own forms. Treating those as an interstitial opened the bypass panel
+      // and raised the toast on sources that were never blocked.
+      final healthy = assessHttpResponse(
+        statusCode: 200,
+        headers: {
+          'server': 'cloudflare',
+          'cf-ray': 'abc123-CDG',
+          'content-type': 'text/html; charset=utf-8',
+        },
+        body: '<html><head><title>My site</title></head><body>'
+            '<h1>Videos</h1>'
+            '<script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js">'
+            '</script>'
+            '<form><div class="cf-turnstile" data-sitekey="x"></div></form>'
+            '</body></html>',
+      );
+      expect(healthy.pageType, AntiBotPageType.normal);
+      expect(healthy.challenge, isFalse);
+      expect(healthy.blocked, isFalse);
+      // CDN involvement stays reported for diagnostics.
+      expect(healthy.cloudflareInvolved, isTrue);
+
+      // The same markers on an actual refusal are a real challenge.
+      final refused = assessHttpResponse(
+        statusCode: 403,
+        headers: {
+          'server': 'cloudflare',
+          'cf-ray': 'abc123-CDG',
+          'content-type': 'text/html',
+        },
+        body: '<html><title>My site</title><body>'
+            '<script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js">'
+            '</script></body></html>',
+      );
+      expect(refused.pageType, AntiBotPageType.challenge);
+      expect(refused.cloudflareInvolved, isTrue);
+    });
+
     test('Test 7: a JSON API 403 is never rewritten as Cloudflare', () {
       final a = assessHttpResponse(
         statusCode: 403,
@@ -322,6 +364,21 @@ void main() {
         expect(a.cloudflareInvolved, isFalse, reason: msg);
         expect(a.challenge, isFalse, reason: msg);
       }
+    });
+
+    test('an extension challenge message is actionable', () {
+      // MissAV (and other extensions) report the interstitial in their own
+      // words; that phrase must open the bypass panel, not the error screen.
+      final a = assessErrorMessage(
+        'Error: MissAV: Cloudflare challenge (HTTP 403) — '
+        'https://missav.ws/en/new?sort=views',
+      );
+      expect(a.challenge, isTrue);
+      expect(a.cloudflareInvolved, isTrue);
+      expect(isCloudflareError('MissAV: Cloudflare challenge — https://x.y/z'),
+          isTrue);
+      // A bare “challenge” stays ignored.
+      expect(isCloudflareError('invalid OAuth code_challenge'), isFalse);
     });
 
     test('real Cloudflare markers are detected', () {

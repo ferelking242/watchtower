@@ -77,6 +77,49 @@ void main() {
     },
   );
 
+  test('recognises an extension’s own Cloudflare challenge wording', () {
+    // Exactly what MissAV throws when missav.ws answers with an interstitial:
+    // the bypass panel must open instead of the generic error screen.
+    final error = Exception(
+      'Error: MissAV: Cloudflare challenge (HTTP 403) — '
+      'https://missav.ws/en/new?sort=views at _body '
+      '(extension-1900000218.js:74:22) at _get '
+      '(extension-1900000218.js:65:22)',
+    );
+
+    expect(extensionErrorIsCloudflareChallenge(error), isTrue);
+    expect(extensionErrorNeedsBypass(error), isTrue);
+    expect(extensionErrorTitle(error), 'Vérification Cloudflare requise');
+    expect(extensionHttpStatusCode(error), 403);
+    expect(extensionFailedUrl(error), 'https://missav.ws/en/new?sort=views');
+  });
+
+  testWidgets('opens the bypass panel on a MissAV challenge', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          error: Exception(
+            'Error: MissAV: Cloudflare challenge (HTTP 403) — '
+            'https://missav.ws/en/new?sort=views at _body '
+            '(extension-1900000218.js:74:22)',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Vérification Cloudflare requise'), findsOneWidget);
+    final panel = tester.widget<CloudflareBypassPanel>(
+      find.byType(CloudflareBypassPanel),
+    );
+    expect(panel.url, 'https://missav.ws/en/new?sort=views');
+    expect(panel.onResolved, isNull);
+    expect(panel.onRetry, isNotNull);
+  });
+
   test('an unrecognised failure shows the real detail, not a catch-all', () {
     final error = Exception(
       '[AllManga] Popular response did not contain recommendations',

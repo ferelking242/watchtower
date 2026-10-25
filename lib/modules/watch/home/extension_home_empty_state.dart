@@ -144,6 +144,9 @@ bool extensionErrorIsCloudflareApiBlock(Object? error) {
 
 bool extensionErrorIsCloudflareChallenge(Object? error) {
   if (error == null) return false;
+  // “Cloudflare challenge blocked the API request” is a refused API, not an
+  // interstitial: it keeps its own label and its own panel state.
+  if (extensionErrorIsCloudflareApiBlock(error)) return false;
   final detail = error.toString().toLowerCase();
   final hasCloudflareMarker =
       detail.contains('cloudflare') ||
@@ -151,6 +154,14 @@ bool extensionErrorIsCloudflareChallenge(Object? error) {
       detail.contains('cf_chl_');
   return detail.contains('cf-chl-') ||
       detail.contains('cf_chl_') ||
+      // Extensions word it themselves (`MissAV: Cloudflare challenge — https://…`).
+      // The bare word “challenge” stays out of the list, but the Cloudflare
+      // phrase is specific enough to open the bypass panel instead of the
+      // generic error screen.
+      detail.contains('cloudflare challenge') ||
+      detail.contains('challenge cloudflare') ||
+      detail.contains('cloudflare captcha') ||
+      detail.contains('cloudflare verification') ||
       (hasCloudflareMarker &&
           (detail.contains('captcha') ||
               detail.contains('just a moment') ||
