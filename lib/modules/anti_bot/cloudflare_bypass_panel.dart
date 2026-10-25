@@ -59,9 +59,6 @@ class CloudflareBypassPanel extends StatefulWidget {
   /// Small heading style for embedded cards (no big hero layout).
   final bool compact;
 
-  /// Fills a full-screen route (notification-triggered challenge screen).
-  final bool fullScreen;
-
   const CloudflareBypassPanel({
     super.key,
     required this.url,
@@ -70,7 +67,6 @@ class CloudflareBypassPanel extends StatefulWidget {
     this.onRetry,
     this.onClose,
     this.compact = false,
-    this.fullScreen = false,
   });
 
   @override
@@ -301,8 +297,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       return true;
     }
     return _phase == _CfPhase.requestFailed &&
-        (_mainFrameHttpStatusCode == 403 ||
-            _mainFrameHttpStatusCode == 503);
+        (_mainFrameHttpStatusCode == 403 || _mainFrameHttpStatusCode == 503);
   }
 
   /// Called when the page no longer shows a challenge after one was seen.
@@ -370,25 +365,24 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       }
     } else if (_challengeSeen && statusCode != null && statusCode >= 400) {
       _challengeNavigationPending = false;
-      _setPhase(
-        _CfPhase.requestFailed,
-        statusNote: 'HTTP $statusCode',
-      );
+      _setPhase(_CfPhase.requestFailed, statusNote: 'HTTP $statusCode');
     } else {
       _challengeNavigationPending = false;
       // No auto-retry here: the user retries from the panel, so the screen is
       // never torn down and rebuilt while they are looking at it.
       _setPhase(
         _CfPhase.clearedWithoutCookie,
+        // A page that renders normally is not a failure of the browser: the
+        // extension's HTTP client is the refused one. Say it plainly instead of
+        // the old “Aucun challenge détecté”, which read like a bug.
         statusNote: _challengeSeen
-            ? 'Challenge franchi — cookie non enregistré'
-            : 'Aucun challenge détecté',
+            ? 'Challenge franchi — session non enregistrée'
+            : 'Page normale — l’extension seule est refusée',
       );
     }
   }
 
   void _toggleExpanded() {
-    if (widget.fullScreen) return;
     setState(() => _expanded = !_expanded);
   }
 
@@ -396,20 +390,6 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final supported = cloudflareWebviewSupported();
-
-    if (widget.fullScreen) {
-      return Stack(
-        children: [
-          Positioned.fill(child: _buildSurface(cs, supported)),
-          Positioned(top: 0, left: 0, right: 0, child: _buildProgress(cs)),
-          Positioned(
-            top: 6,
-            right: 6,
-            child: _buildControls(cs, allowExpand: false),
-          ),
-        ],
-      );
-    }
 
     final maxHeight = MediaQuery.sizeOf(context).height;
     final collapsed = widget.compact ? 300.0 : 380.0;
@@ -595,8 +575,15 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
       case _CfPhase.clearedWithoutCookie:
         icon = Icons.shield_outlined;
         iconColor = cs.error;
-        title = statusCode == null ? 'Défi non confirmé' : 'HTTP $statusCode';
-        message = 'Recharge le défi pour réessayer la vérification.';
+        if (_challengeSeen) {
+          title = statusCode == null ? 'Défi non confirmé' : 'HTTP $statusCode';
+          message = 'Recharge le défi pour réessayer la vérification.';
+        } else {
+          title = 'Blocage côté extension';
+          message =
+              'Le site s’affiche dans le navigateur : c’est le client de '
+              'l’extension qui est refusé. Réessaie la source.';
+        }
         break;
       default:
         icon = Icons.info_outline_rounded;
@@ -614,11 +601,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 24,
-                color: iconColor,
-              ),
+              Icon(icon, size: 24, color: iconColor),
               const SizedBox(height: 9),
               Text(
                 title,
@@ -672,12 +655,9 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           // “Verify you are human” button below the fold is unreachable.
           useHybridComposition: true,
           isTextInteractionEnabled: true,
-          // Same UA as the HTTP client so cf_clearance stays valid for both.
-          userAgent: widget.sourceId == null
-              ? MClient.userAgentForRequests()
-              : MClient.extensionUserAgentForRequests(
-                  sourceId: widget.sourceId,
-                ),
+          // Same UA as the HTTP client so cf_clearance stays valid for both:
+          // the clearance cookie is bound to the User-Agent that solved it.
+          userAgent: MClient.userAgentForRequests(sourceId: widget.sourceId),
         ),
         onWebViewCreated: (controller) => _webView = controller,
         onLoadStart: (ctrl, url) {
@@ -693,8 +673,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
           }
         },
         onReceivedHttpError: (ctrl, request, errorResponse) {
-          if (request.isForMainFrame == true &&
-              _phase != _CfPhase.challenge) {
+          if (request.isForMainFrame == true && _phase != _CfPhase.challenge) {
             _mainFrameHttpStatusCode = errorResponse.statusCode;
           }
         },

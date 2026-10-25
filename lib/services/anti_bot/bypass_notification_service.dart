@@ -1,12 +1,15 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/anti_bot/cloudflare_challenge_screen.dart';
-import 'package:watchtower/services/anti_bot/cloudflare_challenge_url.dart';
 import 'package:watchtower/router/router.dart' show navigatorKey;
+import 'package:watchtower/services/anti_bot/browser_fetch.dart';
+import 'package:watchtower/services/anti_bot/bypass_notification_content.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 typedef CloudflareSourceResolver = Source? Function(String url);
@@ -21,13 +24,14 @@ class BypassNotificationService {
   static const _kChannelDesc =
       'Notifications quand une source est bloquée par un anti-bot';
 
+  /// Action id of the “Battre le challenge” button.
+  static const _kActionBypass = 'bypass';
+
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
   CloudflareSourceResolver? _sourceResolver;
-  final Set<String> _openChallengeHosts = {};
-  final Map<String, Future<bool>> _challengeFlows = {};
 
   Future<void> init({CloudflareSourceResolver? sourceResolver}) async {
     _sourceResolver ??= sourceResolver;
@@ -37,7 +41,9 @@ class BypassNotificationService {
       return;
     }
     try {
-      const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+      const androidInit = AndroidInitializationSettings(
+        '@mipmap/launcher_icon',
+      );
       const iosInit = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
@@ -51,16 +57,19 @@ class BypassNotificationService {
       await _plugin.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          openChallenge(response.payload ?? '');
+          unawaited(openBlockedSource(response.payload ?? ''));
         },
       );
 
       try {
         final launchDetails = await _plugin.getNotificationAppLaunchDetails();
         if (launchDetails?.didNotificationLaunchApp == true) {
-          _scheduleChallengeOpen(
-            launchDetails?.notificationResponse?.payload,
-          );
+          final payload = launchDetails?.notificationResponse?.payload;
+          if (payload != null && payload.trim().isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => unawaited(openBlockedSource(payload)),
+            );
+          }
         }
       } catch (e) {
         AppLogger.log(
@@ -87,7 +96,8 @@ class BypassNotificationService {
             );
         final androidPlugin = _plugin
             .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
+              AndroidFlutterLocalNotificationsPlugin
+            >();
         _requestAndroidPermissionWhenReady(androidPlugin);
       } else if (!kIsWeb && Platform.isIOS) {
         await _plugin
@@ -127,44 +137,15 @@ class BypassNotificationService {
     WidgetsBinding.instance.addPostFrameCallback((_) => request());
   }
 
-  void _scheduleChallengeOpen(String? url) {
-    if (url == null || url.trim().isEmpty) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) => openChallenge(url));
-  }
-
-  /// Opens a visible challenge page for notification-triggered actions.
-  void openChallenge(String url) {
-    unawaited(openChallengeAndWait(url));
-  }
-
-  /// Opens or joins the visible challenge flow and completes only when the
-  /// user resolves or dismisses it. HTTP retry policies await this result.
-  Future<bool> openChallengeAndWait(String url) {
-    if (url.trim().isEmpty) return Future.value(false);
-    final host = _hostFrom(url).toLowerCase();
-    final existing = _challengeFlows[host];
-    if (existing != null) return existing;
-    if (_openChallengeHosts.contains(host)) return Future.value(false);
-
-    _openChallengeHosts.add(host);
-    final flow = _showChallenge(url);
-    _challengeFlows[host] = flow;
-    return flow.whenComplete(() {
-      _challengeFlows.remove(host);
-      _openChallengeHosts.remove(host);
-    });
-  }
-
-  Future<bool> _showChallenge(String url) async {
-    NavigatorState? navigator;
-    for (var attempt = 0; attempt < 20 && navigator == null; attempt++) {
-      navigator = navigatorKey.currentState;
-      if (navigator == null) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      }
-    }
-    if (navigator == null) return false;
-
+  /// Opens the blocked extension itself, where the bypass panel is inline.
+  ///
+  /// No full-screen challenge route: the source page already hosts the panel
+  /// and the retry it belongs to, and a separate screen hid the extension the
+  /// user was trying to read.
+  Future<void> openBlockedSource(String url) async {
+    if (url.trim().isEmpty) return;
+    final context = await _mainContext();
+    if (context == null || !context.mounted) return;
     Source? source;
     try {
       source = _sourceResolver?.call(url);
@@ -175,99 +156,113 @@ class BypassNotificationService {
         tag: LogTag.network,
       );
     }
-
-    // Open the exact failing URL: the panel reports whether a challenge is
-    // really displayed instead of assuming the site root shows one.
-    final challengeUrl = resolveCloudflareChallengeUrl(url);
-    if (challengeUrl == null) return false;
+    if (source == null) return;
     try {
-      final resolved = await navigator.push<bool>(
-        MaterialPageRoute<bool>(
-          builder: (_) => CloudflareChallengeScreen(
-            url: challengeUrl,
-            sourceName: source?.name,
-            sourceId: source?.id,
-          ),
-        ),
-      );
-      return resolved == true;
+      if (source.itemType == ItemType.anime) {
+        context.push('/watchExtensionHome', extra: source);
+      } else if (source.itemType == ItemType.novel) {
+        context.push('/novelHome', extra: (source, false));
+      } else {
+        context.push('/mangaHome', extra: (source, false));
+      }
     } catch (error) {
       AppLogger.log(
-        'Cloudflare challenge navigation failed: $error',
+        'Opening the blocked source failed: $error',
         logLevel: LogLevel.warning,
         tag: LogTag.network,
       );
-      return false;
     }
   }
 
-  /// Burst coalescing: several sources can be blocked at once (a refresh
-  /// hitting many anti-bot hosts), so notifications are batched per ~700 ms
-  /// window and the same host is never re-notified twice within 20 s.
-  final Map<String, List<String>> _pending = {}; // host -> urls
+  Future<BuildContext?> _mainContext() async {
+    for (var attempt = 0; attempt < 20; attempt++) {
+      final context = navigatorKey.currentContext;
+      if (context != null) return context;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return null;
+  }
+
+  /// Burst coalescing: several extensions can be blocked at once (a refresh
+  /// hitting many anti-bot hosts), so notifications are batched inside a short
+  /// window and the same extension is never re-notified twice within 30 s.
+  final Map<String, BlockedSourceAlert> _pending = {};
   final Map<String, DateTime> _lastNotified = {};
   Timer? _flushTimer;
   DateTime? _lastVibrate;
 
-  static const _kMinHostInterval = Duration(seconds: 20);
+  static const _kMinSourceInterval = Duration(seconds: 30);
   static const _kVibrateInterval = Duration(seconds: 12);
 
   Future<void> notifyChallengeDetected({
     required String url,
+    int? sourceId,
+    String? sourceName,
     int id = 9900,
   }) async {
     if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
+    // The request is already being replayed in a real browser session
+    // (browser_fetch.dart): the challenge is about to clear on its own, so
+    // alerting the user would be pure noise.
+    if (BrowserFetchService.isResolving(url)) return;
     if (!_initialized) await init();
-    final host = _hostFrom(url);
 
-    // Suppress repeats of the same host while a notification is still fresh.
-    final last = _lastNotified[host];
-    if (last != null &&
-        DateTime.now().difference(last) < _kMinHostInterval) {
+    final name = (sourceName?.trim().isNotEmpty ?? false)
+        ? sourceName!.trim()
+        : _sourceNameFor(url);
+    final last = _lastNotified[name];
+    if (last != null && DateTime.now().difference(last) < _kMinSourceInterval) {
       return;
     }
 
-    _pending.putIfAbsent(host, () => []).add(url);
-    _flushTimer ??= Timer(const Duration(milliseconds: 700), () {
+    _pending.putIfAbsent(
+      name,
+      () => BlockedSourceAlert(name: name, url: url, sourceId: sourceId),
+    );
+    _flushTimer ??= Timer(const Duration(milliseconds: 900), () {
       _flushTimer = null;
       unawaited(_flushBatch(id));
     });
   }
 
+  String _sourceNameFor(String url) {
+    try {
+      final Source? source = _sourceResolver?.call(url);
+      final name = source?.name?.trim() ?? '';
+      if (name.isNotEmpty) return name;
+    } catch (_) {}
+    return _hostFrom(url);
+  }
+
   Future<void> _flushBatch(int id) async {
     if (_pending.isEmpty) return;
-    final snapshot = Map<String, List<String>>.from(_pending);
+    final snapshot = List<BlockedSourceAlert>.from(_pending.values);
     _pending.clear();
     final now = DateTime.now();
 
-    for (final host in snapshot.keys) {
-      _lastNotified[host] = now;
+    // Anything already resolved by a browser session must not be announced.
+    final alerts = snapshot
+        .where((alert) => !BrowserFetchService.isResolving(alert.url))
+        .toList(growable: false);
+    if (alerts.isEmpty) return;
+
+    for (final alert in alerts) {
+      _lastNotified[alert.name] = now;
     }
     // Bound the map so long sessions don't grow forever.
     while (_lastNotified.length > 40) {
-      final oldest = _lastNotified.entries
-          .reduce((a, b) => a.value.isBefore(b.value) ? a : b);
+      final oldest = _lastNotified.entries.reduce(
+        (a, b) => a.value.isBefore(b.value) ? a : b,
+      );
       _lastNotified.remove(oldest.key);
     }
 
-    final vibrate = _lastVibrate == null ||
+    final vibrate =
+        _lastVibrate == null ||
         now.difference(_lastVibrate!) >= _kVibrateInterval;
     if (vibrate) _lastVibrate = now;
 
-    var firstUrl = '';
-    for (final list in snapshot.values) {
-      if (list.isNotEmpty) {
-        firstUrl = list.first;
-        break;
-      }
-    }
-    final total = snapshot.values.fold<int>(0, (a, l) => a + l.length);
-    final title = total == 1
-        ? '🛡 Source bloquée — ${snapshot.keys.first}'
-        : '🛡 $total sources bloquées par un anti-bot';
-    final body = total == 1
-        ? 'Touche pour ouvrir la page Cloudflare'
-        : '${snapshot.keys.take(3).join(', ')}${snapshot.length > 3 ? '…' : ''} — touche pour ouvrir';
+    final content = buildBypassNotificationContent(alerts);
 
     try {
       final androidDetails = AndroidNotificationDetails(
@@ -277,10 +272,18 @@ class BypassNotificationService {
         importance: Importance.high,
         priority: Priority.high,
         ticker: 'Source bloquée',
-        styleInformation: BigTextStyleInformation(body),
+        styleInformation: BigTextStyleInformation(content.body),
         playSound: false,
-        enableVibration: vibrate && total <= 3,
+        enableVibration: vibrate,
         groupKey: 'watchtower_antibot',
+        actions: const [
+          AndroidNotificationAction(
+            _kActionBypass,
+            'Battre le challenge',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ],
       );
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,
@@ -293,10 +296,10 @@ class BypassNotificationService {
       );
       await _plugin.show(
         id,
-        title,
-        body,
+        content.title,
+        content.body,
         details,
-        payload: firstUrl,
+        payload: content.primary.url,
       );
     } catch (e) {
       AppLogger.log(
@@ -309,7 +312,8 @@ class BypassNotificationService {
 
   String _hostFrom(String url) {
     try {
-      return Uri.parse(url).host;
+      final host = Uri.parse(url).host;
+      return host.isEmpty ? url : host;
     } catch (_) {
       return url;
     }

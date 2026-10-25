@@ -10,6 +10,7 @@ import 'package:watchtower/stubs/js_bytecode_stub.dart'
 import 'package:watchtower/eval/javascript/dom_selector.dart';
 import 'package:watchtower/eval/javascript/extractors.dart';
 import 'package:watchtower/eval/javascript/http.dart';
+import 'package:watchtower/eval/javascript/js_polyfills.dart';
 import 'package:watchtower/eval/javascript/preferences.dart';
 import 'package:watchtower/eval/javascript/runtime_config.dart';
 import 'package:watchtower/eval/javascript/utils.dart';
@@ -116,6 +117,10 @@ class JsExtensionService implements ExtensionService {
       memoryLimit: JsRuntimeConfig.memoryLimitBytes,
       gcThreshold: JsRuntimeConfig.gcThresholdBytes,
     );
+    // QuickJS ships no URL/URLSearchParams; extensions build their request
+    // URLs with `new URL(path, baseUrl)`, so install them before any source
+    // code runs.
+    runtime.evaluate(kJsUrlPolyfill);
     JsHttpClient(runtime, sourceId: source.id).init();
     _jsDomSelector = JsDomSelector(runtime)..init();
     JsUtils(runtime, sourceId: source.id).init();

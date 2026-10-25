@@ -50,8 +50,34 @@ to a challenge only when the response itself is a refusal (403/429/5xx) or
 carries `cf-mitigated: challenge`. Error strings are matched on Cloudflare
 phrases (`cloudflare challenge`…), never on the bare word “challenge”.
 
+A challenge is a verdict on the *client*, not on the user. Cloudflare answers
+`missav.ws` with `403 + cf-mitigated: challenge` to the extension's native
+client while the same URL loads instantly in a WebView, which runs the managed
+challenge's JavaScript. There is nothing to click in that case, so the panel
+cannot fix it. `lib/services/anti_bot/browser_fetch.dart` therefore replays the
+refused GET in a `HeadlessInAppWebView`, waits for the challenge to clear,
+captures the rendered HTML, and stores the browser session (cookies +
+User-Agent) through `MClient.setCookie`; `JsHttpClient` returns that HTML to the
+extension as a 200, so source code never sees the block. One capture per host
+at a time (bursts retry natively once the cookies exist), at most two headless
+WebViews alive. This is the Aidoku / Mihon model: the browser session is the
+credential.
+
+Consequences that must not regress:
+
+* The HTTP client always sends a User-Agent, and it is the one stored for the
+extension session. `cf_clearance` is bound to that UA; an empty UA gets a 403
+before any challenge, and a UA that differs from the WebView invalidates the
+cookie.
+* The notification names the blocked *extension* (never a request count), and
+its action opens that extension's page, where the panel is inline. There is no
+full-screen challenge route any more.
+* A headless capture that fails is the only thing that alerts the user;
+challenges cleared silently must stay silent.
+
 Covered by `test/extension_home_empty_state_test.dart`,
-`test/cloudflare_detection_test.dart`, `test/cloudflare_challenge_url_test.dart`.
+`test/cloudflare_detection_test.dart`, `test/cloudflare_challenge_url_test.dart`,
+`test/bypass_notification_content_test.dart`.
 
 ## Local verification (mirrors CI)
 

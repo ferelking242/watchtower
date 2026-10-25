@@ -17,7 +17,6 @@ import 'package:watchtower/services/http/rhttp/rhttp.dart' as rhttp;
 import 'package:watchtower/services/http/doh/doh_resolver.dart';
 import 'package:watchtower/services/http/doh/doh_providers.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
-import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/constant.dart';
 
@@ -49,18 +48,14 @@ class MClient {
               },
                 ]
               : <Map<String, String>>[],
-        'userAgent': sourceId == null
-            ? settings?.userAgent ?? defaultUserAgent
-            : ExtensionSessionManager.userAgentFor(sourceId) ?? '',
+        'userAgent': userAgentForRequests(sourceId: sourceId),
         'extensionSessionId': sourceId,
         'extensionSession': ExtensionSessionManager.snapshotForWorker(sourceId),
       };
     } catch (_) {
       return {
         'cookies': <Map<String, String>>[],
-        'userAgent': sourceId == null
-            ? defaultUserAgent
-            : ExtensionSessionManager.userAgentFor(sourceId) ?? '',
+        'userAgent': userAgentForRequests(sourceId: sourceId),
         'extensionSessionId': sourceId,
         'extensionSession': ExtensionSessionManager.snapshotForWorker(sourceId),
       };
@@ -107,24 +102,26 @@ class MClient {
 
   static String userAgentForRequests({int? sourceId}) {
     final activeSourceId = sourceId ?? _workerExtensionSessionId;
-    if (activeSourceId != null) {
-      return ExtensionSessionManager.userAgentFor(activeSourceId) ?? '';
-    }
+    // A session User-Agent is the one the browser engine used when it cleared
+    // the challenge, and `cf_clearance` is bound to it: it always wins.
     final extensionUserAgent = ExtensionSessionManager.userAgentFor(
       activeSourceId,
     );
     if (extensionUserAgent != null) return extensionUserAgent;
     final workerUserAgent = _workerUserAgentSnapshot;
-    if (_workerCookieSnapshot != null) {
-      return workerUserAgent?.trim().isNotEmpty == true
-          ? workerUserAgent!
-          : defaultUserAgent;
+    if (workerUserAgent != null && workerUserAgent.trim().isNotEmpty) {
+      return workerUserAgent;
     }
+    // Never fall back to an empty string: a request without a User-Agent is
+    // refused outright by Cloudflare, which made every extension call fail with
+    // 403 before any challenge could even be displayed.
     try {
-      return isar.settings.getSync(kSettingsId)?.userAgent ?? defaultUserAgent;
+      final stored = isar.settings.getSync(kSettingsId)?.userAgent;
+      if (stored != null && stored.trim().isNotEmpty) return stored;
     } catch (_) {
-      return defaultUserAgent;
+      // Extension workers do not open Isar.
     }
+    return defaultUserAgent;
   }
 
   /// Returns only an explicitly saved extension browser user-agent.
@@ -678,14 +675,12 @@ class MCookieManager extends InterceptorContract {
       request.headers.removeWhere((key, _) => key.toLowerCase() == 'cookie');
       request.headers[HttpHeaders.cookieHeader] = mergedCookie;
     }
-    final userAgent = sourceId == null
-        ? MClient.userAgentForRequests()
-        : MClient.extensionUserAgentForRequests(sourceId: sourceId);
-    if (userAgent?.trim().isNotEmpty == true &&
+    final userAgent = MClient.userAgentForRequests(sourceId: sourceId);
+    if (userAgent.trim().isNotEmpty &&
         !request.headers.keys.any(
           (key) => key.toLowerCase() == HttpHeaders.userAgentHeader,
         )) {
-      request.headers[HttpHeaders.userAgentHeader] = userAgent!;
+      request.headers[HttpHeaders.userAgentHeader] = userAgent;
     }
     try {
       if (reqcopyWith != null) {
@@ -1143,17 +1138,12 @@ class LoggerInterceptor extends InterceptorContract {
       );
     }
 
-    // Only an interactive challenge is actionable in a WebView. A WAF block
-    // page gets a plain warning and never opens a “resolve challenge” flow.
-    if (cloudflareChallenge) {
-      BypassNotificationService.instance
-          .notifyChallengeDetected(url: url)
-          .ignore();
-      try {
-        final host = Uri.tryParse(url)?.host ?? url;
-        botToast('🛡 $host — challenge Cloudflare détecté', second: 4);
-      } catch (_) {}
-    } else if (antiBotBlock) {
+    // A challenge is replayed in a real browser session before anything is
+    // shown (see browser_fetch.dart), so no toast and no notification here:
+    // alerting now would fire for challenges that clear a second later. The
+    // notification is emitted only when that browser fallback cannot help.
+    // A WAF block page keeps its own warning.
+    if (antiBotBlock) {
       try {
         final host = Uri.tryParse(url)?.host ?? url;
         botToast('⛔ $host bloqué par un anti-bot (sans challenge)', second: 4);
