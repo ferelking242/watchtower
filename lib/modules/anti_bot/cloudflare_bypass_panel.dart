@@ -1,31 +1,20 @@
 import 'dart:async';
-import 'dart:io'
-    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
+import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Whether this platform can host an inline challenge webview.
 ///
-/// The OS check alone is not enough: in a widget test (or any embedder without
-/// the plugin registered) `InAppWebViewPlatform.instance` is null and building
-/// an [InAppWebView] throws. Treating that as unsupported keeps the panel — and
-/// the test suite — from crashing.
-bool cloudflareWebviewSupported() {
-  final osSupported =
-      !kIsWeb &&
-      !Platform.isLinux &&
-      (Platform.isAndroid ||
-          Platform.isIOS ||
-          Platform.isMacOS ||
-          Platform.isWindows);
-  if (!osSupported) return false;
-  return InAppWebViewPlatform.instance != null;
-}
+/// Single source of truth: [BrowserCapture.support] also decides where the
+/// background capture runs, so the panel and the silent resolution can never
+/// disagree about a platform. It is false in a widget test (or any embedder
+/// without the plugin registered), which keeps the suite from crashing.
+bool cloudflareWebviewSupported() => BrowserCapture.isAvailable;
 
 /// Reusable inline anti-bot resolver.
 ///

@@ -1,11 +1,5 @@
-import 'dart:io'
-    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/widgets.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:watchtower/main.dart' show webViewEnvironment;
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
+import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -36,49 +30,38 @@ class BrowserFetchResponse {
   final BrowserFetchResult? result;
 }
 
-/// Replays a blocked request inside a real browser engine.
+/// Replays a request refused by Cloudflare inside a real browser engine.
 ///
 /// Cloudflare decides per client, not per site: a WebView navigation to
 /// `missav.ws` loads instantly (the managed challenge runs its JavaScript and
-/// passes), while the extension's native client — a different TLS stack, no
-/// browser headers, no solved challenge — is answered with
-/// `403 + cf-mitigated: challenge` forever. There is nothing for the user to
-/// click, so a resolution panel is useless there: the fix is to fetch the page
-/// with the same engine that was accepted, harvest its cookies and User-Agent,
-/// and hand the HTML back to the extension. This is how Aidoku's WebView
-/// requests and Mihon's Cloudflare interceptor work.
-///
-/// The browser session is shared with the app: cookies are seeded from
-/// [MClient] before the navigation and written back after it, so the next
-/// native request carries `cf_clearance` with the matching User-Agent.
+/// passes), while the extension's native client — a different TLS stack, header
+/// order and cookie jar — is answered with `403 + cf-mitigated: challenge`
+/// forever. There is nothing for the user to click, so a resolution panel
+/// cannot help there. This service performs the request with the engine that
+/// was accepted, harvests the resulting session and hands the HTML back to the
+/// extension. That is the Mihon / Aidoku model (browser solves, cookie jar is
+/// shared, request retried) taken one step further, as Aidoku's issue #1034
+/// suggests, because here the native client is Rust, not OkHttp/URLSession.
 class BrowserFetchService {
   BrowserFetchService._();
 
-  /// Total time granted to clear the challenge and capture the page.
-  static const Duration _captureTimeout = Duration(seconds: 30);
-
-  /// How often the rendered page is inspected while waiting.
-  static const Duration _pollInterval = Duration(milliseconds: 800);
-
-  /// A document is captured only once it stopped changing (challenge → page).
-  static const Duration _settleDelay = Duration(milliseconds: 700);
+  /// A phone or a laptop cannot host many WebViews at once; a burst of refused
+  /// requests must not spawn one browser per request.
+  static const int _maxActiveCaptures = 2;
 
   /// Hosts currently being solved in a headless browser.
   static final Map<String, Future<BrowserFetchResult?>> _inFlight = {};
-
-  /// A phone cannot host many WebViews at once; a burst of refused requests
-  /// must not spawn one browser per request.
-  static int _activeCaptures = 0;
-  static const int _maxActiveCaptures = 2;
 
   /// Hosts whose session was just refreshed: challenge responses arriving in
   /// this window are expected and must not alert the user.
   static final Map<String, DateTime> _recentlyCleared = {};
   static const Duration _quietWindow = Duration(seconds: 45);
 
-  /// Headless WebViews need a native browser engine.
-  static bool get isSupported =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+  static int _activeCaptures = 0;
+
+  /// True when this platform has a usable browser engine (see
+  /// [BrowserCaptureSupport]).
+  static bool get isSupported => BrowserCapture.isAvailable;
 
   /// True when a challenge for [url] is already being solved (or was just
   /// solved), so the user must not be notified about it.
@@ -147,83 +130,14 @@ class BrowserFetchService {
     int? sourceId,
     Map<String, String>? headers,
   }) async {
-    HeadlessInAppWebView? headless;
-    InAppWebViewController? controller;
-    var lastLoadAt = DateTime.now();
-    String? body;
-    try {
-      // Reuse whatever the app already knows about this site; a stale cookie
-      // is enough for the navigation to land on the real page.
-      try {
-        await MClient.restoreCookiesToWebView(url, sourceId: sourceId);
-      } catch (_) {}
-
-      final userAgent = MClient.userAgentForRequests(sourceId: sourceId);
-      headless = HeadlessInAppWebView(
-        webViewEnvironment: webViewEnvironment,
-        initialSize: const Size(390, 780),
-        initialUrlRequest: URLRequest(
-          url: WebUri(url),
-          headers: headers ?? const <String, String>{},
-        ),
-        initialSettings: InAppWebViewSettings(
-          javaScriptEnabled: true,
-          domStorageEnabled: true,
-          thirdPartyCookiesEnabled: true,
-          // The User-Agent must be the one the native client sends, otherwise
-          // `cf_clearance` is bound to another browser identity and rejected.
-          userAgent: userAgent.trim().isEmpty ? null : userAgent,
-          transparentBackground: true,
-        ),
-        onWebViewCreated: (created) => controller = created,
-        onLoadStop: (stopped, _) {
-          controller = stopped;
-          lastLoadAt = DateTime.now();
-        },
-      );
-      await headless.run();
-
-      final deadline = DateTime.now().add(_captureTimeout);
-      while (DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(_pollInterval);
-        final web = controller;
-        if (web == null) continue;
-        if (DateTime.now().difference(lastLoadAt) < _settleDelay) continue;
-
-        final assessment = parsePageProbe(
-          await web.evaluateJavascript(source: kCfPageProbeJs) as String?,
-        );
-        if (assessment.pageType == AntiBotPageType.challenge) {
-          // The managed challenge is running its JavaScript; keep waiting.
-          continue;
-        }
-        if (assessment.pageType == AntiBotPageType.blocked) {
-          // Hard WAF block: no browser session can unlock this request.
-          break;
-        }
-        final html = await web.evaluateJavascript(
-          source: 'document.documentElement.outerHTML',
-        );
-        if (html is String && html.trim().length > 200) {
-          await _persistSession(web, url, sourceId: sourceId);
-          body = html;
-          break;
-        }
-      }
-    } catch (error, stackTrace) {
-      AppLogger.log(
-        '[BrowserFetch] ${redactUrl(url)} failed: $error',
-        logLevel: LogLevel.warning,
-        tag: kLogTagNet,
-        error: error,
-        stackTrace: stackTrace,
-      );
-    } finally {
-      try {
-        await headless?.dispose();
-      } catch (_) {}
-    }
-    if (body == null) {
+    final captured = await BrowserCapture.capture(
+      BrowserCaptureRequest(
+        url: url,
+        sourceId: sourceId,
+        headers: headers ?? const <String, String>{},
+      ),
+    );
+    if (captured == null) {
       AppLogger.log(
         '[BrowserFetch] ${redactUrl(url)} — no page captured',
         logLevel: LogLevel.debug,
@@ -231,29 +145,32 @@ class BrowserFetchService {
       );
       return null;
     }
+    await _storeSession(url, captured, sourceId: sourceId);
     AppLogger.log(
       '[BrowserFetch] ${redactUrl(url)} — page captured in the browser',
       logLevel: LogLevel.debug,
       tag: kLogTagNet,
     );
-    return BrowserFetchResult(body: body, statusCode: 200);
+    return BrowserFetchResult(
+      body: captured.body,
+      statusCode: captured.statusCode,
+    );
   }
 
   /// Stores the browser session (cookies + User-Agent) so the extension's HTTP
   /// client sends exactly what the accepted navigation sent.
-  static Future<void> _persistSession(
-    InAppWebViewController controller,
-    String url, {
+  static Future<void> _storeSession(
+    String url,
+    BrowserCaptureResult captured, {
     int? sourceId,
   }) async {
+    if (captured.cookies.isEmpty) return;
     try {
-      final ua = await controller.evaluateJavascript(
-        source: 'navigator.userAgent',
-      );
       await MClient.setCookie(
-        url,
-        ua is String ? ua : '',
-        controller,
+        captured.finalUrl.isEmpty ? url : captured.finalUrl,
+        captured.userAgent,
+        null,
+        webViewCookies: captured.cookies,
         sourceId: sourceId,
       );
     } catch (error) {

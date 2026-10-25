@@ -54,14 +54,31 @@ A challenge is a verdict on the *client*, not on the user. Cloudflare answers
 `missav.ws` with `403 + cf-mitigated: challenge` to the extension's native
 client while the same URL loads instantly in a WebView, which runs the managed
 challenge's JavaScript. There is nothing to click in that case, so the panel
-cannot fix it. `lib/services/anti_bot/browser_fetch.dart` therefore replays the
-refused GET in a `HeadlessInAppWebView`, waits for the challenge to clear,
-captures the rendered HTML, and stores the browser session (cookies +
-User-Agent) through `MClient.setCookie`; `JsHttpClient` returns that HTML to the
-extension as a 200, so source code never sees the block. One capture per host
-at a time (bursts retry natively once the cookies exist), at most two headless
-WebViews alive. This is the Aidoku / Mihon model: the browser session is the
-credential.
+cannot fix it.
+
+Mihon and Aidoku only solve the challenge in a WebView, copy `cf_clearance` into
+their HTTP client's cookie jar with a matching User-Agent, and retry natively
+(OkHttp/URLSession). Aidoku issue #1034 reports exactly the case we are in:
+same cookies, same UA, the native client still refused. Aidoku's proposal there
+— perform the blocked request *inside* the browser — is what we implement,
+because the native client here is Rust/rustls, whose fingerprint is no
+browser's.
+
+The method is split in two files:
+
+* `lib/services/anti_bot/browser_capture.dart` — the engine and the platform
+  matrix (`browserCaptureSupportFor`): **headless** on Android, iOS, macOS,
+  Windows and Linux (any OS with a registered `flutter_inappwebview` engine),
+  **proxy** on Flutter web (the Worker proxy already in `WebProxyInterceptor`,
+  since a page cannot read another origin's HTML), **none** otherwise — and
+  then the visible panel plus the user remain the only path.
+* `lib/services/anti_bot/browser_fetch.dart` — the coordinator: one capture per
+  host at a time, at most two headless WebViews alive, and the harvested
+  session (cookies + User-Agent) stored via `MClient.setCookie`.
+
+`JsHttpClient` returns the captured HTML to the extension as a 200, so source
+code never sees the block. Bursts retry natively once the cookies exist, and a
+page still refused with a valid session is captured in the browser too.
 
 Consequences that must not regress:
 
