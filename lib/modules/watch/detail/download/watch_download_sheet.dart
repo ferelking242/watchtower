@@ -239,8 +239,12 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
           ..[i] = variants.first
           ..insertAll(i + 1, variants.sublist(1));
         i += variants.length - 1;
-      } else if (duration != null) {
-        row.duration = duration;
+      } else {
+        // Playlist média simple : durée + poids du flux (exact si BYTERANGE,
+        // estimé via Content-Range sinon).
+        if (duration != null) row.duration = duration;
+        final bytes = hls?.playlistBytesEstimate;
+        if (bytes != null && bytes > 0) row.size = formatBytes(bytes);
       }
       setState(() {});
     }
@@ -707,66 +711,76 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 10),          // ── Sélecteurs : affichés SEULEMENT quand il y a un vrai choix ──
+          // Box langue uniquement si plusieurs langues, box saison uniquement
+          // si la série a plusieurs saisons.
+          if (_langs.length > 1 || (!isFilm && seasons.length > 1))
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                if (_langs.length > 1)
+                  _buildFieldButton(
+                    label: _audioLabel(),
+                    onTap: () => _showOptionSheet(
+                      'Audio',
+                      _langs,
+                      _selectedLang ?? _langs.first,
+                      (l) {
+                        setState(() {
+                          _selectedLang = l;
+                          _selected.clear();
+                          // Le film redevient les lignes qualité de cette
+                          // langue ; la sélection courante est périmée.
+                          _selectedVideos.clear();
+                        });
+                        if (_isFilm) _recomputeFilmRows();
+                      },
+                    ),
+                  ),
+                if (!isFilm && seasons.length > 1)
+                  _buildFieldButton(
+                    label: _selectedSeason ??
+                        'Saison ${_twoDigits(seasons.first.replaceAll(RegExp(r'[^0-9]'), ''))}',
+                    onTap: () => _showOptionSheet(
+                      'Saison',
+                      seasons
+                          .map((s) =>
+                              'Saison ${_twoDigits(s.replaceAll(RegExp(r'[^0-9]'), ''))}')
+                          .toList(),
+                      _selectedSeason ??
+                          'Saison ${_twoDigits(seasons.first.replaceAll(RegExp(r'[^0-9]'), ''))}',
+                      (s) => setState(() {
+                        _selectedSeason = _selectedSeason == s ? null : s;
+                        _selected.clear();
+                      }),
+                    ),
+                  ),
+              ],
+            ),
 
-          // ── Sélecteurs : Audio (film & série) + Saison (série) ──
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              _buildFieldButton(
-                label: _audioLabel(),                onTap: _langs.length > 1
-                    ? () => _showOptionSheet(
-                          'Audio',
-                          _langs,
-                          _selectedLang ?? _langs.first,
-                          (l) {
-                            setState(() {
-                              _selectedLang = l;
-                              _selected.clear();
-                              // Le film redevient les lignes qualité de cette
-                              // langue ; la sélection courante est périmée.
-                              _selectedVideos.clear();
-                            });
-                            if (_isFilm) _recomputeFilmRows();
-                          },
-                        )
-                    : null,
-              ),
-              if (!isFilm && seasons.isNotEmpty)
-                _buildFieldButton(
-                  label: _selectedSeason ??
-                      'Saison ${_twoDigits(seasons.first.replaceAll(RegExp(r'[^0-9]'), ''))}',
-                  onTap: seasons.length > 1
-                      ? () => _showOptionSheet(
-                            'Saison',
-                            seasons
-                                .map((s) =>
-                                    'Saison ${_twoDigits(s.replaceAll(RegExp(r'[^0-9]'), ''))}')
-                                .toList(),
-                            _selectedSeason ??
-                                'Saison ${_twoDigits(seasons.first.replaceAll(RegExp(r'[^0-9]'), ''))}',
-                            (s) => setState(() {
-                              _selectedSeason =
-                                  _selectedSeason == s ? null : s;
-                              _selected.clear();
-                            }),
-                          )
-                      : null,
-                ),
-            ],
-          ),
-
-          // ── Boutons de qualité — uniquement pour une série ──
-          if (!isFilm && qualities.isNotEmpty) ...[
+          // ── Boutons de qualité — série : toujours affichés (MovieBox) ──
+          if (!isFilm) ...[
             const SizedBox(height: 12),
-            Divider(height: 1, thickness: 0.8, color: Colors.white.withValues(alpha: 0.08)),
+            Divider(height: 1, thickness: 0.8, color: _kDivider),
             const SizedBox(height: 10),
-            _buildQualityChips(qualities),
+            _buildQualityChips(_seriesQualities(qualities)),
           ],
         ],
       ),
     );
+  }
+
+  /// Qualités affichées pour une série : la base MovieBox (360P…1080P) est
+  /// toujours présente, les qualités détectées par l'extension s'ajoutent.
+  List<String> _seriesQualities(List<String> detected) {
+    const base = ['360P', '480P', '720P', '1080P'];
+    final out = [...base];
+    for (final q in detected) {
+      if (!out.any((s) => s.toLowerCase() == q.toLowerCase())) out.add(q);
+    }
+    out.sort((a, b) => _resRank(a).compareTo(_resRank(b)));
+    return out;
   }
 
   // ── Bouton de champ (« Original Audio ▾ », « Saison 01 ▾ ») ──────────────────

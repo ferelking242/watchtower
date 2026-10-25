@@ -179,9 +179,16 @@ class HlsTrackMeta {
 
 class HlsMeta {
   final String? durationLabel;
+
+  /// Poids (estimé ou exact) d'une playlist média sans variantes.
+  final int? playlistBytesEstimate;
   final List<HlsTrackMeta> tracks;
 
-  const HlsMeta({this.durationLabel, required this.tracks});
+  const HlsMeta({
+    this.durationLabel,
+    this.playlistBytesEstimate,
+    required this.tracks,
+  });
 }
 
 bool isHlsUrl(String url) {
@@ -316,15 +323,76 @@ Future<HlsMeta?> fetchHlsMeta(
       );
     }
 
-    // Playlist média directe : durée exacte, pas de poids déclaré.
+    // Playlist média directe : durée exacte + poids du flux de la playlist.
     final seconds = _sumExtinf(masterBody);
+    final bytes = seconds == null
+        ? null
+        : await _estimateHlsPlaylistSize(uri, masterBody, headers);
     return HlsMeta(
       durationLabel: seconds == null ? null : formatDurationSeconds(seconds),
+      playlistBytesEstimate: bytes,
       tracks: const [],
     );
   } catch (_) {
     return null;
   }
+}
+
+// Somme des `#EXT-X-BYTERANGE:<taille>@<offset>` — taille EXACTE du flux de
+// la playlist quand toutes les variations la déclarent.
+int? _sumByterangeDeclarations(String body) {
+  final matches =
+      RegExp(r'#EXT-X-BYTERANGE:(\d+)').allMatches(body).toList();
+  if (matches.length < 2) return null;
+  var total = 0;
+  for (final m in matches) {
+    final n = int.tryParse(m.group(1)!);
+    if (n == null || n <= 0) return null;
+    total += n;
+  }
+  return total > 0 ? total : null;
+}
+
+/// Poids du flux d'une PLAYLIST média (pas un master) :
+///   • `#EXT-X-BYTERANGE` déclaré partout → somme EXACTE.
+///   • Sinon estimation : quelques segments pesés par leur entête
+///     `Content-Range` (comme un fichier direct), puis `moyenne × nb`.
+Future<int?> _estimateHlsPlaylistSize(
+  Uri playlistUri,
+  String body,
+  Map<String, String>? headers,
+) async {
+  final segments = <Uri>[
+    for (final line in body.split('\n'))
+      if (line.trim().isNotEmpty && !line.trim().startsWith('#'))
+        playlistUri.resolveUri(Uri.parse(line.trim())),
+  ];
+  if (segments.isEmpty) return null;
+
+  final exact = _sumByterangeDeclarations(body);
+  if (exact != null) return exact;
+
+  final count = segments.length;
+  // 5 sondes réparties dans la playlist (début, quart, milie, trois-quarts, fin).
+  final probes = {
+    for (final f in const [0.0, 0.25, 0.5, 0.75, 1.0])
+      (f * (count - 1)).round(),
+  };
+  var sum = 0;
+  var weighed = 0;
+  for (final i in probes) {
+    if (i < 0 || i >= count) continue;
+    final size = await fetchDirectFileSize(
+      segments[i].toString(),
+      headers,
+    );
+    if (size != null && size > 0) {
+      sum += size;
+      weighed++;
+    }
+  }
+  if (weighed == 0) return null;
+  return ((sum / weighed).round()) * count;
 }
 
 /// Métadonnées d'un fichier direct ; [fallbackDuration] = durée connue

@@ -18,7 +18,6 @@ import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/watch/detail/download/watch_download_sheet.dart';
-import 'package:watchtower/modules/watch/detail/download/watch_download_progress_sheets.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
@@ -2713,82 +2712,23 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       manga: widget.manga,
       chapters: chapters,
       onDownload: (selected) async {
-        if (selected.isNotEmpty) {
-          await Future<void>.delayed(const Duration(milliseconds: 160));
-          if (mounted) _showDownloadPreparationSheet(ctx, selected);
+        if (selected.isEmpty) return;
+        // Ajout direct à la file : aucune box intermédiaire (préparation /
+        // récap), la file de téléchargement affiche déjà la progression.
+        try {
+          for (final ch in selected) {
+            await ref.read(addDownloadToQueueProvider(chapter: ch).future);
+            final id = ch.id;
+            if (id != null) {
+              ref
+                  .read(downloadQueueStateProvider.notifier)
+                  .setPaused(id, false);
+            }
+          }
+        } finally {
+          ref.read(processDownloadsProvider());
         }
       },
-    );
-  }
-
-  void _showDownloadPreparationSheet(
-      BuildContext ctx, List<Chapter> selected) {
-    showModalBottomSheet(
-      context: ctx,
-      backgroundColor: _surface,
-      isDismissible: false,
-      enableDrag: false,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (_) => WatchDownloadPreparationSheet(
-        count: selected.length,
-        prepare: (setStatus, setProgress) async {
-          setStatus('Collecte des métadonnées…');
-          setProgress(0.18);
-          await Future<void>.delayed(const Duration(milliseconds: 350));
-
-          setStatus('Détection des sources…');
-          setProgress(0.42);
-          await Future<void>.delayed(const Duration(milliseconds: 300));
-
-          setStatus('Préparation des épisodes…');
-          setProgress(0.68);
-          try {
-            for (final ch in selected) {
-              await ref.read(addDownloadToQueueProvider(chapter: ch).future);
-              final id = ch.id;
-              if (id != null) {
-                ref
-                    .read(downloadQueueStateProvider.notifier)
-                    .setPaused(id, false);
-              }
-            }
-          } finally {
-            ref.read(processDownloadsProvider());
-          }
-
-          setStatus('Ajout à la file de téléchargement…');
-          setProgress(1);
-          await Future<void>.delayed(const Duration(milliseconds: 450));
-        },
-        onDone: () {
-          Navigator.of(ctx).pop();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _showAfterDownloadSheet(ctx, selected.length, selected.first);
-            }
-          });
-        },
-      ),
-    );
-  }
-
-  void _showAfterDownloadSheet(
-      BuildContext ctx, int count, Chapter firstChapter) {
-    showModalBottomSheet(
-      context: ctx,
-      backgroundColor: _surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (_) => WatchAfterDownloadSheet(
-        count: count,
-        onView: () {
-          Navigator.of(ctx).pop();
-          ctx.pushNamed('downloadQueue');
-        },
-        onWatch: () {
-          Navigator.of(ctx).pop();
-          _loadEpisodeInBanner(firstChapter);
-        },
-      ),
     );
   }
 
