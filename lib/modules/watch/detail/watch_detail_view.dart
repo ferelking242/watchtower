@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
@@ -1018,6 +1019,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   Widget _buildActionButtons(List<Chapter> chapters) {
     final isFav = widget.manga.favorite ?? false;
+    // Progression LIVE de la file : watch ciblé sur la map (un tick de
+    // n'importe quel chapitre ne reconstruit que ce Consumer)
+    ref.watch(downloadQueueStateProvider.select((s) => s.liveProgress));
+    final dlProgress = _downloadChipProgress(chapters);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -1039,10 +1044,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               label: 'Partager',
               onTap: () => _share(context)),
           const SizedBox(width: 8),
+          // Télécharger : affiche la progression quand un téléchargement de
+          // cette page est actif, et ouvre toujours le sheet de téléchargement.
           _chip(
               icon: Icons.download_outlined,
               label: 'Télécharger',
-              onTap: () => _showDownloadSheet(context, chapters)),
+              onTap: () => _showDownloadSheet(context, chapters),
+              progress: dlProgress),
           const SizedBox(width: 8),
           _chip(
               icon: Icons.language_outlined,
@@ -1053,12 +1061,96 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
+  /// Progression d'un téléchargement en lien avec cette page (0 → 1), ou
+  /// `null` si rien n'est en cours. Sources combinées, la plus avancée gagne
+  /// (l'anneau ne recule jamais) :
+  ///   • progression live de la session ([DownloadLiveProgress]) — plus fraîche ;
+  ///   • compteurs Isar (`succeeded/total`, offset d'une reprise).
+  double? _downloadChipProgress(List<Chapter> chapters) {
+    final state = ref.read(downloadQueueStateProvider);
+    double? best;
+    var any = false;
+    for (final chapter in chapters) {
+      final id = chapter.id;
+      if (id == null) continue;
+
+      final live = state.liveProgress[id];
+      if (live != null) {
+        any = true;
+        double? liveFraction;
+        if (!live.isIndeterminate &&
+            live.downloadedBytes != null &&
+            (live.totalBytes ?? 0) > 0) {
+          liveFraction =
+              (live.downloadedBytes! / live.totalBytes!).clamp(0.0, 1.0);
+        } else if (!live.isIndeterminate && live.totalUnits > 0) {
+          liveFraction =
+              (live.completedUnits / live.totalUnits).clamp(0.0, 1.0);
+        }
+        if (liveFraction != null && liveFraction > (best ?? 0)) {
+          best = liveFraction;
+        }
+      }
+
+      final row = isar.downloads.getSync(id);
+      if (row == null || row.isDownload == true) continue;
+      if (row.status == 'failed' || row.status == 'cancelled') continue;
+      if (row.isStartDownload != true) continue;
+      any = true;
+      final total = row.total ?? 0;
+      if (total > 1) {
+        final storedFraction =
+            ((row.succeeded ?? 0) / total.toDouble()).clamp(0.0, 1.0);
+        if (storedFraction > (best ?? 0)) best = storedFraction;
+      }
+    }
+    // 0.0 = actif mais fraction pas encore connue → anneau indéterminé.
+    return any ? (best ?? 0.0) : null;
+  }
+
   Widget _chip({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
     bool active = false,
+    double? progress,
   }) {
+    final tint = active ? _accent : _onSurface.withValues(alpha: 0.55);
+    Widget leading;
+    if (progress != null) {
+      // Anneau de progression à la place de l'icône : la page reste utilisable,
+      // un tap sur la chip ouvre toujours le sheet de téléchargement.
+      leading = SizedBox(
+        width: 18,
+        height: 18,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                value: progress > 0.01 ? progress.clamp(0.0, 1.0) : null,
+                strokeWidth: 2.2,
+                color: active ? _accent : _accent,
+                backgroundColor: tint.withValues(alpha: 0.2),
+              ),
+            ),
+            if (progress > 0.02)
+              Text(
+                '${(progress * 100).round()}',
+                style: TextStyle(
+                  fontSize: 6.5,
+                  fontWeight: FontWeight.w700,
+                  color: _accent,
+                ),
+              ),
+          ],
+        ),
+      );
+    } else {
+      leading = Icon(icon, size: 17, color: tint);
+    }
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1074,14 +1166,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 17,
-                color: active ? _accent : _onSurface.withValues(alpha: 0.55)),
+            leading,
             const SizedBox(width: 6),
             Text(label,
                 style: TextStyle(
-                    color:
-                        active ? _accent : _onSurface.withValues(alpha: 0.55),
+                    color: tint,
                     fontSize: 13)),
           ],
         ),
