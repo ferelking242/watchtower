@@ -9,7 +9,12 @@ import 'package:watchtower/modules/manga/download/providers/download_provider.da
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/get_video_list.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
+import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/watch/detail/download/video_file_meta.dart';
+import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sheet « Télécharger » — design MovieBox, extrait de watch_detail_view.dart
@@ -23,13 +28,10 @@ import 'package:watchtower/utils/utils.dart';
 //     d'épisodes — un cercle + `poids | durée` sous chaque titre.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Palette fixe du design (le sheet MovieBox reste sombre, quel que soit le
-// thème de l'application, pour rester fidèle au gabarit de référence).
-const Color _kSheetBg = Color(0xFF0D0D0C);
-const Color _kCardBg = Color(0xFF1E1E1E);
-const Color _kFieldBg = Color(0xFF2A2A2A);
-const Color _kText = Color(0xFFF4F4F4);
-const Color _kMuted = Color(0xFF9B9B9B);
+// Dégradé d'action du design (bleu → vert) : c'est la marque du gabarit de
+// référence, conservée quel que soit le thème. TOUTES les autres couleurs
+// (fond du sheet, cartes, champs, textes) suivent le thème de l'application
+// pour que le sheet soit exactement de la même teinte que le reste de la page.
 const LinearGradient _kActionGradient = LinearGradient(
   begin: Alignment.centerLeft,
   end: Alignment.centerRight,
@@ -82,8 +84,10 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
   bool _loading = true;
   List<Video> _videos = [];
 
-  // Film : sélection de flux (une ligne par qualité).
-  final Set<Video> _selectedVideos = {};
+  // Film : lignes qualité (une ligne par flux/qualité) + sélection.
+  List<_FilmRow> _filmRows = [];
+  int _filmMetaGeneration = 0;
+  final Set<_FilmRow> _selectedVideos = {};
 
   // Série : sélection d'épisodes.
   final Set<Chapter> _selected = {};
@@ -114,6 +118,16 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     ).hasMatch(name);
   }
 
+  // ── Palette : couleurs du THÈME de l'application ──────────────────────────────
+  // Le sheet n'impose plus de noir fixe : il prend la même teinte que le reste
+  // de la page, thème sombre comme clair.
+  Color get _kSheetBg => Theme.of(context).scaffoldBackgroundColor;
+  Color get _kCardBg => Theme.of(context).colorScheme.surfaceContainerHighest;
+  Color get _kFieldBg => Theme.of(context).colorScheme.surface;
+  Color get _kText => Theme.of(context).colorScheme.onSurface;
+  Color get _kMuted => _kText.withValues(alpha: 0.55);
+  Color get _kDivider => _kText.withValues(alpha: 0.14);
+
   // ── Init ──────────────────────────────────────────────────────────────────────
   @override
   void initState() {
@@ -139,9 +153,119 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
           _videos = videos.where((v) => seen.add(v.originalUrl)).toList();
           _loading = false;
         });
+        if (_isFilm) _recomputeFilmRows();
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// (Re)construit les lignes du cas FILM et lance le remplissage du poids et
+  /// de la durée. Sert aussi quand la langue (dropdown Audio) change.
+  void _recomputeFilmRows() {
+    final generation = ++_filmMetaGeneration;
+    final chapter = widget.chapters.isEmpty ? null : widget.chapters.first;
+    final fallbackSize = (chapter?.downloadSize ?? '').trim();
+    final fallbackDuration = (chapter?.duration ?? '').trim();
+
+    // Vidéos filtrées par langue (dropdown Audio du film).
+    var source = _videos;
+    final langs = _langs;
+    final lang = _selectedLang ?? (langs.isNotEmpty ? langs.first : null);
+    if (lang != null) {
+      final filtered = source
+          .where((v) => v.quality.toUpperCase().contains(lang))
+          .toList();
+      if (filtered.isNotEmpty) source = filtered;
+    }
+
+    final rows = <_FilmRow>[
+      for (final v in source)
+        _FilmRow(
+          label: _normQ(v.quality),
+          video: v,
+          url: v.url,
+          headers: v.headers,
+          size: fallbackSize.isEmpty ? null : fallbackSize,
+          duration: fallbackDuration.isEmpty ? null : fallbackDuration,
+        ),
+    ];
+    rows.sort((a, b) => _resRank(a.label).compareTo(_resRank(b.label)));
+    // Retire les doublons de libellé (plusieurs flux annonçant la même qualité).
+    final seen = <String>{};
+    rows.removeWhere((row) => !seen.add(row.label));
+    _filmRows = rows;
+    setState(() {});
+    _fillFilmMeta(generation);
+  }
+
+  /// Complète chaque ligne avec le POIDS RÉEL et la DURÉE, sans jamais
+  /// télécharger la vidéo :
+  ///   • HLS master → une ligne par variante, poids = BANDWIDTH × durée,
+  ///     durée = somme des `#EXTINF` de la playlist média.
+  ///   • Fichier direct (peu importe l'extension) → poids exact via
+  ///     `Content-Range` et durée lue dans le conteneur (mvhd MP4, Duration
+  ///     Matroska MKV/WebM), avec repli sur la durée persistée par le lecteur.
+  Future<void> _fillFilmMeta(int generation) async {
+    final chapter = widget.chapters.isEmpty ? null : widget.chapters.first;
+    final fallbackDuration = (chapter?.duration ?? '').trim().isEmpty
+        ? null
+        : chapter?.duration;
+
+    // 1) Dépliage des masters HLS.
+    for (var i = 0; i < _filmRows.length; i++) {
+      final row = _filmRows[i];
+      if (row.metaDone || !isHlsUrl(row.video.url)) continue;
+      row.metaDone = true;
+      final hls = await fetchHlsMeta(row.video.url, row.video.headers);
+      if (!mounted || generation != _filmMetaGeneration) return;
+      final duration = hls?.durationLabel ?? fallbackDuration;
+      if (hls != null && hls.tracks.isNotEmpty) {
+        final variants = [
+          for (final t in hls.tracks)
+            _FilmRow(
+              label: _normQ(t.label),
+              video: row.video,
+              url: t.url,
+              headers: row.video.headers,
+              size: formatBytes(t.estimatedBytes),
+              duration: duration,
+            ),
+        ];
+        for (final variant in variants) {
+          variant.metaDone = true;
+        }
+        _filmRows
+          ..[i] = variants.first
+          ..insertAll(i + 1, variants.sublist(1));
+        i += variants.length - 1;
+      } else if (duration != null) {
+        row.duration = duration;
+      }
+      setState(() {});
+    }
+
+    // 2) Fichiers directs : poids exact (entête Content-Range) puis durée
+    //    conteneur. Une seule détection par URL si plusieurs lignes la partagent.
+    final fetched = <String, (String?, int?)>{};
+    for (final row in _filmRows) {
+      if (row.metaDone) continue;
+      row.metaDone = true;
+      if (!fetched.containsKey(row.url)) {
+        final size =
+            formatBytes(await fetchDirectFileSize(row.url, row.headers));
+        final seconds =
+            await fetchDirectFileDuration(row.url, row.headers);
+        if (!mounted || generation != _filmMetaGeneration) return;
+        fetched[row.url] = (size, seconds);
+      }
+      final (size, seconds) = fetched[row.url]!;
+      row
+        ..size = (size ?? '').isNotEmpty ? size : row.size
+        ..duration = seconds != null
+            ? formatDurationSeconds(seconds)
+            : row.duration;
+      setState(() {});
     }
   }
 
@@ -165,15 +289,10 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     return s.toList()..sort();
   }
 
-  /// Lignes du cas film : un gabarit répété pour chaque qualité, ordonnées par
-  /// résolution croissante (360 → 1080, comme dans le gabarit de référence).
-  List<Video> get _filmRows {
-    final rows = _videos.toList();
-    rows.sort((a, b) => _resRank(a.quality).compareTo(_resRank(b.quality)));
-    return rows;
-  }
-
   static int _resRank(String quality) {
+    final s = quality.toLowerCase();
+    if (s.contains('4k') || s.contains('2160')) return 2160;
+    if (s.contains('8k') || s.contains('4320')) return 4320;
     final m = RegExp(
       r'(240|360|480|540|720|1080|1440|2160|4320)',
     ).firstMatch(quality);
@@ -304,7 +423,9 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
       // Sélection vide → la meilleure qualité disponible (ordre croissant).
       final picked = _selectedVideos.isNotEmpty
           ? _selectedVideos.toList()
-          : (_filmRows.isNotEmpty ? <Video>[_filmRows.last] : const <Video>[]);
+          : (_filmRows.isNotEmpty
+              ? <_FilmRow>[_filmRows.last]
+              : const <_FilmRow>[]);
 
       if (_downloader == _Downloader.external) {
         if (picked.isEmpty) {
@@ -312,12 +433,12 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
           return;
         }
         if (mounted) Navigator.pop(context);
-        for (final v in picked) {
+        for (final row in picked) {
           try {
             final launched = await ExternalDownloaderLauncher.launch(
-              url: v.url,
+              url: row.url,
               appId: _externalApp,
-              headers: v.headers,
+              headers: row.headers,
             );
             if (!launched && mounted) {
               botToast(
@@ -333,9 +454,9 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
       final queue = picked.isEmpty
           ? <Chapter>[chapter]
           : picked
-              .map((v) => prepareVideoQualityDownloadChapter(
+              .map((row) => prepareVideoQualityDownloadChapter(
                     chapter,
-                    quality: _normQ(v.quality),
+                    quality: row.label,
                     language: _selectedLang,
                   ))
               .toList();
@@ -476,7 +597,14 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
               ),
             ],
 
-            if (!_loading) _buildBottomBar(isFilm, displayed),
+            if (!_loading) ...[
+              // Séparateur au-dessus de la barre d'actions (gabarit MovieBox).
+              Divider(
+                  height: 1,
+                  thickness: 0.8,
+                  color: _kDivider),
+              _buildBottomBar(isFilm, displayed),
+            ],
           ],
         ),
       ),
@@ -539,7 +667,17 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                   children: [
                     Text('Ajouté par',
                         style: TextStyle(color: _kMuted, fontSize: 12.5)),
-                    const SizedBox(width: 4),
+                    if (source != null) ...[
+                      const SizedBox(width: 6),
+                      // Logo de l'extension (cache disque partagé avec le reste
+                      // de l'app).
+                      ExtensionIconWidget(
+                        sourceId: source.id,
+                        iconUrl: source.iconUrl,
+                        size: 18,
+                      ),
+                    ],
+                    const SizedBox(width: 5),
                     Flexible(
                       child: Text(
                         source?.name?.trim().isNotEmpty == true
@@ -547,11 +685,23 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                             : 'l\'extension',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: _kMuted, fontSize: 12.5),
+                        style: TextStyle(
+                            color: _kText,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600),
                       ),
                     ),
-                    const SizedBox(width: 5),
-                    Icon(Icons.help_outline_rounded, size: 16, color: _kMuted),
+                    const SizedBox(width: 6),
+                    // « ? » → détails de l'extension : nom, liens, langue, version.
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: source == null ? null : () => _showSourceDetails(source),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(Icons.help_outline_rounded,
+                            size: 16, color: _kMuted),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -565,16 +715,21 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
             runSpacing: 8,
             children: [
               _buildFieldButton(
-                label: _audioLabel(),
-                onTap: _langs.length > 1
+                label: _audioLabel(),                onTap: _langs.length > 1
                     ? () => _showOptionSheet(
                           'Audio',
                           _langs,
                           _selectedLang ?? _langs.first,
-                          (l) => setState(() {
-                            _selectedLang = l;
-                            _selected.clear();
-                          }),
+                          (l) {
+                            setState(() {
+                              _selectedLang = l;
+                              _selected.clear();
+                              // Le film redevient les lignes qualité de cette
+                              // langue ; la sélection courante est périmée.
+                              _selectedVideos.clear();
+                            });
+                            if (_isFilm) _recomputeFilmRows();
+                          },
                         )
                     : null,
               ),
@@ -682,30 +837,42 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     );
   }
 
-  // ── Lignes du cas FILM : un gabarit identique pour chaque qualité ────────────
+  // ── Lignes du cas FILM : une ligne par qualité, `Qualité Titre` puis ───────
+  // `poids réel | durée` en dessous.
   Widget _buildFilmRows() {
-    final rows = _filmRows;
-    if (rows.isEmpty) {
+    if (_filmRows.isEmpty) {
       return Center(
         child: Text('Aucune ressource disponible',
             style: TextStyle(color: _kMuted, fontSize: 13)),
       );
     }
-    final meta = _rowMeta(widget.chapters.first);
+    final chapterName =
+        (widget.chapters.isNotEmpty ? widget.chapters.first.name : '') ?? '';
+    // Si le nom d'épisode commence déjà par une résolution, on l'enlève :
+    // le gabarit remet le libellé de la ligne devant lui-même.
+    final bareTitle = chapterName
+        .replaceFirst(
+            RegExp(r'^\s*\d{3,4}\s*[pP][\s·:\-–—]+'), '')
+        .trim();
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      itemCount: rows.length,
+      itemCount: _filmRows.length,
       itemBuilder: (_, i) {
-        final v = rows[i];
-        final selected = _selectedVideos.contains(v);
-        final rawQuality = v.quality.trim();
+        final row = _filmRows[i];
+        final selected = _selectedVideos.contains(row);
+        final parts = <String>[];
+        if ((row.size ?? '').trim().isNotEmpty) parts.add(row.size!.trim());
+        if ((row.duration ?? '').trim().isNotEmpty) {
+          parts.add(row.duration!.trim());
+        }
         return _buildSelectRow(
           selected: selected,
           onTap: () => setState(() {
-            selected ? _selectedVideos.remove(v) : _selectedVideos.add(v);
+            selected ? _selectedVideos.remove(row) : _selectedVideos.add(row);
           }),
-          title: rawQuality.isEmpty ? 'Auto' : rawQuality,
-          meta: meta,
+          title:
+              '${row.label} $bareTitle'.trim(),
+          meta: parts.join(' | '),
         );
       },
     );
@@ -795,11 +962,11 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
         child: Row(
           children: [
             Expanded(
-              flex: 2,
+              flex: 3,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: toggleAll,
@@ -814,7 +981,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                           'Tout sélectionner',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: _kText, fontSize: 15),
+                          style: TextStyle(color: _kText, fontSize: 14),
                         ),
                       ),
                     ],
@@ -823,11 +990,11 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
               ),
             ),
             Expanded(
-              flex: 3,
+              flex: 2,
               child: GestureDetector(
                 onTap: _startDownload,
                 child: Container(
-                  height: 48,
+                  height: 42,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     gradient: _kActionGradient,
@@ -838,13 +1005,13 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.download_rounded,
-                          color: Colors.black, size: 20),
-                      SizedBox(width: 8),
+                          color: Colors.black, size: 18),
+                      SizedBox(width: 7),
                       Text('Télécharger',
                           style: TextStyle(
                               color: Colors.black,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700)),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -854,6 +1021,120 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
         ),
       ),
     );
+  }
+
+  // ── Détails de l'extension (via le « ? » de la carte Ressources) ────────────
+  void _showSourceDetails(Source source) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor:
+            Theme.of(dialogContext).colorScheme.surfaceContainerHighest,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        contentPadding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+        title: Row(
+          children: [
+            ExtensionIconWidget(
+              sourceId: source.id,
+              iconUrl: source.iconUrl,
+              size: 34,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                source.name?.trim().isNotEmpty == true
+                    ? source.name!.trim()
+                    : 'Extension',
+                style: TextStyle(
+                    color: Theme.of(dialogContext).colorScheme.onSurface,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sourceDetailRow(dialogContext, 'Site web', source.baseUrl,
+                launchTarget: source.baseUrl),
+            _sourceDetailRow(dialogContext, 'Code source', source.sourceCodeUrl,
+                launchTarget: source.sourceCodeUrl),
+            _sourceDetailRow(
+                dialogContext, 'Langue', source.lang?.toUpperCase()),
+            _sourceDetailRow(dialogContext, 'Version', source.version),
+            _sourceDetailRow(dialogContext, 'Type', source.typeSource),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Fermer',
+                style: TextStyle(
+                    color: context.primaryColor, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sourceDetailRow(
+    BuildContext dialogContext,
+    String label,
+    String? value, {
+    String? launchTarget,
+  }) {
+    final trimmed = (value ?? '').trim();
+    final has = trimmed.isNotEmpty;
+    final onSurface = Theme.of(dialogContext).colorScheme.onSurface;
+    final faintColor = onSurface.withValues(alpha: 0.55);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child:
+                Text(label, style: TextStyle(color: faintColor, fontSize: 13)),
+          ),
+          Expanded(
+            child: has
+                ? GestureDetector(
+                    onTap: launchTarget != null && launchTarget.trim().isNotEmpty
+                        ? () => _openExternal(launchTarget)
+                        : null,
+                    child: Text(
+                      trimmed,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: launchTarget != null
+                            ? context.primaryColor
+                            : onSurface,
+                        fontSize: 13,
+                        decoration: launchTarget != null
+                            ? TextDecoration.underline
+                            : TextDecoration.none,
+                      ),
+                    ),
+                  )
+                : Text('—', style: TextStyle(color: faintColor, fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openExternal(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // L'ouverture web n'est pas critique : échec ignoré.
+    }
   }
 
   // ── Feuille de choix (Audio / Saison) ────────────────────────────────────────
@@ -892,7 +1173,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                 ],
               ),
             ),
-            Divider(height: 1, thickness: 0.8, color: _kFieldBg),
+            Divider(height: 1, thickness: 0.8, color: _kDivider),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
@@ -935,6 +1216,41 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
   }
 }
 
+// ── Ligne qualité du cas film ───────────────────────────────────────────────────
+// Une ligne = un flux téléchargeable (variante HLS ou fichier direct + échelle
+// de qualités standard selon le gabarit MovieBox), avec son poids et sa durée.
+class _FilmRow {
+  /// Libellé affiché (ex. `480P`).
+  final String label;
+
+  /// Flux d'origine fourni par l'extension (pour la référence HLS).
+  final Video video;
+
+  /// URL à passer au downloader externe : variante HLS dépliée si connue,
+  /// sinon l'URL d'origine.
+  final String url;
+
+  final Map<String, String>? headers;
+
+  /// Poids affiché (« 259.9MB ») ; rempli après la détection réseau.
+  String? size;
+
+  /// Durée affichée (« 13:17 », « 2:37:01 »).
+  String? duration;
+
+  /// Vrai tant que la détection poids/durée n'a pas encore été tentée.
+  bool metaDone = false;
+
+  _FilmRow({
+    required this.label,
+    required this.video,
+    required this.url,
+    this.headers,
+    this.size,
+    this.duration,
+  });
+}
+
 // ── Cercle de sélection (cercle contour, rempli quand coché) ─────────────────
 class _SelectCircle extends StatelessWidget {
   const _SelectCircle({required this.checked});
@@ -951,7 +1267,9 @@ class _SelectCircle extends StatelessWidget {
         shape: BoxShape.circle,
         color: checked ? _kActionGradient.colors.last : Colors.transparent,
         border: Border.all(
-          color: checked ? const Color(0xFF36E07D) : const Color(0xFF8A8A8A),
+          color: checked
+              ? _kActionGradient.colors.last
+              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
           width: 1.8,
         ),
       ),
