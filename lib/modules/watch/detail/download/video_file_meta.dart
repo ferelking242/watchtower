@@ -134,7 +134,8 @@ Future<Uint8List?> _fetchByteRange(
   final (client, request) = await _open('GET', url, headers);
   try {
     final range = from < 0 ? 'bytes=-$length' : 'bytes=$from-${from + length - 1}';
-    request.headers.set(HttpHeaders.rangeHeader, range);
+    // Littéraux : le stub web du HttpClient ne déclare pas les constantes.
+    request.headers.set('range', range);
     final response = await request.close().timeout(const Duration(seconds: 15));
     if (response.statusCode ~/ 100 != 2) {
       await response.drain<void>().timeout(const Duration(seconds: 15));
@@ -253,18 +254,17 @@ Future<int?> fetchDirectFileSize(
 ) async {
   final (client, request) = await _open('GET', url, headers);
   try {
-    request.headers.set(HttpHeaders.rangeHeader, 'bytes=0-0');
+    request.headers.set('range', 'bytes=0-0');
     final response = await request.close().timeout(const Duration(seconds: 15));
     // On ne lit pas le corps : seules les entêtes nous intéressent.
     await response.drain<void>().timeout(const Duration(seconds: 15));
     if (response.statusCode ~/ 100 != 2) return null;
-    final contentRange =
-        response.headers.value(HttpHeaders.contentRangeHeader); // b 0-0/TOTAL
+    final contentRange = response.headers.value('content-range'); // b 0-0/TOTAL
     if (contentRange != null) {
       final slash = contentRange.lastIndexOf('/');
       if (slash != -1) return int.tryParse(contentRange.substring(slash + 1));
     }
-    final length = response.headers.value(HttpHeaders.contentLengthHeader);
+    final length = response.headers.value('content-length');
     return length == null ? null : int.tryParse(length.split('.')[0]);
   } catch (_) {
     return null;
