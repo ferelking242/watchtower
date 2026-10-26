@@ -261,6 +261,30 @@ production home screens render the *same* widgets. The contract:
   artwork, and no two tiles share a picture. Keep it pure so it stays unit
   testable.
 
+## Overlay menus and filter panels (single component)
+`lib/utils/adaptive_overlay_menu.dart` is the one glass popup used everywhere;
+do not reintroduce a bespoke popup or a filter bottom sheet.
+
+- `AdaptiveOverlayMenuButton` anchors a floating glass panel (`trigger` +
+  `contentBuilder`); the Library filter is the reference use.
+- `AdaptiveOverlayMenu<T>` renders a `PopupMenuItem` list in that same panel for
+  three-dots menus; `AdaptiveOverlayItem` / `AdaptiveOverlaySection` /
+  `AdaptiveOverlayDivider` are the in-panel row primitives.
+- The caret is drawn by `_CaretPainter`, which also strokes the two slanted
+  edges (`edgeColor`). The panel fill is translucent, so without that stroke the
+  caret is invisible over a solid app bar (Browse). Keep it.
+- The panel is inserted into the Navigator overlay, which has no `Material`
+  ancestor: the content is wrapped in `MaterialType.transparency` so the
+  `InkWell` rows build. Do not remove that wrapper.
+- `lib/modules/media/overlay_filter_menu.dart` holds `ExtensionFilterOverlay`
+  (dynamic `getFilterList()` filters) and `CatalogFilterOverlay` (catalogue
+  type/year/rating/genre/sort/layout). Both drill down in place, like
+  `LibraryFilterSortMenu`. The catalogue filter *state* stays in
+  `catalog_filter_sheet.dart`; only the UI moved.
+- Every search surface shares `SharedSearchHeader` (chevron back + mic inside
+  the field); the filter and three-dots live outside the field, composed by the
+  screen. `handleSearchBack` clears the query before leaving.
+
 ## Formatting caveat
 `dart format lib/cli` is clean (that is the CI-enforced path). Running
 `dart format lib/` with the local SDK rewrites ~740 files because the tree was
