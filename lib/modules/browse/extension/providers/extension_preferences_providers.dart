@@ -19,6 +19,60 @@ import 'package:watchtower/services/get_source_preference.dart';
 
 Isar? get _db => Isar.getInstance('watchtowerDb');
 
+/// Values handed to an extension worker.
+///
+/// Workers never open Isar (the root isolate owns the only handle), so a
+/// `SharedPreferences.get()` call used to always return null there: a source
+/// setting such as the site language silently never applied. The root isolate
+/// exports the stored values with the request and the worker reads this map.
+Map<String, dynamic>? _preferenceSnapshot;
+
+void installPreferenceSnapshot(Object? raw) {
+  if (raw is Map) {
+    _preferenceSnapshot = raw.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+  } else {
+    _preferenceSnapshot = null;
+  }
+}
+
+/// Snapshot of the stored preferences of one source, ready to be sent to a
+/// worker isolate.
+Map<String, dynamic> exportPreferenceSnapshot(int? sourceId) {
+  final db = _db;
+  if (db == null || sourceId == null) return const {};
+  final result = <String, dynamic>{};
+  final stored = db.sourcePreferences
+      .filter()
+      .sourceIdEqualTo(sourceId)
+      .findAllSync();
+  for (final preference in stored) {
+    final key = preference.key;
+    if (key == null) continue;
+    result[key] = _resolvedValue(preference);
+  }
+  return result;
+}
+
+dynamic _resolvedValue(SourcePreference preference) {
+  final list = preference.listPreference;
+  if (list != null) {
+    final values = list.entryValues ?? const <String>[];
+    if (values.isEmpty) return null;
+    final raw = list.valueIndex ?? 0;
+    final index = raw < 0 ? 0 : (raw >= values.length ? values.length - 1 : raw);
+    return values[index];
+  }
+  final checkBox = preference.checkBoxPreference;
+  if (checkBox != null) return checkBox.value;
+  final switchPreference = preference.switchPreferenceCompat;
+  if (switchPreference != null) return switchPreference.value;
+  final editText = preference.editTextPreference;
+  if (editText != null) return editText.value;
+  return preference.multiSelectListPreference?.values;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Write helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,6 +99,13 @@ void setPreferenceSetting(SourcePreference sourcePreference, Source source) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 dynamic getPreferenceValue(int sourceId, String key) {
+  // Worker isolate: no Isar, so answer from the snapshot sent by the root
+  // isolate. Without it every `SharedPreferences.get()` returned null and a
+  // user-chosen setting (site language, image server, …) was ignored.
+  if (_db == null) {
+    final snapshot = _preferenceSnapshot;
+    return snapshot == null ? null : snapshot[key];
+  }
   final sourcePreference = getSourcePreferenceEntry(key, sourceId);
 
   if (sourcePreference.listPreference != null) {

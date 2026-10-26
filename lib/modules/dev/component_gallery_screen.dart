@@ -18,6 +18,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/episode_cards.dart';
+import 'package:watchtower/modules/media/media_badges.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/manga_chapter_cards.dart';
 import 'package:watchtower/modules/media/manga_genre_cards.dart';
@@ -264,6 +265,9 @@ const _orderedGallerySections = <String>[
   'COLLECTIONS & FRANCHISES',
   'ÉPISODES & SAISONS',
   'FILMS & SÉRIES · SECTIONS',
+  // Badges sit right after the card and section libraries: they are a
+  // metadata layer on a card, not a card family of their own.
+  'BADGES',
   'ACCUEIL & LECTURE',
   'EXTENSIONS WATCH',
   'MANGA & LECTURE',
@@ -1387,6 +1391,9 @@ class _UnifiedGallerySliver extends StatelessWidget {
 }
 
 IconData _sectionIcon(String section) {
+  if (section.contains('BADGES')) {
+    return Icons.sell_outlined;
+  }
   if (section.contains('EXTENSION')) return Icons.extension_outlined;
   if (section.contains('STREAMING')) return Icons.play_circle_outline_rounded;
   if (section.contains('COLLECTION'))
@@ -4747,6 +4754,87 @@ List<_ComponentSpec> _additionalExtensionLayoutComponents() => [
 ];
 
 List<_ComponentSpec> _buildComponents() => [
+  // ── BADGES ──
+  // Language flag, censorship, subtitles and dubbing. Purely presentational:
+  // a source publishes tokens (`lang:ja`, `uncensored`, `sub:fr`…), a card
+  // draws them.
+  _ComponentSpec(
+    title: 'Bande de badges',
+    className: 'MediaBadgeStrip',
+    path: 'lib/modules/media/media_badges.dart',
+    usage: 'Langue, censure, sous-titres et doublage d’une vidéo',
+    section: 'BADGES',
+    icon: Icons.sell_outlined,
+    kind: _PreviewKind.tag,
+    layoutComponent: 'badge-strip',
+    result: (_) => const Padding(
+      padding: EdgeInsets.all(8),
+      child: MediaBadgeStrip(
+        tokens: ['lang:ja', 'uncensored', 'sub:en', 'dub:fr'],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Badge langue',
+    className: 'MediaBadgeChip(langue)',
+    path: 'lib/modules/media/media_badges.dart',
+    usage: 'Drapeau du pays et code de la langue publiée',
+    section: 'BADGES',
+    icon: Icons.flag_outlined,
+    kind: _PreviewKind.tag,
+    layoutComponent: 'language-badge',
+    result: (_) => const Padding(
+      padding: EdgeInsets.all(8),
+      child: MediaBadgeStrip(
+        tokens: ['lang:ja', 'lang:en', 'lang:fr', 'lang:zh', 'lang:ko'],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Badge censure',
+    className: 'MediaBadgeChip(censure)',
+    path: 'lib/modules/media/media_badges.dart',
+    usage: 'Censuré, non censuré ou fuite',
+    section: 'BADGES',
+    icon: Icons.blur_on_rounded,
+    kind: _PreviewKind.tag,
+    layoutComponent: 'censored-badge',
+    result: (_) => const Padding(
+      padding: EdgeInsets.all(8),
+      child: MediaBadgeStrip(tokens: ['censored', 'uncensored', 'leak']),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Badges sous-titres & doublage',
+    className: 'MediaBadgeChip(sous-titres / doublage)',
+    path: 'lib/modules/media/media_badges.dart',
+    usage: 'SUB et DUB par langue, avec drapeau',
+    section: 'BADGES',
+    icon: Icons.subtitles_rounded,
+    kind: _PreviewKind.tag,
+    layoutComponent: 'subtitle-badge',
+    result: (_) => const Padding(
+      padding: EdgeInsets.all(8),
+      child: MediaBadgeStrip(tokens: ['sub:en', 'sub:fr', 'dub:en', 'dub:fr']),
+    ),
+  ),
+  _ComponentSpec(
+    title: 'Légende complète des badges',
+    className: 'MediaBadgeLegend',
+    path: 'lib/modules/media/media_badges.dart',
+    usage: 'Toutes les langues, censure, sous-titres et doublages',
+    section: 'BADGES',
+    icon: Icons.list_alt_rounded,
+    kind: _PreviewKind.tag,
+    result: (_) => const SizedBox(
+      height: 210,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(8),
+        child: MediaBadgeLegend(),
+      ),
+    ),
+  ),
+
   // ── CARTES RICHES (MoviesBox) ──
   _ComponentSpec(
     title: 'Carte détails complète',

@@ -23,6 +23,11 @@ class MManga {
 
   List<String>? genre;
 
+  /// Compact metadata published for a catalogue item: language, censorship,
+  /// subtitles and dubs. The app renders these as badges; extensions that do
+  /// not publish any simply omit the field.
+  List<String>? badges;
+
   List<MChapter>? chapters;
 
   MManga({
@@ -30,6 +35,7 @@ class MManga {
     this.collectionId,
     this.artist,
     this.genre,
+    this.badges,
     this.imageUrl,
     this.previewUrl,
     this.link,
@@ -58,6 +64,7 @@ class MManga {
         _ => Status.unknown,
       },
       genre: (json['genre'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      badges: (json['badges'] as List?)?.map((e) => e.toString()).toList(),
       chapters: json['chapters'] != null
           ? (json['chapters'] as List).map((e) => MChapter.fromJson(e)).toList()
           : json['episodes'] != null
@@ -77,6 +84,7 @@ class MManga {
       'artist': artist,
       'status': status.toString().substringAfter("."),
       'genre': genre,
+      'badges': badges,
       'chapters': chapters!.map((e) => e.toJson()).toList(),
     };
   }

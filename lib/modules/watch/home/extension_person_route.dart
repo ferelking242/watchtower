@@ -13,7 +13,9 @@ bool isExtensionPersonItem(MManga item) {
   final path = Uri.tryParse(link)?.path.toLowerCase();
   if (path == null) return false;
   return RegExp(
-    r'/(pornstar|pornstars|studio|studios|channel|channels)/',
+    // `actress` / `actresses` is what a JAV catalogue (MissAV) uses for the
+    // very same profile page as `pornstar`: name, portrait, filmography.
+    r'/(pornstar|pornstars|actors?|actress|actresses|studio|studios|channel|channels)/',
   ).hasMatch('$path/');
 }
 

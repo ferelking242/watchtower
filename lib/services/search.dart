@@ -44,6 +44,7 @@ Future<MPages?> search(
               link: m['link'] as String?,
               author: m['author'] as String?,
               description: m['description'] as String?,
+              badges: (m['badges'] as List?)?.map((e) => e.toString()).toList(),
             ),
           )
           .toList(),

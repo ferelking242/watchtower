@@ -18,6 +18,7 @@ class MMangaBridge {
           imageUrl: namedArgs.get<String?>('imageUrl'),
           link: namedArgs.get<String?>('link'),
           chapters: namedArgs.get<List?>('chapters')?.cast() ?? [],
+          badges: namedArgs.get<List?>('badges')?.cast(),
           name: namedArgs.get<String?>('name'),
         );
       },
@@ -29,6 +30,7 @@ class MMangaBridge {
       'description': (visitor, target) => (target as MManga).description,
       'collectionId': (visitor, target) => (target as MManga).collectionId,
       'genre': (visitor, target) => (target as MManga).genre,
+      'badges': (visitor, target) => (target as MManga).badges,
       'status': (visitor, target) => (target as MManga).status,
       'imageUrl': (visitor, target) => (target as MManga).imageUrl,
       'link': (visitor, target) => (target as MManga).link,
@@ -47,6 +49,8 @@ class MMangaBridge {
           (target as MManga).collectionId = value as String?,
       'genre': (visitor, target, value) =>
           (target as MManga).genre = (value as List?)?.cast(),
+      'badges': (visitor, target, value) =>
+          (target as MManga).badges = (value as List?)?.cast(),
       'status': (visitor, target, value) =>
           (target as MManga).status = value as Status?,
       'imageUrl': (visitor, target, value) =>

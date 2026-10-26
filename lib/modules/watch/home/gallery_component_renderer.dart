@@ -16,6 +16,7 @@ import 'package:watchtower/modules/media/manga_reader_cards.dart';
 import 'package:watchtower/modules/media/manga_stats_cards.dart';
 import 'package:watchtower/modules/media/manga_universe_cards.dart';
 import 'package:watchtower/modules/media/manga_volume_cards.dart';
+import 'package:watchtower/modules/media/media_badges.dart';
 import 'package:watchtower/modules/media/media_content_sections.dart';
 import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
@@ -453,6 +454,26 @@ class GalleryComponentRenderer {
     VoidCallback? seeAll = ctx.onSeeAll;
 
     switch (id) {
+      // ── Badges ──
+      // One composite card lists, for every video of the section, the flags
+      // and marks its source published. Aliases keep older layouts valid.
+      case 'badge-strip':
+      case 'media-badges':
+      case 'badges':
+      case 'language-badge':
+      case 'flag-badge':
+      case 'censored-badge':
+      case 'uncensored-badge':
+      case 'subtitle-badge':
+      case 'sub-badge':
+      case 'dub-badge':
+        return MediaBadgeShowcaseCard(
+          title: ctx.header,
+          entries: [
+            for (final item in items) (title: item.title, tokens: item.badges),
+          ],
+        );
+
       // ── Ranking panels ──
       // Dix classements, une seule carte. Titre, sous-titre et icône viennent
       // du layout ; `labelTiles` bascule les tuiles genre / pays / décennie.
@@ -1663,6 +1684,7 @@ class GalleryComponentRenderer {
         );
       case GalleryComponentFamily.mangaStats:
         return MangaGlobalStatsCard(tiles: _statTiles(items), width: w ?? 430);
+      case GalleryComponentFamily.badges:
       case GalleryComponentFamily.grid:
       case GalleryComponentFamily.posterRail:
       case GalleryComponentFamily.swipe:

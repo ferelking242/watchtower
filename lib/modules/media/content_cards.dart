@@ -5,6 +5,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/media_badges.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 /// Provider-neutral data used by every catalogue card.
@@ -26,6 +27,7 @@ class ContentItem {
     this.logoUrl,
     this.coverUrls = const [],
     this.genres = const [],
+    this.badges = const [],
     this.meta,
   });
 
@@ -51,6 +53,11 @@ class ContentItem {
   /// Genre labels for rich media cards.
   final List<String> genres;
 
+  /// Compact metadata published by an extension: language, censorship,
+  /// subtitles and dubs (`lang:ja`, `uncensored`, `sub:en`…). Rendered by
+  /// [MediaBadgeStrip], so a card never needs a provider-specific widget.
+  final List<String> badges;
+
   /// Optional free-form meta line (studio, genre, country…) for cards that
   /// display one instead of the badge.
   final String? meta;
@@ -64,6 +71,7 @@ class ContentItem {
     backdropUrl: _nonEmptyImageUrl(item.imageUrl),
     description: item.description,
     badge: item.status?.name,
+    badges: item.badges ?? const [],
   );
 
   factory ContentItem.fromTmdb(TmdbMedia item) => ContentItem(
@@ -193,6 +201,18 @@ class PosterCard extends StatelessWidget {
                         child: _MediaBadge(
                           label: _formatLabel(item.badge!),
                           fontSize: 8,
+                        ),
+                      ),
+                    if (item.badges.isNotEmpty)
+                      Positioned(
+                        right: 6,
+                        bottom: 6,
+                        child: MediaBadgeStrip(
+                          tokens: item.badges,
+                          dense: true,
+                          onPoster: true,
+                          max: 3,
+                          axis: Axis.vertical,
                         ),
                       ),
                   ],

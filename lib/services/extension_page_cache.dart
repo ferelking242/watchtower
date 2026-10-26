@@ -153,6 +153,7 @@ MManga _copyManga(MManga manga) => MManga(
   collectionId: manga.collectionId,
   artist: manga.artist,
   genre: manga.genre == null ? null : List<String>.of(manga.genre!),
+  badges: manga.badges == null ? null : List<String>.of(manga.badges!),
   imageUrl: manga.imageUrl,
   previewUrl: manga.previewUrl,
   link: manga.link,

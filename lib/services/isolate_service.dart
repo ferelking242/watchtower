@@ -9,6 +9,7 @@ import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
+import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/services/anti_bot/browser_bridge.dart';
 import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -305,6 +306,9 @@ class GetIsolateService {
               final filterList = message['filterList'] as List?;
               final useLoggerValue = message['useLogger'] as bool?;
               MClient.installWorkerSettingsSnapshot(message['httpSettings']);
+              // Extension settings are stored in the root isolate's Isar; the
+              // worker has no handle, so the values travel with each request.
+              installPreferenceSnapshot(message['preferences']);
               if (useLoggerValue != null) {
                 useLogger = useLoggerValue;
               }
@@ -361,7 +365,7 @@ class GetIsolateService {
                 if (result is List) {
                   resultSummary = '${result.length} item(s)';
                 } else if (result is MPages) {
-                  resultSummary = '${result.list?.length ?? 0} items';
+                  resultSummary = '${result.list.length} items';
                 } else if (result is MManga) {
                   resultSummary = 'detail record';
                 } else {
@@ -629,6 +633,7 @@ class GetIsolateService {
       'httpSettings': await MClient.exportWorkerSettingsSnapshot(
         sourceId: source?.id,
       ),
+      'preferences': exportPreferenceSnapshot(source?.id),
       'useLogger': ?useLogger,
     });
 

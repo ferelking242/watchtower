@@ -46,6 +46,8 @@ enum GalleryComponentFamily {
   genreGrid,
   providersRail,
   mangaListTile,
+  // Metadata badges: language flag, censorship, subtitles and dubs.
+  badges,
 }
 
 /// The JSON-facing definition of one gallery component.
@@ -1747,6 +1749,50 @@ class GalleryComponentCatalog {
       description: 'Résultats en liste',
       renderer: GalleryComponentFamily.mangaListTile,
       loadingPreview: LayoutComponentLoadingPreview.row,
+    ),
+    // ── BADGES ──────────────────────────────────────────────────────────────
+    // One reusable badge system for every catalogue card. Extensions publish
+    // compact tokens (`lang:ja`, `uncensored`, `sub:fr`…) and these components
+    // turn them into a flag, a censorship mark or a sub/dub chip.
+    GalleryComponentDescriptor(
+      id: 'badge-strip',
+      className: 'MediaBadgeStrip',
+      label: 'Bande de badges',
+      category: 'BADGES',
+      description: 'Langue, censure, sous-titres et doublage d’une vidéo',
+      renderer: GalleryComponentFamily.badges,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['media-badges', 'badges'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'language-badge',
+      className: 'MediaBadgeChip(langue)',
+      label: 'Badge langue',
+      category: 'BADGES',
+      description: 'Drapeau du pays et code de la langue publiée',
+      renderer: GalleryComponentFamily.badges,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['flag-badge'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'censored-badge',
+      className: 'MediaBadgeChip(censure)',
+      label: 'Badge censure',
+      category: 'BADGES',
+      description: 'Censuré, non censuré ou fuite',
+      renderer: GalleryComponentFamily.badges,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['uncensored-badge'],
+    ),
+    GalleryComponentDescriptor(
+      id: 'subtitle-badge',
+      className: 'MediaBadgeChip(sous-titres / doublage)',
+      label: 'Badges sous-titres & doublage',
+      category: 'BADGES',
+      description: 'SUB et DUB par langue, avec drapeau',
+      renderer: GalleryComponentFamily.badges,
+      loadingPreview: LayoutComponentLoadingPreview.row,
+      aliases: ['sub-badge', 'dub-badge'],
     ),
   ];
   static final Map<String, GalleryComponentDescriptor> _byId = {
