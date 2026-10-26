@@ -82,10 +82,10 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
       480.0,
       590.0,
     );
-    // Hero is drawn heroHeight + 36 tall (notch overhang) — match it.
+    // Hero is drawn heroHeight tall — match it.
     final shouldShow =
         _feedController.offset >=
-        heroHeight + 36 - MediaQuery.paddingOf(context).top;
+        heroHeight - MediaQuery.paddingOf(context).top;
     if (shouldShow != _showCompactHeader) {
       setState(() => _showCompactHeader = shouldShow);
     }
@@ -635,10 +635,10 @@ class DiscoverMovies extends StatelessWidget {
       590.0,
     );
     final heroMovies = movies.take(10).toList(growable: false);
-    // Extra bottom room lets the notch/play disc overhang the hero edge.
+    // Hero fills its box fully; the action column sits low but inside it.
     return SizedBox(
       width: double.infinity,
-      height: heroHeight + 36,
+      height: heroHeight,
       child: heroMovies.isEmpty
           ? const AppShimmerBlock(radius: 0)
           : AppCrossfadeCarousel(
@@ -712,7 +712,7 @@ class DiscoverMovies extends StatelessWidget {
                     Positioned(
                       left: 24,
                       right: 24,
-                      bottom: 86,
+                      bottom: 40,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -763,31 +763,13 @@ class DiscoverMovies extends StatelessWidget {
                               ),
                             ),
                           ],
+                          // FlixQuest-style hero: rectangular Play button in
+                          // the column, no centered disc/notch.
+                          const SizedBox(height: 14),
+                          AppHeroPlayPill(
+                            onTap: () => onMoviePressed(movie),
+                          ),
                         ],
-                      ),
-                    ),
-                    // Notch (half-circle cut) at the hero's bottom edge…
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: -30,
-                      child: Center(
-                        child: AppHeroNotch(
-                          backgroundColor: const Color(0xFF0B0B11),
-                          ringColor: Colors.white.withValues(alpha: .55),
-                        ),
-                      ),
-                    ),
-                    // …with the play disc sitting in the cut.
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: -34,
-                      child: Center(
-                        child: AppHeroPlayButton(
-                          size: 62,
-                          onTap: () => onMoviePressed(movie),
-                        ),
                       ),
                     ),
                   ],

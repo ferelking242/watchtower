@@ -348,29 +348,12 @@ class MangaSpotlightCard extends StatelessWidget {
                         height: 1.1,
                       ),
                     ),
+                    // FlixQuest-style spotlight: rectangular Play button at
+                    // the start of the content, below the title — no floating
+                    // circular disc on the right.
+                    const SizedBox(height: 8),
+                    AppHeroPlayPill(onTap: onTap, compact: true),
                   ],
-                ),
-              ),
-              Positioned(
-                right: 14,
-                bottom: 14,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: .45),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .7),
-                    ),
-                  ),
-                  child: const SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
                 ),
               ),
             ],

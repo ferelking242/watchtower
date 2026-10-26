@@ -471,6 +471,60 @@ class AppHeroPlayButton extends StatelessWidget {
   }
 }
 
+/// Rectangular filled play button (FlixQuest hero style): a solid bar with a
+/// small triangle and the word "Play", used at the start of the hero content
+/// column instead of the floating circular disc.
+///
+/// Never trust a circular overlay again: the spotlight must lead with this
+/// button and the title stays prominent next to it.
+class AppHeroPlayPill extends StatelessWidget {
+  const AppHeroPlayPill({
+    required this.onTap,
+    this.compact = false,
+    super.key,
+  });
+
+  final VoidCallback onTap;
+
+  /// Compact variant for spotlight cards (smaller height and text).
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconSize = compact ? 18.0 : 22.0;
+    final fontSize = compact ? 12.0 : 14.0;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(compact ? 8 : 10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(compact ? 8 : 10),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 12 : 18,
+            vertical: compact ? 7 : 11,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.play_arrow_rounded, color: Colors.black, size: iconSize),
+              const SizedBox(width: 6),
+              const Text(
+                'Play',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A circular cut-out ("notch") that visually bites into the bottom edge of
 /// a hero image. Paint it at the bottom-center of the hero stack: it draws
 /// the page background over the image inside the circle and a thin arc of

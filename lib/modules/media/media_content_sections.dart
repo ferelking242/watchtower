@@ -26,10 +26,10 @@ class MediaHeroCarousel extends StatelessWidget {
     final visible = items.take(10).toList(growable: false);
     if (visible.isEmpty) return const SizedBox.shrink();
 
-    // Extra bottom room lets the notch/play disc overhang the hero edge.
+    // Hero fills its box fully; the action column sits low but inside it.
     return SizedBox(
       width: double.infinity,
-      height: heroHeight + 36,
+      height: heroHeight,
       child: AppCrossfadeCarousel(
         itemCount: visible.length,
         onItemTap: onOpen,
@@ -57,7 +57,7 @@ class MediaHeroCarousel extends StatelessWidget {
               Positioned(
                 left: 24,
                 right: 24,
-                bottom: 86,
+                bottom: 40,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -102,31 +102,11 @@ class MediaHeroCarousel extends StatelessWidget {
                         ),
                       ),
                     ],
+                    // FlixQuest-style hero: the rectangular Play button leads
+                    // the column (after the title), no floating disc.
+                    const SizedBox(height: 14),
+                    AppHeroPlayPill(onTap: () => onOpen(index)),
                   ],
-                ),
-              ),
-              // Notch (half-circle cut) at the hero's bottom edge…
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: -30,
-                child: Center(
-                  child: AppHeroNotch(
-                    backgroundColor: const Color(0xFF0B0B11),
-                    ringColor: Colors.white.withValues(alpha: .55),
-                  ),
-                ),
-              ),
-              // …with the play disc sitting in the cut.
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: -34,
-                child: Center(
-                  child: AppHeroPlayButton(
-                    size: 62,
-                    onTap: () => onOpen(index),
-                  ),
                 ),
               ),
             ],

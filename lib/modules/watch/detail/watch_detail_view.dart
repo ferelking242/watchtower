@@ -120,25 +120,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     _nestedScrollCtrl.addListener(_onScroll);
   }
 
-  /// Lets the user open a decorative tab while playback is still resolving.
-  /// Without this the gated tabs would keep showing a spinner forever, because
-  /// they only auto-fetch once the player has a URL.
+  /// Les onglets décoratifs se chargent désormais en parallèle de la vidéo
+  /// (gating retiré) ; le listener ne fait que tracer le changement d'onglet.
   void _onTabChanged() {
     if (!mounted) return;
     if (_tabController.index == 0 && !_recommendationsRequested) {
-      AppLogger.log(
-        'tab "Pour vous" opened → getRecommendations un-gated',
-        logLevel: LogLevel.debug,
-        tag: LogTag.watch,
-      );
-      setState(() => _recommendationsRequested = true);
+      _recommendationsRequested = true;
     } else if (_tabController.index == 1 && !_commentsRequested) {
-      AppLogger.log(
-        'tab "Commentaires" opened → getComments un-gated',
-        logLevel: LogLevel.debug,
-        tag: LogTag.watch,
-      );
-      setState(() => _commentsRequested = true);
+      _commentsRequested = true;
     }
   }
 
@@ -2601,12 +2590,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   /// per-source queue each time the screen rebuilt.
   Future<List<Map<String, dynamic>>>? _recommendationsFuture;
 
-  /// Latched when the user opens the "Pour vous" tab, so the gate below lets
-  /// the request through even while playback is still resolving.
+  /// Latch kept so a manual un-gate from the tab listener (legacy builds)
+  /// can never stall an already-fired request.
   bool _recommendationsRequested = false;
 
-  /// Latched when the user opens the "Commentaires" tab, so the gate below
-  /// lets the request through even while playback is still resolving.
+  /// Latched when the user opens the "Commentaires" tab, kept for parity
+  /// with the manual un-gate path.
   bool _commentsRequested = false;
 
   Widget _buildRecommendationsTab() {
@@ -2646,30 +2635,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
     if (_recSrc == null) return _empty();
 
-    // The player's post-frame callback launches `getVideoList`; the "Pour
-    // vous" grid is built by the TabBarView in the same frame. Because one
-    // source runs on one non-reentrant runtime, starting the tab's
-    // `getRecommendations` here would queue *behind* a full page fetch and
-    // push playback back by seconds. Stay empty until the player has a URL
-    // (setState from `_maybeStartVideo` re-runs this build).
-    if (_player.loadedChapterId != null &&
-        !_player.hasVideoUrl &&
-        !_player.loadFailed &&
-        !_recommendationsRequested) {
-      // Playback is still resolving: show the same shimmer the real list uses
-      // rather than flashing "Aucune recommandation" for a second.
-      return GridView.builder(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 0.62,
-        ),
-        itemCount: 6,
-        itemBuilder: (_, _) => _SkeletonBox(radius: 8, aspect: null),
-      );
-    }
+    // "Pour vous" et la vidéo se chargent en parallèle : la future démarre
+    // dès le premier build (TabBarView construit les deux onglets d'un coup).
+    // Le registre d'appels par source garde `getVideoList` en priorité
+    // (bucket 0 devant les appels décoratifs), donc cette requête ne peut
+    // pas retarder le démarrage de la lecture.
 
     _recommendationsFuture ??= getIsolateService
         .get<List<dynamic>>(
@@ -2786,11 +2756,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       grey: _grey,
       faint: _faint,
       textPrimary: _textPrimary,
-      // Hidden tab: don't fetch until playback has a URL or the user opens it.
-      autoLoad: _commentsRequested ||
-          !(_player.loadedChapterId != null &&
-              !_player.hasVideoUrl &&
-              !_player.loadFailed),
+      // Chargé en parallèle de la vidéo (même runtime priorisé) : pas de
+      // gating sur l'état du lecteur.
+      autoLoad: true,
     );
   }
   // ─── DOWNLOAD SHEET ─────────────────────────────────────────────────────────
