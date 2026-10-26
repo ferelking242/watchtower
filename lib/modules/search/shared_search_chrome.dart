@@ -406,7 +406,7 @@ class SharedSearchShimmerList extends StatelessWidget {
     // Squelettes de cartes réelles (même grille que les résultats) au lieu
     // de rectangles génériques.
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(AppUI.pagePadding(context), 14,
+      padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 14,
           AppUI.pagePadding(context), 40),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: AppUI.mediaGridColumns(context),

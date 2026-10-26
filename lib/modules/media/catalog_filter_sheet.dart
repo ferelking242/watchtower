@@ -711,7 +711,7 @@ class _ExtensionFilterSheet extends StatefulWidget {
 
 class _ExtensionFilterSheetState extends State<_ExtensionFilterSheet> {
   late List<dynamic> _working = List<dynamic>.of(widget.filterList);
-  int _activeCount = widget.activeCount;
+  late int _activeCount = widget.activeCount;
 
   @override
   Widget build(BuildContext context) {
