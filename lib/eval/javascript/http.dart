@@ -3,6 +3,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/stubs/js_runtime_exports.dart';
 import 'package:http_interceptor/http_interceptor.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -221,12 +222,10 @@ Future<String> _toHttpResponse(
 
     // A Cloudflare challenge is a verdict on the *client*, not on the user:
     // the same URL loads in the app's WebView because that engine runs the
-    // challenge JavaScript. Replay the request there, keep the resulting
-    // cookies/User-Agent, and hand the HTML back to the extension.
-    if (method == "GET" &&
-        _isHtmlRequest(url, headers) &&
-        antiBotAssessmentOf(resp).challenge) {
-      final browser = await _resolveInBrowser(client, url, headers, sourceId);
+    // challenge JavaScript. Let the browser send this request instead of
+    // handing the clearance back to a client Cloudflare will refuse again.
+    if (method == "GET" && antiBotAssessmentOf(resp).challenge) {
+      final browser = await _browserResponseFor(url, headers, sourceId);
       if (browser != null) return browser;
     }
 
@@ -399,56 +398,30 @@ Future<String> _toHttpResponseViaProxy(
   }
 }
 
-/// A browser replay returns rendered HTML. JSON/XML endpoints are skipped:
-/// the browser would wrap the payload in its own viewer and the extension
-/// would receive something it can no longer parse.
-bool _isHtmlRequest(String url, Map<String, String>? headers) {
-  final accept = (headers?['accept'] ?? headers?['Accept'] ?? '').toLowerCase();
-  if (accept.contains('json') || accept.contains('xml')) return false;
-  final path = Uri.tryParse(url)?.path.toLowerCase() ?? '';
-  return !path.endsWith('.json') && !path.endsWith('.xml');
-}
-
-/// Resolves a challenge through a headless browser session.
+/// Performs a refused GET inside the browser session of its host.
 ///
 /// Returns the JSON response the extension expects, or `null` when the browser
-/// could not help and the original (refused) response must stand.
-Future<String?> _resolveInBrowser(
-  Client client,
+/// could not obtain the page either — the original (refused) response then
+/// stands and only at that point is the user interrupted.
+Future<String?> _browserResponseFor(
   String url,
   Map<String, String>? headers,
   int? sourceId,
 ) async {
   try {
-    var response = await BrowserFetchService.fetchHtml(
+    final response = await BrowserFetchService.fetch(
       url,
       sourceId: sourceId,
       headers: headers,
     );
-    if (response.outcome == BrowserFetchOutcome.joined) {
-      // A sibling request is already solving this host: its cleared cookies
-      // are in the jar by now, so a plain native retry is the cheap path.
-      final retried = await client.get(Uri.parse(url), headers: headers);
-      if (!antiBotAssessmentOf(retried).challenge) {
-        return jsonEncode(retried.toJson());
-      }
-      // Still refused with a valid session: this client cannot be trusted by
-      // this host at all, so fetch this page in the browser as well, once the
-      // running capture is done.
-      response = await BrowserFetchService.fetchHtml(
-        url,
-        sourceId: sourceId,
-        headers: headers,
-        waitForExisting: true,
-      );
-    }
     switch (response.outcome) {
       case BrowserFetchOutcome.resolved:
         final result = response.result!;
         AppLogger.log(
-          '[BrowserFetch] $url → page retrieved by the browser session',
+          '[BrowserFetch] ${redactUrl(url)} → ${result.statusCode} served by '
+          'the browser session',
           logLevel: LogLevel.debug,
-          tag: LogTag.network,
+          tag: LogTag.extension_,
         );
         return jsonEncode({
           'body': result.body,
@@ -470,11 +443,9 @@ Future<String?> _resolveInBrowser(
             'url': url,
           },
         });
-      case BrowserFetchOutcome.joined:
-        return null;
       case BrowserFetchOutcome.unavailable:
-        // The browser could not unlock this request: only now is the user
-        // worth interrupting, because the block needs a human in the panel.
+        // No browser session could unlock this request: the block needs a
+        // human in the panel, so now the user is worth interrupting.
         await BypassNotificationService.instance.notifyChallengeDetected(
           url: url,
           sourceId: sourceId,
@@ -483,9 +454,9 @@ Future<String?> _resolveInBrowser(
     }
   } catch (e, st) {
     AppLogger.log(
-      '[BrowserFetch] $url → ERROR: $e',
+      '[BrowserFetch] ${redactUrl(url)} → ERROR: $e',
       logLevel: LogLevel.warning,
-      tag: LogTag.network,
+      tag: LogTag.extension_,
       error: e,
       stackTrace: st,
     );

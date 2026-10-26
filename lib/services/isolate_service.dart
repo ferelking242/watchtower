@@ -9,6 +9,8 @@ import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
+import 'package:watchtower/services/anti_bot/browser_bridge.dart';
+import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/extension_worker_count.dart';
@@ -19,7 +21,16 @@ class _IsolateData {
   final SendPort sendPort;
   final RootIsolateToken rootIsolateToken;
 
-  _IsolateData({required this.sendPort, required this.rootIsolateToken});
+  /// Root-isolate endpoint for browser requests (see `browser_bridge.dart`).
+  /// Platform views cannot be created from a spawned isolate, so extension
+  /// workers ask the root isolate to perform the request in a WebView.
+  final SendPort browserPort;
+
+  _IsolateData({
+    required this.sendPort,
+    required this.rootIsolateToken,
+    required this.browserPort,
+  });
 }
 
 class _ExtensionWorker {
@@ -58,6 +69,7 @@ void _forwardExtensionLog(String message) {
 class GetIsolateService {
   bool _isRunning = false;
   RootIsolateToken? _rootIsolateToken;
+  SendPort? _browserPort;
   final List<_ExtensionWorker> _workers = [];
   final Map<String, _ExtensionWorker> _sourceWorkers = {};
   int _nextWorker = 0;
@@ -97,10 +109,12 @@ class GetIsolateService {
   Future<void> _initGetIsolateService() async {
     final rootToken = RootIsolateToken.instance!;
     _rootIsolateToken = rootToken;
+    // Only this isolate can open a WebView; workers reach it through the port.
+    _browserPort = BrowserBridge.startServer();
     final workerCount = getRecommendedExtensionWorkerCount();
     try {
       for (var i = 0; i < workerCount; i++) {
-        _workers.add(await _spawnWorker(rootToken));
+        _workers.add(await _spawnWorker(rootToken, _browserPort!));
       }
     } catch (_) {
       await stop();
@@ -109,7 +123,10 @@ class GetIsolateService {
     _isRunning = true;
   }
 
-  Future<_ExtensionWorker> _spawnWorker(RootIsolateToken rootToken) async {
+  Future<_ExtensionWorker> _spawnWorker(
+    RootIsolateToken rootToken,
+    SendPort browserPort,
+  ) async {
     final worker = _ExtensionWorker();
     final receivePort = ReceivePort();
     worker.receivePort = receivePort;
@@ -129,6 +146,7 @@ class GetIsolateService {
         _IsolateData(
           sendPort: receivePort.sendPort,
           rootIsolateToken: rootToken,
+          browserPort: browserPort,
         ),
       );
       worker.sendPort = await handshake.future.timeout(
@@ -206,7 +224,9 @@ class GetIsolateService {
       if (rootToken == null) {
         throw StateError('Root isolate token is unavailable');
       }
-      final replacement = await _spawnWorker(rootToken);
+      final browserPort = _browserPort ?? BrowserBridge.startServer();
+      _browserPort = browserPort;
+      final replacement = await _spawnWorker(rootToken, browserPort);
       final currentIndex = _workers.indexOf(failedWorker);
       if (currentIndex < 0) {
         replacement.isolate?.kill(priority: Isolate.immediate);
@@ -246,6 +266,9 @@ class GetIsolateService {
     BackgroundIsolateBinaryMessenger.ensureInitialized(
       isolateData.rootIsolateToken,
     );
+    // Extension requests refused by Cloudflare are replayed by the root
+    // isolate, which owns the browser engine.
+    BrowserBridge.connect(isolateData.browserPort);
 
     await initializeDateFormatting();
 
@@ -632,6 +655,9 @@ class GetIsolateService {
         worker.receivePort?.close();
       }),
     );
+    BrowserBridge.stopServer();
+    _browserPort = null;
+    await BrowserCapture.closeAll();
     _isRunning = false;
   }
 }

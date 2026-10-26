@@ -64,21 +64,42 @@ same cookies, same UA, the native client still refused. Aidoku's proposal there
 because the native client here is Rust/rustls, whose fingerprint is no
 browser's.
 
-The method is split in two files:
+The method is split in three files:
 
-* `lib/services/anti_bot/browser_capture.dart` — the engine and the platform
-  matrix (`browserCaptureSupportFor`): **headless** on Android, iOS, macOS,
-  Windows and Linux (any OS with a registered `flutter_inappwebview` engine),
-  **proxy** on Flutter web (the Worker proxy already in `WebProxyInterceptor`,
-  since a page cannot read another origin's HTML), **none** otherwise — and
-  then the visible panel plus the user remain the only path.
-* `lib/services/anti_bot/browser_fetch.dart` — the coordinator: one capture per
-  host at a time, at most two headless WebViews alive, and the harvested
-  session (cookies + User-Agent) stored via `MClient.setCookie`.
+* `lib/services/anti_bot/browser_capture.dart` — the engine, the platform
+  matrix (`browserCaptureSupportFor`) and one **browser session per host**:
+  `headless` on Android, iOS, macOS, Windows and Linux (any OS with a
+  registered `flutter_inappwebview` engine), `proxy` on Flutter web (the Worker
+  proxy already in `WebProxyInterceptor`, since a page cannot read another
+  origin's HTML), `none` otherwise — then the visible panel plus the user
+  remain the only path. The session navigates once, waits for the managed
+  challenge to clear, then runs `fetch(url, {credentials: 'include'})` **inside
+  the accepted page** and returns `{status, body}`. Harvesting `cf_clearance`
+  and retrying natively is *not* enough here: Rust/rustls is refused with a
+  valid cookie, so the request must stay inside the engine.
+* `lib/services/anti_bot/browser_bridge.dart` — the isolate hop. Extension
+  code runs in a worker isolate (`isolate_service.dart`), where no platform
+  view and no plugin registry exist; a capture attempted there fails instantly
+  and silently. The worker sends `{request, reply: SendPort}` to the root
+  isolate, which owns the engine and answers with the body. `isolate_service`
+  starts the server, passes its port to every worker (including replacements)
+  and closes the sessions on `stop()`.
+* `lib/services/anti_bot/browser_fetch.dart` — the coordinator: in-flight host
+  tracking, the quiet window that keeps notifications silent while a host is
+  served, and the choice between the local engine (root isolate) and the
+  bridge (worker).
 
-`JsHttpClient` returns the captured HTML to the extension as a 200, so source
-code never sees the block. Bursts retry natively once the cookies exist, and a
-page still refused with a valid session is captured in the browser too.
+`JsHttpClient` returns the browser's body and status to the extension, so
+source code never sees the block — HTML pages and JSON endpoints alike (the old
+HTML-only restriction is gone: the body is fetched by the page, not rendered
+in a viewer). When the browser cannot obtain the page either (interactive
+Turnstile, WAF block, no engine), only then is the user interrupted with the
+panel.
+
+Consequence that must not regress: never trust `BrowserCapture.isAvailable`
+inside an extension worker. It reads the plugin registry of the current
+isolate, which is empty there; use `BrowserFetchService.isSupported`, which
+routes through the bridge.
 
 Consequences that must not regress:
 

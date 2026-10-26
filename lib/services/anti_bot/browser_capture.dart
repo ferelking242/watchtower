@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
@@ -11,9 +13,9 @@ import 'package:watchtower/utils/log/logger.dart';
 
 /// How this build can obtain a page that Cloudflare refuses to the HTTP client.
 enum BrowserCaptureSupport {
-  /// A hidden WebView navigates to the URL, runs the challenge JavaScript and
-  /// hands back the rendered DOM. Used on Android, iOS, macOS, Windows and
-  /// Linux: every platform where flutter_inappwebview registers an engine.
+  /// A browser session performs the request: on Android, iOS, macOS, Windows
+  /// and Linux, i.e. every platform where flutter_inappwebview registers an
+  /// engine.
   headless,
 
   /// Flutter web: the browser cannot read another origin's HTML, so blocked
@@ -40,180 +42,453 @@ BrowserCaptureSupport browserCaptureSupportFor({
   };
 }
 
+/// Header names a page is not allowed to set on its own `fetch()`: the engine
+/// owns them. Sending one makes the browser reject the whole request with a
+/// `TypeError`, which would look like a network failure.
+const Set<String> kForbiddenBrowserFetchHeaders = {
+  'accept-charset',
+  'accept-encoding',
+  'access-control-request-headers',
+  'access-control-request-method',
+  'connection',
+  'content-length',
+  'cookie',
+  'cookie2',
+  'date',
+  'dnt',
+  'expect',
+  'host',
+  'keep-alive',
+  'origin',
+  'referer',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'user-agent',
+  'via',
+};
+
+/// Drops the headers the browser refuses to let a page set.
+Map<String, String> browserFetchHeaders(Map<String, String>? headers) {
+  final sanitized = <String, String>{};
+  headers?.forEach((key, value) {
+    final name = key.trim();
+    if (name.isEmpty || value.isEmpty) return;
+    if (kForbiddenBrowserFetchHeaders.contains(name.toLowerCase())) return;
+    sanitized[name] = value;
+  });
+  return sanitized;
+}
+
 class BrowserCaptureRequest {
   const BrowserCaptureRequest({
     required this.url,
     this.sourceId,
     this.headers = const <String, String>{},
-    this.timeout = const Duration(seconds: 30),
+    this.timeout = const Duration(seconds: 12),
+    this.solveTimeout = const Duration(seconds: 15),
   });
 
   final String url;
   final int? sourceId;
   final Map<String, String> headers;
 
-  /// Time granted to the page to clear the challenge and settle.
+  /// Time granted to a single in-page request.
   final Duration timeout;
+
+  /// Time granted to the first navigation to clear the challenge.
+  final Duration solveTimeout;
+
+  Map<String, dynamic> toMap() => {
+    'url': url,
+    'sourceId': sourceId,
+    'headers': headers,
+    'timeoutMs': timeout.inMilliseconds,
+    'solveTimeoutMs': solveTimeout.inMilliseconds,
+  };
+
+  static BrowserCaptureRequest fromMap(Map<String, dynamic> map) {
+    return BrowserCaptureRequest(
+      url: map['url'] as String? ?? '',
+      sourceId: map['sourceId'] as int?,
+      headers: (map['headers'] as Map?)?.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          ) ??
+          const <String, String>{},
+      timeout: Duration(
+        milliseconds: map['timeoutMs'] as int? ?? 12000,
+      ),
+      solveTimeout: Duration(
+        milliseconds: map['solveTimeoutMs'] as int? ?? 15000,
+      ),
+    );
+  }
 }
 
 class BrowserCaptureResult {
   const BrowserCaptureResult({
     required this.body,
     required this.finalUrl,
-    required this.cookies,
-    required this.userAgent,
-    this.statusCode = 200,
+    required this.statusCode,
   });
 
   final String body;
   final String finalUrl;
-
-  /// Browser cookies for the final URL; the caller stores them so the HTTP
-  /// client reuses the same session (`cf_clearance` included).
-  final List<Cookie> cookies;
-  final String userAgent;
   final int statusCode;
+
+  Map<String, dynamic> toMap() => {
+    'body': body,
+    'finalUrl': finalUrl,
+    'statusCode': statusCode,
+  };
+
+  static BrowserCaptureResult fromMap(Map<String, dynamic> map) {
+    return BrowserCaptureResult(
+      body: map['body'] as String? ?? '',
+      finalUrl: map['finalUrl'] as String? ?? '',
+      statusCode: map['statusCode'] as int? ?? 200,
+    );
+  }
 }
 
-/// Fetches a page with a real browser engine, in the background.
+/// Performs requests inside a real browser session.
 ///
-/// The engine is the credential: Cloudflare answers `403 + cf-mitigated:
-/// challenge` to a native client whose TLS stack, header order and cookie jar
-/// are not a browser's, while the same URL loads instantly in a WebView because
-/// the managed challenge is plain JavaScript. A `HeadlessInAppWebView` runs that
-/// JavaScript off-screen, so the app gets the page without a full-screen
-/// detour.
+/// The engine is the credential. Cloudflare answers `403 + cf-mitigated:
+/// challenge` to this app's native client — Rust, whose TLS stack, header order
+/// and cookie jar are not a browser's — while the exact same URL loads
+/// instantly in a WebView because the managed challenge is plain JavaScript.
+/// Copying `cf_clearance` back to the native client does not help: the verdict
+/// is bound to the client that solved it, so the extension must not send that
+/// request at all.
+///
+/// So the session opens once per host, clears the challenge, and afterwards
+/// runs `fetch(url, {credentials: 'include'})` **inside the accepted page**.
+/// The browser supplies the TLS fingerprint, the cookies, the Referer and the
+/// User-Agent, and the extension receives the body with the real status code —
+/// for HTML pages and JSON endpoints alike.
+///
+/// Must run on the root isolate: platform views cannot be created from a
+/// spawned isolate. See `browser_bridge.dart` for the worker path.
 class BrowserCapture {
   BrowserCapture._();
 
-  static const Duration _pollInterval = Duration(milliseconds: 800);
+  static const Duration _probeInterval = Duration(milliseconds: 350);
+  static const Duration _pollInterval = Duration(milliseconds: 120);
 
-  /// A document is captured only once it stopped changing (challenge → page).
-  static const Duration _settleDelay = Duration(milliseconds: 700);
+  /// A session is kept alive this long after its last request so a burst of
+  /// parallel extension calls reuses one WebView instead of navigating nine
+  /// times.
+  static const Duration _idleTtl = Duration(seconds: 75);
+
+  /// Two hidden engines at most: a phone cannot host more.
+  static const int _maxSessions = 2;
+
+  static final Map<String, _BrowserSession> _sessions = {};
 
   static BrowserCaptureSupport get support => browserCaptureSupportFor(
     isWeb: kIsWeb,
     operatingSystem: kIsWeb ? 'web' : Platform.operatingSystem,
-    engineRegistered:
-        !kIsWeb && InAppWebViewPlatform.instance != null,
+    engineRegistered: !kIsWeb && InAppWebViewPlatform.instance != null,
   );
 
   static bool get isAvailable => support == BrowserCaptureSupport.headless;
 
-  /// Navigates to [request.url] in a hidden WebView and returns the rendered
-  /// page, or `null` when the page never left a challenge / block state.
-  /// Never throws.
-  static Future<BrowserCaptureResult?> capture(
+  /// Performs [request] through the browser session of its host, or returns
+  /// `null` when the browser could not obtain the page either. Never throws.
+  static Future<BrowserCaptureResult?> fetch(
     BrowserCaptureRequest request,
   ) async {
     if (!isAvailable) return null;
-    HeadlessInAppWebView? headless;
-    InAppWebViewController? controller;
-    var lastLoadAt = DateTime.now();
-    String? body;
-    String finalUrl = request.url;
+    final uri = Uri.tryParse(request.url);
+    final host = uri?.host.toLowerCase() ?? '';
+    if (uri == null || host.isEmpty) return null;
+
+    final session = await _sessionFor(host, request);
+    if (session == null) return null;
     try {
-      // Reuse what the app already knows about this site: a still-valid
-      // clearance makes the navigation land on the real page immediately.
-      try {
-        await MClient.restoreCookiesToWebView(
-          request.url,
-          sourceId: request.sourceId,
+      final result = await session.fetch(request);
+      if (result != null) {
+        AppLogger.log(
+          '[BrowserCapture] ${redactUrl(request.url)} → ${result.statusCode} '
+          'served by the browser session',
+          logLevel: LogLevel.debug,
+          tag: LogTag.extension_,
         );
+      }
+      return result;
+    } finally {
+      _scheduleIdle(session);
+    }
+  }
+
+  /// Closes every session (app shutdown, source change, tests).
+  static Future<void> closeAll() async {
+    final sessions = _sessions.values.toList(growable: false);
+    _sessions.clear();
+    for (final session in sessions) {
+      await session.dispose();
+    }
+  }
+
+  static Future<_BrowserSession?> _sessionFor(
+    String host,
+    BrowserCaptureRequest request,
+  ) async {
+    final existing = _sessions[host];
+    if (existing != null && !existing.isDisposed) {
+      if (await existing.ensureReady()) return existing;
+      // The challenge this session faced needs a human (Turnstile, WAF
+      // block): dispose it and let the caller fall back to the panel instead
+      // of opening a second engine that would fail the same way.
+      _sessions.remove(host);
+      await existing.dispose();
+      return null;
+    }
+
+    if (_sessions.length >= _maxSessions) {
+      final idle = _sessions.entries.where((entry) => !entry.value.isBusy);
+      if (idle.isEmpty) return null;
+      final oldest = idle.reduce(
+        (a, b) => a.value.lastUsed.isBefore(b.value.lastUsed) ? a : b,
+      );
+      _sessions.remove(oldest.key);
+      await oldest.value.dispose();
+    }
+
+    final session = _BrowserSession(
+      host: host,
+      sourceId: request.sourceId,
+      firstUrl: request.url,
+      solveTimeout: request.solveTimeout,
+    );
+    _sessions[host] = session;
+    if (!await session.ensureReady()) {
+      _sessions.remove(host);
+      await session.dispose();
+      AppLogger.log(
+        '[BrowserCapture] ${redactUrl(request.url)} — the browser session '
+        'could not clear the challenge',
+        logLevel: LogLevel.debug,
+        tag: LogTag.extension_,
+      );
+      return null;
+    }
+    return session;
+  }
+
+  static void _scheduleIdle(_BrowserSession session) {
+    session.idleTimer?.cancel();
+    session.idleTimer = Timer(_idleTtl, () {
+      if (session.isBusy) {
+        _scheduleIdle(session);
+        return;
+      }
+      if (identical(_sessions[session.host], session)) {
+        _sessions.remove(session.host);
+      }
+      unawaited(session.dispose());
+    });
+  }
+}
+
+/// One hidden WebView kept alive for a host while the extension works with it.
+class _BrowserSession {
+  _BrowserSession({
+    required this.host,
+    required this.sourceId,
+    required this.firstUrl,
+    required this.solveTimeout,
+  });
+
+  final String host;
+  final int? sourceId;
+  final String firstUrl;
+  final Duration solveTimeout;
+
+  DateTime lastUsed = DateTime.now();
+  Timer? idleTimer;
+  bool isDisposed = false;
+
+  HeadlessInAppWebView? _headless;
+  InAppWebViewController? _controller;
+  Future<bool>? _ready;
+  bool _isReady = false;
+  int _busy = 0;
+  int _ticket = 0;
+
+  bool get isBusy => _busy > 0;
+
+  Future<bool> ensureReady() {
+    if (isDisposed) return Future.value(false);
+    return _ready ??= _start();
+  }
+
+  Future<BrowserCaptureResult?> fetch(BrowserCaptureRequest request) async {
+    if (isDisposed) return null;
+    final controller = _controller;
+    if (controller == null) return null;
+
+    _busy++;
+    lastUsed = DateTime.now();
+    try {
+      final key = '__tw_browser_${DateTime.now().microsecondsSinceEpoch}'
+          '_${_ticket++}';
+      final script = _fetchScript(key, request.url, request.headers);
+      await _evaluate(controller, script);
+
+      final deadline = DateTime.now().add(request.timeout);
+      while (DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(BrowserCapture._pollInterval);
+        if (isDisposed) return null;
+        final raw = await _evaluate(
+          controller,
+          "(() => { const v = window['$key']; "
+          "return v ? JSON.stringify(v) : ''; })()",
+        );
+        if (raw is! String || raw.isEmpty) continue;
+        final decoded = jsonDecode(raw);
+        if (decoded is! Map) continue;
+        if (decoded['done'] != true) continue;
+
+        unawaited(_evaluate(controller, "delete window['$key']"));
+        final error = decoded['error']?.toString() ?? '';
+        if (error.isNotEmpty) {
+          AppLogger.log(
+            '[BrowserCapture] in-page fetch failed: $error',
+            logLevel: LogLevel.debug,
+            tag: LogTag.extension_,
+          );
+          return null;
+        }
+        final status = decoded['status'] as int? ?? 0;
+        // The browser was refused as well: nothing better to hand back.
+        if (status <= 0 || status >= 400) return null;
+        return BrowserCaptureResult(
+          body: decoded['body']?.toString() ?? '',
+          finalUrl: decoded['url']?.toString() ?? request.url,
+          statusCode: status,
+        );
+      }
+      return null;
+    } finally {
+      _busy--;
+      lastUsed = DateTime.now();
+    }
+  }
+
+  Future<bool> _start() async {
+    try {
+      // Reuse a clearance the app already holds, so the first navigation lands
+      // on the real page instead of an interstitial.
+      try {
+        await MClient.restoreCookiesToWebView(firstUrl, sourceId: sourceId);
       } catch (_) {}
 
-      headless = HeadlessInAppWebView(
+      final headless = HeadlessInAppWebView(
         webViewEnvironment: webViewEnvironment,
         initialSize: const Size(390, 780),
-        initialUrlRequest: URLRequest(
-          url: WebUri(request.url),
-          headers: request.headers,
-        ),
+        initialUrlRequest: URLRequest(url: WebUri(firstUrl)),
         initialSettings: InAppWebViewSettings(
           javaScriptEnabled: true,
           domStorageEnabled: true,
           thirdPartyCookiesEnabled: true,
-          // Must be the User-Agent the HTTP client sends: `cf_clearance` is
-          // bound to the identity that solved the challenge.
-          userAgent: MClient.userAgentForRequests(sourceId: request.sourceId),
+          userAgent: MClient.userAgentForRequests(sourceId: sourceId),
           transparentBackground: true,
         ),
-        onWebViewCreated: (created) => controller = created,
-        onLoadStop: (stopped, url) {
-          controller = stopped;
-          lastLoadAt = DateTime.now();
-          if (url != null && url.toString().isNotEmpty) {
-            finalUrl = url.toString();
-          }
-        },
+        onWebViewCreated: (controller) => _controller = controller,
+        onLoadStop: (controller, url) => _controller = controller,
       );
+      _headless = headless;
       await headless.run();
-
-      final deadline = DateTime.now().add(request.timeout);
-      while (DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(_pollInterval);
-        final web = controller;
-        if (web == null) continue;
-        if (DateTime.now().difference(lastLoadAt) < _settleDelay) continue;
-
-        final assessment = parsePageProbe(
-          await web.evaluateJavascript(source: kCfPageProbeJs) as String?,
-        );
-        if (assessment.pageType == AntiBotPageType.challenge) {
-          // The managed challenge is running its JavaScript; keep waiting.
-          continue;
-        }
-        if (assessment.pageType == AntiBotPageType.blocked) {
-          // Hard WAF block: no browser session can unlock this request.
-          break;
-        }
-        final html = await web.evaluateJavascript(
-          source: 'document.documentElement.outerHTML',
-        );
-        if (html is String && html.trim().length > 200) {
-          body = html;
-          break;
-        }
-      }
-      if (body == null) return null;
-
-      final ua = await controller?.evaluateJavascript(
-        source: 'navigator.userAgent',
-      );
-      final cookies = await _cookiesFor(finalUrl);
-      return BrowserCaptureResult(
-        body: body,
-        finalUrl: finalUrl,
-        cookies: cookies,
-        userAgent: ua is String ? ua : '',
-      );
+      _isReady = await _waitForChallengeToClear();
+      return _isReady;
     } catch (error, stackTrace) {
       AppLogger.log(
-        '[BrowserCapture] ${redactUrl(request.url)} failed: $error',
+        '[BrowserCapture] session for $host failed: $error',
         logLevel: LogLevel.warning,
-        tag: kLogTagNet,
+        tag: LogTag.extension_,
         error: error,
         stackTrace: stackTrace,
       );
-      return null;
-    } finally {
-      try {
-        await headless?.dispose();
-      } catch (_) {}
+      return false;
     }
   }
 
-  static Future<List<Cookie>> _cookiesFor(String url) async {
-    if (!isAvailable) return const [];
-    try {
-      final manager = CookieManager.instance(
-        webViewEnvironment: webViewEnvironment,
-      );
-      final cookies = await manager.getCookies(url: WebUri(url));
-      return cookies.whereType<Cookie>().toList(growable: false);
-    } catch (_) {
-      return const [];
+  /// Waits for the managed challenge to finish on the first navigation.
+  Future<bool> _waitForChallengeToClear() async {
+    final deadline = DateTime.now().add(solveTimeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(BrowserCapture._probeInterval);
+      final controller = _controller;
+      if (controller == null || isDisposed) continue;
+      final assessment = parsePageProbe(await _evaluate(controller, kCfPageProbeJs));
+      if (assessment.blocked) return false;
+      if (assessment.pageType == AntiBotPageType.normal) return true;
     }
+    return false;
+  }
+
+  Future<void> dispose() async {
+    if (isDisposed) return;
+    isDisposed = true;
+    idleTimer?.cancel();
+    idleTimer = null;
+    _controller = null;
+    try {
+      await _headless?.dispose();
+    } catch (_) {}
+    _headless = null;
+  }
+
+  static Future<dynamic> _evaluate(
+    InAppWebViewController controller,
+    String source,
+  ) async {
+    try {
+      return await controller.evaluateJavascript(source: source);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Runs the request inside the page that Cloudflare accepted.
+  ///
+  /// The result is written to a global instead of being returned, because a
+  /// `Promise` is not awaited by `evaluateJavascript` on every platform; the
+  /// caller polls the global. `redirect: 'follow'` keeps the final URL, and
+  /// `credentials: 'include'` sends the clearance cookie the engine owns.
+  static String _fetchScript(
+    String key,
+    String url,
+    Map<String, String> headers,
+  ) {
+    final target = jsonEncode(url);
+    final extra = jsonEncode(browserFetchHeaders(headers));
+    return '''
+(() => {
+  const key = '$key';
+  window[key] = { done: false };
+  const init = {
+    method: 'GET',
+    credentials: 'include',
+    cache: 'no-store',
+    redirect: 'follow',
+    headers: $extra
+  };
+  fetch($target, init)
+    .then((response) => response.text().then((text) => {
+      window[key] = {
+        done: true,
+        status: response.status,
+        url: String(response.url || $target),
+        body: text
+      };
+    }))
+    .catch((error) => {
+      window[key] = { done: true, status: 0, error: String(error) };
+    });
+})()
+''';
   }
 }
-
