@@ -399,11 +399,16 @@ class _BrowserSession {
         webViewEnvironment: webViewEnvironment,
         initialSize: const Size(390, 780),
         initialUrlRequest: URLRequest(url: WebUri(firstUrl)),
+        // No `userAgent` override on purpose: this session performs the request
+        // itself, so it must look exactly like an ordinary browser of this
+        // platform. Forcing the UA the extension uses elsewhere (often a
+        // desktop Chrome string) would claim a desktop browser from a mobile
+        // engine — a mismatch Cloudflare does check, and the reason the visible
+        // panel loads while an overridden hidden one would not.
         initialSettings: InAppWebViewSettings(
           javaScriptEnabled: true,
           domStorageEnabled: true,
           thirdPartyCookiesEnabled: true,
-          userAgent: MClient.userAgentForRequests(sourceId: sourceId),
           transparentBackground: true,
         ),
         onWebViewCreated: (controller) => _controller = controller,
