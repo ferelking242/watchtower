@@ -364,8 +364,18 @@ class _BrowserSession {
         final status = decoded['status'] as int? ?? 0;
         // The browser was refused as well: nothing better to hand back.
         if (status <= 0 || status >= 400) return null;
+        final body = decoded['body']?.toString() ?? '';
+        // A challenge can also arrive as a 200 interstitial. Handing it to the
+        // extension would parse as an empty list instead of raising the panel,
+        // which is the silent failure this whole path exists to remove.
+        final assessment = assessHttpResponse(
+          statusCode: status,
+          headers: {'content-type': decoded['contentType']?.toString() ?? ''},
+          body: body,
+        );
+        if (assessment.challenge || assessment.blocked) return null;
         return BrowserCaptureResult(
-          body: decoded['body']?.toString() ?? '',
+          body: body,
           finalUrl: decoded['url']?.toString() ?? request.url,
           statusCode: status,
         );
@@ -482,6 +492,7 @@ class _BrowserSession {
         done: true,
         status: response.status,
         url: String(response.url || $target),
+        contentType: String(response.headers.get('content-type') || ''),
         body: text
       };
     }))
