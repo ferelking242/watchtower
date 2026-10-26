@@ -9,7 +9,7 @@ Widget _wrap(Widget child) => MaterialApp(
 );
 
 void main() {
-  testWidgets('header shows the broken back + filter icons and no divider', (
+  testWidgets('header shows the chevron back + mic, no inline filter/X', (
     tester,
   ) async {
     final controller = TextEditingController();
@@ -20,20 +20,50 @@ void main() {
         SharedSearchHeader(
           controller: controller,
           hint: 'Rechercher…',
-          activeFilterCount: 2,
+          onMic: () {},
           onBack: () {},
-          onFilter: () {},
           onSubmit: (_) {},
           onChanged: (_) {},
-          onClear: () {},
         ),
       ),
     );
 
-    expect(find.byIcon(Broken.arrow_left), findsOneWidget);
-    expect(find.byIcon(Broken.filter), findsOneWidget);
+    expect(find.byIcon(Broken.arrow_left_2), findsOneWidget);
+    expect(find.byIcon(Broken.microphone), findsOneWidget);
+    // The filter icon and the clear "X" now live outside the field, so the
+    // header itself must not render them.
+    expect(find.byIcon(Broken.filter), findsNothing);
+    expect(find.byIcon(Broken.close_circle), findsNothing);
     expect(find.byType(Divider), findsNothing);
-    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('handleSearchBack clears the query before leaving', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'naruto');
+    addTearDown(controller.dispose);
+    var cleared = 0;
+    var exited = 0;
+
+    var handled = handleSearchBack(
+      controller: controller,
+      onClearQuery: () {
+        cleared++;
+        controller.clear();
+      },
+      onExit: () => exited++,
+    );
+    expect(handled, isTrue);
+    expect(cleared, 1);
+    expect(exited, 0);
+
+    handleSearchBack(
+      controller: controller,
+      onClearQuery: () => cleared++,
+      onExit: () => exited++,
+    );
+    expect(cleared, 1);
+    expect(exited, 1);
   });
 
   testWidgets('empty state renders the crying-cat Lottie', (tester) async {

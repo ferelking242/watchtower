@@ -47,11 +47,15 @@ class AdaptiveOverlayMenuButton extends StatefulWidget {
   /// Width of the floating panel. Default 220.
   final double menuWidth;
 
+  /// When false the trigger is inert and no panel is opened.
+  final bool enabled;
+
   const AdaptiveOverlayMenuButton({
     super.key,
     required this.trigger,
     required this.contentBuilder,
     this.menuWidth = 220,
+    this.enabled = true,
   });
 
   @override
@@ -86,6 +90,7 @@ class _AdaptiveOverlayMenuButtonState
   // ── Public helpers ─────────────────────────────────────────────────────────
 
   void _toggle() {
+    if (!widget.enabled) return;
     if (_entry != null) {
       _close();
     } else {
@@ -178,6 +183,13 @@ class _OverlayPanel extends StatelessWidget {
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.09)
         : Colors.black.withValues(alpha: 0.06);
+    // The caret shares the panel fill, which is translucent and therefore
+    // nearly invisible against the page behind it (it has neither the panel's
+    // shadow nor its border). Painting the two slanted edges keeps the tip
+    // readable on any background, including the solid app bar of Browse.
+    final caretEdge = isDark
+        ? Colors.white.withValues(alpha: 0.16)
+        : Colors.black.withValues(alpha: 0.10);
 
     // ── Vertical placement ─────────────────────────────────────────────────
     final bottomOfAnchor = anchorPos.dy + anchorSize.height;
@@ -229,7 +241,11 @@ class _OverlayPanel extends StatelessWidget {
             alignment: Alignment(caretAlignX, 0),
             child: CustomPaint(
               size: const Size(_kCaretW, _kCaretH),
-              painter: _CaretPainter(color: bg, pointDown: false),
+              painter: _CaretPainter(
+                color: bg,
+                edgeColor: caretEdge,
+                pointDown: false,
+              ),
             ),
           ),
 
@@ -238,25 +254,31 @@ class _OverlayPanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(
-              constraints: BoxConstraints(maxHeight: maxMenuH),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor, width: 0.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                        alpha: isDark ? 0.42 : 0.13),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
-                    spreadRadius: -4,
-                  ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                child: contentBuilder(onClose),
+            // The panel is inserted straight into the Navigator overlay, which
+            // has no Material ancestor of its own; without this the InkWell
+            // rows inside would assert on first build.
+            child: Material(
+              type: MaterialType.transparency,
+              child: Container(
+                constraints: BoxConstraints(maxHeight: maxMenuH),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: borderColor, width: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                          alpha: isDark ? 0.42 : 0.13),
+                      blurRadius: 30,
+                      offset: const Offset(0, 10),
+                      spreadRadius: -4,
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  child: contentBuilder(onClose),
+                ),
               ),
             ),
           ),
@@ -268,7 +290,11 @@ class _OverlayPanel extends StatelessWidget {
             alignment: Alignment(caretAlignX, 0),
             child: CustomPaint(
               size: const Size(_kCaretW, _kCaretH),
-              painter: _CaretPainter(color: bg, pointDown: true),
+              painter: _CaretPainter(
+                color: bg,
+                edgeColor: caretEdge,
+                pointDown: true,
+              ),
             ),
           ),
       ],
@@ -418,15 +444,138 @@ class AdaptiveOverlayDivider extends StatelessWidget {
   }
 }
 
+/// Three-dots (or any anchor) menu rendered inside the shared glass panel.
+///
+/// Drop-in replacement for [ArrowPopupMenuButton] on screens that must use the
+/// same component as the Library filter overlay: same panel, same caret, same
+/// entrance animation. The [itemBuilder] API is kept so existing
+/// `PopupMenuItem`/`PopupMenuDivider` lists render unchanged.
+class AdaptiveOverlayMenu<T> extends StatelessWidget {
+  const AdaptiveOverlayMenu({
+    super.key,
+    required this.itemBuilder,
+    this.onSelected,
+    this.onCanceled,
+    this.initialValue,
+    this.tooltip,
+    this.icon,
+    this.iconSize,
+    this.iconColor,
+    this.padding = const EdgeInsets.all(8),
+    this.child,
+    this.enabled = true,
+    this.menuWidth = 240,
+  });
+
+  final PopupMenuItemBuilder<T> itemBuilder;
+  final PopupMenuItemSelected<T>? onSelected;
+  final VoidCallback? onCanceled;
+  final T? initialValue;
+  final String? tooltip;
+  final Widget? icon;
+  final double? iconSize;
+  final Color? iconColor;
+  final EdgeInsetsGeometry padding;
+  final Widget? child;
+  final bool enabled;
+  final double menuWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final trigger = Padding(
+      padding: padding,
+      child:
+          icon ?? child ?? Icon(Icons.more_vert, size: iconSize, color: iconColor),
+    );
+
+    return AdaptiveOverlayMenuButton(
+      enabled: enabled,
+      menuWidth: menuWidth,
+      trigger: tooltip != null && tooltip!.isNotEmpty
+          ? Tooltip(message: tooltip!, child: trigger)
+          : trigger,
+      contentBuilder: (close) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final entry in itemBuilder(context)) _buildEntry(context, entry, close),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEntry(
+    BuildContext context,
+    PopupMenuEntry<T> entry,
+    VoidCallback close,
+  ) {
+    if (entry is PopupMenuDivider) return const AdaptiveOverlayDivider();
+    if (entry is! PopupMenuItem<T>) {
+      // Other PopupMenuEntry subclasses (e.g. CheckedPopupMenuItem) are rare
+      // here; render them inert inside the same row chrome.
+      return AdaptiveOverlayItem(
+        label: '',
+        enabled: false,
+        trailing: entry,
+      );
+    }
+
+    final theme = Theme.of(context);
+    final enabled = entry.enabled;
+    final textColor = theme.colorScheme.onSurface;
+    return InkWell(
+      onTap: enabled
+          ? () {
+              HapticFeedback.selectionClick();
+              close();
+              if (entry.value == null) {
+                onCanceled?.call();
+              } else {
+                onSelected?.call(entry.value as T);
+              }
+            }
+          : null,
+      child: Container(
+        color: initialValue != null && entry.value == initialValue
+            ? theme.colorScheme.primary.withValues(alpha: 0.10)
+            : null,
+        padding: (entry.padding as EdgeInsetsGeometry?) ??
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        alignment: Alignment.centerLeft,
+        child: Opacity(
+          opacity: enabled ? 1 : 0.35,
+          child: DefaultTextStyle(
+            style: (theme.textTheme.bodyMedium ?? const TextStyle())
+                .copyWith(color: textColor),
+            child: IconTheme(
+              data: IconThemeData(color: textColor.withValues(alpha: 0.7)),
+              child: entry.child ?? const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── Caret painter ─────────────────────────────────────────────────────────────
 class _CaretPainter extends CustomPainter {
-  const _CaretPainter({required this.color, this.pointDown = false});
+  const _CaretPainter({
+    required this.color,
+    required this.edgeColor,
+    this.pointDown = false,
+  });
   final Color color;
+  final Color edgeColor;
   final bool pointDown;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
+    final fill = Paint()..color = color;
+    final edge = Paint()
+      ..color = edgeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
     final path = pointDown
         ? (Path()
           ..moveTo(0, 0)
@@ -438,10 +587,22 @@ class _CaretPainter extends CustomPainter {
           ..lineTo(size.width, size.height)
           ..lineTo(0, size.height)
           ..close());
-    canvas.drawPath(path, paint);
+    canvas.drawPath(path, fill);
+    // Outline only the two slanted edges: the base sits flush against the
+    // panel, so drawing it would show a seam along the rounded corner.
+    final tip = pointDown
+        ? Offset(size.width / 2, size.height)
+        : Offset(size.width / 2, 0);
+    final left = pointDown ? Offset.zero : Offset(0, size.height);
+    final right =
+        pointDown ? Offset(size.width, 0) : Offset(size.width, size.height);
+    canvas.drawLine(tip, left, edge);
+    canvas.drawLine(tip, right, edge);
   }
 
   @override
   bool shouldRepaint(_CaretPainter old) =>
-      old.color != color || old.pointDown != pointDown;
+      old.color != color ||
+      old.edgeColor != edgeColor ||
+      old.pointDown != pointDown;
 }

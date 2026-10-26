@@ -24,11 +24,12 @@ import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
+import 'package:watchtower/modules/media/overlay_filter_menu.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/extension_worker_count.dart';
 import 'package:watchtower/services/get_detail.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 import 'app_ui_components.dart';
@@ -1723,7 +1724,7 @@ class TmdbTagTile extends StatelessWidget {
 }
 
 /// Actions du menu 3 points de la page « voir tout »
-/// (composant ArrowPopupMenuButton de la page Librairie).
+/// (composant AdaptiveOverlayMenu de la page Librairie).
 /// Public : la recherche extension réutilise le même menu.
 enum CatalogBulkDownloadAction {
   download,
@@ -2304,21 +2305,29 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     return names.toList()..sort();
   }
 
-  Future<void> _showFilterSheet() async {
-    final result = await showCatalogFilterSheet(
-      context,
-      initial: _filter.copy(),
-      typeOptions: _typeOptions,
-      sortOptions: _sortOptions,
-      genreOptions: _isExtension
-          ? _extensionGenreOptions()
-          : _fixedGenreOptions,
-      showTypeSection: !_isExtension,
-      showYearsSection: !_isExtension,
-      showRatingSection: !_isExtension,
+  Widget _buildFilterButton() {
+    return AdaptiveOverlayMenuButton(
+      menuWidth: 300,
+      trigger: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Icon(
+          Broken.filter,
+          color: _filter.isDefault ? null : Colors.orange,
+        ),
+      ),
+      contentBuilder: (close) => CatalogFilterOverlay(
+        initial: _filter,
+        typeOptions: _typeOptions,
+        sortOptions: _sortOptions,
+        genreOptions:
+            _isExtension ? _extensionGenreOptions() : _fixedGenreOptions,
+        showTypeSection: !_isExtension,
+        showYearsSection: !_isExtension,
+        showRatingSection: !_isExtension,
+        close: close,
+        onChanged: (value) => setState(() => _filter = value),
+      ),
     );
-    if (result == null || !mounted) return;
-    setState(() => _filter = result);
   }
 
   // ── Menu 3 points (même composant que la barre de la page Librairie) ──────
@@ -2461,23 +2470,16 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           icon: const Icon(Broken.arrow_left),
         ),
         actions: [
-          IconButton(
-            tooltip: isFrench ? 'Filtrer' : 'Filter',
-            onPressed: _showFilterSheet,
-            icon: Icon(
-              Broken.filter,
-              color: _filter.isDefault ? null : Colors.orange,
-            ),
-          ),
-          // Menu 3 points, chez la Librairie (ArrowPopupMenuButton).
-          ArrowPopupMenuButton<CatalogBulkDownloadAction>(
+          _buildFilterButton(),
+          // Menu 3 points, même composant glass que la Librairie.
+          AdaptiveOverlayMenu<CatalogBulkDownloadAction>(
             tooltip: isFrench ? 'Options' : 'Options',
             icon: const Icon(Broken.more_2),
-            color: const Color(0xFF1C1C1E),
             menuWidth: 240,
             onSelected: _onListMenuAction,
             itemBuilder: (_) => CatalogBulkDownload.menuItems(),
           ),
+          const SizedBox(width: 6),
         ],
       ),
       body: _isAnilist

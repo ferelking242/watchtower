@@ -9,23 +9,24 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
-import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/modules/media/overlay_filter_menu.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 /// Extension search — used by watch extensions AND manga/novel home screens.
 ///
-/// Same chrome as the TMDB search (back, compact field, live mic dictation).
-/// Empty state: recent searches, popular & latest of the extension as ranked
-/// hot tabs. Results: "Tout" tab plus tabs derived from the extension result
-/// (Genres for MangaDex-like sources, Auteur/Langue when present).
+/// Same chrome as the TMDB search (chevron back, compact field with the mic
+/// inside, filter + three-dots outside). Empty state: recent searches, popular
+/// & latest of the extension as ranked hot tabs. Results: "Tout" tab plus tabs
+/// derived from the extension result (Genres for MangaDex-like sources,
+/// Auteur/Langue when present).
 class ExtensionSearchScreen extends ConsumerStatefulWidget {
   final Source source;
   final VoidCallback onClose;
@@ -68,6 +69,8 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   List<dynamic> _filterList = [];
   List<dynamic> _activeFilters = [];
+  final ValueNotifier<List<dynamic>> _filterNotifier =
+      ValueNotifier<List<dynamic>>(const []);
 
   @override
   void initState() {
@@ -93,6 +96,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _filterList = [];
     }
     _activeFilters = List.from(_filterList);
+    _filterNotifier.value = _activeFilters;
   }
 
   int get _activeFilterCount {
@@ -127,17 +131,9 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     return count;
   }
 
-  Future<void> _showFilterSheet() async {
-    // Même feuille « Filtres » que la Librairie / le « voir tout »
-    // (showCatalogFilterSheet), avec le composant de filtres d'extension.
-    if (_filterList.isEmpty) return;
-    final result = await showExtensionFilterSheet(
-      context,
-      filterList: _filterList,
-      activeCount: _activeFilterCount,
-    );
-    if (result == null || !mounted) return;
-    setState(() => _activeFilters = result);
+  void _onFiltersChanged(List<dynamic> filters) {
+    _activeFilters = filters;
+    _filterNotifier.value = filters;
     if (_submitted) _runSearch(_query);
   }
 
@@ -151,6 +147,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     _controller.dispose();
     _focus.dispose();
     _tabs.dispose();
+    _filterNotifier.dispose();
     super.dispose();
   }
 
@@ -331,6 +328,8 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     }
   }
 
+  /// Clears the field and keeps the keyboard open. Used as the first step of
+  /// the back gesture (see [handleSearchBack]).
   void _clearAll() {
     _controller.clear();
     setState(() {
@@ -349,59 +348,119 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     _focus.requestFocus();
   }
 
+  void _onBack() {
+    handleSearchBack(
+      controller: _controller,
+      onClearQuery: _clearAll,
+      onExit: widget.onClose,
+    );
+  }
+
+  void _startVoiceSearch() {
+    unawaited(
+      startVoiceSearch(
+        onResult: (words) {
+          if (!mounted) return;
+          _controller.text = words;
+          _controller.selection = TextSelection.collapsed(
+            offset: words.length,
+          );
+          _runSearch(words);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFilterButton() {
+    final accent = Theme.of(context).colorScheme.primary;
+    final activeCount = _activeFilterCount;
+    return ValueListenableBuilder<List<dynamic>>(
+      valueListenable: _filterNotifier,
+      builder: (context, _, _) => AdaptiveOverlayMenuButton(
+        menuWidth: 300,
+        trigger: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Badge(
+            isLabelVisible: activeCount > 0,
+            label: Text('$activeCount'),
+            backgroundColor: accent,
+            child: Icon(
+              Broken.filter,
+              size: 20,
+              color: activeCount > 0 ? accent : Colors.white70,
+            ),
+          ),
+        ),
+        contentBuilder: (close) => ExtensionFilterOverlay(
+          filterList: _activeFilters,
+          onChanged: _onFiltersChanged,
+          close: close,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: SharedSearchHeader(
-                    controller: _controller,
-                    focusNode: _focus,
-                    hint: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
-                    activeFilterCount: _activeFilterCount,
-                    onFilter: _filterList.isEmpty ? null : _showFilterSheet,
-                    onBack: widget.onClose,
-                    onSubmit: _runSearch,
-                    onChanged: _onTextChanged,
-                    onClear: _clearAll,
-                  ),
-                ),
-                // Menu 3 points, identique au « voir tout » : télécharger /
-                // tout télécharger (ArrowPopupMenuButton, même composant).
-                if (_results != null && _results!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ArrowPopupMenuButton<CatalogBulkDownloadAction>(
-                      tooltip: 'Options',
-                      icon: const Icon(Broken.more_2, size: 22),
-                      color: const Color(0xFF1C1C1E),
-                      menuWidth: 240,
-                      onSelected: (action) => CatalogBulkDownload.handleMenu(
-                        context,
-                        ref,
-                        widget.source,
-                        _results!,
-                        action,
-                      ),
-                      itemBuilder: (_) => CatalogBulkDownload.menuItems(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _onBack();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0B0B11),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: SharedSearchHeader(
+                      controller: _controller,
+                      focusNode: _focus,
+                      hint:
+                          'Rechercher dans ${widget.source.name ?? 'l’extension'}',
+                      onBack: _onBack,
+                      onMic: _startVoiceSearch,
+                      onSubmit: _runSearch,
+                      onChanged: _onTextChanged,
                     ),
                   ),
-              ],
-            ),
-            // Séparateur léger sous la barre de recherche.
-            Container(
-              height: 1,
-              color: Colors.white.withValues(alpha: 0.06),
-            ),
-            Expanded(child: _submitted ? _resultsArea() : _emptyArea()),
-          ],
+                  // Filtre d'extension : hors de la box, à côté des 3 points,
+                  // via le composant partagé de la Librairie. Présent pour
+                  // toutes les extensions, même sans filtre déclaré.
+                  _buildFilterButton(),
+                  // Menu 3 points, même composant glass que la Librairie.
+                  if (_results != null && _results!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: AdaptiveOverlayMenu<CatalogBulkDownloadAction>(
+                        tooltip: 'Options',
+                        icon: const Icon(Broken.more_2, size: 22),
+                        menuWidth: 240,
+                        onSelected: (action) => CatalogBulkDownload.handleMenu(
+                          context,
+                          ref,
+                          widget.source,
+                          _results!,
+                          action,
+                        ),
+                        itemBuilder: (_) => CatalogBulkDownload.menuItems(),
+                      ),
+                    ),
+                ],
+              ),
+              // Séparateur léger sous la barre de recherche.
+              Container(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+              Expanded(child: _submitted ? _resultsArea() : _emptyArea()),
+            ],
+          ),
         ),
       ),
     );

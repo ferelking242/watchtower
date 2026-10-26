@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -191,6 +193,29 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
     _focus.requestFocus();
   }
 
+  void _onBack() {
+    handleSearchBack(
+      controller: _controller,
+      onClearQuery: _clearAll,
+      onExit: () => context.pop(),
+    );
+  }
+
+  void _startVoiceSearch() {
+    unawaited(
+      startVoiceSearch(
+        onResult: (words) {
+          if (!mounted) return;
+          _controller.text = words;
+          _controller.selection = TextSelection.collapsed(
+            offset: words.length,
+          );
+          _runSearch(words);
+        },
+      ),
+    );
+  }
+
   String get _hint => switch (_context) {
     FlixSearchContext.movies => 'Rechercher un film…',
     FlixSearchContext.series => 'Rechercher une série…',
@@ -200,23 +225,30 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
   @override
   Widget build(BuildContext context) {
     final hasQuery = _query.isNotEmpty && _submitted;
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B0D10),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            SharedSearchHeader(
-              controller: _controller,
-              focusNode: _focus,
-              hint: _hint,
-              onBack: () => context.pop(),
-              onSubmit: _runSearch,
-              onChanged: _onTextChanged,
-              onClear: _clearAll,
-            ),
-            Expanded(child: hasQuery ? _resultsArea() : _emptyArea()),
-          ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _onBack();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0B0D10),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              SharedSearchHeader(
+                controller: _controller,
+                focusNode: _focus,
+                hint: _hint,
+                onBack: _onBack,
+                onMic: _startVoiceSearch,
+                onSubmit: _runSearch,
+                onChanged: _onTextChanged,
+              ),
+              Expanded(child: hasQuery ? _resultsArea() : _emptyArea()),
+            ],
+          ),
         ),
       ),
     );

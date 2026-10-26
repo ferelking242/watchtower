@@ -17,7 +17,6 @@ import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
@@ -353,9 +352,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         ),
       ),
       filterButton,
-      ArrowPopupMenuButton<_SrcMenuAction>(
+      AdaptiveOverlayMenu<_SrcMenuAction>(
         tooltip: "Plus d'options",
         icon: Icon(Broken.more_2, color: theme.hintColor),
+        menuWidth: 240,
         onSelected: (action) => _handleSrcMenuAction(context, type, action),
         itemBuilder: (ctx) => [
           PopupMenuItem(

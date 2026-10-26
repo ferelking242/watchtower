@@ -22,7 +22,6 @@ import 'package:watchtower/modules/more/categories/providers/isar_providers.dart
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 // ─── Design tokens (resolved from theme at build time) ─────────────────────
 // cs.outlineVariant and _kTextSecondary replaced with cs.outlineVariant / cs.onSurfaceVariant
@@ -848,7 +847,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               : cs.onSurface.withValues(alpha: 0.06),
         ),
         child: ClipOval(
-          child: ArrowPopupMenuButton<int>(
+          child: AdaptiveOverlayMenu<int>(
             icon: Icon(
               Broken.more_2,
               color: isDark

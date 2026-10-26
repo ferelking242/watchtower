@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
@@ -8,9 +9,10 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 /// Shared search chrome used by every search surface (TMDB hub search,
 /// extension search, manga search).
 ///
-/// - [SharedSearchHeader] : compact bar — broken back icon on the left, a
-///   clean rounded field in the middle with a broken filter icon inside it
-///   (no fill highlight), no trailing divider.
+/// - [SharedSearchHeader] : compact bar — a clean "‹" chevron on the left
+///   (no filled circle), a rounded field in the middle with the microphone
+///   inside it. The filter and the three-dots menus live *outside* the field,
+///   composed by the screen so they can reuse the shared overlay component.
 /// - [SharedSearchEmptyState] : what is shown before any query — collapsible
 ///   recent searches, "tout le monde recherche" hot pills, ranked hot tabs.
 /// - [SharedSearchShimmerList] : the list-loading skeleton.
@@ -26,22 +28,22 @@ class SharedSearchHeader extends StatelessWidget {
   final VoidCallback onBack;
   final ValueChanged<String> onSubmit;
   final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-  final VoidCallback? onFilter;
 
-  /// Number of extension filters currently applied; drives the filter badge.
-  final int activeFilterCount;
+  /// Starts voice dictation. When null no microphone is shown inside the field.
+  final VoidCallback? onMic;
+
+  /// Replaces the default "‹" back button (e.g. to host a badge).
+  final Widget? leading;
 
   const SharedSearchHeader({
     required this.controller,
     required this.onBack,
     required this.onSubmit,
     required this.onChanged,
-    required this.onClear,
     this.focusNode,
     this.hint = 'Rechercher…',
-    this.onFilter,
-    this.activeFilterCount = 0,
+    this.onMic,
+    this.leading,
     super.key,
   });
 
@@ -54,102 +56,75 @@ class SharedSearchHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 8, 12, 10),
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'Retour',
-            onPressed: onBack,
-            icon: const Icon(Broken.arrow_left, size: 22),
-          ),
+          leading ??
+              IconButton(
+                tooltip: 'Retour',
+                onPressed: onBack,
+                icon: const Icon(Broken.arrow_left_2, size: 22),
+              ),
           Expanded(
             child: SizedBox(
               height: 46,
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: controller,
-                builder: (context, value, _) {
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    autofocus: true,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: onSubmit,
-                    onChanged: onChanged,
-                    style: const TextStyle(color: Colors.white, fontSize: 14.5),
-                    cursorColor: accent,
-                    decoration: InputDecoration(
-                      hintText: hint,
-                      hintStyle: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 13.5,
-                      ),
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(left: 4, right: 2),
-                        child: Icon(
-                          Broken.search_normal,
-                          size: 18,
-                          color: Colors.white54,
-                        ),
-                      ),
-                      prefixIconConstraints: const BoxConstraints(
-                        minWidth: 34,
-                        minHeight: 24,
-                      ),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (value.text.isNotEmpty)
-                            IconButton(
-                              tooltip: 'Effacer',
-                              splashRadius: 20,
-                              iconSize: 19,
-                              visualDensity: VisualDensity.compact,
-                              onPressed: onClear,
-                              icon: const Icon(
-                                Broken.close_circle,
-                                color: Colors.white54,
-                              ),
-                            ),
-                          if (onFilter != null)
-                            IconButton(
-                              tooltip: 'Filtres',
-                              splashRadius: 20,
-                              iconSize: 19,
-                              visualDensity: VisualDensity.compact,
-                              onPressed: onFilter,
-                              icon: Badge(
-                                isLabelVisible: activeFilterCount > 0,
-                                label: Text('$activeFilterCount'),
-                                backgroundColor: accent,
-                                child: Icon(
-                                  Broken.filter,
-                                  color: activeFilterCount > 0
-                                      ? accent
-                                      : Colors.white60,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      suffixIconConstraints: const BoxConstraints(
-                        minWidth: 40,
-                        minHeight: 24,
-                      ),
-                      isDense: true,
-                      filled: false,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: outline),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: outline),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: accent, width: 1.4),
-                      ),
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onSubmitted: onSubmit,
+                onChanged: onChanged,
+                style: const TextStyle(color: Colors.white, fontSize: 14.5),
+                cursorColor: accent,
+                decoration: InputDecoration(
+                  hintText: hint,
+                  hintStyle: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 13.5,
+                  ),
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(left: 4, right: 2),
+                    child: Icon(
+                      Broken.search_normal,
+                      size: 18,
+                      color: Colors.white54,
                     ),
-                  );
-                },
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 34,
+                    minHeight: 24,
+                  ),
+                  suffixIcon: onMic == null
+                      ? null
+                      : IconButton(
+                          tooltip: 'Recherche vocale',
+                          splashRadius: 20,
+                          iconSize: 19,
+                          visualDensity: VisualDensity.compact,
+                          onPressed: onMic,
+                          icon: const Icon(
+                            Broken.microphone,
+                            color: Colors.white60,
+                          ),
+                        ),
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 24,
+                  ),
+                  isDense: true,
+                  filled: false,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: outline),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: outline),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: accent, width: 1.4),
+                  ),
+                ),
               ),
             ),
           ),
@@ -157,6 +132,52 @@ class SharedSearchHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Back / dictation helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Handles the "‹" chevron and the phone back gesture for a search surface.
+///
+/// First press clears the field when it holds text; once the field is empty a
+/// further press leaves the page. [onExit] must pop the route.
+///
+/// Returns `true` when the event was consumed (the field was cleared) so the
+/// caller can report "handled" to a `PopScope`.
+bool handleSearchBack({
+  required TextEditingController controller,
+  required VoidCallback onClearQuery,
+  required VoidCallback onExit,
+}) {
+  if (controller.text.isNotEmpty) {
+    onClearQuery();
+    return true;
+  }
+  onExit();
+  return true;
+}
+
+/// Starts a one-shot voice dictation and feeds the recognised words to
+/// [onResult]. Silently no-ops when speech is unavailable, so the microphone
+/// can be offered on every extension regardless of platform support.
+Future<void> startVoiceSearch({
+  required ValueChanged<String> onResult,
+  Duration listenFor = const Duration(seconds: 8),
+}) async {
+  final speech = SpeechToText();
+  final available = await speech.initialize();
+  if (!available) return;
+  await speech.listen(
+    onResult: (result) {
+      if (result.recognizedWords.isNotEmpty) {
+        onResult(result.recognizedWords);
+      }
+    },
+    listenOptions: SpeechListenOptions(listenFor: listenFor),
+  );
+  await Future.delayed(listenFor + const Duration(seconds: 1));
+  await speech.stop();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -20,9 +20,7 @@ import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 
@@ -220,64 +218,63 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
         ),
 
         // ── 3. Three-dots popup ────────────────────────────────────────────
-        ArrowPopupMenuButton<int>(
-          popUpAnimationStyle: popupAnimationStyle,
+        AdaptiveOverlayMenu<int>(
+          tooltip: l10n.more,
           icon: const Icon(Broken.more_2),
-          itemBuilder: (context) {
-            return [
+          menuWidth: 240,
+          itemBuilder: (context) => [
+            PopupMenuItem<int>(
+              value: 0,
+              child: Row(
+                children: [
+                  const Icon(Broken.refresh_left_square, size: 18),
+                  const SizedBox(width: 10),
+                  Text(context.l10n.update_library),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 1,
+              child: Row(
+                children: [
+                  const Icon(Broken.programming_arrows, size: 18),
+                  const SizedBox(width: 10),
+                  Text(l10n.open_random_entry),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 2,
+              child: Row(
+                children: [
+                  const Icon(Broken.arrow_square, size: 18),
+                  const SizedBox(width: 10),
+                  Text(l10n.import),
+                ],
+              ),
+            ),
+            PopupMenuItem<int>(
+              value: 4,
+              child: Row(
+                children: [
+                  const Icon(Broken.slider_horizontal, size: 18),
+                  const SizedBox(width: 10),
+                  Text(l10n.filter),
+                ],
+              ),
+            ),
+            if (widget.itemType == ItemType.anime)
               PopupMenuItem<int>(
-                value: 0,
+                value: 3,
                 child: Row(
                   children: [
-                    const Icon(Broken.refresh_left_square, size: 18),
+                    const Icon(Broken.video_play, size: 18),
                     const SizedBox(width: 10),
-                    Text(context.l10n.update_library),
+                    Text(l10n.torrent_stream),
                   ],
                 ),
               ),
-              PopupMenuItem<int>(
-                value: 1,
-                child: Row(
-                  children: [
-                    const Icon(Broken.programming_arrows, size: 18),
-                    const SizedBox(width: 10),
-                    Text(l10n.open_random_entry),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 2,
-                child: Row(
-                  children: [
-                    const Icon(Broken.arrow_square, size: 18),
-                    const SizedBox(width: 10),
-                    Text(l10n.import),
-                  ],
-                ),
-              ),
-              PopupMenuItem<int>(
-                value: 4,
-                child: Row(
-                  children: [
-                    const Icon(Broken.slider_horizontal, size: 18),
-                    const SizedBox(width: 10),
-                    Text(l10n.filter),
-                  ],
-                ),
-              ),
-              if (widget.itemType == ItemType.anime)
-                PopupMenuItem<int>(
-                  value: 3,
-                  child: Row(
-                    children: [
-                      const Icon(Broken.video_play, size: 18),
-                      const SizedBox(width: 10),
-                      Text(l10n.torrent_stream),
-                    ],
-                  ),
-                ),
-            ];
-          },
+          ],
           onSelected: (value) {
             if (value == 0) {
               manga.whenData((value) {
