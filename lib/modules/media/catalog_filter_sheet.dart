@@ -1,5 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
 
 /// Denseur d'affichage choisi dans la section « Affichage » de la feuille.
 enum CatalogLayout { grid, comfortable, list }
@@ -670,4 +672,173 @@ Widget _buildChip(BuildContext context, _Chip chip, _ChipGroup group) {
     label: Text(chip.$1, style: labelStyle),
     onPressed: onTap,
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Feuille de filtres d'extension — même chrome que la feuille Librairie
+// (poignée, titre + « actifs », « Réinitialiser », boutons « Annuler » /
+// « Appliquer »), avec le composant de filtres d'extension en contenu.
+
+/// Ouvre la même feuille « Filtres » que la Librairie pour les filtres
+/// dynamiques d'une extension (SelectFilter, CheckBoxFilter, GroupFilter…).
+/// Renvoie la liste mise à jour, ou `null` si annulée.
+Future<List<dynamic>?> showExtensionFilterSheet(
+  BuildContext context, {
+  required List<dynamic> filterList,
+  int activeCount = 0,
+}) {
+  if (filterList.isEmpty) return Future.value(null);
+  return showModalBottomSheet<List<dynamic>>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetCtx) => _ExtensionFilterSheet(
+      filterList: filterList,
+      activeCount: activeCount,
+    ),
+  );
+}
+
+class _ExtensionFilterSheet extends StatefulWidget {
+  final List<dynamic> filterList;
+  final int activeCount;
+
+  const _ExtensionFilterSheet({required this.filterList, this.activeCount = 0});
+
+  @override
+  State<_ExtensionFilterSheet> createState() => _ExtensionFilterSheetState();
+}
+
+class _ExtensionFilterSheetState extends State<_ExtensionFilterSheet> {
+  late List<dynamic> _working = List<dynamic>.of(widget.filterList);
+  int _activeCount = widget.activeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF1C1C1E) : cs.surface;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (_, controller) => Container(
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 12, 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Filtres',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 17,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  if (_activeCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      'actifs',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _working = List<dynamic>.of(widget.filterList);
+                      _activeCount = widget.activeCount;
+                    }),
+                    child: const Text('Réinitialiser'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: controller,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: FilterWidget(
+                  filterList: _working,
+                  onChanged: (updated) => setState(() {
+                    _working = updated;
+                    _activeCount = _countActiveFilters(updated);
+                  }),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Annuler'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, _working),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text('Appliquer'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+int _countActiveFilters(List<dynamic> filters) =>
+    filters.fold(0, (count, filter) => count + _activeOf(filter));
+
+int _activeOf(dynamic filter) {
+  if (filter is CheckBoxFilter && filter.state) return 1;
+  if (filter is TriStateFilter && filter.state != 0) return 1;
+  if (filter is SelectFilter && filter.state != 0) return 1;
+  if (filter is GroupFilter) {
+    var count = 0;
+    for (final child in filter.state) {
+      count += _activeOf(child);
+    }
+    return count;
+  }
+  return 0;
 }

@@ -9,14 +9,16 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
-import 'package:watchtower/modules/manga/home/widget/filter_widget.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
+import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 /// Extension search — used by watch extensions AND manga/novel home screens.
 ///
@@ -125,94 +127,18 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     return count;
   }
 
-  void _showFilterSheet() {
+  Future<void> _showFilterSheet() async {
+    // Même feuille « Filtres » que la Librairie / le « voir tout »
+    // (showCatalogFilterSheet), avec le composant de filtres d'extension.
     if (_filterList.isEmpty) return;
-    List<dynamic> localFilters = List<dynamic>.from(_filterList);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: const Color(0xFF141419),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (sheetCtx) => StatefulBuilder(
-        builder: (_, setLocal) => DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          maxChildSize: 0.95,
-          minChildSize: 0.4,
-          expand: false,
-          builder: (_, controller) => Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 12, 6),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Filtres',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () =>
-                          setLocal(() => localFilters = List.from(_filterList)),
-                      child: const Text('Réinitialiser'),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: controller,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: FilterWidget(
-                    filterList: localFilters,
-                    onChanged: (updated) =>
-                        setLocal(() => localFilters = updated),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(sheetCtx),
-                        child: const Text('Annuler'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () {
-                          Navigator.pop(sheetCtx);
-                          setState(() => _activeFilters = localFilters);
-                          if (_submitted) _runSearch(_query);
-                        },
-                        child: const Text('Appliquer'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    final result = await showExtensionFilterSheet(
+      context,
+      filterList: _filterList,
+      activeCount: _activeFilterCount,
     );
+    if (result == null || !mounted) return;
+    setState(() => _activeFilters = result);
+    if (_submitted) _runSearch(_query);
   }
 
   Future<void> _loadLayout() async {
@@ -431,16 +357,48 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         bottom: false,
         child: Column(
           children: [
-            SharedSearchHeader(
-              controller: _controller,
-              focusNode: _focus,
-              hint: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
-              activeFilterCount: _activeFilterCount,
-              onFilter: _filterList.isEmpty ? null : _showFilterSheet,
-              onBack: widget.onClose,
-              onSubmit: _runSearch,
-              onChanged: _onTextChanged,
-              onClear: _clearAll,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: SharedSearchHeader(
+                    controller: _controller,
+                    focusNode: _focus,
+                    hint: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
+                    activeFilterCount: _activeFilterCount,
+                    onFilter: _filterList.isEmpty ? null : _showFilterSheet,
+                    onBack: widget.onClose,
+                    onSubmit: _runSearch,
+                    onChanged: _onTextChanged,
+                    onClear: _clearAll,
+                  ),
+                ),
+                // Menu 3 points, identique au « voir tout » : télécharger /
+                // tout télécharger (ArrowPopupMenuButton, même composant).
+                if (_results != null && _results!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ArrowPopupMenuButton<CatalogBulkDownloadAction>(
+                      tooltip: 'Options',
+                      icon: const Icon(Broken.more_2, size: 22),
+                      color: const Color(0xFF1C1C1E),
+                      menuWidth: 240,
+                      onSelected: (action) => CatalogBulkDownload.handleMenu(
+                        context,
+                        ref,
+                        widget.source,
+                        _results!,
+                        action,
+                      ),
+                      itemBuilder: (_) => CatalogBulkDownload.menuItems(),
+                    ),
+                  ),
+              ],
+            ),
+            // Séparateur léger sous la barre de recherche.
+            Container(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.06),
             ),
             Expanded(child: _submitted ? _resultsArea() : _emptyArea()),
           ],

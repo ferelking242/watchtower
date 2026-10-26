@@ -1742,7 +1742,8 @@ class TmdbTagTile extends StatelessWidget {
 
 /// Actions du menu 3 points de la page « voir tout »
 /// (composant ArrowPopupMenuButton de la page Librairie).
-enum _CatalogListMenuAction {
+/// Public : la recherche extension réutilise le même menu.
+enum CatalogBulkDownloadAction {
   download,
   downloadAll,
   download5,
@@ -1752,6 +1753,273 @@ enum _CatalogListMenuAction {
   download100,
   download250,
   downloadsSubMenuHeader,
+}
+
+/// Composant partagé du menu 3 points « voir tout » : entrées du menu,
+/// sélection et téléchargement en masse (progression annulable, récupération
+/// des détails en parallèle). Réutilisé par l'écran de recherche extension.
+abstract final class CatalogBulkDownload {
+  static void handleMenu(
+    BuildContext context,
+    WidgetRef ref,
+    Source? source,
+    List<MManga> items,
+    CatalogBulkDownloadAction action,
+  ) {
+    switch (action) {
+      case CatalogBulkDownloadAction.download:
+        run(context, ref, source, items, count: 10);
+      case CatalogBulkDownloadAction.downloadAll:
+        run(context, ref, source, items);
+      case CatalogBulkDownloadAction.download5:
+        run(context, ref, source, items, count: 5);
+      case CatalogBulkDownloadAction.download10:
+        run(context, ref, source, items, count: 10);
+      case CatalogBulkDownloadAction.download25:
+        run(context, ref, source, items, count: 25);
+      case CatalogBulkDownloadAction.download50:
+        run(context, ref, source, items, count: 50);
+      case CatalogBulkDownloadAction.download100:
+        run(context, ref, source, items, count: 100);
+      case CatalogBulkDownloadAction.download250:
+        run(context, ref, source, items, count: 250);
+      case CatalogBulkDownloadAction.downloadsSubMenuHeader:
+        // Titre du groupe, non actionnable.
+        break;
+    }
+  }
+
+  static List<PopupMenuEntry<CatalogBulkDownloadAction>> menuItems() => [
+    PopupMenuItem(
+      value: CatalogBulkDownloadAction.download,
+      child: _menuRow(Broken.document_download, 'Télécharger'),
+    ),
+    PopupMenuItem(
+      value: CatalogBulkDownloadAction.downloadAll,
+      child: _menuRow(Broken.folder_add, 'Tout télécharger'),
+    ),
+    const PopupMenuDivider(),
+    // Sous-options « Télécharger nb » : nb premiers éléments chargés.
+    const PopupMenuItem(
+      enabled: false,
+      value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
+      child: Padding(
+        padding: EdgeInsets.only(left: 26),
+        child: Text(
+          'Télécharger nb',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+      ),
+    ),
+    for (final (action, count) in const [
+      (CatalogBulkDownloadAction.download5, 5),
+      (CatalogBulkDownloadAction.download10, 10),
+      (CatalogBulkDownloadAction.download25, 25),
+      (CatalogBulkDownloadAction.download50, 50),
+      (CatalogBulkDownloadAction.download100, 100),
+      (CatalogBulkDownloadAction.download250, 250),
+    ])
+      PopupMenuItem(
+        value: action,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 26),
+          child: _menuRow(Broken.arrow_right_2, '$count éléments'),
+        ),
+      ),
+  ];
+
+  static Widget _menuRow(IconData icon, String label) => Row(
+    children: [
+      Icon(icon, size: 18),
+      const SizedBox(width: 10),
+      Text(label),
+    ],
+  );
+
+  /// Récupère les vidéos du lot en parallèle (pool de créateurs), avec une
+  /// boîte de progression annulable ; chaque chapitre est mis en file.
+  static Future<void> run(
+    BuildContext context,
+    WidgetRef ref,
+    Source? source,
+    List<MManga> catalogueItems, {
+    int? count,
+  }) async {
+    if (source == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Téléchargement disponible uniquement pour les catalogues d’extension.',
+          ),
+        ),
+      );
+      return;
+    }
+    final targets = [
+      for (final item in count == null ? catalogueItems : catalogueItems.take(count))
+        if (item.link?.trim().isNotEmpty == true &&
+            ExtensionCollectionRoute.fromItem(item) == null)
+          item,
+    ];
+    if (targets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun élément téléchargeable.')),
+      );
+      return;
+    }
+
+    final progress = ValueNotifier<_BulkDownloadProgress>(
+      _BulkDownloadProgress(total: targets.length),
+    );
+    BuildContext? dialogContext;
+    void closeDialog() {
+      final ctx = dialogContext;
+      if (ctx != null && ctx.mounted) Navigator.of(ctx).pop();
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        dialogContext = ctx;
+        return _BulkDownloadProgressDialog(
+          progress: progress,
+          onCancel: () => progress.value = progress.value.cancel(),
+        );
+      },
+    );
+
+    // Pool de travailleurs : récupère les détails de plusieurs items en
+    // parallèle, arrête de prendre de nouveaux items dès l'annulation.
+    final concurrency = getRecommendedExtensionWorkerCount();
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (true) {
+        if (progress.value.cancelled || nextIndex >= targets.length) return;
+        final index = nextIndex++;
+        try {
+          final chapters = await _enqueueItemDownloads(ref, source, targets[index]);
+          progress.value = progress.value.withResult(queued: chapters, done: 1);
+        } catch (_) {
+          progress.value = progress.value.withResult(failed: 1, done: 1);
+        }
+      }
+    }
+
+    try {
+      await Future.wait([
+        for (var i = 0; i < concurrency; i++) worker(),
+      ]);
+      ref.read(processDownloadsProvider());
+    } finally {
+      final finalProgress = progress.value;
+      final remaining = targets.length - finalProgress.done;
+      closeDialog();
+      progress.dispose();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              finalProgress.cancelled
+                  ? 'Annulé · ${finalProgress.queued} ajouté(s), '
+                      '${finalProgress.failed} échec(s), $remaining restant(s).'
+                  : finalProgress.failed == 0
+                  ? 'Téléchargements ajoutés à la file : '
+                      '${finalProgress.queued}.'
+                  : '${finalProgress.queued} téléchargement(s) mis en file, '
+                      '${finalProgress.failed} échec(s).',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Récupère les vidéos d'un item (getDetail), crée l'entrée Isar
+  /// (même chemin que la route « personnes ») et met chaque chapitre en file.
+  static Future<int> _enqueueItemDownloads(
+    WidgetRef ref,
+    Source source,
+    MManga item,
+  ) async {
+    final url = item.link!.trim();
+    final detail = await ref.read(
+      getDetailProvider(url: url, source: source).future,
+    );
+    final mangaCandidates = isar.mangas
+        .filter()
+        .sourceIdEqualTo(source.id)
+        .findAllSync();
+    Manga? existing;
+    for (final candidate in mangaCandidates) {
+      if (candidate.link == url) {
+        existing = candidate;
+        break;
+      }
+    }
+    final name =
+        item.name?.trim().isNotEmpty == true
+            ? item.name!.trim()
+            : (detail.name ?? url);
+    final loaded =
+        existing ??
+        Manga(
+          source: source.name ?? '',
+          author: detail.author ?? '',
+          artist: detail.artist ?? '',
+          genre: detail.genre ?? item.genre,
+          imageUrl: detail.imageUrl ?? item.imageUrl,
+          lang: source.lang ?? '',
+          link: url,
+          name: name,
+          status: Status.unknown,
+          description: detail.description ?? '',
+          sourceId: source.id,
+          itemType: source.itemType,
+          isManga: source.itemType == ItemType.manga,
+        );
+    final existingChapters = loaded.id == Isar.autoIncrement
+        ? <Chapter>[]
+        : isar.chapters.filter().mangaIdEqualTo(loaded.id).findAllSync();
+    final chaptersByUrl = <String, Chapter>{
+      for (final chapter in existingChapters)
+        if (chapter.url?.trim().isNotEmpty == true)
+          chapter.url!.trim(): chapter,
+    };
+    final queue = <Chapter>[];
+    isar.writeTxnSync(() {
+      loaded.id = isar.mangas.putSync(loaded);
+      for (final video in detail.chapters ?? const <MChapter>[]) {
+        final videoUrl = video.url?.trim();
+        if (videoUrl == null || videoUrl.isEmpty) continue;
+        final chapter =
+            chaptersByUrl[videoUrl] ??
+            Chapter(
+              mangaId: loaded.id,
+              name: video.name?.trim().isNotEmpty == true
+                  ? video.name!.trim()
+                  : videoUrl,
+              url: videoUrl,
+              thumbnailUrl: video.thumbnailUrl ?? loaded.imageUrl,
+              dateUpload: video.dateUpload,
+              scanlator: video.scanlator,
+            );
+        chapter.manga.value = loaded;
+        chapter.id = isar.chapters.putSync(chapter);
+        queue.add(chapter);
+      }
+    });
+    if (queue.isEmpty) return 0;
+    for (final chapter in queue) {
+      await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+      if (chapter.id != null) {
+        ref
+            .read(downloadQueueStateProvider.notifier)
+            .setPaused(chapter.id!, false);
+      }
+    }
+    return queue.length;
+  }
 }
 
 class TmdbMoviesListScreen extends ConsumerStatefulWidget {
@@ -2073,253 +2341,25 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
 
   // ── Menu 3 points (même composant que la barre de la page Librairie) ──────
 
-  void _onListMenuAction(_CatalogListMenuAction action) {
-    switch (action) {
-      case _CatalogListMenuAction.download:
-        _bulkDownload(count: 10);
-      case _CatalogListMenuAction.downloadAll:
-        _bulkDownload();
-      case _CatalogListMenuAction.download5:
-        _bulkDownload(count: 5);
-      case _CatalogListMenuAction.download10:
-        _bulkDownload(count: 10);
-      case _CatalogListMenuAction.download25:
-        _bulkDownload(count: 25);
-      case _CatalogListMenuAction.download50:
-        _bulkDownload(count: 50);
-      case _CatalogListMenuAction.download100:
-        _bulkDownload(count: 100);
-      case _CatalogListMenuAction.download250:
-        _bulkDownload(count: 250);
-      case _CatalogListMenuAction.downloadsSubMenuHeader:
-        // Titre du groupe, non actionnable.
-        break;
-    }
+  void _onListMenuAction(CatalogBulkDownloadAction action) {
+    CatalogBulkDownload.handleMenu(
+      context,
+      ref,
+      widget.extensionSource,
+      _extensionItems,
+      action,
+    );
   }
-
-  List<PopupMenuEntry<_CatalogListMenuAction>> _listMenuItems() => [
-    PopupMenuItem(
-      value: _CatalogListMenuAction.download,
-      child: _listMenuRow(Broken.document_download, 'Télécharger'),
-    ),
-    PopupMenuItem(
-      value: _CatalogListMenuAction.downloadAll,
-      child: _listMenuRow(Broken.folder_add, 'Tout télécharger'),
-    ),
-    const PopupMenuDivider(),
-    // Sous-options « Télécharger nb » : nb premiers éléments chargés.
-    const PopupMenuItem(
-      enabled: false,
-      value: _CatalogListMenuAction.downloadsSubMenuHeader,
-      child: Padding(
-        padding: EdgeInsets.only(left: 26),
-        child: Text(
-          'Télécharger nb',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-      ),
-    ),
-    for (final (action, count) in const [
-      (_CatalogListMenuAction.download5, 5),
-      (_CatalogListMenuAction.download10, 10),
-      (_CatalogListMenuAction.download25, 25),
-      (_CatalogListMenuAction.download50, 50),
-      (_CatalogListMenuAction.download100, 100),
-      (_CatalogListMenuAction.download250, 250),
-    ])
-      PopupMenuItem(
-        value: action,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 26),
-          child: _listMenuRow(Broken.arrow_right_2, '$count éléments'),
-        ),
-      ),
-  ];
-
-  Widget _listMenuRow(IconData icon, String label) => Row(
-    children: [
-      Icon(icon, size: 18),
-      const SizedBox(width: 10),
-      Text(label),
-    ],
-  );
 
   /// Récupère les vidéos du lot en parallèle (pool de créateurs), avec une
   /// boîte de progression annulable ; chaque chapitre est mis en file.
-  Future<void> _bulkDownload({int? count}) async {
-    if (!_isExtension || widget.extensionSource == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Téléchargement disponible uniquement pour les catalogues d’extension.',
-          ),
-        ),
-      );
-      return;
-    }
-    final source = widget.extensionSource!;
-    final targets = [
-      for (final item
-          in count == null ? _extensionItems : _extensionItems.take(count))
-        if (item.link?.trim().isNotEmpty == true &&
-            ExtensionCollectionRoute.fromItem(item) == null)
-          item,
-    ];
-    if (targets.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun élément téléchargeable.')),
-      );
-      return;
-    }
-
-    final progress = ValueNotifier<_BulkDownloadProgress>(
-      _BulkDownloadProgress(total: targets.length),
-    );
-    BuildContext? dialogContext;
-    void closeDialog() {
-      final ctx = dialogContext;
-      if (ctx != null && ctx.mounted) Navigator.of(ctx).pop();
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        dialogContext = ctx;
-        return _BulkDownloadProgressDialog(
-          progress: progress,
-          onCancel: () => progress.value = progress.value.cancel(),
-        );
-      },
-    );
-
-    // Pool de travailleurs : récupère les détails de plusieurs items en
-    // parallèle, arrête de prendre de nouveaux items dès l'annulation.
-    final concurrency = getRecommendedExtensionWorkerCount();
-    var nextIndex = 0;
-    Future<void> worker() async {
-      while (true) {
-        if (progress.value.cancelled || nextIndex >= targets.length) return;
-        final index = nextIndex++;
-        try {
-          final chapters = await _enqueueItemDownloads(source, targets[index]);
-          progress.value = progress.value.withResult(queued: chapters, done: 1);
-        } catch (_) {
-          progress.value = progress.value.withResult(failed: 1, done: 1);
-        }
-      }
-    }
-
-    try {
-      await Future.wait([
-        for (var i = 0; i < concurrency; i++) worker(),
-      ]);
-      ref.read(processDownloadsProvider());
-    } finally {
-      final finalProgress = progress.value;
-      final remaining = targets.length - finalProgress.done;
-      closeDialog();
-      progress.dispose();
-      if (mounted && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              finalProgress.cancelled
-                  ? 'Annulé · ${finalProgress.queued} ajouté(s), '
-                      '${finalProgress.failed} échec(s), $remaining restant(s).'
-                  : finalProgress.failed == 0
-                  ? 'Téléchargements ajoutés à la file : '
-                      '${finalProgress.queued}.'
-                  : '${finalProgress.queued} téléchargement(s) mis en file, '
-                      '${finalProgress.failed} échec(s).',
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  /// Récupère les vidéos d'un item (getDetail), crée l'entrée Isar
-  /// (même chemin que la route « personnes ») et met chaque chapitre en file.
-  Future<int> _enqueueItemDownloads(Source source, MManga item) async {
-    final url = item.link!.trim();
-    final detail = await ref.read(
-      getDetailProvider(url: url, source: source).future,
-    );
-    final mangaCandidates = isar.mangas
-        .filter()
-        .sourceIdEqualTo(source.id)
-        .findAllSync();
-    Manga? existing;
-    for (final candidate in mangaCandidates) {
-      if (candidate.link == url) {
-        existing = candidate;
-        break;
-      }
-    }
-    final name =
-        item.name?.trim().isNotEmpty == true
-            ? item.name!.trim()
-            : (detail.name ?? url);
-    final loaded =
-        existing ??
-        Manga(
-          source: source.name ?? '',
-          author: detail.author ?? '',
-          artist: detail.artist ?? '',
-          genre: detail.genre ?? item.genre,
-          imageUrl: detail.imageUrl ?? item.imageUrl,
-          lang: source.lang ?? '',
-          link: url,
-          name: name,
-          status: Status.unknown,
-          description: detail.description ?? '',
-          sourceId: source.id,
-          itemType: source.itemType,
-          isManga: source.itemType == ItemType.manga,
-        );
-    final existingChapters = loaded.id == Isar.autoIncrement
-        ? <Chapter>[]
-        : isar.chapters.filter().mangaIdEqualTo(loaded.id).findAllSync();
-    final chaptersByUrl = <String, Chapter>{
-      for (final chapter in existingChapters)
-        if (chapter.url?.trim().isNotEmpty == true)
-          chapter.url!.trim(): chapter,
-    };
-    final queue = <Chapter>[];
-    isar.writeTxnSync(() {
-      loaded.id = isar.mangas.putSync(loaded);
-      for (final video in detail.chapters ?? const <MChapter>[]) {
-        final videoUrl = video.url?.trim();
-        if (videoUrl == null || videoUrl.isEmpty) continue;
-        final chapter =
-            chaptersByUrl[videoUrl] ??
-            Chapter(
-              mangaId: loaded.id,
-              name: video.name?.trim().isNotEmpty == true
-                  ? video.name!.trim()
-                  : videoUrl,
-              url: videoUrl,
-              thumbnailUrl: video.thumbnailUrl ?? loaded.imageUrl,
-              dateUpload: video.dateUpload,
-              scanlator: video.scanlator,
-            );
-        chapter.manga.value = loaded;
-        chapter.id = isar.chapters.putSync(chapter);
-        queue.add(chapter);
-      }
-    });
-    if (queue.isEmpty) return 0;
-    for (final chapter in queue) {
-      await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
-      if (chapter.id != null) {
-        ref
-            .read(downloadQueueStateProvider.notifier)
-            .setPaused(chapter.id!, false);
-      }
-    }
-    return queue.length;
-  }
+  Future<void> _bulkDownload({int? count}) => CatalogBulkDownload.run(
+    this,
+    ref,
+    widget.extensionSource,
+    _extensionItems,
+    count: count,
+  );
 
   // ── Filtres appliqués aux items affichés ─────────────────────────────────
 
@@ -2448,13 +2488,13 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             ),
           ),
           // Menu 3 points, chez la Librairie (ArrowPopupMenuButton).
-          ArrowPopupMenuButton<_CatalogListMenuAction>(
+          ArrowPopupMenuButton<CatalogBulkDownloadAction>(
             tooltip: isFrench ? 'Options' : 'Options',
             icon: const Icon(Broken.more_2),
             color: const Color(0xFF1C1C1E),
             menuWidth: 240,
             onSelected: _onListMenuAction,
-            itemBuilder: (_) => _listMenuItems(),
+            itemBuilder: (_) => CatalogBulkDownload.menuItems(),
           ),
         ],
       ),

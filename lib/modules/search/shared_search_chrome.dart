@@ -399,16 +399,50 @@ class _HotChips extends StatelessWidget {
 class SharedSearchShimmerList extends StatelessWidget {
   final int rows;
 
-  const SharedSearchShimmerList({this.rows = 8, super.key});
+  const SharedSearchShimmerList({this.rows = 12, super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    // Squelettes de cartes réelles (même grille que les résultats) au lieu
+    // de rectangles génériques.
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(AppUI.pagePadding(context), 14,
+          AppUI.pagePadding(context), 40),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: AppUI.mediaGridColumns(context),
+        childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
+        crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
+        mainAxisSpacing: 16,
+      ),
       itemCount: rows,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (_, _) =>
-          SizedBox(height: 76, child: AppShimmerBlock(radius: 14)),
+      itemBuilder: (_, _) => const _ShimmerResultCard(),
+    );
+  }
+}
+
+/// Squelette d'une carte résultat : affiche + deux lignes de titre.
+class _ShimmerResultCard extends StatelessWidget {
+  const _ShimmerResultCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: AppShimmerBlock(radius: 10)),
+        const SizedBox(height: 7),
+        const FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: 0.85,
+          child: SizedBox(height: 10, child: AppShimmerBlock(radius: 5)),
+        ),
+        const SizedBox(height: 5),
+        const FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: 0.55,
+          child: SizedBox(height: 8, child: AppShimmerBlock(radius: 4)),
+        ),
+      ],
     );
   }
 }
