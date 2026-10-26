@@ -2354,7 +2354,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   /// Récupère les vidéos du lot en parallèle (pool de créateurs), avec une
   /// boîte de progression annulable ; chaque chapitre est mis en file.
   Future<void> _bulkDownload({int? count}) => CatalogBulkDownload.run(
-    this,
+    context,
     ref,
     widget.extensionSource,
     _extensionItems,
