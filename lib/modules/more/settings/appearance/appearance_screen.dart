@@ -1,20 +1,27 @@
+// Affichage (formerly Apparence). First entries are the app language and the
+// tablet mode, mirroring Mihon's Display section order.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
+
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/modules/more/settings/appearance/app_language_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/app_font_family.dart';
-import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
-import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
-import 'package:watchtower/modules/more/settings/appearance/widgets/toggle_theme_mode_container.dart';
-import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/date.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/date_format_state_provider.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/display_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/pure_black_dark_mode_state_provider.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/widgets/blend_level_slider.dart';
 import 'package:watchtower/modules/more/settings/appearance/widgets/theme_selector.dart';
-import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/modules/more/settings/appearance/widgets/toggle_theme_mode_container.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
+import 'package:watchtower/utils/date.dart';
+import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 final navigationItems = {
   "/WatchtowerHome": "Accueil",
@@ -31,183 +38,213 @@ final navigationItems = {
   "/trackerLibrary": "Tracking",
 };
 
-class SettingsSection extends StatelessWidget {
-  final String title;
-  final List<Widget> children;
-
-  const SettingsSection({
-    super.key,
-    required this.title,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            child: Text(
-              title,
-              style: TextStyle(fontSize: 13, color: context.primaryColor),
-            ),
-          ),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = l10nLocalizations(context);
+    final l10n = l10nLocalizations(context)!;
     final pureBlackDarkMode = ref.watch(pureBlackDarkModeStateProvider);
     final isDarkTheme = ref.watch(themeModeStateProvider);
-    bool followSystemTheme = ref.watch(followSystemThemeStateProvider);
+    final tabletMode = ref.watch(tabletModeProvider);
+    final renderImages = ref.watch(renderDescriptionImagesProvider);
+    final dateFormatState = ref.watch(dateFormatStateProvider);
+    final relativeTimestamps = ref.watch(relativeTimesTampsStateProvider);
+    final appLanguage = ref.watch(appLanguageOverrideProvider);
+    final localeLabel = appLanguage == null
+        ? 'Système (par défaut)'
+        : (AppLanguageScreen.labels[appLanguage.languageCode] ??
+              appLanguage.languageCode.toUpperCase());
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n!.appearance),
-        leading: context.canPop()
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                onPressed: () => context.pop(),
-              )
-            : null,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            SettingsSection(
-              title: l10n.theme,
-              children: [
-                LayoutBuilder(
-                  builder: (ctx, c) =>
-                      ToggleThemeModeContainer(maxWidth: c.maxWidth),
+    return SettingsSubpageScaffold(
+      title: 'Affichage',
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Langue de l'application ────────────────────────────────
+              ListTile(
+                leading: const Icon(Broken.translate),
+                title: const Text("Langue de l'application"),
+                subtitle: Text(
+                  localeLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.secondaryColor,
+                  ),
                 ),
-                const ThemeSelector(),
-                if (isDarkTheme)
-                  SwitchListTile(
-                    title: Text(l10n.pure_black_dark_mode),
-                    value: pureBlackDarkMode,
-                    onChanged: (value) {
-                      ref
-                          .read(pureBlackDarkModeStateProvider.notifier)
-                          .set(value);
-                    },
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () => context.push('/appLanguage'),
+              ),
+
+              // ── Mode tablette ──────────────────────────────────────────
+              ListTile(
+                leading: const Icon(Broken.monitor_mobbile),
+                title: const Text('Mode tablette'),
+                subtitle: Text(
+                  tabletModeLabel(tabletMode),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.secondaryColor,
                   ),
-                if (!pureBlackDarkMode || !isDarkTheme)
-                  const BlendLevelSlider(),
-              ],
-            ),
-            SettingsSection(
-              title: l10n.appearance,
-              children: [
-                _buildFontTile(context, ref, l10n),
-                ListTile(
-                  title: Text(l10n.reorder_navigation),
-                  subtitle: Text(
-                    l10n.reorder_navigation_description,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.secondaryColor,
-                    ),
+                ),
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () => _pickTabletMode(context, ref, tabletMode),
+              ),
+
+              // ── Format de date ─────────────────────────────────────────
+              ListTile(
+                leading: const Icon(Broken.calendar),
+                title: const Text('Format de date'),
+                subtitle: Text(
+                  '$dateFormatState (${dateFormat(context: context, DateTime.now().millisecondsSinceEpoch.toString(), useRelativeTimesTamps: false, dateFormat: dateFormatState, ref: ref)})',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.secondaryColor,
                   ),
-                  onTap: () {
-                    context.push("/customNavigationSettings");
+                ),
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () =>
+                    _pickDateFormat(context, ref, l10n, dateFormatState),
+              ),
+
+              // ── Durées relatives ───────────────────────────────────────
+              ListTile(
+                leading: const Icon(Broken.timer),
+                title: const Text('Durées relatives'),
+                subtitle: Text(
+                  relativeTimestampsList(context)[relativeTimestamps],
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.secondaryColor,
+                  ),
+                ),
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () => _pickRelativeTimestamp(
+                  context,
+                  ref,
+                  l10n,
+                  relativeTimestamps,
+                ),
+              ),
+
+              // ── Images dans les descriptions ───────────────────────────
+              SwitchListTile(
+                secondary: const Icon(Broken.image),
+                value: renderImages,
+                title: const Text(
+                  'Rendre les images dans les descriptions de mangas',
+                ),
+                onChanged: (v) =>
+                    ref.read(renderDescriptionImagesProvider.notifier).set(v),
+              ),
+
+              const Divider(height: 8, indent: 16, endIndent: 16),
+
+              // ── Thème ──────────────────────────────────────────────────
+              _Section(icon: Broken.paintbucket, label: l10n.theme),
+
+              // Sliding bar pushed lower, with rounded ends.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                child: LayoutBuilder(
+                  builder: (ctx, c) => ToggleThemeModeContainer(
+                    maxWidth: c.maxWidth,
+                  ),
+                ),
+              ),
+
+              // Theme colours memorised in a phone-shaped preview card.
+              const ThemeSelector(),
+
+              if (isDarkTheme)
+                SwitchListTile(
+                  secondary: const Icon(Broken.moon),
+                  title: Text(l10n.pure_black_dark_mode),
+                  value: pureBlackDarkMode,
+                  onChanged: (value) {
+                    ref
+                        .read(pureBlackDarkModeStateProvider.notifier)
+                        .set(value);
                   },
                 ),
-                ListTile(
-                  leading: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                  ),
-                  title: const Text('Interface & Effets'),
-                  subtitle: Text(
-                    'Carousel, flou, animations et effets visuels',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.secondaryColor,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/uiSettings'),
-                ),
-              ],
-            ),
+              if (!pureBlackDarkMode || !isDarkTheme) const BlendLevelSlider(),
 
-            SettingsSection(
-              title: l10n.timestamp,
-              children: [
-                _buildRelativeTimestampTile(context, ref, l10n),
-                _buildDateFormatTile(context, ref, l10n),
-              ],
-            ),
-          ],
+              const Divider(height: 8, indent: 16, endIndent: 16),
+
+              // ── Interface ──────────────────────────────────────────────
+              _Section(icon: Broken.setting_2, label: 'Interface'),
+              _buildFontTile(context, ref, l10n),
+              ListTile(
+                leading: const Icon(Broken.magic_star),
+                title: const Text('Interface & Effets'),
+                subtitle: Text(
+                  'Carousel, flou, animations et effets visuels',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.secondaryColor,
+                  ),
+                ),
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () => context.push('/uiSettings'),
+              ),
+              ListTile(
+                leading: const Icon(Broken.category),
+                title: Text(l10n.reorder_navigation),
+                subtitle: Text(
+                  l10n.reorder_navigation_description,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.secondaryColor,
+                  ),
+                ),
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () => context.push('/customNavigationSettings'),
+              ),
+
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  // ── Carousel style dialog ────────────────────────────────────────────────
+  // ── Dialogs ───────────────────────────────────────────────────────────────
 
-  void _showCarouselStyleDialog(BuildContext context, WidgetRef ref) {
-    final current = ref.read(carouselStyleProvider);
-    showDialog(
+  void _pickTabletMode(BuildContext context, WidgetRef ref, String current) {
+    showModalBottomSheet<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Carousel Style'),
-        content: SizedBox(
-          width: double.maxFinite,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: RadioGroup<String>(
+          groupValue: current,
+          onChanged: (v) {
+            if (v == null) return;
+            ref.read(tabletModeProvider.notifier).set(v);
+            Navigator.pop(ctx);
+          },
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: List.generate(
-              carouselStyleLabels.length,
-              (i) => RadioGroup<int>(
-                groupValue: current,
-                onChanged: (v) {
-                  if (v != null) {
-                    ref.read(carouselStyleProvider.notifier).set(v);
-                  }
-                  Navigator.pop(context);
-                },
-                child: RadioListTile<int>(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: i,
-                  title: Text(carouselStyleLabels[i]),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  'Mode tablette',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
               ),
-            ),
+              ...kTabletModeOptions.map(
+                (o) => RadioListTile<String>(
+                  value: o.$1,
+                  title: Text(o.$2),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: context.primaryColor),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -227,11 +264,13 @@ class AppearanceScreen extends ConsumerWidget {
               )
               .key;
     return ListTile(
+      leading: const Icon(Broken.text),
       title: Text(context.l10n.font),
       subtitle: Text(
         appFontFamilySub,
         style: TextStyle(fontSize: 11, color: context.secondaryColor),
       ),
+      trailing: const Icon(Broken.arrow_right_2),
       onTap: () {
         showDialog(
           context: context,
@@ -248,141 +287,133 @@ class AppearanceScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRelativeTimestampTile(
+  void _pickRelativeTimestamp(
     BuildContext context,
     WidgetRef ref,
     AppLocalizations l10n,
+    int current,
   ) {
-    final relativeTimestamps = ref.watch(relativeTimesTampsStateProvider);
-    return ListTile(
-      title: Text(l10n.relative_timestamp),
-      subtitle: Text(
-        relativeTimestampsList(context)[relativeTimestamps],
-        style: TextStyle(fontSize: 11, color: context.secondaryColor),
-      ),
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(l10n.relative_timestamp),
-              content: SizedBox(
-                width: context.width(0.8),
-                child: RadioGroup(
-                  groupValue: relativeTimestamps,
-                  onChanged: (value) {
-                    ref
-                        .read(relativeTimesTampsStateProvider.notifier)
-                        .set(value!);
-                    Navigator.pop(context);
-                  },
-                  child: SuperListView.builder(
-                    shrinkWrap: true,
-                    itemCount: relativeTimestampsList(context).length,
-                    itemBuilder: (context, index) {
-                      return RadioListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.all(0),
-                        value: index,
-                        title: Row(
-                          children: [
-                            Text(relativeTimestampsList(context)[index]),
-                          ],
-                        ),
-                      );
-                    },
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: RadioGroup<int>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value == null) return;
+            ref.read(relativeTimesTampsStateProvider.notifier).set(value);
+            Navigator.pop(ctx);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  l10n.relative_timestamp,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              actions: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        l10n.cancel,
-                        style: TextStyle(color: context.primaryColor),
-                      ),
-                    ),
-                  ],
+              ...List.generate(
+                relativeTimestampsList(context).length,
+                (i) => RadioListTile<int>(
+                  value: i,
+                  title: Text(relativeTimestampsList(context)[i]),
                 ),
-              ],
-            );
-          },
-        );
-      },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildDateFormatTile(
+  void _pickDateFormat(
     BuildContext context,
     WidgetRef ref,
     AppLocalizations l10n,
+    String current,
   ) {
-    final dateFormatState = ref.watch(dateFormatStateProvider);
-    return ListTile(
-      title: Text(l10n.date_format),
-      subtitle: Text(
-        "$dateFormatState (${dateFormat(context: context, DateTime.now().millisecondsSinceEpoch.toString(), useRelativeTimesTamps: false, dateFormat: dateFormatState, ref: ref)})",
-        style: TextStyle(fontSize: 11, color: context.secondaryColor),
-      ),
-      onTap: () {
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(l10n.date_format),
-              content: SizedBox(
-                width: context.width(0.8),
-                child: RadioGroup(
-                  groupValue: dateFormatState,
-                  onChanged: (value) {
-                    ref.read(dateFormatStateProvider.notifier).set(value!);
-                    Navigator.pop(context);
-                  },
-                  child: SuperListView.builder(
-                    shrinkWrap: true,
-                    itemCount: dateFormatsList.length,
-                    itemBuilder: (context, index) {
-                      return RadioListTile(
-                        dense: true,
-                        contentPadding: const EdgeInsets.all(0),
-                        value: dateFormatsList[index],
-                        title: Row(
-                          children: [
-                            Text(
-                              "${dateFormatsList[index]} (${dateFormat(context: context, DateTime.now().millisecondsSinceEpoch.toString(), useRelativeTimesTamps: false, dateFormat: dateFormatsList[index], ref: ref)})",
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: RadioGroup<String>(
+          groupValue: current,
+          onChanged: (value) {
+            if (value == null) return;
+            ref.read(dateFormatStateProvider.notifier).set(value);
+            Navigator.pop(ctx);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  l10n.date_format,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              actions: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        l10n.cancel,
-                        style: TextStyle(color: context.primaryColor),
-                      ),
-                    ),
-                  ],
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: dateFormatsList
+                      .map(
+                        (f) => RadioListTile<String>(
+                          value: f,
+                          title: Text(
+                            '$f (${dateFormat(context: context, DateTime.now().millisecondsSinceEpoch.toString(), useRelativeTimesTamps: false, dateFormat: f, ref: ref)})',
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
-              ],
-            );
-          },
-        );
-      },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Section header ───────────────────────────────────────────────────────────
+
+class _Section extends StatelessWidget {
+  const _Section({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: cs.primary),
+          const SizedBox(width: 6),
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.9,
+              color: cs.primary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -438,7 +469,7 @@ class _FontPickerDialogState extends State<_FontPickerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Font'),
+      title: const Text('Police'),
       content: SizedBox(
         width: double.maxFinite,
         height: 400,
@@ -447,8 +478,8 @@ class _FontPickerDialogState extends State<_FontPickerDialog> {
             TextField(
               controller: _search,
               decoration: const InputDecoration(
-                hintText: 'Search fonts…',
-                prefixIcon: Icon(Icons.search),
+                hintText: 'Rechercher une police…',
+                prefixIcon: Icon(Broken.search_normal),
                 isDense: true,
               ),
             ),
@@ -458,7 +489,6 @@ class _FontPickerDialogState extends State<_FontPickerDialog> {
                 itemCount: _filtered.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    // Default option
                     return RadioGroup<String?>(
                       groupValue: widget.currentFont,
                       onChanged: (_) {

@@ -160,7 +160,7 @@
   "downloaded_chapter": "Chapitres téléchargés",
   "page": "Page {page}",
   "global_search": "Recherche globale",
-  "color_blend_level": "Niveau de mélange des couleurs",
+  "color_blend_level": "Mélange des couleurs",
   "current": "En cours {char}",
   "finished": "Terminé {char}",
   "next": "Suivant {char}",

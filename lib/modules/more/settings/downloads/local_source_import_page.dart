@@ -13,6 +13,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:watchtower/modules/widgets/gridview_widget.dart';
   import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
   import 'package:watchtower/providers/storage_provider.dart';
+  import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+  import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 
   // Streams local mangas filtered by itemType
   final _localMangasByTypeProvider = StreamProvider.family<List<Manga>, ItemType>(
@@ -102,14 +104,13 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
     @override
     Widget build(BuildContext context) {
       if (kIsWeb) {
-        return Scaffold(
-          appBar: AppBar(
-          leading: const BackButton(),title: Text(_title)),
+        return SettingsSubpageScaffold(
+          title: _title,
           body: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.folder_off_rounded, size: 72, color: Colors.grey.shade400),
+                Icon(Broken.folder_minus, size: 72, color: Colors.grey.shade400),
                 const SizedBox(height: 16),
                 Text(
                   'Local source not available on Web',
@@ -123,13 +124,10 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
       final mangasAsync = ref.watch(_localMangasByTypeProvider(widget.itemType));
 
-      return Scaffold(
-        appBar: AppBar(
-          leading: const BackButton(),
-          title: Text(_title),
-          actions: [
-            if (_scanning)
-              const Padding(
+      return SettingsSubpageScaffold(
+        title: _title,
+        trailing: _scanning
+            ? const Padding(
                 padding: EdgeInsets.only(right: 16),
                 child: SizedBox(
                   width: 20,
@@ -137,14 +135,11 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               )
-            else
-              IconButton(
-                icon: const Icon(Icons.refresh_rounded),
+            : IconButton(
+                icon: const Icon(Broken.refresh_2),
                 onPressed: _refresh,
                 tooltip: 'Refresh',
               ),
-          ],
-        ),
         body: mangasAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
@@ -155,7 +150,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.folder_open_rounded,
+                      Broken.folder_open,
                       size: 72,
                       color: Colors.grey.shade400,
                     ),

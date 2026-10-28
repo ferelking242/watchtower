@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
 class CustomNavigationSettings extends ConsumerWidget {
@@ -25,9 +27,8 @@ class CustomNavigationSettings extends ConsumerWidget {
     final dockStyle = ref.watch(navDockStyleProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(l10n.reorder_navigation)),
+    return SettingsSubpageScaffold(
+      title: l10n.reorder_navigation,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +45,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                     'Regroupe Manga · Watch · Novel sous un bouton Hub',
                     style: TextStyle(fontSize: 12),
                   ),
-                  secondary: const Icon(Icons.apps_rounded),
+                  secondary: const Icon(Broken.category_2),
                   onChanged: (value) {
                     ref
                         .read(mergeLibraryNavMobileStateProvider.notifier)
@@ -81,7 +82,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                     'Regroupe toutes les bibliothèques dans un seul onglet',
                     style: TextStyle(fontSize: 12),
                   ),
-                  secondary: const Icon(Icons.collections_bookmark_rounded),
+                  secondary: const Icon(Broken.book_saved),
                   onChanged: (value) {
                     ref.read(mergeLibraryOnDockProvider.notifier).set(value);
                     const libs = ['/MangaLibrary', '/AnimeLibrary', '/NovelLibrary', '/MusicLibrary', '/GameLibrary'];
@@ -179,10 +180,10 @@ class CustomNavigationSettings extends ConsumerWidget {
                         children: [
                           Icon(
                             isFixed
-                                ? Icons.lock_rounded
+                                ? Broken.lock
                                 : isVisible
-                                    ? Icons.visibility_rounded
-                                    : Icons.visibility_off_rounded,
+                                    ? Broken.eye
+                                    : Broken.eye_slash,
                             size: 13,
                             color: isFixed
                                 ? colorScheme.onSurface.withValues(alpha: 0.35)
@@ -228,7 +229,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.dock_rounded,
+                      Icon(Broken.monitor_mobbile,
                           color: colorScheme.primary, size: 18),
                       const SizedBox(width: 8),
                       Text(
@@ -330,7 +331,7 @@ class CustomNavigationSettings extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Icon(Icons.tune_rounded, color: colorScheme.primary, size: 18),
+                  Icon(Broken.setting_4, color: colorScheme.primary, size: 18),
                   const SizedBox(width: 8),
                   Text(
                     'Advanced Customisation',
@@ -347,7 +348,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             // Icon size
             _SettingSliderTile(
-              icon: Icons.photo_size_select_small_rounded,
+              icon: Broken.maximize_2,
               label: 'Icon size',
               tooltip: 'Changes the size of dock icons. Affects all dock items.',
               value: iconSize,
@@ -362,7 +363,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             // Item spacing
             _SettingSliderTile(
-              icon: Icons.space_bar_rounded,
+              icon: Broken.slider_horizontal,
               label: 'Item spacing',
               tooltip:
                   'Controls horizontal gap between each dock item. 0 = no gap, 16 = wide gap.',
@@ -385,7 +386,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   Tooltip(
                     message:
                         'Controls the speed of dock transitions and selection animations.',
-                    child: const Icon(Icons.animation_rounded, size: 18),
+                    child: const Icon(Broken.arrow_swap, size: 18),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
@@ -431,7 +432,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12),
                   dense: true,
-                  secondary: const Icon(Icons.label_rounded, size: 18),
+                  secondary: const Icon(Broken.tag, size: 18),
                   title: const Text('Show labels',
                       style: TextStyle(fontSize: 13)),
                   value: showLabels,
@@ -455,7 +456,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12),
                   dense: true,
-                  secondary: const Icon(Icons.vibration_rounded, size: 18),
+                  secondary: const Icon(Broken.mobile, size: 18),
                   title: const Text('Haptic feedback',
                       style: TextStyle(fontSize: 13)),
                   value: haptic,
@@ -538,7 +539,7 @@ class _DockPreviewCard extends StatelessWidget {
               ),
               if (isSelected) ...[
                 const SizedBox(height: 4),
-                Icon(Icons.check_circle_rounded,
+                Icon(Broken.tick_circle,
                     size: 14, color: cs.primary),
               ],
             ],
@@ -589,10 +590,10 @@ class _ClassicDockPreview extends StatelessWidget {
 
 
 const _previewIcons = [
-  Icons.apps_rounded,
-  Icons.explore_outlined,
-  Icons.history_outlined,
-  Icons.more_horiz_outlined,
+  Broken.category_2,
+  Broken.global_search,
+  Broken.clock_1,
+  Broken.more_2,
 ];
 
 // ââ Slider tile âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -661,7 +662,7 @@ class _PcSidebarPreview extends StatelessWidget {
             ),
             child: Center(
               child: Icon(
-                Icons.grid_view_rounded,
+                Broken.grid_2,
                 size: 16,
                 color: cs.onSurface.withValues(alpha: 0.15),
               ),

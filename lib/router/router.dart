@@ -32,6 +32,10 @@ import 'package:watchtower/modules/more/settings/player/player_advanced_screen.d
 import 'package:watchtower/modules/more/settings/player/player_audio_screen.dart';
 import 'package:watchtower/modules/more/settings/player/player_decoder_screen.dart';
 import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
+import 'package:watchtower/modules/more/settings/player/player_gesture_screen.dart';
+import 'package:watchtower/modules/more/settings/player/player_subtitle_screen.dart';
+import 'package:watchtower/modules/more/settings/player/player_script_editor_screen.dart';
+import 'package:watchtower/modules/more/settings/player/player_torrent_screen.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/statistics/statistics_screen.dart';
 import 'package:watchtower/modules/novel/novel_reader_view.dart';
@@ -85,12 +89,14 @@ import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/modules/more/about/about_screen.dart';
 import 'package:watchtower/modules/more/about/log_viewer_screen.dart';
+import 'package:watchtower/modules/more/settings/appearance/app_language_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/ui_settings_screen.dart';
 import 'package:watchtower/modules/more/settings/browse/browse_screen.dart';
 import 'package:watchtower/modules/more/settings/general/general_screen.dart';
 import 'package:watchtower/modules/more/settings/general/recommendations_screen.dart';
 import 'package:watchtower/modules/more/settings/general/extension_cookie_manager_screen.dart';
+import 'package:watchtower/modules/more/settings/library/library_settings_screen.dart';
 import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/modules/more/settings/settings_screen.dart';
 import 'package:watchtower/modules/more/settings/security/security_screen.dart';
@@ -147,9 +153,32 @@ class RouterCurrentLocationState extends _$RouterCurrentLocationState {
       // Schedule the registration to run after the first build/frame:
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _listener();
+        // Re-seed once the router has definitely resolved its first location:
+        // the delegate may still have been empty during this first build.
+        final location = _currentLocation();
+        if (location != null && location != state) state = location;
       });
     }
-    return null;
+    // Seed the state with the location the router already resolved from
+    // `initialLocation`. Returning null here left the dock without any
+    // highlighted item on the very first frame (Hub stayed uncoloured at
+    // launch), because the delegate listener only fires on later navigations.
+    return _currentLocation();
+  }
+
+  String? _currentLocation() {
+    try {
+      final router = ref.read(routerProvider);
+      final matches = router.routerDelegate.currentConfiguration;
+      if (matches.isEmpty) return null;
+      final RouteMatch lastMatch = matches.last;
+      final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
+          ? lastMatch.matches
+          : matches;
+      return matchList.uri.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   void _listener() {
@@ -159,18 +188,8 @@ class RouterCurrentLocationState extends _$RouterCurrentLocationState {
         // go_router 17.x: ImperativeRouteMatch (created by context.push) does
         // not implement _getsLastRouteFromMatches — throws UnimplementedError
         // when the router tries to serialize route info after navigation.
-        try {
-          final RouteMatchList matches =
-              router.routerDelegate.currentConfiguration;
-          if (matches.isEmpty) return;
-          final RouteMatch lastMatch = matches.last;
-          final RouteMatchList matchList = lastMatch is ImperativeRouteMatch
-              ? lastMatch.matches
-              : matches;
-          state = matchList.uri.toString();
-        } catch (_) {
-          // Silently swallow — state keeps its last known location value.
-        }
+        final location = _currentLocation();
+        if (location != null) state = location;
       });
     });
   }
@@ -351,6 +370,11 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute(name: "settings", child: const SettingsScreen()),
     _genericRoute(name: "appearance", child: const AppearanceScreen()),
+    _genericRoute(name: "appLanguage", child: const AppLanguageScreen()),
+    _genericRoute(
+      name: "librarySettings",
+      child: const LibrarySettingsScreen(),
+    ),
     _genericRoute(name: "uiSettings", child: const UiSettingsScreen()),
     _genericRoute<Source>(
       name: "extension_detail",
@@ -465,6 +489,22 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute(
       name: "playerAdvancedScreen",
       child: const PlayerAdvancedScreen(),
+    ),
+    _genericRoute(
+      name: "playerGestureScreen",
+      child: const PlayerGestureScreen(),
+    ),
+    _genericRoute(
+      name: "playerSubtitleScreen",
+      child: const PlayerSubtitleScreen(),
+    ),
+    _genericRoute(
+      name: "playerScriptEditor",
+      child: const PlayerScriptEditorScreen(),
+    ),
+    _genericRoute(
+      name: "playerTorrentScreen",
+      child: const PlayerTorrentScreen(),
     ),
     _genericRoute<ItemType?>(
       name: "calendarScreen",
@@ -600,6 +640,38 @@ class RouterNotifier extends ChangeNotifier {
       'GameLibrary',
       'WatchtowerHome',
     };
+    // Settings sub-pages slide in from the left and the header rises into
+    // place, the way browser settings pages animate on Android.
+    const settingsSlideRoutes = {
+      'settings',
+      'general',
+      'appearance',
+      'appLanguage',
+      'uiSettings',
+      'customNavigationSettings',
+      'librarySettings',
+      'readerMode',
+      'playerOverview',
+      'playerMode',
+      'playerDecoderScreen',
+      'playerAudioScreen',
+      'playerAdvancedScreen',
+      'playerGestureScreen',
+      'playerSubtitleScreen',
+      'playerScriptEditor',
+      'playerTorrentScreen',
+      'customButtonScreen',
+      'recommendations',
+      'advanced',
+      'about',
+      'security',
+      'sync',
+      'track',
+      'downloads',
+      'localSources',
+      'browseS',
+      'categories',
+    };
     // Crash-safe builder: state.extra can be null if a route is opened via
     // context.go('/routeName') without passing extra. The unchecked cast
     // `state.extra as T` throws TypeError for non-nullable T (int, Source, …).
@@ -631,6 +703,28 @@ class RouterNotifier extends ChangeNotifier {
               child: _safeBuild(context, state),
               transitionsBuilder: (context, animation, secondaryAnimation, child) =>
                   child,
+            )
+          : settingsSlideRoutes.contains(name)
+          ? (context, state) => CustomTransitionPage<void>(
+              key: state.pageKey,
+              transitionDuration: const Duration(milliseconds: 260),
+              reverseTransitionDuration: const Duration(milliseconds: 220),
+              child: _safeBuild(context, state),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    final curved = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                      reverseCurve: Curves.easeInCubic,
+                    );
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(-0.18, 0),
+                        end: Offset.zero,
+                      ).animate(curved),
+                      child: FadeTransition(opacity: curved, child: child),
+                    );
+                  },
             )
           : (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
           ? (context, state) {

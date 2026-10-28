@@ -1960,7 +1960,18 @@ class _FloatingDockState extends State<_FloatingDock> {
 
   bool _isActive(String route) {
     if (route == '_watchtower_menu') return _menuOpen;
-    return widget.location == route;
+    final loc = widget.location;
+    // The Hub entry replaces every individual library destination on the dock,
+    // so it must read as selected whenever the current route is one of those
+    // libraries. Comparing the raw route left Hub unhighlighted at launch.
+    if (route == '_enableLibSwitch') {
+      return loc != null && libLocationRegex.hasMatch(loc);
+    }
+    // Same for the unified Library entry: it stands in for /Library.
+    if (route == '_enableLibrarySwitch') {
+      return loc == '/Library';
+    }
+    return loc == route;
   }
 
   List<_DockItemData> _buildItems(BuildContext context) {

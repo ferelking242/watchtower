@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/player/custom_button_screen.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_audio_state_provider.dart';
+import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -25,11 +28,12 @@ class _PlayerAudioScreenState extends ConsumerState<PlayerAudioScreen> {
     );
     final audioChannel = ref.watch(audioChannelStateProvider);
     final volumeBoostCap = ref.watch(volumeBoostCapStateProvider);
+    final keepAudioChannels = ref.watch(playerKeepAudioChannelsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(context.l10n.video_audio)),
-      body: SingleChildScrollView(
+    return SettingsSubpageScaffold(
+      title: context.l10n.video_audio,
+      slivers: [
+        SliverToBoxAdapter(
         child: Column(
           children: [
             ListTile(
@@ -157,9 +161,21 @@ class _PlayerAudioScreenState extends ConsumerState<PlayerAudioScreen> {
                 ],
               ),
             ),
+            SwitchListTile(
+              secondary: const Icon(Broken.volume_high),
+              value: keepAudioChannels,
+              title: const Text('Conserver les canaux audio'),
+              subtitle: const Text(
+                'Ne pas réduire le mixage au stéréo',
+                style: TextStyle(fontSize: 11),
+              ),
+              onChanged: (v) =>
+                  ref.read(playerKeepAudioChannelsProvider.notifier).set(v),
+            ),
           ],
         ),
-      ),
+        ),
+      ],
     );
   }
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/settings/security/providers/security_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
 class SecurityScreen extends ConsumerStatefulWidget {
@@ -53,14 +55,14 @@ class _SecurityScreenState extends ConsumerState<SecurityScreen> {
   Widget build(BuildContext context) {
     final appLockEnabled = ref.watch(appLockEnabledStateProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(l10n.security)),
+    return SettingsSubpageScaffold(
+      title: l10n.security,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SwitchListTile(
+              secondary: const Icon(Broken.lock_circle),
               value: appLockEnabled,
               title: Text(l10n.app_lock),
               subtitle: Text(

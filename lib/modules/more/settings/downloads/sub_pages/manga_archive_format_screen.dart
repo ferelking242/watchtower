@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 
@@ -12,15 +13,8 @@ class MangaArchiveFormatScreen extends ConsumerWidget {
     final selectedFormat = ref.watch(mangaArchiveFormatStateProvider);
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Retour',
-          icon: const Icon(Broken.arrow_left),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-        title: const Text('Format de stockage'),
-      ),
+    return SettingsSubpageScaffold(
+      title: 'Format de stockage',
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: MangaArchiveFormat.values.map((format) {

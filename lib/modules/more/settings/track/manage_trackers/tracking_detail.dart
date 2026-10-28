@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
@@ -44,23 +45,17 @@ class _TrackingDetailState extends State<TrackingDetail>
     return DefaultTabController(
       animationDuration: Duration.zero,
       length: isMovies ? 1 : 2,
-      child: Scaffold(
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          title: Text(
-            widget.trackerPref.syncId == -1
-                ? 'Local'
-                : trackInfos(widget.trackerPref.syncId!).$2,
-          ),
-          bottom: TabBar(
-            indicatorSize: TabBarIndicatorSize.tab,
-            controller: _tabBarController,
-            tabs: [
-              if (!isMovies) Tab(text: l10n.manga),
-              Tab(text: l10n.watch),
-            ],
-          ),
+      child: SettingsSubpageScaffold(
+        title: widget.trackerPref.syncId == -1
+            ? 'Local'
+            : trackInfos(widget.trackerPref.syncId!).$2,
+        bottom: TabBar(
+          indicatorSize: TabBarIndicatorSize.tab,
+          controller: _tabBarController,
+          tabs: [
+            if (!isMovies) Tab(text: l10n.manga),
+            Tab(text: l10n.watch),
+          ],
         ),
         body: TabBarView(
           controller: _tabBarController,

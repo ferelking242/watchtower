@@ -816,7 +816,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get global_search => 'Recherche globale';
 
   @override
-  String get color_blend_level => 'Niveau de mélange des couleurs';
+  String get color_blend_level => 'Mélange des couleurs';
 
   @override
   String current(Object char) {

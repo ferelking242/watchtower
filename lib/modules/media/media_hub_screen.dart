@@ -1,8 +1,13 @@
+import 'dart:io' show Platform;
+
 import 'package:collection/collection.dart';
 import 'package:extended_image/extended_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
@@ -11,6 +16,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart';
 
 enum MediaHubKind { movies, series }
 
@@ -338,6 +344,13 @@ class _MediaError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // A missing network is the common case here: the TMDB catalogue is remote.
+    // Show the plain-language offline state with a shortcut to the network
+    // settings instead of the raw ClientException/SocketException text.
+    if (isOfflineContentError(error)) {
+      return MediaOfflineState(title: title, onRetry: onRetry);
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -353,7 +366,7 @@ class _MediaError extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Impossible de charger le catalogue TMDB. Réessayez lorsque la connexion sera disponible.',
+              'Impossible de charger le catalogue. Réessayez plus tard.',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white60),
             ),
@@ -362,10 +375,82 @@ class _MediaError extends StatelessWidget {
               onPressed: onRetry,
               child: const Text('Réessayer'),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Clear "no network" state for the media catalogue: a Lottie animation, a
+/// short pro message, and a button that opens the network settings so the user
+/// can re-enable Wi-Fi/data.
+class MediaOfflineState extends StatelessWidget {
+  final String title;
+  final VoidCallback onRetry;
+
+  const MediaOfflineState({super.key, required this.title, required this.onRetry});
+
+  /// Opens the OS network settings on mobile; on desktop/web it falls back to
+  /// the in-app network settings page.
+  Future<void> _openNetworkSettings(BuildContext context) async {
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+    if (isMobile) {
+      try {
+        await openAppSettings();
+        return;
+      } catch (_) {
+        // Fall through to the in-app settings page.
+      }
+    }
+    if (context.mounted) context.push('/general');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 220,
+              height: 180,
+              child: Lottie.asset(
+                'assets/animations/no_connection.json',
+                repeat: true,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Aucune connexion réseau',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
-              '$error',
-              style: const TextStyle(color: Colors.white24, fontSize: 10),
+              'Connectez-vous à Internet pour charger $title. '
+              'Vérifiez votre Wi-Fi ou vos données mobiles.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white60, height: 1.35),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => _openNetworkSettings(context),
+              icon: const Icon(Icons.wifi_find_rounded, size: 18),
+              label: const Text('Activer le réseau'),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Réessayer'),
             ),
           ],
         ),

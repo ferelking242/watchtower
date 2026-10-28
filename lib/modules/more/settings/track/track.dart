@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/modules/more/settings/track/providers/track_providers.dart';
 import 'package:watchtower/modules/more/settings/track/widgets/track_listile.dart';
@@ -26,9 +27,8 @@ class TrackScreen extends ConsumerWidget {
       updateProgressAfterReadingStateProvider,
     );
     final l10n = l10nLocalizations(context)!;
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(l10nLocalizations(context)!.tracking)),
+    return SettingsSubpageScaffold(
+      title: l10nLocalizations(context)!.tracking,
       body: SingleChildScrollView(
         child: StreamBuilder(
           stream: isar.trackPreferences.filter().syncIdIsNotNull().watch(

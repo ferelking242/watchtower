@@ -3,12 +3,17 @@ import 'dart:ui';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/display_prefs_provider.dart';
 part 'l10n_providers.g.dart';
 
 @riverpod
 class L10nLocaleState extends _$L10nLocaleState {
   @override
   Locale build() {
+    // A language chosen in Affichage overrides the system locale.
+    final override = ref.watch(appLanguageOverrideProvider);
+    if (override != null) return override;
+
     final systemLocales = PlatformDispatcher.instance.locales;
     final supported = AppLocalizations.supportedLocales;
     for (final systemLocale in systemLocales) {

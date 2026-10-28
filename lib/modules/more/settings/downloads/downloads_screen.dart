@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:numberpicker/numberpicker.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/modules/library/providers/file_scanner.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
@@ -45,11 +46,8 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final concurrentDownloads = ref.watch(concurrentDownloadsStateProvider);
     final writeMode = DownloadSettingsService.instance.downloadWriteMode;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: const Text('Téléchargements'),
-      ),
+    return SettingsSubpageScaffold(
+      title: 'Téléchargements',
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

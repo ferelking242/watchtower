@@ -1,16 +1,19 @@
-// Copied structure from namidaco/namida — lib/ui/pages/settings_page.dart
-// Adapted for Watchtower: GetX → Riverpod, NamidaNavigator → GoRouter,
-// settings search animation adapted from Namida's AppBar search pattern.
+// Settings hub. The search spans every settings page through
+// `kSettingsSearchIndex`, so a query such as "don't kill" finds the entry in
+// Advanced even while the General page is open.
 
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_search_index.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/modules/more/widgets/list_tile_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
-// Namida settings items — adapted as static list for Watchtower's search
 class _SettingItem {
   final String title;
   final IconData icon;
@@ -32,28 +35,13 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen>
-    with SingleTickerProviderStateMixin {
-  // Copied from Namida settings search pattern: animated search bar
-  bool _searchOpen = false;
+class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
-  final FocusNode _searchFocus = FocusNode();
   String _query = '';
-
-  late final AnimationController _animCtrl;
-  late final Animation<double> _widthAnim;
-  late final Animation<double> _opacityAnim;
 
   @override
   void initState() {
     super.initState();
-    // Copied animation setup from Namida search bar pattern
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _widthAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut);
-    _opacityAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeIn);
     _searchCtrl.addListener(() {
       setState(() => _query = _searchCtrl.text.toLowerCase());
     });
@@ -61,26 +49,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   @override
   void dispose() {
-    _animCtrl.dispose();
     _searchCtrl.dispose();
-    _searchFocus.dispose();
     super.dispose();
-  }
-
-  void _openSearch() {
-    setState(() => _searchOpen = true);
-    _animCtrl.forward();
-    _searchFocus.requestFocus();
-  }
-
-  void _closeSearch() {
-    _animCtrl.reverse().then((_) {
-      setState(() {
-        _searchOpen = false;
-        _query = '';
-      });
-      _searchCtrl.clear();
-    });
   }
 
   List<_SettingItem> _buildItems(BuildContext context) {
@@ -88,94 +58,124 @@ class _SettingsScreenState extends State<SettingsScreen>
     return [
       _SettingItem(
         title: l10n.general,
-        icon: Icons.settings,
+        icon: Broken.setting_2,
         route: '/general',
         keywords: ['général', 'general'],
       ),
       _SettingItem(
-        title: l10n.appearance,
-        icon: Icons.color_lens_rounded,
+        title: l10n.display,
+        icon: Broken.monitor,
         route: '/appearance',
-        keywords: ['apparence', 'thème', 'theme', 'couleur', 'color', 'police', 'font', 'sombre', 'dark', 'clair', 'light'],
+        keywords: [
+          'affichage',
+          'display',
+          'apparence',
+          'appearance',
+          'thème',
+          'theme',
+          'couleur',
+          'color',
+          'police',
+          'font',
+          'sombre',
+          'dark',
+          'clair',
+          'light',
+        ],
       ),
       _SettingItem(
-        title: 'Lecteur Manga',
-        icon: Icons.chrome_reader_mode_rounded,
+        title: l10n.library,
+        icon: Broken.book_1,
+        route: '/librarySettings',
+        keywords: [
+          'bibliothèque',
+          'library',
+          'catégorie',
+          'category',
+          'tri',
+          'sort',
+          'mise à jour',
+          'update',
+        ],
+      ),
+      _SettingItem(
+        title: l10n.reader,
+        icon: Broken.chrome,
         route: '/readerMode',
         keywords: ['lecture', 'reader', 'manga', 'page'],
       ),
       _SettingItem(
-        title: 'Lecteur Vidéo',
-        icon: Icons.play_circle_outline_outlined,
+        title: l10n.player,
+        icon: Broken.play_circle,
         route: '/playerOverview',
         keywords: ['video', 'vidéo', 'player', 'lecteur', 'watch'],
       ),
       _SettingItem(
         title: l10n.downloads,
-        icon: Icons.download_outlined,
+        icon: Broken.document_download,
         route: '/downloads',
         keywords: ['téléchargement', 'download'],
       ),
       _SettingItem(
         title: l10n.tracking,
-        icon: Icons.sync_outlined,
+        icon: Broken.refresh_circle,
         route: '/track',
         keywords: ['tracking', 'suivi', 'anilist', 'myanimelist', 'mal'],
       ),
       _SettingItem(
         title: l10n.syncing,
-        icon: Icons.cloud_sync_outlined,
+        icon: Broken.cloud_connection,
         route: '/sync',
         keywords: ['sync', 'synchronisation', 'cloud'],
       ),
       _SettingItem(
         title: l10n.browse,
-        icon: Icons.explore_rounded,
+        icon: Broken.global_search,
         route: '/browseS',
         keywords: ['browse', 'explorer', 'source', 'extension'],
       ),
       if (kIsWeb || !Platform.isLinux)
         _SettingItem(
           title: l10n.security,
-          icon: Icons.security_rounded,
+          icon: Broken.shield_tick,
           route: '/security',
           keywords: ['sécurité', 'security', 'mdp', 'mot de passe', 'biométrie'],
         ),
       _SettingItem(
         title: 'Sources Locales',
-        icon: Icons.folder_open_rounded,
+        icon: Broken.folder_open,
         route: '/localSources',
         keywords: ['local', 'dossier', 'folder', 'fichier', 'file'],
       ),
       _SettingItem(
-        title: 'Avancé',
-        icon: Icons.tune_rounded,
+        title: l10n.advanced,
+        icon: Broken.setting_4,
         route: '/advanced',
         keywords: ['avancé', 'advanced', 'debug', 'cache', 'logs'],
       ),
       _SettingItem(
         title: 'Music Hub',
-        icon: Icons.music_note_rounded,
+        icon: Broken.music_playlist,
         route: '/MusicLibrary',
         keywords: ['musique', 'music', 'audio', 'namida'],
       ),
       if (kIsWeb)
         _SettingItem(
           title: 'Connexion Distante',
-          icon: Icons.link_rounded,
+          icon: Broken.link,
           route: '/remoteSetup',
           keywords: ['remote', 'distant', 'connexion', 'web'],
         )
       else
         _SettingItem(
           title: 'Mode Distant',
-          icon: Icons.wifi_tethering_rounded,
+          icon: Broken.wifi_square,
           route: '/remoteMode',
           keywords: ['remote', 'distant', 'wifi', 'tethering'],
         ),
       _SettingItem(
         title: l10n.about,
-        icon: Icons.info_outline,
+        icon: Broken.info_circle,
         route: '/about',
         keywords: ['à propos', 'about', 'version', 'info'],
       ),
@@ -196,98 +196,97 @@ class _SettingsScreenState extends State<SettingsScreen>
     final items = _buildItems(context);
     final visible = _filtered(items);
 
-    // Copied AppBar search animation from Namida's SubpagesTopContainer pattern
-    return Scaffold(
-      appBar: AppBar(
-        leading: BackButton(onPressed: () => context.go('/WatchtowerHome')),
-        // Namida-style: title animates out, search field animates in
-        title: _searchOpen
-            ? SizeTransition(
-                sizeFactor: _widthAnim,
-                axis: Axis.horizontal,
-                child: FadeTransition(
-                  opacity: _opacityAnim,
-                  child: TextField(
-                    controller: _searchCtrl,
-                    focusNode: _searchFocus,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher...',
-                      border: InputBorder.none,
-                      hintStyle: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
+    return SettingsSubpageScaffold(
+      title: l10n.settings,
+      expandedHeight: 96,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Rechercher dans les paramètres…',
+                prefixIcon: const Icon(Broken.search_normal, size: 20),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Broken.close_circle, size: 20),
+                        onPressed: () => _searchCtrl.clear(),
                       ),
-                    ),
-                  ),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
                 ),
-              )
-            : Text(l10n.settings),
-        actions: [
-          // Namida: animated search icon → close icon transition
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: _searchOpen
-                ? IconButton(
-                    key: const ValueKey('close'),
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: _closeSearch,
-                    tooltip: 'Fermer',
-                  )
-                : IconButton(
-                    key: const ValueKey('search'),
-                    icon: const Icon(Icons.search_rounded),
-                    onPressed: _openSearch,
-                    tooltip: 'Rechercher',
-                  ),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: visible.isEmpty
-            ? Center(
-                key: const ValueKey('empty'),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 48,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.3),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Aucun résultat pour "$_query"',
-                      style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ListView(
-                key: ValueKey(_query),
-                children: visible
-                    .map(
-                      (item) => ListTileWidget(
-                        title: item.title,
-                        icon: item.icon,
-                        onTap: () => context.push(item.route),
-                      ),
-                    )
-                    .toList(),
               ),
-      ),
+            ),
+          ),
+        ),
+        if (_query.isNotEmpty)
+          SliverToBoxAdapter(child: _CrossPageResults(query: _query)),
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final item = visible[index];
+              return ListTileWidget(
+                title: item.title,
+                icon: item.icon,
+                onTap: () => context.push(item.route),
+              );
+            },
+            childCount: visible.length,
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
+    );
+  }
+}
+
+/// Extra results found on *other* settings pages for the current query.
+class _CrossPageResults extends StatelessWidget {
+  const _CrossPageResults({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final entries = kSettingsSearchIndex
+        .where((e) => e.matches(query))
+        .toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(
+            'Résultats dans les sous-pages',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: cs.primary,
+            ),
+          ),
+        ),
+        ...entries.map(
+          (e) => ListTile(
+            dense: true,
+            leading: Icon(Broken.setting_5, color: cs.primary, size: 20),
+            title: Text(e.title),
+            subtitle: Text(
+              e.page,
+              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+            ),
+            onTap: () => context.push(e.route),
+          ),
+        ),
+        const Divider(height: 16, indent: 16, endIndent: 16),
+      ],
     );
   }
 }

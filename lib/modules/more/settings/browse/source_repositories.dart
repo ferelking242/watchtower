@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
@@ -41,52 +43,47 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
       extensionsRepoStateProvider(widget.itemType),
     );
     final data = AsyncValue.data(repositories);
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),
-        title: switch (widget.itemType) {
-          ItemType.manga => Text(l10n.manage_manga_repo_urls),
-          ItemType.anime => Text(l10n.manage_anime_repo_urls),
-          _ => Text(l10n.manage_novel_repo_urls),
-        },
-        actions: [
-          isRefreshing
-              ? const Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 3),
-                  ),
-                )
-              : Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: IconButton(
-                    splashRadius: 20,
-                    onPressed: () async {
-                      setState(() {
-                        isRefreshing = true;
-                      });
-                      final result = await ref.refresh(
-                        fetchItemSourcesListProvider(
-                          id: null,
-                          reFresh: true,
-                          itemType: widget.itemType,
-                        ).future,
-                      );
-                      setState(() {
-                        isRefreshing = false;
-                      });
-                      return result;
-                    },
-                    icon: Icon(
-                      Icons.refresh,
-                      color: Theme.of(context).hintColor,
-                    ),
-                  ),
+    return SettingsSubpageScaffold(
+      title: switch (widget.itemType) {
+        ItemType.manga => l10n.manage_manga_repo_urls,
+        ItemType.anime => l10n.manage_anime_repo_urls,
+        _ => l10n.manage_novel_repo_urls,
+      },
+      trailing: isRefreshing
+          ? const Padding(
+              padding: EdgeInsets.all(20.0),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: IconButton(
+                splashRadius: 20,
+                onPressed: () async {
+                  setState(() {
+                    isRefreshing = true;
+                  });
+                  final result = await ref.refresh(
+                    fetchItemSourcesListProvider(
+                      id: null,
+                      reFresh: true,
+                      itemType: widget.itemType,
+                    ).future,
+                  );
+                  setState(() {
+                    isRefreshing = false;
+                  });
+                  return result;
+                },
+                icon: Icon(
+                  Broken.refresh,
+                  color: Theme.of(context).hintColor,
                 ),
-        ],
-      ),
+              ),
+            ),
       body: data.when(
         data: (data) {
           if (data.isEmpty) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/settings/browse/source_repositories.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
@@ -33,18 +35,15 @@ class _ExtensionRepositoriesScreenState
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),
-        title: Text(l10n.extensions),
-        bottom: TabBar(
-          controller: _tab,
-          tabs: const [
-            Tab(icon: Icon(Icons.live_tv_outlined), text: 'Watch'),
-            Tab(icon: Icon(Icons.auto_stories_outlined), text: 'Manga'),
-            Tab(icon: Icon(Icons.text_snippet_outlined), text: 'Novel'),
-          ],
-        ),
+    return SettingsSubpageScaffold(
+      title: l10n.extensions,
+      bottom: TabBar(
+        controller: _tab,
+        tabs: const [
+          Tab(icon: Icon(Broken.video_square), text: 'Watch'),
+          Tab(icon: Icon(Broken.book_1), text: 'Manga'),
+          Tab(icon: Icon(Broken.note_text), text: 'Novel'),
+        ],
       ),
       body: TabBarView(
         controller: _tab,
