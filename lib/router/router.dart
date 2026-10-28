@@ -99,6 +99,7 @@ import 'package:watchtower/modules/more/settings/general/extension_cookie_manage
 import 'package:watchtower/modules/more/settings/library/library_settings_screen.dart';
 import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/modules/more/settings/settings_screen.dart';
+import 'package:watchtower/modules/more/settings/settings_subpage_route.dart';
 import 'package:watchtower/modules/more/settings/security/security_screen.dart';
 import 'package:watchtower/modules/more/settings/advanced/advanced_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
@@ -640,38 +641,6 @@ class RouterNotifier extends ChangeNotifier {
       'GameLibrary',
       'WatchtowerHome',
     };
-    // Settings sub-pages slide in from the left and the header rises into
-    // place, the way browser settings pages animate on Android.
-    const settingsSlideRoutes = {
-      'settings',
-      'general',
-      'appearance',
-      'appLanguage',
-      'uiSettings',
-      'customNavigationSettings',
-      'librarySettings',
-      'readerMode',
-      'playerOverview',
-      'playerMode',
-      'playerDecoderScreen',
-      'playerAudioScreen',
-      'playerAdvancedScreen',
-      'playerGestureScreen',
-      'playerSubtitleScreen',
-      'playerScriptEditor',
-      'playerTorrentScreen',
-      'customButtonScreen',
-      'recommendations',
-      'advanced',
-      'about',
-      'security',
-      'sync',
-      'track',
-      'downloads',
-      'localSources',
-      'browseS',
-      'categories',
-    };
     // Crash-safe builder: state.extra can be null if a route is opened via
     // context.go('/routeName') without passing extra. The unchecked cast
     // `state.extra as T` throws TypeError for non-nullable T (int, Source, …).
@@ -691,6 +660,14 @@ class RouterNotifier extends ChangeNotifier {
       }
     }
 
+    // Settings pages use Bare Browser's slide-from-the-right transition, so the
+    // settings list shifts left and dims under each subpage. iOS and macOS keep
+    // their native page, whose push already looks the same and which carries the
+    // swipe-back gesture.
+    final bool useBareSettingsTransition =
+        bareSettingsRoutes.contains(name) &&
+        (kIsWeb || !(Platform.isIOS || Platform.isMacOS));
+
     return GoRoute(
       path: path ?? (name != null ? "/$name" : "/"),
       name: name,
@@ -704,27 +681,10 @@ class RouterNotifier extends ChangeNotifier {
               transitionsBuilder: (context, animation, secondaryAnimation, child) =>
                   child,
             )
-          : settingsSlideRoutes.contains(name)
-          ? (context, state) => CustomTransitionPage<void>(
+          : useBareSettingsTransition
+          ? (context, state) => bareSettingsPage(
               key: state.pageKey,
-              transitionDuration: const Duration(milliseconds: 260),
-              reverseTransitionDuration: const Duration(milliseconds: 220),
               child: _safeBuild(context, state),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    final curved = CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                      reverseCurve: Curves.easeInCubic,
-                    );
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(-0.18, 0),
-                        end: Offset.zero,
-                      ).animate(curved),
-                      child: FadeTransition(opacity: curved, child: child),
-                    );
-                  },
             )
           : (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
           ? (context, state) {
