@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/custom_button.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/settings/player/providers/custom_buttons_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -20,11 +22,8 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final customButtons = ref.watch(getCustomButtonsStreamProvider);
-    return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: Text(l10n.custom_buttons_edit),
-      ),
+    return SettingsSubpageScaffold(
+      title: l10n.custom_buttons_edit,
       body: customButtons.when(
         data: (data) {
           if (data.isEmpty) {
@@ -55,7 +54,7 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
                       children: [
                         ReorderableDragStartListener(
                           index: index,
-                          child: const Icon(Icons.drag_handle),
+                          child: const Icon(Broken.menu),
                         ),
                         Expanded(
                           child: Row(
@@ -88,8 +87,8 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
                                 },
                                 icon: Icon(
                                   (customButton.isFavourite ?? false)
-                                      ? Icons.star
-                                      : Icons.star_border,
+                                      ? Broken.star_1
+                                      : Broken.star,
                                   color: context.primaryColor,
                                 ),
                               ),
@@ -97,13 +96,13 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
                                 onPressed: () async {
                                   await _showEditForm(customButton);
                                 },
-                                icon: Icon(Icons.mode_edit_outlined),
+                                icon: const Icon(Broken.edit_2),
                               ),
                               IconButton(
                                 onPressed: () async {
                                   await _showDeleteButton(customButton);
                                 },
-                                icon: Icon(Icons.delete_outline),
+                                icon: const Icon(Broken.trash),
                               ),
                             ],
                           ),
@@ -159,7 +158,7 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
         },
         label: Row(
           children: [
-            const Icon(Icons.add),
+            const Icon(Broken.add),
             const SizedBox(width: 10),
             Text(l10n.add),
           ],

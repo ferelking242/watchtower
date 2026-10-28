@@ -320,6 +320,9 @@ void main(List<String> args) async {
       Hive.registerAdapter(TrackSearchAdapter());
       await Hive.openBox('nav_display');
       await Hive.openBox('ui_prefs');
+      await Hive.openBox('library_settings');
+      await Hive.openBox('reader_prefs');
+      await Hive.openBox('player_prefs');
 
       // --- Music module init ---
       await KVStoreService.initialize();

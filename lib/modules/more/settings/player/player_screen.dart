@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:numberpicker/numberpicker.dart';
@@ -31,10 +34,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     final fullScreenPlayer = ref.watch(fullScreenPlayerStateProvider);
     final forceLandscapePlayer = ref.watch(forceLandscapePlayerStateProvider);
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(context.l10n.internal_player)),
-      body: SingleChildScrollView(
+    final resumeFromLast = ref.watch(playerResumeFromLastPositionProvider);
+    final askNextEpisode = ref.watch(playerAskNextEpisodeProvider);
+    final orientationLandscape = ref.watch(playerOrientationLandscapeProvider);
+    return SettingsSubpageScaffold(
+      title: context.l10n.internal_player,
+      slivers: [
+        SliverToBoxAdapter(
         child: Column(
           children: [
             ListTile(
@@ -321,7 +327,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_outline_rounded,
+                          Broken.information,
                           color: context.secondaryColor,
                         ),
                       ],
@@ -436,9 +442,50 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 ref.read(forceLandscapePlayerStateProvider.notifier).set(value);
               },
             ),
+            SwitchListTile(
+              secondary: const Icon(Broken.play_circle),
+              value: resumeFromLast,
+              title: const Text('Reprendre à la dernière position'),
+              subtitle: const Text(
+                'Reprend la lecture là où elle s’est arrêtée',
+                style: TextStyle(fontSize: 11),
+              ),
+              onChanged: (value) {
+                ref
+                    .read(playerResumeFromLastPositionProvider.notifier)
+                    .set(value);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Broken.arrow_right_2),
+              value: askNextEpisode,
+              title: const Text('Demander l’épisode suivant'),
+              subtitle: const Text(
+                'Affiche une invite à la fin d’un épisode',
+                style: TextStyle(fontSize: 11),
+              ),
+              onChanged: (value) {
+                ref.read(playerAskNextEpisodeProvider.notifier).set(value);
+              },
+            ),
+            SwitchListTile(
+              secondary: const Icon(Broken.rotate_right),
+              value: orientationLandscape,
+              title: const Text('Orientation paysage'),
+              subtitle: const Text(
+                'Verrouille l’orientation en paysage pendant la lecture',
+                style: TextStyle(fontSize: 11),
+              ),
+              onChanged: (value) {
+                ref
+                    .read(playerOrientationLandscapeProvider.notifier)
+                    .set(value);
+              },
+            ),
           ],
         ),
-      ),
+        ),
+      ],
     );
   }
 }

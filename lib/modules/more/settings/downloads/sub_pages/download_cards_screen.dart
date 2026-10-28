@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
@@ -18,11 +19,8 @@ class DownloadCardsScreen extends ConsumerWidget {
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
     final swipeRight = ref.watch(swipeRightActionStateProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: const Text('Cartes & Gestes'),
-      ),
+    return SettingsSubpageScaffold(
+      title: 'Cartes & Gestes',
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

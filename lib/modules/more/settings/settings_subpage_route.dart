@@ -50,9 +50,16 @@ const Set<String> bareSettingsRoutes = {
   'playerAudioScreen',
   'customButtonScreen',
   'playerAdvancedScreen',
+  'playerGestureScreen',
+  'playerSubtitleScreen',
+  'playerScriptEditor',
+  'playerTorrentScreen',
   'manageTrackers',
   'trackingDetail',
   'logViewer',
+  'appLanguage',
+  'librarySettings',
+  'categories',
 };
 
 /// Slides [child] in from the right, and moves it left a little and fades it

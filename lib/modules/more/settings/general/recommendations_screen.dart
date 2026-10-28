@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/settings.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/providers/algorithm_weights_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
@@ -73,17 +75,12 @@ class _RecommendationsScreenState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),
-        title: const Text('Recommendations'),
-        actions: [
-          TextButton.icon(
-            onPressed: _reset,
-            icon: const Icon(Icons.restore_rounded, size: 18),
-            label: const Text('Reset'),
-          ),
-        ],
+    return SettingsSubpageScaffold(
+      title: 'Recommendations',
+      trailing: TextButton.icon(
+        onPressed: _reset,
+        icon: const Icon(Broken.refresh_circle, size: 18),
+        label: const Text('Reset'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

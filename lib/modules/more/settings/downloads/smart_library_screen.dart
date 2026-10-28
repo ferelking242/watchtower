@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
 import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
@@ -151,39 +153,32 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     final status = ref.watch(indexerStatusProvider).asData?.value;
     final isScanning = _starting || (status?.isScanning ?? false);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.itemType == ItemType.manga
-              ? 'Smart Library Manga'
-              : 'Smart Library Watch',
+    return SettingsSubpageScaffold(
+      title: widget.itemType == ItemType.manga
+          ? 'Smart Library Manga'
+          : 'Smart Library Watch',
+      trailing: PopupMenuButton<_SmartLibraryAction>(
+        tooltip: 'Scan options',
+        icon: const Icon(Broken.setting_4),
+        onSelected: (action) => _scan(
+          fullRescan: action == _SmartLibraryAction.fullRescan,
         ),
-        leading: const BackButton(),
-        actions: [
-          PopupMenuButton<_SmartLibraryAction>(
-            tooltip: 'Scan options',
-            icon: const Icon(Icons.tune_rounded),
-            onSelected: (action) => _scan(
-              fullRescan: action == _SmartLibraryAction.fullRescan,
+        itemBuilder: (context) => const [
+          PopupMenuItem(
+            value: _SmartLibraryAction.refresh,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Broken.refresh_2),
+              title: Text('Check for changes'),
             ),
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _SmartLibraryAction.refresh,
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.sync_rounded),
-                  title: Text('Check for changes'),
-                ),
-              ),
-              PopupMenuItem(
-                value: _SmartLibraryAction.fullRescan,
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.manage_search_rounded),
-                  title: Text('Verify all storage'),
-                ),
-              ),
-            ],
+          ),
+          PopupMenuItem(
+            value: _SmartLibraryAction.fullRescan,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Broken.search_zoom_in),
+              title: Text('Verify all storage'),
+            ),
           ),
         ],
       ),

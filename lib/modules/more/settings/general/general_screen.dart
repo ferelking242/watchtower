@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/modules/more/settings/general/providers/doh_provider_notifier.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/http/doh/doh_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -31,222 +34,200 @@ class GeneralScreen extends ConsumerWidget {
     final availableProviders = ref.watch(availableDoHProvidersProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(leading: const BackButton(), title: Text(l10n.general)),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ──────────────────────────────────────────────────────────────────
-            // RÉSEAU
-            // ──────────────────────────────────────────────────────────────────
-            _SectionHeader(
-              icon: Icons.wifi_rounded,
-              label: 'Réseau',
-              colorScheme: colorScheme,
-            ),
-
-            // DNS over HTTPS
-            ExpansionTile(
-              leading: const Icon(Icons.security_rounded),
-              title: Text(l10n.dns_over_https),
-              subtitle: doHState.enabled
-                  ? Text(
-                      availableProviders[doHState.providerId ?? 0].name,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: context.secondaryColor,
-                      ),
-                    )
-                  : Text(
-                      'Désactivé',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: colorScheme.error.withValues(alpha: 0.7),
-                      ),
-                    ),
-              initiallyExpanded: doHState.enabled,
-              trailing: IgnorePointer(
-                child: Switch(value: doHState.enabled, onChanged: (_) {}),
+    return SettingsSubpageScaffold(
+      title: l10n.general,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── RÉSEAU ───────────────────────────────────────────────────
+              _SectionHeader(
+                icon: Broken.wifi,
+                label: 'Réseau',
+                colorScheme: colorScheme,
               ),
-              onExpansionChanged: (value) => ref
-                  .read(doHProviderStateProvider.notifier)
-                  .setDoHEnabled(value),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Chiffre vos requêtes DNS pour empêcher votre opérateur ou réseau de voir les sites que vous visitez.',
+
+              ExpansionTile(
+                leading: const Icon(Broken.shield_tick),
+                title: Text(l10n.dns_over_https),
+                subtitle: doHState.enabled
+                    ? Text(
+                        availableProviders[doHState.providerId ?? 0].name,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 11,
+                          color: context.secondaryColor,
+                        ),
+                      )
+                    : Text(
+                        'Désactivé',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.error.withValues(alpha: 0.7),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          Icons.dns_rounded,
-                          color: colorScheme.primary,
-                        ),
-                        title: Text(l10n.dns_provider),
-                        subtitle: Text(
-                          availableProviders[doHState.providerId ?? 0].name,
+                initiallyExpanded: doHState.enabled,
+                trailing: IgnorePointer(
+                  child: Switch(value: doHState.enabled, onChanged: (_) {}),
+                ),
+                onExpansionChanged: (value) => ref
+                    .read(doHProviderStateProvider.notifier)
+                    .setDoHEnabled(value),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chiffre vos requêtes DNS pour empêcher votre opérateur ou réseau de voir les sites que vous visitez.',
                           style: TextStyle(
-                            fontSize: 11,
-                            color: context.secondaryColor,
+                            fontSize: 12,
+                            color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        onTap: () => _showDnsProviderDialog(
-                          context,
-                          ref,
-                          doHState,
-                          availableProviders,
+                        const SizedBox(height: 12),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Broken.global,
+                            color: colorScheme.primary,
+                          ),
+                          title: Text(l10n.dns_provider),
+                          subtitle: Text(
+                            availableProviders[doHState.providerId ?? 0].name,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: context.secondaryColor,
+                            ),
+                          ),
+                          onTap: () => _showDnsProviderDialog(
+                            context,
+                            ref,
+                            doHState,
+                            availableProviders,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              if (!doHState.enabled)
+                ListTile(
+                  leading: const Icon(Broken.routing),
+                  onTap: () =>
+                      _showCustomDnsDialog(context, ref, customDns, l10n),
+                  title: Text(l10n.custom_dns),
+                  subtitle: Text(
+                    customDns.isEmpty ? 'Système par défaut' : customDns,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.secondaryColor,
+                    ),
                   ),
                 ),
-              ],
-            ),
 
-            // Custom DNS (when DoH is off)
-            if (!doHState.enabled)
               ListTile(
-                leading: const Icon(Icons.settings_ethernet_rounded),
+                leading: const Icon(Broken.user),
                 onTap: () =>
-                    _showCustomDnsDialog(context, ref, customDns, l10n),
-                title: Text(l10n.custom_dns),
+                    _showDefaultUserAgentDialog(context, ref, userAgent),
+                title: Text(context.l10n.default_user_agent),
                 subtitle: Text(
-                  customDns.isEmpty ? 'Système par défaut' : customDns,
+                  userAgent,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
 
-            // User Agent
-            ListTile(
-              leading: const Icon(Icons.manage_accounts_rounded),
-              onTap: () => _showDefaultUserAgentDialog(context, ref, userAgent),
-              title: Text(context.l10n.default_user_agent),
-              subtitle: Text(
-                userAgent,
-                style: TextStyle(fontSize: 11, color: context.secondaryColor),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              const Divider(height: 8, indent: 16, endIndent: 16),
+
+              // ── RECOMMANDATIONS ─────────────────────────────────────────
+              _SectionHeader(
+                icon: Broken.magicpen,
+                label: 'Recommandations',
+                colorScheme: colorScheme,
               ),
-            ),
 
-            const Divider(height: 8, indent: 16, endIndent: 16),
-
-            // ──────────────────────────────────────────────────────────────────
-            // COOKIES DES EXTENSIONS
-            // ──────────────────────────────────────────────────────────────────
-            _SectionHeader(
-              icon: Icons.cookie_rounded,
-              label: 'Cookies des extensions',
-              colorScheme: colorScheme,
-            ),
-            ListTile(
-              leading: const Icon(Icons.cookie_outlined),
-              title: const Text('Gérer les cookies des extensions'),
-              subtitle: const Text(
-                'Cookies par extension, collés manuellement ou auto-remplis',
-                style: TextStyle(fontSize: 11),
+              ListTile(
+                leading: const Icon(Broken.star),
+                title: const Text('Recommandations'),
+                subtitle: const Text(
+                  'Algorithme, similarité et poids de pertinence',
+                  style: TextStyle(fontSize: 11),
+                ),
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () => context.push('/recommendations'),
               ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push('/extension-cookies'),
-            ),
 
-            const Divider(height: 8, indent: 16, endIndent: 16),
+              const Divider(height: 8, indent: 16, endIndent: 16),
 
-            // ──────────────────────────────────────────────────────────────────
-            // RECOMMANDATIONS
-            // ──────────────────────────────────────────────────────────────────
-            _SectionHeader(
-              icon: Icons.auto_awesome_rounded,
-              label: 'Recommandations',
-              colorScheme: colorScheme,
-            ),
-
-            ListTile(
-              leading: const Icon(Icons.recommend_rounded),
-              title: const Text('Recommandations'),
-              subtitle: const Text(
-                'Algorithme, similarité et poids de pertinence',
-                style: TextStyle(fontSize: 11),
+              // ── ACTIVITÉ ────────────────────────────────────────────────
+              _SectionHeader(
+                icon: Broken.activity,
+                label: 'Activité',
+                colorScheme: colorScheme,
               ),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push('/recommendations'),
-            ),
 
-            const Divider(height: 8, indent: 16, endIndent: 16),
+              SwitchListTile(
+                secondary: const Icon(Broken.message),
+                value: enableDiscordRpc,
+                title: Text(l10n.enable_discord_rpc),
+                onChanged: (value) {
+                  ref.read(enableDiscordRpcStateProvider.notifier).set(value);
+                  if (value) {
+                    discordRpc?.connect(ref);
+                  } else {
+                    discordRpc?.disconnect();
+                  }
+                },
+              ),
+              SwitchListTile(
+                secondary: const Icon(Broken.eye_slash),
+                value: hideDiscordRpcInIncognito,
+                title: Text(l10n.hide_discord_rpc_incognito),
+                onChanged: (value) {
+                  ref
+                      .read(hideDiscordRpcInIncognitoStateProvider.notifier)
+                      .set(value);
+                },
+              ),
+              SwitchListTile(
+                secondary: const Icon(Broken.chart_21),
+                value: rpcShowReadingWatchingProgress,
+                title: Text(l10n.rpc_show_reading_watching_progress),
+                onChanged: (value) {
+                  ref
+                      .read(
+                        rpcShowReadingWatchingProgressStateProvider.notifier,
+                      )
+                      .set(value);
+                },
+              ),
+              SwitchListTile(
+                secondary: const Icon(Broken.text),
+                value: rpcShowTitleState,
+                title: Text(l10n.rpc_show_title),
+                onChanged: (value) {
+                  ref.read(rpcShowTitleStateProvider.notifier).set(value);
+                },
+              ),
+              SwitchListTile(
+                secondary: const Icon(Broken.image),
+                value: rpcShowCoverImage,
+                title: Text(l10n.rpc_show_cover_image),
+                onChanged: (value) {
+                  ref.read(rpcShowCoverImageStateProvider.notifier).set(value);
+                },
+              ),
 
-            // ──────────────────────────────────────────────────────────────────
-            // ACTIVITÉ
-            // ──────────────────────────────────────────────────────────────────
-            _SectionHeader(
-              icon: Icons.sensors_rounded,
-              label: 'Activité',
-              colorScheme: colorScheme,
-            ),
-
-            SwitchListTile(
-              secondary: const Icon(Icons.discord),
-              value: enableDiscordRpc,
-              title: Text(l10n.enable_discord_rpc),
-              onChanged: (value) {
-                ref.read(enableDiscordRpcStateProvider.notifier).set(value);
-                if (value) {
-                  discordRpc?.connect(ref);
-                } else {
-                  discordRpc?.disconnect();
-                }
-              },
-            ),
-            SwitchListTile(
-              secondary: const Icon(Icons.visibility_off_rounded),
-              value: hideDiscordRpcInIncognito,
-              title: Text(l10n.hide_discord_rpc_incognito),
-              onChanged: (value) {
-                ref
-                    .read(hideDiscordRpcInIncognitoStateProvider.notifier)
-                    .set(value);
-              },
-            ),
-            SwitchListTile(
-              secondary: const Icon(Icons.track_changes_rounded),
-              value: rpcShowReadingWatchingProgress,
-              title: Text(l10n.rpc_show_reading_watching_progress),
-              onChanged: (value) {
-                ref
-                    .read(rpcShowReadingWatchingProgressStateProvider.notifier)
-                    .set(value);
-              },
-            ),
-            SwitchListTile(
-              secondary: const Icon(Icons.title_rounded),
-              value: rpcShowTitleState,
-              title: Text(l10n.rpc_show_title),
-              onChanged: (value) {
-                ref.read(rpcShowTitleStateProvider.notifier).set(value);
-              },
-            ),
-            SwitchListTile(
-              secondary: const Icon(Icons.image_rounded),
-              value: rpcShowCoverImage,
-              title: Text(l10n.rpc_show_cover_image),
-              onChanged: (value) {
-                ref.read(rpcShowCoverImageStateProvider.notifier).set(value);
-              },
-            ),
-
-            const SizedBox(height: 24),
-          ],
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -490,7 +471,7 @@ void _showDefaultUserAgentDialog(
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                  icon: const Icon(Broken.global, size: 18),
                   label: const Text('Import from Device Browser'),
                   onPressed: () async {
                     final uri = Uri.parse('https://www.whatsmyua.info/');

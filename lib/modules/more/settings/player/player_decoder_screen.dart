@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_decoder_state_provider.dart';
+import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -22,11 +25,13 @@ class _PlayerDecoderScreenState extends ConsumerState<PlayerDecoderScreen> {
     final useGpuNext = ref.watch(useGpuNextStateProvider);
     final debandingType = ref.watch(debandingStateProvider);
     final useYUV420P = ref.watch(useYUV420PStateProvider);
+    final decoderMode = ref.watch(playerDecoderModeProvider);
+    final deinterlace = ref.watch(playerDeinterlaceProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(context.l10n.decoder)),
-      body: SingleChildScrollView(
+    return SettingsSubpageScaffold(
+      title: context.l10n.decoder,
+      slivers: [
+        SliverToBoxAdapter(
         child: Column(
           children: [
             SwitchListTile(
@@ -204,9 +209,56 @@ class _PlayerDecoderScreenState extends ConsumerState<PlayerDecoderScreen> {
                 ref.read(useYUV420PStateProvider.notifier).set(value);
               },
             ),
+            ListTile(
+              leading: const Icon(Broken.cpu),
+              title: const Text('Mode de décodage'),
+              subtitle: Text(
+                decoderModeLabel(decoderMode),
+                style: TextStyle(fontSize: 11, color: context.secondaryColor),
+              ),
+              trailing: const Icon(Broken.arrow_right_2),
+              onTap: () => showModalBottomSheet<void>(
+                context: context,
+                showDragHandle: true,
+                builder: (ctx) => SafeArea(
+                  child: RadioGroup<String>(
+                    groupValue: decoderMode,
+                    onChanged: (v) {
+                      if (v == null) return;
+                      ref.read(playerDecoderModeProvider.notifier).set(v);
+                      Navigator.pop(ctx);
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: kDecoderModeOptions
+                          .map(
+                            (o) => RadioListTile<String>(
+                              value: o.$1,
+                              title: Text(o.$2),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SwitchListTile(
+              secondary: const Icon(Broken.video_square),
+              value: deinterlace,
+              title: const Text('Désentrelacement'),
+              subtitle: const Text(
+                'Améliore les vidéos entrelacées',
+                style: TextStyle(fontSize: 11),
+              ),
+              onChanged: (value) {
+                ref.read(playerDeinterlaceProvider.notifier).set(value);
+              },
+            ),
           ],
         ),
-      ),
+        ),
+      ],
     );
   }
 }

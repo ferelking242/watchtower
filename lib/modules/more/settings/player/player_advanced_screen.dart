@@ -2,7 +2,10 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
@@ -20,11 +23,12 @@ class _PlayerAdvancedScreenState extends ConsumerState<PlayerAdvancedScreen> {
   @override
   Widget build(BuildContext context) {
     final useMpvConfig = ref.watch(useMpvConfigStateProvider);
+    final userFiles = ref.watch(playerUserFilesProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(context.l10n.advanced)),
-      body: SingleChildScrollView(
+    return SettingsSubpageScaffold(
+      title: context.l10n.advanced,
+      slivers: [
+        SliverToBoxAdapter(
         child: Column(
           children: [
             SwitchListTile(
@@ -51,9 +55,21 @@ class _PlayerAdvancedScreenState extends ConsumerState<PlayerAdvancedScreen> {
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
             ),
+            SwitchListTile(
+              secondary: const Icon(Broken.folder),
+              value: userFiles,
+              title: const Text('Fichiers utilisateur'),
+              subtitle: const Text(
+                'Charger les scripts, shaders et polices du dossier utilisateur',
+                style: TextStyle(fontSize: 11),
+              ),
+              onChanged: (v) =>
+                  ref.read(playerUserFilesProvider.notifier).set(v),
+            ),
           ],
         ),
-      ),
+        ),
+      ],
     );
   }
 

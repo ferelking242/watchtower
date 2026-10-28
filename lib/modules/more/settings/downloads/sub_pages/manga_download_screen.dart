@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,11 +25,8 @@ class MangaDownloadScreen extends ConsumerWidget {
     final anticipatoryDownloadRead =
         ref.watch(anticipatoryDownloadReadStateProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: const Text('Manga'),
-      ),
+    return SettingsSubpageScaffold(
+      title: 'Manga',
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

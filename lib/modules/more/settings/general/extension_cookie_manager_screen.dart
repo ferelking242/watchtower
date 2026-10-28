@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
@@ -91,20 +93,14 @@ class ExtensionCookieManagerScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entries = ref.watch(_extensionCookiesProvider);
-    final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),
-        title: const Text('Cookies des extensions'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Actualiser',
-            onPressed: () =>
-                ref.read(_extensionCookiesProvider.notifier).refresh(),
-          ),
-        ],
+    return SettingsSubpageScaffold(
+      title: 'Cookies des extensions',
+      trailing: IconButton(
+        icon: const Icon(Broken.refresh_2),
+        tooltip: 'Actualiser',
+        onPressed: () =>
+            ref.read(_extensionCookiesProvider.notifier).refresh(),
       ),
       body: entries.isEmpty
           ? const Center(child: CircularProgressIndicator())

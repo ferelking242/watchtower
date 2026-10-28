@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/changed.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -37,9 +38,8 @@ class BrowseSScreen extends ConsumerWidget {
     final autoUpdateExtensions = ref.watch(autoUpdateExtensionsStateProvider);
     final extensionLayout = ref.watch(extensionLayoutModeProvider);
     final l10n = l10nLocalizations(context);
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(l10n!.browse)),
+    return SettingsSubpageScaffold(
+      title: l10n!.browse,
       body: SingleChildScrollView(
         child: Column(
           children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/modules/widgets/gridview_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -29,9 +30,8 @@ class _ManageTrackersScreenState extends State<ManageTrackersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(context.l10n.manage_trackers)),
+    return SettingsSubpageScaffold(
+      title: context.l10n.manage_trackers,
       body: GridViewWidget(
         childAspectRatio: 0.69,
         itemCount: trackPreferences.length,

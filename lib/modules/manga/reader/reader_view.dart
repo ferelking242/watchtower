@@ -183,11 +183,13 @@ class _MangaChapterPageGalleryState
   // ── Volume-button navigation ───────────────────────────────────────────
   double _lastVolume = 0.5;
   bool _volumeListenerActive = false;
-  // Prevents the volNavRestore() call from re-triggering navigation.
-  // volNavRestore sets system volume back to baseline, which fires the listener
-  // again — without this flag, the restore looks like a button press in the
-  // opposite direction and cancels the navigation that just happened.
-  bool _isRestoringVolume = false;
+  // Restoring the physical volume fires the platform listener again. Instead of
+  // guessing with a time window (which swallowed genuine rapid presses), we
+  // remember the level we restored to and ignore any event that lands back on
+  // it: the echo of our own restore is always at the baseline, while a real key
+  // press moves the volume by one step.
+  double? _volumeBaseline;
+  static const double _volumeStepEpsilon = 0.01;
 
   /// Flag to prevent fullscreen from being disabled when navigating between
   /// chapters via pushReplacement. The old widget's dispose runs after the new
@@ -324,17 +326,18 @@ class _MangaChapterPageGalleryState
     if (!(settings.volumeButtonNavigation ?? false)) return;
 
     _lastVolume = await volNavInit();
+    _volumeBaseline = _lastVolume;
     _volumeListenerActive = true;
 
     volNavListenRaw((newVolume) {
       if (!mounted || !_volumeListenerActive) return;
 
-      // This callback fires both on real button presses AND on our own
-      // volNavRestore() call. Without the guard, the restore (which lowers
-      // volume back to baseline) looks like a Vol↓ press and immediately
-      // cancels the navigation we just triggered. Skip it entirely.
-      if (_isRestoringVolume) {
-        _isRestoringVolume = false;
+      // Ignore the echo of our own restore: the platform reports the volume
+      // back at the baseline we just set, whereas a genuine key press lands a
+      // step away from it.
+      final baseline = _volumeBaseline;
+      if (baseline != null &&
+          (newVolume - baseline).abs() <= _volumeStepEpsilon) {
         _lastVolume = newVolume;
         return;
       }
@@ -346,19 +349,19 @@ class _MangaChapterPageGalleryState
 
       final volUp = newVolume > _lastVolume;
       final volDown = newVolume < _lastVolume;
-      // Capture baseline BEFORE updating so restore targets the right level
+      if (!volUp && !volDown) return;
+
+      // Capture baseline BEFORE updating so restore targets the right level.
       final previousVolume = _lastVolume;
       _lastVolume = newVolume;
 
-      // Restore to previous level → system volume stays unchanged.
-      // Set _isRestoringVolume first so the listener skips the restore callback.
-      _isRestoringVolume = true;
+      // Restore the system volume so the physical level stays unchanged, then
+      // remember the restored level so its echo is ignored.
+      _volumeBaseline = previousVolume;
+      volNavRestore(previousVolume);
       Future.delayed(const Duration(milliseconds: 80), () {
-        if (!_volumeListenerActive) {
-          _isRestoringVolume = false;
-          return;
-        }
-        volNavRestore(previousVolume);
+        if (!_volumeListenerActive) return;
+        _volumeBaseline = previousVolume;
       });
 
       if (volUp) {
@@ -376,7 +379,7 @@ class _MangaChapterPageGalleryState
             animate: true,
           );
         }
-      } else if (volDown) {
+      } else {
         if (invert) {
           navigationService.previousPage(
             readerMode: readerMode,

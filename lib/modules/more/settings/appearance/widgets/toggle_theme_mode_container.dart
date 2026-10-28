@@ -52,17 +52,6 @@ class ToggleThemeModeContainer extends ConsumerStatefulWidget {
 
 class _ToggleThemeModeContainerState
     extends ConsumerState<ToggleThemeModeContainer> {
-  // Namida uses _cachedWidget for perf; kept but invalidated on theme change
-  Widget? _cachedWidget;
-
-  @override
-  void didUpdateWidget(ToggleThemeModeContainer old) {
-    super.didUpdateWidget(old);
-    if (old.maxWidth != widget.maxWidth) {
-      _cachedWidget = null;
-    }
-  }
-
   // Copied verbatim from Namida _themeModeToAlignment
   Alignment _themeModeToAlignment(ThemeMode theme) {
     return theme == ThemeMode.light
@@ -93,9 +82,6 @@ class _ToggleThemeModeContainerState
         ? ThemeMode.system
         : (isDark ? ThemeMode.dark : ThemeMode.light);
 
-    // Invalidate cached widget on mode change so animation re-triggers
-    _cachedWidget = null;
-
     const brConst = 8.0;
     const horizontalPaddingConst = 8.0;
     final itemsCount = ThemeMode.values.length;
@@ -112,7 +98,7 @@ class _ToggleThemeModeContainerState
       Colors.white.withAlpha(160),
     );
 
-    return _cachedWidget = RepaintBoundary(
+    return RepaintBoundary(
       child: Container(
         decoration: BoxDecoration(
           color: containerBg,

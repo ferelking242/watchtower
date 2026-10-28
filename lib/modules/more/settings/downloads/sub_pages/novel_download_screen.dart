@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,9 +18,8 @@ class NovelDownloadScreen extends ConsumerWidget {
     final novelSimultaneous = ref.watch(novelSimultaneousStateProvider);
     final novelOnlyOnWifi = ref.watch(novelOnlyOnWifiStateProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: const Text('Téléchargements — Roman')),
+    return SettingsSubpageScaffold(
+      title: 'Téléchargements — Roman',
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

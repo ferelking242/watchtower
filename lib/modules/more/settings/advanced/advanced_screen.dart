@@ -17,6 +17,7 @@ import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
@@ -87,7 +88,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   // ── Log settings ────────────────────────────────────────────────────────────
   int _logMode = 1; // 0=normal,1=verbose,2=debug,3=extreme
-  int _logMinLevel = 1;
   bool _logSuppressImages = true;
   bool _logTagExt = true;
   bool _logTagDl = true;
@@ -280,7 +280,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         _noNonAscii = results[3] as bool;
         _bitmapThreshold = results[4] as int;
         _logMode = results[5] as int;
-        _logMinLevel = results[6] as int;
         _logSuppressImages = results[7] as bool;
         _logTagExt = results[8] as bool;
         _logTagDl = results[9] as bool;
@@ -297,10 +296,10 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         _loading = false;
       });
       // Load UI scale separately
-      final _advBox2 = await _openBox();
-      final _loadedScale =
-          (_advBox2.get(_kUiScaleKey, defaultValue: 1.0) as num).toDouble();
-      if (mounted) setState(() => _uiScale = _loadedScale);
+      final advBox = await _openBox();
+      final loadedScale =
+          (advBox.get(_kUiScaleKey, defaultValue: 1.0) as num).toDouble();
+      if (mounted) setState(() => _uiScale = loadedScale);
     }
   }
 
@@ -314,7 +313,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     final tags = mode.defaultTags;
     setState(() {
       _logMode = mode.index;
-      _logMinLevel = mode.minLevel;
       _logTagExt = tags[kLogTagExt]!;
       _logTagDl = tags[kLogTagDl]!;
       _logTagNet = tags[kLogTagNet]!;
@@ -558,8 +556,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         if (chapter == null) continue;
         chapter.manga.loadSync();
         final manga = chapter.manga.value;
-        if (manga == null || manga.id == null || manga.favorite == true)
+        if (manga == null || manga.id == null || manga.favorite == true) {
           continue;
+        }
 
         await isar.writeTxn(() async {
           final m = await isar.mangas.get(manga.id!);
@@ -683,7 +682,6 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   Future<void> _openBatterySettings() async {
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        final uri = Uri.parse('package:com.example.watchtower');
         await launchUrl(
           Uri.parse('android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'),
           mode: LaunchMode.externalApplication,
@@ -802,17 +800,16 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(
-          leading: const BackButton(),
-          title: const Text("Avancé"),
-        ),
+      // Not `const`: SettingsSubpageScaffold's assert reads slivers.length,
+      // which is not allowed inside a constant expression.
+      return SettingsSubpageScaffold(
+        title: "Avancé",
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(leading: const BackButton(), title: const Text("Avancé")),
+    return SettingsSubpageScaffold(
+      title: "Avancé",
       body: ListView(
         children: [
           // ── Section : Installation automatique ─────────────────────────
@@ -1455,7 +1452,7 @@ class _LogAdvancedSection extends ConsumerWidget {
     final selectedMode = LogMode.values[logMode.clamp(0, 3)];
 
     // ── Tag toggle helper ──────────────────────────────────────────────────
-    Widget _logToggle({
+    Widget logToggle({
       required String title,
       required String subtitle,
       required String tagKey,
@@ -1655,75 +1652,75 @@ class _LogAdvancedSection extends ConsumerWidget {
           ),
         ),
 
-        _logToggle(
+        logToggle(
           title: "Extensions [EXT]",
           subtitle: "Installation, mise à jour, erreurs d'extensions",
           tagKey: kLogTagExt,
           value: logTagExt,
         ),
-        _logToggle(
+        logToggle(
           title: "Installation détaillée [INSTALL]",
           subtitle: "Chaque étape d'installation/désinstallation",
           tagKey: kLogTagInstall,
           value: logTagInstall,
         ),
-        _logToggle(
+        logToggle(
           title: "Téléchargements [DL]",
           subtitle: "Progression, reprise, erreurs de téléchargements",
           tagKey: kLogTagDl,
           value: logTagDl,
         ),
-        _logToggle(
+        logToggle(
           title: "HLS streaming [HLS]",
           subtitle: "Segments HLS, manifest, erreurs de stream",
           tagKey: kLogTagHls,
           value: logTagHls,
         ),
-        _logToggle(
+        logToggle(
           title: "Réseau [NET]",
           subtitle: "Requêtes HTTP, redirections, erreurs réseau",
           tagKey: kLogTagNet,
           value: logTagNet,
         ),
-        _logToggle(
+        logToggle(
           title: "Manga [MANGA]",
           subtitle: "Chargement série, chapitres, métadonnées",
           tagKey: kLogTagManga,
           value: logTagManga,
         ),
-        _logToggle(
+        logToggle(
           title: "Lecteur [READER]",
           subtitle: "Navigation lecteur, zoom, orientation",
           tagKey: kLogTagReader,
           value: logTagReader,
         ),
-        _logToggle(
+        logToggle(
           title: "Pages manga [PAGE]",
           subtitle: "⚡ Chaque page chargée (très verbeux)",
           tagKey: kLogTagPage,
           value: logTagPage,
           danger: true,
         ),
-        _logToggle(
+        logToggle(
           title: "Lecture vidéo [WATCH]",
           subtitle: "Ouverture épisode, buffering, watchdog 60 s",
           tagKey: kLogTagWatch,
           value: logTagWatch,
         ),
-        _logToggle(
+        logToggle(
           title: "Maintenance [MAINT]",
           subtitle:
               "Nettoyage cookies, BDD, réindexation, tâches d'arrière-plan",
           tagKey: kLogTagMaint,
           value: logTagMaint,
         ),
-        _logToggle(
+        logToggle(
           title: "Interface [UI]",
           subtitle: "Événements et erreurs d'interface",
           tagKey: kLogTagUi,
           value: logTagUi,
         ),
-        _logToggle(
+        logToggle(
           title: "Images [IMG]",
           subtitle: "Téléchargement des couvertures : cache, réseau, échecs",
           tagKey: kLogTagImg,
@@ -1759,7 +1756,6 @@ class _SilentInstallTileState extends State<_SilentInstallTile> {
       case SilentInstallStatus.shizukuNotRunning:
         return "Shizuku n'est pas démarré. Ouvrez Shizuku puis revenez ici.";
       case SilentInstallStatus.unknown:
-      default:
         return "Vérification…";
     }
   }

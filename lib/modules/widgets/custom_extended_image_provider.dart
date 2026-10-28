@@ -98,6 +98,25 @@ void _logCoverFailure(String key, String detail) {
   }
 }
 
+/// Whether cached bytes are clearly not an image.
+///
+/// The persistent cover cache is read back without any validation, so a body
+/// that is not an image (a Cloudflare/HTML error page, a truncated response)
+/// stays on disk and is re-decoded on every launch — the card shows a
+/// placeholder forever, and no extension update can recover it because the
+/// bytes are keyed by URL, not re-fetched. Binary image formats always start
+/// with a magic byte, never `<`, so an HTML/text body is a safe signal to drop
+/// the entry and fetch again.
+bool _looksLikeMarkupOrText(Uint8List data) {
+  var i = 0;
+  while (i < data.length &&
+      (data[i] == 0x20 || data[i] == 0x09 || data[i] == 0x0A || data[i] == 0x0D)) {
+    i++;
+  }
+  if (i >= data.length) return true;
+  return data[i] == 0x3C; // '<'
+}
+
 /// Routes image-pipeline events to the release log under the [IMG] tag.
 /// The former `debugPrint` calls only exist in debug builds, so a release
 /// build gave no way to tell a failed download from an empty `imageUrl`.
@@ -445,7 +464,14 @@ class CustomExtendedNetworkImageProvider
         _imgLog('DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
       }
     }
-    if (data != null && data.isEmpty) {
+    if (data != null && (data.isEmpty || _looksLikeMarkupOrText(data))) {
+      if (data.isNotEmpty) {
+        _imgLog(
+          'cache invalide (contenu non-image) → nouveau téléchargement '
+          '${_shortUrl(key.url)}',
+          level: LogLevel.warning,
+        );
+      }
       data = null;
       try {
         (cacheFile as dynamic).deleteSync();

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -39,11 +40,8 @@ class WatchDownloadScreen extends ConsumerWidget {
       preferredExternalDownloaderStateProvider,
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: const BackButton(),
-        title: const Text('Téléchargements — Watch'),
-      ),
+    return SettingsSubpageScaffold(
+      title: 'Téléchargements — Watch',
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/utils/date.dart';
@@ -32,9 +33,8 @@ class SyncScreen extends ConsumerWidget {
       l10n.sync_auto_6_hours: 21600,
       l10n.sync_auto_12_hours: 43200,
     };
-    return Scaffold(
-      appBar: AppBar(
-          leading: const BackButton(),title: Text(l10nLocalizations(context)!.syncing)),
+    return SettingsSubpageScaffold(
+      title: l10nLocalizations(context)!.syncing,
       body: SingleChildScrollView(
         child: StreamBuilder(
           stream: isar.syncPreferences.filter().syncIdIsNotNull().watch(
