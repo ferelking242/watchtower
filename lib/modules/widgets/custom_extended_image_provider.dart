@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http_client_helper/http_client_helper.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart';
 import 'package:extended_image_library/src/network/extended_network_image_provider.dart'
     as image_provider;
@@ -79,6 +80,30 @@ final _memoryCache = ImageBytesLruCache<String, Uint8List>(
 /// Prevents two widgets requesting the same uncached URL at the same time
 /// from starting two network downloads.
 final _inFlightImageLoads = <String, Future<Uint8List?>>{};
+
+/// Deduplicates repeated cover-download failures so a broken CDN host does
+/// not print one line per card. Keyed by `status|host`; the first few are
+/// logged in full, then a periodic running total.
+final _coverFailureCounts = <String, int>{};
+
+void _logCoverFailure(String key, String detail) {
+  final count = (_coverFailureCounts[key] ?? 0) + 1;
+  _coverFailureCounts[key] = count;
+  if (count <= 5 || count % 20 == 0) {
+    AppLogger.log(
+      'échec couverture (#$count) $detail',
+      logLevel: LogLevel.warning,
+      tag: LogTag.image,
+    );
+  }
+}
+
+/// Routes image-pipeline events to the release log under the [IMG] tag.
+/// The former `debugPrint` calls only exist in debug builds, so a release
+/// build gave no way to tell a failed download from an empty `imageUrl`.
+void _imgLog(String message, {LogLevel level = LogLevel.debug}) {
+  AppLogger.log(message, logLevel: level, tag: LogTag.image);
+}
 
 /// Cache metadata for LRU eviction
 class _CacheMetadata {
@@ -286,9 +311,10 @@ class CustomExtendedNetworkImageProvider
           result = await instantiateImageCodec(data, decode);
         }
       } catch (e) {
-        if (kDebugMode) {
-          if (kDebugMode) print(e);
-        }
+        _logCoverFailure(
+          'decode|${Uri.tryParse(key.url)?.host ?? "?"}',
+          '${_shortUrl(key.url)} décodage impossible — $e',
+        );
       }
     } else {
       try {
@@ -297,14 +323,19 @@ class CustomExtendedNetworkImageProvider
           result = await instantiateImageCodec(data, decode);
         }
       } catch (e) {
-        if (kDebugMode) {
-          if (kDebugMode) print(e);
-        }
+        _logCoverFailure(
+          'decode|${Uri.tryParse(key.url)?.host ?? "?"}',
+          '${_shortUrl(key.url)} décodage impossible — $e',
+        );
       }
     }
 
     //Failed to load
     if (result == null) {
+      _imgLog(
+        'FAILED ${_shortUrl(key.url)} → placeholder',
+        level: LogLevel.warning,
+      );
       //result = await ui.instantiateImageCodec(kTransparentImage);
       return Future<ui.Codec>.error(StateError('Failed to load $url.'));
     }
@@ -354,9 +385,7 @@ class CustomExtendedNetworkImageProvider
     // Check memory cache first
     final cachedData = _memoryCache.get(md5Key);
     if (cachedData != null) {
-      if (kDebugMode) {
-        debugPrint('[IMG] MEM-HIT ${_shortUrl(key.url)} (${cachedData.length} B)');
-      }
+      _imgLog('MEM-HIT ${_shortUrl(key.url)} (${cachedData.length} B)');
       return cachedData;
     }
 
@@ -385,11 +414,11 @@ class CustomExtendedNetworkImageProvider
           try {
             await (cacheFile as dynamic).writeAsBytes(data);
           } catch (error) {
-            debugPrint('[IMG] could not persist migrated cover: $error');
+            _imgLog('could not persist migrated cover: $error', level: LogLevel.warning);
           }
         }
       } catch (error) {
-        debugPrint('[IMG] could not migrate legacy cover cache: $error');
+        _imgLog('could not migrate legacy cover cache: $error', level: LogLevel.warning);
       }
     }
 
@@ -402,22 +431,18 @@ class CustomExtendedNetworkImageProvider
         final DateTime lastModified = (cacheFile as dynamic).lastModifiedSync() as DateTime;
         if (now.difference(lastModified) > key.cacheMaxAge!) {
           (cacheFile as dynamic).deleteSync();
-          if (kDebugMode) debugPrint('[IMG] DISK-EXPIRED ${_shortUrl(key.url)}');
+          _imgLog('DISK-EXPIRED ${_shortUrl(key.url)}');
         } else {
           final t0 = DateTime.now();
           data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
-          if (kDebugMode) {
-            final ms = DateTime.now().difference(t0).inMilliseconds;
-            debugPrint('[IMG] DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
-          }
+          final ms = DateTime.now().difference(t0).inMilliseconds;
+          _imgLog('DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
         }
       } else {
         final t0 = DateTime.now();
         data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
-        if (kDebugMode) {
-          final ms = DateTime.now().difference(t0).inMilliseconds;
-          debugPrint('[IMG] DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
-        }
+        final ms = DateTime.now().difference(t0).inMilliseconds;
+        _imgLog('DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
       }
     }
     if (data != null && data.isEmpty) {
@@ -430,7 +455,7 @@ class CustomExtendedNetworkImageProvider
 
     // load from network
     if (data == null) {
-      if (kDebugMode) debugPrint('[IMG] CACHE-MISS → network ${_shortUrl(key.url)}');
+      _imgLog('CACHE-MISS → network ${_shortUrl(key.url)}');
       data = await _loadNetwork(key, chunkEvents);
       if (data != null) {
         if (!kIsWeb) {
@@ -444,7 +469,7 @@ class CustomExtendedNetworkImageProvider
           } catch (error) {
             // A full/read-only disk should not make a successfully loaded
             // cover render as a failed image.
-            debugPrint('[IMG] could not write image cache entry: $error');
+            _imgLog('could not write image cache entry: $error', level: LogLevel.warning);
           }
         }
 
@@ -475,17 +500,16 @@ class CustomExtendedNetworkImageProvider
     final t0 = DateTime.now();
     try {
       final Uri resolved = Uri.base.resolve(key.url);
-      if (kDebugMode) debugPrint('[IMG] NET-START ${_shortUrl(key.url)}');
+      _imgLog('NET-START ${_shortUrl(key.url)}');
       final StreamedResponse? response = await _tryGetResponse(resolved);
 
       if (response == null || response.statusCode != io.HttpStatus.ok) {
         final ms = DateTime.now().difference(t0).inMilliseconds;
-        if (kDebugMode) {
-          debugPrint(
-            '[IMG] NET-FAIL  ${_shortUrl(key.url)} '
-            'status=${response?.statusCode ?? "null"} ${ms}ms',
-          );
-        }
+        final status = response?.statusCode;
+        _logCoverFailure(
+          '${status ?? "null"}|${resolved.host}',
+          '${_shortUrl(key.url)} status=${status ?? "null"} ${ms}ms',
+        );
         return null;
       }
 
@@ -517,51 +541,73 @@ class CustomExtendedNetworkImageProvider
 
       if (bytes.isEmpty) {
         final ms = DateTime.now().difference(t0).inMilliseconds;
-        if (kDebugMode) debugPrint('[IMG] NET-EMPTY ${_shortUrl(key.url)} ${ms}ms');
+        _imgLog(
+          'NET-EMPTY ${_shortUrl(key.url)} ${ms}ms',
+          level: LogLevel.warning,
+        );
         return Future<Uint8List>.error(
           StateError('NetworkImage is an empty file: $resolved'),
         );
       }
 
       final ms = DateTime.now().difference(t0).inMilliseconds;
-      if (kDebugMode) {
-        debugPrint('[IMG] NET-OK    ${_shortUrl(key.url)} (${bytes.length} B, ${ms}ms)');
-      }
+      _imgLog('NET-OK    ${_shortUrl(key.url)} (${bytes.length} B, ${ms}ms)');
       return Uint8List.fromList(bytes);
     } on OperationCanceledError catch (_) {
       final ms = DateTime.now().difference(t0).inMilliseconds;
-      if (kDebugMode) debugPrint('[IMG] NET-CANCEL ${_shortUrl(key.url)} ${ms}ms');
+      _imgLog('NET-CANCEL ${_shortUrl(key.url)} ${ms}ms');
       return Future<Uint8List>.error(StateError('User cancel request $url.'));
     } catch (e) {
       final ms = DateTime.now().difference(t0).inMilliseconds;
-      if (kDebugMode) debugPrint('[IMG] NET-ERR   ${_shortUrl(key.url)} ${ms}ms — $e');
+      _logCoverFailure(
+        'err|${Uri.tryParse(key.url)?.host ?? "?"}',
+        '${_shortUrl(key.url)} ${ms}ms — $e',
+      );
     } finally {
       await chunkEvents?.close();
     }
     return null;
   }
 
-  Future<StreamedResponse> _getResponse(Uri resolved) async {
-    var request = Request('GET', resolved);
-
-    // Optimize headers for better caching and compression
-    final optimizedHeaders = {
+  /// Builds the GET used for one cover download. A fresh instance is needed for
+  /// every attempt: an `http.Request` can only be finalized once, so a retry
+  /// reusing `response.request` throws instead of re-sending.
+  Request _buildImageRequest(Uri resolved) {
+    final request = Request('GET', resolved);
+    request.headers.addAll({
       ...?headers,
       'Accept-Encoding': 'gzip, deflate, br',
       'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
       'Connection': 'keep-alive',
-    };
-    request.headers.addAll(optimizedHeaders);
+    });
+    return request;
+  }
 
-    StreamedResponse response = await MClient.init(
+  Future<StreamedResponse> _getResponse(Uri resolved) async {
+    var response = await MClient.init(
       showCloudFlareError: showCloudFlareError,
-    ).send(request);
+    ).send(_buildImageRequest(resolved));
 
     if (response.statusCode != 200) {
+      // The default (anti-bot aware) client can be answered with a challenge or
+      // a transient error for an image; retry once over the plain Dart client
+      // before giving up. A `Request` can only be finalized once, so the retry
+      // needs a fresh instance rather than `response.request`.
+      _imgLog(
+        'retry (dart http) ${_shortUrl(resolved.toString())} '
+        'after status=${response.statusCode}',
+      );
       final res = await MClient.init(
         reqcopyWith: {'useDartHttpClient': true},
         showCloudFlareError: showCloudFlareError,
-      ).send(response.request!);
+      ).send(_buildImageRequest(resolved));
+      if (res.statusCode != 200) {
+        _logCoverFailure(
+          '${res.statusCode}|${resolved.host}',
+          '${_shortUrl(resolved.toString())} status=${res.statusCode} '
+          '(rhttp=${response.statusCode}, dart=${res.statusCode})',
+        );
+      }
       return res;
     }
 

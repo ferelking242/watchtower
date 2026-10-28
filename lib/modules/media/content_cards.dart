@@ -7,6 +7,7 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/media_badges.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 /// Provider-neutral data used by every catalogue card.
 ///
@@ -544,6 +545,29 @@ class TagCard extends StatelessWidget {
   }
 }
 
+/// Throttled reporter for covers that reach the UI without a URL.
+///
+/// A missing cover is the one failure the image pipeline cannot log for us —
+/// there is no request to fail. It is reported here instead, so the release
+/// log distinguishes "extension returned an empty imageUrl" from "download
+/// failed". Logging every card would flood the log on a full home screen, so
+/// the first 10 are reported, then every 25th one with a running total.
+class _EmptyCoverLog {
+  static int _seen = 0;
+
+  static void report() {
+    _seen++;
+    if (_seen <= 10 || _seen % 25 == 0) {
+      AppLogger.log(
+        'cover vide: $(_seen == 1 ? 'première carte' : '$_seen cartes') '
+        'rendue(s) sans imageUrl → placeholder',
+        logLevel: LogLevel.warning,
+        tag: LogTag.image,
+      );
+    }
+  }
+}
+
 class ContentImage extends StatelessWidget {
   const ContentImage({
     super.key,
@@ -559,16 +583,26 @@ class ContentImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final image = url?.trim();
-    final child = image == null || image.isEmpty
-        ? const _ContentImagePlaceholder()
-        : cachedNetworkImage(
-            imageUrl: image,
-            width: null,
-            height: null,
-            fit: fit,
-            errorWidget: const _ContentImagePlaceholder(),
-          );
-    return ClipRRect(borderRadius: BorderRadius.circular(radius), child: child);
+    if (image == null || image.isEmpty) {
+      // The card has nothing to fetch: the item reached the UI without an
+      // `imageUrl`. Reported here because the image pipeline cannot log a
+      // request that never happens.
+      _EmptyCoverLog.report();
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: const _ContentImagePlaceholder(),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: cachedNetworkImage(
+        imageUrl: image,
+        width: null,
+        height: null,
+        fit: fit,
+        errorWidget: const _ContentImagePlaceholder(),
+      ),
+    );
   }
 }
 

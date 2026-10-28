@@ -2,6 +2,26 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
+import 'package:watchtower/utils/log/logger.dart';
+
+/// Deduplicates cover-load failures reported from the render path, keyed by
+/// host. The provider logs the HTTP-level detail; this catches the cases it
+/// cannot see (a cached-but-corrupt file, a decoder failure surfaced only as
+/// `LoadState.failed`). First 5 per host, then every 20th, with a total.
+final _renderFailures = <String, int>{};
+
+void _logRenderFailure(String url) {
+  final host = Uri.tryParse(url)?.host ?? '?';
+  final count = (_renderFailures[host] ?? 0) + 1;
+  _renderFailures[host] = count;
+  if (count <= 5 || count % 20 == 0) {
+    AppLogger.log(
+      'rendu impossible (#$count) $host → placeholder',
+      logLevel: LogLevel.warning,
+      tag: LogTag.image,
+    );
+  }
+}
 
 Widget cachedNetworkImage({
   Map<String, String>? headers,
@@ -39,6 +59,7 @@ Widget cachedNetworkImage({
         return const _SkeletonShimmer();
       }
       if (state.extendedImageLoadState == LoadState.failed) {
+        _logRenderFailure(imageUrl);
         return errorWidget;
       }
       return null;
@@ -87,6 +108,7 @@ Widget cachedCompressedNetworkImage({
         return const _SkeletonShimmer();
       }
       if (state.extendedImageLoadState == LoadState.failed) {
+        _logRenderFailure(imageUrl);
         return errorWidget;
       }
       return null;
