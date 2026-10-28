@@ -1079,6 +1079,12 @@ abstract class AppLocalizations {
   /// **'Reader'**
   String get reader;
 
+  /// No description provided for @reader_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga reader'**
+  String get reader_manga;
+
   /// No description provided for @refresh.
   ///
   /// In en, this message translates to:
@@ -2506,6 +2512,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Player'**
   String get player;
+
+  /// No description provided for @player_video.
+  ///
+  /// In en, this message translates to:
+  /// **'Video player'**
+  String get player_video;
 
   /// No description provided for @markEpisodeAsSeenSetting.
   ///

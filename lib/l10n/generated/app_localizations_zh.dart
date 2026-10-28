@@ -570,6 +570,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get reader => '阅读器';
 
   @override
+  String get reader_manga => 'Manga reader';
+
+  @override
   String get refresh => '刷新';
 
   @override
@@ -1312,6 +1315,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get player => '播放器';
+
+  @override
+  String get player_video => 'Video player';
 
   @override
   String get markEpisodeAsSeenSetting => '标记剧集为已看的时间点';

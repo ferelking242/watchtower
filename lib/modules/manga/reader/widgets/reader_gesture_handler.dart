@@ -39,6 +39,10 @@ class ReaderGestureHandler extends StatelessWidget {
   /// Navigation layout index (0-5), see class docs.
   final int navigationLayout;
 
+  /// Swaps the prev/next tap zones. Used by the "Inverser les zones tactiles"
+  /// reader preference.
+  final bool invertTapZones;
+
   /// Callback when UI should be toggled
   final VoidCallback onToggleUI;
 
@@ -70,6 +74,7 @@ class ReaderGestureHandler extends StatelessWidget {
     required this.onPreviousPage,
     required this.onNextPage,
     this.navigationLayout = 0,
+    this.invertTapZones = false,
     this.onDoubleTapDown,
     this.onDoubleTap,
     this.onSecondaryTapDown,
@@ -90,8 +95,17 @@ class ReaderGestureHandler extends StatelessWidget {
 
   // ── helpers ──
 
-  VoidCallback _prev() => isRTL ? onNextPage : onPreviousPage;
-  VoidCallback _next() => isRTL ? onPreviousPage : onNextPage;
+  VoidCallback _prev() {
+    final swap = invertTapZones;
+    if (isRTL) return swap ? onPreviousPage : onNextPage;
+    return swap ? onNextPage : onPreviousPage;
+  }
+
+  VoidCallback _next() {
+    final swap = invertTapZones;
+    if (isRTL) return swap ? onNextPage : onPreviousPage;
+    return swap ? onPreviousPage : onNextPage;
+  }
 
   _ZoneGestureDetector _zone(VoidCallback onTap) => _ZoneGestureDetector(
     onTap: usePageTapZones ? onTap : onToggleUI,

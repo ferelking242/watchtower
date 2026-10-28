@@ -598,6 +598,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get reader => 'القارئ';
 
   @override
+  String get reader_manga => 'Manga reader';
+
+  @override
   String get refresh => 'تحديث';
 
   @override
@@ -1356,6 +1359,9 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get player => 'لاعب';
+
+  @override
+  String get player_video => 'Video player';
 
   @override
   String get markEpisodeAsSeenSetting =>

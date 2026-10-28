@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/modules/more/settings/widgets/settings_search_index.dart';
+
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/modules/more/widgets/list_tile_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -36,23 +36,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  String _query = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _searchCtrl.addListener(() {
-      setState(() => _query = _searchCtrl.text.toLowerCase());
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
   List<_SettingItem> _buildItems(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     return [
@@ -99,16 +82,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
       _SettingItem(
-        title: l10n.reader,
+        title: l10n.reader_manga,
         icon: Broken.chrome,
         route: '/readerMode',
-        keywords: ['lecture', 'reader', 'manga', 'page'],
+        keywords: ['lecture', 'reader', 'manga', 'page', 'lecteur manga'],
       ),
       _SettingItem(
-        title: l10n.player,
+        title: l10n.player_video,
         icon: Broken.play_circle,
         route: '/playerOverview',
-        keywords: ['video', 'vidéo', 'player', 'lecteur', 'watch'],
+        keywords: [
+          'video',
+          'vidéo',
+          'player',
+          'lecteur',
+          'watch',
+          'lecteur vidéo',
+        ],
       ),
       _SettingItem(
         title: l10n.downloads,
@@ -182,110 +172,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ];
   }
 
-  List<_SettingItem> _filtered(List<_SettingItem> items) {
-    if (_query.isEmpty) return items;
-    return items.where((item) {
-      return item.title.toLowerCase().contains(_query) ||
-          item.keywords.any((k) => k.contains(_query));
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     final items = _buildItems(context);
-    final visible = _filtered(items);
 
     return SettingsSubpageScaffold(
       title: l10n.settings,
-      expandedHeight: 96,
       slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'Rechercher dans les paramètres…',
-                prefixIcon: const Icon(Broken.search_normal, size: 20),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Broken.close_circle, size: 20),
-                        onPressed: () => _searchCtrl.clear(),
-                      ),
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (_query.isNotEmpty)
-          SliverToBoxAdapter(child: _CrossPageResults(query: _query)),
         SliverList(
           delegate: SliverChildBuilderDelegate(
             (context, index) {
-              final item = visible[index];
+              final item = items[index];
               return ListTileWidget(
                 title: item.title,
                 icon: item.icon,
                 onTap: () => context.push(item.route),
               );
             },
-            childCount: visible.length,
+            childCount: items.length,
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
-      ],
-    );
-  }
-}
-
-/// Extra results found on *other* settings pages for the current query.
-class _CrossPageResults extends StatelessWidget {
-  const _CrossPageResults({required this.query});
-
-  final String query;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final entries = kSettingsSearchIndex
-        .where((e) => e.matches(query))
-        .toList();
-    if (entries.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            'Résultats dans les sous-pages',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: cs.primary,
-            ),
-          ),
-        ),
-        ...entries.map(
-          (e) => ListTile(
-            dense: true,
-            leading: Icon(Broken.setting_5, color: cs.primary, size: 20),
-            title: Text(e.title),
-            subtitle: Text(
-              e.page,
-              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-            ),
-            onTap: () => context.push(e.route),
-          ),
-        ),
-        const Divider(height: 16, indent: 16, endIndent: 16),
       ],
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
 import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/manga/reader/widgets/color_filter_widget.dart';
+import 'package:watchtower/modules/more/settings/reader/providers/reader_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -11,7 +12,7 @@ import 'package:watchtower/utils/extensions/others.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/manga/reader/widgets/circular_progress_indicator_animate_rotate.dart';
 
-class ImageViewVertical extends ConsumerWidget {
+class ImageViewVertical extends ConsumerStatefulWidget {
   final UChapDataPreload data;
   final Function(UChapDataPreload data) onLongPressData;
   final bool isHorizontal;
@@ -25,6 +26,23 @@ class ImageViewVertical extends ConsumerWidget {
     required this.failedToLoadImage,
     required this.isHorizontal,
   });
+
+  @override
+  ConsumerState<ImageViewVertical> createState() => _ImageViewVerticalState();
+}
+
+class _ImageViewVerticalState extends ConsumerState<ImageViewVertical> {
+  UChapDataPreload get data => widget.data;
+  bool get isHorizontal => widget.isHorizontal;
+  Function(bool) get failedToLoadImage => widget.failedToLoadImage;
+  Function(UChapDataPreload) get onLongPressData => widget.onLongPressData;
+
+  /// True once the loaded image is wider than tall. Drives the "Pages" wide
+  /// page options (panorama / split / rotate).
+  bool _isWide = false;
+
+  /// Natural width/height ratio of the loaded page, captured on first load.
+  double _aspect = 1.0;
 
   // ── Per-page tracking so we don't spam the log on every loading-tick.
   // Keyed by (chapter URL + page index) so a chapter swap resets state.
@@ -67,28 +85,46 @@ class ImageViewVertical extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final (colorBlendMode, color) = chapterColorFIlterValues(context, ref);
-    final imageWidget = ExtendedImage(
+    final panorama = ref.watch(panoramaImagesProvider);
+    final splitWide = ref.watch(splitWidePagesProvider);
+    final rotateWide = ref.watch(rotateWidePagesProvider);
+
+    // "Rogner les bordures" is handled by the crop-image pipeline, which
+    // replaces [data.cropImage]. Wide-page handling below only applies when the
+    // page really is wider than tall and the user asked for it.
+    Widget imageWidget = ExtendedImage(
       colorBlendMode: colorBlendMode,
       color: color,
       image: data.getImageProvider(ref, true),
       filterQuality: FilterQuality.medium,
       handleLoadingProgress: true,
-      fit: getBoxFit(ref.watch(scaleTypeStateProvider)),
+      fit: rotateWide && _isWide
+          ? BoxFit.contain
+          : getBoxFit(ref.watch(scaleTypeStateProvider)),
       enableLoadState: true,
       loadStateChanged: (state) {
         if (state.extendedImageLoadState == LoadState.completed) {
           failedToLoadImage(false);
           _logLoaded();
           final rawSize = state.extendedImageInfo?.image;
-          if (rawSize != null && data.loadedHeight == null) {
-            final screenWidth = isHorizontal
-                ? context.width(0.8)
-                : MediaQuery.of(context).size.width;
+          if (rawSize != null) {
+            final isWide = rawSize.width > rawSize.height;
             final aspect = rawSize.width / rawSize.height;
-            data.loadedWidth = screenWidth;
-            data.loadedHeight = screenWidth / aspect;
+            if (isWide != _isWide && mounted) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _isWide = isWide);
+              });
+            }
+            _aspect = aspect;
+            if (data.loadedHeight == null) {
+              final screenWidth = isHorizontal
+                  ? context.width(0.8)
+                  : MediaQuery.of(context).size.width;
+              data.loadedWidth = screenWidth;
+              data.loadedHeight = screenWidth / aspect;
+            }
           }
         }
         final placeholderHeight = data.loadedHeight ?? context.height(0.8);
@@ -165,11 +201,52 @@ class ImageViewVertical extends ConsumerWidget {
                 children: [
                   if (data.index == 0)
                     SizedBox(height: MediaQuery.of(context).padding.top),
-                  imageWidget,
+                  _maybeWide(imageWidget, panorama, splitWide, rotateWide),
                 ],
               ),
       ),
       ref,
+    );
+  }
+
+  /// Applies the "Pages" wide-image options when the loaded page is wider than
+  /// tall: split into two stacked halves, rotate to fit, or let the user pan
+  /// horizontally. Falls back to the plain image otherwise.
+  Widget _maybeWide(
+    Widget image,
+    bool panorama,
+    bool splitWide,
+    bool rotateWide,
+  ) {
+    if (!_isWide) return image;
+    final screenW = MediaQuery.of(context).size.width;
+    if (splitWide) {
+      return Column(
+        children: [
+          _half(image, Alignment.centerLeft, screenW),
+          _half(image, Alignment.centerRight, screenW),
+        ],
+      );
+    }
+    if (rotateWide) return RotatedBox(quarterTurns: 1, child: image);
+    if (panorama && !isHorizontal) {
+      // Twice-wide canvas so the spread can be dragged sideways while still
+      // filling the viewport height.
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(width: screenW * _aspect, child: image),
+      );
+    }
+    return image;
+  }
+
+  Widget _half(Widget image, Alignment alignment, double screenW) {
+    return ClipRect(
+      child: Align(
+        alignment: alignment,
+        widthFactor: 0.5,
+        child: SizedBox(width: screenW * 2, child: image),
+      ),
     );
   }
 }
