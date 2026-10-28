@@ -93,6 +93,7 @@ import 'package:watchtower/modules/more/settings/general/recommendations_screen.
 import 'package:watchtower/modules/more/settings/general/extension_cookie_manager_screen.dart';
 import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
 import 'package:watchtower/modules/more/settings/settings_screen.dart';
+import 'package:watchtower/modules/more/settings/settings_subpage_route.dart';
 import 'package:watchtower/modules/more/settings/security/security_screen.dart';
 import 'package:watchtower/modules/more/settings/advanced/advanced_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
@@ -619,6 +620,14 @@ class RouterNotifier extends ChangeNotifier {
       }
     }
 
+    // Settings pages use Bare Browser's slide-from-the-right transition, so the
+    // settings list shifts left and dims under each subpage. iOS and macOS keep
+    // their native page, whose push already looks the same and which carries the
+    // swipe-back gesture.
+    final bool useBareSettingsTransition =
+        bareSettingsRoutes.contains(name) &&
+        (kIsWeb || !(Platform.isIOS || Platform.isMacOS));
+
     return GoRoute(
       path: path ?? (name != null ? "/$name" : "/"),
       name: name,
@@ -631,6 +640,11 @@ class RouterNotifier extends ChangeNotifier {
               child: _safeBuild(context, state),
               transitionsBuilder: (context, animation, secondaryAnimation, child) =>
                   child,
+            )
+          : useBareSettingsTransition
+          ? (context, state) => bareSettingsPage(
+              key: state.pageKey,
+              child: _safeBuild(context, state),
             )
           : (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
           ? (context, state) {

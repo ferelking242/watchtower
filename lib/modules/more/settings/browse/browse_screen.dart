@@ -16,6 +16,7 @@ import 'package:watchtower/models/update.dart';
 import 'package:watchtower/modules/more/settings/player/custom_button_screen.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
+import 'package:watchtower/modules/more/settings/settings_subpage_route.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_layout_provider.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -123,14 +124,11 @@ class BrowseSScreen extends ConsumerWidget {
                       trailing: const Icon(Icons.chevron_right),
                     ),
                   ListTile(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const ExtensionRepositoriesScreen(),
-                          ),
-                        );
-                      },
+                      onTap: () => Navigator.of(context).push(
+                        settingsSubpageRoute(
+                          const ExtensionRepositoriesScreen(),
+                        ),
+                      ),
                       leading: const Icon(Icons.extension_outlined),
                       title: const Text('Extension Repositories'),
                       subtitle: Text(
