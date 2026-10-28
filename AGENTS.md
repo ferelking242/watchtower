@@ -285,6 +285,27 @@ do not reintroduce a bespoke popup or a filter bottom sheet.
   the field); the filter and three-dots live outside the field, composed by the
   screen. `handleSearchBack` clears the query before leaving.
 
+## WebView browser chrome and user intent (do not regress)
+`lib/modules/webview/webview.dart` has no app bar and no footer toolbar. All
+chrome lives in `_BrowserDock`, a pill overlaid on the page (tabs left, "+"
+centre, "⋮" right). It is `Positioned` inside the body `Stack`, so it reserves
+no layout space; dragging the pill sideways folds it into `_BrowserDockState`'s
+collapsed handle against the right edge. Do not reintroduce a header or a
+`bottomNavigationBar`.
+
+Video interception is gated on a real user gesture, because sites autoplay and
+preload media during a swipe. `UserIntentGate` (`lib/services/user_intent_gate.dart`)
+holds a 15 s window; it is marked by the page's `userIntent` JS handler and by
+`_handleInterceptedVideo`. Every interception path checks it first -
+`shouldOverrideUrlLoading` (`_hasUserIntent`), Android `shouldInterceptRequest`
+(`_hasUserIntent`), and the XHR/fetch/hls.js/shaka/video.js hooks in
+`_kVideoInterceptJs` (`hasUserIntent()`). Removing a guard brings back the bug
+where browsing a listing launched the player.
+
+`hookVideo` listens on `play` only. `loadedmetadata`/`canplay` fired for every
+teaser tile the user swiped past. `looksLikeTeaser` skips muted+looping clips,
+clips under 20 s, and elements under 6% of the viewport.
+
 ## Formatting caveat
 `dart format lib/cli` is clean (that is the CI-enforced path). Running
 `dart format lib/` with the local SDK rewrites ~740 files because the tree was
