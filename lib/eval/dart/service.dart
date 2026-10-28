@@ -48,11 +48,51 @@ class MProvider {
 // Structured log helpers — mirrors JsExtensionService._extLog so Dart-based
 // extensions produce identical log lines in the in-app overlay.
 // ─────────────────────────────────────────────────────────────────────────────
-void _dLog(wl.LogLevel lvl, String msg) =>
-    wl.AppLogger.log(msg, logLevel: lvl, tag: wl.LogTag.extension_);
+void _dLog(wl.LogLevel lvl, String msg) {
+  wl.AppLogger.log(msg, logLevel: lvl, tag: wl.LogTag.extension_);
+  // Mirrors JsExtensionService._extLog: the worker isolate has no AppLogger
+  // sink, so the line must also travel over print() to reach the root isolate.
+  final level = switch (lvl) {
+    wl.LogLevel.error => 'ERROR',
+    wl.LogLevel.warning => 'WARN',
+    wl.LogLevel.info => 'INFO',
+    _ => 'DEBUG',
+  };
+  print('[EXT][$level] $msg');
+}
 
 String _dt(String s, [int max = 120]) =>
     s.length <= max ? s : '${s.substring(0, max)}…';
+
+/// One-line cover summary: how many items carry a non-empty `imageUrl`, the
+/// hosts seen, and the first few titles with an empty field. Mirrors the JS
+/// service so both engines log the same shape.
+String _coverSummary(List<MManga>? list) {
+  if (list == null || list.isEmpty) return 'covers 0/0';
+  var withUrl = 0;
+  final hosts = <String, int>{};
+  final empty = <String>[];
+  for (final m in list) {
+    final u = m.imageUrl?.trim();
+    if (u == null || u.isEmpty) {
+      if (empty.length < 3) empty.add(m.name ?? '<sans nom>');
+      continue;
+    }
+    withUrl++;
+    final host = Uri.tryParse(u)?.host ?? '?';
+    hosts[host] = (hosts[host] ?? 0) + 1;
+  }
+  final buf = StringBuffer('covers $withUrl/${list.length}');
+  if (hosts.isNotEmpty) {
+    final sorted = hosts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    buf.write(' · ${sorted.map((e) => '${e.key}×${e.value}').join(', ')}');
+  }
+  if (empty.isNotEmpty) {
+    buf.write(' · ⚠ imageUrl vide: ${empty.join(' | ')}');
+  }
+  return buf.toString();
+}
 
 class DartExtensionService implements ExtensionService {
   @override
@@ -217,7 +257,7 @@ class DartExtensionService implements ExtensionService {
       sw.stop();
       _dLog(wl.LogLevel.info,
         '$_id · getPopular page=$page → ${result.list?.length ?? 0} items  '
-        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms');
+        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
       return result;
     } catch (e) {
       sw.stop();
@@ -235,7 +275,7 @@ class DartExtensionService implements ExtensionService {
       sw.stop();
       _dLog(wl.LogLevel.info,
         '$_id · getLatestUpdates page=$page → ${result.list?.length ?? 0} items  '
-        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms');
+        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
       return result;
     } catch (e) {
       sw.stop();
@@ -258,7 +298,7 @@ class DartExtensionService implements ExtensionService {
       sw.stop();
       _dLog(wl.LogLevel.info,
         '$_id · search q="${_dt(query, 60)}" → ${result.list?.length ?? 0} items  '
-        '${sw.elapsedMilliseconds}ms');
+        '${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
       return result;
     } catch (e) {
       sw.stop();
@@ -427,7 +467,7 @@ class DartExtensionService implements ExtensionService {
       sw.stop();
       _dLog(wl.LogLevel.info,
         '$_id · getCustomList id="$id" → ${result.list?.length ?? 0} items  '
-        '${sw.elapsedMilliseconds}ms');
+        '${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
       return result;
     } catch (e) {
       sw.stop();

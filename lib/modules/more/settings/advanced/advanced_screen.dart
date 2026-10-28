@@ -100,6 +100,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   bool _logTagReader = false;
   bool _logTagWatch = true;
   bool _logTagMaint = true;
+  bool _logTagImg = true;
 
   bool _loading = true;
   SilentInstallStatus _silentStatus = SilentInstallStatus.unknown;
@@ -269,6 +270,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _getBool(kLogTagReader, defaultValue: false),
       _getBool(kLogTagWatch, defaultValue: true),
       _getBool(kLogTagMaint, defaultValue: true),
+      _getBool(kLogTagImg, defaultValue: true),
     ]);
     if (mounted) {
       setState(() {
@@ -291,6 +293,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         _logTagReader = results[16] as bool;
         _logTagWatch = results[17] as bool;
         _logTagMaint = results[18] as bool;
+        _logTagImg = results[19] as bool;
         _loading = false;
       });
       // Load UI scale separately
@@ -323,6 +326,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       _logTagReader = tags[kLogTagReader]!;
       _logTagWatch = tags[kLogTagWatch]!;
       _logTagMaint = tags[kLogTagMaint]!;
+      _logTagImg = tags[kLogTagImg]!;
     });
     final box = await Hive.openBox('advanced_settings');
     await box.put(kLogMode, mode.index);
@@ -1340,6 +1344,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             logTagReader: _logTagReader,
             logTagWatch: _logTagWatch,
             logTagMaint: _logTagMaint,
+            logTagImg: _logTagImg,
             onModeChanged: (mode) => _applyMode(mode),
             onSuppressImagesChanged: (v) {
               setState(() => _logSuppressImages = v);
@@ -1381,6 +1386,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   case kLogTagMaint:
                     _logTagMaint = v;
                     break;
+                  case kLogTagImg:
+                    _logTagImg = v;
+                    break;
                 }
               });
               _saveLogSetting(key, v);
@@ -1412,6 +1420,7 @@ class _LogAdvancedSection extends ConsumerWidget {
   final bool logTagReader;
   final bool logTagWatch;
   final bool logTagMaint;
+  final bool logTagImg;
   final void Function(LogMode) onModeChanged;
   final void Function(bool) onSuppressImagesChanged;
   final void Function(String, bool) onTagChanged;
@@ -1430,6 +1439,7 @@ class _LogAdvancedSection extends ConsumerWidget {
     required this.logTagReader,
     required this.logTagWatch,
     required this.logTagMaint,
+    required this.logTagImg,
     required this.onModeChanged,
     required this.onSuppressImagesChanged,
     required this.onTagChanged,
@@ -1712,6 +1722,12 @@ class _LogAdvancedSection extends ConsumerWidget {
           subtitle: "Événements et erreurs d'interface",
           tagKey: kLogTagUi,
           value: logTagUi,
+        ),
+        _logToggle(
+          title: "Images [IMG]",
+          subtitle: "Téléchargement des couvertures : cache, réseau, échecs",
+          tagKey: kLogTagImg,
+          value: logTagImg,
         ),
       ],
     );

@@ -43,8 +43,12 @@ void _extLog(String level, String msg) {
     _       => LogLevel.debug,
   };
   AppLogger.log(msg, logLevel: lvl, tag: LogTag.extension_);
-  // Also echo to debug console in debug builds for IDE visibility.
-  if (kDebugMode) debugPrint('[EXT][$level] $msg');
+  // Extension code runs in a worker isolate, where AppLogger has no sink:
+  // its file writer and live ring belong to the root isolate. The worker's
+  // only channel to the root is `print()`, which the isolate entry point
+  // forwards to `_forwardExtensionLog`. A debugPrint would vanish in release,
+  // so the structured line must go out through print() to be visible there.
+  print('[EXT][$level] $msg');
 }
 
 void _extDebug(String msg) => _extLog('DEBUG', msg);
@@ -55,6 +59,38 @@ void _extError(String msg) => _extLog('ERROR', msg);
 /// Truncate long strings for log readability.
 String _t(String s, [int max = 100]) =>
     s.length <= max ? s : '${s.substring(0, max)}…';
+
+/// One-line cover summary for a returned list: how many items carry a
+/// non-empty `imageUrl`, the hosts seen, and the first few titles whose
+/// `imageUrl` is empty. A card with an empty field and a card whose download
+/// failed both render the placeholder, so this line tells the two apart
+/// without guessing.
+String _coverSummary(List<MManga>? list) {
+  if (list == null || list.isEmpty) return 'covers 0/0';
+  var withUrl = 0;
+  final hosts = <String, int>{};
+  final empty = <String>[];
+  for (final m in list) {
+    final u = m.imageUrl?.trim();
+    if (u == null || u.isEmpty) {
+      if (empty.length < 3) empty.add(m.name ?? '<sans nom>');
+      continue;
+    }
+    withUrl++;
+    final host = Uri.tryParse(u)?.host ?? '?';
+    hosts[host] = (hosts[host] ?? 0) + 1;
+  }
+  final buf = StringBuffer('covers $withUrl/${list.length}');
+  if (hosts.isNotEmpty) {
+    final sorted = hosts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    buf.write(' · ${sorted.map((e) => '${e.key}×${e.value}').join(', ')}');
+  }
+  if (empty.isNotEmpty) {
+    buf.write(' · ⚠ imageUrl vide: ${empty.join(' | ')}');
+  }
+  return buf.toString();
+}
 
 class JsExtensionService implements ExtensionService {
   static const _maxBytecodeCacheEntries = 32;
@@ -427,7 +463,7 @@ function extLog(level, msg) {
     if (popCount == 0) {
       _extWarn('$_id · getPopular page=$page → 0 items ← extension returned empty list');
     } else {
-      _extInfo('$_id · getPopular page=$page → $popCount items  hasNext=${result.hasNextPage}');
+      _extInfo('$_id · getPopular page=$page → $popCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}');
     }
     return result;
   }
@@ -442,7 +478,7 @@ function extLog(level, msg) {
     if (latCount == 0) {
       _extWarn('$_id · getLatestUpdates page=$page → 0 items ← extension returned empty list');
     } else {
-      _extInfo('$_id · getLatestUpdates page=$page → $latCount items  hasNext=${result.hasNextPage}');
+      _extInfo('$_id · getLatestUpdates page=$page → $latCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}');
     }
     return result;
   }
@@ -459,7 +495,7 @@ function extLog(level, msg) {
     if (srchCount == 0) {
       _extWarn('$_id · search q="${_t(query, 60)}" → 0 items ← extension returned empty list');
     } else {
-      _extInfo('$_id · search q="${_t(query, 60)}" → $srchCount items  hasNext=${result.hasNextPage}');
+      _extInfo('$_id · search q="${_t(query, 60)}" → $srchCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}');
     }
     return result;
   }
@@ -714,7 +750,7 @@ function extLog(level, msg) {
     if (clCount == 0) {
       _extWarn('$_id · getCustomList id="$id" → 0 items ← extension returned empty list');
     } else {
-      _extInfo('$_id · getCustomList id="$id" → $clCount items');
+      _extInfo('$_id · getCustomList id="$id" → $clCount items  ${_coverSummary(result.list)}');
     }
     return result;
   }

@@ -26,6 +26,7 @@ const kLogTagInstall = 'log_tag_install';
 const kLogTagReader = 'log_tag_reader';
 const kLogTagWatch = 'log_tag_watch';
 const kLogTagMaint = 'log_tag_maint';
+const kLogTagImg = 'log_tag_img';
 const kLogSuppressImages = 'log_suppress_images';
 const kLogNtfyEnabled = 'log_ntfy_enabled';
 const _kVerboseDownloadBootstrap = 'verbose_download_diagnostics_v1';
@@ -123,6 +124,7 @@ enum LogMode {
           kLogTagReader: false,
           kLogTagWatch: false,
           kLogTagMaint: true,
+          kLogTagImg: true,
         };
       case LogMode.verbose:
         return {
@@ -137,6 +139,7 @@ enum LogMode {
           kLogTagReader: false,
           kLogTagWatch: true,
           kLogTagMaint: true,
+          kLogTagImg: true,
         };
       case LogMode.debug:
         return {
@@ -151,6 +154,7 @@ enum LogMode {
           kLogTagReader: true,
           kLogTagWatch: true,
           kLogTagMaint: true,
+          kLogTagImg: true,
         };
       case LogMode.extreme:
         return {
@@ -165,6 +169,7 @@ enum LogMode {
           kLogTagReader: true,
           kLogTagWatch: true,
           kLogTagMaint: true,
+          kLogTagImg: true,
         };
     }
   }
@@ -412,6 +417,7 @@ class AppLogger {
         LogTag.reader: kLogTagReader,
         LogTag.watch: kLogTagWatch,
         LogTag.maintenance: kLogTagMaint,
+        LogTag.image: kLogTagImg,
         LogTag.repo: kLogTagExt, // REPO shares the EXT toggle
       };
       for (final entry in tagMap.entries) {
@@ -576,4 +582,5 @@ abstract final class LogTag {
   static const search = 'SRCH';
   static const watch = 'WATCH';
   static const maintenance = 'MAINT';
+  static const image = 'IMG';
 }
