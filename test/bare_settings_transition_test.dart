@@ -81,4 +81,59 @@ void main() {
     );
     expect(fade.opacity.value, closeTo(bareSettingsBehindAlpha, 0.001));
   });
+
+  testWidgets('the search bar rises away and fades as a page slides in', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Column(
+              children: [
+                const BareSearchBarTransition(
+                  child: SizedBox(key: Key('bar'), width: 100, height: 40),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const Scaffold(),
+                    ),
+                  ),
+                  child: const Text('push'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    double barTop() => tester.getTopLeft(find.byKey(const Key('bar'))).dy;
+    double barOpacity() => tester
+        .widget<FadeTransition>(
+          find
+              .ancestor(
+                of: find.byKey(const Key('bar')),
+                matching: find.byType(FadeTransition),
+              )
+              .first,
+        )
+        .opacity
+        .value;
+
+    // Nothing on top: the bar sits where it is, fully opaque.
+    expect(barTop(), 0);
+    expect(barOpacity(), 1);
+
+    // Mid-slide the bar has already left: moved up and faded out.
+    await tester.tap(find.text('push'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(barTop(), lessThan(0));
+    expect(barOpacity(), lessThan(0.5));
+
+    // Let the transition finish so no timers are left pending.
+    await tester.pumpAndSettle();
+  });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/more/settings/settings_subpage_route.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_search_index.dart';
 
 /// Collapsing header shared by every settings page.
@@ -186,14 +187,16 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
           ),
           if (widget.showSearch) ...[
             const SizedBox(height: 14),
-            _searchField(
-              controller: _pageSearch,
-              hint: widget.searchHint,
-              onChanged: _onPageQuery,
-              onClear: () {
-                _pageSearch.clear();
-                _onPageQuery('');
-              },
+            BareSearchBarTransition(
+              child: _searchField(
+                controller: _pageSearch,
+                hint: widget.searchHint,
+                onChanged: _onPageQuery,
+                onClear: () {
+                  _pageSearch.clear();
+                  _onPageQuery('');
+                },
+              ),
             ),
           ],
           const SizedBox(height: 6),

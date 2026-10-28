@@ -103,6 +103,52 @@ Widget bareSettingsTransitions(
   );
 }
 
+/// Bare Browser's settings search bar: it belongs to the page that is on top.
+///
+/// While another page slides in over this one, the bar leaves at the start of
+/// the slide — it rises away and fades — instead of travelling along with the
+/// page and fading out at the end.
+///
+/// Ported from `SettingsSearchCoordinator.updateSingleColumnSearchBoxVisibility()`
+/// in patch 0000196, which hides the box on `SlideState.OPENING`/`OPENED`
+/// ("the box goes at the start of the slide rather than at the end, so the page
+/// is not moved up when the box leaves"), and from patch 0000185, which sets the
+/// box's alpha to 0 the moment the slide starts so it never flashes at the top
+/// of the subpage.
+///
+/// The bar keeps its layout space on purpose: Bare takes the box out of the
+/// layout before the slide is visible so the page never jumps, and the page
+/// behind is hidden by the incoming one anyway.
+class BareSearchBarTransition extends StatelessWidget {
+  const BareSearchBarTransition({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final secondary = ModalRoute.of(context)?.secondaryAnimation;
+    if (secondary == null) return child;
+
+    // Gone within the first third of the slide: the bar has left the screen
+    // while the incoming page is still moving, so nothing flashes above it.
+    final gone = CurvedAnimation(
+      parent: secondary,
+      curve: const Interval(0, 0.34, curve: Curves.easeOut),
+    );
+
+    return FadeTransition(
+      opacity: Tween<double>(begin: 1, end: 0).animate(gone),
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset.zero,
+          end: const Offset(0, -0.5),
+        ).animate(gone),
+        child: child,
+      ),
+    );
+  }
+}
+
 /// The Bare transition as a GoRouter page, for the routes in
 /// [bareSettingsRoutes].
 CustomTransitionPage<void> bareSettingsPage({
