@@ -600,11 +600,13 @@ class CustomExtendedNetworkImageProvider
   /// reusing `response.request` throws instead of re-sending.
   Request _buildImageRequest(Uri resolved) {
     final request = Request('GET', resolved);
+    // No `Connection` header: the Rust client speaks HTTP/2, where connection
+    // specific headers are forbidden (RFC 9113 §8.2.2) and some WAFs answer
+    // 403 when they see one.
     request.headers.addAll({
       ...?headers,
       'Accept-Encoding': 'gzip, deflate, br',
       'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      'Connection': 'keep-alive',
     });
     return request;
   }
@@ -632,6 +634,13 @@ class CustomExtendedNetworkImageProvider
           '${res.statusCode}|${resolved.host}',
           '${_shortUrl(resolved.toString())} status=${res.statusCode} '
           '(rhttp=${response.statusCode}, dart=${res.statusCode})',
+        );
+        // The render path only reports `FAILED` with no status, which hides
+        // whether this was a server rejection (403/429) or a transport error.
+        _imgLog(
+          'ÉCHEC définitif ${_shortUrl(resolved.toString())} '
+          'rhttp=${response.statusCode} dart=${res.statusCode}',
+          level: LogLevel.warning,
         );
       }
       return res;
