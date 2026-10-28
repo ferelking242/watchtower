@@ -11,14 +11,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/anime/anime_player_view.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/mini_webview_state.dart';
+import 'package:watchtower/services/user_intent_gate.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/extension_session_manager.dart';
@@ -1051,13 +1053,27 @@ const String _kVideoInterceptJs = r"""
     return 'Video';
   }
 
-  function sendUrl(url, quality, type) {
+  function sendUrl(url, quality, type, videoEl) {
     if(!url || !isMedia(url)) return;
     var key = url.split('?')[0].split('#')[0];
     if(_seenUrls[key]) return;
     _seenUrls[key] = 1;
     var q = quality || qualityLabel(url);
     var t = type || streamType(url);
+    // Geometry of the site's own player, so the replacement box can start
+    // exactly where the site drew it and only then dock to a corner.
+    var rect = null;
+    try {
+      if(videoEl && videoEl.getBoundingClientRect) {
+        var r = videoEl.getBoundingClientRect();
+        if(r && r.width > 0 && r.height > 0) {
+          rect = {
+            left: r.left, top: r.top, width: r.width, height: r.height,
+            viewportW: window.innerWidth, viewportH: window.innerHeight
+          };
+        }
+      }
+    } catch(e) {}
     try {
       window.flutter_inappwebview.callHandler(
         'videoIntercepted',
@@ -1066,26 +1082,54 @@ const String _kVideoInterceptJs = r"""
           quality: q,
           type: t,
           title: document.title || '',
-          referer: window.location.href || ''
+          referer: window.location.href || '',
+          rect: rect
         })
       );
     } catch(e) {}
   }
 
+  // ── Teaser vs. main video ────────────────────────────────────────────────
+  // Listing pages (xnxx and friends) autoplay dozens of muted, looping
+  // preview <video> cards. Those are not "the video the user asked for", so
+  // they must never trigger the replacement player. The decision is based on
+  // declared facts about the element, never on its URL or the site's name.
+  function looksLikeTeaser(v) {
+    if(!v) return true;
+    if(v.__wtTeaser) return true;
+    // Muted + looping, or muted + autoplay: a preview clip by construction.
+    if(v.muted && (v.loop || v.autoplay)) { v.__wtTeaser = true; return true; }
+    // A short clip is a preview, not the feature.
+    try {
+      if(v.duration && isFinite(v.duration) && v.duration > 0 && v.duration < 20) {
+        v.__wtTeaser = true; return true;
+      }
+    } catch(e) {}
+    // Small on screen: a thumbnail tile, not a player surface.
+    try {
+      var r = v.getBoundingClientRect();
+      var vw = window.innerWidth || 0, vh = window.innerHeight || 0;
+      if(r && r.width > 0 && r.height > 0 && vw > 0 && vh > 0) {
+        if((r.width * r.height) < (vw * vh) * 0.06) { v.__wtTeaser = true; return true; }
+      }
+    } catch(e) {}
+    return false;
+  }
+
   // ── Video element hooks ──────────────────────────────────────────────────
+  // Report only on a real `play`. Attaching to loadedmetadata/canplay made a
+  // swipe over a listing report the next card's stream before the user ever
+  // asked for it.
   function hookVideo(v) {
     if(v.__wtHooked) return;
     v.__wtHooked = true;
-    function checkSrc() {
+    v.addEventListener('play', function() {
+      if(looksLikeTeaser(v)) return;
       var src = v.currentSrc || v.src || '';
-      if(src && !src.startsWith('blob:') && !src.startsWith('data:')) sendUrl(src,'','');
-    }
-    ['loadedmetadata','canplay','play'].forEach(function(ev){
-      v.addEventListener(ev, checkSrc, {passive:true});
-    });
-    // Check immediately if src already set
-    var s = v.src || v.currentSrc || v.getAttribute('src') || '';
-    if(s && !s.startsWith('blob:') && !s.startsWith('data:')) sendUrl(s,'','');
+      if(src && !src.startsWith('blob:') && !src.startsWith('data:')) {
+        sendUrl(src,'','',v);
+      }
+    }, {passive:true});
   }
 
   document.querySelectorAll('video').forEach(hookVideo);
@@ -1100,36 +1144,32 @@ const String _kVideoInterceptJs = r"""
     });
   }).observe(document.documentElement || document.body, {childList:true,subtree:true});
 
-  // Safari-style PiP: overlay at exact video position (position:fixed).
-  // Returns Promise.resolve() for media URLs — guaranteed no Error 80.
-  function _injectPipOverlay(v) {
-    if(v.__wtPipOverlay) return;
-    var r = v.getBoundingClientRect();
-    var w = Math.max(r.width||220,120); var h = Math.max(r.height||124,80);
-    var ov=document.createElement('div');
-    ov.style.cssText='position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+w+'px;height:'+h+'px;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2147483647;pointer-events:none;gap:12px;';
-    var ic=document.createElement('div');
-    ic.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="white" opacity="0.88"><path d="M19 11h-8v6h8v-6zm4-8H1C.45 3 0 3.45 0 4v16c0 .55.45 1 1 1h22c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zm-1 16H2V5h20v14z"/></svg>';
-    var sp=document.createElement('span');
-    sp.style.cssText='color:white;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;font-weight:500;text-align:center;padding:0 24px;line-height:1.5;opacity:0.9;';
-    sp.innerHTML='Cette vid\u00e9o est visionn\u00e9e<br>en Image dans l\'image.';
-    ov.appendChild(ic);ov.appendChild(sp);
-    document.body.appendChild(ov);
-    v.__wtPipOverlay=ov;
+  // ── User intent ──────────────────────────────────────────────────────────
+  // Network hooks below (XHR/fetch/hls.js/shaka/video.js) see a manifest
+  // *before* the `play` event fires, so they need their own guard: a stream is
+  // only reported if the user actually touched the page a moment ago. A swipe
+  // across a listing never counts, so browsing no longer launches the player.
+  var _wtIntentWindowMs = 15000;
+  var _wtLastIntent = 0;
+  function _markIntent() {
+    _wtLastIntent = Date.now();
+    // Tell Dart too: it gates its own network-level interceptor on the same
+    // signal, so both layers agree on when the user really asked for a video.
+    try {
+      window.flutter_inappwebview.callHandler('userIntent');
+    } catch(e) {}
   }
-  HTMLVideoElement.prototype.play = function() {
-    var src = this.currentSrc || this.src || '';
-    if(src && !src.startsWith('blob:') && isMedia(src)) {
-      sendUrl(src,'','');
-    }
-    _injectPipOverlay(this);
-    return Promise.resolve();
-  };
+  function hasUserIntent() {
+    return (Date.now() - _wtLastIntent) < _wtIntentWindowMs;
+  }
+  ['pointerdown','touchstart','mousedown','click'].forEach(function(ev){
+    window.addEventListener(ev, _markIntent, {passive:true, capture:true});
+  });
 
   // ── XHR hook ────────────────────────────────────────────────────────────
   var _origXHR = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(m, url) {
-    if(typeof url === 'string') sendUrl(url,'','');
+    if(typeof url === 'string' && hasUserIntent()) sendUrl(url,'','');
     return _origXHR.apply(this, arguments);
   };
 
@@ -1138,7 +1178,7 @@ const String _kVideoInterceptJs = r"""
     var _origFetch = window.fetch;
     window.fetch = function(r, opts) {
       var url = typeof r === 'string' ? r : (r && r.url ? r.url : '');
-      if(url) sendUrl(url,'','');
+      if(url && hasUserIntent()) sendUrl(url,'','');
       return _origFetch.apply(window, arguments);
     };
   }
@@ -1149,7 +1189,8 @@ const String _kVideoInterceptJs = r"""
     H.prototype.__wtHlsPatched = true;
     var _orig = H.prototype.loadSource;
     if(_orig) H.prototype.loadSource = function(src) {
-      sendUrl(src,'','HLS'); return _orig.apply(this,arguments);
+      if(hasUserIntent()) sendUrl(src,'','HLS');
+      return _orig.apply(this,arguments);
     };
   }
   try {
@@ -1168,7 +1209,7 @@ const String _kVideoInterceptJs = r"""
     s.Player.prototype.__wtShakaPatched = true;
     var _orig = s.Player.prototype.load;
     if(_orig) s.Player.prototype.load = function(uri) {
-      sendUrl(uri,'',uri.indexOf('.m3u8')!==-1?'HLS':'DASH');
+      if(hasUserIntent()) sendUrl(uri,'',uri.indexOf('.m3u8')!==-1?'HLS':'DASH');
       return _orig.apply(this,arguments);
     };
   }
@@ -1188,8 +1229,8 @@ const String _kVideoInterceptJs = r"""
     vjs.prototype.__wtVjsPatched = true;
     var _orig = vjs.prototype.src;
     if(_orig) vjs.prototype.src = function(src) {
-      if(typeof src==='string'&&isMedia(src)) sendUrl(src,'','');
-      else if(Array.isArray(src)) src.forEach(function(s){if(s&&s.src)sendUrl(s.src,s.label||'',s.type||'');});
+      if(typeof src==='string'&&isMedia(src)) { if(hasUserIntent()) sendUrl(src,'',''); }
+      else if(Array.isArray(src)) src.forEach(function(s){if(s&&s.src&&hasUserIntent())sendUrl(s.src,s.label||'',s.type||'');});
       return _orig.apply(this,arguments);
     };
   }
@@ -1214,8 +1255,8 @@ const String _kVideoInterceptJs = r"""
         var _origSetup = inst.setup;
         inst.setup = function(cfg) {
           if(cfg) {
-            (cfg.sources||[]).forEach(function(s){if(s&&s.file)sendUrl(s.file,s.label||'',s.type||'');});
-            if(cfg.file) sendUrl(cfg.file,'','');
+            (cfg.sources||[]).forEach(function(s){if(s&&s.file&&hasUserIntent())sendUrl(s.file,s.label||'',s.type||'');});
+            if(cfg.file&&hasUserIntent()) sendUrl(cfg.file,'','');
           }
           return _origSetup.call(this,cfg);
         };
@@ -1236,21 +1277,6 @@ const String _kVideoInterceptJs = r"""
 })();
 """;
 
-  // ─── Panel snap positions ─────────────────────────────────────────────────────
-
-enum _PanelSnap { mini, half, full }
-
-double _snapFraction(_PanelSnap s) {
-  switch (s) {
-    case _PanelSnap.mini:
-      return 0.075;
-    case _PanelSnap.half:
-      return 0.65;
-    case _PanelSnap.full:
-      return 1.0;
-  }
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /// Returns just the registrable domain+TLD (e.g. "manga-scan.fr")
@@ -1263,15 +1289,6 @@ String _displayHost(String rawUrl) {
     return parts.sublist(parts.length - 2).join('.');
   } catch (_) {
     return rawUrl;
-  }
-}
-
-bool _isSecure(String rawUrl) {
-  try {
-    final uri = Uri.tryParse(rawUrl);
-    return uri?.scheme == 'https';
-  } catch (_) {
-    return false;
   }
 }
 
@@ -1318,8 +1335,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   late String _url = widget.url;
   late String _title = widget.title;
   bool _cookieStoreReady = false;
-  bool _canGoback = false;
-  bool _canGoForward = false;
   double _progress = 0;
 
   // AdBlock
@@ -1332,25 +1347,27 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   // Video interception — floating PiP player
   final _interceptedUrls = <String>{};
-  DateTime? _lastInterceptTime;
   OverlayEntry? _floatingEntry;
 
-  // Footer visibility (toggled by ghost icon)
-  bool _showFooter = true;
+  /// Set when the page reports a real user gesture. The network-level
+  /// interceptor stays inert until then, so autoplay and preloading during a
+  /// swipe never hijack the page.
+  final _userIntent = UserIntentGate();
+
+  bool get _hasUserIntent => _userIntent.hasIntent;
 
   // Night mode / text size / desktop / incognito
   bool _nightMode = false;
   int _textSizeStep = 0;
   bool _desktopMode = false;
   bool _incognitoMode = false;
+  bool _immersive = false;
 
-  // Panel drag
-  _PanelSnap _snap = _PanelSnap.full;
   double _currentFraction = 1.0;
-  double _dragStartFraction = 1.0;
-  double _dragStartY = 0;
   bool _isClosing = false;
-  bool _isDismissing = false;
+
+  /// True while the floating dock is folded against the right edge.
+  bool _dockCollapsed = false;
 
   late AnimationController _animCtrl;
   late Animation<double> _animation;
@@ -1521,8 +1538,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         },
         controller: (c) => _webViewController = c,
         onProgress: (progress) async {
-          final back = await _webViewController?.canGoBack();
-          final fwd = await _webViewController?.canGoForward();
           final title = await _webViewController?.getTitle();
           final url = await _webViewController?.getUrl();
           if (mounted) {
@@ -1530,8 +1545,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               _progress = progress / 100;
               _url = url.toString();
               _title = title ?? _title;
-              _canGoback = back ?? false;
-              _canGoForward = fwd ?? false;
             });
           }
         },
@@ -1555,52 +1568,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         ),
       );
     }
-  }
-
-  // ── Panel drag ────────────────────────────────────────────────────────────
-
-  void _onDragStart(DragStartDetails d) {
-    _dragStartY = d.globalPosition.dy;
-    _dragStartFraction = _currentFraction;
-  }
-
-  void _onDragUpdate(DragUpdateDetails d) {
-    final screenH = MediaQuery.of(context).size.height;
-    final dy = d.globalPosition.dy - _dragStartY;
-    final newFraction = (_dragStartFraction - dy / screenH).clamp(0.2, 1.0);
-    setState(() => _currentFraction = newFraction);
-  }
-
-  void _onDragEnd(DragEndDetails d) {
-    final velocity = d.primaryVelocity ?? 0;
-    _PanelSnap target;
-
-    if (velocity > 600) {
-      target = _snap == _PanelSnap.full ? _PanelSnap.half : _PanelSnap.mini;
-    } else if (velocity < -600) {
-      target = _snap == _PanelSnap.mini ? _PanelSnap.half : _PanelSnap.full;
-    } else {
-      final all = [_PanelSnap.mini, _PanelSnap.half, _PanelSnap.full];
-      target = all.reduce((a, b) {
-        final da = (_snapFraction(a) - _currentFraction).abs();
-        final db = (_snapFraction(b) - _currentFraction).abs();
-        return da < db ? a : b;
-      });
-    }
-
-    if (_currentFraction < 0.25) {
-      _dismiss();
-      return;
-    }
-
-    _snap = target;
-    // Toggle system UI based on panel state
-    if (target == _PanelSnap.full) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
-    _animateTo(_snapFraction(target));
   }
 
   void _animateTo(double target) {
@@ -1680,15 +1647,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     }
   }
 
-  void _dismiss() {
-    if (!mounted || _isDismissing) return;
-    _isDismissing = true;
-    _animateTo(0.0);
-    Future.delayed(const Duration(milliseconds: 300), () {
-      _popRouteIfPossible();
-    });
-  }
-
   /// Animate the panel down to 0 then push to the mini dock and pop.
   void _minimizeToDock() {
     _isClosing = true;
@@ -1717,21 +1675,20 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   // ── AdBlock ───────────────────────────────────────────────────────────────
 
-  NavigationActionPolicy _checkAd(NavigationAction action) {
-    if (!_adBlockEnabled) return NavigationActionPolicy.ALLOW;
-    final url = action.request.url?.toString() ?? '';
-    if (_isAdDomain(url)) {
-      if (mounted) setState(() => _blockedCount++);
-      return NavigationActionPolicy.CANCEL;
-    }
-    return NavigationActionPolicy.ALLOW;
-  }
-
   Future<void> _injectJs() async {
     if (!_adBlockEnabled) return;
     try {
       await _webViewController?.evaluateJavascript(source: _kAdBlockJs);
     } catch (_) {}
+  }
+
+  /// Toggles the OS status/navigation bars. The panel itself always fills the
+  /// screen, so this only hides or shows the system chrome.
+  void _toggleImmersive() {
+    setState(() => _immersive = !_immersive);
+    SystemChrome.setEnabledSystemUIMode(
+      _immersive ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
+    );
   }
 
   Future<void> _activatePicker() async {
@@ -2147,28 +2104,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     );
   }
 
-  Future<void> _reopenInWatchtower() async {
-    final url = _url;
-    if (url.isNotEmpty) {
-      try {
-        final all = await isar.mangas.where().findAll();
-        Manga? match;
-        for (final m in all) {
-          final link = m.link ?? '';
-          if (link.isNotEmpty && url.contains(link)) {
-            match = m;
-            break;
-          }
-        }
-        if (match != null && mounted) {
-          context.push('/manga-reader/detail', extra: match.id!);
-          return;
-        }
-      } catch (_) {}
-    }
-    _popRouteIfPossible();
-  }
-
   // ── Video interception helpers ─────────────────────────────────────────────
 
   /// Returns true if the URL points directly to a playable video/HLS manifest.
@@ -2199,7 +2134,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     final baseUrl = url.split('?').first.split('#').first;
     if (_interceptedUrls.contains(baseUrl)) return;
     _interceptedUrls.add(baseUrl);
-    _lastInterceptTime = DateTime.now();
+    _userIntent.markIntent();
     _showFloatingPlayer(url, title: title, quality: quality, type: type);
   }
 
@@ -2339,6 +2274,118 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     }
   }
 
+  /// Opens a fresh browser session for the current source, matching the "+"
+  /// in the floating dock. Uses the same route as every other entry point so
+  /// the new session inherits headers, cookies and user agent.
+  void _openNewTab() {
+    context.push(
+      '/mangawebview',
+      extra: <String, dynamic>{
+        'url': widget.url,
+        'title': _title.isNotEmpty ? _title : _displayHost(_url),
+        if (widget.sourceId != null) 'sourceId': widget.sourceId.toString(),
+        'initialHeaders': widget.initialHeaders,
+        'userAgent': widget.userAgent,
+      },
+    );
+  }
+
+  /// Opens the sessions list. The current page is shown on top; sessions the
+  /// user minimised earlier (the `miniWebViewProvider` stack) follow, so the
+  /// left dock button always gives access to what is open.
+  void _showTabsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+        final l10n = l10nLocalizations(sheetCtx)!;
+        final sessions = ref.read(miniWebViewProvider);
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black26,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  l10n.browser_dock_tabs,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _TabRow(
+                  title: _title.isNotEmpty ? _title : _displayHost(_url),
+                  subtitle: _displayHost(_url),
+                  isDark: isDark,
+                  current: true,
+                  onTap: () => Navigator.of(sheetCtx).pop(),
+                ),
+                for (int i = 0; i < sessions.length; i++)
+                  _TabRow(
+                    title: sessions[i].title,
+                    subtitle: _displayHost(sessions[i].url),
+                    isDark: isDark,
+                    current: false,
+                    onTap: () {
+                      final entry = sessions[i];
+                      ref.read(miniWebViewProvider.notifier).removeAt(i);
+                      Navigator.of(sheetCtx).pop();
+                      context.push(
+                        '/mangawebview',
+                        extra: <String, dynamic>{
+                          'url': entry.url,
+                          'title': entry.title,
+                          if (entry.sourceId != null)
+                            'sourceId': entry.sourceId.toString(),
+                        },
+                      );
+                    },
+                    onClose: () {
+                      ref.read(miniWebViewProvider.notifier).removeAt(i);
+                      Navigator.of(sheetCtx).pop();
+                    },
+                  ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetCtx).pop();
+                      _openNewTab();
+                    },
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(l10n.browser_dock_new_tab),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showMoreMenu() {
     showModalBottomSheet(
       context: context,
@@ -2422,8 +2469,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           },
           onFullscreen: () {
             dismiss();
-            _snap = _PanelSnap.full;
-            _animateTo(1.0);
+            _toggleImmersive();
           },
           onUserAgent: () {
             dismiss();
@@ -2468,6 +2514,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           onIncognito: () {
             dismiss();
             _toggleIncognito();
+          },
+          onMinimize: () {
+            dismiss();
+            _minimizeToDock();
           },
           onCloseWebView: _popRouteIfPossible,
         );
@@ -2524,38 +2574,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       },
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-        // ── Top bar: address + close ──────────────────────────────────
-        appBar: PreferredSize(
-          preferredSize: Size.fromHeight(54),
-          child: _BrowserHeader(
-              url: _url,
-              title: _title,
-              progress: _progress,
-              isDark: isDark,
-              cs: cs,
-              adEnabled: _adBlockEnabled,
-              blockedCount: _blockedCount,
-              showFooter: _showFooter,
-              incognito: _incognitoMode,
-              snap: _snap,
-              onToggleFooter: () => setState(() => _showFooter = !_showFooter),
-              onRefresh: () => _webViewController?.reload(),
-              onMinimize: () {
-                if (_snap == _PanelSnap.full) {
-                  // Animate panel to 0 then push to mini dock (Telegram-style)
-                  _minimizeToDock();
-                } else {
-                  setState(() => _snap = _PanelSnap.full);
-                  SystemChrome.setEnabledSystemUIMode(
-                      SystemUiMode.immersiveSticky);
-                  _animateTo(_snapFraction(_PanelSnap.full));
-                }
-              },
-              onDragStart: _onDragStart,
-              onDragUpdate: _onDragUpdate,
-              onDragEnd: _onDragEnd,
-          ),
-        ),
+        // No app bar: the page gets the whole screen and every control
+        // lives in the floating dock overlaid on the content.
         // ── WebView body ──────────────────────────────────────────────
         body: !kIsWeb && !Platform.isWindows
             ? InAppWebView(
@@ -2620,6 +2640,13 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                 callback: (args) {
                                   if (!mounted) return;
                                   setState(() => _pickerMode = false);
+                                },
+                              );
+                              c.addJavaScriptHandler(
+                                handlerName: 'userIntent',
+                                callback: (args) {
+                                  if (!mounted) return;
+                                  _userIntent.markIntent();
                                 },
                               );
                               c.addJavaScriptHandler(
@@ -2705,15 +2732,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                   controller: c,
                                 );
                               }
-                              final back = await c.canGoBack();
-                              final fwd = await c.canGoForward();
                               final title = await c.getTitle();
                               if (mounted) {
                                 setState(() {
                                   _url = url.toString();
                                   _title = title ?? _title;
-                                  _canGoback = back;
-                                  _canGoForward = fwd;
                                 });
                               }
                             },
@@ -2725,8 +2748,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                   return NavigationActionPolicy.CANCEL;
                                 }
                               }
-                              // Intercept direct navigation to a video file → offer MPV
-                              if (action.isForMainFrame == true) {
+                              // Intercept a direct navigation to a video file → offer MPV.
+                              // Only when the user asked for it: sites fire scripted
+                              // navigations to a media URL during page load, and
+                              // cancelling those left the page without its player.
+                              if (action.isForMainFrame == true && _hasUserIntent) {
                                 final rawUrl = action.request.url?.toString() ?? '';
                                 if (_isVideoUrl(rawUrl)) {
                                   _handleInterceptedVideo(rawUrl, title: _title);
@@ -2762,9 +2788,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                         data: Uint8List(0),
                                       );
                                     }
-                                    // Android: intercept video resource requests
-                                    // (XHR/fetch interception via JS misses some cases on Android).
-                                    if (_isVideoUrl(url)) {
+                                    // Gated on user intent: blocking every media request
+                                    // also blocked the stream the site itself needed, so
+                                    // the in-page player never started. Now the site plays
+                                    // normally until the user asks for a video.
+                                    if (_isVideoUrl(url) && _hasUserIntent) {
                                       _handleInterceptedVideo(url, title: _title);
                                       // Block the WebView from loading the stream itself
                                       // so only our floating player plays it.
@@ -2782,27 +2810,48 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             : kIsWeb
                 ? _WebViewNotAvailable(url: widget.url)
                 : const SizedBox.shrink(),
-        // ── Bottom toolbar ────────────────────────────────────────────
-        bottomNavigationBar: _showFooter
-            ? _BrowserToolbar(
-                isDark: isDark,
-                cs: cs,
-                canGoBack: _canGoback,
-                canGoForward: _canGoForward,
-                onBack: () => _webViewController?.goBack(),
-                onForward: () => _webViewController?.goForward(),
-                onHome: () => _webViewController?.loadUrl(
-                  urlRequest: URLRequest(url: WebUri(widget.url)),
-                ),
-                onTabs: _showMoreMenu,
-                onMore: _showMoreMenu,
-                onReopenInApp: _reopenInWatchtower,
-              )
-            : null,
       ),
     );
+    // ── Floating dock over the page ───────────────────────────────────
+    // A pill centred over the content: tabs left, "+" middle, "⋮" right.
+    // Dragging it sideways folds it into a small handle against the edge;
+    // tapping the handle brings it back. It never reserves layout space.
+    panelContent = Stack(
+      fit: StackFit.expand,
+      children: [
+        panelContent,
+        // Slim loading line hugging the very top: the only leftover of the
+        // removed header. Ignored for hits so it never blocks the page.
+        if (_progress < 1.0)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: SizedBox(
+                height: 2,
+                child: LinearProgressIndicator(
+                  value: _progress,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                ),
+              ),
+            ),
+          ),
+        if (!kIsWeb)
+          _BrowserDock(
+            isDark: isDark,
+            cs: cs,
+            collapsed: _dockCollapsed,
+            onCollapsedChanged: (v) => setState(() => _dockCollapsed = v),
+            onTabs: _showTabsSheet,
+            onNewTab: _openNewTab,
+            onMore: _showMoreMenu,
+          ),
+      ],
+    );
 
-    // ── Telegram-style minimize panel ─────────────────────────────────────────
+    // ── Telegram-style minimize panel ────────────────────────────────────────
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -2891,372 +2940,293 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
 // ─── Browser header (drag handle + address bar + progress) ───────────────────
 
-class _BrowserHeader extends StatefulWidget {
-  final String url;
-  final String title;
-  final double progress;
-  final bool isDark;
-  final ColorScheme cs;
-  final bool adEnabled;
-  final int blockedCount;
-  final bool showFooter;
-  final bool incognito;
-  final _PanelSnap snap;
-  final VoidCallback onToggleFooter;
-  final VoidCallback onRefresh;
-  final VoidCallback onMinimize;
-  final GestureDragStartCallback onDragStart;
-  final GestureDragUpdateCallback onDragUpdate;
-  final GestureDragEndCallback onDragEnd;
+// ─── Session row (tabs sheet) ─────────────────────────────────────────────────
 
-  const _BrowserHeader({
-    super.key,
-    required this.url,
+class _TabRow extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final bool isDark;
+  final bool current;
+  final VoidCallback onTap;
+  final VoidCallback? onClose;
+
+  const _TabRow({
     required this.title,
-    required this.progress,
+    required this.subtitle,
     required this.isDark,
-    required this.cs,
-    required this.adEnabled,
-    required this.blockedCount,
-    required this.showFooter,
-    required this.incognito,
-    required this.snap,
-    required this.onToggleFooter,
-    required this.onRefresh,
-    required this.onMinimize,
-    required this.onDragStart,
-    required this.onDragUpdate,
-    required this.onDragEnd,
+    required this.current,
+    required this.onTap,
+    this.onClose,
   });
 
   @override
-  State<_BrowserHeader> createState() => _BrowserHeaderState();
-}
-
-class _BrowserHeaderState extends State<_BrowserHeader>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _refreshCtrl;
-  late Animation<double> _refreshAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _refreshAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _refreshCtrl, curve: Curves.linear),
-    );
-  }
-
-  @override
-  void dispose() {
-    _refreshCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onRefreshTap() {
-    widget.onRefresh();
-    _refreshCtrl.forward(from: 0).then((_) => _refreshCtrl.reset());
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final secure = _isSecure(widget.url);
-    final displayTitle = widget.title.isNotEmpty ? widget.title : _displayHost(widget.url);
-    final textColor = widget.isDark ? Colors.white : Colors.black87;
-    final subColor = widget.isDark ? Colors.grey.shade500 : Colors.grey.shade500;
-    final isMini = widget.snap == _PanelSnap.mini;
+    final cs = Theme.of(context).colorScheme;
+    final fg = isDark ? Colors.white : Colors.black87;
+    final sub = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
 
-    // Left icon colour: incognito=purple, HTTPS=green, HTTP=grey
-    final Color shieldColor = widget.incognito
-        ? Colors.deepPurple.shade300
-        : secure
-            ? (widget.isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)
-            : subColor;
-
-    return GestureDetector(
-      onVerticalDragStart: widget.onDragStart,
-      onVerticalDragUpdate: widget.onDragUpdate,
-      onVerticalDragEnd: widget.onDragEnd,
-      behavior: HitTestBehavior.translucent,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Drag handle pill (hidden in fullscreen mode) ───────────
-          if (widget.snap != _PanelSnap.full)
-            Center(
-              child: Container(
-                width: 36, height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: (widget.isDark ? Colors.white : Colors.black).withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            )
-          else
-            const SizedBox(height: 6),
-
-          // Address bar row — completely flat, no container/pill/box
-          SizedBox(
-            height: 40,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: current
+            ? cs.primary.withValues(alpha: isDark ? 0.18 : 0.10)
+            : (isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.04)),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                // Left: shield (secure) or ghost (incognito) — tap = toggle footer
-                GestureDetector(
-                  onTap: widget.onToggleFooter,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                    child: SvgPicture.asset(
-                      widget.incognito ? 'assets/icons/ghost.svg' : 'assets/icons/block-ads.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: ColorFilter.mode(shieldColor, BlendMode.srcIn),
-                    ),
-                  ),
+                Icon(
+                  current ? Icons.public_rounded : Icons.tab_rounded,
+                  size: 20,
+                  color: current ? cs.primary : sub,
                 ),
-
-                // Title — centered, plain text, no box
+                const SizedBox(width: 12),
                 Expanded(
-                  child: GestureDetector(
-                    onLongPress: () {
-                      Clipboard.setData(ClipboardData(text: widget.url));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Lien copié'), duration: Duration(seconds: 2)),
-                      );
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            displayTitle,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: textColor,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            maxLines: 1,
-                            textAlign: TextAlign.center,
-                          ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: fg,
                         ),
-                        if (widget.adEnabled && widget.blockedCount > 0) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.blockedCount > 99 ? '99+' : '${widget.blockedCount}',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: widget.isDark ? Colors.greenAccent.shade400 : Colors.green.shade600,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Right: minimize button + refresh
-                GestureDetector(
-                  onTap: widget.onMinimize,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                    child: Icon(
-                      isMini ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                      size: 22,
-                      color: subColor,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _onRefreshTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                    child: RotationTransition(
-                      turns: _refreshAnim,
-                      child: Icon(
-                        Icons.refresh_rounded,
-                        size: 20,
-                        color: textColor,
                       ),
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: sub),
+                      ),
+                    ],
                   ),
                 ),
+                if (onClose != null)
+                  IconButton(
+                    onPressed: onClose,
+                    icon: Icon(Icons.close_rounded, size: 18, color: sub),
+                    visualDensity: VisualDensity.compact,
+                  ),
               ],
             ),
           ),
-
-          // Progress bar
-          SizedBox(
-            height: 2,
-            child: widget.progress < 1.0
-                ? LinearProgressIndicator(
-                    value: widget.progress,
-                    backgroundColor: Colors.transparent,
-                    valueColor: AlwaysStoppedAnimation<Color>(widget.cs.primary),
-                  )
-                : const SizedBox.shrink(),
-          ),
-
-          // Subtle divider
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: widget.isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.08),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// ─── Bottom browser toolbar ───────────────────────────────────────────────────
+// ─── Floating browser dock ────────────────────────────────────────────────────
+//
+// A compact pill floating over the page, replacing both the top address bar
+// and the bottom toolbar. Left: tabs/options. Centre: "+" for a new session.
+// Right: the "⋮" overflow menu. Dragging it sideways folds it against the
+// right edge; the folded handle restores it on tap. It never reserves layout
+// space, so the page keeps the whole screen.
 
-class _BrowserToolbar extends StatelessWidget {
+class _BrowserDock extends StatefulWidget {
   final bool isDark;
   final ColorScheme cs;
-  final bool canGoBack;
-  final bool canGoForward;
-  final VoidCallback onBack;
-  final VoidCallback onForward;
-  final VoidCallback onHome;
+  final bool collapsed;
+  final ValueChanged<bool> onCollapsedChanged;
   final VoidCallback onTabs;
+  final VoidCallback onNewTab;
   final VoidCallback onMore;
-  final VoidCallback? onReopenInApp;
 
-  const _BrowserToolbar({
+  const _BrowserDock({
     required this.isDark,
     required this.cs,
-    required this.canGoBack,
-    required this.canGoForward,
-    required this.onBack,
-    required this.onForward,
-    required this.onHome,
+    required this.collapsed,
+    required this.onCollapsedChanged,
     required this.onTabs,
+    required this.onNewTab,
     required this.onMore,
-    this.onReopenInApp,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final bg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-    final dividerColor = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : Colors.black.withValues(alpha: 0.08);
-    final inactiveColor = isDark ? Colors.grey.shade700 : Colors.grey.shade400;
+  State<_BrowserDock> createState() => _BrowserDockState();
+}
 
-    return Container(
-      color: bg,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Divider(height: 1, thickness: 0.5, color: dividerColor),
-          SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 52,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // Back
-                  _ToolbarBtn(
-                    svgAsset: 'assets/icons/arrow-left.svg',
-                    size: 18,
-                    onTap: canGoBack ? onBack : null,
-                    isDark: isDark,
-                    disabledColor: inactiveColor,
-                  ),
-                  // Forward
-                  _ToolbarBtn(
-                    svgAsset: 'assets/icons/arrow-right.svg',
-                    size: 18,
-                    onTap: canGoForward ? onForward : null,
-                    isDark: isDark,
-                    disabledColor: inactiveColor,
-                  ),
-                  // Home
-                  _ToolbarBtn(
-                    svgAsset: 'assets/icons/home.svg',
-                    size: 22,
-                    onTap: onHome,
-                    isDark: isDark,
-                  ),
-                  // Re-open in Watchtower
-                  _ToolbarBtn(
-                    icon: Icons.open_in_new_rounded,
-                    size: 20,
-                    onTap: onReopenInApp,
-                    isDark: isDark,
-                    overrideColor: isDark
-                        ? Colors.deepPurple.shade200
-                        : Colors.deepPurple.shade400,
-                  ),
-                  // Menu (3 barres / hamburger)
-                  _ToolbarBtn(
-                    svgAsset: 'assets/icons/menu.svg',
-                    size: 22,
-                    onTap: onMore,
-                    isDark: isDark,
-                  ),
-                ],
+class _BrowserDockState extends State<_BrowserDock> {
+  /// Horizontal offset from the centred rest position while being dragged.
+  double _dragDx = 0;
+  bool _dragging = false;
+
+  /// How far the pill must be pulled sideways before it folds away.
+  static const double _kFoldThreshold = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    final isDark = widget.isDark;
+    final bg = isDark
+        ? const Color(0xFF2A2A2E).withValues(alpha: 0.94)
+        : Colors.white.withValues(alpha: 0.96);
+    final fg = isDark ? Colors.white : Colors.black87;
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.black.withValues(alpha: 0.08);
+
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 18,
+      child: SafeArea(
+        top: false,
+        child: widget.collapsed
+            ? Align(
+                alignment: Alignment.centerRight,
+                child: _buildCollapsed(
+                  fg: fg,
+                  bg: bg,
+                  border: border,
+                  l10n: l10n,
+                ),
+              )
+            : Align(
+                alignment: Alignment.bottomCenter,
+                child: _buildPill(fg: fg, bg: bg, border: border, l10n: l10n),
               ),
+      ),
+    );
+  }
+
+  /// Folded state: a small handle hugging the right edge.
+  Widget _buildCollapsed({
+    required Color fg,
+    required Color bg,
+    required Color border,
+    required AppLocalizations l10n,
+  }) {
+    return GestureDetector(
+      onTap: () => widget.onCollapsedChanged(false),
+      onHorizontalDragUpdate: (d) {
+        // Pulling left un-folds immediately.
+        if (d.delta.dx < 0) widget.onCollapsedChanged(false);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Semantics(
+        button: true,
+        label: l10n.browser_dock_expand,
+        child: Container(
+          width: 30,
+          height: 46,
+          decoration: BoxDecoration(
+            color: bg,
+            border: Border.all(color: border, width: 0.5),
+            borderRadius: const BorderRadius.horizontal(
+              left: Radius.circular(14),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 10,
+                offset: const Offset(-2, 2),
+              ),
+            ],
           ),
-        ],
+          child: Icon(Icons.chevron_left_rounded, size: 20, color: fg),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPill({
+    required Color fg,
+    required Color bg,
+    required Color border,
+    required AppLocalizations l10n,
+  }) {
+    return GestureDetector(
+      onHorizontalDragStart: (_) => setState(() => _dragging = true),
+      onHorizontalDragUpdate: (d) => setState(() => _dragDx += d.delta.dx),
+      onHorizontalDragEnd: (_) {
+        final folded = _dragDx.abs() >= _kFoldThreshold;
+        setState(() {
+          _dragging = false;
+          _dragDx = 0;
+        });
+        if (folded) widget.onCollapsedChanged(true);
+      },
+      child: AnimatedContainer(
+        duration: _dragging ? Duration.zero : const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(_dragDx, 0, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          border: Border.all(color: border, width: 0.5),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _DockBtn(
+              icon: Icons.tab_rounded,
+              label: l10n.browser_dock_tabs,
+              color: fg,
+              onTap: widget.onTabs,
+            ),
+            _DockBtn(
+              icon: Icons.add_rounded,
+              label: l10n.browser_dock_new_tab,
+              color: fg,
+              onTap: widget.onNewTab,
+            ),
+            _DockBtn(
+              icon: Icons.more_vert_rounded,
+              label: l10n.browser_dock_more,
+              color: fg,
+              onTap: widget.onMore,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── Reusable icon button ─────────────────────────────────────────────────────
+class _DockBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
 
-class _ToolbarBtn extends StatelessWidget {
-  final IconData? icon;
-  final String? svgAsset;
-  final double size;
-  final VoidCallback? onTap;
-  final bool isDark;
-  final Color? disabledColor;
-  final Color? overrideColor;
-
-  const _ToolbarBtn({
-    this.icon,
-    this.svgAsset,
-    required this.size,
+  const _DockBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
     required this.onTap,
-    required this.isDark,
-    this.disabledColor,
-    this.overrideColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = overrideColor ?? (isDark ? Colors.white : Colors.black87);
-    final color = onTap == null
-        ? (disabledColor ?? (isDark ? Colors.grey.shade700 : Colors.grey.shade400))
-        : activeColor;
-
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: svgAsset != null
-            ? SvgPicture.asset(
-                svgAsset!,
-                width: size,
-                height: size,
-                colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-              )
-            : Icon(icon, size: size, color: color),
+    return Tooltip(
+      message: label,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 22,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Icon(icon, size: 21, color: color),
+        ),
       ),
     );
   }
@@ -3292,6 +3262,7 @@ class _MoreSheet extends StatefulWidget {
   final VoidCallback onQrCode;
   final VoidCallback onOrientation;
   final VoidCallback onIncognito;
+  final VoidCallback onMinimize;
   final VoidCallback onCloseWebView;
   final bool incognito;
 
@@ -3324,6 +3295,7 @@ class _MoreSheet extends StatefulWidget {
     required this.onQrCode,
     required this.onOrientation,
     required this.onIncognito,
+    required this.onMinimize,
     required this.onCloseWebView,
   });
 
@@ -3429,7 +3401,7 @@ class _MoreSheetState extends State<_MoreSheet> {
       item(null, 'Cookies', widget.onClearCookies, svgAsset: 'assets/icons/trash-2.svg'),
       item(null, 'User-Agent', widget.onUserAgent, svgAsset: 'assets/icons/user-agent.svg'),
       item(null, 'Réseau', widget.onNetworkLog, svgAsset: 'assets/icons/network-log.svg'),
-      item(Icons.info_outline_rounded, 'À propos', () => Navigator.pop(context)),
+      item(null, 'Réduire', widget.onMinimize, svgAsset: 'assets/icons/minus-circle.svg'),
     ]);
 
     final page2 = buildPage([

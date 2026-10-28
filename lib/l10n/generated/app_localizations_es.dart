@@ -2389,6 +2389,21 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get browser_dock_tabs => 'Pestañas';
+
+  @override
+  String get browser_dock_new_tab => 'Nueva pestaña';
+
+  @override
+  String get browser_dock_more => 'Más opciones';
+
+  @override
+  String get browser_dock_collapse => 'Contraer la barra';
+
+  @override
+  String get browser_dock_expand => 'Mostrar la barra';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -4755,4 +4770,19 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get tts_default => 'Predeterminado';
+
+  @override
+  String get browser_dock_tabs => 'Pestañas';
+
+  @override
+  String get browser_dock_new_tab => 'Nueva pestaña';
+
+  @override
+  String get browser_dock_more => 'Más opciones';
+
+  @override
+  String get browser_dock_collapse => 'Contraer la barra';
+
+  @override
+  String get browser_dock_expand => 'Mostrar la barra';
 }

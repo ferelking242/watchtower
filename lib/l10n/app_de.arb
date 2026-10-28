@@ -847,5 +847,10 @@
   "tts_next": "Nächster Absatz",
   "tts_paragraph_progress": "Absatz {current} von {total}",
   "tts_settings": "TTS-Einstellungen",
-  "tts_default": "Standard"
+  "tts_default": "Standard",
+  "browser_dock_tabs": "Tabs",
+  "browser_dock_new_tab": "Neuer Tab",
+  "browser_dock_more": "Weitere Optionen",
+  "browser_dock_collapse": "Leiste einklappen",
+  "browser_dock_expand": "Leiste anzeigen"
 }

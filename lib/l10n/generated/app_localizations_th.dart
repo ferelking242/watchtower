@@ -2358,4 +2358,19 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get browser_dock_tabs => 'แท็บ';
+
+  @override
+  String get browser_dock_new_tab => 'แท็บใหม่';
+
+  @override
+  String get browser_dock_more => 'ตัวเลือกเพิ่มเติม';
+
+  @override
+  String get browser_dock_collapse => 'พับแถบ';
+
+  @override
+  String get browser_dock_expand => 'แสดงแถบ';
 }

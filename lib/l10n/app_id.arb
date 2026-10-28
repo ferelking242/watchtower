@@ -844,5 +844,10 @@
   "tts_next": "Paragraf berikutnya",
   "tts_paragraph_progress": "Paragraf {current} dari {total}",
   "tts_settings": "Pengaturan TTS",
-  "tts_default": "Default"
+  "tts_default": "Default",
+  "browser_dock_tabs": "Tab",
+  "browser_dock_new_tab": "Tab baru",
+  "browser_dock_more": "Opsi lainnya",
+  "browser_dock_collapse": "Ciutkan bilah",
+  "browser_dock_expand": "Tampilkan bilah"
 }

@@ -876,5 +876,10 @@
   "tts_next": "الفقرة التالية",
   "tts_paragraph_progress": "الفقرة {current} من {total}",
   "tts_settings": "إعدادات القراءة",
-  "tts_default": "افتراضي"
+  "tts_default": "افتراضي",
+  "browser_dock_tabs": "علامات التبويب",
+  "browser_dock_new_tab": "علامة تبويب جديدة",
+  "browser_dock_more": "مزيد من الخيارات",
+  "browser_dock_collapse": "طي الشريط",
+  "browser_dock_expand": "إظهار الشريط"
 }

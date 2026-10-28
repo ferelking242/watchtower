@@ -844,5 +844,10 @@
   "tts_next": "পৰৱৰ্তী অনুচ্ছেদ",
   "tts_paragraph_progress": "অনুচ্ছেদ {current} / {total}",
   "tts_settings": "TTS সংহতি",
-  "tts_default": "ডিফল্ট"
+  "tts_default": "ডিফল্ট",
+  "browser_dock_tabs": "টেব",
+  "browser_dock_new_tab": "নতুন টেব",
+  "browser_dock_more": "অধিক বিকল্প",
+  "browser_dock_collapse": "বাৰ সঙ্কুচিত কৰক",
+  "browser_dock_expand": "বাৰ দেখুৱাওক"
 }

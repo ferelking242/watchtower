@@ -846,5 +846,10 @@
   "tts_next": "Párrafo siguiente",
   "tts_paragraph_progress": "Párrafo {current} de {total}",
   "tts_settings": "Configuración TTS",
-  "tts_default": "Predeterminado"
+  "tts_default": "Predeterminado",
+  "browser_dock_tabs": "Pestañas",
+  "browser_dock_new_tab": "Nueva pestaña",
+  "browser_dock_more": "Más opciones",
+  "browser_dock_collapse": "Contraer la barra",
+  "browser_dock_expand": "Mostrar la barra"
 }

@@ -737,7 +737,6 @@
   "clear_library_input": "Type 'manga', 'anime' and/or 'novel' (separated by a comma) to remove all related entries",
   "watch_order": "Watch order",
   "sequels": "Sequels",
-  "recommendations": "Recommendations",
   "recommendations_similarity": "Similarity:",
   "local_folder_structure": "Structure of a local folder",
   "local_folder": "Local folders",
@@ -859,5 +858,10 @@
   "view_all": "View all",
   "for_you": "For you",
   "following_tab": "Following",
-  "explore_tab": "Explore"
+  "explore_tab": "Explore",
+  "browser_dock_tabs": "Browser tabs",
+  "browser_dock_new_tab": "New tab",
+  "browser_dock_more": "More options",
+  "browser_dock_collapse": "Collapse dock",
+  "browser_dock_expand": "Show dock"
 }

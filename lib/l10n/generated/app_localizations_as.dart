@@ -2365,4 +2365,19 @@ class AppLocalizationsAs extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get browser_dock_tabs => 'টেব';
+
+  @override
+  String get browser_dock_new_tab => 'নতুন টেব';
+
+  @override
+  String get browser_dock_more => 'অধিক বিকল্প';
+
+  @override
+  String get browser_dock_collapse => 'বাৰ সঙ্কুচিত কৰক';
+
+  @override
+  String get browser_dock_expand => 'বাৰ দেখুৱাওক';
 }

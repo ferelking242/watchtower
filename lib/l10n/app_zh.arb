@@ -877,5 +877,10 @@
   "tts_next": "下一段",
   "tts_paragraph_progress": "第 {current} 段，共 {total} 段",
   "tts_settings": "TTS 设置",
-  "tts_default": "默认"
+  "tts_default": "默认",
+  "browser_dock_tabs": "标签页",
+  "browser_dock_new_tab": "新建标签页",
+  "browser_dock_more": "更多选项",
+  "browser_dock_collapse": "收起栏",
+  "browser_dock_expand": "显示栏"
 }

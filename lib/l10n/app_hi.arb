@@ -874,5 +874,10 @@
   "tts_next": "अगला पैराग्राफ",
   "tts_paragraph_progress": "पैराग्राफ {current} / {total}",
   "tts_settings": "TTS सेटिंग्स",
-  "tts_default": "डिफ़ॉल्ट"
+  "tts_default": "डिफ़ॉल्ट",
+  "browser_dock_tabs": "टैब",
+  "browser_dock_new_tab": "नया टैब",
+  "browser_dock_more": "अधिक विकल्प",
+  "browser_dock_collapse": "बार छोटा करें",
+  "browser_dock_expand": "बार दिखाएँ"
 }

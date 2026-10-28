@@ -817,5 +817,10 @@
   "tts_next": "次の段落",
   "tts_paragraph_progress": "段落 {current} / {total}",
   "tts_settings": "TTS設定",
-  "tts_default": "デフォルト"
+  "tts_default": "デフォルト",
+  "browser_dock_tabs": "タブ",
+  "browser_dock_new_tab": "新しいタブ",
+  "browser_dock_more": "その他のオプション",
+  "browser_dock_collapse": "バーを折りたたむ",
+  "browser_dock_expand": "バーを表示"
 }

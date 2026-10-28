@@ -2362,4 +2362,19 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get browser_dock_tabs => 'टैब';
+
+  @override
+  String get browser_dock_new_tab => 'नया टैब';
+
+  @override
+  String get browser_dock_more => 'अधिक विकल्प';
+
+  @override
+  String get browser_dock_collapse => 'बार छोटा करें';
+
+  @override
+  String get browser_dock_expand => 'बार दिखाएँ';
 }

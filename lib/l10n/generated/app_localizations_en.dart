@@ -2358,4 +2358,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get browser_dock_tabs => 'Browser tabs';
+
+  @override
+  String get browser_dock_new_tab => 'New tab';
+
+  @override
+  String get browser_dock_more => 'More options';
+
+  @override
+  String get browser_dock_collapse => 'Collapse dock';
+
+  @override
+  String get browser_dock_expand => 'Show dock';
 }

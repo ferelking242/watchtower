@@ -2370,4 +2370,19 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get browser_dock_tabs => 'Sekmeler';
+
+  @override
+  String get browser_dock_new_tab => 'Yeni sekme';
+
+  @override
+  String get browser_dock_more => 'Diğer seçenekler';
+
+  @override
+  String get browser_dock_collapse => 'Çubuğu daralt';
+
+  @override
+  String get browser_dock_expand => 'Çubuğu göster';
 }

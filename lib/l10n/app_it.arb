@@ -844,5 +844,10 @@
   "tts_next": "Paragrafo successivo",
   "tts_paragraph_progress": "Paragrafo {current} di {total}",
   "tts_settings": "Impostazioni TTS",
-  "tts_default": "Predefinito"
+  "tts_default": "Predefinito",
+  "browser_dock_tabs": "Schede",
+  "browser_dock_new_tab": "Nuova scheda",
+  "browser_dock_more": "Altre opzioni",
+  "browser_dock_collapse": "Comprimi la barra",
+  "browser_dock_expand": "Mostra la barra"
 }

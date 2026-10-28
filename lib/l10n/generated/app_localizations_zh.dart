@@ -2291,4 +2291,19 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get browser_dock_tabs => '标签页';
+
+  @override
+  String get browser_dock_new_tab => '新建标签页';
+
+  @override
+  String get browser_dock_more => '更多选项';
+
+  @override
+  String get browser_dock_collapse => '收起栏';
+
+  @override
+  String get browser_dock_expand => '显示栏';
 }

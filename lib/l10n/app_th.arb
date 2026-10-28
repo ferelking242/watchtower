@@ -711,5 +711,10 @@
   "tts_next": "ย่อหน้าถัดไป",
   "tts_paragraph_progress": "ย่อหน้า {current} จาก {total}",
   "tts_settings": "ตั้งค่า TTS",
-  "tts_default": "ค่าเริ่มต้น"
+  "tts_default": "ค่าเริ่มต้น",
+  "browser_dock_tabs": "แท็บ",
+  "browser_dock_new_tab": "แท็บใหม่",
+  "browser_dock_more": "ตัวเลือกเพิ่มเติม",
+  "browser_dock_collapse": "พับแถบ",
+  "browser_dock_expand": "แสดงแถบ"
 }
