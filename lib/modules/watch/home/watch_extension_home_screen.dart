@@ -38,6 +38,8 @@ import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/widgets/kaomoji_empty.dart';
 
 enum _LayoutEditorDestination { home, gallery, json }
@@ -655,6 +657,20 @@ class _WatchExtensionHomeScreenState
 
   @override
   Widget build(BuildContext context) {
+    final headers = ref.watch(
+      headersProvider(
+        source: source.name ?? '',
+        lang: source.lang ?? '',
+        sourceId: source.id,
+      ),
+    );
+    return ExtensionImageHeaders(
+      headers: headers,
+      child: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     // Smart Library is an on-device index, not an extension. Return before
     // watching any extension providers or loading a remote layout.
     if (widget.isLocalLibrary) {

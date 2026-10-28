@@ -5,6 +5,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/modules/media/media_badges.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -607,11 +608,16 @@ class ContentImage extends StatelessWidget {
     required this.url,
     this.fit = BoxFit.cover,
     this.radius = 14,
+    this.headers,
   });
 
   final String? url;
   final BoxFit fit;
   final double radius;
+
+  /// Explicit request headers. When null, the headers declared by the
+  /// enclosing extension screen are used (see [ExtensionImageHeaders]).
+  final Map<String, String>? headers;
 
   @override
   Widget build(BuildContext context) {
@@ -633,6 +639,7 @@ class ContentImage extends StatelessWidget {
         width: null,
         height: null,
         fit: fit,
+        headers: headers ?? ExtensionImageHeaders.of(context),
         errorWidget: const _ContentImagePlaceholder(),
       ),
     );

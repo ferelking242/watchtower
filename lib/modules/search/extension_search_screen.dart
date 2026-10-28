@@ -19,6 +19,8 @@ import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
+import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 
 /// Extension search — used by watch extensions AND manga/novel home screens.
 ///
@@ -402,6 +404,20 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    final headers = ref.watch(
+      headersProvider(
+        source: widget.source.name ?? '',
+        lang: widget.source.lang ?? '',
+        sourceId: widget.source.id,
+      ),
+    );
+    return ExtensionImageHeaders(
+      headers: headers,
+      child: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
