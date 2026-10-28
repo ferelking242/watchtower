@@ -13,10 +13,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
+import 'package:watchtower/models/catalog_entry.dart';
+import 'package:watchtower/models/catalog_shelf.dart';
+import 'package:watchtower/models/catalog_taxonomy.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/browse/catalog_category_page.dart';
+import 'package:watchtower/modules/browse/catalog_widgets.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/catalog_shelf_builder.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/layout_registry.dart';
@@ -119,14 +126,17 @@ int? _parseMktSize(dynamic raw) {
 
 // ─── Data model ────────────────────────────────────────────────────────────────
 
-class _ExtEntry {
+class _ExtEntry implements CatalogEntryView {
+  @override
   final int id;
+  @override
   final String name;
   final String? iconUrl;
   final String lang;
   final String version;
   final ItemType contentType;
   final SourceCodeLanguage compat;
+  @override
   final bool isNsfw;
   final String repoUrl;
   final List<_ExtVersionEntry> versions;
@@ -144,6 +154,27 @@ class _ExtEntry {
   final int? sizeBytes;
   final double rating;
   final int reviewCount;
+
+  /// Marketplace tags published by the index, already filtered to the tags this
+  /// build understands. Empty for indexes that predate the tag system, in which
+  /// case [effectiveTags] derives the shelves from the catalogue and language.
+  @override
+  final List<String> tags;
+
+  /// Declared language codes (`lang` plus any `langs` list), lower-cased.
+  @override
+  final List<String> languages;
+
+  /// Date the entry first appeared in the catalogue, when the index has one.
+  @override
+  final DateTime? addedAt;
+
+  /// Catalogue index the entry was published under.
+  ///
+  /// Kept as the raw integer because [CatalogTaxonomy] indexes its vocabulary
+  /// by `itemType`, and [contentType] cannot round-trip `7` (subtitles).
+  @override
+  final int itemType;
 
   /// Lower-cased blob used for substring search (name, language, type,
   /// sub-categories and description). Built once to avoid re-lowercasing the
@@ -180,7 +211,11 @@ class _ExtEntry {
     this.sizeBytes,
     this.rating = 0,
     this.reviewCount = 0,
-  });
+    this.tags = const [],
+    this.languages = const [],
+    this.addedAt,
+    int? itemType,
+  }) : itemType = itemType ?? contentType.index;
 }
 
 bool _isMusicPluginEntry(_ExtEntry entry) {
@@ -224,17 +259,34 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         0,
         4,
       );
+      // The raw itemType drives the taxonomy; it is not clamped because the
+      // catalogue publishes values outside the app's ItemType enum (subtitles).
+      final rawItemTypeValue = rawItemType is num
+          ? rawItemType.toInt()
+          : itemTypeIdx;
       final compatIdx = rawCompat is num ? rawCompat.toInt() : 1;
       if (compatIdx < 0 || compatIdx > 1) continue;
       final rawSubCategories = e['subCategories'];
+      final rawTags = e['tags'];
+      final rawLangs = e['langs'];
+      final primaryLang = (e['lang'] is String ? e['lang'] as String : 'all')
+          .toLowerCase();
       results.add({
         'id': rawId.toInt(),
         'name': e['name'],
         'iconUrl': _mktIconUrl(
           e['iconUrl'] is String ? e['iconUrl'] as String : null,
         ),
-        'lang': (e['lang'] is String ? e['lang'] as String : 'all')
-            .toLowerCase(),
+        'lang': primaryLang,
+        'languages': <String>[
+          primaryLang,
+          if (rawLangs is List) ...rawLangs.whereType<String>(),
+        ].map((code) => code.toLowerCase()).toList(),
+        'itemType': rawItemTypeValue,
+        'tags': rawTags is List
+            ? rawTags.whereType<String>().toList()
+            : <String>[],
+        'addedAt': e['addedAt'] is String ? e['addedAt'] as String : null,
         'version': e['version'] is String ? e['version'] : '?',
         'contentType': itemTypeIdx,
         'compat': compatIdx,
@@ -325,8 +377,27 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps.map((
     sizeBytes: _parseMktSize(m['sizeBytes']),
     rating: (m['rating'] as num?)?.toDouble() ?? 0,
     reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 0,
+    // Unknown tags are dropped rather than kept: an older build must shelve an
+    // entry it half-understands by the tags it does know, not ignore the entry.
+    tags: CatalogTaxonomy.filterKnown(
+      (m['tags'] as List<dynamic>?)?.whereType<String>() ?? const <String>[],
+    ),
+    languages:
+        (m['languages'] as List<dynamic>?)?.whereType<String>().toList() ??
+        <String>[],
+    addedAt: _parseMktDate(m['addedAt']),
+    itemType: (m['itemType'] as num?)?.toInt() ?? itemType.index,
   );
 }).toList();
+
+/// Parses an index `addedAt` (`YYYY-MM-DD`), returning null for anything else.
+///
+/// A malformed or absent date must not fail the entry: the only thing it drives
+/// is the "recently added" shelf, and the entry stays fully usable without it.
+DateTime? _parseMktDate(dynamic raw) {
+  if (raw is! String || raw.isEmpty) return null;
+  return DateTime.tryParse(raw);
+}
 
 // ─── Outils natifs (ancienne « page plugin », désormais dans le Marketplace) ──
 
@@ -9260,8 +9331,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   bool _searching = false;
   bool _searchFocused = false;
   bool _accountOpen = false;
-  bool _showAll = false;
-  String? _groupFilter;
   final List<String> _recentSearches = [];
 
   bool _hasUpdate(_ExtEntry entry) {
@@ -9429,154 +9498,151 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   void _selectTab(int tab) {
     setState(() {
       _tab = tab;
-      _showAll = false;
-      _groupFilter = null;
-    });
-  }
-
-  void _openGroup(int tab, String? group) {
-    setState(() {
-      _tab = tab;
-      _showAll = true;
-      _groupFilter = group;
       _searching = false;
     });
   }
 
-  // ── Store-like categorisation ─────────────────────────────────────────────
+  // ── Catalogue shelves ──────────────────────────────────────────────────────
   //
-  // Every catalogue tab is presented as several named shelves instead of one
-  // flat list, the way a real store groups its apps. Groups are derived from
-  // the source name/metadata so they stay useful even when an index entry
-  // carries no explicit category.
+  // Shelves are declared once in [CatalogShelves] and resolved from the tags the
+  // index publishes. Nothing here inspects an extension's name: a source is
+  // shelved as manhwa because its catalogue says so, not because "manhwa"
+  // happens to appear in its title.
 
-  static const _kGroupOrder = [
-    'Webtoon',
-    'Manhwa',
-    'Manhua',
-    'Scans',
-    'Comics',
-    'Manga',
-    'Light Novel',
-    'Web Novel',
-    'Anime',
-    'Drama',
-    'Séries',
-    'Films',
-  ];
+  CatalogShelfBuilder<_ExtEntry>? _shelfCache;
+  List<_ExtEntry>? _shelfCacheSource;
 
-  static String? _entryGroup(_ExtEntry entry) {
-    final blob = [
-      entry.name,
-      entry.description,
-      ...entry.subCategories,
-      ...entry.contentSubtype,
-    ].join(' ').toLowerCase();
-
-    bool has(List<String> needles) => needles.any(blob.contains);
-
-    if (has(const ['webtoon', 'web-toon'])) return 'Webtoon';
-    if (has(const ['manhwa'])) return 'Manhwa';
-    if (has(const ['manhua'])) return 'Manhua';
-    if (has(const ['comic'])) return 'Comics';
-    if (has(const ['scantrad', 'scanlation', ' scans', 'scan ']))
-      return 'Scans';
-    if (has(const ['light novel', 'lightnovel'])) return 'Light Novel';
-    if (has(const ['web novel', 'webnovel', 'wuxia', 'xianxia', 'xuanhuan'])) {
-      return 'Web Novel';
+  /// Shelf resolver for the current catalogue.
+  ///
+  /// Cached against the catalogue list's identity, so the per-entry tag lists
+  /// are computed once per catalogue load rather than once per rebuild. The
+  /// parent passes a new list only when the catalogue itself changes.
+  CatalogShelfBuilder<_ExtEntry> get _shelfBuilder {
+    if (!identical(_shelfCacheSource, widget.entries)) {
+      _shelfCacheSource = widget.entries;
+      _shelfCache = CatalogShelfBuilder(widget.entries);
     }
-    if (has(const ['drama'])) return 'Drama';
-    if (has(const ['film', 'movie'])) return 'Films';
-    if (has(const ['anime'])) return 'Anime';
-    if (has(const ['manga'])) return 'Manga';
-    if (has(const ['novel', 'roman'])) return 'Web Novel';
-    return null;
+    return _shelfCache!;
   }
 
-  /// Groups the given entries into an ordered `label -> entries` map. Entries
-  /// that expose no recognizable category fall into [fallback].
-  Map<String, List<_ExtEntry>> _groupEntries(
-    List<_ExtEntry> entries, {
-    String fallback = 'Autres',
-  }) {
-    final groups = <String, List<_ExtEntry>>{};
-    for (final entry in entries) {
-      final label = _entryGroup(entry) ?? fallback;
-      groups.putIfAbsent(label, () => []).add(entry);
-    }
-    final orderedKeys = <String>[
-      ..._kGroupOrder.where(groups.containsKey),
-      ...groups.keys.where((key) => !_kGroupOrder.contains(key)),
-    ];
-    return {for (final key in orderedKeys) key: groups[key]!};
-  }
+  List<CatalogShelfContent<_ExtEntry>> _shelvesFor(
+    List<CatalogShelfSpec> specs,
+  ) => _shelfBuilder.shelves(specs, showNsfw: widget.showNsfw);
 
-  /// Filters [_visible] down to a single group (used when the user taps a
-  /// "see all" arrow on a shelf).
-  List<_ExtEntry> get _groupedVisible {
-    if (_groupFilter == null) return _visible;
-    final group = _groupFilter!;
-    return _visible
-        .where((entry) => (_entryGroup(entry) ?? 'Autres') == group)
-        .toList();
-  }
-
-  List<_ExtEntry> get _featured {
-    final preferred = <_ExtEntry>[];
-    const names = {
-      'MangaDex',
-      'Webtoons',
-      'Comick',
-      'AniWave',
-      'AnimeThemes',
-      'Deezer',
+  /// The shelves a catalogue tab is built from.
+  ///
+  /// The adult shelves are appended only once the user has opted in, which
+  /// replaces the hard-coded "Midnight World" / "Midnight Library" rows the
+  /// discovery page used to append by hand.
+  List<CatalogShelfSpec> _specsForTab(int tab) {
+    final base = switch (tab) {
+      1 => CatalogShelves.watch,
+      2 => CatalogShelves.read,
+      3 => CatalogShelves.music,
+      4 => CatalogShelves.game,
+      5 => CatalogShelves.novel,
+      _ => const <CatalogShelfSpec>[],
     };
-    for (final entry in _visible) {
-      if (names.contains(entry.name)) preferred.add(entry);
+    if (!widget.showNsfw) return base;
+    return [
+      ...base,
+      ...CatalogShelves.adult.where(
+        (spec) => switch (tab) {
+          1 => spec.medium == CatalogMedium.watch,
+          2 || 5 => spec.medium == CatalogMedium.read,
+          _ => false,
+        },
+      ),
+    ];
+  }
+
+  /// One card, wired to the install state the screen already tracks.
+  Widget _buildCatalogCard(_ExtEntry entry) {
+    final installed = widget.installed.contains(entry.id);
+    return CatalogCard(
+      entry: entry,
+      tags: _shelfBuilder.tagsOf(entry),
+      iconUrl: _mktIconUrl(entry.iconUrl),
+      status: !installed
+          ? CatalogCardStatus.available
+          : _hasUpdate(entry)
+          ? CatalogCardStatus.update
+          : CatalogCardStatus.installed,
+      isNew: _shelfBuilder.isNew(entry),
+      busy: widget.busy[entry.id] == true,
+      onTap: () => _showDetails(entry),
+      onInstall: () => widget.onInstall(entry),
+      onSettings: installed ? () => widget.onSettings(entry.id) : null,
+    );
+  }
+
+  /// Header plus 2 × 2 swipe grid for each shelf, as slivers.
+  List<Widget> _buildShelfSlivers(
+    List<CatalogShelfContent<_ExtEntry>> shelves,
+  ) {
+    final slivers = <Widget>[];
+    for (final shelf in shelves) {
+      slivers
+        ..add(
+          SliverToBoxAdapter(
+            child: CatalogShelfHeader(
+              spec: shelf.spec,
+              count: shelf.entries.length,
+              onSeeAll: () => _openShelfPage(shelf.spec, shelf.entries),
+            ),
+          ),
+        )
+        ..add(
+          SliverToBoxAdapter(
+            child: CatalogShelfGrid(
+              entries: shelf.entries,
+              cardBuilder: (context, entry) =>
+                  _buildCatalogCard(entry as _ExtEntry),
+            ),
+          ),
+        );
     }
-    return (preferred.isEmpty ? _visible : preferred).take(6).toList();
+    return slivers;
   }
 
-  List<_ExtEntry> _rankedWhere(
-    bool Function(_ExtEntry entry) test, {
-    int limit = 10,
-  }) {
-    final entries =
-        widget.entries
-            .where(test)
-            .where((entry) => widget.showNsfw || !entry.isNsfw)
-            .toList()
-          ..sort((a, b) {
-            final aNeedsUpdate = _hasUpdate(a);
-            final bNeedsUpdate = _hasUpdate(b);
-            if (aNeedsUpdate != bNeedsUpdate) return aNeedsUpdate ? -1 : 1;
-            final rating = _playRating(b).compareTo(_playRating(a));
-            if (rating != 0) return rating;
-            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-          });
-    return entries.take(limit).toList();
+  /// Opens the full grid for a shelf.
+  ///
+  /// The resolved entries are handed over as-is, so the page lists exactly what
+  /// the shelf listed instead of filtering the catalogue a second time.
+  void _openShelfPage(CatalogShelfSpec spec, List<_ExtEntry> entries) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CatalogCategoryPage(
+          spec: spec,
+          entries: entries,
+          cardBuilder: (context, entry) =>
+              _buildCatalogCard(entry as _ExtEntry),
+        ),
+      ),
+    );
   }
 
-  List<_ExtEntry> get _popularWatch => _rankedWhere(
-    (entry) => entry.contentType == ItemType.anime && !entry.isNsfw,
-  );
-
-  List<_ExtEntry> get _popularRead => _rankedWhere(
-    (entry) =>
-        entry.contentType == ItemType.manga ||
-        entry.contentType == ItemType.novel,
-  );
-
-  List<_ExtEntry> get _midnightWorld => _rankedWhere(
-    (entry) => entry.isNsfw && entry.contentType == ItemType.anime,
-  );
-
-  List<_ExtEntry> get _midnightLibrary => _rankedWhere(
-    (entry) =>
-        entry.isNsfw &&
-        (entry.contentType == ItemType.manga ||
-            entry.contentType == ItemType.novel),
-  );
+  /// Hero entries: the catalogue's explicitly featured sources.
+  ///
+  /// Ordered with the same comparator as the "featured" shelf, so the banner
+  /// and the shelf beneath it never disagree about which source leads.
+  List<_ExtEntry> get _featured {
+    final builder = _shelfBuilder;
+    final featured = widget.entries
+        .where((entry) => widget.showNsfw || !entry.isNsfw)
+        .where((entry) => builder.tagsOf(entry).contains('featured'))
+        .toList();
+    if (featured.isEmpty) return const [];
+    featured.sort(
+      (a, b) => CatalogShelves.featured.compare(
+        a,
+        b,
+        builder.tagsOf(a),
+        builder.tagsOf(b),
+      ),
+    );
+    return featured.take(6).toList();
+  }
 
   List<String> get _catalogueLanguages =>
       widget.entries
@@ -9697,6 +9763,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildMain(BuildContext context) {
+    final l10n = context.l10n;
     return RefreshIndicator(
       color: _green,
       backgroundColor: _surfaceHigh,
@@ -9718,24 +9785,22 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           else if (!_searching && _needsNsfwGate) ...[
             SliverToBoxAdapter(child: _buildHero()),
             SliverToBoxAdapter(child: _buildNsfwGate()),
-          ] else if (!_searching &&
-              (_showAll ? _groupedVisible.isEmpty : _visible.isEmpty))
+          ] else if (!_searching && _visible.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
               child: _buildEmptyCatalog(),
             )
           else if (!_searching && _tab == 0)
             ..._buildForYou()
-          else if (!_searching && _showAll) ...[
-            SliverToBoxAdapter(child: _buildGroupHeader()),
-            _buildRows(_groupedVisible),
-          ] else if (!_searching) ...[
+          else if (!_searching) ...[
             SliverToBoxAdapter(child: _buildHero()),
+            ..._buildShelfSlivers(_shelvesFor(_specsForTab(_tab))),
             SliverToBoxAdapter(
-              child: _buildSectionTitle('Sélection ${_tabLabels[_tab]}'),
+              child: _buildSectionTitle(
+                l10n.marketplace_all_extensions(_tabLabels[_tab]),
+              ),
             ),
-            _buildShelf(_visible.take(12).toList()),
-            ..._buildGroupedSections(),
+            _buildRows(_visible),
           ] else ...[
             SliverToBoxAdapter(child: _buildSearchBar()),
             if (_searchController.text.isEmpty)
@@ -10027,43 +10092,41 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     );
   }
 
+  /// The "Pour vous" discovery page.
+  ///
+  /// Composed of the declared [CatalogShelves.forYou] groups, plus two blocks
+  /// that are not tag-driven: pending updates, and the language explorer.
+  /// A group with too few entries is skipped by the builder, so the page never
+  /// renders an empty shelf.
   List<Widget> _buildForYou() {
+    final l10n = context.l10n;
     final updates = _availableUpdates;
-    final watch = _popularWatch;
-    final read = _popularRead;
-    final midnightWorld = _midnightWorld;
-    final midnightLibrary = _midnightLibrary;
     final widgets = <Widget>[
       if (updates.isNotEmpty) ...[
-        SliverToBoxAdapter(
-          child: _buildSectionTitle('Mises à jour disponibles'),
-        ),
-        _buildShelf(updates),
+        SliverToBoxAdapter(child: _buildSectionTitle(l10n.updates)),
+        _buildRows(updates),
       ],
       SliverToBoxAdapter(child: _buildHero()),
-      SliverToBoxAdapter(child: _buildSectionTitle('Populaire à regarder')),
-      _buildShelf(watch),
+      ..._buildShelfSlivers(
+        _shelvesFor([
+          ...CatalogShelves.forYou,
+          if (widget.showNsfw) ...CatalogShelves.adult,
+        ]),
+      ),
     ];
 
     widgets
-      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Populaire à lire')))
-      ..add(_buildShelf(read));
-
-    if (widget.showNsfw &&
-        (midnightWorld.isNotEmpty || midnightLibrary.isNotEmpty)) {
-      widgets
-        ..add(SliverToBoxAdapter(child: _buildSectionTitle('Midnight World')))
-        ..add(_buildShelf(midnightWorld))
-        ..add(SliverToBoxAdapter(child: _buildSectionTitle('Midnight Library')))
-        ..add(_buildShelf(midnightLibrary));
-    }
-
-    widgets
       ..add(
-        SliverToBoxAdapter(child: _buildSectionTitle('Explorer par langue')),
+        SliverToBoxAdapter(
+          child: _buildSectionTitle(l10n.marketplace_explore_by_language),
+        ),
       )
       ..add(SliverToBoxAdapter(child: _buildLanguageExplorer()))
-      ..add(SliverToBoxAdapter(child: _buildSectionTitle('Tout le catalogue')))
+      ..add(
+        SliverToBoxAdapter(
+          child: _buildSectionTitle(l10n.marketplace_whole_catalogue),
+        ),
+      )
       ..add(_buildRows(_visible));
     return widgets;
   }
@@ -10275,191 +10338,38 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     );
   }
 
-  /// One titled shelf per store category (Webtoon, Manhwa, Scans, ...).
-  /// Each shelf offers a "see all" arrow that drills into the full group.
-  List<Widget> _buildGroupedSections() {
-    final groups = _groupEntries(_visible);
-    if (groups.isEmpty) {
-      return [
-        SliverToBoxAdapter(
-          child: _buildSectionTitle(
-            'Toutes les extensions ${_tabLabels[_tab]}',
-          ),
-        ),
-        _buildRows(_visible),
-      ];
-    }
-
-    final slivers = <Widget>[];
-    var index = 0;
-    for (final group in groups.entries) {
-      final usePosterRow = index.isOdd && group.value.length >= 3;
-      slivers.add(
-        SliverToBoxAdapter(
-          child: _buildGroupTitle(
-            group.key,
-            group.value.length,
-            () => _openGroup(_tab, group.key),
-          ),
-        ),
-      );
-      slivers.add(
-        usePosterRow
-            ? _buildPosterRow(group.value.take(12).toList())
-            : _buildShelf(group.value.take(12).toList()),
-      );
-      index++;
-    }
-    return slivers;
-  }
-
-  Widget _buildGroupTitle(String label, int count, VoidCallback onSeeAll) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 18, 8, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Text('$count', style: const TextStyle(color: _muted, fontSize: 12)),
-          IconButton(
-            onPressed: onSeeAll,
-            tooltip: 'Tout afficher',
-            icon: const Icon(Icons.arrow_forward_rounded, color: _muted),
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGroupHeader() {
-    final label = _groupFilter ?? 'Toutes les extensions';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 8, 16, 4),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => setState(() {
-              _showAll = false;
-              _groupFilter = null;
-            }),
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-            tooltip: 'Retour',
-          ),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Compact poster-style row (vertical artwork + label) used to vary the
-  /// layout between shelves, mirroring a real store's mixed card shapes.
-  Widget _buildPosterRow(List<_ExtEntry> entries) {
-    if (entries.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 172,
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          scrollDirection: Axis.horizontal,
-          itemCount: entries.length,
-          addAutomaticKeepAlives: false,
-          separatorBuilder: (_, _) => const SizedBox(width: 10),
-          itemBuilder: (_, index) => _StorePosterCard(
-            entry: entries[index],
-            installed: widget.installed.contains(entries[index].id),
-            hasUpdate: _hasUpdate(entries[index]),
-            busy: widget.busy[entries[index].id] == true,
-            onTap: () => _showDetails(entries[index]),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShelf(List<_ExtEntry> entries) {
-    if (entries.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(18, 8, 18, 22),
-          child: Text(
-            'Aucune extension dans cette catégorie pour le moment.',
-            style: TextStyle(color: _muted, fontSize: 13),
-          ),
-        ),
-      );
-    }
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 224,
-        child: ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          scrollDirection: Axis.horizontal,
-          itemCount: entries.length,
-          addAutomaticKeepAlives: false,
-          separatorBuilder: (_, _) => const SizedBox(width: 10),
-          itemBuilder: (_, index) {
-            final entry = entries[index];
-            return _PlayStoreShelfCard(
-              entry: entry,
-              installed: widget.installed.contains(entry.id),
-              hasUpdate: _hasUpdate(entry),
-              busy: widget.busy[entry.id] == true,
-              onTap: () => _showDetails(entry),
-              onInstall: () => widget.onInstall(entry),
-              onSettings: widget.installed.contains(entry.id)
-                  ? () => widget.onSettings(entry.id)
-                  : null,
-            );
-          },
-        ),
-      ),
-    );
-  }
-
+  /// The full catalogue of a tab, as the same 2-column grid the shelves use.
   Widget _buildRows(List<_ExtEntry> entries) {
     if (entries.isEmpty) {
-      return const SliverToBoxAdapter(
+      return SliverToBoxAdapter(
         child: Padding(
-          padding: EdgeInsets.fromLTRB(18, 20, 18, 24),
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
           child: Text(
-            'Aucune extension ne correspond à cette sélection. Vérifie les filtres ou actualise le catalogue.',
-            style: TextStyle(color: _muted, fontSize: 13, height: 1.35),
+            context.l10n.catalog_shelf_empty,
+            style: const TextStyle(color: _muted, fontSize: 13, height: 1.35),
           ),
         ),
       );
     }
-    return SliverList.builder(
-      itemCount: entries.length,
-      itemBuilder: (_, index) => _PlayStoreRow(
-        entry: entries[index],
-        installed: widget.installed.contains(entries[index].id),
-        hasUpdate: _hasUpdate(entries[index]),
-        busy: widget.busy[entries[index].id] == true,
-        onTap: () => _showDetails(entries[index]),
-        onInstall: () => widget.onInstall(entries[index]),
-        onSettings: widget.installed.contains(entries[index].id)
-            ? () => widget.onSettings(entries[index].id)
-            : null,
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      sliver: SliverLayoutBuilder(
+        builder: (context, constraints) {
+          final columns = (constraints.crossAxisExtent / 200).floor().clamp(
+            2,
+            6,
+          );
+          return SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: CatalogCardMetrics.gap,
+              crossAxisSpacing: CatalogCardMetrics.gap,
+              mainAxisExtent: CatalogCardMetrics.cardHeight,
+            ),
+            itemCount: entries.length,
+            itemBuilder: (context, index) => _buildCatalogCard(entries[index]),
+          );
+        },
       ),
     );
   }
@@ -10793,362 +10703,6 @@ String _playReviewLabel(_ExtEntry entry) => _playReviewCount(entry) > 0
     ? '${_playReviewCount(entry)} avis'
     : 'Avis non disponibles';
 
-String _playBadges(_ExtEntry entry) {
-  final labels = <String>[
-    ...entry.subCategories.take(2),
-    if (entry.requiresAccount) 'Compte',
-    if (entry.hasDRM) 'DRM',
-    if (entry.isAggregator) 'Agrégateur',
-    if (entry.paywall.trim().isNotEmpty &&
-        entry.paywall.toLowerCase() != 'free')
-      entry.paywall,
-  ];
-  return labels.join(' · ');
-}
-
-class _PlayStoreRow extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onTap;
-  final VoidCallback onInstall;
-  final VoidCallback? onSettings;
-
-  const _PlayStoreRow({
-    required this.entry,
-    required this.installed,
-    required this.hasUpdate,
-    required this.busy,
-    required this.onTap,
-    required this.onInstall,
-    this.onSettings,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 9, 16, 9),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _PlayStoreIcon(entry: entry, size: 54),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
-                    style: const TextStyle(
-                      color: _PlayStoreMarketplaceViewState._muted,
-                      fontSize: 11,
-                    ),
-                  ),
-                  if (_playBadges(entry).isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      _playBadges(entry),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFD0CFD4),
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Text(
-                        _playRatingLabel(entry),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      const Icon(
-                        Icons.star_rounded,
-                        color: Color(0xFFFFC107),
-                        size: 13,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${_playSize(entry)} · v${entry.version}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: _PlayStoreMarketplaceViewState._muted,
-                            fontSize: 10.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (busy)
-              const SizedBox(
-                width: 54,
-                child: Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              )
-            else
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: installed && !hasUpdate ? null : onInstall,
-                    style: TextButton.styleFrom(
-                      foregroundColor: _PlayStoreMarketplaceViewState._green,
-                      disabledForegroundColor: const Color(0xFF9B9B9F),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 34),
-                    ),
-                    child: Text(
-                      hasUpdate
-                          ? 'Mettre à jour'
-                          : installed
-                          ? 'Installée'
-                          : 'Installer',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (installed && onSettings != null)
-                    IconButton(
-                      onPressed: onSettings,
-                      tooltip: 'Paramètres',
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Broken.setting_2,
-                        color: _PlayStoreMarketplaceViewState._muted,
-                        size: 18,
-                      ),
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlayStoreShelfCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onTap;
-  final VoidCallback onInstall;
-  final VoidCallback? onSettings;
-
-  const _PlayStoreShelfCard({
-    required this.entry,
-    required this.installed,
-    required this.hasUpdate,
-    required this.busy,
-    required this.onTap,
-    required this.onInstall,
-    this.onSettings,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 238,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: const Color(0xFF202023),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFF303035)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PlayStoreIcon(entry: entry, size: 58),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      entry.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _PlayStoreMarketplaceViewState._muted,
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _playDescription(entry),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFD0CFD4),
-                  fontSize: 11,
-                  height: 1.25,
-                ),
-              ),
-              if (_playBadges(entry).isNotEmpty) ...[
-                const SizedBox(height: 7),
-                Text(
-                  _playBadges(entry),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFB7F4F0),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-              const Spacer(),
-              Row(
-                children: [
-                  Text(
-                    _playRatingLabel(entry),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 3),
-                  const Icon(
-                    Icons.star_rounded,
-                    color: Color(0xFFFFC107),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(
-                      _playSize(entry),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _PlayStoreMarketplaceViewState._muted,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 9),
-              SizedBox(
-                width: double.infinity,
-                height: 32,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: (installed && !hasUpdate) || busy
-                            ? null
-                            : onInstall,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: hasUpdate
-                              ? _PlayStoreMarketplaceViewState._green
-                              : const Color(0xFFB7F4F0),
-                          foregroundColor: const Color(0xFF123437),
-                          disabledBackgroundColor: const Color(0xFF343438),
-                          disabledForegroundColor: const Color(0xFFA6A5AA),
-                          padding: EdgeInsets.zero,
-                          textStyle: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        child: busy
-                            ? const SizedBox(
-                                width: 15,
-                                height: 15,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(
-                                hasUpdate
-                                    ? 'Mettre à jour'
-                                    : installed
-                                    ? 'Installée'
-                                    : 'Installer',
-                              ),
-                      ),
-                    ),
-                    if (installed && onSettings != null) ...[
-                      const SizedBox(width: 6),
-                      IconButton(
-                        onPressed: onSettings,
-                        tooltip: 'Paramètres',
-                        visualDensity: VisualDensity.compact,
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF343438),
-                        ),
-                        icon: const Icon(
-                          Broken.setting_2,
-                          color: _PlayStoreMarketplaceViewState._muted,
-                          size: 17,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SearchDiscoveryRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -11324,88 +10878,6 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
       oldDelegate.labels != labels ||
       oldDelegate.icons != icons ||
       oldDelegate.onSelected != onSelected;
-}
-
-/// Vertical poster card used by [_PlayStoreMarketplaceViewState._buildPosterRow]
-/// to give some store shelves a distinct, more visual rhythm than the wide
-/// landscape cards.
-class _StorePosterCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onTap;
-
-  const _StorePosterCard({
-    required this.entry,
-    required this.installed,
-    required this.hasUpdate,
-    required this.busy,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 116,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                _PlayStoreIcon(entry: entry, size: 100),
-                if (hasUpdate)
-                  const Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Icon(
-                      Icons.arrow_circle_up_rounded,
-                      color: Color(0xFF65C58A),
-                      size: 18,
-                    ),
-                  )
-                else if (installed)
-                  const Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Icon(
-                      Icons.check_circle_rounded,
-                      color: Color(0xFFB7F4F0),
-                      size: 18,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              entry.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _PlayStoreMarketplaceViewState._muted,
-                fontSize: 10,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _PlayStoreDetails extends StatelessWidget {

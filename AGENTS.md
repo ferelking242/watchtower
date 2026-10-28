@@ -285,6 +285,38 @@ do not reintroduce a bespoke popup or a filter bottom sheet.
   the field); the filter and three-dots live outside the field, composed by the
   screen. `handleSearchBack` clears the query before leaving.
 
+## Marketplace taxonomy and shelves (do not regress)
+The Marketplace discovery pages are built from catalogue **tags**, never from
+the extension's name, domain or brand. `lib/models/catalog_taxonomy.dart`
+mirrors `tools/catalog_taxonomy.mjs` in `watchtower-extensions`; keep the two
+vocabularies in sync.
+
+- `CatalogTaxonomyTags` holds the canonical `contentTags` / `genreTags` /
+  `languageTags` / `curationTags`. `filterKnown` drops anything not in the
+  vocabulary, so a tag the app does not know is ignored rather than shelved.
+- `effectiveTags` prefers the `tags` list an index publishes and falls back to
+  facts the entry already has (its `itemType`, its `lang`/`langs`) for an older
+  index. Nothing is ever inferred from the name — that is the substring
+  matching this system replaces.
+- `CatalogShelves` declares every shelf as data (`CatalogShelfSpec`).
+  `CatalogShelfBuilder` filters and orders them once, cached in the screen
+  (`_shelfCache`, keyed on the entry list identity) so a rebuild does not
+  re-scan the catalogue. Do not filter shelves inline in a `build`.
+- An adult shelf is the only place adult entries may appear, and only after the
+  user opts in: `CatalogShelfSpec.matches` requires **both** `includeNsfw` (the
+  shelf asks for it) and `allowNsfw` (the user opted in). The `adult` shelves
+  replace the old hard-coded "Midnight World"/"Midnight Library" rows.
+- Cards are a fixed geometry (`CatalogCardMetrics`): two rows, two columns per
+  shelf, horizontal paging, card width capped so a tablet widens the number of
+  visible columns instead of stretching the tiles. Do not reintroduce the
+  full-width banner or the long vertical list for discovery.
+- `popular`/`trending` are **never** declared: the catalogue carries no usage
+  statistic, so the "popular" shelves use a documented deterministic order
+  (featured first, then most recently added). Never invent a popularity number.
+- New visible strings go through `tool/add_catalog_l10n.py` (idempotent) then
+  `flutter gen-l10n`; the generated files under `lib/l10n/generated/` are
+  tracked, so commit them with the ARB change.
+
 ## Formatting caveat
 `dart format lib/cli` is clean (that is the CI-enforced path). Running
 `dart format lib/` with the local SDK rewrites ~740 files because the tree was

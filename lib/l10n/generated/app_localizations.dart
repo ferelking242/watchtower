@@ -4366,6 +4366,558 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Explore'**
   String get explore_tab;
+
+  /// No description provided for @catalog_tag_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get catalog_tag_watch;
+
+  /// No description provided for @catalog_tag_read.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get catalog_tag_read;
+
+  /// No description provided for @catalog_tag_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get catalog_tag_manga;
+
+  /// No description provided for @catalog_tag_manhwa.
+  ///
+  /// In en, this message translates to:
+  /// **'Manhwa'**
+  String get catalog_tag_manhwa;
+
+  /// No description provided for @catalog_tag_manhua.
+  ///
+  /// In en, this message translates to:
+  /// **'Manhua'**
+  String get catalog_tag_manhua;
+
+  /// No description provided for @catalog_tag_webtoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Webtoon'**
+  String get catalog_tag_webtoon;
+
+  /// No description provided for @catalog_tag_comics.
+  ///
+  /// In en, this message translates to:
+  /// **'Comics'**
+  String get catalog_tag_comics;
+
+  /// No description provided for @catalog_tag_novel.
+  ///
+  /// In en, this message translates to:
+  /// **'Novel'**
+  String get catalog_tag_novel;
+
+  /// No description provided for @catalog_tag_anime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get catalog_tag_anime;
+
+  /// No description provided for @catalog_tag_animation.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation'**
+  String get catalog_tag_animation;
+
+  /// No description provided for @catalog_tag_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get catalog_tag_movies;
+
+  /// No description provided for @catalog_tag_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get catalog_tag_series;
+
+  /// No description provided for @catalog_tag_documentary.
+  ///
+  /// In en, this message translates to:
+  /// **'Documentaries'**
+  String get catalog_tag_documentary;
+
+  /// No description provided for @catalog_tag_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get catalog_tag_music;
+
+  /// No description provided for @catalog_tag_game.
+  ///
+  /// In en, this message translates to:
+  /// **'Games'**
+  String get catalog_tag_game;
+
+  /// No description provided for @catalog_tag_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Action'**
+  String get catalog_tag_action;
+
+  /// No description provided for @catalog_tag_adventure.
+  ///
+  /// In en, this message translates to:
+  /// **'Adventure'**
+  String get catalog_tag_adventure;
+
+  /// No description provided for @catalog_tag_fantasy.
+  ///
+  /// In en, this message translates to:
+  /// **'Fantasy'**
+  String get catalog_tag_fantasy;
+
+  /// No description provided for @catalog_tag_science_fiction.
+  ///
+  /// In en, this message translates to:
+  /// **'Sci-Fi'**
+  String get catalog_tag_science_fiction;
+
+  /// No description provided for @catalog_tag_romance.
+  ///
+  /// In en, this message translates to:
+  /// **'Romance'**
+  String get catalog_tag_romance;
+
+  /// No description provided for @catalog_tag_mystery.
+  ///
+  /// In en, this message translates to:
+  /// **'Mystery'**
+  String get catalog_tag_mystery;
+
+  /// No description provided for @catalog_tag_drama.
+  ///
+  /// In en, this message translates to:
+  /// **'Drama'**
+  String get catalog_tag_drama;
+
+  /// No description provided for @catalog_tag_comedy.
+  ///
+  /// In en, this message translates to:
+  /// **'Comedy'**
+  String get catalog_tag_comedy;
+
+  /// No description provided for @catalog_tag_horror.
+  ///
+  /// In en, this message translates to:
+  /// **'Horror'**
+  String get catalog_tag_horror;
+
+  /// No description provided for @catalog_tag_thriller.
+  ///
+  /// In en, this message translates to:
+  /// **'Thriller'**
+  String get catalog_tag_thriller;
+
+  /// No description provided for @catalog_tag_historical.
+  ///
+  /// In en, this message translates to:
+  /// **'Historical'**
+  String get catalog_tag_historical;
+
+  /// No description provided for @catalog_tag_slice_of_life.
+  ///
+  /// In en, this message translates to:
+  /// **'Slice of Life'**
+  String get catalog_tag_slice_of_life;
+
+  /// No description provided for @catalog_tag_mecha.
+  ///
+  /// In en, this message translates to:
+  /// **'Mecha'**
+  String get catalog_tag_mecha;
+
+  /// No description provided for @catalog_tag_sports.
+  ///
+  /// In en, this message translates to:
+  /// **'Sports'**
+  String get catalog_tag_sports;
+
+  /// No description provided for @catalog_tag_multilingual.
+  ///
+  /// In en, this message translates to:
+  /// **'Multilingual'**
+  String get catalog_tag_multilingual;
+
+  /// No description provided for @catalog_tag_french.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get catalog_tag_french;
+
+  /// No description provided for @catalog_tag_english.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get catalog_tag_english;
+
+  /// No description provided for @catalog_tag_spanish.
+  ///
+  /// In en, this message translates to:
+  /// **'Spanish'**
+  String get catalog_tag_spanish;
+
+  /// No description provided for @catalog_tag_german.
+  ///
+  /// In en, this message translates to:
+  /// **'German'**
+  String get catalog_tag_german;
+
+  /// No description provided for @catalog_tag_italian.
+  ///
+  /// In en, this message translates to:
+  /// **'Italian'**
+  String get catalog_tag_italian;
+
+  /// No description provided for @catalog_tag_portuguese.
+  ///
+  /// In en, this message translates to:
+  /// **'Portuguese'**
+  String get catalog_tag_portuguese;
+
+  /// No description provided for @catalog_tag_japanese.
+  ///
+  /// In en, this message translates to:
+  /// **'Japanese'**
+  String get catalog_tag_japanese;
+
+  /// No description provided for @catalog_tag_korean.
+  ///
+  /// In en, this message translates to:
+  /// **'Korean'**
+  String get catalog_tag_korean;
+
+  /// No description provided for @catalog_tag_chinese.
+  ///
+  /// In en, this message translates to:
+  /// **'Chinese'**
+  String get catalog_tag_chinese;
+
+  /// No description provided for @catalog_tag_arabic.
+  ///
+  /// In en, this message translates to:
+  /// **'Arabic'**
+  String get catalog_tag_arabic;
+
+  /// No description provided for @catalog_tag_russian.
+  ///
+  /// In en, this message translates to:
+  /// **'Russian'**
+  String get catalog_tag_russian;
+
+  /// No description provided for @catalog_tag_turkish.
+  ///
+  /// In en, this message translates to:
+  /// **'Turkish'**
+  String get catalog_tag_turkish;
+
+  /// No description provided for @catalog_tag_thai.
+  ///
+  /// In en, this message translates to:
+  /// **'Thai'**
+  String get catalog_tag_thai;
+
+  /// No description provided for @catalog_tag_indonesian.
+  ///
+  /// In en, this message translates to:
+  /// **'Indonesian'**
+  String get catalog_tag_indonesian;
+
+  /// No description provided for @catalog_tag_hindi.
+  ///
+  /// In en, this message translates to:
+  /// **'Hindi'**
+  String get catalog_tag_hindi;
+
+  /// No description provided for @catalog_tag_vietnamese.
+  ///
+  /// In en, this message translates to:
+  /// **'Vietnamese'**
+  String get catalog_tag_vietnamese;
+
+  /// No description provided for @catalog_tag_polish.
+  ///
+  /// In en, this message translates to:
+  /// **'Polish'**
+  String get catalog_tag_polish;
+
+  /// No description provided for @catalog_tag_dutch.
+  ///
+  /// In en, this message translates to:
+  /// **'Dutch'**
+  String get catalog_tag_dutch;
+
+  /// No description provided for @catalog_tag_featured.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get catalog_tag_featured;
+
+  /// No description provided for @catalog_tag_new.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get catalog_tag_new;
+
+  /// No description provided for @catalog_tag_popular.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular'**
+  String get catalog_tag_popular;
+
+  /// No description provided for @catalog_tag_trending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending'**
+  String get catalog_tag_trending;
+
+  /// No description provided for @catalog_shelf_watch_popular.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular to watch'**
+  String get catalog_shelf_watch_popular;
+
+  /// No description provided for @catalog_shelf_read_popular.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular to read'**
+  String get catalog_shelf_read_popular;
+
+  /// No description provided for @catalog_shelf_new_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'New watch sources'**
+  String get catalog_shelf_new_watch;
+
+  /// No description provided for @catalog_shelf_new_read.
+  ///
+  /// In en, this message translates to:
+  /// **'New reading sources'**
+  String get catalog_shelf_new_read;
+
+  /// No description provided for @catalog_shelf_new.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get catalog_shelf_new;
+
+  /// No description provided for @catalog_shelf_recommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for you'**
+  String get catalog_shelf_recommended;
+
+  /// No description provided for @catalog_shelf_featured.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get catalog_shelf_featured;
+
+  /// No description provided for @catalog_shelf_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get catalog_shelf_movies;
+
+  /// No description provided for @catalog_shelf_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get catalog_shelf_series;
+
+  /// No description provided for @catalog_shelf_anime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get catalog_shelf_anime;
+
+  /// No description provided for @catalog_shelf_animation.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation'**
+  String get catalog_shelf_animation;
+
+  /// No description provided for @catalog_shelf_documentaries.
+  ///
+  /// In en, this message translates to:
+  /// **'Documentaries'**
+  String get catalog_shelf_documentaries;
+
+  /// No description provided for @catalog_shelf_science_fiction.
+  ///
+  /// In en, this message translates to:
+  /// **'Sci-Fi'**
+  String get catalog_shelf_science_fiction;
+
+  /// No description provided for @catalog_shelf_fantasy.
+  ///
+  /// In en, this message translates to:
+  /// **'Fantasy'**
+  String get catalog_shelf_fantasy;
+
+  /// No description provided for @catalog_shelf_action_adventure.
+  ///
+  /// In en, this message translates to:
+  /// **'Action and adventure'**
+  String get catalog_shelf_action_adventure;
+
+  /// No description provided for @catalog_shelf_romance_mystery.
+  ///
+  /// In en, this message translates to:
+  /// **'Romance and mystery'**
+  String get catalog_shelf_romance_mystery;
+
+  /// No description provided for @catalog_shelf_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get catalog_shelf_manga;
+
+  /// No description provided for @catalog_shelf_manga_manhwa.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga and manhwa'**
+  String get catalog_shelf_manga_manhwa;
+
+  /// No description provided for @catalog_shelf_manhwa.
+  ///
+  /// In en, this message translates to:
+  /// **'Manhwa'**
+  String get catalog_shelf_manhwa;
+
+  /// No description provided for @catalog_shelf_manhua.
+  ///
+  /// In en, this message translates to:
+  /// **'Manhua'**
+  String get catalog_shelf_manhua;
+
+  /// No description provided for @catalog_shelf_webtoons.
+  ///
+  /// In en, this message translates to:
+  /// **'Webtoons'**
+  String get catalog_shelf_webtoons;
+
+  /// No description provided for @catalog_shelf_comics.
+  ///
+  /// In en, this message translates to:
+  /// **'Comics and graphic novels'**
+  String get catalog_shelf_comics;
+
+  /// No description provided for @catalog_shelf_novels.
+  ///
+  /// In en, this message translates to:
+  /// **'Novels and light novels'**
+  String get catalog_shelf_novels;
+
+  /// No description provided for @catalog_shelf_french.
+  ///
+  /// In en, this message translates to:
+  /// **'French sources'**
+  String get catalog_shelf_french;
+
+  /// No description provided for @catalog_shelf_english.
+  ///
+  /// In en, this message translates to:
+  /// **'English sources'**
+  String get catalog_shelf_english;
+
+  /// No description provided for @catalog_shelf_multilingual.
+  ///
+  /// In en, this message translates to:
+  /// **'Multilingual sources'**
+  String get catalog_shelf_multilingual;
+
+  /// No description provided for @catalog_shelf_scifi_fantasy.
+  ///
+  /// In en, this message translates to:
+  /// **'Sci-Fi and fantasy'**
+  String get catalog_shelf_scifi_fantasy;
+
+  /// No description provided for @catalog_shelf_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get catalog_shelf_music;
+
+  /// No description provided for @catalog_shelf_games.
+  ///
+  /// In en, this message translates to:
+  /// **'Games'**
+  String get catalog_shelf_games;
+
+  /// No description provided for @catalog_shelf_order_curated.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured first, then most recently added'**
+  String get catalog_shelf_order_curated;
+
+  /// No description provided for @catalog_shelf_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension matches this selection yet.'**
+  String get catalog_shelf_empty;
+
+  /// No description provided for @catalog_see_all.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get catalog_see_all;
+
+  /// No description provided for @catalog_back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get catalog_back;
+
+  /// No description provided for @catalog_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the catalogue.'**
+  String get catalog_error;
+
+  /// No description provided for @marketplace_all_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'All {type} extensions'**
+  String marketplace_all_extensions(Object type);
+
+  /// No description provided for @catalog_shelf_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension} other{{count} extensions}}'**
+  String catalog_shelf_count(num count);
+
+  /// No description provided for @marketplace_explore_by_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore by language'**
+  String get marketplace_explore_by_language;
+
+  /// No description provided for @marketplace_whole_catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'The whole catalogue'**
+  String get marketplace_whole_catalogue;
+
+  /// No description provided for @catalog_shelf_adult_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Midnight World'**
+  String get catalog_shelf_adult_watch;
+
+  /// No description provided for @catalog_shelf_adult_read.
+  ///
+  /// In en, this message translates to:
+  /// **'Midnight Library'**
+  String get catalog_shelf_adult_read;
 }
 
 class _AppLocalizationsDelegate

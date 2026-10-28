@@ -2356,4 +2356,291 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get explore_tab => 'Explore';
+
+  @override
+  String get catalog_tag_watch => 'Watch';
+
+  @override
+  String get catalog_tag_read => 'Read';
+
+  @override
+  String get catalog_tag_manga => 'Manga';
+
+  @override
+  String get catalog_tag_manhwa => 'Manhwa';
+
+  @override
+  String get catalog_tag_manhua => 'Manhua';
+
+  @override
+  String get catalog_tag_webtoon => 'Webtoon';
+
+  @override
+  String get catalog_tag_comics => 'Comics';
+
+  @override
+  String get catalog_tag_novel => 'Novel';
+
+  @override
+  String get catalog_tag_anime => 'Anime';
+
+  @override
+  String get catalog_tag_animation => 'Animation';
+
+  @override
+  String get catalog_tag_movies => 'Movies';
+
+  @override
+  String get catalog_tag_series => 'Series';
+
+  @override
+  String get catalog_tag_documentary => 'Documentaries';
+
+  @override
+  String get catalog_tag_music => 'Music';
+
+  @override
+  String get catalog_tag_game => 'Games';
+
+  @override
+  String get catalog_tag_action => 'Action';
+
+  @override
+  String get catalog_tag_adventure => 'Adventure';
+
+  @override
+  String get catalog_tag_fantasy => 'Fantasy';
+
+  @override
+  String get catalog_tag_science_fiction => 'Sci-Fi';
+
+  @override
+  String get catalog_tag_romance => 'Romance';
+
+  @override
+  String get catalog_tag_mystery => 'Mystery';
+
+  @override
+  String get catalog_tag_drama => 'Drama';
+
+  @override
+  String get catalog_tag_comedy => 'Comedy';
+
+  @override
+  String get catalog_tag_horror => 'Horror';
+
+  @override
+  String get catalog_tag_thriller => 'Thriller';
+
+  @override
+  String get catalog_tag_historical => 'Historical';
+
+  @override
+  String get catalog_tag_slice_of_life => 'Slice of Life';
+
+  @override
+  String get catalog_tag_mecha => 'Mecha';
+
+  @override
+  String get catalog_tag_sports => 'Sports';
+
+  @override
+  String get catalog_tag_multilingual => 'Multilingual';
+
+  @override
+  String get catalog_tag_french => 'French';
+
+  @override
+  String get catalog_tag_english => 'English';
+
+  @override
+  String get catalog_tag_spanish => 'Spanish';
+
+  @override
+  String get catalog_tag_german => 'German';
+
+  @override
+  String get catalog_tag_italian => 'Italian';
+
+  @override
+  String get catalog_tag_portuguese => 'Portuguese';
+
+  @override
+  String get catalog_tag_japanese => 'Japanese';
+
+  @override
+  String get catalog_tag_korean => 'Korean';
+
+  @override
+  String get catalog_tag_chinese => 'Chinese';
+
+  @override
+  String get catalog_tag_arabic => 'Arabic';
+
+  @override
+  String get catalog_tag_russian => 'Russian';
+
+  @override
+  String get catalog_tag_turkish => 'Turkish';
+
+  @override
+  String get catalog_tag_thai => 'Thai';
+
+  @override
+  String get catalog_tag_indonesian => 'Indonesian';
+
+  @override
+  String get catalog_tag_hindi => 'Hindi';
+
+  @override
+  String get catalog_tag_vietnamese => 'Vietnamese';
+
+  @override
+  String get catalog_tag_polish => 'Polish';
+
+  @override
+  String get catalog_tag_dutch => 'Dutch';
+
+  @override
+  String get catalog_tag_featured => 'Featured';
+
+  @override
+  String get catalog_tag_new => 'New';
+
+  @override
+  String get catalog_tag_popular => 'Popular';
+
+  @override
+  String get catalog_tag_trending => 'Trending';
+
+  @override
+  String get catalog_shelf_watch_popular => 'Popular to watch';
+
+  @override
+  String get catalog_shelf_read_popular => 'Popular to read';
+
+  @override
+  String get catalog_shelf_new_watch => 'New watch sources';
+
+  @override
+  String get catalog_shelf_new_read => 'New reading sources';
+
+  @override
+  String get catalog_shelf_new => 'Recently added';
+
+  @override
+  String get catalog_shelf_recommended => 'Recommended for you';
+
+  @override
+  String get catalog_shelf_featured => 'Featured';
+
+  @override
+  String get catalog_shelf_movies => 'Movies';
+
+  @override
+  String get catalog_shelf_series => 'Series';
+
+  @override
+  String get catalog_shelf_anime => 'Anime';
+
+  @override
+  String get catalog_shelf_animation => 'Animation';
+
+  @override
+  String get catalog_shelf_documentaries => 'Documentaries';
+
+  @override
+  String get catalog_shelf_science_fiction => 'Sci-Fi';
+
+  @override
+  String get catalog_shelf_fantasy => 'Fantasy';
+
+  @override
+  String get catalog_shelf_action_adventure => 'Action and adventure';
+
+  @override
+  String get catalog_shelf_romance_mystery => 'Romance and mystery';
+
+  @override
+  String get catalog_shelf_manga => 'Manga';
+
+  @override
+  String get catalog_shelf_manga_manhwa => 'Manga and manhwa';
+
+  @override
+  String get catalog_shelf_manhwa => 'Manhwa';
+
+  @override
+  String get catalog_shelf_manhua => 'Manhua';
+
+  @override
+  String get catalog_shelf_webtoons => 'Webtoons';
+
+  @override
+  String get catalog_shelf_comics => 'Comics and graphic novels';
+
+  @override
+  String get catalog_shelf_novels => 'Novels and light novels';
+
+  @override
+  String get catalog_shelf_french => 'French sources';
+
+  @override
+  String get catalog_shelf_english => 'English sources';
+
+  @override
+  String get catalog_shelf_multilingual => 'Multilingual sources';
+
+  @override
+  String get catalog_shelf_scifi_fantasy => 'Sci-Fi and fantasy';
+
+  @override
+  String get catalog_shelf_music => 'Music';
+
+  @override
+  String get catalog_shelf_games => 'Games';
+
+  @override
+  String get catalog_shelf_order_curated =>
+      'Featured first, then most recently added';
+
+  @override
+  String get catalog_shelf_empty => 'No extension matches this selection yet.';
+
+  @override
+  String get catalog_see_all => 'See all';
+
+  @override
+  String get catalog_back => 'Back';
+
+  @override
+  String get catalog_error => 'Could not load the catalogue.';
+
+  @override
+  String marketplace_all_extensions(Object type) {
+    return 'All $type extensions';
+  }
+
+  @override
+  String catalog_shelf_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions',
+      one: '$count extension',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get marketplace_explore_by_language => 'Explore by language';
+
+  @override
+  String get marketplace_whole_catalogue => 'The whole catalogue';
+
+  @override
+  String get catalog_shelf_adult_watch => 'Midnight World';
+
+  @override
+  String get catalog_shelf_adult_read => 'Midnight Library';
 }
