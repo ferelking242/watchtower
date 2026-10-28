@@ -558,8 +558,9 @@ class _EmptyCoverLog {
   static void report() {
     _seen++;
     if (_seen <= 10 || _seen % 25 == 0) {
+      final coverLabel = _seen == 1 ? 'première carte' : '$_seen cartes';
       AppLogger.log(
-        'cover vide: $(_seen == 1 ? 'première carte' : '$_seen cartes') '
+        'cover vide: $coverLabel '
         'rendue(s) sans imageUrl → placeholder',
         logLevel: LogLevel.warning,
         tag: LogTag.image,
