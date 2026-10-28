@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,9 +25,11 @@ import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:photo_view/photo_view.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -743,16 +746,27 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Poster
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: cachedNetworkImage(
-                              imageUrl: toImgUrl(
+                          // Poster. Tapping it opens a full-screen viewer:
+                          // XNXX stills are only 600x337 on the card while the
+                          // hero rendition is 2080x1170, so pinch-zoom is the
+                          // only way to actually read the artwork.
+                          GestureDetector(
+                            onTap: () => _openCover(
+                              context,
+                              toImgUrl(
                                   manga.customCoverFromTracker ??
                                       manga.imageUrl ?? ''),
-                              width: 96,
-                              height: 140,
-                              fit: BoxFit.cover,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: cachedNetworkImage(
+                                imageUrl: toImgUrl(
+                                    manga.customCoverFromTracker ??
+                                        manga.imageUrl ?? ''),
+                                width: 96,
+                                height: 140,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -2800,6 +2814,44 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         extra: {'url': raw, 'title': widget.manga.name ?? ''});
   }
 
+  /// Full-screen, pinch-to-zoom viewer for the page artwork.
+  ///
+  /// The hero only allocates a 96x140 slot, so a cover whose details are worth
+  /// inspecting (a pornstar portrait, a scene still) is unreadable there.
+  /// `PhotoView` gives continuous zoom up to 5x and a tap-outside dismiss,
+  /// matching the gallery viewer used on the reading side.
+  void _openCover(BuildContext ctx, String url) {
+    if (url.trim().isEmpty) return;
+    final headers = ref.read(
+      headersProvider(
+        source: widget.manga.source ?? '',
+        lang: widget.manga.lang ?? '',
+        sourceId: widget.manga.sourceId,
+      ),
+    );
+    showDialog<void>(
+      context: ctx,
+      barrierColor: Colors.black,
+      barrierDismissible: true,
+      useSafeArea: false,
+      builder: (dialogContext) => GestureDetector(
+        onTap: () => Navigator.of(dialogContext).pop(),
+        child: PhotoView(
+          imageProvider: ExtendedNetworkImageProvider(url, headers: headers),
+          backgroundDecoration: const BoxDecoration(color: Colors.black),
+          minScale: PhotoViewComputedScale.contained,
+          maxScale: PhotoViewComputedScale.covered * 5,
+          initialScale: PhotoViewComputedScale.contained,
+          loadingBuilder: (context, event) => const ProgressCenter(),
+          errorBuilder: (context, error, stackTrace) => const Center(
+            child: Icon(Icons.image_not_supported_outlined,
+                color: Colors.white38, size: 48),
+          ),
+        ),
+      ),
+    );
+  }
+
 }
 
 class _ResourceMenuItem extends StatelessWidget {
@@ -3735,44 +3787,59 @@ class _CommentMediaThumb extends StatelessWidget {
   }
 
   void _open(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black87,
-      barrierDismissible: true,
-      builder: (dialogContext) => GestureDetector(
-        onTap: () => Navigator.of(dialogContext).pop(),
-        child: InteractiveViewer(
-          maxScale: 5,
+    if (media.isVideo) {
+      showDialog<void>(
+        context: context,
+        barrierColor: Colors.black87,
+        barrierDismissible: true,
+        builder: (dialogContext) => GestureDetector(
+          onTap: () => Navigator.of(dialogContext).pop(),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Center(
-              child: media.isVideo
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.play_circle_outline_rounded,
-                            color: Colors.white, size: 64),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Vidéo du commentaire',
-                          style: TextStyle(color: Colors.white, fontSize: 14),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          media.url,
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 11),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    )
-                  : cachedNetworkImage(
-                      imageUrl: media.url,
-                      width: null,
-                      height: null,
-                      fit: BoxFit.contain,
-                    ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.play_circle_outline_rounded,
+                      color: Colors.white, size: 64),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Vidéo du commentaire',
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    media.url,
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
+          ),
+        ),
+      );
+      return;
+    }
+    // Same continuous zoom as the page artwork: `InteractiveViewer` capped the
+    // scale at 5x with no double-tap shortcut, which felt stiff on a still.
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black,
+      barrierDismissible: true,
+      useSafeArea: false,
+      builder: (dialogContext) => GestureDetector(
+        onTap: () => Navigator.of(dialogContext).pop(),
+        child: PhotoView(
+          imageProvider: ExtendedNetworkImageProvider(media.url),
+          backgroundDecoration: const BoxDecoration(color: Colors.black),
+          minScale: PhotoViewComputedScale.contained,
+          maxScale: PhotoViewComputedScale.covered * 5,
+          initialScale: PhotoViewComputedScale.contained,
+          loadingBuilder: (context, event) => const ProgressCenter(),
+          errorBuilder: (context, error, stackTrace) => const Center(
+            child: Icon(Icons.image_not_supported_outlined,
+                color: Colors.white38, size: 48),
           ),
         ),
       ),

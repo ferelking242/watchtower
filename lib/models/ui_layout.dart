@@ -172,6 +172,13 @@ class UiSection {
   final String? chapterComponent;
   final String? gridOrder;
   final String? scrollDirection;
+
+  /// Presentation hint for the "see all" page this section opens. `tags`
+  /// switches that page to a two-column grid of large, cover-first tag cards,
+  /// which is what a tag index needs; extensions that don't set it keep the
+  /// default three-column poster grid. The page itself is generic — any
+  /// extension can ask for it through this single field.
+  final String? seeAllPage;
   final UiMonthSelector? monthSelector;
 
   /// Free-form parameters for gallery components (see
@@ -197,6 +204,7 @@ class UiSection {
     this.chapterComponent,
     this.gridOrder,
     this.scrollDirection,
+    this.seeAllPage,
     this.monthSelector,
     this.params = const {},
     this.seeAll = false,
@@ -218,6 +226,7 @@ class UiSection {
     chapterComponent: json['chapterComponent'] as String?,
     gridOrder: json['gridOrder'] as String?,
     scrollDirection: json['scrollDirection'] as String?,
+    seeAllPage: json['seeAllPage'] as String?,
     monthSelector: json['monthSelector'] is Map
         ? UiMonthSelector.fromJson(
             Map<String, dynamic>.from(json['monthSelector'] as Map),
@@ -249,6 +258,7 @@ class UiSection {
     if (chapterComponent != null) 'chapterComponent': chapterComponent,
     if (gridOrder != null) 'gridOrder': gridOrder,
     if (scrollDirection != null) 'scrollDirection': scrollDirection,
+    if (seeAllPage != null) 'seeAllPage': seeAllPage,
     if (monthSelector != null) 'monthSelector': monthSelector!.toJson(),
     if (params.isNotEmpty) 'params': params,
     if (seeAll) 'seeAll': id,

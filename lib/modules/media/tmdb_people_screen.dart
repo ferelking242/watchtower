@@ -4,22 +4,23 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:isar_community/isar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_chapter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
-import 'package:watchtower/main.dart';
-import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
-import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
-import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
-import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
+import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/modules/media/overlay_filter_menu.dart';
+import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_detail.dart';
+import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 const _tmdbBackground = Color(0xFF0B0B11);
 
@@ -603,9 +604,9 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
                     : _ExtensionPersonVideos(
                         profile: profile,
                         details: details,
+                        source: widget.extensionSource,
+                        scrollController: _scrollController,
                         onOpen: (video) => _openExtensionVideo(video),
-                        onDownload: (videos) =>
-                            _queueExtensionDownloads(videos, details, title),
                       ),
               ),
             ),
@@ -636,124 +637,6 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
       sourceId: source.id,
       itemType: source.itemType,
     );
-  }
-
-  Future<void> _queueExtensionDownloads(
-    List<MChapter> videos,
-    MManga? details,
-    String profileTitle,
-  ) async {
-    final source = widget.extensionSource!;
-    final profile = widget.extensionPerson!;
-    final profileLink = profile.link?.trim();
-    final selected = videos
-        .where((video) => video.url?.trim().isNotEmpty == true)
-        .toList(growable: false);
-    if (profileLink == null || profileLink.isEmpty || selected.isEmpty) return;
-
-    var queuePersisted = false;
-    try {
-      final lang = source.lang ?? '';
-      final sourceName = source.name ?? '';
-      final candidates = isar.mangas
-          .filter()
-          .langEqualTo(lang)
-          .sourceEqualTo(sourceName)
-          .findAllSync();
-      Manga? manga;
-      for (final candidate in candidates) {
-        if (candidate.sourceId == source.id && candidate.link == profileLink) {
-          manga = candidate;
-          break;
-        }
-      }
-      manga ??= Manga(
-        source: sourceName,
-        author: details?.author ?? '',
-        artist: details?.artist ?? '',
-        genre: details?.genre?.cast<String>(),
-        imageUrl: details?.imageUrl ?? profile.imageUrl,
-        lang: lang,
-        link: profileLink,
-        name: profileTitle,
-        status: Status.unknown,
-        description: details?.description ?? '',
-        sourceId: source.id,
-        itemType: source.itemType,
-        isManga: false,
-      );
-      manga
-        ..name = profileTitle
-        ..imageUrl = details?.imageUrl ?? profile.imageUrl ?? manga.imageUrl
-        ..description = details?.description ?? manga.description
-        ..sourceId = source.id
-        ..itemType = source.itemType;
-
-      final currentManga = manga;
-      final existingChapters = currentManga.id == Isar.autoIncrement
-          ? <Chapter>[]
-          : isar.chapters
-                .filter()
-                .mangaIdEqualTo(currentManga.id)
-                .findAllSync();
-      final chaptersByUrl = <String, Chapter>{
-        for (final chapter in existingChapters)
-          if (chapter.url?.trim().isNotEmpty == true)
-            chapter.url!.trim(): chapter,
-      };
-      final queue = <Chapter>[];
-      isar.writeTxnSync(() {
-        currentManga.id = isar.mangas.putSync(currentManga);
-        for (final video in selected) {
-          final url = video.url!.trim();
-          final chapter =
-              chaptersByUrl[url] ??
-              Chapter(
-                mangaId: currentManga.id,
-                name: video.name?.trim().isNotEmpty == true
-                    ? video.name!.trim()
-                    : url,
-                url: url,
-                thumbnailUrl: video.thumbnailUrl ?? currentManga.imageUrl,
-                dateUpload: video.dateUpload,
-                scanlator: video.scanlator,
-                description: video.description,
-              );
-          chapter.manga.value = currentManga;
-          chapter.id = isar.chapters.putSync(chapter);
-          queue.add(chapter);
-        }
-      });
-      queuePersisted = queue.isNotEmpty;
-      for (final chapter in queue) {
-        await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
-        if (chapter.id != null) {
-          ref
-              .read(downloadQueueStateProvider.notifier)
-              .setPaused(chapter.id!, false);
-        }
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              selected.length == 1
-                  ? 'Téléchargement ajouté à la file.'
-                  : '${selected.length} téléchargements ajoutés à la file.',
-            ),
-          ),
-        );
-      }
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Impossible de préparer le téléchargement : $error'),
-        ),
-      );
-    } finally {
-      if (queuePersisted) ref.read(processDownloadsProvider());
-    }
   }
 
   @override
@@ -922,25 +805,193 @@ class _ExtensionInfoLine extends StatelessWidget {
   );
 }
 
-class _ExtensionPersonVideos extends StatelessWidget {
+/// "Movies" tab of an extension person page. Renders the profile's videos as
+/// a grid by default and exposes the same filter sheet and three-dot menu as
+/// the "see all" catalogue, so the page behaves like every other catalogue
+/// surface instead of a bare fixed list with a download-all button.
+class _ExtensionPersonVideos extends ConsumerStatefulWidget {
   final MManga profile;
   final MManga? details;
+  final Source? source;
+  final ScrollController scrollController;
   final ValueChanged<MChapter> onOpen;
-  final ValueChanged<List<MChapter>> onDownload;
 
   const _ExtensionPersonVideos({
     required this.profile,
     required this.details,
+    required this.source,
+    required this.scrollController,
     required this.onOpen,
-    required this.onDownload,
   });
 
   @override
+  ConsumerState<_ExtensionPersonVideos> createState() =>
+      _ExtensionPersonVideosState();
+}
+
+class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> {
+  CatalogFilterState _filter = CatalogFilterState();
+  final List<MChapter> _extra = [];
+  int _page = 1;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  Object? _loadMoreError;
+
+  MManga get _details => widget.details ?? widget.profile;
+
+  List<MChapter> get _videos => [
+    ...(_details.chapters ?? const <MChapter>[]),
+    ..._extra,
+  ].where((video) => video.url?.trim().isNotEmpty == true).toList(growable: false);
+
+  /// `profile_<hex of the profile path>` — the extension pages a profile
+  /// listing with the same zero-based JSON endpoint the first page uses.
+  String? get _profileListId {
+    final link = widget.profile.link?.trim();
+    if (link == null || link.isEmpty) return null;
+    final uri = Uri.tryParse(link);
+    final path = uri?.path;
+    if (path == null || path.isEmpty) return null;
+    final buffer = StringBuffer('profile_');
+    for (final rune in path.runes) {
+      buffer.write(rune.toRadixString(16).padLeft(4, '0'));
+    }
+    return buffer.toString();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!widget.scrollController.hasClients || _loadingMore || !_hasMore) {
+      return;
+    }
+    final position = widget.scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 480) _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    final listId = _profileListId;
+    final source = widget.source;
+    if (listId == null || source == null || _loadingMore || !_hasMore) return;
+    setState(() {
+      _loadingMore = true;
+      _loadMoreError = null;
+    });
+    try {
+      final nextPage = _page + 1;
+      final pages = await ref.read(
+        getCustomListProvider(
+          source: source,
+          listId: listId,
+          page: nextPage,
+        ).future,
+      );
+      if (!mounted) return;
+      final known = _videos.map((video) => video.url).toSet();
+      final fresh = (pages?.list ?? const <MManga>[])
+          .where((item) => item.link?.trim().isNotEmpty == true)
+          .where((item) => !known.contains(item.link!.trim()))
+          .map(
+            (item) => MChapter(
+              name: item.name,
+              url: item.link,
+              thumbnailUrl: item.imageUrl,
+              duration: item.description?.replaceFirst('Duration: ', ''),
+            ),
+          )
+          .toList(growable: false);
+      setState(() {
+        _page = nextPage;
+        _extra.addAll(fresh);
+        _hasMore = (pages?.hasNextPage ?? false) && fresh.isNotEmpty;
+        _loadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingMore = false;
+        _loadMoreError = error;
+      });
+    }
+  }
+
+  /// Videos matching the length preset chosen in the filter sheet.
+  ///
+  /// The sheet's generic sections (years, genres, sort) have no meaning for a
+  /// flat list of videos, so the length preset is carried by the "type" field
+  /// and the sheet is shown without the others. A video whose duration cannot
+  /// be parsed is kept: hiding it would look like a missing video rather than
+  /// a filtered one.
+  List<MChapter> _visible(List<MChapter> videos) {
+    final minimumMinutes = int.tryParse(_filter.type);
+    if (minimumMinutes == null) return videos;
+    return videos.where((video) {
+      final duration = _parseDuration(video.duration);
+      return duration == null || duration.inMinutes >= minimumMinutes;
+    }).toList(growable: false);
+  }
+
+  static Duration? _parseDuration(String? raw) {
+    final text = raw?.trim();
+    if (text == null || text.isEmpty) return null;
+    final parts = text.split(':');
+    if (parts.length != 2) return null;
+    final minutes = int.tryParse(parts[0]);
+    final seconds = int.tryParse(parts[1]);
+    if (minutes == null || seconds == null) return null;
+    return Duration(minutes: minutes, seconds: seconds);
+  }
+
+  /// Length presets carried by the sheet's "type" section: the values are the
+  /// minimum minutes a video must run for, and `all` clears the filter.
+  List<CatalogTypeOption> get _typeOptions => const [
+    CatalogTypeOption('Toutes', 'all'),
+    CatalogTypeOption('10 min +', '10'),
+    CatalogTypeOption('20 min +', '20'),
+    CatalogTypeOption('40 min +', '40'),
+  ];
+
+  Widget _buildFilterButton() {
+    return AdaptiveOverlayMenuButton(
+      menuWidth: 300,
+      trigger: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Icon(
+          Broken.filter,
+          color: _filter.isDefault ? null : Colors.orange,
+        ),
+      ),
+      contentBuilder: (close) => CatalogFilterOverlay(
+        initial: _filter,
+        typeOptions: _typeOptions,
+        sortOptions: const [],
+        genreOptions: const [],
+        showYearsSection: false,
+        showRatingSection: false,
+        showGenreSection: false,
+        showSortSection: false,
+        close: close,
+        onChanged: (value) => setState(() => _filter = value),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final videos = (details?.chapters ?? const <MChapter>[])
-        .where((video) => video.url?.trim().isNotEmpty == true)
-        .toList(growable: false);
+    final videos = _videos;
     if (videos.isEmpty) return const _PeopleEmpty();
+    final visible = _visible(videos);
+    final isFrench = Localizations.localeOf(context).languageCode == 'fr';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -948,7 +999,9 @@ class _ExtensionPersonVideos extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '${videos.length} films',
+                isFrench
+                    ? '${videos.length} vidéos${_hasMore ? '+' : ''}'
+                    : '${videos.length} videos${_hasMore ? '+' : ''}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -956,95 +1009,163 @@ class _ExtensionPersonVideos extends StatelessWidget {
                 ),
               ),
             ),
-            FilledButton.icon(
-              onPressed: () => onDownload(videos),
-              icon: const Icon(Icons.download_rounded, size: 18),
-              label: const Text('Tout télécharger'),
+            _buildFilterButton(),
+            // Same three-dot menu as the "see all" catalogue, minus the
+            // download entries.
+            AdaptiveOverlayMenu<CatalogBulkDownloadAction>(
+              tooltip: isFrench ? 'Options' : 'Options',
+              icon: const Icon(Broken.more_2),
+              menuWidth: 240,
+              onSelected: (_) {},
+              itemBuilder: (_) => CatalogBulkDownload.selectionMenuItems(),
             ),
           ],
         ),
         const SizedBox(height: 14),
-        for (final video in videos)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Material(
-              color: const Color(0xFF171820),
-              borderRadius: BorderRadius.circular(14),
-              child: ListTile(
-                onTap: () => onOpen(video),
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: _videoThumbnail(video),
-                ),
-                title: Text(
-                  video.name?.trim().isNotEmpty == true
-                      ? video.name!.trim()
-                      : 'Video',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: video.duration?.trim().isNotEmpty == true
-                    ? Text(
-                        video.duration!.trim(),
-                        style: const TextStyle(color: Colors.white54),
-                      )
-                    : null,
-                trailing: IconButton(
-                  tooltip: 'Télécharger cette vidéo',
-                  onPressed: () => onDownload([video]),
-                  icon: const Icon(
-                    Icons.download_rounded,
-                    color: Colors.white70,
-                  ),
-                ),
-              ),
-            ),
-          ),
+        _buildItems(context, visible),
+        if (_hasMore || _loadMoreError != null) _buildFooter(context),
       ],
     );
   }
 
-  Widget _videoThumbnail(MChapter video) {
-    String? imageUrl;
-    for (final candidate in [
-      video.thumbnailUrl,
-      details?.imageUrl,
-      profile.imageUrl,
-    ]) {
-      final value = candidate?.trim();
-      if (value?.isNotEmpty == true) {
-        imageUrl = value;
-        break;
-      }
-    }
-    if (imageUrl == null) {
-      return const SizedBox(
-        width: 72,
-        height: 46,
-        child: ColoredBox(
-          color: Color(0xFF25252A),
-          child: Icon(Icons.movie_outlined, color: Colors.white54, size: 20),
+  Widget _buildFooter(BuildContext context) {
+    final isFrench = Localizations.localeOf(context).languageCode == 'fr';
+    if (_loadMoreError != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Center(
+          child: TextButton.icon(
+            onPressed: () {
+              setState(() => _loadMoreError = null);
+              _loadMore();
+            },
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: Text(
+              isFrench ? 'Chargement échoué · Réessayer' : 'Load failed · Retry',
+            ),
+          ),
         ),
       );
     }
-    return ExtendedImage.network(
-      imageUrl,
-      width: 72,
-      height: 46,
-      fit: BoxFit.cover,
-      cache: true,
-      loadStateChanged: (state) =>
-          state.extendedImageLoadState == LoadState.completed
-          ? null
-          : const AppShimmerBlock(radius: 8),
+    return const Padding(
+      padding: EdgeInsets.only(top: 18),
+      child: Center(child: AppShimmerBlock(radius: AppUI.cardRadius)),
     );
   }
+
+  Widget _buildItems(BuildContext context, List<MChapter> visible) {
+    if (visible.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 28),
+        child: Center(
+          child: Text(
+            'Aucune vidéo ne correspond au filtre.',
+            style: TextStyle(color: Colors.white54, fontSize: 13),
+          ),
+        ),
+      );
+    }
+    if (_filter.layout == CatalogLayout.list) {
+      return Column(
+        children: [
+          for (final video in visible)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: const Color(0xFF171820),
+                borderRadius: BorderRadius.circular(14),
+                child: ListTile(
+                  onTap: () => widget.onOpen(video),
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: SizedBox(
+                      width: 72,
+                      height: 46,
+                      child: ContentImage(
+                        url: _thumbnail(video),
+                        radius: 8,
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    _title(video),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: _duration(video) == null
+                      ? null
+                      : Text(
+                          _duration(video)!,
+                          style: const TextStyle(color: Colors.white54),
+                        ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+    final columns = AppUI.mediaGridColumns(context);
+    final count = _filter.layout == CatalogLayout.comfortable
+        ? (columns - 1).clamp(1, columns)
+        : columns;
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: count,
+        childAspectRatio: 1.25,
+        crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
+        mainAxisSpacing: 14,
+      ),
+      itemCount: visible.length,
+      itemBuilder: (context, index) {
+        final video = visible[index];
+        return LandscapeCard(
+          item: _item(video),
+          width: double.infinity,
+          onTap: () => widget.onOpen(video),
+        );
+      },
+    );
+  }
+
+  String _title(MChapter video) {
+    final name = video.name?.trim();
+    return name?.isNotEmpty == true ? name! : 'Video';
+  }
+
+  String? _duration(MChapter video) {
+    final value = video.duration?.trim();
+    return value?.isNotEmpty == true ? value : null;
+  }
+
+  ContentItem _item(MChapter video) => ContentItem(
+    key: 'extension-video-${video.url ?? video.hashCode}',
+    title: _title(video),
+    posterUrl: _thumbnail(video),
+    backdropUrl: _thumbnail(video),
+    description: _duration(video),
+  );
+
+  String? _thumbnail(MChapter video) {
+    for (final candidate in [
+      video.thumbnailUrl,
+      _details.imageUrl,
+      widget.profile.imageUrl,
+    ]) {
+      final value = candidate?.trim();
+      if (value?.isNotEmpty == true) return value;
+    }
+    return null;
+  }
 }
+
 
 class _PersonHero extends StatelessWidget {
   final TmdbPersonDetails person;
