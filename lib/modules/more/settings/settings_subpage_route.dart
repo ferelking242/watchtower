@@ -39,6 +39,8 @@ const Set<String> bareSettingsRoutes = {
   'localSources',
   'advanced',
   'about',
+  'remoteMode',
+  'remoteSetup',
   'extension-cookies',
   'recommendations',
   'uiSettings',
