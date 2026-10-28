@@ -24,6 +24,7 @@ import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
@@ -3096,6 +3097,7 @@ class _CatalogListRow extends StatelessWidget {
                       width: 62,
                       height: 92,
                       fit: BoxFit.cover,
+                      headers: ExtensionImageHeaders.of(context),
                       errorWidget: const Icon(
                         Broken.image,
                         color: Colors.white24,
