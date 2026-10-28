@@ -432,6 +432,28 @@ starts the video.
   and `completeError` on mismatch.
 
 
+## Extension artwork needs the extension's headers (do not regress)
+Several extension CDNs are hotlink-protected: the same cover URL answers `403`
+without a `Referer` and `200` with the extension's own base URL. Measured on
+Harimanga (`img-r1.2xstorage.com`, Cloudflare): `Referer:
+https://www.harimanga.co.uk/` → `200 image/webp`, anything else (absent,
+`example.com`, the CDN host itself) → `403`. The rule targets the request, not
+the device IP — it reproduces through the app's own proxy Worker from a
+datacenter address, so "blocked IP" is the wrong diagnosis when covers fail.
+
+- `ContentImage` is the single consumer of the scope: it reads
+  `ExtensionImageHeaders.of(context)` when no explicit `headers` are passed.
+  Screens install `ExtensionImageHeaders` at their root with
+  `ref.watch(headersProvider(...))`, which is what makes every nested card send
+  the headers. A new extension screen that renders covers must install it too,
+  or its artwork silently falls back to placeholders.
+- Any widget that calls `cachedNetworkImage` directly instead of going through
+  `ContentImage` bypasses the scope and must read `ExtensionImageHeaders.of`
+  itself (see `_CatalogListRow`, `AppGenreTile`).
+- The detail view was never affected: it has always passed the extension
+  headers to `cachedNetworkImage` explicitly.
+
+
 ## Item naming conventions (do not regress)
 `Manga` is the **shared** Isar model for every medium — manga, watch, novel,
 music, game, plugin (`ItemType`). `MangaReaderDetail` (`/manga-reader/detail`)
