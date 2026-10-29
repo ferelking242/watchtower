@@ -2775,4 +2775,22 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get plugins_music_title => 'Plugins Musique';
+
+  @override
+  String get catalog_tab_for_you => 'Pour vous';
+
+  @override
+  String get catalog_tab_watch => 'Watch';
+
+  @override
+  String get catalog_tab_manga => 'Manga';
+
+  @override
+  String get catalog_tab_music => 'Musique';
+
+  @override
+  String get catalog_tab_games => 'Jeux';
+
+  @override
+  String get catalog_tab_novels => 'Romans';
 }

@@ -81,6 +81,12 @@ SHELF = [
     ("catalog_shelf_adult_read", "Midnight Library", "Midnight Library"),
     ("catalog_shelf_for_you_watch", "For you · to watch", "Pour toi · à regarder"),
     ("catalog_shelf_for_you_read", "For you · to read", "Pour toi · à lire"),
+    ("catalog_tab_for_you", "For you", "Pour vous"),
+    ("catalog_tab_watch", "Watch", "Watch"),
+    ("catalog_tab_manga", "Manga", "Manga"),
+    ("catalog_tab_music", "Music", "Musique"),
+    ("catalog_tab_games", "Games", "Jeux"),
+    ("catalog_tab_novels", "Novels", "Romans"),
 ]
 
 UI = [

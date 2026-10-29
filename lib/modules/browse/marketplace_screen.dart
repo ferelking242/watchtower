@@ -23,6 +23,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/catalog_category_page.dart';
 import 'package:watchtower/modules/browse/catalog_widgets.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/catalog_shelf_builder.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
@@ -9492,15 +9493,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     return updates;
   }
 
-  static const _tabLabels = [
-    'Pour vous',
-    'Watch',
-    'Manga',
-    'Musique',
-    'Jeux',
-    'Romans',
-  ];
-
   static const _tabIcons = [
     Broken.category,
     Broken.video,
@@ -9508,6 +9500,16 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     Broken.musicnote,
     Broken.game,
     Broken.book_1,
+  ];
+
+  /// Tab captions, in the same order as [_tabIcons].
+  static List<String> _tabLabelsFor(AppLocalizations l10n) => [
+    l10n.catalog_tab_for_you,
+    l10n.catalog_tab_watch,
+    l10n.catalog_tab_manga,
+    l10n.catalog_tab_music,
+    l10n.catalog_tab_games,
+    l10n.catalog_tab_novels,
   ];
 
   void _selectTab(int tab) {
@@ -9819,7 +9821,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             ..._buildShelfSlivers(_shelvesFor(_specsForTab(_tab))),
             SliverToBoxAdapter(
               child: _buildSectionTitle(
-                l10n.marketplace_all_extensions(_tabLabels[_tab]),
+                l10n.marketplace_all_extensions(
+                  _tabLabelsFor(context.l10n)[_tab],
+                ),
               ),
             ),
             _buildRows(_visible),
@@ -10020,7 +10024,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     return SliverPersistentHeader(
       pinned: true,
       delegate: _MarketplaceTabHeaderDelegate(
-        labels: _tabLabels,
+        labels: _tabLabelsFor(context.l10n),
         icons: _tabIcons,
         selected: _tab,
         onSelected: _selectTab,

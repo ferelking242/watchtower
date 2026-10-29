@@ -867,5 +867,11 @@
   "plugins_ffmpeg_info": "FFmpeg sert uniquement à muxer les fragments HLS TS/fMP4 en fichier lisible. Il ne télécharge ni le lecteur ni MPV.\n\nSi aucun exécutable vérifié n’est installé, Watchtower utilise automatiquement la concaténation directe des fragments. La lecture en ligne ne dépend donc pas de ce plugin.",
   "plugins_smart_library_title": "Smart Library",
   "plugins_mpv_title": "Configuration MPV",
-  "plugins_music_title": "Plugins Musique"
+  "plugins_music_title": "Plugins Musique",
+  "catalog_tab_for_you": "Pour vous",
+  "catalog_tab_watch": "Watch",
+  "catalog_tab_manga": "Manga",
+  "catalog_tab_music": "Musique",
+  "catalog_tab_games": "Jeux",
+  "catalog_tab_novels": "Romans"
 }

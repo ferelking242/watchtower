@@ -2749,4 +2749,22 @@ class AppLocalizationsAs extends AppLocalizations {
 
   @override
   String get plugins_music_title => 'Music plugins';
+
+  @override
+  String get catalog_tab_for_you => 'For you';
+
+  @override
+  String get catalog_tab_watch => 'Watch';
+
+  @override
+  String get catalog_tab_manga => 'Manga';
+
+  @override
+  String get catalog_tab_music => 'Music';
+
+  @override
+  String get catalog_tab_games => 'Games';
+
+  @override
+  String get catalog_tab_novels => 'Novels';
 }
