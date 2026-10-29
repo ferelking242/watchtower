@@ -2369,6 +2369,21 @@ class AppLocalizationsId extends AppLocalizations {
   String get explore_tab => 'Explore';
 
   @override
+  String get browser_dock_tabs => 'Tab';
+
+  @override
+  String get browser_dock_new_tab => 'Tab baru';
+
+  @override
+  String get browser_dock_more => 'Opsi lainnya';
+
+  @override
+  String get browser_dock_collapse => 'Ciutkan bilah';
+
+  @override
+  String get browser_dock_expand => 'Tampilkan bilah';
+
+  @override
   String get catalog_tag_watch => 'Watch';
 
   @override

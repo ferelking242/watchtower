@@ -2331,6 +2331,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get explore_tab => 'Explore';
 
   @override
+  String get browser_dock_tabs => 'タブ';
+
+  @override
+  String get browser_dock_new_tab => '新しいタブ';
+
+  @override
+  String get browser_dock_more => 'その他のオプション';
+
+  @override
+  String get browser_dock_collapse => 'バーを折りたたむ';
+
+  @override
+  String get browser_dock_expand => 'バーを表示';
+
+  @override
   String get catalog_tag_watch => 'Watch';
 
   @override

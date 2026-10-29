@@ -4379,6 +4379,36 @@ abstract class AppLocalizations {
   /// **'Explore'**
   String get explore_tab;
 
+  /// No description provided for @browser_dock_tabs.
+  ///
+  /// In en, this message translates to:
+  /// **'Browser tabs'**
+  String get browser_dock_tabs;
+
+  /// No description provided for @browser_dock_new_tab.
+  ///
+  /// In en, this message translates to:
+  /// **'New tab'**
+  String get browser_dock_new_tab;
+
+  /// No description provided for @browser_dock_more.
+  ///
+  /// In en, this message translates to:
+  /// **'More options'**
+  String get browser_dock_more;
+
+  /// No description provided for @browser_dock_collapse.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse dock'**
+  String get browser_dock_collapse;
+
+  /// No description provided for @browser_dock_expand.
+  ///
+  /// In en, this message translates to:
+  /// **'Show dock'**
+  String get browser_dock_expand;
+
   /// No description provided for @catalog_tag_watch.
   ///
   /// In en, this message translates to:

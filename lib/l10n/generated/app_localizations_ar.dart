@@ -2368,6 +2368,21 @@ class AppLocalizationsAr extends AppLocalizations {
   String get explore_tab => 'Explore';
 
   @override
+  String get browser_dock_tabs => 'علامات التبويب';
+
+  @override
+  String get browser_dock_new_tab => 'علامة تبويب جديدة';
+
+  @override
+  String get browser_dock_more => 'مزيد من الخيارات';
+
+  @override
+  String get browser_dock_collapse => 'طي الشريط';
+
+  @override
+  String get browser_dock_expand => 'إظهار الشريط';
+
+  @override
   String get catalog_tag_watch => 'Watch';
 
   @override

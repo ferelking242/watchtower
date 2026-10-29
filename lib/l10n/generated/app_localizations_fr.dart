@@ -2391,6 +2391,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get explore_tab => 'Explorer';
 
   @override
+  String get browser_dock_tabs => 'Onglets';
+
+  @override
+  String get browser_dock_new_tab => 'Nouvel onglet';
+
+  @override
+  String get browser_dock_more => 'Plus d\'options';
+
+  @override
+  String get browser_dock_collapse => 'Replier la barre';
+
+  @override
+  String get browser_dock_expand => 'Afficher la barre';
+
+  @override
   String get catalog_tag_watch => 'À regarder';
 
   @override

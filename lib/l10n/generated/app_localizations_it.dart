@@ -2390,6 +2390,21 @@ class AppLocalizationsIt extends AppLocalizations {
   String get explore_tab => 'Explore';
 
   @override
+  String get browser_dock_tabs => 'Schede';
+
+  @override
+  String get browser_dock_new_tab => 'Nuova scheda';
+
+  @override
+  String get browser_dock_more => 'Altre opzioni';
+
+  @override
+  String get browser_dock_collapse => 'Comprimi la barra';
+
+  @override
+  String get browser_dock_expand => 'Mostra la barra';
+
+  @override
   String get catalog_tag_watch => 'Watch';
 
   @override

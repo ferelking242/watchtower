@@ -2391,6 +2391,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get explore_tab => 'Explore';
 
   @override
+  String get browser_dock_tabs => 'Pestañas';
+
+  @override
+  String get browser_dock_new_tab => 'Nueva pestaña';
+
+  @override
+  String get browser_dock_more => 'Más opciones';
+
+  @override
+  String get browser_dock_collapse => 'Contraer la barra';
+
+  @override
+  String get browser_dock_expand => 'Mostrar la barra';
+
+  @override
   String get catalog_tag_watch => 'Watch';
 
   @override
@@ -5042,6 +5057,21 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get tts_default => 'Predeterminado';
+
+  @override
+  String get browser_dock_tabs => 'Pestañas';
+
+  @override
+  String get browser_dock_new_tab => 'Nueva pestaña';
+
+  @override
+  String get browser_dock_more => 'Más opciones';
+
+  @override
+  String get browser_dock_collapse => 'Contraer la barra';
+
+  @override
+  String get browser_dock_expand => 'Mostrar la barra';
 
   @override
   String get catalog_tag_watch => 'Watch';

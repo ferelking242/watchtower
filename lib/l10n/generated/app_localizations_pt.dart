@@ -2386,6 +2386,21 @@ class AppLocalizationsPt extends AppLocalizations {
   String get explore_tab => 'Explore';
 
   @override
+  String get browser_dock_tabs => 'Abas';
+
+  @override
+  String get browser_dock_new_tab => 'Nova aba';
+
+  @override
+  String get browser_dock_more => 'Mais opções';
+
+  @override
+  String get browser_dock_collapse => 'Recolher a barra';
+
+  @override
+  String get browser_dock_expand => 'Mostrar a barra';
+
+  @override
   String get catalog_tag_watch => 'Watch';
 
   @override
@@ -5033,6 +5048,21 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get tts_default => 'Padrão';
+
+  @override
+  String get browser_dock_tabs => 'Abas';
+
+  @override
+  String get browser_dock_new_tab => 'Nova aba';
+
+  @override
+  String get browser_dock_more => 'Mais opções';
+
+  @override
+  String get browser_dock_collapse => 'Recolher a barra';
+
+  @override
+  String get browser_dock_expand => 'Mostrar a barra';
 
   @override
   String get catalog_tag_watch => 'Watch';

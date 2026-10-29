@@ -2399,6 +2399,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get explore_tab => 'Explore';
 
   @override
+  String get browser_dock_tabs => 'Вкладки';
+
+  @override
+  String get browser_dock_new_tab => 'Новая вкладка';
+
+  @override
+  String get browser_dock_more => 'Другие параметры';
+
+  @override
+  String get browser_dock_collapse => 'Свернуть панель';
+
+  @override
+  String get browser_dock_expand => 'Показать панель';
+
+  @override
   String get catalog_tag_watch => 'Watch';
 
   @override
