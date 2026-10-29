@@ -315,14 +315,14 @@ class _SettingsSection extends StatelessWidget {
         icon: Broken.component,
         title: 'Navigation',
         subtitle: 'Onglets, dock, rail latéral',
-        route: '/customNavSettings',
+        route: '/customNavigationSettings',
         extra: null,
       ),
       (
         icon: Broken.play_cricle,
         title: 'Lecture',
         subtitle: 'Lecteur, qualité, sous-titres',
-        route: '/reader',
+        route: '/readerMode',
         extra: null,
       ),
       (

@@ -152,6 +152,12 @@ jobs:
             test/onboarding_media_service_test.dart \
             test/onboarding_screen_layout_test.dart
 
+      - name: Run settings navigation tests
+        run: |
+          flutter test \
+            test/bare_settings_transition_test.dart \
+            test/settings_routes_reachable_test.dart
+
       - name: Record outdated package report
         if: always()
         run: |
