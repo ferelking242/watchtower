@@ -637,3 +637,20 @@ must not leak into watch code paths or logs:
   `runLibrarySwipeAction` (`lib/modules/library/services/library_swipe_actions.dart`),
   wired into both the grid and list library views. The swipe never dismisses the
   card; it fires the action and snaps back.
+
+## Marketplace catalogue loading
+- The Marketplace fetches its catalogues from
+  `raw.githubusercontent.com/ferelking242/watchtower-extensions/main/index/*.json`
+  in `_loadAll` (`marketplace_screen.dart`). The list is `manga`, `watch`,
+  `novel`, `music`, `game`; `index/subtitles.json` is published but **not
+  fetched**, so its 5 sources (itemType 7) never reach the app. `index/plugins.json`
+  is a different shape (an object, not an array) and is read by the CLI only.
+- `parseMarketplaceIndex` (`@visibleForTesting`) is the single parse entry
+  point. It de-duplicates by `id`, **not** by name: two extensions may share a
+  display name (`SpankBang` ships `spankbang.js` and `spankbang_new.js`, plus
+  `AnimeSongLyrics`, `AniPool`, `DonghuaStream`, `YouTube Music`). A name-keyed
+  rule silently dropped one of each pair from the whole Marketplace. The
+  extensions repo's `tools/validate-extensions.mjs` fails on a repeated id and
+  warns on a reused name, so keep the two in step.
+- Tags come from the index `tags` list (`effectiveTags`, `catalog_entry.dart`).
+  Never infer a category from the extension name or domain.
