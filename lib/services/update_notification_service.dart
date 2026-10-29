@@ -561,6 +561,9 @@ class WatchtowerNotificationService {
     }
     if (codeUpdate) return 'v${source.versionLast}';
     if (layout?.isNotEmpty == true) return 'UI $layout';
+    if (source.pendingSourceRevision?.isNotEmpty == true) {
+      return 'code mis à jour';
+    }
     return 'mise à jour';
   }
 

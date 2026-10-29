@@ -112,6 +112,14 @@ class Source {
   /// [additionalParams] rather than being added as a second schema migration.
   String? pendingUiLayoutVersion;
 
+  /// Newer code revision waiting to be installed, recorded when the catalogue
+  /// re-pins an extension to a different commit without bumping its version.
+  ///
+  /// Persisted in the metadata envelope like [pendingUiLayoutVersion]: it only
+  /// backs the Updates badge, while the download itself is driven by comparing
+  /// [sourceCodeUrl] with the catalogue entry.
+  String? pendingSourceRevision;
+
   Source({
     this.id = 0,
     this.name = '',
@@ -334,6 +342,7 @@ class Source {
       uiLayout ??= data['uiLayout'] as String?;
       uiLayoutVersion ??= data['uiLayoutVersion'] as String?;
       pendingUiLayoutVersion ??= data['pendingUiLayoutVersion'] as String?;
+      pendingSourceRevision ??= data['pendingSourceRevision'] as String?;
     } catch (_) {
       // Keep the original additionalParams value usable if an older build
       // left malformed metadata behind.
@@ -355,6 +364,8 @@ class Source {
       if (uiLayoutVersion != null) 'uiLayoutVersion': uiLayoutVersion,
       if (pendingUiLayoutVersion != null)
         'pendingUiLayoutVersion': pendingUiLayoutVersion,
+      if (pendingSourceRevision != null)
+        'pendingSourceRevision': pendingSourceRevision,
       if (touchToPreview) 'touchToPreview': true,
       if (loginUrl != null) 'loginUrl': loginUrl,
       if (_metadataValues()['account'] is bool)
@@ -452,6 +463,7 @@ class Source {
     uiLayout = json['uiLayout'] as String?;
     uiLayoutVersion = json['uiLayoutVersion'] as String?;
     pendingUiLayoutVersion = json['pendingUiLayoutVersion'] as String?;
+    pendingSourceRevision = json['pendingSourceRevision'] as String?;
     hydrateExtendedMetadata();
   }
 
@@ -510,6 +522,7 @@ class Source {
     'uiLayout': uiLayout,
     'uiLayoutVersion': uiLayoutVersion,
     'pendingUiLayoutVersion': pendingUiLayoutVersion,
+    'pendingSourceRevision': pendingSourceRevision,
   };
 
   bool get isTorrent => (typeSource?.toLowerCase() ?? "") == "torrent";

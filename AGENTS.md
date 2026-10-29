@@ -741,3 +741,27 @@ must not leak into watch code paths or logs:
 - TorrServer : `_baseUrl` (`services/torrent_server.dart`) préfère l'URL saisie
   par l'utilisateur (`normaliseTorrServerUrl`, Hive `player_prefs`) au serveur
   embarqué. Ne pas réintroduire la lecture directe de `btServerPort`.
+
+## Extension update detection (do not regress)
+- The catalogue pins every `sourceCodeUrl` to a commit
+  (`…@<sha>/src/…`). That makes an edited extension a *new URL*, but the
+  installer only looked at `version`. An author who edits an extension and
+  forgets to bump `version` therefore publishes a fix the app never downloads:
+  the index still says `0.4.12` while pointing at the `0.4.11` code, and
+  `compareVersions` sees nothing to install. That is exactly what hid the
+  2026-10-26 Harimanga cover fix — 45/72 covers were still rewritten onto the
+  incomplete `cdn.zinmanga1.com` mirror, so the home, search and "see all"
+  screens showed placeholders for weeks.
+- `extensionRevisionChanged` (`fetch_sources_list.dart`) closes the loop by
+  treating a changed `@<rev>` as an update. Only a *revision* difference counts:
+  two URLs that differ merely by host (fork, jsDelivr ↔ raw) serve the same
+  bytes and must not trigger a re-download on every catalogue refresh.
+- When auto-update is off, the pending revision is stored in
+  `pendingSourceRevision` (metadata envelope, like `pendingUiLayoutVersion`)
+  and **`sourceCodeUrl` is left on the installed pin**. Do not "record" the new
+  pin there: the download pass detects the pending work by comparing that pin
+  with the catalogue, so writing it early makes the update offer itself forever
+  and never install.
+- `test/extension_revision_change_test.dart` pins both invariants. Bump
+  `version` when publishing an extension anyway — the revision check is a
+  safety net, not a licence to skip the bump.

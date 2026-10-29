@@ -322,6 +322,11 @@ class GetIsolateService {
                 'origin=${safeUrlOriginForLog(url?.toString() ?? "")}',
               );
 
+              // Tell the root isolate the call is actually running: its timeout
+              // budget must measure execution, not time spent queued behind the
+              // source's other calls.
+              responsePort.send({'started': true});
+
               try {
                 final result = await withExtensionService(
                   source!,
@@ -544,21 +549,24 @@ class GetIsolateService {
     );
     final sw = Stopwatch()..start();
 
-    // Timeout safeguard — log the timeout clearly
-    // Video resolution must fail fast: a stuck getVideoList would otherwise
-    // hold the tap→play pipeline (and this worker) for 40 s before retrying.
-    // Decorative tab calls get the same short budget: they share the source's
-    // single runtime, so a hanging getRecommendations/getComments would block
-    // playback for the full 40 s otherwise.
-    final timeout = _fastFailService(serviceType)
+    // The source queue runs calls one at a time on a non-reentrant JS runtime,
+    // so ten home shelves legitimately wait behind nine others. The budget must
+    // measure *execution*, not queue time: a timer started at dispatch fired at
+    // 40 s while the call had not even begun, which reported healthy shelves as
+    // timeouts and restarted the worker under them. The worker now reports when
+    // it starts, and a longer watchdog still catches a wedged one.
+    final executionBudget = _fastFailService(serviceType)
         ? const Duration(seconds: 20)
         : const Duration(seconds: 40);
-    final timer = Timer(timeout, () {
-      if (!completer.isCompleted) {
+    Timer? timer;
+    void armTimeout(Duration budget, String phase) {
+      timer?.cancel();
+      timer = Timer(budget, () {
+        if (completer.isCompleted) return;
         sw.stop();
         AppLogger.log(
           '✗ $serviceType [$srcLabel] TIMEOUT after ${sw.elapsedMilliseconds}ms '
-          '← extension or server took too long',
+          '($phase) ← extension or server took too long',
           logLevel: LogLevel.error,
           tag: LogTag.extension_,
         );
@@ -573,11 +581,16 @@ class GetIsolateService {
             (Object _, StackTrace _) {},
           ),
         );
-      }
-    });
+      });
+    }
+    armTimeout(executionBudget + const Duration(seconds: 60), 'queue');
 
     sub = responsePort.listen((response) {
-      timer.cancel();
+      if (response is Map && response['started'] == true) {
+        armTimeout(executionBudget, 'execution');
+        return;
+      }
+      timer?.cancel();
       sub.cancel();
       responsePort.close();
       if (response is Map<String, dynamic>) {

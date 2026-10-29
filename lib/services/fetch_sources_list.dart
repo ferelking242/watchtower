@@ -282,8 +282,16 @@ Future<void> fetchSourcesList({
       final layoutVersionBumped =
           source.uiLayoutVersion != null &&
           source.uiLayoutVersion != existing.uiLayoutVersion;
+      // A re-pin without a version bump is still a new revision of the code:
+      // the index may announce the same version while pointing at a different
+      // commit. Without this, such a fix is published but never downloaded.
+      final revisionChanged = extensionRevisionChanged(
+        existing.sourceCodeUrl,
+        source.sourceCodeUrl,
+      );
       final shouldUpdate =
-          (existing.isAdded ?? false) && (versionBumped || layoutVersionBumped);
+          (existing.isAdded ?? false) &&
+          (versionBumped || layoutVersionBumped || revisionChanged);
       if (!shouldUpdate) continue;
       if (autoUpdateExtensions) {
         toAutoUpdate.add(source);
@@ -293,6 +301,15 @@ Future<void> fetchSourcesList({
         }
         if (versionBumped) {
           existing.versionLast = source.version;
+        }
+        // Keep `sourceCodeUrl` on the installed pin until the download
+        // happens: the auto-update pass detects the pending revision by
+        // comparing that pin with the catalogue. The pending revision only
+        // drives the Updates screen badge.
+        if (revisionChanged) {
+          existing.pendingSourceRevision = _sourceCodeRevision(
+            source.sourceCodeUrl ?? '',
+          );
         }
         existing.additionalParams = existing.persistedAdditionalParams;
         toVersionBump.add(existing);
@@ -486,14 +503,45 @@ Future<void> installExtensionUpdate(Source source) async {
   }
 }
 
-/// Whether the installed copy still has either a JS or a layout update.
+/// Whether the catalogue entry carries a different code revision than the
+/// installed copy.
+///
+/// Catalogue entries are pinned to a commit (`…@<sha>/src/…`) precisely so a
+/// rewrite always yields a new URL. But an author who edits an extension and
+/// forgets to bump `version` leaves the index announcing the *same* version on
+/// a *new* SHA: the version comparison then sees nothing to do and the fix
+/// never reaches the app. That is the 2026-10-26 Harimanga bug — 0.4.12 was
+/// published pointing at the 0.4.11 code, so every cover kept its placeholder.
+/// Treating a changed pin as an update closes the loop without trusting the
+/// author to remember the bump.
+bool extensionRevisionChanged(String? installed, String? candidate) {
+  final a = installed?.trim() ?? '';
+  final b = candidate?.trim() ?? '';
+  if (a.isEmpty || b.isEmpty || a == b) return false;
+  final revisionA = _sourceCodeRevision(a);
+  final revisionB = _sourceCodeRevision(b);
+  // Only a revision-level change counts. Two URLs that differ merely by host
+  // (a fork, a jsDelivr ↔ raw swap) serve the same bytes and must not trigger
+  // a re-download on every catalogue refresh.
+  return revisionA != null && revisionB != null && revisionA != revisionB;
+}
+
+/// Extracts the pinned revision from a `…/@<rev>/src/…` source URL, or `null`
+/// when the URL carries no revision segment.
+String? _sourceCodeRevision(String url) {
+  final match = RegExp(r'@([^/@]+)/(?:src|ui-layouts)/').firstMatch(url);
+  return match?.group(1);
+}
+
 bool hasPendingExtensionUpdate(Source source) {
   source.hydrateExtendedMetadata();
   final codeUpdate =
       source.version != null &&
       source.versionLast != null &&
       compareVersions(source.version!, source.versionLast!) < 0;
-  return codeUpdate || source.pendingUiLayoutVersion?.isNotEmpty == true;
+  return codeUpdate ||
+      source.pendingUiLayoutVersion?.isNotEmpty == true ||
+      source.pendingSourceRevision?.isNotEmpty == true;
 }
 
 String extensionUpdateLabel(Source source) {
@@ -508,6 +556,9 @@ String extensionUpdateLabel(Source source) {
   }
   if (codeUpdate) return 'v${source.versionLast}';
   if (layout?.isNotEmpty == true) return 'UI $layout';
+  // A re-pin without a version bump carries no version to show, but it is a
+  // real code update the user can install.
+  if (source.pendingSourceRevision?.isNotEmpty == true) return 'code mis à jour';
   return 'mise à jour';
 }
 
