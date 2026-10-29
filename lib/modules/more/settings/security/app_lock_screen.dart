@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:watchtower/modules/more/settings/security/providers/security_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class AppLockScreen extends ConsumerStatefulWidget {
   const AppLockScreen({super.key});
@@ -53,7 +54,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.lock_outline,
+                Broken.lock,
                 size: 80,
                 color: Theme.of(context).colorScheme.primary,
               ),
@@ -72,7 +73,7 @@ class _AppLockScreenState extends ConsumerState<AppLockScreen> {
               const SizedBox(height: 32),
               FilledButton.icon(
                 onPressed: _isAuthenticating ? null : _authenticate,
-                icon: const Icon(Icons.fingerprint),
+                icon: const Icon(Broken.scan),
                 label: Text(
                   _isAuthenticating ? l10n.authenticating : l10n.unlock,
                 ),

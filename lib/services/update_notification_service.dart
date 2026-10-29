@@ -24,6 +24,7 @@ const int _kProgressNotifId = 9912;
 const int _kMediaDownloadSummaryNotifId = 9913;
 const int _kExtensionUpdateNotifId = 9914;
 const int _kNewExtensionNotifId = 9915;
+const int _kLibraryUpdateNotifId = 9916;
 const String _kMediaDownloadGroupKey = 'watchtower_media_downloads';
 const String _kMediaDownloadNoticeKeyPrefix = 'media_download_notice_';
 int _nextMediaNotifId =
@@ -64,6 +65,8 @@ const String _kUpdateChannelId = 'watchtower_updates';
 const String _kUpdateChannelName = 'Mises à jour';
 const String _kReminderChannelId = 'watchtower_reminders';
 const String _kReminderChannelName = 'Rappels';
+const String _kLibraryUpdateChannelId = 'watchtower_library_updates';
+const String _kLibraryUpdateChannelName = 'Bibliothèque';
 const String _kDownloadChannelId = 'watchtower_downloads';
 const String _kDownloadChannelName = 'Téléchargements';
 
@@ -428,17 +431,19 @@ class WatchtowerNotificationService {
       if (!_initialized) await init();
       try {
         await ExtensionCatalogNotifications.rememberPendingUpdates(
-          updates.where((source) => source.id != null).map(
-            (source) => ExtensionPublicationNotice(
-              id: source.id!,
-              name: source.name ?? 'Extension',
-              itemType: source.itemType,
-              version: source.versionLast ?? '',
-              lang: source.lang ?? '',
-              iconUrl: source.iconUrl,
-              publishedAt: DateTime.now().millisecondsSinceEpoch,
-            ),
-          ),
+          updates
+              .where((source) => source.id != null)
+              .map(
+                (source) => ExtensionPublicationNotice(
+                  id: source.id!,
+                  name: source.name ?? 'Extension',
+                  itemType: source.itemType,
+                  version: source.versionLast ?? '',
+                  lang: source.lang ?? '',
+                  iconUrl: source.iconUrl,
+                  publishedAt: DateTime.now().millisecondsSinceEpoch,
+                ),
+              ),
         );
       } catch (error, stackTrace) {
         AppLogger.log(
@@ -742,6 +747,48 @@ class WatchtowerNotificationService {
     } catch (e) {
       AppLogger.log(
         'showUpdateAvailable failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  /// Notification "Nouveaux chapitres" — posted after a library update finds
+  /// unread chapters. Mirrors Mihon's library-update notification.
+  Future<void> showLibraryUpdates({
+    required int chapterCount,
+    required int seriesCount,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    try {
+      final androidDetails = AndroidNotificationDetails(
+        _kLibraryUpdateChannelId,
+        _kLibraryUpdateChannelName,
+        channelDescription: 'Nouveaux chapitres dans votre bibliothèque',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        styleInformation: BigTextStyleInformation(
+          '$chapterCount nouveau(x) chapitre(s) dans $seriesCount série(s).',
+          contentTitle: 'Bibliothèque mise à jour',
+          summaryText: '$seriesCount série(s)',
+        ),
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: false,
+      );
+
+      await _plugin.show(
+        _kLibraryUpdateNotifId,
+        'Bibliothèque mise à jour',
+        '$chapterCount nouveau(x) chapitre(s) · $seriesCount série(s)',
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showLibraryUpdates failed: $e',
         logLevel: LogLevel.warning,
         tag: LogTag.network,
       );
@@ -1346,9 +1393,7 @@ class WatchtowerNotificationService {
           (notice.downloadedBytes ?? 0) > 0) {
         details.add(_formatNotificationBytes(notice.downloadedBytes!));
       }
-      return details.isEmpty
-          ? 'Terminé'
-          : 'Terminé · ${details.join(' · ')}';
+      return details.isEmpty ? 'Terminé' : 'Terminé · ${details.join(' · ')}';
     }
     if (notice.itemType == 'manga') {
       if (notice.total > 1) {

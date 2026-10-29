@@ -41,6 +41,24 @@ class DeviceCapabilities {
     _applyAdaptiveImageCache();
   }
 
+  /// Whether the device is currently plugged in and charging.
+  ///
+  /// Backs the library auto-update "only while charging" restriction. Returns
+  /// `true` on desktop/web where the notion does not apply, so the restriction
+  /// never silently blocks updates there.
+  static Future<bool> isCharging() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return true;
+    try {
+      final channel = Platform.isIOS
+          ? const MethodChannel('com.watchtower.app.binary_utils')
+          : const MethodChannel('com.watchtower.app.device_capabilities');
+      final charging = await channel.invokeMethod<bool>('isCharging');
+      return charging ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Call this from a [WidgetsBindingObserver.didHaveMemoryPressure] override
   /// (Flutter invokes it on iOS didReceiveMemoryWarning and Android onLowMemory).
   static void onLowMemory() {

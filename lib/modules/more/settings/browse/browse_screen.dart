@@ -22,6 +22,7 @@ import 'package:watchtower/modules/browse/extension/providers/extension_layout_p
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class BrowseSScreen extends ConsumerWidget {
   const BrowseSScreen({super.key});
@@ -78,17 +79,17 @@ class BrowseSScreen extends ConsumerWidget {
                           segments: const [
                             ButtonSegment(
                               value: 0,
-                              icon: Icon(Icons.list_rounded, size: 18),
+                              icon: Icon(Broken.task, size: 18),
                               label: Text('Liste'),
                             ),
                             ButtonSegment(
                               value: 1,
-                              icon: Icon(Icons.grid_view_rounded, size: 18),
+                              icon: Icon(Broken.grid_2, size: 18),
                               label: Text('Grille'),
                             ),
                             ButtonSegment(
                               value: 2,
-                              icon: Icon(Icons.apps_rounded, size: 18),
+                              icon: Icon(Broken.category, size: 18),
                               label: Text('Étendu'),
                             ),
                           ],
@@ -112,7 +113,7 @@ class BrowseSScreen extends ConsumerWidget {
                   if (kIsWeb)
                     ListTile(
                       onTap: () => context.push('/remoteSetup'),
-                      leading: const Icon(Icons.wifi_tethering_rounded),
+                      leading: const Icon(Broken.wifi_square),
                       title: const Text('Serveur distant'),
                       subtitle: Text(
                         'Connecter votre appareil pour synchroniser la bibliothèque',
@@ -121,7 +122,7 @@ class BrowseSScreen extends ConsumerWidget {
                           color: context.secondaryColor,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(Broken.arrow_right_3),
                     ),
                   ListTile(
                       onTap: () => Navigator.of(context).push(
@@ -129,7 +130,7 @@ class BrowseSScreen extends ConsumerWidget {
                           const ExtensionRepositoriesScreen(),
                         ),
                       ),
-                      leading: const Icon(Icons.extension_outlined),
+                      leading: const Icon(Broken.grid_2),
                       title: const Text('Extension Repositories'),
                       subtitle: Text(
                         'Manage Watch, Manga & Novel repo URLs',
@@ -138,7 +139,7 @@ class BrowseSScreen extends ConsumerWidget {
                           color: context.secondaryColor,
                         ),
                       ),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(Broken.arrow_right_3),
                     ),
                   SwitchListTile(
                     value: checkForExtensionUpdates,
@@ -282,7 +283,7 @@ class BrowseSScreen extends ConsumerWidget {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.info_outline_rounded,
+                            Broken.info_circle,
                             color: context.secondaryColor,
                           ),
                         ],

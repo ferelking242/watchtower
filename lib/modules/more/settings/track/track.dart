@@ -17,6 +17,7 @@ import 'package:watchtower/services/trackers/myanimelist.dart';
 import 'package:watchtower/services/trackers/simkl.dart';
 import 'package:watchtower/services/trackers/trakt_tv.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class TrackScreen extends ConsumerWidget {
   const TrackScreen({super.key});
@@ -138,7 +139,7 @@ class TrackScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_outline_rounded,
+                          Broken.info_circle,
                           color: context.secondaryColor,
                         ),
                       ],
@@ -154,7 +155,7 @@ class TrackScreen extends ConsumerWidget {
                 ),
                 ListTileWidget(
                   title: l10n.manage_trackers,
-                  icon: Icons.settings,
+                  icon: Broken.setting_2,
                   onTap: () => context.push('/manageTrackers'),
                 ),
               ],
@@ -284,8 +285,8 @@ Future<void> _showDialogLogin(BuildContext context, WidgetRef ref) async {
                           }),
                           icon: Icon(
                             obscureText
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                                ? Broken.eye
+                                : Broken.eye_slash,
                           ),
                         ),
                         filled: false,

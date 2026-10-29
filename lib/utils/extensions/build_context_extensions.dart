@@ -2,6 +2,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
 import 'package:flutter/material.dart';
 
+import 'package:watchtower/modules/more/settings/appearance/providers/display_prefs_provider.dart';
+
 extension BuildContextExtensions on BuildContext {
   bool get isLight {
     return Theme.of(this).brightness == Brightness.light;
@@ -51,7 +53,15 @@ extension BuildContextExtensions on BuildContext {
     return MediaQuery.of(this).size.width * data;
   }
 
+  /// True when the app should lay itself out as a tablet.
+  ///
+  /// The 600dp breakpoint is only the default: the user's Affichage › Mode
+  /// tablette choice (Auto / Toujours / Paysage / Jamais) overrides it.
   bool get isTablet {
-    return MediaQuery.of(this).size.width >= 600;
+    final size = MediaQuery.of(this).size;
+    return resolveTabletMode(
+      widthIsTablet: size.width >= 600,
+      isLandscape: size.width > size.height,
+    );
   }
 }

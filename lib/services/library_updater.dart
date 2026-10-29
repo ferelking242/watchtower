@@ -1,6 +1,7 @@
 import 'dart:math' show min;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter/material.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/modules/manga/detail/providers/update_manga_detail_providers.dart';
@@ -29,27 +30,66 @@ import 'package:watchtower/models/manga.dart';
 /// Max number of source groups processed at the same time.
 const int _maxParallelSources = 8;
 
+/// Interactive library update, triggered from the Updates screen.
+///
+/// [context] may be null for background runs (see `library_auto_updater.dart`),
+/// in which case progress is reported through [onProgress] only.
+/// Signature of `ref.read`, shared by [WidgetRef] and [ProviderContainer] so
+/// the updater can run headlessly from the background auto-update scheduler.
+typedef LibraryUpdaterRead = T Function<T>(ProviderListenable<T> provider);
+
+/// [WidgetRef] entry point — used by the Updates screen and library menus.
 Future<void> updateLibrary({
   required WidgetRef ref,
-  required BuildContext context,
+  BuildContext? context,
   required List<Manga> mangaList,
   required ItemType itemType,
-}) async {
-  final typeLabel =
-      itemType.name[0].toUpperCase() + itemType.name.substring(1);
+  void Function(int done, int failed, int total)? onProgress,
+}) => runLibraryUpdate(
+  ref: ref.read,
+  context: context,
+  mangaList: mangaList,
+  itemType: itemType,
+  onProgress: onProgress,
+);
 
-  AppLogger.log('Starting $typeLabel library update (${mangaList.length} items)…');
+/// [ProviderContainer] entry point — used by the background auto-updater.
+Future<void> updateLibraryFromContainer({
+  required ProviderContainer ref,
+  required List<Manga> mangaList,
+  required ItemType itemType,
+  void Function(int done, int failed, int total)? onProgress,
+}) => runLibraryUpdate(
+  ref: ref.read,
+  mangaList: mangaList,
+  itemType: itemType,
+  onProgress: onProgress,
+);
+
+Future<void> runLibraryUpdate({
+  required LibraryUpdaterRead ref,
+  BuildContext? context,
+  required List<Manga> mangaList,
+  required ItemType itemType,
+  void Function(int done, int failed, int total)? onProgress,
+}) async {
+  final typeLabel = itemType.name[0].toUpperCase() + itemType.name.substring(1);
+
+  AppLogger.log(
+    'Starting $typeLabel library update (${mangaList.length} items)…',
+  );
 
   if (mangaList.isEmpty) {
     AppLogger.log('$typeLabel library is empty. Nothing to update.');
     return;
   }
 
-  final isDark = ref.read(themeModeStateProvider);
+  final isDark = ref(themeModeStateProvider);
 
   // ── Show initial toast ──────────────────────────────────────────────────────
   void showProgress(int done, int failed, int total) {
-    if (!context.mounted) return;
+    onProgress?.call(done, failed, total);
+    if (context == null || !context.mounted) return;
     botToast(
       context.l10n.updating_library(done, failed, total),
       fontSize: 13,
@@ -62,13 +102,15 @@ Future<void> updateLibrary({
     );
   }
 
-  botToast(
-    context.l10n.updating_library(0, 0, mangaList.length),
-    fontSize: 13,
-    second: 30,
-    alignY: !context.isTablet ? 0.85 : 1,
-    themeDark: isDark,
-  );
+  if (context != null && context.mounted) {
+    botToast(
+      context.l10n.updating_library(0, 0, mangaList.length),
+      fontSize: 13,
+      second: 30,
+      alignY: !context.isTablet ? 0.85 : 1,
+      themeDark: isDark,
+    );
+  }
 
   // ── Group by source ─────────────────────────────────────────────────────────
   // Key = "${source}_${lang}" so entries on different sources are independent.
@@ -87,38 +129,36 @@ Future<void> updateLibrary({
   final failedNames = <String>[];
 
   // ── Run source groups in parallel, capped at _maxParallelSources ────────────
-  await _runWithPool<List<Manga>>(
-    sourceGroups,
-    _maxParallelSources,
-    (sourceMangas) async {
-      // Each source is processed sequentially (1 entry at a time).
-      for (final manga in sourceMangas) {
-        if (!context.mounted) break;
-        try {
-          await ref.read(
-            updateMangaDetailProvider(
-              mangaId: manga.id,
-              isInit: false,
-              showToast: false,
-            ).future,
-          );
-        } catch (e) {
-          AppLogger.log(
-            'Failed to update ${manga.name ?? manga.id}: $e',
-            logLevel: LogLevel.error,
-          );
-          failed++;
-          failedNames.add(manga.name ?? 'Unknown $typeLabel');
-        }
-        done++;
-        showProgress(done, failed, total);
+  await _runWithPool<List<Manga>>(sourceGroups, _maxParallelSources, (
+    sourceMangas,
+  ) async {
+    // Each source is processed sequentially (1 entry at a time).
+    for (final manga in sourceMangas) {
+      if (context != null && !context.mounted) break;
+      try {
+        await ref(
+          updateMangaDetailProvider(
+            mangaId: manga.id,
+            isInit: false,
+            showToast: false,
+          ).future,
+        );
+      } catch (e) {
+        AppLogger.log(
+          'Failed to update ${manga.name ?? manga.id}: $e',
+          logLevel: LogLevel.error,
+        );
+        failed++;
+        failedNames.add(manga.name ?? 'Unknown $typeLabel');
       }
-    },
-  );
+      done++;
+      showProgress(done, failed, total);
+    }
+  });
 
   // ── Final toast ─────────────────────────────────────────────────────────────
-  await Future.delayed(const Duration(seconds: 1));
-  if (context.mounted && failedNames.isNotEmpty) {
+  if (context != null) await Future.delayed(const Duration(seconds: 1));
+  if (context != null && context.mounted && failedNames.isNotEmpty) {
     final plural = failed == 1 ? typeLabel : '${typeLabel}s';
     final list = failedNames.map((m) => '• $m').join('\n');
     botToast(

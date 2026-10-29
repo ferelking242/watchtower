@@ -95,3 +95,22 @@ class AppLanguageNotifier extends Notifier<Locale?> {
 
 final appLanguageOverrideProvider =
     NotifierProvider<AppLanguageNotifier, Locale?>(AppLanguageNotifier.new);
+
+/// Applies the stored tablet-mode preference to a width-based guess.
+///
+/// [widthIsTablet] is the plain breakpoint result and [isLandscape] the current
+/// orientation. Read synchronously from Hive so it can be used from a
+/// `BuildContext` extension without a Riverpod handle.
+bool resolveTabletMode({required bool widthIsTablet, required bool isLandscape}) {
+  switch (_read('tablet_mode', 'auto')) {
+    case 'always':
+      return true;
+    case 'never':
+      return false;
+    case 'landscape':
+      return widthIsTablet && isLandscape;
+    case 'auto':
+    default:
+      return widthIsTablet;
+  }
+}

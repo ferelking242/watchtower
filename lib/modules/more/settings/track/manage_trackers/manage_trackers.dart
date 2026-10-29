@@ -8,6 +8,7 @@ import 'package:watchtower/modules/widgets/gridview_widget.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class ManageTrackersScreen extends StatefulWidget {
   const ManageTrackersScreen({super.key});
@@ -62,7 +63,7 @@ class _ManageTrackersScreenState extends State<ManageTrackersScreen> {
                             ? SizedBox(
                                 width: context.width(1),
                                 child: const Icon(
-                                  Icons.local_library_rounded,
+                                  Broken.book_square,
                                   size: 60,
                                 ),
                               )

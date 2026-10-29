@@ -25,7 +25,7 @@ class _RecommendationsScreenState
   static const _algorithmOptions = [
     _AlgoOption(
       id: 0,
-      icon: Icons.psychology_rounded,
+      icon: Broken.magic_star,
       title: 'Content-Based Filtering',
       subtitle:
           'Compares genre, themes and synopsis directly. Fast and offline.',
@@ -33,7 +33,7 @@ class _RecommendationsScreenState
     ),
     _AlgoOption(
       id: 1,
-      icon: Icons.people_rounded,
+      icon: Broken.people,
       title: 'Collaborative Filtering',
       subtitle:
           'Recommends based on what similar users enjoyed. Requires network.',
@@ -41,7 +41,7 @@ class _RecommendationsScreenState
     ),
     _AlgoOption(
       id: 2,
-      icon: Icons.auto_awesome_rounded,
+      icon: Broken.magic_star,
       title: 'Hybrid',
       subtitle: 'Combines content-based and collaborative for best accuracy.',
       color: Colors.orange,
@@ -89,7 +89,7 @@ class _RecommendationsScreenState
           children: [
             // ── Algorithm ─────────────────────────────────────────────────────
             _SectionHeader(
-              icon: Icons.memory_rounded,
+              icon: Broken.cpu,
               label: 'Algorithm',
               color: colorScheme.primary,
             ),
@@ -162,7 +162,7 @@ class _RecommendationsScreenState
                         ),
                         if (selected)
                           Icon(
-                            Icons.check_circle_rounded,
+                            Broken.tick_circle,
                             color: opt.color,
                             size: 20,
                           ),
@@ -177,7 +177,7 @@ class _RecommendationsScreenState
 
             // ── Similarity weights ─────────────────────────────────────────
             _SectionHeader(
-              icon: Icons.tune_rounded,
+              icon: Broken.setting_2,
               label: 'Similarity weights',
               color: colorScheme.primary,
             ),
@@ -193,7 +193,7 @@ class _RecommendationsScreenState
               ),
             ),
             _WeightTile(
-              icon: Icons.category_rounded,
+              icon: Broken.category,
               label: context.l10n.recommendations_weights_genre,
               color: Colors.blue,
               value: _genre,
@@ -206,7 +206,7 @@ class _RecommendationsScreenState
                   .setWeights(genre: _genre),
             ),
             _WeightTile(
-              icon: Icons.settings_rounded,
+              icon: Broken.setting_2,
               label: context.l10n.recommendations_weights_setting,
               color: Colors.purple,
               value: _setting,
@@ -219,7 +219,7 @@ class _RecommendationsScreenState
                   .setWeights(setting: _setting),
             ),
             _WeightTile(
-              icon: Icons.article_rounded,
+              icon: Broken.document_text,
               label: context.l10n.recommendations_weights_synopsis,
               color: Colors.teal,
               value: _synopsis,
@@ -232,7 +232,7 @@ class _RecommendationsScreenState
                   .setWeights(synopsis: _synopsis),
             ),
             _WeightTile(
-              icon: Icons.palette_rounded,
+              icon: Broken.color_swatch,
               label: context.l10n.recommendations_weights_theme,
               color: Colors.orange,
               value: _theme,

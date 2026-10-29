@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:isar_community/isar.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/category.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -26,6 +29,8 @@ class LibrarySettingsScreen extends ConsumerWidget {
     final hideMissing = ref.watch(libraryHideMissingChaptersProvider);
     final perCategorySort = ref.watch(libraryPerCategorySortProvider);
     final defaultCategory = ref.watch(defaultCategoryStateProvider);
+    final includeCats = ref.watch(libraryUpdateIncludeCategoriesProvider);
+    final excludeCats = ref.watch(libraryUpdateExcludeCategoriesProvider);
 
     final restrictions = <String>[
       if (wifiOnly) 'Wi-Fi',
@@ -118,6 +123,21 @@ class LibrarySettingsScreen extends ConsumerWidget {
                   wifiOnly: wifiOnly,
                   chargingOnly: chargingOnly,
                 ),
+              ),
+              ListTile(
+                leading: const Icon(Broken.category_2),
+                title: const Text('Catégories'),
+                subtitle: Text(
+                  'Inclure: ${_describeCategories(ref, includeCats)}\n'
+                  'Exclure: ${_describeCategories(ref, excludeCats)}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.secondaryColor,
+                  ),
+                ),
+                isThreeLine: true,
+                trailing: const Icon(Broken.arrow_right_2),
+                onTap: () => _pickCategories(context, ref),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.refresh_square_2),
@@ -333,6 +353,133 @@ class LibrarySettingsScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Human-readable summary of an include/exclude category selection.
+  String _describeCategories(WidgetRef ref, Set<int> selected) {
+    if (selected.isEmpty) return 'Tout';
+    final names = <String>[];
+    for (final id in selected) {
+      final category = isar.categorys.getSync(id);
+      if (category != null) names.add(category.name ?? '');
+    }
+    if (names.isEmpty) return 'Tout';
+    return names.join(', ');
+  }
+
+  /// Mihon-style category picker: one list, two independent columns of
+  /// checkboxes for "Inclure" and "Exclure". A category can only appear in one
+  /// column at a time — ticking it in one clears the other, mirroring Mihon.
+  void _pickCategories(BuildContext context, WidgetRef ref) {
+    final categories = isar.categorys.where().sortByName().findAllSync();
+    var include = ref.read(libraryUpdateIncludeCategoriesProvider);
+    var exclude = ref.read(libraryUpdateExcludeCategoriesProvider);
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          return AlertDialog(
+            title: const Text('Catégories'),
+            contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+            content: SizedBox(
+              width: 340,
+              child: categories.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('Aucune catégorie.'),
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            children: const [
+                              Expanded(
+                                child: Text(
+                                  'Inclure',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  'Exclure',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 8),
+                        for (final category in categories)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: CheckboxListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  value: include.contains(category.id),
+                                  title: Text(
+                                    category.name ?? '',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onChanged: (v) => setState(() {
+                                    if (v ?? false) {
+                                      include = {...include, category.id!};
+                                      exclude = {...exclude}..remove(category.id);
+                                    } else {
+                                      include = {...include}..remove(category.id);
+                                    }
+                                  }),
+                                ),
+                              ),
+                              Expanded(
+                                child: CheckboxListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  value: exclude.contains(category.id),
+                                  title: const SizedBox.shrink(),
+                                  onChanged: (v) => setState(() {
+                                    if (v ?? false) {
+                                      exclude = {...exclude, category.id!};
+                                      include = {...include}..remove(category.id);
+                                    } else {
+                                      exclude = {...exclude}..remove(category.id);
+                                    }
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  ref
+                      .read(libraryUpdateIncludeCategoriesProvider.notifier)
+                      .set(include);
+                  ref
+                      .read(libraryUpdateExcludeCategoriesProvider.notifier)
+                      .set(exclude);
+                  Navigator.pop(ctx);
+                },
+                child: const Text('Valider'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

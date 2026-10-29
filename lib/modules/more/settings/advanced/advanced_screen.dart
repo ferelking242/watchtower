@@ -26,6 +26,7 @@ import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─── Hive-backed Advanced Settings helpers ────────────────────────────────────
 
@@ -853,13 +854,13 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             title: "Guide de premier lancement",
             subtitle: "Relancer le tutoriel de démarrage",
             onTap: () => context.push('/onboarding'),
-            trailing: Icons.arrow_forward_ios_rounded,
+            trailing: Broken.arrow_right_3,
           ),
           _action(
             title: "Notifications",
             subtitle: "Gérer les alertes de l'application",
             onTap: _openNotificationSettings,
-            trailing: Icons.arrow_forward_ios_rounded,
+            trailing: Broken.arrow_right_3,
           ),
 
           // ── Section : Activité en arrière-plan ──────────────────────────
@@ -870,14 +871,14 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               subtitle:
                   "Facilite les mises à jour et sauvegardes de la bibliothèque en arrière-plan",
               onTap: _openBatterySettings,
-              trailing: Icons.arrow_forward_ios_rounded,
+              trailing: Broken.arrow_right_3,
             ),
           _action(
             title: "Don't kill my app!",
             subtitle:
                 "Certains fabricants ont mis en place des restrictions supplémentaires sur les applications qui tuent les services d'arrière-plan. Ce site Web contient plus d'informations sur la manière de résoudre ce problème.",
             onTap: () => _openUrl("https://dontkillmyapp.com"),
-            trailing: Icons.open_in_new_rounded,
+            trailing: Broken.export,
           ),
 
           // ── Section : Contournement Cloudflare distant ──────────────────
@@ -908,7 +909,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             title: 'Configurer le serveur distant',
             subtitle: 'URL, clé API, délai, mode de déclenchement',
             onTap: _showRemoteBypassDialog,
-            trailing: Icons.tune_rounded,
+            trailing: Broken.setting_2,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -923,7 +924,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                     Row(
                       children: [
                         Icon(
-                          Icons.info_outline_rounded,
+                          Broken.info_circle,
                           size: 14,
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -1003,7 +1004,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               style: TextStyle(fontSize: 12, color: context.secondaryColor),
             ),
             trailing: Icon(
-              Icons.arrow_forward_ios_rounded,
+              Broken.arrow_right_3,
               size: 18,
               color: context.secondaryColor,
             ),
@@ -1037,13 +1038,13 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             title: "Vider le cache des icônes d'extensions",
             subtitle: "Taille actuelle : $_iconCacheSizeStr",
             onTap: _clearIconCache,
-            trailing: Icons.cleaning_services_outlined,
+            trailing: Broken.broom,
           ),
           _action(
             title: "Vider le cache des couvertures de bibliothèque",
             subtitle: "Taille actuelle : $_libCacheSizeStr",
             onTap: _clearLibraryCache,
-            trailing: Icons.cleaning_services_outlined,
+            trailing: Broken.broom,
           ),
           _action(
             title: "Rafraîchir les tailles de cache",
@@ -1055,7 +1056,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               });
               await _loadCacheSizes();
             },
-            trailing: Icons.refresh_rounded,
+            trailing: Broken.refresh,
           ),
 
           // ── Section : Bibliothèque ──────────────────────────────────────
@@ -1186,7 +1187,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           ),
           _action(
             title: "Profil d'affichage personnalisé",
-            trailing: Icons.arrow_forward_ios_rounded,
+            trailing: Broken.arrow_right_3,
             onTap: () => context.push('/appearance'),
           ),
 
@@ -1311,7 +1312,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
-                    icon: const Icon(Icons.refresh, size: 16),
+                    icon: const Icon(Broken.refresh, size: 16),
                     label: const Text(
                       'Réinitialiser',
                       style: TextStyle(fontSize: 13),
@@ -1509,7 +1510,7 @@ class _LogAdvancedSection extends ConsumerWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline_rounded,
+                    Broken.info_circle,
                     size: 18,
                     color: cs.onSurface.withValues(alpha: 0.55),
                   ),
@@ -1765,8 +1766,8 @@ class _SilentInstallTileState extends State<_SilentInstallTile> {
     return ListTile(
       leading: Icon(
         widget.status == SilentInstallStatus.active
-            ? Icons.check_circle_rounded
-            : Icons.system_update_alt_rounded,
+            ? Broken.tick_circle
+            : Broken.document_download,
         color: widget.status == SilentInstallStatus.active
             ? Colors.green
             : Theme.of(context).colorScheme.secondary,
@@ -1781,7 +1782,7 @@ class _SilentInstallTileState extends State<_SilentInstallTile> {
             )
           : (widget.status == SilentInstallStatus.active
                 ? null
-                : const Icon(Icons.chevron_right)),
+                : const Icon(Broken.arrow_right_3)),
       onTap: widget.status == SilentInstallStatus.active || _busy
           ? null
           : () async {

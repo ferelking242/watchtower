@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Manga download settings sub-page
@@ -44,7 +45,7 @@ class MangaDownloadScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.menu_book_outlined,
+                  Icon(Broken.book,
                       color: scheme.primary, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
@@ -110,7 +111,7 @@ class MangaDownloadScreen extends ConsumerWidget {
             _SectionHeader(title: 'Comportement'),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.wifi_outlined),
+              secondary: const Icon(Broken.wifi),
               title: const Text('Wi-Fi uniquement'),
               subtitle: const Text(
                 'Télécharger uniquement via Wi-Fi',
@@ -122,7 +123,7 @@ class MangaDownloadScreen extends ConsumerWidget {
             ),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.new_releases_outlined),
+              secondary: const Icon(Broken.magic_star),
               title: const Text('Télécharger les nouveaux chapitres'),
               subtitle: const Text(
                 'Télécharge automatiquement les nouveaux chapitres disponibles',
@@ -135,7 +136,7 @@ class MangaDownloadScreen extends ConsumerWidget {
             ),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.fast_forward_outlined),
+              secondary: const Icon(Broken.forward),
               title: const Text('Téléchargement anticipé (lecture)'),
               subtitle: const Text(
                 'Pré-télécharge si le chapitre actuel et le suivant sont déjà présents',
@@ -151,7 +152,7 @@ class MangaDownloadScreen extends ConsumerWidget {
             _SectionHeader(title: 'Suppression'),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.auto_delete_outlined),
+              secondary: const Icon(Broken.trash),
               title: const Text('Supprimer après lecture'),
               subtitle: const Text(
                 'Supprime le chapitre dès qu\'il est marqué comme lu',
@@ -163,7 +164,7 @@ class MangaDownloadScreen extends ConsumerWidget {
             ),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.bookmark_outlined),
+              secondary: const Icon(Broken.bookmark),
               title: const Text('Supprimer même les chapitres marqués'),
               subtitle: const Text(
                 'La suppression automatique s\'applique aussi aux chapitres avec marque-page',
@@ -374,7 +375,7 @@ class _CompressionSlider extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Icon(Icons.speed_outlined,
+                Icon(Broken.timer,
                     size: 18, color: scheme.onSurfaceVariant),
                 const SizedBox(width: 8),
                 Expanded(

@@ -9,6 +9,7 @@ import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffo
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Watch download settings sub-page
@@ -64,7 +65,7 @@ class WatchDownloadScreen extends ConsumerWidget {
               label: 'Connexions HLS simultanées',
               subtitle: 'Segments téléchargés en parallèle par épisode',
               value: animeConnections,
-              icon: Icons.cable_outlined,
+              icon: Broken.link,
               onChanged: (v) =>
                   ref.read(animeConnectionsStateProvider.notifier).set(v),
               scheme: scheme,
@@ -73,7 +74,7 @@ class WatchDownloadScreen extends ConsumerWidget {
               label: 'Épisodes simultanés (file)',
               subtitle: 'Nombre d\'épisodes téléchargés en même temps',
               value: watchSimultaneous,
-              icon: Icons.queue_outlined,
+              icon: Broken.note_2,
               onChanged: (v) =>
                   ref.read(watchSimultaneousStateProvider.notifier).set(v),
               scheme: scheme,
@@ -83,7 +84,7 @@ class WatchDownloadScreen extends ConsumerWidget {
             _SectionHeader(title: 'Comportement'),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.wifi_outlined),
+              secondary: const Icon(Broken.wifi),
               title: const Text('Wi-Fi uniquement'),
               subtitle: const Text(
                 'Télécharger uniquement via Wi-Fi',
@@ -95,7 +96,7 @@ class WatchDownloadScreen extends ConsumerWidget {
             ),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.new_releases_outlined),
+              secondary: const Icon(Broken.magic_star),
               title: const Text('Télécharger les nouveaux épisodes'),
               subtitle: const Text(
                 'Télécharge automatiquement les nouveaux épisodes disponibles',
@@ -108,7 +109,7 @@ class WatchDownloadScreen extends ConsumerWidget {
             ),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.filter_list_outlined),
+              secondary: const Icon(Broken.filter),
               title: const Text('Autoriser les épisodes filler'),
               subtitle: const Text(
                 'Inclure les épisodes filler dans les téléchargements automatiques',
@@ -120,7 +121,7 @@ class WatchDownloadScreen extends ConsumerWidget {
             ),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.fast_forward_outlined),
+              secondary: const Icon(Broken.forward),
               title: const Text('Téléchargement anticipé'),
               subtitle: const Text(
                 'Pré-télécharge pendant le visionnage si les 2 éps suivants sont disponibles',
@@ -136,7 +137,7 @@ class WatchDownloadScreen extends ConsumerWidget {
             _SectionHeader(title: 'Téléchargeur externe'),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.open_in_new_outlined),
+              secondary: const Icon(Broken.export),
               title: const Text('Toujours utiliser un téléchargeur externe'),
               subtitle: const Text(
                 'Délègue chaque téléchargement à l\'app externe choisie ci-dessous',
@@ -180,11 +181,11 @@ class _EngineCard extends StatelessWidget {
   IconData get _icon {
     switch (mode) {
       case DownloadMode.internalDownloader:
-        return Icons.download_outlined;
+        return Broken.document_download;
       case DownloadMode.aria2:
-        return Icons.account_tree_outlined;
+        return Broken.hierarchy;
       case DownloadMode.external:
-        return Icons.open_in_new_outlined;
+        return Broken.export;
     }
   }
 
@@ -277,7 +278,7 @@ class _EngineCard extends StatelessWidget {
                 ),
               ),
               if (selected)
-                Icon(Icons.check_circle, color: scheme.primary, size: 20),
+                Icon(Broken.tick_circle, color: scheme.primary, size: 20),
             ],
           ),
         ),
@@ -442,8 +443,8 @@ class _ExternalDownloaderCard extends StatelessWidget {
                   ),
                   child: Icon(
                     hasSelection
-                        ? Icons.open_in_new_rounded
-                        : Icons.apps_outlined,
+                        ? Broken.export
+                        : Broken.category,
                     color: hasSelection
                         ? scheme.primary
                         : scheme.onSurfaceVariant,
@@ -490,7 +491,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.edit_outlined, size: 18, color: scheme.primary),
+                Icon(Broken.edit, size: 18, color: scheme.primary),
               ],
             ),
           ),
@@ -642,7 +643,7 @@ class _ExternalAppTile extends StatelessWidget {
               Platform.isAndroid &&
               ExternalDownloaderLauncher.packageMap.containsKey(app.id))
             IconButton(
-              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              icon: const Icon(Broken.play, size: 20),
               tooltip: 'Tester (lance ${app.name})',
               onPressed: () async {
                 final ok = await ExternalDownloaderLauncher.launch(
@@ -666,19 +667,19 @@ class _ExternalAppTile extends StatelessWidget {
             ),
           if (app.playStoreUrl != null)
             IconButton(
-              icon: const Icon(Icons.android_outlined, size: 18),
+              icon: const Icon(Broken.shop, size: 18),
               tooltip: 'Google Play',
               onPressed: () => launchUrl(Uri.parse(app.playStoreUrl!)),
             ),
           if (app.appStoreUrl != null)
             IconButton(
-              icon: const Icon(Icons.apple_outlined, size: 18),
+              icon: const Icon(Broken.shopping_bag, size: 18),
               tooltip: 'App Store',
               onPressed: () => launchUrl(Uri.parse(app.appStoreUrl!)),
             ),
           if (app.pcUrl != null)
             IconButton(
-              icon: const Icon(Icons.computer_outlined, size: 18),
+              icon: const Icon(Broken.monitor, size: 18),
               tooltip: 'Site officiel',
               onPressed: () => launchUrl(Uri.parse(app.pcUrl!)),
             ),
@@ -714,7 +715,7 @@ class _NumberPickerSimple extends StatelessWidget {
       children: [
         IconButton(
           onPressed: value > min ? () => onChanged(value - 1) : null,
-          icon: const Icon(Icons.remove_circle_outline),
+          icon: const Icon(Broken.minus_cirlce),
         ),
         Container(
           width: 60,
@@ -735,7 +736,7 @@ class _NumberPickerSimple extends StatelessWidget {
         ),
         IconButton(
           onPressed: value < max ? () => onChanged(value + 1) : null,
-          icon: const Icon(Icons.add_circle_outline),
+          icon: const Icon(Broken.add_circle),
         ),
       ],
     );

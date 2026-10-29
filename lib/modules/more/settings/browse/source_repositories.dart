@@ -136,7 +136,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
                                         horizontal: 8,
                                         vertical: 15,
                                       ),
-                                      child: Icon(Icons.label_outline_rounded),
+                                      child: Icon(Broken.tag),
                                     ),
                                     useCustomNetworkImage: false,
                                   ),
@@ -147,7 +147,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
                                     horizontal: 8,
                                     vertical: 15,
                                   ),
-                                  child: Icon(Icons.label_outline_rounded),
+                                  child: Icon(Broken.tag),
                                 ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -173,7 +173,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
                                 onPressed: () {
                                   _launchInBrowser(Uri.parse(repo.website!));
                                 },
-                                icon: Icon(Icons.open_in_new_outlined),
+                                icon: Icon(Broken.export),
                               ),
                             SizedBox(width: 10),
                             IconButton(
@@ -184,7 +184,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
                                   );
                                 }
                               },
-                              icon: const Icon(Icons.content_copy),
+                              icon: const Icon(Broken.copy),
                             ),
                             SizedBox(width: 10),
                             IconButton(
@@ -197,7 +197,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
                                   .setVisibility(repo, !isHidden),
                               icon: Stack(
                                 children: [
-                                  const Icon(Icons.remove_red_eye_outlined),
+                                  const Icon(Broken.eye_slash),
                                   if (isHidden)
                                     Positioned(
                                       right: 8,
@@ -222,7 +222,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
                             IconButton(
                               onPressed: () =>
                                   _showRemoveRepoDialog(context, index),
-                              icon: const Icon(Icons.delete_outlined),
+                              icon: const Icon(Broken.trash),
                             ),
                           ],
                         ),
@@ -254,7 +254,7 @@ class _SourceRepositoriesState extends ConsumerState<SourceRepositories> {
         onPressed: () => _showAddRepoDialog(context),
         label: Row(
           children: [
-            const Icon(Icons.add),
+            const Icon(Broken.add),
             const SizedBox(width: 10),
             Text(l10n.add),
           ],
@@ -538,7 +538,7 @@ class _SourceRepositoriesBodyState
                                         horizontal: 8,
                                         vertical: 15,
                                       ),
-                                      child: Icon(Icons.label_outline_rounded),
+                                      child: Icon(Broken.tag),
                                     ),
                                     useCustomNetworkImage: false,
                                   ),
@@ -549,7 +549,7 @@ class _SourceRepositoriesBodyState
                                     horizontal: 8,
                                     vertical: 15,
                                   ),
-                                  child: Icon(Icons.label_outline_rounded),
+                                  child: Icon(Broken.tag),
                                 ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -574,7 +574,7 @@ class _SourceRepositoriesBodyState
                               IconButton(
                                 onPressed: () =>
                                     _launchInBrowser(Uri.parse(repo.website!)),
-                                icon: const Icon(Icons.open_in_new_outlined),
+                                icon: const Icon(Broken.export),
                               ),
                             const SizedBox(width: 10),
                             IconButton(
@@ -585,7 +585,7 @@ class _SourceRepositoriesBodyState
                                   );
                                 }
                               },
-                              icon: const Icon(Icons.content_copy),
+                              icon: const Icon(Broken.copy),
                             ),
                             const SizedBox(width: 10),
                             IconButton(
@@ -598,7 +598,7 @@ class _SourceRepositoriesBodyState
                                   .setVisibility(repo, !isHidden),
                               icon: Stack(
                                 children: [
-                                  const Icon(Icons.remove_red_eye_outlined),
+                                  const Icon(Broken.eye_slash),
                                   if (isHidden)
                                     Positioned(
                                       right: 8,
@@ -623,7 +623,7 @@ class _SourceRepositoriesBodyState
                             IconButton(
                               onPressed: () =>
                                   _showRemoveDialog(context, index),
-                              icon: const Icon(Icons.delete_outlined),
+                              icon: const Icon(Broken.trash),
                             ),
                           ],
                         ),
@@ -653,7 +653,7 @@ class _SourceRepositoriesBodyState
         onPressed: () => _showAddDialog(context),
         label: Row(
           children: [
-            const Icon(Icons.add),
+            const Icon(Broken.add),
             const SizedBox(width: 10),
             Text(l10n.add),
           ],

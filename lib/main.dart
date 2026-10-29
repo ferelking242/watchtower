@@ -49,6 +49,7 @@ import 'package:watchtower/utils/discord_rpc.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/url_protocol/api.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/theme_provider.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/display_prefs_provider.dart';
 import 'package:watchtower/modules/library/providers/file_scanner.dart';
 import 'package:watchtower/modules/more/settings/security/providers/security_state_provider.dart';
 import 'package:watchtower/modules/more/settings/security/app_lock_screen.dart';
@@ -707,6 +708,9 @@ class _MyAppState extends ConsumerState<MyApp>
         ...music_l10n.AppLocalizations.supportedLocales,
       }.toList(),
       builder: (context, child) {
+        // Rebuild the whole tree when the tablet-mode preference changes so
+        // `context.isTablet` (and every layout branching on it) re-evaluates.
+        ref.watch(tabletModeProvider);
         if (!kIsWeb && !Platform.isLinux) {
           final isUnlocked = ref.watch(appUnlockedStateProvider);
           final lockEnabled = ref.watch(appLockEnabledStateProvider);
