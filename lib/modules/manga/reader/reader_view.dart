@@ -469,9 +469,10 @@ class _MangaChapterPageGalleryState
     final index = _currentIndex;
     if (readerMode == null || index == null) return;
 
-    // direction: 1 = volume up, -1 = volume down.
-    final volUp = direction > 0;
-    final goNext = invert ? !volUp : volUp == false;
+    final goNext = VolumeKeyChannel.volumeKeyGoesToNextPage(
+      direction: direction,
+      invert: invert,
+    );
 
     if (goNext) {
       navigationService.nextPage(

@@ -18,6 +18,20 @@ class VolumeKeyChannel {
 
   static StreamSubscription<dynamic>? _sub;
 
+  /// Whether a hardware volume key turns to the next page.
+  ///
+  /// [direction] is `1` for volume-up and `-1` for volume-down. By default
+  /// volume-down goes forward and volume-up goes back (the usual reading
+  /// gesture). Setting [invert] swaps the two, matching the settings subtitle
+  /// "▲ → page suivante • ▼ → page précédente".
+  static bool volumeKeyGoesToNextPage({
+    required int direction,
+    required bool invert,
+  }) {
+    final volUp = direction > 0;
+    return invert ? volUp : !volUp;
+  }
+
   /// Starts forwarding hardware volume keys, invoking [onDirection] with `1`
   /// (up) or `-1` (down). No-op on platforms without the native handler.
   static Future<void> enable(void Function(int direction) onDirection) async {
