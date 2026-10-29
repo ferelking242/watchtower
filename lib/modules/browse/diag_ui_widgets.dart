@@ -51,7 +51,8 @@ class SourceRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: selected
                 ? cs.primaryContainer.withValues(alpha: 0.28)
-                : cs.surfaceContainerLow.withValues(alpha: dimmed ? 0.45 : 1),
+                : cs.surfaceContainerLow
+                    .withValues(alpha: dimmed ? 0.45 : 1),
             borderRadius: radius,
             border: Border.all(
               color: selected
@@ -59,99 +60,84 @@ class SourceRow extends StatelessWidget {
                   : cs.outlineVariant.withValues(alpha: 0.5),
             ),
           ),
-          child: Row(
-            children: [
-              if ((s.iconUrl ?? '').isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: Image.network(
-                    s.iconUrl!,
-                    width: 26,
-                    height: 26,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _fallbackIcon(cs),
-                  ),
-                )
-              else
-                _fallbackIcon(cs),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            s.name ?? '?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              color: cs.onSurface,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+          child: Row(children: [
+            if ((s.iconUrl ?? '').isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: Image.network(
+                  s.iconUrl!,
+                  width: 26,
+                  height: 26,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _fallbackIcon(cs),
+                ),
+              )
+            else
+              _fallbackIcon(cs),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text(
+                        s.name ?? '?',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w600,
+                            color: cs.onSurface),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if ((s.lang ?? '').isNotEmpty) ...[const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: cs.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        if ((s.lang ?? '').isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              s.lang!.toUpperCase(),
-                              style: TextStyle(
+                        child: Text(s.lang!.toUpperCase(),
+                            style: TextStyle(
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w800,
                                 color: cs.onSurfaceVariant,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (subtitle != null && subtitle!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 1),
-                        child: Text(
-                          subtitle!,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: cs.onSurfaceVariant,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                                letterSpacing: 0.4)),
                       ),
-                  ],
-                ),
+                    ],
+                  ]),
+                  if (subtitle != null && subtitle!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text(subtitle!,
+                          style: TextStyle(
+                              fontSize: 10.5, color: cs.onSurfaceVariant),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                ],
               ),
-              const SizedBox(width: 8),
-              if (trailing != null) trailing!,
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            if (trailing != null) trailing!,
+          ]),
         ),
       ),
     );
   }
 
   Widget _fallbackIcon(ColorScheme cs) => Container(
-    width: 26,
-    height: 26,
-    decoration: BoxDecoration(
-      color: cs.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(5),
-    ),
-    child: Icon(Icons.extension_rounded, size: 15, color: cs.onSurfaceVariant),
-  );
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child:
+            Icon(Icons.extension_rounded, size: 15, color: cs.onSurfaceVariant),
+      );
 }
 
 // ─── Status dot ──────────────────────────────────────────────────────────────
@@ -161,14 +147,17 @@ class StatusDot extends StatefulWidget {
   final ColorScheme cs;
   final double size;
 
-  const StatusDot({required this.status, required this.cs, this.size = 8});
+  const StatusDot({
+    required this.status,
+    required this.cs,
+    this.size = 8,
+  });
 
   @override
   State<StatusDot> createState() => StatusDotState();
 }
 
-class StatusDotState extends State<StatusDot>
-    with SingleTickerProviderStateMixin {
+class StatusDotState extends State<StatusDot> with SingleTickerProviderStateMixin {
   AnimationController? _pulse;
 
   @override
@@ -190,10 +179,10 @@ class StatusDotState extends State<StatusDot>
 
   void _startPulse() {
     _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-      lowerBound: 0.35,
-    )..repeat(reverse: true);
+        vsync: this,
+        duration: const Duration(milliseconds: 900),
+        lowerBound: 0.35)
+      ..repeat(reverse: true);
   }
 
   @override
@@ -221,10 +210,9 @@ class StatusDotState extends State<StatusDot>
       dot = FadeTransition(opacity: _pulse!, child: dot);
     }
     return SizedBox(
-      width: widget.size + 8,
-      height: widget.size + 8,
-      child: Center(child: dot),
-    );
+        width: widget.size + 8,
+        height: widget.size + 8,
+        child: Center(child: dot));
   }
 }
 
@@ -299,14 +287,11 @@ class MiniChip extends StatelessWidget {
               width: selected ? 1 : 0.6,
             ),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: fg,
-            ),
-          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: fg)),
         ),
       ),
     );
@@ -333,34 +318,26 @@ class DetailBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surface,
         border: Border(
-          bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+            bottom:
+                BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4))),
+      ),
+      child: Row(children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 15),
+          onPressed: onBack,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
         ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 15),
-            onPressed: onBack,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-          ),
-          Flexible(
-            child: Text(
-              source.name ?? 'Extension',
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13.5,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            'Détail',
-            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
-          ),
-        ],
-      ),
+        Flexible(
+          child: Text(source.name ?? 'Extension',
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+              overflow: TextOverflow.ellipsis),
+        ),
+        const Spacer(),
+        Text('Détail',
+            style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+      ]),
     );
   }
 }
@@ -391,48 +368,39 @@ class EmptyHero extends StatelessWidget {
         padding: const EdgeInsets.all(28),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer.withValues(alpha: 0.35),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 26, color: cs.primary),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: cs.primaryContainer.withValues(alpha: 0.35),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
+              child: Icon(icon, size: 26, color: cs.primary),
+            ),
+            const SizedBox(height: 16),
+            Text(title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                  color: cs.onSurface,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: cs.onSurface)),
+            const SizedBox(height: 6),
+            Text(subtitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 12.5,
-                  color: cs.onSurfaceVariant,
-                  height: 1.4,
-                ),
+                    fontSize: 12.5,
+                    color: cs.onSurfaceVariant,
+                    height: 1.4)),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 18),
+              FilledButton.tonalIcon(
+                onPressed: onAction,
+                icon: Icon(Icons.arrow_forward_rounded, size: 16),
+                label: Text(actionLabel!),
               ),
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: 18),
-                FilledButton.tonalIcon(
-                  onPressed: onAction,
-                  icon: Icon(Icons.arrow_forward_rounded, size: 16),
-                  label: Text(actionLabel!),
-                ),
-              ],
             ],
-          ),
+          ]),
         ),
       ),
     );
@@ -465,11 +433,11 @@ class ExportBar extends StatelessWidget {
   });
 
   static String formatLabel(ReportFormat f) => switch (f) {
-    ReportFormat.markdown => 'Markdown (.md)',
-    ReportFormat.json => 'JSON (.json)',
-    ReportFormat.text => 'Texte (.txt)',
-    ReportFormat.csv => 'CSV (.csv)',
-  };
+        ReportFormat.markdown => 'Markdown (.md)',
+        ReportFormat.json => 'JSON (.json)',
+        ReportFormat.text => 'Texte (.txt)',
+        ReportFormat.csv => 'CSV (.csv)',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -478,90 +446,65 @@ class ExportBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
         border: Border(
-          bottom: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5)),
-        ),
+            bottom:
+                BorderSide(color: cs.outlineVariant.withValues(alpha: 0.5))),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Exporter le rapport',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('Exporter le rapport',
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurface)),
+          if (savedCount > 0) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.folder_rounded, size: 13, color: cs.onSurfaceVariant),
+            Text('$savedCount fichiers',
+                style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant)),
+          ],
+          const Spacer(),
+          IconButton(
+            icon: Icon(
+                rawReport ? Icons.list_alt_rounded : Icons.code_rounded,
+                size: 17,
+                color: cs.onSurfaceVariant),
+            onPressed: canCopy ? onToggleRaw : null,
+            tooltip: rawReport ? 'Vue synthèse' : 'Voir le rapport brut',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+          const SizedBox(width: 2),
+          TextButton.icon(
+            onPressed: canCopy ? onCopy : null,
+            icon: const Icon(Icons.copy_rounded, size: 14),
+            label: const Text('Copier', style: TextStyle(fontSize: 11.5)),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final f in formats) ...[
+              ChoiceChip(
+                label: Text(
+                  formatLabel(f),
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight:
+                          f == active ? FontWeight.w700 : FontWeight.w500),
                 ),
+                selected: f == active,
+                onSelected: (_) => onFormat(f),
+                visualDensity: VisualDensity.compact,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                showCheckmark: false,
               ),
-              if (savedCount > 0) ...[
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.folder_rounded,
-                  size: 13,
-                  color: cs.onSurfaceVariant,
-                ),
-                Text(
-                  '$savedCount fichiers',
-                  style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant),
-                ),
-              ],
-              const Spacer(),
-              IconButton(
-                icon: Icon(
-                  rawReport ? Icons.list_alt_rounded : Icons.code_rounded,
-                  size: 17,
-                  color: cs.onSurfaceVariant,
-                ),
-                onPressed: canCopy ? onToggleRaw : null,
-                tooltip: rawReport ? 'Vue synthèse' : 'Voir le rapport brut',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-              const SizedBox(width: 2),
-              TextButton.icon(
-                onPressed: canCopy ? onCopy : null,
-                icon: const Icon(Icons.copy_rounded, size: 14),
-                label: const Text('Copier', style: TextStyle(fontSize: 11.5)),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
+              const SizedBox(width: 6),
             ],
-          ),
-          const SizedBox(height: 6),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final f in formats) ...[
-                  ChoiceChip(
-                    label: Text(
-                      formatLabel(f),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: f == active
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                      ),
-                    ),
-                    selected: f == active,
-                    onSelected: (_) => onFormat(f),
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    showCheckmark: false,
-                  ),
-                  const SizedBox(width: 6),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
+          ]),
+        ),
+      ]),
     );
   }
 }
@@ -586,32 +529,24 @@ class RawReportView extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
-          Row(
-            children: [
-              Text(
-                'Rapport brut — $format',
+          Row(children: [
+            Text('Rapport brut — $format',
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${content.length} caractères',
-                style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
-              ),
-            ],
-          ),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurfaceVariant)),
+            const Spacer(),
+            Text('${content.length} caractères',
+                style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
+          ]),
           const SizedBox(height: 8),
           SelectableText(
             content,
             style: TextStyle(
-              fontSize: 10.5,
-              fontFamily: 'monospace',
-              height: 1.45,
-              color: cs.onSurface,
-            ),
+                fontSize: 10.5,
+                fontFamily: 'monospace',
+                height: 1.45,
+                color: cs.onSurface),
           ),
         ],
       ),

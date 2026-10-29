@@ -1,5 +1,4 @@
-import 'dart:io'
-    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -12,55 +11,55 @@ class LocalHowToScreen extends StatelessWidget {
   const LocalHowToScreen({required this.itemType, super.key});
 
   String get _typeName => switch (itemType) {
-    ItemType.manga => 'Manga',
-    ItemType.anime => 'Watch',
-    ItemType.novel => 'Novel',
-    ItemType.music => 'Music',
-    ItemType.game => 'Game',
-    ItemType.plugin => 'Plugin',
-  };
+        ItemType.manga => 'Manga',
+        ItemType.anime => 'Watch',
+        ItemType.novel => 'Novel',
+        ItemType.music => 'Music',
+        ItemType.game => 'Game',
+        ItemType.plugin => 'Plugin',
+      };
 
   String get _defaultPath {
-    if (!kIsWeb && Platform.isIOS) {
-      // iOS sandbox: Fichiers > Sur mon iPhone > Watchtower > Local/TypeName
-      return 'Sur mon iPhone → Watchtower → Local/$_typeName';
+      if (!kIsWeb && Platform.isIOS) {
+        // iOS sandbox: Fichiers > Sur mon iPhone > Watchtower > Local/TypeName
+        return 'Sur mon iPhone → Watchtower → Local/$_typeName';
+      }
+      return 'Watchtower/Local/$_typeName';
     }
-    return 'Watchtower/Local/$_typeName';
-  }
 
   List<String> get _supportedFormats => switch (itemType) {
-    ItemType.manga => ['CBZ', 'ZIP'],
-    ItemType.anime => ['MP4', 'MKV', 'AVI', 'MOV', 'FLV', 'MPEG', 'WMV'],
-    ItemType.novel => ['EPUB'],
-    ItemType.music => ['MP3', 'FLAC', 'AAC', 'OGG', 'WAV', 'M4A', 'OPUS'],
-    ItemType.game => ['APK', 'ZIP', 'RAR', '7Z'],
-    ItemType.plugin => [],
-  };
+        ItemType.manga => ['CBZ', 'ZIP'],
+        ItemType.anime => ['MP4', 'MKV', 'AVI', 'MOV', 'FLV', 'MPEG', 'WMV'],
+        ItemType.novel => ['EPUB'],
+        ItemType.music => ['MP3', 'FLAC', 'AAC', 'OGG', 'WAV', 'M4A', 'OPUS'],
+        ItemType.game => ['APK', 'ZIP', 'RAR', '7Z'],
+        ItemType.plugin => [],
+      };
 
   String get _folderStructureExample => switch (itemType) {
-    ItemType.manga =>
-      'Manga/\n'
+        ItemType.manga =>
+          'Manga/\n'
           '  ├── My Manga Title/\n'
           '  │   ├── Chapter 001.cbz\n'
           '  │   ├── Chapter 002.cbz\n'
           '  │   └── cover.jpg (optionnel)\n'
           '  └── Another Manga/\n'
           '      └── Vol.1 Ch.1.zip',
-    ItemType.anime =>
-      'Watch/\n'
+        ItemType.anime =>
+          'Watch/\n'
           '  ├── My Series/\n'
           '  │   ├── Episode 01.mp4\n'
           '  │   ├── Episode 02.mkv\n'
           '  │   └── thumbnail.jpg (optionnel)\n'
           '  └── Movie Title.mp4',
-    ItemType.novel =>
-      'Novel/\n'
+        ItemType.novel =>
+          'Novel/\n'
           '  ├── My Novel.epub\n'
           '  └── Series/\n'
           '      ├── Volume 1.epub\n'
           '      └── Volume 2.epub',
-    ItemType.music =>
-      'Music/\n'
+        ItemType.music =>
+          'Music/\n'
           '  ├── Artist Name/\n'
           '  │   ├── Album Name/\n'
           '  │   │   ├── 01 - Track.mp3\n'
@@ -68,27 +67,27 @@ class LocalHowToScreen extends StatelessWidget {
           '  │   └── Single.flac\n'
           '  └── Playlist/\n'
           '      └── song.ogg',
-    ItemType.game =>
-      'Game/\n'
+        ItemType.game =>
+          'Game/\n'
           '  ├── Game Title/\n'
           '  │   ├── game.apk\n'
           '  │   └── data.zip\n'
           '  └── Another Game.apk',
-    ItemType.plugin =>
-      'Plugin/\n'
+        ItemType.plugin =>
+          'Plugin/\n'
           '  ├── my-plugin/\n'
           '  │   └── plugin.json\n'
           '  └── another-plugin.json',
-  };
+      };
 
   IconData get _typeIcon => switch (itemType) {
-    ItemType.manga => Icons.auto_stories_outlined,
-    ItemType.anime => Icons.live_tv_outlined,
-    ItemType.novel => Icons.menu_book_outlined,
-    ItemType.music => Icons.music_note_outlined,
-    ItemType.game => Icons.sports_esports_outlined,
-    ItemType.plugin => Icons.extension_outlined,
-  };
+        ItemType.manga => Icons.auto_stories_outlined,
+        ItemType.anime => Icons.live_tv_outlined,
+        ItemType.novel => Icons.menu_book_outlined,
+        ItemType.music => Icons.music_note_outlined,
+        ItemType.game => Icons.sports_esports_outlined,
+        ItemType.plugin => Icons.extension_outlined,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -123,11 +122,11 @@ class LocalHowToScreen extends StatelessWidget {
                 _PathRow(label: 'Par défaut', path: _defaultPath),
                 const SizedBox(height: 8),
                 _PathRow(
-                  label: 'Alternatif',
-                  path: !kIsWeb && Platform.isIOS
-                      ? 'Sur mon iPhone → Watchtower → $_typeName'
-                      : 'Download/$_typeName',
-                ),
+                    label: 'Alternatif',
+                    path: !kIsWeb && Platform.isIOS
+                        ? 'Sur mon iPhone → Watchtower → $_typeName'
+                        : 'Download/$_typeName',
+                  ),
                 const SizedBox(height: 12),
                 Text(
                   'Watchtower scannera ce dossier automatiquement à l\'ouverture de la source locale.',
@@ -179,10 +178,7 @@ class LocalHowToScreen extends StatelessWidget {
                   ),
                   child: Text(
                     _folderStructureExample,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                   ),
                 ),
               ],
@@ -242,11 +238,7 @@ class _HeroCard extends StatelessWidget {
   final IconData icon;
   final String typeName;
   final ColorScheme cs;
-  const _HeroCard({
-    required this.icon,
-    required this.typeName,
-    required this.cs,
-  });
+  const _HeroCard({required this.icon, required this.typeName, required this.cs});
 
   @override
   Widget build(BuildContext context) {
@@ -317,11 +309,7 @@ class _InfoCard extends StatelessWidget {
   final Widget child;
   final ColorScheme cs;
   final Color? backgroundColor;
-  const _InfoCard({
-    required this.child,
-    required this.cs,
-    this.backgroundColor,
-  });
+  const _InfoCard({required this.child, required this.cs, this.backgroundColor});
 
   @override
   Widget build(BuildContext context) {

@@ -30,48 +30,19 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
   final List<String> _itemTypes = ["Manga", "Anime", "Novel"];
 
   static const _langOptions = [
-    (
-      lang: SourceCodeLanguage.dart,
-      label: 'Dart',
-      subtitle: 'Native · Recommandé',
-      emoji: '🎯',
-      color: Color(0xFF54C5F8),
-    ),
-    (
-      lang: SourceCodeLanguage.javascript,
-      label: 'JavaScript',
-      subtitle: 'JS universel',
-      emoji: '𝐉𝐒',
-      color: Color(0xFFF7DF1E),
-    ),
+    (lang: SourceCodeLanguage.dart,       label: 'Dart',          subtitle: 'Native · Recommandé', emoji: '🎯', color: Color(0xFF54C5F8)),
+    (lang: SourceCodeLanguage.javascript, label: 'JavaScript',    subtitle: 'JS universel',         emoji: '𝐉𝐒', color: Color(0xFFF7DF1E)),
   ];
 
   static const _commonFlags = {
-    'en': '🇬🇧',
-    'fr': '🇫🇷',
-    'ja': '🇯🇵',
-    'zh': '🇨🇳',
-    'ko': '🇰🇷',
-    'es': '🇪🇸',
-    'pt': '🇵🇹',
-    'de': '🇩🇪',
-    'it': '🇮🇹',
-    'ru': '🇷🇺',
-    'ar': '🇸🇦',
-    'tr': '🇹🇷',
-    'pl': '🇵🇱',
-    'nl': '🇳🇱',
-    'id': '🇮🇩',
-    'th': '🇹🇭',
-    'vi': '🇻🇳',
-    'all': '🌐',
+    'en': '🇬🇧', 'fr': '🇫🇷', 'ja': '🇯🇵', 'zh': '🇨🇳', 'ko': '🇰🇷',
+    'es': '🇪🇸', 'pt': '🇵🇹', 'de': '🇩🇪', 'it': '🇮🇹', 'ru': '🇷🇺',
+    'ar': '🇸🇦', 'tr': '🇹🇷', 'pl': '🇵🇱', 'nl': '🇳🇱', 'id': '🇮🇩',
+    'th': '🇹🇭', 'vi': '🇻🇳', 'all': '🌐',
   };
 
   bool get _canProceed =>
-      _name.isNotEmpty &&
-      _lang.isNotEmpty &&
-      _baseUrl.isNotEmpty &&
-      _iconUrl.isNotEmpty;
+      _name.isNotEmpty && _lang.isNotEmpty && _baseUrl.isNotEmpty && _iconUrl.isNotEmpty;
 
   Source? _buildSource() {
     try {
@@ -169,16 +140,9 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
               ),
               const SizedBox(height: 20),
 
-              _SectionHeader(
-                label: 'INFORMATIONS',
-                icon: Icons.info_outline_rounded,
-              ),
+              _SectionHeader(label: 'INFORMATIONS', icon: Icons.info_outline_rounded),
               const SizedBox(height: 8),
-              _FieldRow(
-                label: 'Nom',
-                hint: 'ex: myAnime',
-                onChanged: (v) => setState(() => _name = v),
-              ),
+              _FieldRow(label: 'Nom', hint: 'ex: myAnime', onChanged: (v) => setState(() => _name = v)),
               const SizedBox(height: 10),
 
               _LangField(
@@ -187,17 +151,9 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
               ),
               const SizedBox(height: 10),
 
-              _FieldRow(
-                label: 'URL de base',
-                hint: 'https://exemple.com',
-                onChanged: (v) => setState(() => _baseUrl = v),
-              ),
+              _FieldRow(label: 'URL de base', hint: 'https://exemple.com', onChanged: (v) => setState(() => _baseUrl = v)),
               const SizedBox(height: 10),
-              _FieldRow(
-                label: 'API URL (optionnel)',
-                hint: 'https://api.exemple.com',
-                onChanged: (v) => setState(() => _apiUrl = v),
-              ),
+              _FieldRow(label: 'API URL (optionnel)', hint: 'https://api.exemple.com', onChanged: (v) => setState(() => _apiUrl = v)),
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -228,11 +184,8 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                                   color: cs.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Icon(
-                                  Icons.broken_image_rounded,
-                                  size: 20,
-                                  color: cs.error,
-                                ),
+                                child: Icon(Icons.broken_image_rounded,
+                                    size: 20, color: cs.error),
                               ),
                             ),
                           )
@@ -241,29 +194,19 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest.withValues(
-                                alpha: 0.5,
-                              ),
+                              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: cs.outlineVariant.withValues(alpha: 0.4),
-                              ),
+                                  color: cs.outlineVariant.withValues(alpha: 0.4)),
                             ),
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 20,
-                              color: cs.onSurfaceVariant,
-                            ),
+                            child: Icon(Icons.image_outlined,
+                                size: 20, color: cs.onSurfaceVariant),
                           ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              _FieldRow(
-                label: 'Notes',
-                hint: 'ex: nécessite une connexion',
-                onChanged: (v) => setState(() => _notes = v),
-              ),
+              _FieldRow(label: 'Notes', hint: 'ex: nécessite une connexion', onChanged: (v) => setState(() => _notes = v)),
               const SizedBox(height: 20),
 
               _SectionHeader(label: 'TYPE', icon: Icons.category_outlined),
@@ -282,11 +225,7 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                 value: _itemTypeIndex,
                 onChanged: (v) => setState(() => _itemTypeIndex = v),
                 cs: cs,
-                icons: [
-                  Icons.auto_stories_outlined,
-                  Icons.live_tv_outlined,
-                  Icons.text_snippet_outlined,
-                ],
+                icons: [Icons.auto_stories_outlined, Icons.live_tv_outlined, Icons.text_snippet_outlined],
               ),
               const SizedBox(height: 28),
 
@@ -295,15 +234,9 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                 height: 52,
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _canProceed
-                        ? cs.primary
-                        : cs.surfaceContainerHighest,
-                    foregroundColor: _canProceed
-                        ? cs.onPrimary
-                        : cs.onSurfaceVariant,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    backgroundColor: _canProceed ? cs.primary : cs.surfaceContainerHighest,
+                    foregroundColor: _canProceed ? cs.onPrimary : cs.onSurfaceVariant,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: _canProceed ? 3 : 0,
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 20),
@@ -321,9 +254,7 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 behavior: SnackBarBehavior.floating,
-                                content: Text(
-                                  'Ce nom d\'extension existe déjà.',
-                                ),
+                                content: Text('Ce nom d\'extension existe déjà.'),
                               ),
                             );
                           }
@@ -362,10 +293,7 @@ class _InfoBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            cs.primary.withValues(alpha: 0.14),
-            cs.tertiary.withValues(alpha: 0.08),
-          ],
+          colors: [cs.primary.withValues(alpha: 0.14), cs.tertiary.withValues(alpha: 0.08)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -379,11 +307,7 @@ class _InfoBanner extends StatelessWidget {
           Expanded(
             child: Text(
               'Configure les métadonnées, puis passe à l\'éditeur de code pour implémenter la logique.',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: cs.onSurface.withValues(alpha: 0.85),
-                height: 1.35,
-              ),
+              style: TextStyle(fontSize: 12.5, color: cs.onSurface.withValues(alpha: 0.85), height: 1.35),
             ),
           ),
         ],
@@ -394,16 +318,7 @@ class _InfoBanner extends StatelessWidget {
 
 class _LanguagePicker extends StatelessWidget {
   final SourceCodeLanguage selected;
-  final List<
-    ({
-      SourceCodeLanguage lang,
-      String label,
-      String subtitle,
-      String emoji,
-      Color color,
-    })
-  >
-  options;
+  final List<({SourceCodeLanguage lang, String label, String subtitle, String emoji, Color color})> options;
   final ValueChanged<SourceCodeLanguage> onChanged;
 
   const _LanguagePicker({
@@ -431,16 +346,17 @@ class _LanguagePicker extends StatelessWidget {
                     : cs.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: active
-                      ? opt.color
-                      : cs.outline.withValues(alpha: 0.15),
+                  color: active ? opt.color : cs.outline.withValues(alpha: 0.15),
                   width: active ? 2 : 1,
                 ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(opt.emoji, style: const TextStyle(fontSize: 28)),
+                  Text(
+                    opt.emoji,
+                    style: const TextStyle(fontSize: 28),
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     opt.label,
@@ -455,8 +371,7 @@ class _LanguagePicker extends StatelessWidget {
                     opt.subtitle,
                     style: TextStyle(
                       fontSize: 9.5,
-                      color: (active ? opt.color : cs.onSurfaceVariant)
-                          .withValues(alpha: 0.8),
+                      color: (active ? opt.color : cs.onSurfaceVariant).withValues(alpha: 0.8),
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 1,
@@ -512,9 +427,7 @@ class _LangFieldState extends State<_LangField> {
               child: TextFormField(
                 controller: _controller,
                 onChanged: (v) {
-                  setState(
-                    () => _selected = v.isEmpty ? null : v.toLowerCase(),
-                  );
+                  setState(() => _selected = v.isEmpty ? null : v.toLowerCase());
                   widget.onChanged(v.toLowerCase());
                 },
                 decoration: InputDecoration(
@@ -532,18 +445,11 @@ class _LangFieldState extends State<_LangField> {
                       style: const TextStyle(fontSize: 20),
                     ),
                   ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: cs.outline.withValues(alpha: 0.3),
-                    ),
+                    borderSide: BorderSide(color: cs.outline.withValues(alpha: 0.3)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -570,17 +476,12 @@ class _LangFieldState extends State<_LangField> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 140),
                   margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: active ? cs.primary : cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: active
-                          ? cs.primary
-                          : cs.outline.withValues(alpha: 0.2),
+                      color: active ? cs.primary : cs.outline.withValues(alpha: 0.2),
                     ),
                   ),
                   child: Row(
@@ -612,11 +513,7 @@ class _FieldRow extends StatelessWidget {
   final String label;
   final String hint;
   final ValueChanged<String> onChanged;
-  const _FieldRow({
-    required this.label,
-    required this.hint,
-    required this.onChanged,
-  });
+  const _FieldRow({required this.label, required this.hint, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -638,14 +535,8 @@ class _FieldRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: cs.primary, width: 2),
         ),
-        labelStyle: TextStyle(
-          fontSize: 12,
-          color: cs.primary.withValues(alpha: 0.8),
-        ),
-        hintStyle: TextStyle(
-          fontSize: 12,
-          color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-        ),
+        labelStyle: TextStyle(fontSize: 12, color: cs.primary.withValues(alpha: 0.8)),
+        hintStyle: TextStyle(fontSize: 12, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
       ),
     );
   }
@@ -692,10 +583,7 @@ class _DropdownRow extends StatelessWidget {
                     Icon(icons![e.key], size: 16, color: cs.primary),
                     const SizedBox(width: 8),
                   ],
-                  Text(
-                    '$label — ${e.value}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                  Text('$label — ${e.value}', style: const TextStyle(fontSize: 13)),
                 ],
               ),
             );
@@ -807,8 +695,7 @@ TestSource main(MSource source) {
   return TestSource(source:source);
 }''';
 
-String _jsSample(Source source) =>
-    '''
+String _jsSample(Source source) => '''
 const watchtowerSources = [{
     "name": "${source.name}",
     "lang": "${source.lang}",

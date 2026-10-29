@@ -19,28 +19,28 @@ enum BrowseSourceTag {
 
 extension BrowseSourceTagLabel on BrowseSourceTag {
   String get label => switch (this) {
-    BrowseSourceTag.cloudflare => 'Cloudflare',
-    BrowseSourceTag.account => 'Compte requis',
-    BrowseSourceTag.drm => 'DRM',
-    BrowseSourceTag.aggregator => 'Agrégateur',
-    BrowseSourceTag.comments => 'Commentaires',
-    BrowseSourceTag.torrent => 'Torrent',
-    BrowseSourceTag.update => 'Mise à jour disponible',
-    BrowseSourceTag.javascript => 'JavaScript',
-    BrowseSourceTag.dart => 'Dart',
-  };
+        BrowseSourceTag.cloudflare => 'Cloudflare',
+        BrowseSourceTag.account => 'Compte requis',
+        BrowseSourceTag.drm => 'DRM',
+        BrowseSourceTag.aggregator => 'Agrégateur',
+        BrowseSourceTag.comments => 'Commentaires',
+        BrowseSourceTag.torrent => 'Torrent',
+        BrowseSourceTag.update => 'Mise à jour disponible',
+        BrowseSourceTag.javascript => 'JavaScript',
+        BrowseSourceTag.dart => 'Dart',
+      };
 
   IconData get icon => switch (this) {
-    BrowseSourceTag.cloudflare => Icons.cloud_outlined,
-    BrowseSourceTag.account => Icons.person_outline_rounded,
-    BrowseSourceTag.drm => Icons.lock_outline_rounded,
-    BrowseSourceTag.aggregator => Icons.hub_outlined,
-    BrowseSourceTag.comments => Icons.chat_bubble_outline_rounded,
-    BrowseSourceTag.torrent => Icons.download_outlined,
-    BrowseSourceTag.update => Icons.system_update_alt_rounded,
-    BrowseSourceTag.javascript => Icons.code_rounded,
-    BrowseSourceTag.dart => Icons.flutter_dash,
-  };
+        BrowseSourceTag.cloudflare => Icons.cloud_outlined,
+        BrowseSourceTag.account => Icons.person_outline_rounded,
+        BrowseSourceTag.drm => Icons.lock_outline_rounded,
+        BrowseSourceTag.aggregator => Icons.hub_outlined,
+        BrowseSourceTag.comments => Icons.chat_bubble_outline_rounded,
+        BrowseSourceTag.torrent => Icons.download_outlined,
+        BrowseSourceTag.update => Icons.system_update_alt_rounded,
+        BrowseSourceTag.javascript => Icons.code_rounded,
+        BrowseSourceTag.dart => Icons.flutter_dash,
+      };
 }
 
 class BrowseSourceFilters {
@@ -134,11 +134,7 @@ class BrowseSourceFilters {
       case BrowseSourceTag.torrent:
         return source.isTorrent;
       case BrowseSourceTag.update:
-        return _compareVersions(
-              source.version ?? '',
-              source.versionLast ?? '',
-            ) <
-            0;
+        return _compareVersions(source.version ?? '', source.versionLast ?? '') < 0;
       case BrowseSourceTag.javascript:
         return source.sourceCodeLanguage == SourceCodeLanguage.javascript;
       case BrowseSourceTag.dart:
@@ -190,9 +186,8 @@ enum _BrowseFilterLevel { root, nsfw, languages, tags }
 class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   late BrowseSourceFilters _filters = widget.filters;
   _BrowseFilterLevel _level = _BrowseFilterLevel.root;
-  late final TextEditingController _searchController = TextEditingController(
-    text: widget.searchQuery,
-  );
+  late final TextEditingController _searchController =
+      TextEditingController(text: widget.searchQuery);
 
   @override
   void didUpdateWidget(covariant BrowseSourceFilterMenu oldWidget) {
@@ -259,8 +254,9 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           icon: Icons.check_circle_outline_rounded,
           label: 'Sources actives uniquement',
           selected: _filters.onlyActive,
-          onTap: () =>
-              _update(_filters.copyWith(onlyActive: !_filters.onlyActive)),
+          onTap: () => _update(
+            _filters.copyWith(onlyActive: !_filters.onlyActive),
+          ),
         ),
         AdaptiveOverlayItem(
           icon: Icons.visibility_off_outlined,

@@ -61,9 +61,7 @@ dynamic _resolvedValue(SourcePreference preference) {
     final values = list.entryValues ?? const <String>[];
     if (values.isEmpty) return null;
     final raw = list.valueIndex ?? 0;
-    final index = raw < 0
-        ? 0
-        : (raw >= values.length ? values.length - 1 : raw);
+    final index = raw < 0 ? 0 : (raw >= values.length ? values.length - 1 : raw);
     return values[index];
   }
   final checkBox = preference.checkBoxPreference;

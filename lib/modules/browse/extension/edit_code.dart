@@ -253,8 +253,7 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                     if (source != null) {
                       isar.writeTxnSync(() {
                         isar.sources.putSync(
-                          source!
-                            ..updatedAt = DateTime.now().millisecondsSinceEpoch,
+                          source!..updatedAt = DateTime.now().millisecondsSinceEpoch,
                         );
                       });
                     }
@@ -262,9 +261,7 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           behavior: SnackBarBehavior.floating,
-                          content: Text(
-                            'Fichier importé : ${result.files.first.name}',
-                          ),
+                          content: Text('Fichier importé : ${result.files.first.name}'),
                           duration: const Duration(seconds: 2),
                         ),
                       );

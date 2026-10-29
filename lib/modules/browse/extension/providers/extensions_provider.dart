@@ -10,20 +10,15 @@ Stream<List<Source>> getExtensionsStream(Ref ref, ItemType itemType) async* {
   // isar_community can reject filters on nullable bool properties, including
   // bools inside embedded objects. Watch the collection without a filter and
   // apply the equivalent predicate in Dart.
-  yield* isar.sources
-      .where()
-      .watch(fireImmediately: true)
-      .map(
+  yield* isar.sources.where().watch(fireImmediately: true).map(
         (sources) => sources
-            .where(
-              (s) =>
-                  s.id != null &&
-                  (s.isActive ?? false) &&
-                  s.itemType == itemType &&
-                  s.sourceCodeLanguage != SourceCodeLanguage.unsupported &&
-                  s.isObsolete != true &&
-                  (s.repo == null || s.repo?.hidden != true),
-            )
+            .where((s) =>
+                s.id != null &&
+                (s.isActive ?? false) &&
+                s.itemType == itemType &&
+                s.sourceCodeLanguage != SourceCodeLanguage.unsupported &&
+                s.isObsolete != true &&
+                (s.repo == null || s.repo?.hidden != true))
             .toList(),
       );
 }

@@ -13,7 +13,9 @@ class SmartLibrarySourceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isManga = itemType == ItemType.manga;
-    final accent = isManga ? const Color(0xFF8B7CFF) : const Color(0xFF54C6B1);
+    final accent = isManga
+        ? const Color(0xFF8B7CFF)
+        : const Color(0xFF54C6B1);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
@@ -23,7 +25,11 @@ class SmartLibrarySourceTile extends StatelessWidget {
           height: 42,
           width: 42,
           child: Center(
-            child: SmartLibraryIcon(isManga: isManga, color: accent, size: 36),
+            child: SmartLibraryIcon(
+              isManga: isManga,
+              color: accent,
+              size: 36,
+            ),
           ),
         ),
         title: Text(

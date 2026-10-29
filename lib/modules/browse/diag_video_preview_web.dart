@@ -15,20 +15,16 @@ class DiagVideoPreview extends StatelessWidget {
         color: cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 16,
-            color: cs.onSurfaceVariant,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Prévisualisation vidéo non disponible sur web.',
-            style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-          ),
-        ],
-      ),
+      child: Row(children: [
+        Icon(Icons.info_outline_rounded,
+            size: 16, color: cs.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Text(
+          'Prévisualisation vidéo non disponible sur web.',
+          style: TextStyle(
+              fontSize: 12, color: cs.onSurfaceVariant),
+        ),
+      ]),
     );
   }
 }

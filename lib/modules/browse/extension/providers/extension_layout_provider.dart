@@ -29,4 +29,6 @@ class ExtensionLayoutNotifier extends Notifier<int> {
 }
 
 final extensionLayoutModeProvider =
-    NotifierProvider<ExtensionLayoutNotifier, int>(ExtensionLayoutNotifier.new);
+    NotifierProvider<ExtensionLayoutNotifier, int>(
+  ExtensionLayoutNotifier.new,
+);
