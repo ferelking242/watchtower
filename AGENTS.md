@@ -433,13 +433,22 @@ starts the video.
 
 
 ## Extension artwork needs the extension's headers (do not regress)
-Several extension CDNs are hotlink-protected: the same cover URL answers `403`
-without a `Referer` and `200` with the extension's own base URL. Measured on
-Harimanga (`img-r1.2xstorage.com`, Cloudflare): `Referer:
-https://www.harimanga.co.uk/` → `200 image/webp`, anything else (absent,
-`example.com`, the CDN host itself) → `403`. The rule targets the request, not
-the device IP — it reproduces through the app's own proxy Worker from a
-datacenter address, so "blocked IP" is the wrong diagnosis when covers fail.
+Some extension CDNs are hotlink-protected and the app must send the headers the
+extension declares. But do not treat "hotlink protection" as the first
+explanation for covers that all show a placeholder — measure first.
+
+Measured on Harimanga (`img-r1.2xstorage.com`, Cloudflare) on 2026-10-26 from a
+plain client: `Referer: https://www.harimanga.co.uk/` → `200 image/webp`, and
+the same URL **without any header also returned `200`**; 25 parallel requests
+did not trigger a `429`. The same `200` held with the app's Android UA, the
+extension's desktop UA, and no UA at all. So the "no Referer → 403" story did
+not reproduce, and it was not the cause of the all-placeholder bug.
+
+The real cause was on the extension side: it rewrote every cover URL onto a
+sharded mirror and `cdn.zinmanga1.com` only carries a slice of the catalogue
+(`/thumb/alexandrite-knight.webp` → `200` on `img-r1`, `404` on `cdn`). The site
+already emits a working mirror per cover in the card markup, so the extension
+must return that URL unchanged (see the extension's `harimanga.js`).
 
 - `ContentImage` is the single consumer of the scope: it reads
   `ExtensionImageHeaders.of(context)` when no explicit `headers` are passed.
@@ -452,6 +461,10 @@ datacenter address, so "blocked IP" is the wrong diagnosis when covers fail.
   itself (see `_CatalogListRow`, `AppGenreTile`).
 - The detail view was never affected: it has always passed the extension
   headers to `cachedNetworkImage` explicitly.
+- Debug aid: `custom_extended_image_provider.dart` logs a headers summary and
+  the failing status on each cover request (`NET-START`, retry, final failure),
+  and `cached_network.dart` logs render failures with `headers=oui|NON`. Use
+  those before blaming the CDN.
 
 
 ## Item naming conventions (do not regress)
