@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:isolate';
 import 'package:flutter/services.dart';
+import 'package:hive/hive.dart';
 import 'package:http_interceptor/http_interceptor.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
@@ -79,8 +80,11 @@ class MTorrentServer {
   ) async {
     try {
       final isFilePath = archivePath?.isNotEmpty ?? false;
+      // A user-configured TorrServer is expected to run outside the app, so the
+      // bundled libmtorrentserver is only started when no custom URL is set.
+      final hasCustomServer = _customTorrServerUrl() != null;
       final isRunning = await check();
-      if (!isRunning) {
+      if (!isRunning && !hasCustomServer) {
         final path = (await StorageProvider().getBtDirectory())!.path;
         final config = jsonEncode({"path": path, "address": "127.0.0.1:0"});
         int port = 0;
@@ -126,10 +130,40 @@ class MTorrentServer {
 }
 
 String get _baseUrl {
+  // A user-configured TorrServer (Paramètres → Lecteur vidéo → Torrent) takes
+  // precedence over the bundled libmtorrentserver instance.
+  final custom = _customTorrServerUrl();
+  if (custom != null) return custom;
   final settings = isar.settings.getSync(kSettingsId);
   final port = settings!.btServerPort ?? 0;
   final address = settings.btServerAddress ?? "127.0.0.1";
   return "http://$address:$port";
+}
+
+/// Reads the TorrServer URL stored by the settings screen, if any.
+String? _customTorrServerUrl() {
+  try {
+    if (!Hive.isBoxOpen('player_prefs')) return null;
+    final raw = Hive.box('player_prefs').get('torrserver_url');
+    return normaliseTorrServerUrl(raw is String ? raw : null);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Normalises a user-entered TorrServer address into a usable base URL.
+///
+/// Accepts `host`, `host:port`, `http://host:port` and `https://host`; returns
+/// null for blank input so callers can fall back to the bundled server. The
+/// default port is 8090, the one TorrServer listens on out of the box.
+String? normaliseTorrServerUrl(String? raw) {
+  final trimmed = raw?.trim() ?? '';
+  if (trimmed.isEmpty) return null;
+  final withScheme = trimmed.contains('://') ? trimmed : 'http://$trimmed';
+  final uri = Uri.tryParse(withScheme);
+  if (uri == null || uri.host.isEmpty) return null;
+  final port = uri.hasPort ? uri.port : 8090;
+  return '${uri.scheme}://${uri.host}:$port';
 }
 
 void _setBtServerPort(int newPort) {

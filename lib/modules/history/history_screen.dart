@@ -29,13 +29,13 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 
-// ââ Layout mode for the history list âââââââââââââââââââââââââââââââââââââââââ
+// ── Layout mode for the history list ─────────────────────────────────────────
 enum _HistoryLayout { list, grid }
 
-// ââ Sort mode ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Sort mode ────────────────────────────────────────────────────────────────
 enum _HistorySort { date, title }
 
-// ââ Filter mode ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Filter mode ──────────────────────────────────────────────────────────────
 enum _HistoryFilter { all, today, thisWeek, thisMonth }
 
 /// Opens a history entry.
@@ -311,7 +311,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
   }
 }
 
-// ââ History Tab âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── History Tab ───────────────────────────────────────────────────────────────
 
 class HistoryTab extends ConsumerStatefulWidget {
   final String query;
@@ -532,7 +532,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
   }
 }
 
-// ââ List item âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── List item ─────────────────────────────────────────────────────────────────
 
 class _HistoryListItem extends ConsumerWidget {
   final History element;
@@ -719,7 +719,7 @@ class _HistoryListItem extends ConsumerWidget {
   }
 }
 
-// ââ Grid view âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Grid view ─────────────────────────────────────────────────────────────────
 
 class _HistoryGrid extends ConsumerWidget {
   final List<History> entries;

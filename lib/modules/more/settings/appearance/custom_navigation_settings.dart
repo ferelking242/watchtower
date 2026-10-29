@@ -33,7 +33,7 @@ class CustomNavigationSettings extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ââ Hub toggle âââââââââââââââââââââââââââââââââââââââââââââââââ
+            // ── Hub toggle ─────────────────────────────────────────────────
             Tooltip(
               message: 'When ON: Manga/Watch/Novel are hidden behind a single Hub button on the dock.',
               child: Padding(
@@ -70,7 +70,7 @@ class CustomNavigationSettings extends ConsumerWidget {
               ),
             ),
 
-            // ââ Library toggle âââââââââââââââââââââââââââââââââââââââââââââ
+            // ── Library toggle ─────────────────────────────────────────────
             Tooltip(
               message: 'When ON: a unified Library tab appears on the dock (all types in one page).',
               child: Padding(
@@ -221,7 +221,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             const Divider(height: 24),
 
-            // ââ Dock style picker ââââââââââââââââââââââââââââââââââââââââââ
+            // ── Dock style picker ──────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
@@ -326,7 +326,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             const Divider(height: 28),
 
-            // ââ Advanced customisation (flat, no gray card) ââââââââââââââââ
+            // ── Advanced customisation (flat, no gray card) ────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -478,7 +478,7 @@ class CustomNavigationSettings extends ConsumerWidget {
   }
 }
 
-// ââ Dock preview cards ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Dock preview cards ────────────────────────────────────────────────────────
 
 class _DockPreviewCard extends StatelessWidget {
   final String label;
@@ -596,7 +596,7 @@ const _previewIcons = [
   Broken.more_2,
 ];
 
-// ââ Slider tile âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Slider tile ───────────────────────────────────────────────────────────────
 
 class _ImmersiveDockPreview extends StatelessWidget {
     final ColorScheme cs;

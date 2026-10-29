@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/utils/system_settings.dart';
+
 bool isOfflineContentError(Object error) {
   final message = error.toString().toLowerCase();
   const offlineIndicators = [
@@ -28,7 +31,27 @@ bool isOfflineContentError(Object error) {
 }
 
 class OfflineContentState extends StatelessWidget {
-  const OfflineContentState({super.key});
+  const OfflineContentState({
+    this.title = 'Pas de connexion Internet',
+    this.message =
+        'Les pages de ce chapitre ne sont pas disponibles hors ligne. '
+        'Reconnectez-vous pour les charger.',
+    this.onRetry,
+    super.key,
+  });
+
+  /// Headline shown above the message.
+  final String title;
+
+  /// Body copy explaining what the user can do.
+  final String message;
+
+  /// Optional retry action. When provided a second, text button is shown
+  /// beneath the network-settings button.
+  final VoidCallback? onRetry;
+
+  Future<void> _openNetworkSettings(BuildContext context) =>
+      openNetworkSettings(context);
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +73,7 @@ class OfflineContentState extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Pas de connexion Internet',
+              title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: colors.onSurface,
@@ -59,13 +82,26 @@ class OfflineContentState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Les pages de ce chapitre ne sont pas disponibles hors ligne. '
-              'Reconnectez-vous pour les charger.',
+              message,
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
             ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => _openNetworkSettings(context),
+              icon: const Icon(Broken.wifi, size: 18),
+              label: const Text('Activer le réseau'),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Broken.refresh_2, size: 18),
+                label: const Text('Réessayer'),
+              ),
+            ],
           ],
         ),
       ),

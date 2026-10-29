@@ -36,6 +36,43 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
 import 'package:cached_network_image/cached_network_image.dart';
 
+/// Filters media_kit subtitle tracks through a whitelist / blacklist of
+/// language codes. Both lists are comma-separated. An empty whitelist and
+/// blacklist leaves the tracks untouched; otherwise a track must match an
+/// allowed language and must not match an excluded one. Matching is a
+/// case-insensitive substring test against the track's language and title.
+List<SubtitleTrack> filterSubtitleTracks(
+  List<SubtitleTrack> tracks, {
+  required String whitelist,
+  required String blacklist,
+}) {
+  List<String> parse(String raw) => raw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .where((s) => s.isNotEmpty)
+      .toList();
+  final allow = parse(whitelist);
+  final deny = parse(blacklist);
+  if (allow.isEmpty && deny.isEmpty) return tracks;
+  return tracks.where((t) {
+    final lang = '${t.language ?? ''} ${t.title ?? ''}'.toLowerCase();
+    if (allow.isNotEmpty && !allow.any(lang.contains)) return false;
+    if (deny.any(lang.contains)) return false;
+    return true;
+  }).toList();
+}
+
+/// [filterSubtitleTracks] bound to the language lists the user configured in
+/// Paramètres → Lecteur → Sous-titres.
+List<SubtitleTrack> filterSubtitleTracksByPrefs(
+  WidgetRef ref,
+  List<SubtitleTrack> tracks,
+) => filterSubtitleTracks(
+  tracks,
+  whitelist: ref.read(playerSubtitleWhitelistProvider),
+  blacklist: ref.read(playerSubtitleBlacklistProvider),
+);
+
 // ─── Speed levels ─────────────────────────────────────────────────────────────
 const _kAllSpeeds = <double>[
   0.25,
@@ -622,6 +659,19 @@ class WatchInlinePlayer {
       final subLangs = ref.read(playerSubtitleLanguagesProvider).trim();
       if (audioLangs.isNotEmpty) await plat.setProperty('alang', audioLangs);
       if (subLangs.isNotEmpty) await plat.setProperty('slang', subLangs);
+      // Audio: keep the source channel layout or let mpv downmix.
+      await plat.setProperty(
+        'audio-channels',
+        ref.read(playerKeepAudioChannelsProvider) ? 'auto' : 'auto-safe',
+      );
+      // Pitch correction keeps voices natural when the speed changes.
+      await plat.setProperty(
+        'audio-pitch-correction',
+        ref.read(playerPitchCorrectionProvider) ? 'yes' : 'no',
+      );
+      // Subtitle text scale (percent → mpv multiplier).
+      final subScale = ref.read(playerSubtitleScaleProvider);
+      await plat.setProperty('sub-scale', (subScale / 100).toStringAsFixed(2));
     } catch (e) {
       AppLogger.log(
         '[PLAYER] user mpv prefs not applied: $e',
@@ -1645,6 +1695,9 @@ class _FullscreenControlsOverlayState
   int _doubleTapSeekSeconds = 10;
   bool _swipeGesturesEnabled = true;
   bool _doubleTapToPauseEnabled = true;
+  bool _askNextEpisodeEnabled = true;
+  bool _gestureOverlayEnabled = true;
+  bool _lockLandscape = false;
   bool _muted = false;
   bool _landscapeIsLeft = true;
   bool _audioOnly = false;
@@ -1723,6 +1776,15 @@ class _FullscreenControlsOverlayState
     _seekSeconds = _doubleTapSeekSeconds;
     _swipeGesturesEnabled = ref.read(playerSwipeGesturesProvider);
     _doubleTapToPauseEnabled = ref.read(playerDoubleTapToPauseProvider);
+    _askNextEpisodeEnabled = ref.read(playerAskNextEpisodeProvider);
+    _gestureOverlayEnabled = ref.read(playerGestureOverlayProvider);
+    _lockLandscape = ref.read(playerOrientationLandscapeProvider);
+    if (_lockLandscape) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
     _currentQuality =
         widget.selectedQuality ??
         (widget.loadedVideos.isNotEmpty
@@ -1807,7 +1869,8 @@ class _FullscreenControlsOverlayState
 
       // Auto Next Episode: show card 20s before end
       final remaining = dur - pos;
-      if (!_nextEpTriggered &&
+      if (_askNextEpisodeEnabled &&
+          !_nextEpTriggered &&
           remaining.inSeconds <= 20 &&
           remaining.inSeconds > 0 &&
           widget.onNextEpisode != null) {
@@ -2657,7 +2720,7 @@ class _FullscreenControlsOverlayState
             ),
 
           // Luminosité / Volume — pilule horizontale en HAUT au centre
-          if (_showBrightnessHUD || _showVolumeHUD)
+          if (_gestureOverlayEnabled && (_showBrightnessHUD || _showVolumeHUD))
             Positioned(
               top: MediaQuery.of(context).padding.top + 10,
               left: 0,
@@ -2745,7 +2808,7 @@ class _FullscreenControlsOverlayState
             ),
 
           // Seek swipe HUD — juste au-dessus de la barre de progression
-          if (_showSeekSwipeHUD)
+          if (_gestureOverlayEnabled && _showSeekSwipeHUD)
             Positioned(
               bottom: 84,
               left: 0,
@@ -4103,7 +4166,7 @@ class _ToolbarChip extends StatelessWidget {
 
 // ─── Fullscreen settings sheet (PLAYit-style) ─────────────────────────────────
 
-class _FullscreenSettingsSheet extends StatefulWidget {
+class _FullscreenSettingsSheet extends ConsumerStatefulWidget {
   final Player player;
   final Color accent;
   final int initialTab;
@@ -4123,11 +4186,12 @@ class _FullscreenSettingsSheet extends StatefulWidget {
   });
 
   @override
-  State<_FullscreenSettingsSheet> createState() =>
+  ConsumerState<_FullscreenSettingsSheet> createState() =>
       _FullscreenSettingsSheetState();
 }
 
-class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
+class _FullscreenSettingsSheetState
+    extends ConsumerState<_FullscreenSettingsSheet>
     with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   late int _seekSeconds;
@@ -4327,7 +4391,10 @@ class _FullscreenSettingsSheetState extends State<_FullscreenSettingsSheet>
                     stream: widget.player.stream.tracks,
                     initialData: widget.player.state.tracks,
                     builder: (_, snap) {
-                      final tracks = snap.data?.subtitle ?? [];
+                      final tracks = filterSubtitleTracksByPrefs(
+                        ref,
+                        snap.data?.subtitle ?? const <SubtitleTrack>[],
+                      );
                       if (tracks.isEmpty) {
                         return const Center(
                           child: Text(
@@ -4424,7 +4491,7 @@ class _FitOption extends StatelessWidget {
 
 // ─── Settings panel — slides from right (Audio + Sous-titre side by side) ─────
 
-class _SettingsPanel extends StatefulWidget {
+class _SettingsPanel extends ConsumerStatefulWidget {
   final Player player;
   final Color accent;
   final VoidCallback onClose;
@@ -4438,15 +4505,20 @@ class _SettingsPanel extends StatefulWidget {
   });
 
   @override
-  State<_SettingsPanel> createState() => _SettingsPanelState();
+  ConsumerState<_SettingsPanel> createState() => _SettingsPanelState();
 }
 
-class _SettingsPanelState extends State<_SettingsPanel> {
+class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
   bool _bilingual = false;
   double _subDelay = 0.0;
   bool _subBoldBox = false;
   double _subFontSize = 24;
   static const Color _kBlue = Color(0xFF2E6CEF);
+
+  /// Filters the player's subtitle tracks through the user's preferred /
+  /// excluded language lists (Paramètres → Lecteur → Sous-titres).
+  List<SubtitleTrack> _filterSubtitleTracks(List<SubtitleTrack> tracks) =>
+      filterSubtitleTracksByPrefs(ref, tracks);
 
   /// Bilingual subtitles: play a second subtitle track via mpv `secondary-sid`.
   void _applyBilingual() {
@@ -4526,7 +4598,9 @@ class _SettingsPanelState extends State<_SettingsPanel> {
   @override
   Widget build(BuildContext context) {
     final audioTracks = widget.player.state.tracks.audio;
-    final subTracks = widget.player.state.tracks.subtitle;
+    final subTracks = _filterSubtitleTracks(
+      widget.player.state.tracks.subtitle,
+    );
     final curAudio = widget.player.state.track.audio;
     final curSub = widget.player.state.track.subtitle;
 
@@ -5157,7 +5231,7 @@ class _TrackTile extends StatelessWidget {
 
 // ─── Portrait player overlay (with tap-to-toggle controls) ───────────────────
 
-class _PortraitPlayerOverlay extends StatefulWidget {
+class _PortraitPlayerOverlay extends ConsumerStatefulWidget {
   final Player player;
   final VideoController controller;
   final Color accent;
@@ -5193,12 +5267,19 @@ class _PortraitPlayerOverlay extends StatefulWidget {
   });
 
   @override
-  State<_PortraitPlayerOverlay> createState() => _PortraitPlayerOverlayState();
+  ConsumerState<_PortraitPlayerOverlay> createState() =>
+      _PortraitPlayerOverlayState();
 }
 
-class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
+class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> {
   bool _showControls = true;
   Timer? _hideTimer;
+
+  // ── Gesture / overlay preferences (mirror the fullscreen overlay) ─────────
+  bool _swipeGesturesEnabled = true;
+  bool _doubleTapSeekEnabled = true;
+  bool _doubleTapToPauseEnabled = true;
+  bool _gestureOverlayEnabled = true;
 
   // ── Brightness / Volume swipe ──────────────────────────────────────────────
   double _brightness = 0.5;
@@ -5232,6 +5313,10 @@ class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
     super.initState();
     // Immediately sync external notifier so back/aide buttons match initial state
     widget.controlsNotifier?.value = _showControls;
+    _swipeGesturesEnabled = ref.read(playerSwipeGesturesProvider);
+    _doubleTapSeekEnabled = ref.read(playerDoubleTapSeekProvider);
+    _doubleTapToPauseEnabled = ref.read(playerDoubleTapToPauseProvider);
+    _gestureOverlayEnabled = ref.read(playerGestureOverlayProvider);
     _resetHideTimer();
     _initMedia();
   }
@@ -5312,6 +5397,12 @@ class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
 
   void _handleDoubleTap({required bool isRight}) {
     _doubleTapResetTimer?.cancel();
+    if (!_doubleTapSeekEnabled) {
+      // "Double-tap pour mettre en pause" replaces the seek zones when the
+      // seek gestures are switched off.
+      if (_doubleTapToPauseEnabled) widget.player.playOrPause();
+      return;
+    }
     if (_doubleTapRight != null && _doubleTapRight != isRight) {
       _doubleTapCount = 0;
       _accumulatedSeekDelta = 0;
@@ -5355,6 +5446,7 @@ class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
 
   // ── Horizontal drag → seek timeline ──────────────────────────────────────
   void _onHorizDragStart(DragStartDetails d) {
+    if (!_swipeGesturesEnabled) return;
     _horizDragStartX = d.globalPosition.dx;
     _horizSeekStartPos = widget.player.state.position;
     _horizSeekDelta = 0;
@@ -5625,10 +5717,14 @@ class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onVerticalDragStart: (d) {
+        if (!_swipeGesturesEnabled) return;
         _dragStartPos = d.globalPosition;
         _hideTimer?.cancel();
       },
-      onVerticalDragUpdate: (d) => _handleSwipeDrag(d, size),
+      onVerticalDragUpdate: (d) {
+        if (!_swipeGesturesEnabled) return;
+        _handleSwipeDrag(d, size);
+      },
       onVerticalDragEnd: (_) {
         _dragStartPos = null;
         if (!_showBrightnessHUD && !_showVolumeHUD) _resetHideTimer();
@@ -5752,7 +5848,7 @@ class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
               ),
             ),
           // ── Luminosité/Volume — pilule horizontale en HAUT au centre ─────
-          if (_showBrightnessHUD || _showVolumeHUD)
+          if (_gestureOverlayEnabled && (_showBrightnessHUD || _showVolumeHUD))
             Positioned(
               top: safeTop + 8,
               left: 0,
@@ -5773,7 +5869,7 @@ class _PortraitPlayerOverlayState extends State<_PortraitPlayerOverlay> {
               ),
             ),
           // ── Seek swipe HUD — juste au-dessus de la barre de progression ──
-          if (_showSeekSwipeHUD)
+          if (_gestureOverlayEnabled && _showSeekSwipeHUD)
             Positioned(
               bottom: 52,
               left: 0,

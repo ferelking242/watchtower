@@ -1467,7 +1467,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
   }
 }
 
-// ââ Toggle button âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Toggle button ─────────────────────────────────────────────────────────────
 
 class _SidebarToggle extends StatelessWidget {
   final bool collapsed;
@@ -1517,7 +1517,7 @@ class _SidebarToggle extends StatelessWidget {
   }
 }
 
-// ââ Collapsed rail (icon-only) ââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Collapsed rail (icon-only) ────────────────────────────────────────────────
 
 class _CollapsedRail extends StatelessWidget {
   final List<NavigationRailDestination> destinations;
@@ -1568,7 +1568,7 @@ class _CollapsedRail extends StatelessWidget {
   }
 }
 
-// ââ Expanded rail (icon + label) ââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Expanded rail (icon + label) ──────────────────────────────────────────────
 
 class _ExpandedRail extends StatelessWidget {
   final List<NavigationRailDestination> destinations;
@@ -1617,7 +1617,7 @@ class _ExpandedRail extends StatelessWidget {
   }
 }
 
-// ââ Single sidebar item âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Single sidebar item ───────────────────────────────────────────────────────
 
 class _SidebarItem extends StatelessWidget {
   final Widget icon;
@@ -1762,7 +1762,7 @@ class _SidebarItem extends StatelessWidget {
   }
 }
 
-// ââ Sidebar footer ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Sidebar footer ────────────────────────────────────────────────────────────
 
 class _SidebarFooter extends StatelessWidget {
   final ColorScheme cs;
@@ -1873,9 +1873,9 @@ double _getNavigationRailWidthLegacy(bool isLongPressed, String? location) {
   return (location == null || validLocations.contains(location)) ? 200 : 0;
 }
 
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 // Floating Glass Dock (replaces classic NavigationBar)
-// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _DockItemData {
   final String route;
@@ -1989,7 +1989,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     final d = widget.dest;
     final items = <_DockItemData>[];
 
-    // ââ Respect the user-configured navigation order from dest ââââââââââââââ
+    // ── Respect the user-configured navigation order from dest ──────────────
     // dest already carries the correct order (from navigationOrderStateProvider)
     // including any _enableLibSwitch / _disableLibSwitch replacements.
     // Iterate it directly so the floating dock matches the classic dock and rail.
@@ -2822,7 +2822,7 @@ class _UnifiedSubDockPill extends StatelessWidget {
   }
 }
 
-// ââ Classic NavigationBar dock ââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Classic NavigationBar dock ────────────────────────────────────────────────
 
 class _ClassicDock extends StatelessWidget {
   const _ClassicDock({
@@ -2999,22 +2999,22 @@ class _DockItemWidget extends StatelessWidget {
         ? 80
         : 180;
     const _descriptions = {
-      '_enableLibSwitch': 'Hub â tap to expand Manga, Watch & Novel tabs',
+      '_enableLibSwitch': 'Hub — tap to expand Manga, Watch & Novel tabs',
       '_disableLibSwitch': 'Tap to go back to Hub view',
-      '/Library': 'Library â all your content unified in one page',
-      '/AnimeLibrary': 'Watch â your anime & video library',
-      '/MoviesLibrary': 'Films â original FlixQuest movie page',
-      '/SeriesLibrary': 'Séries â original FlixQuest series page',
-      '/MangaLibrary': 'Manga â your manga & comic library',
-      '/NovelLibrary': 'Novel â your light novel library',
-      '/MusicLibrary': 'Music â stream & download music',
-      '/GameLibrary': 'Games â browse & download ROMs',
-      '/WatchtowerHome': 'Accueil â discover trending content',
-      '/browse': 'Browse â explore & install sources and extensions',
-      '/history': 'History â recently read or watched items',
-      '/settings': 'More â settings, about & advanced options',
-      '/updates': 'Updates â new chapters & episodes available',
-      '/trackerLibrary': 'Tracking â sync progress with external trackers',
+      '/Library': 'Library — all your content unified in one page',
+      '/AnimeLibrary': 'Watch — your anime & video library',
+      '/MoviesLibrary': 'Films — original FlixQuest movie page',
+      '/SeriesLibrary': 'Séries — original FlixQuest series page',
+      '/MangaLibrary': 'Manga — your manga & comic library',
+      '/NovelLibrary': 'Novel — your light novel library',
+      '/MusicLibrary': 'Music — stream & download music',
+      '/GameLibrary': 'Games — browse & download ROMs',
+      '/WatchtowerHome': 'Accueil — discover trending content',
+      '/browse': 'Browse — explore & install sources and extensions',
+      '/history': 'History — recently read or watched items',
+      '/settings': 'More — settings, about & advanced options',
+      '/updates': 'Updates — new chapters & episodes available',
+      '/trackerLibrary': 'Tracking — sync progress with external trackers',
       '_watchtower_menu': 'Menu — History, Updates, Schedule & more',
     };
 

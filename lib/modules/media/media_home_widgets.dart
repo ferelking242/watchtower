@@ -2471,19 +2471,20 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     final movies = _sortedMovies;
     final extensionItems = _sortedExtensionItems;
     final isFrench = Localizations.localeOf(context).languageCode == 'fr';
+    final cs = Theme.of(context).colorScheme;
     final screen = Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        foregroundColor: cs.onSurface,
         surfaceTintColor: Colors.transparent,
         centerTitle: true,
         title: Text(
           widget.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: cs.onSurface,
             fontSize: 17,
             fontWeight: FontWeight.w700,
           ),
@@ -2541,8 +2542,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
       child: Text(
         isFrench ? 'Les plus populaires' : 'Most Popular',
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
           fontSize: 15,
           fontWeight: FontWeight.w700,
         ),
@@ -2682,13 +2683,17 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   }
 
   Widget _buildAnilistBody(List<AnilistMedia> items) {
+    final cs = Theme.of(context).colorScheme;
     if (_error != null && items.isEmpty) {
       return _CatalogError(title: widget.title, onRetry: _loadPage);
     }
     if (items.isEmpty && _loading) return const AppMediaGridShimmer();
     if (items.isEmpty) {
-      return const Center(
-        child: Text('Aucun résultat', style: TextStyle(color: Colors.white70)),
+      return Center(
+        child: Text(
+          'Aucun résultat',
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
       );
     }
 
@@ -2697,7 +2702,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       return Center(
         child: Text(
           'Aucun résultat pour ces filtres',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: cs.onSurfaceVariant),
         ),
       );
     }
@@ -2791,13 +2796,17 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   }
 
   Widget _buildExtensionBody(List<MManga> items) {
+    final cs = Theme.of(context).colorScheme;
     if (_error != null && items.isEmpty) {
       return _CatalogError(title: widget.title, onRetry: _loadPage);
     }
     if (items.isEmpty && _loading) return const AppMediaGridShimmer();
     if (items.isEmpty) {
-      return const Center(
-        child: Text('Aucun résultat', style: TextStyle(color: Colors.white70)),
+      return Center(
+        child: Text(
+          'Aucun résultat',
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
       );
     }
 
@@ -3015,13 +3024,14 @@ class _BulkDownloadProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return AlertDialog(
-      backgroundColor: const Color(0xFF1C1C1E),
+      backgroundColor: cs.surfaceContainerHigh,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Text(
+      title: Text(
         'Mise en file des téléchargements',
         style: TextStyle(
-          color: Colors.white,
+          color: cs.onSurface,
           fontSize: 16,
           fontWeight: FontWeight.w700,
         ),
@@ -3038,7 +3048,7 @@ class _BulkDownloadProgressDialog extends StatelessWidget {
                 value: p.cancelled || p.total == 0
                     ? null
                     : (p.done / p.total).clamp(0.0, 1.0),
-                backgroundColor: Colors.white10,
+                backgroundColor: cs.surfaceContainerHighest,
                 color: Colors.orange,
                 minHeight: 6,
               ),
@@ -3046,8 +3056,8 @@ class _BulkDownloadProgressDialog extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               p.cancelled ? 'Annulation…' : '${p.done}/${p.total} éléments',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: cs.onSurface,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -3057,7 +3067,7 @@ class _BulkDownloadProgressDialog extends StatelessWidget {
               Text(
                 '${p.queued} vidéo(s) ajoutée(s)'
                 '${p.failed > 0 ? ' · ${p.failed} échec(s)' : ''}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
               ),
             ],
           ],
@@ -3066,10 +3076,7 @@ class _BulkDownloadProgressDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: onCancel,
-          child: const Text(
-            'Annuler',
-            style: TextStyle(color: Colors.white54),
-          ),
+          child: Text('Annuler', style: TextStyle(color: cs.onSurfaceVariant)),
         ),
       ],
     );
@@ -3093,6 +3100,7 @@ class _CatalogListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -3107,10 +3115,10 @@ class _CatalogListRow extends StatelessWidget {
                   ? Container(
                       width: 62,
                       height: 92,
-                      color: Colors.white10,
-                      child: const Icon(
+                      color: cs.surfaceContainerHighest,
+                      child: Icon(
                         Broken.image,
-                        color: Colors.white24,
+                        color: cs.onSurfaceVariant,
                         size: 22,
                       ),
                     )
@@ -3120,9 +3128,9 @@ class _CatalogListRow extends StatelessWidget {
                       height: 92,
                       fit: BoxFit.cover,
                       headers: ExtensionImageHeaders.of(context),
-                      errorWidget: const Icon(
+                      errorWidget: Icon(
                         Broken.image,
-                        color: Colors.white24,
+                        color: cs.onSurfaceVariant,
                         size: 22,
                       ),
                     ),
@@ -3136,8 +3144,8 @@ class _CatalogListRow extends StatelessWidget {
                     title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: cs.onSurface,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -3148,8 +3156,8 @@ class _CatalogListRow extends StatelessWidget {
                       metadata!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white54,
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant,
                         fontSize: 12,
                       ),
                     ),
@@ -3158,7 +3166,7 @@ class _CatalogListRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(Broken.arrow_right_2, size: 18, color: Colors.white38),
+            Icon(Broken.arrow_right_2, size: 18, color: cs.onSurfaceVariant),
           ],
         ),
       ),

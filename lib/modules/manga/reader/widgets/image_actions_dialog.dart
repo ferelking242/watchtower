@@ -2,11 +2,13 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/providers/local_archive.dart';
 import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
+import 'package:watchtower/modules/more/settings/reader/providers/reader_prefs_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -49,25 +51,28 @@ class ImageActionsDialog {
       builder: (context) => _ImageActionsSheet(
         imageBytes: imageBytes,
         manga: manga,
+        chapterName: chapterName,
         fileName: name,
       ),
     );
   }
 }
 
-class _ImageActionsSheet extends StatelessWidget {
+class _ImageActionsSheet extends ConsumerWidget {
   final List<int> imageBytes;
   final Manga manga;
+  final String chapterName;
   final String fileName;
 
   const _ImageActionsSheet({
     required this.imageBytes,
     required this.manga,
+    required this.chapterName,
     required this.fileName,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SuperListView(
       shrinkWrap: true,
       children: [
@@ -109,7 +114,7 @@ class _ImageActionsSheet extends StatelessWidget {
                   _ActionButton(
                     label: context.l10n.save,
                     icon: Icons.save_outlined,
-                    onPressed: () => _saveImage(context),
+                    onPressed: () => _saveImage(context, ref),
                   ),
                 ],
               ),
@@ -179,9 +184,16 @@ class _ImageActionsSheet extends StatelessWidget {
     );
   }
 
-  Future<void> _saveImage(BuildContext context) async {
-    final dir = await StorageProvider().getGalleryDirectory();
+  Future<void> _saveImage(BuildContext context, WidgetRef ref) async {
+    var dir = await StorageProvider().getGalleryDirectory();
     if (dir == null) return;
+
+    // Mihon's "Enregistrer les pages dans des dossiers séparés": keep each
+    // chapter's pages in their own folder instead of a flat gallery dump.
+    if (ref.read(savePagesInSeparateFoldersProvider)) {
+      dir = Directory(p.join(dir.path, manga.name, chapterName));
+      await dir.create(recursive: true);
+    }
 
     final file = File(p.join(dir.path, "$fileName.png"));
     file.writeAsBytesSync(imageBytes);

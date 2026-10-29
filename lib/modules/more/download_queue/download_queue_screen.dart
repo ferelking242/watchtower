@@ -92,6 +92,17 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     super.dispose();
   }
 
+  /// Returns to the page the queue was opened from. `go('/WatchtowerHome')`
+  /// used to be hardcoded here, which threw the user back to the Hub even when
+  /// they had opened the queue from Downloads settings or another page.
+  void _goBack(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/WatchtowerHome');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
@@ -109,7 +120,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
           return Scaffold(
             appBar: AppBar(
               leading: BackButton(
-                onPressed: () => context.go('/WatchtowerHome'),
+                onPressed: () => _goBack(context),
               ),
               title: const Text('Téléchargements'),
             ),
@@ -189,7 +200,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             automaticallyImplyLeading: false,
             leading: IconButton(
               icon: const Icon(Icons.chevron_left_rounded),
-              onPressed: () => context.go('/WatchtowerHome'),
+              onPressed: () => _goBack(context),
             ),
             titleSpacing: 16,
             title: const Text(

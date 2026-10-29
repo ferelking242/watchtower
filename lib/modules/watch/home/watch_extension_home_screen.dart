@@ -1155,13 +1155,15 @@ class _ExtensionFeed extends StatelessWidget {
                       : const SizedBox.shrink(),
                 ),
               if (layoutEditorMode && sections.isEmpty)
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
                     child: Text(
                       'Aucune section. Utilise l’éditeur JSON pour en créer une.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -1314,7 +1316,7 @@ class _ExtensionFeed extends StatelessWidget {
       ],
     );
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       // L'édition se fait sur la page réelle : aucun chrome supplémentaire,
       // la seule surcouche est le dock flottant en bas à droite.
       body: layoutEditorMode ? selectedPage : homeFeed,
@@ -1569,6 +1571,8 @@ class _ExtensionLayoutSectionState
     final selector = widget.section.monthSelector;
     if (selector == null) return child;
     final selected = _selectedMonth ?? _initialMonth();
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1583,23 +1587,27 @@ class _ExtensionLayoutSectionState
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF171820),
+              color: isDark ? const Color(0xFF171820) : cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: .10)),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: .10)
+                    : cs.outlineVariant,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_month_rounded,
-                  color: Colors.white70,
+                  color: cs.onSurfaceVariant,
                   size: 18,
                 ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Choisir un mois',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: cs.onSurfaceVariant,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1608,10 +1616,12 @@ class _ExtensionLayoutSectionState
                 DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: selected,
-                    dropdownColor: const Color(0xFF20212A),
+                    dropdownColor: isDark
+                        ? const Color(0xFF20212A)
+                        : cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(12),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: cs.onSurface,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -2281,6 +2291,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppUI.pagePadding(context),
@@ -2291,9 +2302,15 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .035),
+          color: isDark
+              ? Colors.white.withValues(alpha: .035)
+              : cs.onSurface.withValues(alpha: .045),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: .09)),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: .09)
+                : cs.onSurface.withValues(alpha: .10),
+          ),
         ),
         child: Row(
           children: [
@@ -2307,8 +2324,8 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                     '${extensionErrorTitle(error)} · $title',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: cs.onSurface,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -2319,8 +2336,8 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                         'La source est momentanément indisponible.',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white60,
+                    style: TextStyle(
+                      color: cs.onSurfaceVariant,
                       fontSize: 11.5,
                       height: 1.3,
                     ),
@@ -2423,8 +2440,9 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: transparent ? Colors.transparent : const Color(0xFF0B0B11),
+      color: transparent ? Colors.transparent : cs.surface,
       elevation: transparent ? 0 : 1,
       shadowColor: Colors.black.withValues(alpha: .12),
       child: SafeArea(
@@ -2446,8 +2464,8 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
                         : 'Extension',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: cs.onSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                     ),
@@ -2776,7 +2794,7 @@ class _ExtensionHomeLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ExtensionAppleRefreshable(
         onRefresh: onRefresh,
         child: SingleChildScrollView(
@@ -3050,10 +3068,11 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
             ),
           );
 
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0B11),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B0B11),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         leading: IconButton(
           onPressed: widget.onClose,
           icon: const Icon(Icons.chevron_left_rounded),
@@ -3064,7 +3083,7 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
           autofocus: true,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _submit(),
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: cs.onSurface),
           decoration: InputDecoration(
             hintText: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
             border: InputBorder.none,
@@ -3079,10 +3098,10 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
         ],
       ),
       body: _submittedQuery.isEmpty
-          ? const Center(
+          ? Center(
               child: Text(
                 'Recherchez une vidéo dans cette extension',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: cs.onSurfaceVariant),
               ),
             )
           : result!.when(
@@ -3093,17 +3112,17 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.cloud_off_rounded,
-                        color: Colors.white54,
+                        color: cs.onSurfaceVariant,
                         size: 44,
                       ),
                       const SizedBox(height: 14),
                       Text(
                         extensionErrorTitle(error),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: cs.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -3111,8 +3130,8 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                       Text(
                         extensionRequestFailureMessage(error) ?? '',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: cs.onSurfaceVariant,
                           height: 1.4,
                         ),
                       ),
@@ -3138,10 +3157,10 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
               data: (pages) {
                 final items = pages?.list ?? const <MManga>[];
                 if (items.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
                       'Aucun résultat',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: cs.onSurfaceVariant),
                     ),
                   );
                 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/anime/anime_discovery_feed.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart';
 
 /// AniList-powered discovery tab in the second position of the Watch hub.
 class AnimeDiscoveryScreen extends ConsumerWidget {
@@ -47,15 +48,15 @@ class AniListErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final message = error.toString().toLowerCase();
-    final isNetworkError =
-        message.contains('socket') ||
-        message.contains('failed host') ||
-        message.contains('network') ||
-        message.contains('timeout') ||
-        message.contains('connection');
+    if (isOfflineContentError(error)) {
+      return OfflineContentState(
+        message: 'Connectez-vous à Internet pour charger ce contenu. '
+            'Vérifiez votre Wi-Fi ou vos données mobiles.',
+        onRetry: onRetry,
+      );
+    }
 
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(32),
       child: Center(
@@ -63,26 +64,21 @@ class AniListErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              isNetworkError
-                  ? Icons.wifi_off_rounded
-                  : Icons.cloud_off_outlined,
+              Icons.cloud_off_outlined,
               size: 56,
               color: theme.colorScheme.error,
             ),
             const SizedBox(height: 14),
             Text(
-              isNetworkError
-                  ? 'No internet connection'
-                  : 'Could not reach AniList',
+              'Contenu indisponible',
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              isNetworkError
-                  ? 'Check your Wi-Fi or mobile data and try again.'
-                  : 'AniList is unreachable right now. It may be down or rate-limiting.',
+              'Le service est injoignable pour le moment. '
+              'Il est peut-être en panne ou limite les requêtes.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -92,7 +88,7 @@ class AniListErrorView extends StatelessWidget {
             FilledButton.tonalIcon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: const Text('Réessayer'),
             ),
           ],
         ),
