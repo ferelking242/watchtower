@@ -708,3 +708,36 @@ must not leak into watch code paths or logs:
   warns on a reused name, so keep the two in step.
 - Tags come from the index `tags` list (`effectiveTags`, `catalog_entry.dart`).
   Never infer a category from the extension name or domain.
+
+## Réglages (parité Mihon / Aniyomi)
+- Les écrans vivent sous `lib/modules/more/settings/<section>` et sont listés
+  par `settings_screen.dart` : Général (`/general`), Affichage (`/appearance`,
+  renommé depuis « Apparence »), Bibliothèque (`/librarySettings`), Lecteur
+  manga (`/readerMode`), Lecteur vidéo (`/playerOverview`), puis
+  téléchargements, tracking, sync, sécurité, avancé, widgets.
+- Chaque sous-page est un `SettingsSubpageScaffold` : il monte le titre en
+  en-tête au scroll et fournit le `<` de retour et la recherche. La recherche
+  est globale (`settings_search_index.dart`) et couvre les sous-pages, pas
+  seulement la page ouverte — ajouter une entrée là-bas, pas dans la page.
+- Les icônes viennent toutes de `core/icon_fonts/broken_icons.dart` (`Broken.*`).
+  Ne jamais mélanger avec `Icons.*` : l'incohérence est visible et a déjà
+  cassé l'en-tête des paramètres.
+- Les préférences runtime sont des providers Riverpod dans
+  `settings/<section>/providers/`. Un réglage qui n'est lu que par l'écran de
+  réglages est un stub : le lecteur/le hub doit le `watch`/`read` pour que le
+  changement s'applique. Exemple : `volumeButtonNavigationStateProvider` est
+  écouté dans `reader_view.dart` (`ref.listen`) pour activer/désactiver le
+  listener matériel sans rouvrir le chapitre.
+- Navigation par boutons de volume : `volume_controller` ne reçoit plus
+  `VOLUME_CHANGED_ACTION` sur Android 13+. `VolumeKeyChannel`
+  (`modules/manga/reader/services/volume_key_channel.dart`) passe par
+  `MainActivity.dispatchKeyEvent`, qui avale les touches et pousse la direction
+  sur un EventChannel — le volume système ne bouge donc pas.
+- États hors-ligne : ne jamais afficher un `ClientException`/`SocketException`
+  brut. `isOfflineContentError` (`modules/widgets/offline_content_state.dart`)
+  détecte le cas et `OfflineContentState` montre une animation Lottie, un
+  message court et un bouton vers les réglages réseau
+  (`openNetworkSettings`, `utils/system_settings.dart`).
+- TorrServer : `_baseUrl` (`services/torrent_server.dart`) préfère l'URL saisie
+  par l'utilisateur (`normaliseTorrServerUrl`, Hive `player_prefs`) au serveur
+  embarqué. Ne pas réintroduire la lecture directe de `btServerPort`.
