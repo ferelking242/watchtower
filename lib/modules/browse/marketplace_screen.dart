@@ -7744,7 +7744,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             Icon(Icons.cloud_off_rounded, color: _muted, size: 48),
             const SizedBox(height: 14),
             Text(
-              'Le catalogue est indisponible',
+              l10n.marketplace_catalog_unavailable,
               style: TextStyle(
                 color: MarketplacePalette.of(context).text,
                 fontSize: 18,
@@ -7753,7 +7753,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Vérifie ta connexion puis réessaie.',
+              l10n.marketplace_check_connection,
               textAlign: TextAlign.center,
               style: TextStyle(color: _muted, fontSize: 13),
             ),
@@ -8104,8 +8104,10 @@ class _PlayStoreDetails extends StatelessWidget {
                         const SizedBox(height: 5),
                         Text(
                           hasUpdate
-                              ? 'Mise à jour disponible · v${entry.version}'
-                              : 'Installée v$installedVersion',
+                              ? l10n.marketplace_update_available(entry.version)
+                              : l10n.marketplace_installed_version_label(
+                                  installedVersion!,
+                                ),
                           style: TextStyle(
                             color: hasUpdate
                                 ? MarketplacePalette.of(context).accent
@@ -8178,10 +8180,10 @@ class _PlayStoreDetails extends StatelessWidget {
                             )
                           : Text(
                               hasUpdate
-                                  ? 'Mettre à jour'
+                                  ? l10n.marketplace_update
                                   : installed
-                                  ? 'Extension installée'
-                                  : 'Installer',
+                                  ? l10n.marketplace_extension_installed
+                                  : l10n.install,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                               ),

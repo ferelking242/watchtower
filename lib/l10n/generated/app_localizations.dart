@@ -5453,6 +5453,30 @@ abstract class AppLocalizations {
   /// **'available v{version}'**
   String marketplace_available_version(Object version);
 
+  /// No description provided for @marketplace_catalog_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The catalogue is unavailable'**
+  String get marketplace_catalog_unavailable;
+
+  /// No description provided for @marketplace_check_connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get marketplace_check_connection;
+
+  /// No description provided for @marketplace_update_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available · v{version}'**
+  String marketplace_update_available(String version);
+
+  /// No description provided for @marketplace_installed_version_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed v{version}'**
+  String marketplace_installed_version_label(String version);
+
   /// No description provided for @marketplace_info_size.
   ///
   /// In en, this message translates to:

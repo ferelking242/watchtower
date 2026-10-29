@@ -2976,6 +2976,23 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get marketplace_catalog_unavailable => 'Le catalogue est indisponible';
+
+  @override
+  String get marketplace_check_connection =>
+      'Vérifie ta connexion puis réessaie.';
+
+  @override
+  String marketplace_update_available(String version) {
+    return 'Mise à jour disponible · v$version';
+  }
+
+  @override
+  String marketplace_installed_version_label(String version) {
+    return 'Installée v$version';
+  }
+
+  @override
   String get marketplace_info_size => 'Taille';
 
   @override

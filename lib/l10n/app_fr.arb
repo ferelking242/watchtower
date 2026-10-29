@@ -925,6 +925,10 @@
   "marketplace_aggregator": "Agrégateur",
   "marketplace_comments": "Commentaires",
   "marketplace_available_version": "disponible v{version}",
+  "marketplace_catalog_unavailable": "Le catalogue est indisponible",
+  "marketplace_check_connection": "Vérifie ta connexion puis réessaie.",
+  "marketplace_update_available": "Mise à jour disponible · v{version}",
+  "marketplace_installed_version_label": "Installée v{version}",
   "marketplace_info_size": "Taille",
   "marketplace_load_error": "Impossible de charger le Marketplace"
 }

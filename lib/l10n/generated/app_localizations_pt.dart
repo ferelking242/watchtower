@@ -2969,6 +2969,23 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get marketplace_catalog_unavailable => 'The catalogue is unavailable';
+
+  @override
+  String get marketplace_check_connection =>
+      'Check your connection and try again.';
+
+  @override
+  String marketplace_update_available(String version) {
+    return 'Update available · v$version';
+  }
+
+  @override
+  String marketplace_installed_version_label(String version) {
+    return 'Installed v$version';
+  }
+
+  @override
   String get marketplace_info_size => 'Size';
 
   @override
@@ -5917,6 +5934,23 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
   @override
   String marketplace_available_version(Object version) {
     return 'available v$version';
+  }
+
+  @override
+  String get marketplace_catalog_unavailable => 'The catalogue is unavailable';
+
+  @override
+  String get marketplace_check_connection =>
+      'Check your connection and try again.';
+
+  @override
+  String marketplace_update_available(String version) {
+    return 'Update available · v$version';
+  }
+
+  @override
+  String marketplace_installed_version_label(String version) {
+    return 'Installed v$version';
   }
 
   @override
