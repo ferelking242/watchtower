@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lottie/lottie.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -39,6 +38,9 @@ import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
+import 'package:watchtower/widgets/kaomoji_empty.dart';
 
 enum _LayoutEditorDestination { home, gallery, json }
 
@@ -655,6 +657,20 @@ class _WatchExtensionHomeScreenState
 
   @override
   Widget build(BuildContext context) {
+    final headers = ref.watch(
+      headersProvider(
+        source: source.name ?? '',
+        lang: source.lang ?? '',
+        sourceId: source.id,
+      ),
+    );
+    return ExtensionImageHeaders(
+      headers: headers,
+      child: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     // Smart Library is an on-device index, not an extension. Return before
     // watching any extension providers or loading a remote layout.
     if (widget.isLocalLibrary) {
@@ -1429,6 +1445,7 @@ void _openSection(
   required String title,
   List<MManga> initialItems = const [],
   String? cardStyle,
+  String? seeAllPage,
 }) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -1438,6 +1455,7 @@ void _openSection(
         title: title,
         initialExtensionItems: initialItems,
         cardStyle: cardStyle,
+        seeAllPage: seeAllPage,
       ),
     ),
   );
@@ -1709,6 +1727,7 @@ class _ExtensionLayoutSectionState
       title: _title,
       initialItems: items,
       cardStyle: widget.section.cardStyle,
+      seeAllPage: widget.section.seeAllPage,
     );
     final sectionAction = widget.section.seeAll ? onSeeAll : null;
 
@@ -2335,8 +2354,10 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Same shape as a populated section (heading + content) so an empty
-    // "Historique" reads like the other sections, with the shared empty-state
-    // animation and a compact retry button instead of a bare text line.
+    // "Historique" reads like the other sections. The glyph is a kaomoji
+    // rather than the shared Lottie: inside a rail it only needs to say
+    // "nothing here", and text stays sharp and cheap where the animation
+    // would dominate the row.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2352,18 +2373,10 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Lottie.asset(
-                  'assets/animations/empty_box_partho.json',
-                  width: 112,
-                  height: 112,
-                  fit: BoxFit.contain,
-                  repeat: true,
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Aucun contenu',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 12.5),
+                const KaomojiEmpty(
+                  kaomoji: '(´・ω・`)',
+                  size: 22,
+                  message: 'Aucun contenu',
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

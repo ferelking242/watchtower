@@ -586,6 +586,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get reader => 'การอ่าน';
 
   @override
+  String get reader_manga => 'Manga reader';
+
+  @override
   String get refresh => 'รีเฟรช';
 
   @override
@@ -1342,6 +1345,9 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get player => 'ตัวเล่น';
+
+  @override
+  String get player_video => 'Video player';
 
   @override
   String get markEpisodeAsSeenSetting =>

@@ -589,6 +589,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get reader => 'Pembaca';
 
   @override
+  String get reader_manga => 'Manga reader';
+
+  @override
   String get refresh => 'Segarkan';
 
   @override
@@ -1346,6 +1349,9 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get player => 'Pemain';
+
+  @override
+  String get player_video => 'Video player';
 
   @override
   String get markEpisodeAsSeenSetting =>

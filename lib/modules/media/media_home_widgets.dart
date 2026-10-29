@@ -24,6 +24,7 @@ import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
@@ -1811,6 +1812,17 @@ abstract final class CatalogBulkDownload {
       ),
   ];
 
+  /// Same menu as [menuItems] without the download entries, for surfaces that
+  /// show a three-dot button but queue nothing (extension person pages).
+  static List<PopupMenuEntry<CatalogBulkDownloadAction>> selectionMenuItems() =>
+      [
+        PopupMenuItem(
+          value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
+          enabled: false,
+          child: _menuRow(Broken.folder_add, 'Sélection'),
+        ),
+      ];
+
   static Widget _menuRow(IconData icon, String label) => Row(
     children: [
       Icon(icon, size: 18),
@@ -2015,6 +2027,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     this.extensionSectionId,
     this.initialExtensionItems = const [],
     this.cardStyle,
+    this.seeAllPage,
     this.anilistFilter,
     this.initialAnilistItems = const [],
     this.onOpenAnilist,
@@ -2027,6 +2040,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     required String sectionId,
     this.initialExtensionItems = const [],
     this.cardStyle,
+    this.seeAllPage,
     super.key,
   }) : path = '',
        initialItems = const [],
@@ -2045,6 +2059,7 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
     required AnilistBrowseFilter filter,
     this.initialAnilistItems = const [],
     this.cardStyle,
+    this.seeAllPage,
     this.onOpenAnilist,
     super.key,
   }) : path = '',
@@ -2063,6 +2078,11 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
   final String? extensionSectionId;
   final List<MManga> initialExtensionItems;
   final String? cardStyle;
+
+  /// Layout hint for this page, read from the section that opened it (see
+  /// `UiSection.seeAllPage`). `tags` renders a two-column grid of large,
+  /// cover-first tag cards.
+  final String? seeAllPage;
 
   /// When set, the screen pages through AniList instead of TMDB/extensions.
   final AnilistBrowseFilter? anilistFilter;
@@ -2788,6 +2808,42 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       );
     }
 
+    // A tag index opened from a "see all" tile gets its own presentation: two
+    // large cards per row so the borrowed cover stays readable, instead of the
+    // three narrow tiles the home rail uses. Any extension reaches this page by
+    // setting `seeAllPage: "tags"` on the section.
+    final tagPage = widget.seeAllPage == 'tags';
+    if (tagPage) {
+      return GridView.builder(
+        controller: _scrollController,
+        padding: EdgeInsets.fromLTRB(
+          AppUI.pagePadding(context),
+          12,
+          AppUI.pagePadding(context),
+          110,
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 1.55,
+          crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
+          mainAxisSpacing: 14,
+        ),
+        itemCount: items.length + (_loading ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= items.length) {
+            return const AppShimmerBlock(radius: AppUI.cardRadius);
+          }
+          final item = items[index];
+          return TagCard(
+            item: ContentItem.fromManga(item),
+            width: double.infinity,
+            height: 132,
+            onTap: () => _openExtensionItem(item),
+          );
+        },
+      );
+    }
+
     return GridView.builder(
       controller: _scrollController,
       padding: EdgeInsets.fromLTRB(
@@ -3041,6 +3097,7 @@ class _CatalogListRow extends StatelessWidget {
                       width: 62,
                       height: 92,
                       fit: BoxFit.cover,
+                      headers: ExtensionImageHeaders.of(context),
                       errorWidget: const Icon(
                         Broken.image,
                         color: Colors.white24,

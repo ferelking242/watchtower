@@ -76,7 +76,7 @@ class ReaderScreen extends ConsumerWidget {
     final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
     return SettingsSubpageScaffold(
-      title: l10n.reader,
+      title: l10n.reader_manga,
       slivers: [
         SliverToBoxAdapter(
           child: Column(

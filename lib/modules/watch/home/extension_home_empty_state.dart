@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
+import 'package:watchtower/widgets/kaomoji_empty.dart';
 
 int? extensionHttpStatusCode(Object? error) {
   if (error == null) return null;
@@ -326,12 +326,13 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                 onRefresh: widget.onRefresh,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    // Same animation on every surface, sized to the viewport:
-                    // the error states used to shrink it to a 48 px badge next
-                    // to a “!” icon, which read as a second, different page.
-                    final animationSize = math.min(
-                      200.0,
-                      math.max(110.0, constraints.maxHeight * .30),
+                    // The glyph is sized to the viewport so it reads as the
+                    // same surface on a phone and a tablet. A kaomoji replaces
+                    // the old Lottie: the animation was heavy, and the text
+                    // glyph stays sharp and conveys the same "nothing here".
+                    final glyphSize = math.min(
+                      64.0,
+                      math.max(34.0, constraints.maxHeight * .10),
                     );
                     return SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(
@@ -355,11 +356,8 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                 children: [
                                   // One single empty-state surface for every
                                   // case (plain empty, HTTP failure, anti-bot):
-                                  // the animation replaces the old error page
+                                  // the kaomoji replaces the old error page
                                   // with its separate “!” icon.
-                                  // LottieFiles: “empty box3” by partho prothimdatta.
-                                  // Free to use under the Lottie Simple License.
-                                  // https://lottiefiles.com/free-animation/empty-box3-zu0ECVDz4n
                                   Center(
                                     child: Semantics(
                                       label: isPlainEmpty
@@ -369,15 +367,16 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                               : cloudflareApiBlocked
                                                   ? 'Accès API bloqué'
                                                   : 'Échec de connexion à la source',
-                                      child: Lottie.asset(
-                                        'assets/animations/empty_box_partho.json',
+                                      child: KaomojiEmpty(
                                         key: const ValueKey(
-                                          'extension-empty-lottie',
+                                          'extension-empty-kaomoji',
                                         ),
-                                        width: animationSize,
-                                        height: animationSize,
-                                        fit: BoxFit.contain,
-                                        repeat: true,
+                                        kaomoji: isPlainEmpty
+                                            ? '(´・ω・`)'
+                                            : challengeDetected
+                                                ? '(・_・;)'
+                                                : '(×_×)',
+                                        size: glyphSize,
                                       ),
                                     ),
                                   ),

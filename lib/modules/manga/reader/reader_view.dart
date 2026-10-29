@@ -2,6 +2,7 @@ import 'package:watchtower/utils/log/logger.dart';
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/modules/manga/reader/services/vol_nav_helper.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
@@ -25,6 +26,7 @@ import 'package:watchtower/modules/manga/reader/widgets/reader_settings_modal.da
 import 'package:watchtower/modules/manga/reader/widgets/auto_scroll_button.dart';
 import 'package:watchtower/modules/manga/reader/widgets/page_indicator.dart';
 import 'package:watchtower/modules/manga/reader/widgets/image_actions_dialog.dart';
+import 'package:watchtower/modules/more/settings/reader/providers/reader_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
@@ -52,6 +54,10 @@ typedef DoubleClickAnimationListener = void Function();
 class _ReaderModeNotifier extends Notifier<ReaderMode?> {
   @override
   ReaderMode? build() => null;
+
+  /// Riverpod keeps `state` protected, so writes from the reader view go
+  /// through this method instead of touching `notifier).state` directly.
+  void setMode(ReaderMode? mode) => state = mode;
 }
 
 class MangaReaderView extends ConsumerStatefulWidget {
@@ -230,6 +236,10 @@ class _MangaChapterPageGalleryState
       _volumeListenerActive = false;
       volNavDispose();
     }
+    _connectivitySub?.cancel();
+    _tapZonesOverlayTimer?.cancel();
+    _einkFlashTimer?.cancel();
+    _restoreRotation();
     discordRpc?.showIdleText();
     final actualIdx = _pageViewToActualIndex(_currentIndex!);
     final index = pages[actualIdx].index;
@@ -314,6 +324,133 @@ class _MangaChapterPageGalleryState
     WidgetsBinding.instance.addObserver(this);
     _initWakelock();
     _initVolumeButtonNavigation();
+    _applyReaderRotation();
+    _initConnectivity();
+    _initReaderPrefs();
+  }
+
+  // ── Reader preference effects ────────────────────────────────────────────
+
+  /// Wires the reader preferences that have a visible effect: the tap-zone
+  /// overlay shown at open, the E-ink page-change flash, and the reading-mode
+  /// picker. Values are cached so the hot page-change path does not read the
+  /// Hive box on every page.
+  void _initReaderPrefs() {
+    _einkFlash = ref.read(einkFlashOnPageChangeProvider);
+    if (ref.read(showTapZonesOverlayProvider)) {
+      _showTapZonesOverlay = true;
+      _tapZonesOverlayTimer = Timer(const Duration(milliseconds: 1600), () {
+        if (mounted) setState(() => _showTapZonesOverlay = false);
+      });
+    }
+  }
+
+  /// Briefly paints the screen white so e-ink panels clear their ghosting.
+  void _flashForEink() {
+    if (!_einkFlash || !mounted) return;
+    _einkFlashTimer?.cancel();
+    setState(() => _flashEinkNow = true);
+    _einkFlashTimer = Timer(const Duration(milliseconds: 60), () {
+      if (mounted) setState(() => _flashEinkNow = false);
+    });
+  }
+
+  bool _flashEinkNow = false;
+
+  // ── Rotation / cutout ────────────────────────────────────────────────────
+
+  /// Applies the "Rotation par défaut" reader preference. Only the non-free
+  /// options touch the platform; "Libre" leaves orientation untouched.
+  Future<void> _applyReaderRotation() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    final rotation = ref.read(readerRotationProvider);
+    switch (rotation) {
+      case 'portrait':
+        await SystemChrome.setPreferredOrientations(
+          [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown],
+        );
+      case 'landscape':
+        await SystemChrome.setPreferredOrientations(
+          [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight],
+        );
+      default: // free
+        await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
+  }
+
+  /// Gives orientation control back to the rest of the app on exit, otherwise
+  /// a portrait-locked reader would keep the whole app in portrait.
+  void _restoreRotation() {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+  }
+
+  // ── Wi-Fi-only preloading ────────────────────────────────────────────────
+
+  List<ConnectivityResult> _connectivity = const [];
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+
+  void _initConnectivity() {
+    if (!ref.read(loadAheadOnlyOnWifiProvider)) return;
+    final connectivity = Connectivity();
+    connectivity.checkConnectivity().then((r) {
+      if (mounted) _connectivity = r;
+    });
+    _connectivitySub = connectivity.onConnectivityChanged.listen((r) {
+      _connectivity = r;
+    });
+  }
+
+  /// False when the "Précharger uniquement en Wi-Fi" option is on and the
+  /// device is currently on mobile data. Prefetching is skipped so the reader
+  /// does not burn the user's data plan.
+  bool get _mayPreloadAhead {
+    if (!ref.read(loadAheadOnlyOnWifiProvider)) return true;
+    final c = _connectivity;
+    if (c.isEmpty) return true; // not resolved yet — don't block reading
+    return c.contains(ConnectivityResult.wifi) ||
+        c.contains(ConnectivityResult.ethernet);
+  }
+
+  /// Resolves the chapter the "next chapter" action should open, honouring the
+  /// "Passer les chapitres marqués comme lus" and "Ignorer les chapitres en
+  /// double" preferences. Walks the chapter list from the current one towards
+  /// the end (chapter lists are stored newest-first, so a *higher* index is an
+  /// older chapter, which is what "next" means while reading).
+  Chapter? _resolveNextChapter() {
+    // "Passer les chapitres filtrés" → walk only the chapters the user's
+    // filter settings leave visible.
+    final skipFiltered = ref.read(skipFilteredChaptersProvider);
+    final chapters = skipFiltered
+        ? _readerController.getManga().getFilteredChapterList()
+        : _readerController.getManga().chapters.toList();
+    var start = -1;
+    for (var i = 0; i < chapters.length; i++) {
+      if (chapters[i].id == _readerController.chapter.id) {
+        start = i;
+        break;
+      }
+    }
+    if (start < 0) return _readerController.getNextChapter();
+
+    final skipRead = ref.read(skipReadChaptersProvider);
+    final skipDup = ref.read(skipDuplicateChaptersProvider);
+    final seenNumbers = <String>{};
+    for (var i = 0; i <= start; i++) {
+      final n = chapters[i].name?.trim().toLowerCase();
+      if (n != null && n.isNotEmpty) seenNumbers.add(n);
+    }
+
+    for (var i = start + 1; i < chapters.length; i++) {
+      final c = chapters[i];
+      if (skipRead && (c.isRead ?? false)) continue;
+      final n = c.name?.trim().toLowerCase();
+      if (skipDup && n != null && n.isNotEmpty && seenNumbers.contains(n)) {
+        continue;
+      }
+      return c;
+    }
+    return _readerController.getNextChapter();
   }
 
   /// Wires volume-up/down key events to page navigation.
@@ -422,6 +559,18 @@ class _MangaChapterPageGalleryState
   PageMode? _pageMode;
   bool _isView = false;
   Alignment _scalePosition = Alignment.center;
+
+  // ── Preferences with a visible effect at open / on page change ──────────
+  /// Tap-zone overlay shown briefly when the reader opens.
+  bool _showTapZonesOverlay = false;
+  Timer? _tapZonesOverlayTimer;
+  /// E-ink flash: a short white frame drawn on every page change.
+  bool _einkFlash = false;
+  Timer? _einkFlashTimer;
+  /// Last scroll offset used by the continuous-mode auto-hide of the menu.
+  double _lastMenuHideOffset = 0;
+  /// Reading-mode picker shown at open when the preference is on.
+  bool _readingModePickerShown = false;
   final PhotoViewController _photoViewController = PhotoViewController();
   final PhotoViewScaleStateController _photoViewScaleStateController =
       PhotoViewScaleStateController();
@@ -499,7 +648,8 @@ class _MangaChapterPageGalleryState
           _isNavigatingToChapter = true;
           pushReplacementMangaReaderView(
             context: context,
-            chapter: _readerController.getNextChapter(),
+            chapter:
+                _resolveNextChapter() ?? _readerController.getNextChapter(),
           );
         }
       },
@@ -526,6 +676,25 @@ class _MangaChapterPageGalleryState
               _isViewFunction();
             }
           }
+          // "Sensibilité pour masquer le menu lors du défilement" — continuous
+          // modes only. Scrolling down past the sensitivity threshold hides the
+          // menu, scrolling back up brings it back.
+          if (_isContinuousMode()) {
+            final offset = notification.metrics.pixels;
+            final delta = offset - _lastMenuHideOffset;
+            _lastMenuHideOffset = offset;
+            final sensitivity = ref.read(continuousMenuHideSensitivityProvider);
+            final threshold = switch (sensitivity) {
+              0 => 240.0,
+              1 => 120.0,
+              _ => 48.0,
+            };
+            if (delta > threshold && _isView) {
+              _isViewFunction();
+            } else if (delta < -threshold && !_isView) {
+              _isViewFunction();
+            }
+          }
 
           return true;
         },
@@ -533,6 +702,10 @@ class _MangaChapterPageGalleryState
           child: SafeArea(
             top: !fullScreenReader,
             bottom: false,
+            // "Utiliser la zone de l'encoche" off → keep content out of the
+            // cutout by forcing padding on the sides.
+            left: !ref.watch(readerCutoutProvider),
+            right: !ref.watch(readerCutoutProvider),
             child: ValueListenableBuilder(
               valueListenable: _failedToLoadImage,
               builder: (context, failedToLoadImage, child) {
@@ -552,12 +725,15 @@ class _MangaChapterPageGalleryState
                             initialScrollIndex: _readerController
                                 .getPageIndex(),
                             physics: const ClampingScrollPhysics(),
-                            onLongPressData: (data) => ImageActionsDialog.show(
-                              context: context,
-                              data: data,
-                              manga: widget.chapter.manga.value!,
-                              chapterName: widget.chapter.name!,
-                            ),
+                            onLongPressData: (data) {
+                              if (!ref.read(longPressActionsProvider)) return;
+                              ImageActionsDialog.show(
+                                context: context,
+                                data: data,
+                                manga: widget.chapter.manga.value!,
+                                chapterName: widget.chapter.name!,
+                              );
+                            },
                             onFailedToLoadImage: (value) {
                               // // Handle failed image loading
                               // if (_failedToLoadImage.value != value &&
@@ -874,6 +1050,7 @@ class _MangaChapterPageGalleryState
                         );
                         return ReaderGestureHandler(
                           usePageTapZones: usePageTapZones,
+                          invertTapZones: ref.watch(invertPageTapZonesProvider),
                           navigationLayout: navigationLayout,
                           isRTL: _isReverseHorizontal,
                           hasImageError: failedToLoadImage,
@@ -944,7 +1121,9 @@ class _MangaChapterPageGalleryState
                         _isNavigatingToChapter = true;
                         pushReplacementMangaReaderView(
                           context: context,
-                          chapter: _readerController.getNextChapter(),
+                          chapter:
+                              _resolveNextChapter() ??
+                              _readerController.getNextChapter(),
                         );
                       },
                       onSliderChanged: (value, ref) {
@@ -971,7 +1150,7 @@ class _MangaChapterPageGalleryState
                         } catch (_) {}
                       },
                       onReaderModeChanged: (mode, ref) {
-                        ref.read(_currentReaderMode.notifier).state = mode;
+                        ref.read(_currentReaderMode.notifier).setMode(mode);
                         _setReaderMode(mode, ref);
                       },
                       onPageModeToggle: () async {
@@ -1016,8 +1195,7 @@ class _MangaChapterPageGalleryState
                         pageOffset: _pageOffset,
                         onAutoPageScroll: _autoPagescroll,
                         onReaderModeChanged: (mode, widgetRef) {
-                          widgetRef.read(_currentReaderMode.notifier).state =
-                              mode;
+                          widgetRef.read(_currentReaderMode.notifier).setMode(mode);
                           _setReaderMode(mode, widgetRef);
                         },
                         onAutoScrollSave: (enabled, offset) {
@@ -1058,6 +1236,33 @@ class _MangaChapterPageGalleryState
                         _autoScroll.value = !_autoScroll.value;
                       },
                     ),
+                    // "Afficher les zones tactiles (superposition)": brief
+                    // overlay drawn when the reader opens so the user sees
+                    // where each tap zone is.
+                    if (_showTapZonesOverlay)
+                      _ReaderTapZonesOverlay(
+                        invert: ref.watch(invertPageTapZonesProvider),
+                      ),
+                    // "Flash lors du changement de page" (e-ink).
+                    if (_flashEinkNow)
+                      const Positioned.fill(
+                        child: IgnorePointer(child: ColoredBox(color: Colors.white)),
+                      ),
+                    // "Navigateur vertical de chapitres" — continuous modes.
+                    if (_isContinuousMode() &&
+                        ref.watch(verticalChapterNavigatorProvider) != 'none')
+                      _VerticalChapterNavigator(
+                        chapters: _readerController.getManga().chapters.toList(),
+                        currentChapterId: chapter.id,
+                        side: ref.watch(verticalChapterNavigatorProvider),
+                        onSelected: (c) {
+                          _isNavigatingToChapter = true;
+                          pushReplacementMangaReaderView(
+                            context: context,
+                            chapter: c,
+                          );
+                        },
+                      ),
                   ],
                 );
               },
@@ -1136,6 +1341,26 @@ class _MangaChapterPageGalleryState
     }
   }
 
+  /// "Toujours afficher la transition entre les chapitres" off → jump past the
+  /// transition page that was just reached so the next chapter starts directly.
+  void _skipTransitionPage(int transitionIndex) {
+    final next = pages[transitionIndex].nextChapter;
+    if (next == null) return;
+    final nextIndex = transitionIndex + 1;
+    if (nextIndex >= pages.length) return;
+    _isAdjustingScroll = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final pageViewIndex = _actualToPageViewIndex(nextIndex);
+      if (_isContinuousMode()) {
+        _itemScrollController.jumpTo(index: nextIndex);
+      } else if (_extendedController.hasClients) {
+        _extendedController.jumpToPage(pageViewIndex);
+      }
+      _isAdjustingScroll = false;
+    });
+  }
+
   void _addLastPageTransition(Chapter chap) {
     if (_isLastPageTransition) return;
     try {
@@ -1178,6 +1403,7 @@ class _MangaChapterPageGalleryState
   /// Fires off next-chapter page fetching if not already in progress.
   void _triggerNextChapterPreload() async {
     if (_isNextChapterPreloading || _isLastPageTransition) return;
+    if (!_mayPreloadAhead) return;
     _isNextChapterPreloading = true;
     try {
       if (!mounted) return;
@@ -1286,7 +1512,7 @@ class _MangaChapterPageGalleryState
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
       }
     }
-    ref.read(_currentReaderMode.notifier).state = readerMode;
+    ref.read(_currentReaderMode.notifier).setMode(readerMode);
     if (mounted) {
       setState(() {
         _pageMode = _readerController.getPageMode();
@@ -1310,6 +1536,43 @@ class _MangaChapterPageGalleryState
             readerMode == ReaderMode.vertical)) {
       _onPageChanged(0);
     }
+    _maybeShowReadingModePicker();
+  }
+
+  /// "Afficher le mode de lecture": lists the reading modes on first open so
+  /// the user can switch without opening the settings sheet.
+  void _maybeShowReadingModePicker() {
+    if (_readingModePickerShown) return;
+    if (!ref.read(showReadingModeProvider)) return;
+    _readingModePickerShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final current = ref.read(_currentReaderMode);
+      showModalBottomSheet(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final mode in ReaderMode.values)
+                ListTile(
+                  leading: Icon(
+                    mode == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  title: Text(getReaderModeName(mode, ctx)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    ref.read(_currentReaderMode.notifier).setMode(mode);
+                    _setReaderMode(mode, ref);
+                  },
+                ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> _onPageChanged(int index) async {
@@ -1317,6 +1580,9 @@ class _MangaChapterPageGalleryState
     // pages array index for correct lookups.
     final int actualIndex = _pageViewToActualIndex(index);
     final int prevActualIndex = _pageViewToActualIndex(_currentIndex!);
+
+    // E-ink "Flash lors du changement de page": a 60 ms white frame.
+    if (actualIndex != prevActualIndex) _flashForEink();
 
     final cropBorders = ref.watch(cropBordersStateProvider);
     if (cropBorders) {
@@ -1353,6 +1619,13 @@ class _MangaChapterPageGalleryState
       ref
           .read(currentIndexProvider(chapter).notifier)
           .setCurrentIndex(pages[actualIndex].index!);
+    }
+
+    // "Toujours afficher la transition entre les chapitres" off → skip the
+    // inter-chapter transition page as soon as it becomes visible.
+    if (pages[actualIndex].isTransitionPage &&
+        !ref.read(alwaysShowChapterTransitionProvider)) {
+      _skipTransitionPage(actualIndex);
     }
 
     // ── Next-chapter preloading: trigger when near the end ──
@@ -1395,7 +1668,7 @@ class _MangaChapterPageGalleryState
         }
 
         if (_photoViewController.scale == 1.0) {
-          _scalePosition = _computeAlignmentByTapOffset(tapPosition);
+          _scalePosition = _zoomAlignment(tapPosition);
 
           if (_scaleAnimationController.isCompleted) {
             _scaleAnimationController.reset();
@@ -1406,6 +1679,8 @@ class _MangaChapterPageGalleryState
         }
 
         if (_photoViewController.scale == 2.0) {
+          // "Désactiver le zoom arrière" off → double tap never zooms back out.
+          if (!ref.read(doubleTapZoomOutProvider)) return;
           _scaleAnimationController.reverse();
           return;
         }
@@ -1413,6 +1688,17 @@ class _MangaChapterPageGalleryState
         _photoViewScaleStateController.reset();
       });
     }
+  }
+
+  /// Resolves the alignment used when zooming in, honouring the "Position du
+  /// zoom initial" preference (auto = follow the tap, otherwise a fixed edge).
+  Alignment _zoomAlignment(Offset tapPosition) {
+    return switch (ref.read(zoomStartPositionProvider)) {
+      'left' => Alignment.centerLeft,
+      'right' => Alignment.centerRight,
+      'center' => Alignment.center,
+      _ => _computeAlignmentByTapOffset(tapPosition),
+    };
   }
 
   void _setReaderMode(ReaderMode value, WidgetRef ref) async {
@@ -1429,7 +1715,7 @@ class _MangaChapterPageGalleryState
     _readerController.setReaderMode(value);
 
     int index = _pageViewToActualIndex(_currentIndex!);
-    ref.read(_currentReaderMode.notifier).state = value;
+    ref.read(_currentReaderMode.notifier).setMode(value);
     if (value == ReaderMode.vertical) {
       if (mounted) {
         setState(() {
@@ -1582,3 +1868,115 @@ class _MangaChapterPageGalleryState
         readerMode == ReaderMode.horizontalContinuousRTL;
   }
 }
+
+/// Translucent hint drawn when "Afficher les zones tactiles (superposition)"
+/// is enabled: three columns (previous / menu / next) laid over the page.
+class _ReaderTapZonesOverlay extends StatelessWidget {
+  final bool invert;
+
+  const _ReaderTapZonesOverlay({required this.invert});
+
+  @override
+  Widget build(BuildContext context) {
+    final left = invert ? 'Suivant' : 'Précédent';
+    final right = invert ? 'Précédent' : 'Suivant';
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Row(
+          children: [
+            _zone(context, left),
+            _zone(context, 'Menu'),
+            _zone(context, right),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _zone(BuildContext context, String label) {
+    return Expanded(
+      child: Container(
+        alignment: Alignment.center,
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Vertical chapter rail shown on the left/right edge in continuous modes
+/// ("Navigateur vertical de chapitres"). Tapping a marker opens that chapter.
+class _VerticalChapterNavigator extends StatelessWidget {
+  final List<Chapter> chapters;
+  final int? currentChapterId;
+  final String side;
+  final ValueChanged<Chapter> onSelected;
+
+  const _VerticalChapterNavigator({
+    required this.chapters,
+    required this.currentChapterId,
+    required this.side,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final alignLeft = side == 'left' || side == 'both';
+    final alignRight = side == 'right' || side == 'both';
+    return Positioned.fill(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          if (alignLeft) _rail(context),
+          if (alignRight) _rail(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _rail(BuildContext context) {
+    return Container(
+      width: 34,
+      margin: const EdgeInsets.symmetric(vertical: 64),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(17),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: chapters.length,
+        itemBuilder: (context, index) {
+          final c = chapters[index];
+          final isCurrent = c.id == currentChapterId;
+          return GestureDetector(
+            onTap: () => onSelected(c),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+              height: isCurrent ? 18 : 10,
+              decoration: BoxDecoration(
+                color: isCurrent
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+

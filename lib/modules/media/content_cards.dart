@@ -5,6 +5,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/modules/media/media_badges.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -467,12 +468,17 @@ class TagCard extends StatelessWidget {
     required this.item,
     required this.onTap,
     this.width = 210,
+    this.height,
     this.compact = false,
   });
 
   final ContentItem item;
   final VoidCallback onTap;
   final double width;
+
+  /// Overrides the default rail height (58/72). The "see all" tag grid passes
+  /// a taller value so the card shows a readable slice of its cover.
+  final double? height;
   final bool compact;
 
   @override
@@ -483,7 +489,7 @@ class TagCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
         width: width,
-        height: compact ? 58 : 72,
+        height: height ?? (compact ? 58 : 72),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(13),
           child: Stack(
@@ -513,27 +519,54 @@ class TagCard extends StatelessWidget {
                 left: 10,
                 right: 10,
                 bottom: 8,
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.local_offer_rounded,
-                      size: 14,
-                      color: accent.withValues(alpha: .95),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.local_offer_rounded,
+                          size: 14,
+                          color: accent.withValues(alpha: .95),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            item.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
+                              shadows: [
+                                Shadow(color: Colors.black87, blurRadius: 5),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          shadows: [Shadow(color: Colors.black87, blurRadius: 5)],
+                    // Only the roomy "see all" card has space for the video
+                    // count; the rail tile stays a single line.
+                    if (height != null && item.description?.trim().isNotEmpty == true)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 20, top: 3),
+                        child: Text(
+                          item.description!.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10.5,
+                            shadows: [
+                              Shadow(color: Colors.black87, blurRadius: 5),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -575,11 +608,16 @@ class ContentImage extends StatelessWidget {
     required this.url,
     this.fit = BoxFit.cover,
     this.radius = 14,
+    this.headers,
   });
 
   final String? url;
   final BoxFit fit;
   final double radius;
+
+  /// Explicit request headers. When null, the headers declared by the
+  /// enclosing extension screen are used (see [ExtensionImageHeaders]).
+  final Map<String, String>? headers;
 
   @override
   Widget build(BuildContext context) {
@@ -601,6 +639,7 @@ class ContentImage extends StatelessWidget {
         width: null,
         height: null,
         fit: fit,
+        headers: headers ?? ExtensionImageHeaders.of(context),
         errorWidget: const _ContentImagePlaceholder(),
       ),
     );

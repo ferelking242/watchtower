@@ -77,7 +77,7 @@ class PlayerOverviewScreen extends StatelessWidget {
     ];
 
     return SettingsSubpageScaffold(
-      title: l10n.player,
+      title: l10n.player_video,
       slivers: [
         SliverList(
           delegate: SliverChildBuilderDelegate(

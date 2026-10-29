@@ -19,6 +19,8 @@ import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/extension_page_cache.dart';
+import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 
 /// Paginated destination for a layout section's "All" action.
 class ExtensionSectionPage extends ConsumerStatefulWidget {
@@ -319,6 +321,20 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final headers = ref.watch(
+      headersProvider(
+        source: widget.source.name ?? '',
+        lang: widget.source.lang ?? '',
+        sourceId: widget.source.id,
+      ),
+    );
+    return ExtensionImageHeaders(
+      headers: headers,
+      child: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     final firstPage = switch (widget.sectionId) {
       'popular' => ref.watch(
         getPopularProvider(source: widget.source, page: 1),

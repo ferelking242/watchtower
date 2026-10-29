@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 /// Device tier used by every responsive helper in [AppUI].
@@ -658,6 +659,7 @@ class AppGenreTile extends StatelessWidget {
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
+                headers: ExtensionImageHeaders.of(context),
                 errorWidget: ColoredBox(color: colors.surfaceContainerHigh),
               )
             else

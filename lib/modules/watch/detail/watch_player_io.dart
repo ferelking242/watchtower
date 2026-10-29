@@ -28,6 +28,7 @@ import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
+import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/hls_adaptive_quality.dart';
 import 'package:watchtower/services/player_codec_error.dart';
@@ -599,6 +600,37 @@ class WatchInlinePlayer {
     req.headers.set('Accept', '*/*');
   }
 
+  /// Applies the decoder / deinterlace options the user picked in
+  /// Paramètres → Lecteur vidéo → Décodeur. Idempotent, so it is safe to call
+  /// on every load and after a quality switch.
+  Future<void> _applyUserMpvPrefs(WidgetRef ref) async {
+    if (_isDisposed) return;
+    try {
+      final plat = _player.platform as dynamic;
+      final mode = ref.read(playerDecoderModeProvider);
+      final hwdec = switch (mode) {
+        'hw' => 'auto-safe',
+        'sw' => 'no',
+        _ => 'auto-safe',
+      };
+      await plat.setProperty('hwdec', hwdec);
+      await plat.setProperty(
+        'deinterlace',
+        ref.read(playerDeinterlaceProvider) ? 'yes' : 'no',
+      );
+      final audioLangs = ref.read(playerAudioLanguagesProvider).trim();
+      final subLangs = ref.read(playerSubtitleLanguagesProvider).trim();
+      if (audioLangs.isNotEmpty) await plat.setProperty('alang', audioLangs);
+      if (subLangs.isNotEmpty) await plat.setProperty('slang', subLangs);
+    } catch (e) {
+      AppLogger.log(
+        '[PLAYER] user mpv prefs not applied: $e',
+        logLevel: LogLevel.debug,
+        tag: LogTag.watch,
+      );
+    }
+  }
+
   /// Applies the network-stream libmpv properties described on
   /// [_startupTuned]. Runs at most once per [WatchInlinePlayer].
   ///
@@ -832,11 +864,17 @@ class WatchInlinePlayer {
     );
   }
 
+  /// Riverpod handle captured on [load] so player preferences can be read
+  /// outside of a build method (start-position, decoder mode, …).
+  WidgetRef? _ref;
+
   Future<void> load({required WidgetRef ref, required Chapter chapter}) async {
+    _ref = ref;
     loadFailed = false;
     hasVideoUrl = false;
     final previousDuration = _player.state.duration;
     _activeChapter = chapter;
+    await _applyUserMpvPrefs(ref);
     _actualDurationSub?.cancel();
     // Kill any ongoing playback immediately so the old audio doesn't bleed
     // into the next episode while the network request is in flight.
@@ -1250,6 +1288,10 @@ class WatchInlinePlayer {
     final pos = startPosition;
     startPosition = null;
     if (pos == null || pos <= Duration.zero || _isDisposed) return;
+    // "Reprendre là où la lecture s'est arrêtée" off → always start over.
+    if (_ref != null && !_ref!.read(playerResumeFromLastPositionProvider)) {
+      return;
+    }
     unawaited(() async {
       try {
         await _player.stream.duration
@@ -1518,7 +1560,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
 
 // ─── Fullscreen controls overlay (MovieBox style) ─────────────────────────────
 
-class _FullscreenControlsOverlay extends StatefulWidget {
+class _FullscreenControlsOverlay extends ConsumerStatefulWidget {
   final Player player;
   final VideoController controller;
   final String title;
@@ -1552,12 +1594,12 @@ class _FullscreenControlsOverlay extends StatefulWidget {
   });
 
   @override
-  State<_FullscreenControlsOverlay> createState() =>
+  ConsumerState<_FullscreenControlsOverlay> createState() =>
       _FullscreenControlsOverlayState();
 }
 
 class _FullscreenControlsOverlayState
-    extends State<_FullscreenControlsOverlay> {
+    extends ConsumerState<_FullscreenControlsOverlay> {
   bool _showControls = true;
   bool _locked = false;
   bool _showSettings = false;
@@ -1599,6 +1641,10 @@ class _FullscreenControlsOverlayState
 
   // ── Seek + mute + orientation + audio-only ────────────────────────────────
   int _seekSeconds = 15;
+  bool _doubleTapSeekEnabled = true;
+  int _doubleTapSeekSeconds = 10;
+  bool _swipeGesturesEnabled = true;
+  bool _doubleTapToPauseEnabled = true;
   bool _muted = false;
   bool _landscapeIsLeft = true;
   bool _audioOnly = false;
@@ -1610,7 +1656,7 @@ class _FullscreenControlsOverlayState
   Timer? _doubleTapResetTimer;
   bool _showLeftSkipHUD = false;
   bool _showRightSkipHUD = false;
-  int _skipHudSeconds = 15;
+  int _skipHudSeconds = 10;
   Timer? _skipHudTimer;
   // Debounce: accumulate delta, fire ONE seek per rapid-tap burst
   Timer? _seekDebounceTimer;
@@ -1672,6 +1718,11 @@ class _FullscreenControlsOverlayState
     super.initState();
     _resetHideTimer();
     _initMedia();
+    _doubleTapSeekEnabled = ref.read(playerDoubleTapSeekProvider);
+    _doubleTapSeekSeconds = ref.read(playerDoubleTapSeekSecondsProvider);
+    _seekSeconds = _doubleTapSeekSeconds;
+    _swipeGesturesEnabled = ref.read(playerSwipeGesturesProvider);
+    _doubleTapToPauseEnabled = ref.read(playerDoubleTapToPauseProvider);
     _currentQuality =
         widget.selectedQuality ??
         (widget.loadedVideos.isNotEmpty
@@ -1969,6 +2020,12 @@ class _FullscreenControlsOverlayState
   // burst, preventing multiple concurrent mpv buffer positions (RAM spike).
   void _handleDoubleTap({required bool isRight}) {
     if (_locked) return;
+    if (!_doubleTapSeekEnabled) {
+      // "Double-tap pour mettre en pause" replaces the seek zones when the
+      // seek gestures are switched off.
+      if (_doubleTapToPauseEnabled) widget.player.playOrPause();
+      return;
+    }
     _doubleTapResetTimer?.cancel();
 
     // Reset count/accumulator if side changed
@@ -2217,7 +2274,7 @@ class _FullscreenControlsOverlayState
         }
       },
       onHorizontalDragStart: (d) {
-        if (_locked || _holdSpeedActive) return;
+        if (_locked || _holdSpeedActive || !_swipeGesturesEnabled) return;
         _horizDragStartX = d.globalPosition.dx;
         _horizSeekStartPos = widget.player.state.position;
         _horizSeekDelta = 0;
@@ -2261,12 +2318,12 @@ class _FullscreenControlsOverlayState
         _resetHideTimer();
       },
       onVerticalDragStart: (d) {
-        if (_locked) return;
+        if (_locked || !_swipeGesturesEnabled) return;
         _dragStartPos = d.globalPosition;
         _hideTimer?.cancel();
       },
       onVerticalDragUpdate: (d) {
-        if (_locked) return;
+        if (_locked || !_swipeGesturesEnabled) return;
         _handleSwipeDrag(d, size);
       },
       onVerticalDragEnd: (_) {
@@ -3267,9 +3324,9 @@ class _FullscreenControlsOverlayState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSkipButton(isForward: false, seconds: 15),
+          _buildSkipButton(isForward: false, seconds: _doubleTapSeekSeconds),
           const SizedBox(width: 48),
-          _buildSkipButton(isForward: true, seconds: 15),
+          _buildSkipButton(isForward: true, seconds: _doubleTapSeekSeconds),
         ],
       ),
     );

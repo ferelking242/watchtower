@@ -55,6 +55,31 @@ void main() {
     expect(legacy['seeAll'], 'for_you');
   });
 
+  test('carries the see-all page hint through parse and legacy mapping', () {
+    final section = UiSection.fromJson({
+      'id': 'tags',
+      'component': 'grid',
+      'title': 'Tags',
+      'cardStyle': 'tag',
+      'seeAll': true,
+      'seeAllPage': 'tags',
+    });
+
+    expect(section.seeAllPage, 'tags');
+    expect(section.toLegacyMap()['seeAllPage'], 'tags');
+  });
+
+  test('omits the see-all page hint when a section does not set it', () {
+    final section = UiSection.fromJson({
+      'id': 'latest',
+      'component': 'landscapeStacked',
+      'seeAll': true,
+    });
+
+    expect(section.seeAllPage, isNull);
+    expect(section.toLegacyMap().containsKey('seeAllPage'), isFalse);
+  });
+
   test('keeps Manga card components separate from Home section components', () {
     final section = UiSection.fromJson({
       'id': 'popular',

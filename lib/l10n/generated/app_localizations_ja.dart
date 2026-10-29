@@ -580,6 +580,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get reader => 'リーダー';
 
   @override
+  String get reader_manga => 'Manga reader';
+
+  @override
   String get refresh => '更新';
 
   @override
@@ -1328,6 +1331,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get player => 'プレーヤー';
+
+  @override
+  String get player_video => 'Video player';
 
   @override
   String get markEpisodeAsSeenSetting => 'エピソードを視聴済みにするタイミング';
