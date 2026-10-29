@@ -5271,7 +5271,7 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'{language} source to discover {kind} in Watchtower.'**
-  String marketplace_source_blurb(Object kind, Object language);
+  String marketplace_source_blurb(Object language, Object kind);
 
   /// No description provided for @marketplace_kind_anime.
   ///
@@ -5488,6 +5488,390 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load the marketplace'**
   String get marketplace_load_error;
+
+  /// No description provided for @marketplace_search_extension_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search an extension…'**
+  String get marketplace_search_extension_hint;
+
+  /// No description provided for @marketplace_search_apps_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search apps and games…'**
+  String get marketplace_search_apps_hint;
+
+  /// No description provided for @marketplace_filter_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter extensions'**
+  String get marketplace_filter_extensions;
+
+  /// No description provided for @marketplace_search_language_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search a language…'**
+  String get marketplace_search_language_hint;
+
+  /// No description provided for @marketplace_browse_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse extensions'**
+  String get marketplace_browse_extensions;
+
+  /// No description provided for @marketplace_clear_all_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get marketplace_clear_all_filters;
+
+  /// No description provided for @marketplace_installed_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed only'**
+  String get marketplace_installed_only;
+
+  /// No description provided for @marketplace_installed_only_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide extensions that are not installed'**
+  String get marketplace_installed_only_sub;
+
+  /// No description provided for @marketplace_updates_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates available'**
+  String get marketplace_updates_available;
+
+  /// No description provided for @marketplace_updates_available_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions with a new version'**
+  String get marketplace_updates_available_sub;
+
+  /// No description provided for @marketplace_all_option.
+  ///
+  /// In en, this message translates to:
+  /// **'(all)'**
+  String get marketplace_all_option;
+
+  /// No description provided for @marketplace_nothing_to_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to install'**
+  String get marketplace_nothing_to_install;
+
+  /// No description provided for @marketplace_check_updates_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When the app starts'**
+  String get marketplace_check_updates_subtitle;
+
+  /// No description provided for @marketplace_auto_update_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Without confirmation'**
+  String get marketplace_auto_update_subtitle;
+
+  /// No description provided for @marketplace_adult_content_title.
+  ///
+  /// In en, this message translates to:
+  /// **'18+ content'**
+  String get marketplace_adult_content_title;
+
+  /// No description provided for @marketplace_adult_content_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show NSFW extensions'**
+  String get marketplace_adult_content_subtitle;
+
+  /// No description provided for @marketplace_manage_repositories.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage repositories'**
+  String get marketplace_manage_repositories;
+
+  /// No description provided for @marketplace_reload_catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload the catalogue'**
+  String get marketplace_reload_catalogue;
+
+  /// No description provided for @marketplace_bulk_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Bulk install'**
+  String get marketplace_bulk_install;
+
+  /// No description provided for @marketplace_ntfy_error_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Push an alert on error'**
+  String get marketplace_ntfy_error_subtitle;
+
+  /// No description provided for @plugins_third_party_confirm_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Install this plugin?'**
+  String get plugins_third_party_confirm_title;
+
+  /// No description provided for @plugins_third_party_confirm_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Third-party plugin from {owner}.\n\nIt will access the APIs declared in its manifest.\n\nLong-press the card to uninstall.'**
+  String plugins_third_party_confirm_body(Object owner);
+
+  /// No description provided for @plugins_auth_required_body.
+  ///
+  /// In en, this message translates to:
+  /// **'This plugin requires authentication.\nOpen Music Hub → Settings → Sources, select this plugin as the default source, then tap “Sign in”.'**
+  String get plugins_auth_required_body;
+
+  /// No description provided for @marketplace_error_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Failed to load {count} repository} other{Failed to load {count} repositories}}'**
+  String marketplace_error_load_failed(num count);
+
+  /// No description provided for @marketplace_error_http.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP {status} for {url}'**
+  String marketplace_error_http(Object status, Object url);
+
+  /// No description provided for @marketplace_error_empty_response.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty response for {url}'**
+  String marketplace_error_empty_response(Object url);
+
+  /// No description provided for @marketplace_error_plugin_not_registered.
+  ///
+  /// In en, this message translates to:
+  /// **'Plugin {name} was not registered after the download.'**
+  String marketplace_error_plugin_not_registered(Object name);
+
+  /// No description provided for @marketplace_error_generic.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String marketplace_error_generic(Object error);
+
+  /// No description provided for @marketplace_error_uninstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall error: {error}'**
+  String marketplace_error_uninstall(Object error);
+
+  /// No description provided for @marketplace_error_not_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension {name} could not be installed. No active source was recorded.'**
+  String marketplace_error_not_installed(Object name);
+
+  /// No description provided for @marketplace_error_layout_not_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'The UI layout of {name} was not saved.'**
+  String marketplace_error_layout_not_saved(Object name);
+
+  /// No description provided for @marketplace_error_layout_unreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'The UI layout of {name} is unreadable.'**
+  String marketplace_error_layout_unreadable(Object name);
+
+  /// No description provided for @marketplace_error_categories_not_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'The categories of {name} were not saved.'**
+  String marketplace_error_categories_not_saved(Object name);
+
+  /// No description provided for @marketplace_error_content_types_not_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'The content types of {name} were not saved.'**
+  String marketplace_error_content_types_not_saved(Object name);
+
+  /// No description provided for @marketplace_error_audio_plugin_missing.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio plugin not found in local storage.'**
+  String get marketplace_error_audio_plugin_missing;
+
+  /// No description provided for @marketplace_error_extension_missing.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension not found in local storage.'**
+  String get marketplace_error_extension_missing;
+
+  /// No description provided for @marketplace_uninstall_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall {name}'**
+  String marketplace_uninstall_title(Object name);
+
+  /// No description provided for @marketplace_uninstall_body.
+  ///
+  /// In en, this message translates to:
+  /// **'The extension will be uninstalled. It can be reinstalled at any time.'**
+  String get marketplace_uninstall_body;
+
+  /// No description provided for @marketplace_uninstalled_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} uninstalled'**
+  String marketplace_uninstalled_toast(Object name);
+
+  /// No description provided for @marketplace_bulk_install_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Install {count} extension} other{Install {count} extensions}}'**
+  String marketplace_bulk_install_count(num count);
+
+  /// No description provided for @marketplace_bulk_install_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension to install} other{{count} extensions to install}}'**
+  String marketplace_bulk_install_confirm(num count);
+
+  /// No description provided for @marketplace_settings_section_behavior.
+  ///
+  /// In en, this message translates to:
+  /// **'Behavior'**
+  String get marketplace_settings_section_behavior;
+
+  /// No description provided for @marketplace_settings_section_repositories.
+  ///
+  /// In en, this message translates to:
+  /// **'Repositories'**
+  String get marketplace_settings_section_repositories;
+
+  /// No description provided for @marketplace_settings_section_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache'**
+  String get marketplace_settings_section_cache;
+
+  /// No description provided for @marketplace_settings_section_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get marketplace_settings_section_actions;
+
+  /// No description provided for @marketplace_force_reload.
+  ///
+  /// In en, this message translates to:
+  /// **'Force reload (bypass cache)'**
+  String get marketplace_force_reload;
+
+  /// No description provided for @marketplace_installed_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} installed'**
+  String marketplace_installed_toast(Object name);
+
+  /// No description provided for @marketplace_repository.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository'**
+  String get marketplace_repository;
+
+  /// No description provided for @marketplace_default_metadata_provider.
+  ///
+  /// In en, this message translates to:
+  /// **'Default metadata provider'**
+  String get marketplace_default_metadata_provider;
+
+  /// No description provided for @marketplace_currently_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently the default'**
+  String get marketplace_currently_default;
+
+  /// No description provided for @marketplace_set_default_provider.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as default provider'**
+  String get marketplace_set_default_provider;
+
+  /// No description provided for @marketplace_default_audio_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Default audio source'**
+  String get marketplace_default_audio_source;
+
+  /// No description provided for @marketplace_set_default_audio_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Set as default audio source'**
+  String get marketplace_set_default_audio_source;
+
+  /// No description provided for @marketplace_update_available_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get marketplace_update_available_short;
+
+  /// No description provided for @marketplace_with_updates_short.
+  ///
+  /// In en, this message translates to:
+  /// **'With updates'**
+  String get marketplace_with_updates_short;
+
+  /// No description provided for @marketplace_section_show.
+  ///
+  /// In en, this message translates to:
+  /// **'SHOW'**
+  String get marketplace_section_show;
+
+  /// No description provided for @marketplace_section_active_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'ACTIVE FILTERS'**
+  String get marketplace_section_active_filters;
+
+  /// No description provided for @marketplace_advanced_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced filters'**
+  String get marketplace_advanced_filters;
+
+  /// No description provided for @marketplace_sort_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed'**
+  String get marketplace_sort_installed;
+
+  /// No description provided for @marketplace_selected_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String marketplace_selected_count(Object count);
+
+  /// No description provided for @marketplace_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} / {total} processed'**
+  String marketplace_progress(Object done, Object total);
+
+  /// No description provided for @marketplace_failed_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} failed'**
+  String marketplace_failed_count(Object count);
+
+  /// No description provided for @marketplace_size_kb.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} KB'**
+  String marketplace_size_kb(Object value);
+
+  /// No description provided for @marketplace_size_mb.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} MB'**
+  String marketplace_size_mb(Object value);
 }
 
 class _AppLocalizationsDelegate

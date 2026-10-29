@@ -229,12 +229,148 @@ UI = [
      "pas de ce plugin."),
 ]
 
+# Marketplace screen strings that were still hard-coded in French. Kept in a
+# separate table from UI so the already-shipped block stays untouched.
+MARKETPLACE = [
+    ("marketplace_search_extension_hint", "Search an extension…",
+     "Rechercher une extension…"),
+    ("marketplace_search_apps_hint", "Search apps and games…",
+     "Rechercher des applis et des jeux…"),
+    ("marketplace_filter_extensions", "Filter extensions",
+     "Filtrer les extensions"),
+    ("marketplace_search_language_hint", "Search a language…",
+     "Rechercher une langue…"),
+    ("marketplace_browse_extensions", "Browse extensions",
+     "Parcourir les extensions"),
+    ("marketplace_clear_all_filters", "Clear all", "Effacer tout"),
+    ("marketplace_installed_only", "Installed only", "Installées uniquement"),
+    ("marketplace_installed_only_sub", "Hide extensions that are not installed",
+     "Masquer les extensions non installées"),
+    ("marketplace_updates_available", "Updates available",
+     "Mises à jour disponibles"),
+    ("marketplace_updates_available_sub", "Extensions with a new version",
+     "Extensions avec une nouvelle version"),
+    ("marketplace_all_option", "(all)", "(toutes)"),
+    ("marketplace_nothing_to_install", "Nothing to install", "Rien à installer"),
+    ("marketplace_check_updates_subtitle", "When the app starts",
+     "Au démarrage de l’app"),
+    ("marketplace_auto_update_subtitle", "Without confirmation",
+     "Sans confirmation"),
+    ("marketplace_adult_content_title", "18+ content", "Contenu 18+"),
+    ("marketplace_adult_content_subtitle", "Show NSFW extensions",
+     "Afficher les extensions NSFW"),
+    ("marketplace_manage_repositories", "Manage repositories",
+     "Gérer les dépôts"),
+    ("marketplace_reload_catalogue", "Reload the catalogue",
+     "Recharger le catalogue"),
+    ("marketplace_bulk_install", "Bulk install", "Installer en masse"),
+    ("marketplace_ntfy_error_subtitle", "Push an alert on error",
+     "Pousser une alerte en cas d’erreur"),
+    ("plugins_third_party_confirm_title", "Install this plugin?",
+     "Installer ce plugin ?"),
+    ("plugins_third_party_confirm_body",
+     "Third-party plugin from {owner}.\n\nIt will access the APIs declared in "
+     "its manifest.\n\nLong-press the card to uninstall.",
+     "Plugin tiers de {owner}.\n\nIl accèdera aux APIs déclarées dans son "
+     "manifest.\n\nAppui long sur la carte pour désinstaller."),
+    ("plugins_auth_required_body",
+     "This plugin requires authentication.\nOpen Music Hub → Settings → "
+     "Sources, select this plugin as the default source, then tap “Sign in”.",
+     "Ce plugin nécessite une authentification.\nOuvrez le Hub Musique → "
+     "Paramètres → Sources, sélectionnez ce plugin comme source par défaut, "
+     "puis appuyez sur « Se connecter »."),
+    ("marketplace_error_load_failed",
+     "{count, plural, =1{Failed to load {count} repository} other{Failed to load {count} repositories}}",
+     "{count, plural, =1{Échec du chargement de {count} dépôt} other{Échec du chargement de {count} dépôts}}"),
+    ("marketplace_error_http", "HTTP {status} for {url}",
+     "HTTP {status} pour {url}"),
+    ("marketplace_error_empty_response", "Empty response for {url}",
+     "Réponse vide pour {url}"),
+    ("marketplace_error_plugin_not_registered",
+     "Plugin {name} was not registered after the download.",
+     "Le plugin {name} n’a pas été enregistré après le téléchargement."),
+    ("marketplace_error_generic", "Error: {error}", "Erreur : {error}"),
+    ("marketplace_error_uninstall", "Uninstall error: {error}",
+     "Erreur désinstallation : {error}"),
+    ("marketplace_error_not_installed",
+     "Extension {name} could not be installed. No active source was recorded.",
+     "L’extension {name} n’a pas pu être installée. Aucune source active n’a été enregistrée."),
+    ("marketplace_error_layout_not_saved",
+     "The UI layout of {name} was not saved.",
+     "Le layout UI de {name} n’a pas été enregistré."),
+    ("marketplace_error_layout_unreadable",
+     "The UI layout of {name} is unreadable.",
+     "Le layout UI de {name} est illisible."),
+    ("marketplace_error_categories_not_saved",
+     "The categories of {name} were not saved.",
+     "Les catégories de {name} n’ont pas été enregistrées."),
+    ("marketplace_error_content_types_not_saved",
+     "The content types of {name} were not saved.",
+     "Les types de contenu de {name} n’ont pas été enregistrés."),
+    ("marketplace_error_audio_plugin_missing",
+     "Audio plugin not found in local storage.",
+     "Plugin audio introuvable dans le stockage local."),
+    ("marketplace_error_extension_missing",
+     "Extension not found in local storage.",
+     "Extension introuvable dans le stockage local."),
+    ("marketplace_uninstall_title", "Uninstall {name}", "Désinstaller {name}"),
+    ("marketplace_uninstall_body",
+     "The extension will be uninstalled. It can be reinstalled at any time.",
+     "L’extension sera désinstallée. Réinstallable à tout moment."),
+    ("marketplace_uninstalled_toast", "{name} uninstalled",
+     "{name} désinstallée"),
+    ("marketplace_bulk_install_count",
+     "{count, plural, =1{Install {count} extension} other{Install {count} extensions}}",
+     "{count, plural, =1{Installer {count} extension} other{Installer {count} extensions}}"),
+    ("marketplace_bulk_install_confirm",
+     "{count, plural, =1{{count} extension to install} other{{count} extensions to install}}",
+     "{count, plural, =1{{count} extension à installer} other{{count} extensions à installer}}"),
+    ("marketplace_settings_section_behavior", "Behavior", "Comportement"),
+    ("marketplace_settings_section_repositories", "Repositories", "Dépôts"),
+    ("marketplace_settings_section_cache", "Cache", "Cache"),
+    ("marketplace_settings_section_actions", "Actions", "Actions"),
+    ("marketplace_force_reload", "Force reload (bypass cache)",
+     "Forcer rechargement (bypass cache)"),
+    ("marketplace_installed_toast", "{name} installed", "{name} installée"),
+    ("marketplace_repository", "Repository", "Dépôt"),
+    ("marketplace_default_metadata_provider", "Default metadata provider",
+     "Provider par défaut (métadonnées)"),
+    ("marketplace_currently_default", "Currently the default",
+     "Actuellement par défaut"),
+    ("marketplace_set_default_provider", "Set as default provider",
+     "Définir comme provider par défaut"),
+    ("marketplace_default_audio_source", "Default audio source",
+     "Source audio par défaut"),
+    ("marketplace_set_default_audio_source", "Set as default audio source",
+     "Définir comme source audio par défaut"),
+    ("marketplace_update_available_short", "Update available", "Màj dispo"),
+    ("marketplace_with_updates_short", "With updates", "Avec màj"),
+    ("marketplace_section_show", "SHOW", "AFFICHER"),
+    ("marketplace_section_active_filters", "ACTIVE FILTERS", "FILTRES ACTIFS"),
+    ("marketplace_advanced_filters", "Advanced filters", "Filtres avancés"),
+    ("marketplace_sort_installed", "Installed", "Installées"),
+    ("marketplace_selected_count", "{count} selected",
+     "{count} sélectionnées"),
+    ("marketplace_progress", "{done} / {total} processed",
+     "{done} / {total} traitées"),
+    ("marketplace_size_kb", "{value} KB", "{value} Ko"),
+    ("marketplace_size_mb", "{value} MB", "{value} Mo"),
+    ("marketplace_failed_count", "{count} failed", "{count} échec(s)"),
+]
+
 PLURAL_KEY = "catalog_shelf_count"
 PLURAL_VALUE = "{count, plural, =1{{count} extension} other{{count} extensions}}"
 
 
 def quote(value):
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    """JSON string literal for an ARB value.
+
+    Newlines become the two-character `\n` escape the ARB files already use, so
+    gen-l10n turns them into a real newline in the generated Dart instead of
+    rejecting the file for a raw control character.
+    """
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return '"' + escaped.replace("\n", "\\n") + '"'
 
 
 def append_entries(path, entries):
@@ -264,6 +400,8 @@ en_entries += [(key, en) for key, en, _ in SHELF]
 fr_entries += [(key, fr) for key, _, fr in SHELF]
 en_entries += [(key, en) for key, en, _ in UI]
 fr_entries += [(key, fr) for key, _, fr in UI]
+en_entries += [(key, en) for key, en, _ in MARKETPLACE]
+fr_entries += [(key, fr) for key, _, fr in MARKETPLACE]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

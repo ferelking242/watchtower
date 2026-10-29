@@ -2860,7 +2860,7 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String marketplace_source_blurb(Object kind, Object language) {
+  String marketplace_source_blurb(Object language, Object kind) {
     return 'Source $language pour découvrir $kind dans Watchtower.';
   }
 
@@ -2997,4 +2997,270 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get marketplace_load_error => 'Impossible de charger le Marketplace';
+
+  @override
+  String get marketplace_search_extension_hint => 'Rechercher une extension…';
+
+  @override
+  String get marketplace_search_apps_hint =>
+      'Rechercher des applis et des jeux…';
+
+  @override
+  String get marketplace_filter_extensions => 'Filtrer les extensions';
+
+  @override
+  String get marketplace_search_language_hint => 'Rechercher une langue…';
+
+  @override
+  String get marketplace_browse_extensions => 'Parcourir les extensions';
+
+  @override
+  String get marketplace_clear_all_filters => 'Effacer tout';
+
+  @override
+  String get marketplace_installed_only => 'Installées uniquement';
+
+  @override
+  String get marketplace_installed_only_sub =>
+      'Masquer les extensions non installées';
+
+  @override
+  String get marketplace_updates_available => 'Mises à jour disponibles';
+
+  @override
+  String get marketplace_updates_available_sub =>
+      'Extensions avec une nouvelle version';
+
+  @override
+  String get marketplace_all_option => '(toutes)';
+
+  @override
+  String get marketplace_nothing_to_install => 'Rien à installer';
+
+  @override
+  String get marketplace_check_updates_subtitle => 'Au démarrage de l’app';
+
+  @override
+  String get marketplace_auto_update_subtitle => 'Sans confirmation';
+
+  @override
+  String get marketplace_adult_content_title => 'Contenu 18+';
+
+  @override
+  String get marketplace_adult_content_subtitle =>
+      'Afficher les extensions NSFW';
+
+  @override
+  String get marketplace_manage_repositories => 'Gérer les dépôts';
+
+  @override
+  String get marketplace_reload_catalogue => 'Recharger le catalogue';
+
+  @override
+  String get marketplace_bulk_install => 'Installer en masse';
+
+  @override
+  String get marketplace_ntfy_error_subtitle =>
+      'Pousser une alerte en cas d’erreur';
+
+  @override
+  String get plugins_third_party_confirm_title => 'Installer ce plugin ?';
+
+  @override
+  String plugins_third_party_confirm_body(Object owner) {
+    return 'Plugin tiers de $owner.\n\nIl accèdera aux APIs déclarées dans son manifest.\n\nAppui long sur la carte pour désinstaller.';
+  }
+
+  @override
+  String get plugins_auth_required_body =>
+      'Ce plugin nécessite une authentification.\nOuvrez le Hub Musique → Paramètres → Sources, sélectionnez ce plugin comme source par défaut, puis appuyez sur « Se connecter ».';
+
+  @override
+  String marketplace_error_load_failed(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Échec du chargement de $count dépôts',
+      one: 'Échec du chargement de $count dépôt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_error_http(Object status, Object url) {
+    return 'HTTP $status pour $url';
+  }
+
+  @override
+  String marketplace_error_empty_response(Object url) {
+    return 'Réponse vide pour $url';
+  }
+
+  @override
+  String marketplace_error_plugin_not_registered(Object name) {
+    return 'Le plugin $name n’a pas été enregistré après le téléchargement.';
+  }
+
+  @override
+  String marketplace_error_generic(Object error) {
+    return 'Erreur : $error';
+  }
+
+  @override
+  String marketplace_error_uninstall(Object error) {
+    return 'Erreur désinstallation : $error';
+  }
+
+  @override
+  String marketplace_error_not_installed(Object name) {
+    return 'L’extension $name n’a pas pu être installée. Aucune source active n’a été enregistrée.';
+  }
+
+  @override
+  String marketplace_error_layout_not_saved(Object name) {
+    return 'Le layout UI de $name n’a pas été enregistré.';
+  }
+
+  @override
+  String marketplace_error_layout_unreadable(Object name) {
+    return 'Le layout UI de $name est illisible.';
+  }
+
+  @override
+  String marketplace_error_categories_not_saved(Object name) {
+    return 'Les catégories de $name n’ont pas été enregistrées.';
+  }
+
+  @override
+  String marketplace_error_content_types_not_saved(Object name) {
+    return 'Les types de contenu de $name n’ont pas été enregistrés.';
+  }
+
+  @override
+  String get marketplace_error_audio_plugin_missing =>
+      'Plugin audio introuvable dans le stockage local.';
+
+  @override
+  String get marketplace_error_extension_missing =>
+      'Extension introuvable dans le stockage local.';
+
+  @override
+  String marketplace_uninstall_title(Object name) {
+    return 'Désinstaller $name';
+  }
+
+  @override
+  String get marketplace_uninstall_body =>
+      'L’extension sera désinstallée. Réinstallable à tout moment.';
+
+  @override
+  String marketplace_uninstalled_toast(Object name) {
+    return '$name désinstallée';
+  }
+
+  @override
+  String marketplace_bulk_install_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Installer $count extensions',
+      one: 'Installer $count extension',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_bulk_install_confirm(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions à installer',
+      one: '$count extension à installer',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get marketplace_settings_section_behavior => 'Comportement';
+
+  @override
+  String get marketplace_settings_section_repositories => 'Dépôts';
+
+  @override
+  String get marketplace_settings_section_cache => 'Cache';
+
+  @override
+  String get marketplace_settings_section_actions => 'Actions';
+
+  @override
+  String get marketplace_force_reload => 'Forcer rechargement (bypass cache)';
+
+  @override
+  String marketplace_installed_toast(Object name) {
+    return '$name installée';
+  }
+
+  @override
+  String get marketplace_repository => 'Dépôt';
+
+  @override
+  String get marketplace_default_metadata_provider =>
+      'Provider par défaut (métadonnées)';
+
+  @override
+  String get marketplace_currently_default => 'Actuellement par défaut';
+
+  @override
+  String get marketplace_set_default_provider =>
+      'Définir comme provider par défaut';
+
+  @override
+  String get marketplace_default_audio_source => 'Source audio par défaut';
+
+  @override
+  String get marketplace_set_default_audio_source =>
+      'Définir comme source audio par défaut';
+
+  @override
+  String get marketplace_update_available_short => 'Màj dispo';
+
+  @override
+  String get marketplace_with_updates_short => 'Avec màj';
+
+  @override
+  String get marketplace_section_show => 'AFFICHER';
+
+  @override
+  String get marketplace_section_active_filters => 'FILTRES ACTIFS';
+
+  @override
+  String get marketplace_advanced_filters => 'Filtres avancés';
+
+  @override
+  String get marketplace_sort_installed => 'Installées';
+
+  @override
+  String marketplace_selected_count(Object count) {
+    return '$count sélectionnées';
+  }
+
+  @override
+  String marketplace_progress(Object done, Object total) {
+    return '$done / $total traitées';
+  }
+
+  @override
+  String marketplace_failed_count(Object count) {
+    return '$count échec(s)';
+  }
+
+  @override
+  String marketplace_size_kb(Object value) {
+    return '$value Ko';
+  }
+
+  @override
+  String marketplace_size_mb(Object value) {
+    return '$value Mo';
+  }
 }

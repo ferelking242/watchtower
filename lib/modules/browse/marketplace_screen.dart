@@ -93,10 +93,14 @@ String? _mktIconUrl(String? raw) {
   return raw;
 }
 
-String _formatMktSize(int? bytes) {
-  if (bytes == null || bytes <= 0) return 'Taille inconnue';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} Ko';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+/// Formats a byte count for a card. Unit suffixes are localised ("Ko"/"Mo" in
+/// French); the value itself is never localised so it stays a plain number.
+String _formatMktSize(AppLocalizations l10n, int? bytes) {
+  if (bytes == null || bytes <= 0) return '';
+  if (bytes < 1024 * 1024) {
+    return l10n.marketplace_size_kb((bytes / 1024).toStringAsFixed(0));
+  }
+  return l10n.marketplace_size_mb((bytes / (1024 * 1024)).toStringAsFixed(1));
 }
 
 int? _parseMktSize(dynamic raw) {
@@ -628,10 +632,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         .get(Uri.parse(bustUrl))
         .timeout(const Duration(seconds: 12));
     if (r.statusCode != 200) {
-      throw Exception('HTTP ${r.statusCode} pour $url');
+      throw Exception('HTTP ${r.statusCode} for $url');
     }
     if (r.bodyBytes.isEmpty) {
-      throw Exception('Réponse vide pour $url');
+      throw Exception('Empty response for $url');
     }
     final decodedBody = utf8.decode(r.bodyBytes, allowMalformed: true);
     final maps = r.bodyBytes.length > 80000
@@ -749,7 +753,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _loading = false;
           _refreshing = false;
           _error = _all.isEmpty
-              ? 'Échec du chargement de $failures dépôt(s).'
+              ? context.l10n.marketplace_error_load_failed(failures)
               : null;
         });
       // Entries are loaded now — recompute the installed set (music
@@ -840,7 +844,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         }
         if (!installed) {
           throw StateError(
-            'Le plugin ${entry.name} n’a pas été enregistré après le téléchargement.',
+            context.l10n.marketplace_error_plugin_not_registered(entry.name),
           );
         }
         await ExtensionCatalogNotifications.dismissById(
@@ -854,7 +858,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         if (mounted) {
           _showToast(
             context,
-            '${entry.name} installé',
+            context.l10n.marketplace_installed_toast(entry.name),
             icon: Broken.tick_circle,
           );
         }
@@ -886,14 +890,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (mounted) {
         _showToast(
           context,
-          '${entry.name} installée',
+          context.l10n.marketplace_installed_toast(entry.name),
           icon: Broken.tick_circle,
         );
       }
       return true;
     } catch (e) {
       if (mounted) {
-        _showToast(context, 'Erreur : $e', isError: true, icon: Broken.danger);
+        _showToast(
+          context,
+          context.l10n.marketplace_error_generic('$e'),
+          isError: true,
+          icon: Broken.danger,
+        );
       }
       return false;
     } finally {
@@ -957,32 +966,33 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         source.isAdded != true ||
         (source.sourceCode ?? '').trim().isEmpty) {
       throw StateError(
-        'L’extension ${entry.name} n’a pas pu être installée. '
-        'Aucune source active n’a été enregistrée.',
+        context.l10n.marketplace_error_not_installed(entry.name),
       );
     }
     if (entry.uiLayout?.isNotEmpty == true) {
       if (source.uiLayout != entry.uiLayout ||
           source.uiLayoutVersion != entry.uiLayoutVersion) {
         throw StateError(
-          'Le layout UI de ${entry.name} n’a pas été enregistré.',
+          context.l10n.marketplace_error_layout_not_saved(entry.name),
         );
       }
       await LayoutRegistry.instance.load(source);
       if (!LayoutRegistry.instance.has(source)) {
-        throw StateError('Le layout UI de ${entry.name} est illisible.');
+        throw StateError(
+          context.l10n.marketplace_error_layout_unreadable(entry.name),
+        );
       }
     }
     if (entry.subCategories.isNotEmpty &&
         !_sameStrings(source.subCategories, entry.subCategories)) {
       throw StateError(
-        'Les catégories de ${entry.name} n’ont pas été enregistrées.',
+        context.l10n.marketplace_error_categories_not_saved(entry.name),
       );
     }
     if (entry.contentSubtype.isNotEmpty &&
         !_sameStrings(source.contentSubtype, entry.contentSubtype)) {
       throw StateError(
-        'Les types de contenu de ${entry.name} n’ont pas été enregistrés.',
+        context.l10n.marketplace_error_content_types_not_saved(entry.name),
       );
     }
   }
@@ -1026,21 +1036,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Désinstaller ${entry.name}'),
-        content: const Text(
-          "L'extension sera désinstallée. Réinstallable à tout moment.",
-        ),
+        title: Text(context.l10n.marketplace_uninstall_title(entry.name)),
+        content: Text(context.l10n.marketplace_uninstall_body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Désinstaller'),
+            child: Text(context.l10n.uninstall),
           ),
         ],
       ),
@@ -1051,14 +1059,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (_isMusicPluginEntry(entry)) {
         final plugin = _musicPluginFor(entry);
         if (plugin == null) {
-          throw StateError('Plugin audio introuvable dans le stockage local.');
+          throw StateError(context.l10n.marketplace_error_audio_plugin_missing);
         }
         await ref.read(metadataPluginsProvider.notifier).removePlugin(plugin);
         ref.invalidate(metadataPluginsProvider);
       } else {
         final source = await isar.sources.get(entry.id);
         if (source == null) {
-          throw StateError('Extension introuvable dans le stockage local.');
+          throw StateError(context.l10n.marketplace_error_extension_missing);
         }
         final prefsIds = await isar.sourcePreferences
             .filter()
@@ -1089,11 +1097,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       );
       await _refreshInstalled();
       if (mounted) {
-        _showToast(context, '${entry.name} désinstallée', icon: Broken.trash);
+        _showToast(
+          context,
+          context.l10n.marketplace_uninstalled_toast(entry.name),
+          icon: Broken.trash,
+        );
       }
     } catch (e) {
       if (mounted) {
-        _showToast(context, 'Erreur désinstallation : $e', isError: true);
+        _showToast(
+          context,
+          context.l10n.marketplace_error_uninstall('$e'),
+          isError: true,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
@@ -1199,21 +1215,37 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         SourceCodeLanguage.unsupported => const Color(0xFF757575),
       };
 
-  static IconData _typeIcon(ItemType t) => switch (t) {
-    ItemType.anime => Broken.video,
-    ItemType.manga => Broken.bookmark,
-    ItemType.novel => Broken.book_1,
-    ItemType.music => Broken.musicnote,
-    _ => Broken.game,
-  };
+  /// `_kItemTypeSubtitle` is the subtitle catalogue's raw index. It has no
+  /// `ItemType` member, so these helpers take the raw index instead.
+  static const int _kItemTypeSubtitle = 7;
 
-  static Color _typeColor(ItemType t) => switch (t) {
-    ItemType.anime => const Color(0xFF9C27B0),
-    ItemType.manga => const Color(0xFFE91E63),
-    ItemType.novel => const Color(0xFF009688),
-    ItemType.music => const Color(0xFF0288D1),
-    _ => const Color(0xFF607D8B),
-  };
+  static IconData _typeIcon(int itemType) {
+    if (itemType == _kItemTypeSubtitle) return Icons.subtitles_rounded;
+    return switch (ItemType.values[itemType.clamp(
+      0,
+      ItemType.values.length - 1,
+    )]) {
+      ItemType.anime => Broken.video,
+      ItemType.manga => Broken.bookmark,
+      ItemType.novel => Broken.book_1,
+      ItemType.music => Broken.musicnote,
+      _ => Broken.game,
+    };
+  }
+
+  static Color _typeColor(int itemType) {
+    if (itemType == _kItemTypeSubtitle) return const Color(0xFF43A047);
+    return switch (ItemType.values[itemType.clamp(
+      0,
+      ItemType.values.length - 1,
+    )]) {
+      ItemType.anime => const Color(0xFF9C27B0),
+      ItemType.manga => const Color(0xFFE91E63),
+      ItemType.novel => const Color(0xFF009688),
+      ItemType.music => const Color(0xFF0288D1),
+      _ => const Color(0xFF607D8B),
+    };
+  }
 
   static String _langCode(String lang) {
     final l = lang.toLowerCase();
@@ -1423,7 +1455,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                   onTap: () => setState(() => _searchOpen = true),
                   style: TextStyle(fontSize: 14, color: cs.onSurface),
                   decoration: InputDecoration(
-                    hintText: 'Rechercher une extension…',
+                    hintText: context.l10n.marketplace_search_extension_hint,
                     hintStyle: TextStyle(
                       fontSize: 14,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.55),
@@ -1487,7 +1519,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     Icon(Broken.filter, color: cs.primary, size: 18),
                     const SizedBox(width: 8),
                     Text(
-                      'Filtrer les extensions',
+                      context.l10n.marketplace_filter_extensions,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -1573,7 +1605,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           DropdownMenuItem<String?>(
                             value: null,
                             child: Text(
-                              'Dépôt',
+                              context.l10n.marketplace_repository,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: cs.onSurfaceVariant,
@@ -1765,7 +1797,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                             child: Text(
                               _globalLangFilter != null
                                   ? '${_MarketplaceScreenState._langFlag(_globalLangFilter!)} ${_MarketplaceScreenState._langDisplayName(_globalLangFilter!)}'
-                                  : 'Langue',
+                                  : context.l10n.language,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: _globalLangFilter != null
@@ -2010,7 +2042,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                                 color: cs.onSurface,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Rechercher des applis et des je…',
+                                hintText:
+                                    context.l10n.marketplace_search_apps_hint,
                                 hintStyle: TextStyle(
                                   fontSize: 15,
                                   color: cs.onSurfaceVariant.withValues(
@@ -2070,7 +2103,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Aucune extension trouvée',
+                            context.l10n.marketplace_empty_search_title,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: cs.onSurfaceVariant,
@@ -2078,7 +2111,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Essaye un autre nom ou une langue',
+                            context.l10n.marketplace_empty_search_hint,
                             style: TextStyle(
                               fontSize: 12,
                               color: cs.onSurfaceVariant.withValues(alpha: 0.6),
@@ -2115,20 +2148,36 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   Widget _buildSearchBrowse(ColorScheme cs) {
     // Content type categories grid (Play Store style)
+    final l10n = context.l10n;
     final categories = [
-      (_kTabAnime, Icons.live_tv_rounded, 'Anime', const Color(0xFF9C27B0)),
+      (
+        _kTabAnime,
+        Icons.live_tv_rounded,
+        l10n.catalog_tab_watch,
+        const Color(0xFF9C27B0),
+      ),
       (
         _kTabManga,
         Icons.auto_stories_rounded,
-        'Manga',
+        l10n.catalog_tab_manga,
         const Color(0xFFE91E63),
       ),
-      (_kTabNovel, Icons.menu_book_rounded, 'Novel', const Color(0xFF009688)),
-      (_kTabMusic, Icons.music_note_rounded, 'Music', const Color(0xFF0288D1)),
+      (
+        _kTabNovel,
+        Icons.menu_book_rounded,
+        l10n.catalog_tab_novels,
+        const Color(0xFF009688),
+      ),
+      (
+        _kTabMusic,
+        Icons.music_note_rounded,
+        l10n.catalog_tab_music,
+        const Color(0xFF0288D1),
+      ),
       (
         _kTabGames,
         Icons.sports_esports_rounded,
-        'Jeux',
+        l10n.catalog_tab_games,
         const Color(0xFF607D8B),
       ),
     ];
@@ -2141,7 +2190,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Text(
-              'Parcourir les extensions',
+              context.l10n.marketplace_browse_extensions,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -2333,11 +2382,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         : Icons.radio_button_unchecked,
                     color: isDefaultMetadata ? cs.primary : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Provider par défaut (métadonnées)'),
+                  title: Text(
+                    context.l10n.marketplace_default_metadata_provider,
+                  ),
                   subtitle: Text(
                     isDefaultMetadata
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme provider par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_provider,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultMetadata
@@ -2361,11 +2412,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         ? cs.primary
                         : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Source audio par défaut'),
+                  title: Text(context.l10n.marketplace_default_audio_source),
                   subtitle: Text(
                     isDefaultAudioSource
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme source audio par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_audio_source,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultAudioSource
@@ -2382,7 +2433,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.delete_outline, color: cs.error),
-                title: Text('Désinstaller', style: TextStyle(color: cs.error)),
+                title: Text(
+                  context.l10n.uninstall,
+                  style: TextStyle(color: cs.error),
+                ),
                 onTap: () async {
                   await notifier.removePlugin(config);
                   await _refreshInstalled();
@@ -2458,16 +2512,17 @@ class _PlayStoreCard extends StatelessWidget {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
 
-  String _description(ItemType t, String lang, bool isNsfw) {
+  String _description(BuildContext context, ItemType t, String lang) {
+    final l10n = context.l10n;
     final typeName = switch (t) {
-      ItemType.anime => 'anime et séries',
-      ItemType.manga => 'manga et comics',
-      ItemType.novel => 'romans et light novels',
-      ItemType.music => 'musique',
-      _ => 'jeux',
+      ItemType.anime => l10n.marketplace_kind_anime,
+      ItemType.manga => l10n.marketplace_kind_manga,
+      ItemType.novel => l10n.marketplace_kind_novel,
+      ItemType.music => l10n.marketplace_kind_music,
+      _ => l10n.marketplace_kind_default,
     };
     final langCode = _MarketplaceScreenState._langCode(lang);
-    return 'Parcourez du $typeName en $langCode${isNsfw ? " (contenu adulte)" : ""}.';
+    return l10n.marketplace_source_blurb(langCode, typeName);
   }
 
   String get _codeUrl {
@@ -2485,7 +2540,7 @@ class _PlayStoreCard extends StatelessWidget {
     final slug = _slugify(entry.name);
     final desc = entry.description.isNotEmpty
         ? entry.description
-        : _description(entry.contentType, entry.lang, entry.isNsfw);
+        : _description(context, entry.contentType, entry.lang);
 
     return GestureDetector(
       onLongPress: (installed && onUninstall != null) ? onUninstall : null,
@@ -2522,7 +2577,7 @@ class _PlayStoreCard extends StatelessWidget {
               children: [
                 _ExtIcon(
                   iconUrl: entry.iconUrl,
-                  type: entry.contentType,
+                  itemType: entry.itemType,
                   size: 48,
                 ),
                 const SizedBox(width: 12),
@@ -2639,7 +2694,7 @@ class _PlayStoreCard extends StatelessWidget {
                 ),
                 _MetaDot(color: cs.onSurfaceVariant),
                 Text(
-                  _formatMktSize(entry.sizeBytes),
+                  _formatMktSize(context.l10n, entry.sizeBytes),
                   style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 ),
                 _MetaDot(color: cs.onSurfaceVariant),
@@ -2687,7 +2742,11 @@ class _PlayStoreCard extends StatelessWidget {
                     color: Colors.amber.shade600,
                   ),
                 if (entry.isAggregator)
-                  _TagChip(label: 'Agrégateur', cs: cs, color: cs.secondary),
+                  _TagChip(
+                    label: context.l10n.marketplace_aggregator,
+                    cs: cs,
+                    color: cs.secondary,
+                  ),
               ],
             ),
           ],
@@ -3024,20 +3083,22 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                           final allowed = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('Installer ce plugin ?'),
+                              title: Text(
+                                context.l10n.plugins_third_party_confirm_title,
+                              ),
                               content: Text(
-                                'Plugin tiers de ${_repo.owner}.\n\n'
-                                'Il accèdera aux APIs déclarées dans son manifest.\n\n'
-                                'Long-press sur la carte pour désinstaller.',
+                                context.l10n.plugins_third_party_confirm_body(
+                                  _repo.owner,
+                                ),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('Annuler'),
+                                  child: Text(context.l10n.cancel),
                                 ),
                                 FilledButton(
                                   onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Installer'),
+                                  child: Text(context.l10n.install),
                                 ),
                               ],
                             ),
@@ -3222,10 +3283,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Ce plugin nécessite une authentification.\n'
-                              'Ouvrez le Hub Musique → Paramètres → Sources, '
-                              'sélectionnez ce plugin comme source par défaut, '
-                              'puis appuyez sur « Se connecter ».',
+                              context.l10n.plugins_auth_required_body,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 13,
@@ -3314,11 +3372,13 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                         : Icons.radio_button_unchecked,
                     color: isDefaultMetadata ? cs.primary : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Provider par défaut (métadonnées)'),
+                  title: Text(
+                    context.l10n.marketplace_default_metadata_provider,
+                  ),
                   subtitle: Text(
                     isDefaultMetadata
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme provider par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_provider,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultMetadata
@@ -3340,11 +3400,11 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                         ? cs.primary
                         : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Source audio par défaut'),
+                  title: Text(context.l10n.marketplace_default_audio_source),
                   subtitle: Text(
                     isDefaultAudioSource
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme source audio par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_audio_source,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultAudioSource
@@ -3359,7 +3419,10 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.delete_outline, color: cs.error),
-                title: Text('Désinstaller', style: TextStyle(color: cs.error)),
+                title: Text(
+                  context.l10n.uninstall,
+                  style: TextStyle(color: cs.error),
+                ),
                 onTap: () async {
                   await notifier.removePlugin(config);
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -3466,7 +3529,7 @@ class _BannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
+    final typeColor = _MarketplaceScreenState._typeColor(entry.itemType);
     final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
     final hasIcon = entry.iconUrl != null && entry.iconUrl!.isNotEmpty;
 
@@ -3540,7 +3603,7 @@ class _BannerCard extends StatelessWidget {
                 children: [
                   _ExtIcon(
                     iconUrl: entry.iconUrl,
-                    type: entry.contentType,
+                    itemType: entry.itemType,
                     size: 60,
                   ),
                   const SizedBox(width: 14),
@@ -3662,7 +3725,7 @@ class _BannerCard extends StatelessWidget {
                                                                   Colors.white,
                                                             ),
                                                       )
-                                                    : const Row(
+                                                    : Row(
                                                         mainAxisAlignment:
                                                             MainAxisAlignment
                                                                 .center,
@@ -3675,7 +3738,9 @@ class _BannerCard extends StatelessWidget {
                                                           ),
                                                           SizedBox(width: 5),
                                                           Text(
-                                                            'Màj dispo',
+                                                            context
+                                                                .l10n
+                                                                .marketplace_update_available_short,
                                                             style: TextStyle(
                                                               fontSize: 11,
                                                               color:
@@ -3698,7 +3763,7 @@ class _BannerCard extends StatelessWidget {
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                               ),
-                                              child: const Row(
+                                              child: Row(
                                                 mainAxisAlignment:
                                                     MainAxisAlignment.center,
                                                 children: [
@@ -3709,7 +3774,7 @@ class _BannerCard extends StatelessWidget {
                                                   ),
                                                   SizedBox(width: 5),
                                                   Text(
-                                                    'Installée',
+                                                    context.l10n.installed,
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.white,
@@ -3745,8 +3810,8 @@ class _BannerCard extends StatelessWidget {
                                             color: Colors.white,
                                           ),
                                         )
-                                      : const Text(
-                                          'Installer',
+                                      : Text(
+                                          context.l10n.install,
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
@@ -3818,7 +3883,7 @@ class _MiniCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 54),
+          _ExtIcon(iconUrl: entry.iconUrl, itemType: entry.itemType, size: 54),
           const SizedBox(height: 8),
           Text(
             entry.name,
@@ -3885,8 +3950,8 @@ class _MiniCard extends StatelessWidget {
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text(
-                                        'Màj',
+                                    : Text(
+                                        context.l10n.update,
                                         style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
@@ -3951,9 +4016,9 @@ class _MiniCard extends StatelessWidget {
 
 class _ExtIcon extends StatelessWidget {
   final String? iconUrl;
-  final ItemType type;
+  final int itemType;
   final double size;
-  const _ExtIcon({this.iconUrl, required this.type, required this.size});
+  const _ExtIcon({this.iconUrl, required this.itemType, required this.size});
 
   bool get _isSvg {
     final url = iconUrl ?? '';
@@ -3966,7 +4031,7 @@ class _ExtIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final color = _MarketplaceScreenState._typeColor(type);
+    final color = _MarketplaceScreenState._typeColor(itemType);
     return Container(
       width: size,
       height: size,
@@ -4011,7 +4076,7 @@ class _ExtIcon extends StatelessWidget {
 
   Widget _fallback(ColorScheme cs, Color color) => Center(
     child: Icon(
-      _MarketplaceScreenState._typeIcon(type),
+      _MarketplaceScreenState._typeIcon(itemType),
       size: size * 0.48,
       color: color,
     ),
@@ -4169,7 +4234,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Text(
-                'Paramètres',
+                context.l10n.settings,
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
@@ -4192,7 +4257,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
                     child: Text(
-                      'Comportement',
+                      context.l10n.marketplace_settings_section_behavior,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -4203,8 +4268,8 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightSettingsTile(
                     icon: Icons.update_rounded,
-                    title: 'Vérifier les mises à jour',
-                    subtitle: 'Au démarrage de l\'app',
+                    title: context.l10n.check_for_extension_updates,
+                    subtitle: context.l10n.marketplace_check_updates_subtitle,
                     value: checkUpdates,
                     onChanged: (v) => ref
                         .read(checkForExtensionsUpdateStateProvider.notifier)
@@ -4212,8 +4277,8 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightSettingsTile(
                     icon: Broken.refresh_2,
-                    title: 'Mise à jour automatique',
-                    subtitle: 'Sans confirmation',
+                    title: context.l10n.auto_extensions_updates,
+                    subtitle: context.l10n.marketplace_auto_update_subtitle,
                     value: autoUpdate,
                     onChanged: (v) => ref
                         .read(autoUpdateExtensionsStateProvider.notifier)
@@ -4221,8 +4286,8 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightSettingsTile(
                     icon: Icons.explicit_rounded,
-                    title: 'Contenu 18+',
-                    subtitle: 'Afficher les extensions NSFW',
+                    title: context.l10n.marketplace_adult_content_title,
+                    subtitle: context.l10n.marketplace_adult_content_subtitle,
                     value: showNsfw,
                     onChanged: (v) =>
                         ref.read(showNSFWStateProvider.notifier).set(v),
@@ -4237,7 +4302,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
                     child: Text(
-                      'Dépôts',
+                      context.l10n.marketplace_settings_section_repositories,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -4248,7 +4313,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightActionTile(
                     icon: Icons.folder_special_rounded,
-                    title: 'Gérer les dépôts',
+                    title: context.l10n.marketplace_manage_repositories,
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -4269,7 +4334,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
                     child: Text(
-                      'Cache',
+                      context.l10n.marketplace_settings_section_cache,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -4280,7 +4345,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightActionTile(
                     icon: Broken.refresh_2,
-                    title: 'Recharger le catalogue',
+                    title: context.l10n.marketplace_reload_catalogue,
                     onTap: () {
                       Navigator.pop(context);
                       state._loadAll(bypassCache: true);
@@ -4288,7 +4353,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightActionTile(
                     icon: Icons.cloud_sync_rounded,
-                    title: 'Forcer rechargement (bypass cache)',
+                    title: context.l10n.marketplace_force_reload,
                     onTap: () {
                       Navigator.pop(context);
                       state._loadAll(bypassCache: true);
@@ -4304,7 +4369,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
                     child: Text(
-                      'Actions',
+                      context.l10n.marketplace_settings_section_actions,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -4320,7 +4385,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                         Icons.download_for_offline_rounded,
                         size: 18,
                       ),
-                      label: const Text('Installer en masse…'),
+                      label: Text(context.l10n.marketplace_bulk_install),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(double.infinity, 48),
                         shape: RoundedRectangleBorder(
@@ -4492,7 +4557,7 @@ class _MarketplaceFilterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return IconButton(
-      tooltip: 'Filtrer',
+      tooltip: context.l10n.filter,
       onPressed: onTap,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
@@ -4744,7 +4809,7 @@ class _LangGridPickerSheetState extends State<_LangGridPickerSheet> {
                 Icon(Icons.language_rounded, size: 18, color: cs.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Langue',
+                  context.l10n.language,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -4794,7 +4859,7 @@ class _LangGridPickerSheetState extends State<_LangGridPickerSheet> {
                       onChanged: (v) => setState(() => _query = v),
                       style: TextStyle(fontSize: 13, color: cs.onSurface),
                       decoration: InputDecoration(
-                        hintText: 'Rechercher une langue...',
+                        hintText: context.l10n.marketplace_search_language_hint,
                         hintStyle: TextStyle(
                           fontSize: 13,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.55),
@@ -5028,7 +5093,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Filtres avancés',
+                    context.l10n.marketplace_advanced_filters,
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -5052,8 +5117,8 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Effacer tout',
+                      child: Text(
+                        context.l10n.marketplace_clear_all_filters,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -5087,7 +5152,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                           },
                         ),
                         _SortChip(
-                          label: 'Installées',
+                          label: context.l10n.marketplace_sort_installed,
                           icon: Icons.download_done_rounded,
                           active: _sortBy == 'installed',
                           onTap: () {
@@ -5102,13 +5167,13 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
 
                   // Show section
                   _section(
-                    'AFFICHER',
+                    context.l10n.marketplace_section_show,
                     Column(
                       children: [
                         _FilterToggleTile(
                           icon: Icons.download_done_rounded,
-                          label: 'Installées uniquement',
-                          sub: 'Masquer les extensions non installées',
+                          label: context.l10n.marketplace_installed_only,
+                          sub: context.l10n.marketplace_installed_only_sub,
                           value: _installedOnly,
                           onChanged: (v) {
                             setState(() {
@@ -5122,8 +5187,8 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                         const SizedBox(height: 6),
                         _FilterToggleTile(
                           icon: Broken.refresh_2,
-                          label: 'Mises à jour disponibles',
-                          sub: 'Extensions avec une nouvelle version',
+                          label: context.l10n.marketplace_updates_available,
+                          sub: context.l10n.marketplace_updates_available_sub,
                           value: _withUpdatesOnly,
                           onChanged: (v) {
                             setState(() {
@@ -5142,7 +5207,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                   // Active filters
                   if (nActive > 0) ...[
                     _section(
-                      'FILTRES ACTIFS',
+                      context.l10n.marketplace_section_active_filters,
                       _ActiveFiltersSummary(
                         state: widget.state,
                         tab: widget.tab,
@@ -5404,7 +5469,7 @@ class _ActiveFiltersSummary extends StatelessWidget {
       ));
     if (state._installedOnly)
       chips.add((
-        'Installées',
+        context.l10n.marketplace_sort_installed,
         () {
           state._installedOnly = false;
           onClear();
@@ -5412,7 +5477,7 @@ class _ActiveFiltersSummary extends StatelessWidget {
       ));
     if (state._withUpdatesOnly)
       chips.add((
-        'Avec Màj',
+        context.l10n.marketplace_with_updates_short,
         () {
           state._withUpdatesOnly = false;
           onClear();
@@ -5624,7 +5689,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
                 children: [
                   Text(
-                    'Catégories',
+                    context.l10n.categories,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -5691,7 +5756,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                   Row(
                     children: [
                       Text(
-                        'Langue',
+                        context.l10n.language,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -5701,8 +5766,8 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                       const SizedBox(width: 8),
                       Text(
                         _selLangs.isEmpty
-                            ? '(toutes)'
-                            : '(${_selLangs.length} sélectionnées)',
+                            ? context.l10n.marketplace_all_option
+                            : '(${context.l10n.marketplace_selected_count(_selLangs.length)})',
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurfaceVariant,
@@ -5782,7 +5847,9 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${toInstall.length} extension${toInstall.length > 1 ? "s" : ""} à installer',
+                            context.l10n.marketplace_bulk_install_count(
+                              toInstall.length,
+                            ),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -5807,8 +5874,10 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        '$_done / $_total traitées'
-                        '${_failed == 0 ? '' : ' · $_failed échec(s)'}',
+                        context.l10n.marketplace_progress('$_done', '$_total') +
+                            (_failed == 0
+                                ? ''
+                                : ' · ${context.l10n.marketplace_failed_count(_failed)}'),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -5843,7 +5912,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                             ),
                             label: Text(
                               toInstall.isEmpty
-                                  ? 'Rien à installer'
+                                  ? context.l10n.marketplace_nothing_to_install
                                   : 'Installer ${toInstall.length} extension${toInstall.length > 1 ? "s" : ""}',
                             ),
                             style: FilledButton.styleFrom(
@@ -6440,12 +6509,13 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   List<String> get _popularSearches {
+    final l10n = context.l10n;
     final types = <ItemType, String>{
-      ItemType.anime: 'Watch',
-      ItemType.manga: 'Manga',
-      ItemType.novel: 'Romans',
-      ItemType.music: 'Musique',
-      ItemType.game: 'Jeux',
+      ItemType.anime: l10n.catalog_tab_watch,
+      ItemType.manga: l10n.catalog_tab_manga,
+      ItemType.novel: l10n.catalog_tab_novels,
+      ItemType.music: l10n.catalog_tab_music,
+      ItemType.game: l10n.catalog_tab_games,
     };
     return types.entries
         .where(
@@ -7497,7 +7567,7 @@ int _playReviewCount(_ExtEntry entry) => entry.reviewCount;
 
 String _playSize(AppLocalizations l10n, _ExtEntry entry) {
   if (entry.sizeBytes != null && entry.sizeBytes! > 0) {
-    return _formatMktSize(entry.sizeBytes);
+    return _formatMktSize(l10n, entry.sizeBytes);
   }
   return l10n.marketplace_unknown_size;
 }
@@ -8048,14 +8118,14 @@ class _NtfyToggleTileState extends State<_NtfyToggleTile> {
         color: MarketplacePalette.of(context).muted,
       ),
       title: Text(
-        'Signaux ntfy',
+        context.l10n.marketplace_ntfy_signals,
         style: TextStyle(
           color: MarketplacePalette.of(context).text,
           fontSize: 14,
         ),
       ),
       subtitle: Text(
-        'Pousser une alerte en cas d\'erreur',
+        context.l10n.marketplace_ntfy_error_subtitle,
         style: TextStyle(
           color: MarketplacePalette.of(context).muted,
           fontSize: 12,
