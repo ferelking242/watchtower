@@ -24,11 +24,47 @@ class ExtensionSessionManager {
 
   static String _key(int extensionId) => 'extension_session_$extensionId';
 
+  /// True while the platform secure-storage backend answers. Headless
+  /// invocations (the CLI deliberately registers no GTK plugins) have no
+  /// method-channel handler, so the first read throws MissingPluginException.
+  /// A storage backend is optional for extension HTTP, so such a failure must
+  /// never abort a request: it degrades to an in-memory session for this
+  /// process.
+  static bool _storageAvailable = true;
+
+  static Future<String?> _readRaw(int extensionId) async {
+    if (!_storageAvailable) return null;
+    try {
+      return await _storage.read(key: _key(extensionId));
+    } catch (_) {
+      _storageAvailable = false;
+      return null;
+    }
+  }
+
+  static Future<void> _writeRaw(int extensionId, String value) async {
+    if (!_storageAvailable) return;
+    try {
+      await _storage.write(key: _key(extensionId), value: value);
+    } catch (_) {
+      _storageAvailable = false;
+    }
+  }
+
+  static Future<void> _deleteRaw(int extensionId) async {
+    if (!_storageAvailable) return;
+    try {
+      await _storage.delete(key: _key(extensionId));
+    } catch (_) {
+      _storageAvailable = false;
+    }
+  }
+
   static Future<void> load(int? extensionId) async {
     if (extensionId == null || extensionId <= 0 || _loaded.contains(extensionId)) {
       return;
     }
-    final raw = await _storage.read(key: _key(extensionId));
+    final raw = await _readRaw(extensionId);
     if (raw == null || raw.isEmpty) {
       _sessions[extensionId] = _emptySession();
       _loaded.add(extensionId);
@@ -202,7 +238,7 @@ class ExtensionSessionManager {
   static Future<void> clearSession(int extensionId) async {
     _sessions.remove(extensionId);
     _loaded.remove(extensionId);
-    await _storage.delete(key: _key(extensionId));
+    await _deleteRaw(extensionId);
   }
 
   /// Backwards-compatible alias used by existing session and account flows.
@@ -525,7 +561,7 @@ class ExtensionSessionManager {
   static Future<void> _persist(int extensionId) async {
     final session = _sessions[extensionId] ?? _emptySession();
     session['lastUpdated'] = DateTime.now().millisecondsSinceEpoch;
-    await _storage.write(key: _key(extensionId), value: jsonEncode(session));
+    await _writeRaw(extensionId, jsonEncode(session));
   }
 
   static Future<void> saveBrowserCookies({
