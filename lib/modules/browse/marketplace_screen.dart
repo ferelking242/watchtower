@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +31,6 @@ import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/browse/plugins_section.dart';
-import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -147,6 +145,7 @@ class _ExtEntry implements CatalogEntryView {
   final String paywall;
   final bool supportsComments;
   final String upstream;
+  @override
   final String description;
   final int? sizeBytes;
   final double rating;
@@ -1176,47 +1175,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     return m[tabConst] ?? 0;
   }
 
-  List<_ExtEntry> _forTab(int tab) {
-    List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      list = list
-          .where(
-            (e) =>
-                e.name.toLowerCase().contains(q) ||
-                e.lang.toLowerCase().contains(q),
-          )
-          .toList();
-    }
-    if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
-    if (_globalRepoFilter != null) {
-      list = list.where((e) => e.repoUrl.contains(_globalRepoFilter!)).toList();
-    }
-    if (_globalProgLangFilter != null) {
-      list = list.where((e) => e.compat == _globalProgLangFilter).toList();
-    }
-    if (_globalLangFilter != null) {
-      list = list.where((e) => e.lang == _globalLangFilter).toList();
-    }
-    if (_installedOnly)
-      list = list.where((e) => _installed.contains(e.id)).toList();
-    if (_withUpdatesOnly)
-      list = list
-          .where((e) => _hasUpdate(e.id, e.version, e.uiLayoutVersion))
-          .toList();
-    if (_sortBy == 'alpha') {
-      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    } else if (_sortBy == 'installed') {
-      list.sort((a, b) {
-        final ai = _installed.contains(a.id) ? 0 : 1;
-        final bi = _installed.contains(b.id) ? 0 : 1;
-        if (ai != bi) return ai.compareTo(bi);
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
-    }
-    return list;
-  }
-
   List<_ExtEntry> get _searchResults {
     if (_searchQuery.isEmpty) return [];
     final q = _searchQuery.toLowerCase();
@@ -1349,39 +1307,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  // ── Mass install ─────────────────────────────────────────────────────────────
-
-  Future<void> _massInstall({
-    required String lang,
-    SourceCodeLanguage? compat,
-  }) async {
-    var toInstall = _all
-        .where((e) => e.lang == lang && !_installed.contains(e.id))
-        .toList();
-    if (compat != null) {
-      toInstall = toInstall.where((e) => e.compat == compat).toList();
-    }
-    for (final entry in toInstall) {
-      await _install(entry);
-    }
-  }
-
-  void _showMassInstallSheet() {
-    final langs = _all.map((e) => e.lang).toSet().toList()..sort();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _MassInstallSheet(
-        state: this,
-        langs: langs,
-        installedIds: _installed,
       ),
     );
   }
@@ -1550,7 +1475,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   void _showMarketplaceFilterOverlay() {
     final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    final tab = _visualToTabConst(_tabCtrl.index);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2466,14 +2390,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
   }
 
-  int get _updatableCount => _all
-      .where(
-        (e) =>
-            _installed.contains(e.id) &&
-            _hasUpdate(e.id, e.version, e.uiLayoutVersion),
-      )
-      .length;
-
   void _openSettings(int id) {
     // First: try Isar sources (JS/Dart/APK extensions)
     final source = _installedSources[id];
@@ -2876,300 +2792,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   void markDirty() => setState(() {});
 }
-
-// ─── Home tab ──────────────────────────────────────────────────────────────────
-
-// ─── Mass install card ─────────────────────────────────────────────────────────
-
-class _MassInstallSheet extends StatefulWidget {
-  final _MarketplaceScreenState state;
-  final List<String> langs;
-  final Set<int> installedIds;
-  const _MassInstallSheet({
-    required this.state,
-    required this.langs,
-    required this.installedIds,
-  });
-
-  @override
-  State<_MassInstallSheet> createState() => _MassInstallSheetState();
-}
-
-class _MassInstallSheetState extends State<_MassInstallSheet> {
-  String? _selectedLang;
-  SourceCodeLanguage? _selectedCompat;
-  bool _running = false;
-  int _done = 0;
-  int _failed = 0;
-  int _total = 0;
-
-  List<_ExtEntry> get _toInstall {
-    if (_selectedLang == null) return [];
-    var list = widget.state._all
-        .where(
-          (e) => e.lang == _selectedLang && !widget.installedIds.contains(e.id),
-        )
-        .toList();
-    if (_selectedCompat != null) {
-      list = list.where((e) => e.compat == _selectedCompat).toList();
-    }
-    return list;
-  }
-
-  Future<void> _doInstall() async {
-    final list = _toInstall;
-    if (list.isEmpty) return;
-    setState(() {
-      _running = true;
-      _done = 0;
-      _failed = 0;
-      _total = list.length;
-    });
-    for (final entry in list) {
-      final installed = await widget.state._install(entry);
-      if (mounted) {
-        setState(() {
-          _done++;
-          if (!installed) _failed++;
-        });
-      }
-    }
-    if (mounted) setState(() => _running = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final toInstall = _toInstall;
-
-    final compatItems = [
-      (null, Icons.apps_rounded, 'Tous types'),
-      (SourceCodeLanguage.javascript, Icons.code_rounded, 'JS/Web'),
-      (SourceCodeLanguage.dart, Icons.flutter_dash, 'Dart'),
-      (SourceCodeLanguage.javascript, Icons.code_rounded, 'JS'),
-    ];
-
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.55,
-      maxChildSize: 0.85,
-      builder: (_, ctrl) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: ListView(
-          controller: ctrl,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: cs.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              'Installer en masse',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Installe toutes les extensions d\'une langue ou d\'un dépôt.',
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 20),
-
-            // Language dropdown
-            Text(
-              'Langue',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_selectedLang),
-              initialValue: _selectedLang,
-              isExpanded: true,
-              hint: const Text('Sélectionner une langue'),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-              ),
-              items: widget.langs.map((l) {
-                final count = widget.state._all
-                    .where(
-                      (e) => e.lang == l && !widget.installedIds.contains(e.id),
-                    )
-                    .length;
-                final code = _MarketplaceScreenState._langCode(l);
-                return DropdownMenuItem(
-                  value: l,
-                  child: Text('$code — $count non installées'),
-                );
-              }).toList(),
-              onChanged: _running
-                  ? null
-                  : (v) => setState(() => _selectedLang = v),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Compat filter
-            Text(
-              'Type (optionnel)',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: compatItems.map<Widget>((
-                (SourceCodeLanguage?, IconData, String) item,
-              ) {
-                final (compat, icon, label) = item;
-                final sel = _selectedCompat == compat;
-                return GestureDetector(
-                  onTap: _running
-                      ? null
-                      : () => setState(() => _selectedCompat = compat),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? cs.primaryContainer
-                          : cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: sel ? cs.primary : cs.outlineVariant,
-                        width: sel ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          icon,
-                          size: 13,
-                          color: sel ? cs.primary : cs.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: sel ? cs.primary : cs.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Progress
-            if (_running) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _total > 0 ? _done / _total : null,
-                  minHeight: 6,
-                  backgroundColor: cs.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation(cs.primary),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '$_done / $_total traitées'
-                '${_failed == 0 ? '' : ' · $_failed échec(s)'}',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Summary + install button
-            if (_selectedLang != null && !_running) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${toInstall.length} extension(s) à installer pour '
-                  '${_MarketplaceScreenState._langCode(_selectedLang!)}',
-                  style: TextStyle(fontSize: 13, color: cs.onSurface),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                icon: _running
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Broken.document_download),
-                label: Text(
-                  _running
-                      ? 'Installation en cours…'
-                      : toInstall.isEmpty
-                      ? 'Aucune extension à installer'
-                      : 'Installer ${toInstall.length} extension(s)',
-                ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: (_running || toInstall.isEmpty) ? null : _doInstall,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Play Store-style card ─────────────────────────────────────────────────────
 
 class _PlayStoreCard extends StatelessWidget {
   final _ExtEntry entry;
