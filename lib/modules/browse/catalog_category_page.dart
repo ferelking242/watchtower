@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/models/catalog_entry.dart';
 import 'package:watchtower/models/catalog_shelf.dart';
 import 'package:watchtower/modules/browse/catalog_widgets.dart';
+import 'package:watchtower/modules/browse/marketplace_palette.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Full grid of everything a shelf matched.
@@ -26,11 +27,12 @@ class CatalogCategoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final palette = MarketplacePalette.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF101010),
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF101010),
-        foregroundColor: Colors.white,
+        backgroundColor: palette.background,
+        foregroundColor: palette.text,
         title: Text(spec.title(l10n)),
         actions: [
           Padding(
@@ -38,7 +40,7 @@ class CatalogCategoryPage extends StatelessWidget {
             child: Center(
               child: Text(
                 l10n.catalog_shelf_count(entries.length),
-                style: const TextStyle(color: Color(0xFF8A8990), fontSize: 12),
+                style: TextStyle(color: palette.muted, fontSize: 12),
               ),
             ),
           ),
@@ -51,8 +53,8 @@ class CatalogCategoryPage extends StatelessWidget {
                 child: Text(
                   l10n.catalog_shelf_empty,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF9E9DA3),
+                  style: TextStyle(
+                    color: palette.muted,
                     fontSize: 13,
                     height: 1.4,
                   ),

@@ -63,10 +63,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   bool? _extensionPremiumStatus;
   int _siteSessionRefreshRevision = 0;
 
-  List<String> get _siteSessionUrls => extensionSessionUrls(
-        baseUrl: source.baseUrl,
-        loginUrl: source.loginUrl,
-      );
+  List<String> get _siteSessionUrls =>
+      extensionSessionUrls(baseUrl: source.baseUrl, loginUrl: source.loginUrl);
 
   bool get _isSiteSessionBusy =>
       _siteSessionStatus == _SiteSessionStatus.checking ||
@@ -81,7 +79,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   void initState() {
     super.initState();
     _scrollController.addListener(() {
-      final collapsed = _scrollController.hasClients &&
+      final collapsed =
+          _scrollController.hasClients &&
           _scrollController.offset > (270 - kToolbarHeight - 16);
       if (collapsed != _isCollapsed) setState(() => _isCollapsed = collapsed);
     });
@@ -96,9 +95,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
 
   List<SourcePreference>? _loadPreferences() {
     try {
-      return getSourcePreference(source: source)
-          .map((e) => getSourcePreferenceEntry(e.key!, source.id!))
-          .toList();
+      return getSourcePreference(
+        source: source,
+      ).map((e) => getSourcePreferenceEntry(e.key!, source.id!)).toList();
     } catch (e) {
       return null;
     }
@@ -175,7 +174,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   Future<void> _signInToSite() async {
     if (_isSiteSessionActionInProgress) return;
     final url = Uri.tryParse(source.loginUrl ?? source.baseUrl ?? '');
-    if (url == null || !url.hasAuthority ||
+    if (url == null ||
+        !url.hasAuthority ||
         (url.scheme != 'https' && url.scheme != 'http')) {
       botToast('URL du site invalide.');
       return;
@@ -183,11 +183,14 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     ++_siteSessionRefreshRevision;
     setState(() => _siteSessionStatus = _SiteSessionStatus.loggingIn);
     try {
-      await context.push('/mangawebview', extra: {
-        'url': url.toString(),
-        'sourceId': source.id.toString(),
-        'title': '${source.name ?? 'Extension'} — connexion',
-      });
+      await context.push(
+        '/mangawebview',
+        extra: {
+          'url': url.toString(),
+          'sourceId': source.id.toString(),
+          'title': '${source.name ?? 'Extension'} — connexion',
+        },
+      );
     } catch (_) {
       if (mounted) botToast('Impossible d’ouvrir la page de connexion.');
     } finally {
@@ -201,7 +204,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     ++_siteSessionRefreshRevision;
     setState(() => _siteSessionStatus = _SiteSessionStatus.loggingOut);
     try {
-      final logoutUrl = _siteSessionUrls.isEmpty ? null : _siteSessionUrls.first;
+      final logoutUrl = _siteSessionUrls.isEmpty
+          ? null
+          : _siteSessionUrls.first;
       await MClient.logoutExtension(id, logoutUrl);
       if (!mounted) return;
       setState(() {
@@ -348,10 +353,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: color,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 2, color: color),
           )
         else
           Icon(icon, size: 17, color: color),
@@ -360,9 +362,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         IconButton(
@@ -379,7 +381,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     final account = _accountInfo;
     if (account == null) return const SizedBox.shrink();
     final avatarUri = Uri.tryParse(account.avatarUrl ?? '');
-    final hasAvatar = avatarUri != null &&
+    final hasAvatar =
+        avatarUri != null &&
         (avatarUri.scheme == 'https' || avatarUri.scheme == 'http');
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -452,13 +455,16 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               )
             else
               ..._extensionFavorites.take(5).map((favorite) {
-                final title = favorite['name']?.toString() ??
+                final title =
+                    favorite['name']?.toString() ??
                     favorite['title']?.toString() ??
                     'Sans titre';
-                final imageUrl = favorite['imageUrl']?.toString() ??
+                final imageUrl =
+                    favorite['imageUrl']?.toString() ??
                     favorite['coverUrl']?.toString();
                 final imageUri = Uri.tryParse(imageUrl ?? '');
-                final validImage = imageUri != null &&
+                final validImage =
+                    imageUri != null &&
                     (imageUri.scheme == 'https' || imageUri.scheme == 'http');
                 return ListTile(
                   dense: true,
@@ -502,11 +508,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     }
     if (source.subscriptionAvailable) {
       final subscription = _extensionSubscription;
-      final plan = subscription?['plan']?.toString() ??
+      final plan =
+          subscription?['plan']?.toString() ??
           subscription?['name']?.toString() ??
           'Abonnement';
       final status = subscription?['status']?.toString();
-      final expiresAt = subscription?['expiresAt']?.toString() ??
+      final expiresAt =
+          subscription?['expiresAt']?.toString() ??
           subscription?['expires_at']?.toString();
       sections.add(
         ListTile(
@@ -681,7 +689,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       botToast('Aucun cookie disponible pour cette extension.');
       return;
     }
-    final cookieStr = cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+    final cookieStr = cookies.entries
+        .map((e) => '${e.key}=${e.value}')
+        .join('; ');
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -732,7 +742,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Row(
             children: [
               Icon(Icons.cookie_rounded, size: 20),
@@ -812,7 +824,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           children: [
             Text(
               'Laissez vide pour utiliser le User-Agent par défaut.',
-              style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -829,7 +844,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, ''),
             child: const Text('Réinitialiser'),
@@ -844,10 +862,16 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     controller.dispose();
     if (result == null || !mounted) return;
     isar.writeTxnSync(() {
-      isar.sources.putSync(source..customUserAgent = result.isEmpty ? null : result);
+      isar.sources.putSync(
+        source..customUserAgent = result.isEmpty ? null : result,
+      );
     });
-    setState(() { source = isar.sources.getSync(source.id!)!; });
-    botToast(result.isEmpty ? 'User-Agent réinitialisé.' : 'User-Agent mis à jour !');
+    setState(() {
+      source = isar.sources.getSync(source.id!)!;
+    });
+    botToast(
+      result.isEmpty ? 'User-Agent réinitialisé.' : 'User-Agent mis à jour !',
+    );
   }
 
   Future<void> _clearData() async {
@@ -861,7 +885,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           'associés à cette extension.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
@@ -891,7 +918,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       isar.sourcePreferences.deleteAllSync(prefsIds);
       isar.sourcePreferenceStringValues.deleteAllSync(prefsStrIds);
     });
-    setState(() { sourcePreference = _loadPreferences(); });
+    setState(() {
+      sourcePreference = _loadPreferences();
+    });
     botToast('Données effacées !');
   }
 
@@ -928,7 +957,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         sourcePreference = _loadPreferences();
       });
     }
-    botToast('Préférences rechargées. Rouvrez la source pour actualiser le cache.');
+    botToast(
+      'Préférences rechargées. Rouvrez la source pour actualiser le cache.',
+    );
   }
 
   Future<void> _viewHeaders() async {
@@ -938,7 +969,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Row(
             children: [
               Icon(Icons.http_rounded, size: 20),
@@ -981,8 +1014,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded,
-                color: Theme.of(ctx).colorScheme.error, size: 22),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Theme.of(ctx).colorScheme.error,
+              size: 22,
+            ),
             const SizedBox(width: 8),
             Expanded(child: Text(source.name!)),
           ],
@@ -1101,12 +1137,17 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
             title: _isCollapsed
                 ? Text(
                     source.name ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   )
                 : null,
-            leading: BackButton(onPressed: () => Navigator.pop(context, source)),
+            leading: BackButton(
+              onPressed: () => Navigator.pop(context, source),
+            ),
             actions: [
               // Tap = WebView, long press = navigateur externe
               GestureDetector(
@@ -1116,11 +1157,14 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       ? baseUrl
                       : (source.repo?.website ?? '');
                   if (url.isNotEmpty) {
-                    context.push('/mangawebview', extra: {
-                      'url': url,
-                      'sourceId': source.id.toString(),
-                      'title': source.name ?? '',
-                    });
+                    context.push(
+                      '/mangawebview',
+                      extra: {
+                        'url': url,
+                        'sourceId': source.id.toString(),
+                        'title': source.name ?? '',
+                      },
+                    );
                   }
                 },
                 onLongPress: () {
@@ -1132,8 +1176,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   }
                 },
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                   child: Icon(Broken.global, color: cs.onSurface),
                 ),
               ),
@@ -1147,7 +1193,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               PopupMenuButton<String>(
                 icon: Icon(Broken.more, color: cs.onSurface),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 onSelected: (value) async {
                   switch (value) {
                     case 'import_cookie':
@@ -1174,22 +1221,43 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   }
                 },
                 itemBuilder: (ctx) => [
-                  _popItem('import_cookie', Icons.cookie_rounded,
-                      'Importer cookie'),
-                  _popItem('view_cookies', Icons.manage_search_rounded,
-                      'Voir cookies'),
-                  _popItem('clear_cookies', Icons.cookie_outlined,
-                      'Effacer cookies'),
-                  _popItem('clear_cache', Icons.cleaning_services_rounded,
-                      'Effacer le cache'),
-                  _popItem('clear_data', Icons.delete_sweep_rounded,
-                      'Effacer les données'),
+                  _popItem(
+                    'import_cookie',
+                    Icons.cookie_rounded,
+                    'Importer cookie',
+                  ),
+                  _popItem(
+                    'view_cookies',
+                    Icons.manage_search_rounded,
+                    'Voir cookies',
+                  ),
+                  _popItem(
+                    'clear_cookies',
+                    Icons.cookie_outlined,
+                    'Effacer cookies',
+                  ),
+                  _popItem(
+                    'clear_cache',
+                    Icons.cleaning_services_rounded,
+                    'Effacer le cache',
+                  ),
+                  _popItem(
+                    'clear_data',
+                    Icons.delete_sweep_rounded,
+                    'Effacer les données',
+                  ),
                   const PopupMenuDivider(),
                   _popItem('edit_url', Icons.link_rounded, 'Modifier l\'URL'),
-                  _popItem('view_headers', Icons.http_rounded,
-                      'Voir les en-têtes'),
-                  _popItem('user_agent', Icons.device_hub_rounded,
-                      'Modifier User-Agent'),
+                  _popItem(
+                    'view_headers',
+                    Icons.http_rounded,
+                    'Voir les en-têtes',
+                  ),
+                  _popItem(
+                    'user_agent',
+                    Icons.device_hub_rounded,
+                    'Modifier User-Agent',
+                  ),
                 ],
               ),
             ],
@@ -1200,7 +1268,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      cs.primaryContainer.withValues(alpha: isDark ? 0.4 : 0.25),
+                      cs.primaryContainer.withValues(
+                        alpha: isDark ? 0.4 : 0.25,
+                      ),
                       cs.surface,
                     ],
                   ),
@@ -1234,8 +1304,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                                     fit: BoxFit.contain,
                                     width: 96,
                                     height: 96,
-                                    errorWidget: Icon(typeIcon,
-                                        size: 48, color: cs.primary),
+                                    errorWidget: Icon(
+                                      typeIcon,
+                                      size: 48,
+                                      color: cs.primary,
+                                    ),
                                     headers: {},
                                   )
                                 : Icon(typeIcon, size: 48, color: cs.primary),
@@ -1257,54 +1330,58 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         ),
                         const SizedBox(height: 8),
                         Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 6,
-                        children: [
-                          if (typeBadge != null)
-                            _Chip(icon: typeIcon, label: typeBadge, color: cs.primary),
-                          _Chip(
-                            icon: Icons.translate_rounded,
-                            label: langName,
-                            color: cs.tertiary,
-                          ),
-                          _Chip(
-                            icon: Icons.info_outline_rounded,
-                            label: 'v${source.version ?? '?'}',
-                            color: cs.secondary,
-                          ),
-                          if (isObsolete)
+                          alignment: WrapAlignment.center,
+                          spacing: 6,
+                          children: [
+                            if (typeBadge != null)
+                              _Chip(
+                                icon: typeIcon,
+                                label: typeBadge,
+                                color: cs.primary,
+                              ),
                             _Chip(
-                              icon: Icons.warning_amber_rounded,
-                              label: 'Obsolète',
-                              color: cs.error,
+                              icon: Icons.translate_rounded,
+                              label: langName,
+                              color: cs.tertiary,
                             ),
-                          if (!isAdded)
                             _Chip(
-                              icon: Icons.download_done_rounded,
-                              label: 'Non installée',
-                              color: cs.onSurfaceVariant,
+                              icon: Icons.info_outline_rounded,
+                              label: 'v${source.version ?? '?'}',
+                              color: cs.secondary,
                             ),
-                          // B5: show manifest-declared metadata
-                          if (source.requiresAccount == true)
-                            _Chip(
-                              icon: Icons.account_circle_rounded,
-                              label: 'Compte requis',
-                              color: const Color(0xFF5C6BC0),
-                            ),
-                          if (source.hasCloudflare == true)
-                            _Chip(
-                              icon: Icons.cloud_rounded,
-                              label: 'Cloudflare',
-                              color: const Color(0xFFFF9800),
-                            ),
-                          if (hasCodeUpdate)
-                            _Chip(
-                              icon: Icons.system_update_rounded,
-                              label: 'v${source.versionLast}',
-                              color: cs.error,
-                            ),
-                        ],
-                      ),
+                            if (isObsolete)
+                              _Chip(
+                                icon: Icons.warning_amber_rounded,
+                                label: 'Obsolète',
+                                color: cs.error,
+                              ),
+                            if (!isAdded)
+                              _Chip(
+                                icon: Icons.download_done_rounded,
+                                label: 'Non installée',
+                                color: cs.onSurfaceVariant,
+                              ),
+                            // B5: show manifest-declared metadata
+                            if (source.requiresAccount == true)
+                              _Chip(
+                                icon: Icons.account_circle_rounded,
+                                label: 'Compte requis',
+                                color: const Color(0xFF5C6BC0),
+                              ),
+                            if (source.hasCloudflare == true)
+                              _Chip(
+                                icon: Icons.cloud_rounded,
+                                label: 'Cloudflare',
+                                color: const Color(0xFFFF9800),
+                              ),
+                            if (hasCodeUpdate)
+                              _Chip(
+                                icon: Icons.system_update_rounded,
+                                label: 'v${source.versionLast}',
+                                color: cs.error,
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -1371,16 +1448,22 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                          color: cs.surfaceContainerHighest.withValues(
+                            alpha: 0.5,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: cs.outlineVariant.withValues(alpha: 0.4)),
+                            color: cs.outlineVariant.withValues(alpha: 0.4),
+                          ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline_rounded,
-                                size: 15, color: cs.onSurfaceVariant),
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 15,
+                              color: cs.onSurfaceVariant,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1398,57 +1481,59 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                     ),
 
                   // ── Manifest metadata — B10 ────────────────────────────
-                  Builder(builder: (ctx2) {
-                    final qualities = source.videoQualities ?? [];
-                    final subtype   = source.contentSubtype ?? [];
-                    final pw        = source.paywall;
-                    if (qualities.isEmpty && subtype.isEmpty && pw == null) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 12, bottom: 4),
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          // Paywall badge
-                          if (pw != null && pw.isNotEmpty) ...[
-                            _MetaBadge(
-                              label: pw == 'free'
-                                  ? 'Gratuit'
-                                  : pw == 'freemium'
-                                      ? 'Freemium'
-                                      : 'Payant',
-                              icon: pw == 'free'
-                                  ? Icons.lock_open_rounded
-                                  : pw == 'freemium'
-                                      ? Icons.lock_clock_rounded
-                                      : Icons.lock_rounded,
-                              color: pw == 'free'
-                                  ? const Color(0xFF4CAF50)
-                                  : pw == 'freemium'
-                                      ? const Color(0xFFFFB300)
-                                      : const Color(0xFFF44336),
-                            ),
+                  Builder(
+                    builder: (ctx2) {
+                      final qualities = source.videoQualities ?? [];
+                      final subtype = source.contentSubtype ?? [];
+                      final pw = source.paywall;
+                      if (qualities.isEmpty && subtype.isEmpty && pw == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 4),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            // Paywall badge
+                            if (pw != null && pw.isNotEmpty) ...[
+                              _MetaBadge(
+                                label: pw == 'free'
+                                    ? 'Gratuit'
+                                    : pw == 'freemium'
+                                    ? 'Freemium'
+                                    : 'Payant',
+                                icon: pw == 'free'
+                                    ? Icons.lock_open_rounded
+                                    : pw == 'freemium'
+                                    ? Icons.lock_clock_rounded
+                                    : Icons.lock_rounded,
+                                color: pw == 'free'
+                                    ? const Color(0xFF4CAF50)
+                                    : pw == 'freemium'
+                                    ? const Color(0xFFFFB300)
+                                    : const Color(0xFFF44336),
+                              ),
+                            ],
+                            // Content subtypes
+                            for (final s in subtype)
+                              _MetaBadge(
+                                label: s,
+                                icon: Icons.label_rounded,
+                                color: cs.secondary,
+                              ),
+                            // Video quality chips
+                            for (final q in qualities)
+                              _MetaBadge(
+                                label: q,
+                                icon: Icons.hd_rounded,
+                                color: cs.tertiary,
+                              ),
                           ],
-                          // Content subtypes
-                          for (final s in subtype)
-                            _MetaBadge(
-                              label: s,
-                              icon: Icons.label_rounded,
-                              color: cs.secondary,
-                            ),
-                          // Video quality chips
-                          for (final q in qualities)
-                            _MetaBadge(
-                              label: q,
-                              icon: Icons.hd_rounded,
-                              color: cs.tertiary,
-                            ),
-                        ],
-                      ),
-                    );
-                  }),
+                        ),
+                      );
+                    },
+                  ),
 
                   if (source.loginAvailable ||
                       source.accountAvailable ||
@@ -1469,7 +1554,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                           Text(
                             source.loginAvailable
                                 ? 'La connexion et les informations affichées sont propres à cette extension. '
-                                    'Les données de session utilisées par ses requêtes restent séparées.'
+                                      'Les données de session utilisées par ses requêtes restent séparées.'
                                 : 'Les informations affichées sont fournies par les méthodes déclarées par cette extension.',
                             style: TextStyle(
                               fontSize: 12,
@@ -1520,7 +1605,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   ],
 
                   // ── Source preferences ──────────────────────────────────
-                  if (sourcePreference != null && sourcePreference!.isNotEmpty) ...[
+                  if (sourcePreference != null &&
+                      sourcePreference!.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     _SectionHeader(
                       label: 'Paramètres de l\'extension',
@@ -1593,11 +1679,13 @@ Map<String, dynamic> _copyLayoutObject(Object? value, String path) {
 PopupMenuItem<String> _popItem(String value, IconData icon, String label) =>
     PopupMenuItem(
       value: value,
-      child: Row(children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 12),
-        Text(label),
-      ]),
+      child: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 12),
+          Text(label),
+        ],
+      ),
     );
 
 // ── Supporting widgets ────────────────────────────────────────────────────────
@@ -1633,7 +1721,11 @@ class _MetaBadge extends StatelessWidget {
   final String label;
   final IconData icon;
   final Color color;
-  const _MetaBadge({required this.label, required this.icon, required this.color});
+  const _MetaBadge({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1826,7 +1918,11 @@ class _EditableInfoRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.all(4),
-              child: Icon(Icons.copy_rounded, size: 14, color: cs.onSurfaceVariant),
+              child: Icon(
+                Icons.copy_rounded,
+                size: 14,
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(width: 2),
@@ -1843,4 +1939,3 @@ class _EditableInfoRow extends StatelessWidget {
     );
   }
 }
-

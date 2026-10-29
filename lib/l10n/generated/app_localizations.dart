@@ -5146,6 +5146,318 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Novels'**
   String get catalog_tab_novels;
+
+  /// No description provided for @marketplace_search_results.
+  ///
+  /// In en, this message translates to:
+  /// **'Search results'**
+  String get marketplace_search_results;
+
+  /// No description provided for @marketplace_empty_search_title.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension found'**
+  String get marketplace_empty_search_title;
+
+  /// No description provided for @marketplace_empty_catalog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension available'**
+  String get marketplace_empty_catalog_title;
+
+  /// No description provided for @marketplace_empty_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another name or refresh the catalogue.'**
+  String get marketplace_empty_search_hint;
+
+  /// No description provided for @marketplace_empty_catalog_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'The catalogue is empty right now. Try again later.'**
+  String get marketplace_empty_catalog_hint;
+
+  /// No description provided for @marketplace_empty_semantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty catalogue'**
+  String get marketplace_empty_semantics;
+
+  /// No description provided for @marketplace_settings_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketplace settings'**
+  String get marketplace_settings_tooltip;
+
+  /// No description provided for @marketplace_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search extensions'**
+  String get marketplace_search_hint;
+
+  /// No description provided for @marketplace_recent_searches.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent searches'**
+  String get marketplace_recent_searches;
+
+  /// No description provided for @marketplace_popular_searches.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular searches'**
+  String get marketplace_popular_searches;
+
+  /// No description provided for @marketplace_browse_by_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse by category'**
+  String get marketplace_browse_by_category;
+
+  /// No description provided for @marketplace_nsfw_gate_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Adult content hidden'**
+  String get marketplace_nsfw_gate_title;
+
+  /// No description provided for @marketplace_nsfw_gate_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable adult content in the preferences to show these extensions.'**
+  String get marketplace_nsfw_gate_body;
+
+  /// No description provided for @marketplace_nsfw_gate_show.
+  ///
+  /// In en, this message translates to:
+  /// **'Show adult content'**
+  String get marketplace_nsfw_gate_show;
+
+  /// No description provided for @marketplace_account_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Watchtower account'**
+  String get marketplace_account_title;
+
+  /// No description provided for @marketplace_manage_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage installed extensions'**
+  String get marketplace_manage_installed;
+
+  /// No description provided for @marketplace_preferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketplace preferences'**
+  String get marketplace_preferences;
+
+  /// No description provided for @marketplace_help_feedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Help and feedback'**
+  String get marketplace_help_feedback;
+
+  /// No description provided for @marketplace_details_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get marketplace_details_title;
+
+  /// No description provided for @marketplace_coming_soon.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} is coming soon.'**
+  String marketplace_coming_soon(Object label);
+
+  /// No description provided for @marketplace_source_blurb.
+  ///
+  /// In en, this message translates to:
+  /// **'{language} source to discover {kind} in Watchtower.'**
+  String marketplace_source_blurb(Object kind, Object language);
+
+  /// No description provided for @marketplace_kind_anime.
+  ///
+  /// In en, this message translates to:
+  /// **'anime and series'**
+  String get marketplace_kind_anime;
+
+  /// No description provided for @marketplace_kind_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'mangas and comics'**
+  String get marketplace_kind_manga;
+
+  /// No description provided for @marketplace_kind_novel.
+  ///
+  /// In en, this message translates to:
+  /// **'novels and light novels'**
+  String get marketplace_kind_novel;
+
+  /// No description provided for @marketplace_kind_music.
+  ///
+  /// In en, this message translates to:
+  /// **'music and audio'**
+  String get marketplace_kind_music;
+
+  /// No description provided for @marketplace_kind_default.
+  ///
+  /// In en, this message translates to:
+  /// **'content'**
+  String get marketplace_kind_default;
+
+  /// No description provided for @marketplace_lang_french.
+  ///
+  /// In en, this message translates to:
+  /// **'French'**
+  String get marketplace_lang_french;
+
+  /// No description provided for @marketplace_lang_english.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get marketplace_lang_english;
+
+  /// No description provided for @marketplace_lang_multilingual.
+  ///
+  /// In en, this message translates to:
+  /// **'multilingual'**
+  String get marketplace_lang_multilingual;
+
+  /// No description provided for @marketplace_unknown_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown size'**
+  String get marketplace_unknown_size;
+
+  /// No description provided for @marketplace_reviews_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} reviews'**
+  String marketplace_reviews_count(Object count);
+
+  /// No description provided for @marketplace_reviews_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No reviews available'**
+  String get marketplace_reviews_unavailable;
+
+  /// No description provided for @marketplace_update.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get marketplace_update;
+
+  /// No description provided for @marketplace_extension_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension installed'**
+  String get marketplace_extension_installed;
+
+  /// No description provided for @marketplace_about_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'About this extension'**
+  String get marketplace_about_extension;
+
+  /// No description provided for @marketplace_info_access.
+  ///
+  /// In en, this message translates to:
+  /// **'Access'**
+  String get marketplace_info_access;
+
+  /// No description provided for @marketplace_info_community.
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get marketplace_info_community;
+
+  /// No description provided for @marketplace_info_repo.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository and provenance'**
+  String get marketplace_info_repo;
+
+  /// No description provided for @marketplace_official_repo_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated through the official Watchtower Extensions repository.'**
+  String get marketplace_official_repo_note;
+
+  /// No description provided for @marketplace_ntfy_signals.
+  ///
+  /// In en, this message translates to:
+  /// **'ntfy signals'**
+  String get marketplace_ntfy_signals;
+
+  /// No description provided for @marketplace_source_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} source} other{{count} sources}}'**
+  String marketplace_source_count(num count);
+
+  /// No description provided for @marketplace_installed_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension installed} other{{count} extensions installed}}'**
+  String marketplace_installed_count(num count);
+
+  /// No description provided for @marketplace_info_information.
+  ///
+  /// In en, this message translates to:
+  /// **'Information'**
+  String get marketplace_info_information;
+
+  /// No description provided for @marketplace_info_technology.
+  ///
+  /// In en, this message translates to:
+  /// **'Technology'**
+  String get marketplace_info_technology;
+
+  /// No description provided for @marketplace_info_reading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading'**
+  String get marketplace_info_reading;
+
+  /// No description provided for @marketplace_info_catalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalogue'**
+  String get marketplace_info_catalog;
+
+  /// No description provided for @marketplace_info_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Content'**
+  String get marketplace_info_content;
+
+  /// No description provided for @marketplace_access_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Account required'**
+  String get marketplace_access_required;
+
+  /// No description provided for @marketplace_aggregator.
+  ///
+  /// In en, this message translates to:
+  /// **'Aggregator'**
+  String get marketplace_aggregator;
+
+  /// No description provided for @marketplace_comments.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get marketplace_comments;
+
+  /// No description provided for @marketplace_available_version.
+  ///
+  /// In en, this message translates to:
+  /// **'available v{version}'**
+  String marketplace_available_version(Object version);
+
+  /// No description provided for @marketplace_info_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get marketplace_info_size;
 }
 
 class _AppLocalizationsDelegate

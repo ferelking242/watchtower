@@ -57,17 +57,20 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
   }
 
   double get _editorFontSize => switch (_textSize) {
-        _JsonTextSize.small => 11.5,
-        _JsonTextSize.medium => 13,
-        _JsonTextSize.large => 15.5,
-      };
+    _JsonTextSize.small => 11.5,
+    _JsonTextSize.medium => 13,
+    _JsonTextSize.large => 15.5,
+  };
 
   Future<void> _loadLayout() async {
     try {
       var content =
-          widget.initialContent ?? await LayoutRegistry.instance.readJson(widget.source);
+          widget.initialContent ??
+          await LayoutRegistry.instance.readJson(widget.source);
       if (content == null) {
-        final downloaded = await LayoutDownloader.instance.download(widget.source);
+        final downloaded = await LayoutDownloader.instance.download(
+          widget.source,
+        );
         if (downloaded) {
           content = await LayoutRegistry.instance.readJson(widget.source);
         }
@@ -111,9 +114,14 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
         throw const FormatException('La racine JSON doit être un objet.');
       }
       final formatted = const JsonEncoder.withIndent('  ').convert(decoded);
-      final saved = await LayoutRegistry.instance.save(widget.source, formatted);
+      final saved = await LayoutRegistry.instance.save(
+        widget.source,
+        formatted,
+      );
       if (!saved) {
-        throw const FormatException('Le layout ne respecte pas le schéma attendu.');
+        throw const FormatException(
+          'Le layout ne respecte pas le schéma attendu.',
+        );
       }
       if (!mounted) return;
       setState(() {
@@ -240,9 +248,9 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
               child: Text(
                 'Les changements sont enregistrés localement et remplacent le '
                 'layout affiché par Watchtower sur cet appareil.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               ),
             ),
             if (_message != null)
@@ -274,7 +282,8 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (_showLineNumbers) _LineNumbersGutter(controller: _controller),
+                            if (_showLineNumbers)
+                              _LineNumbersGutter(controller: _controller),
                             Expanded(
                               child: TextField(
                                 controller: _controller,
@@ -305,7 +314,9 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
                                     borderSide: BorderSide.none,
                                   ),
                                   hintText: 'Le JSON du layout apparaîtra ici',
-                                  hintStyle: const TextStyle(color: Colors.white24),
+                                  hintStyle: const TextStyle(
+                                    color: Colors.white24,
+                                  ),
                                 ),
                               ),
                             ),
@@ -510,7 +521,9 @@ class _OptionToggle extends StatelessWidget {
           color: selected ? accent.withValues(alpha: .16) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? accent.withValues(alpha: .55) : Colors.transparent,
+            color: selected
+                ? accent.withValues(alpha: .55)
+                : Colors.transparent,
           ),
         ),
         child: Row(

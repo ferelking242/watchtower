@@ -252,15 +252,15 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                     cs: cs,
                     onLangSelected: (lang) {
                       setState(
-                        () => _selectedLang =
-                            lang == _selectedLang ? null : lang,
+                        () =>
+                            _selectedLang = lang == _selectedLang ? null : lang,
                       );
                       setSheetState(() {});
                     },
                     onTypeSelected: (type) {
                       setState(
-                        () => _selectedType =
-                            type == _selectedType ? null : type,
+                        () =>
+                            _selectedType = type == _selectedType ? null : type,
                       );
                       setSheetState(() {});
                     },
@@ -389,11 +389,7 @@ class _SourceIcon extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          Broken.folder_2,
-          color: Colors.white,
-          size: size * 0.6,
-        ),
+        child: Icon(Broken.folder_2, color: Colors.white, size: size * 0.6),
       );
     }
     return Container(
@@ -413,9 +409,7 @@ class _SourceIcon extends StatelessWidget {
               errorWidget: SizedBox(
                 width: size,
                 height: size,
-                child: Center(
-                  child: Icon(Broken.category, size: size * 0.55),
-                ),
+                child: Center(child: Icon(Broken.category, size: size * 0.55)),
               ),
               useCustomNetworkImage: false,
             ),
@@ -589,9 +583,7 @@ class _EmptyFiltersState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            hasFilters
-                ? Broken.filter_remove
-                : Broken.search_normal_1,
+            hasFilters ? Broken.filter_remove : Broken.search_normal_1,
             size: 56,
             color: cs.onSurface.withValues(alpha: 0.15),
           ),

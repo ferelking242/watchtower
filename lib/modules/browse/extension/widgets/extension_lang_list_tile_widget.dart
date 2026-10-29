@@ -23,15 +23,9 @@ class ExtensionLangListTileWidget extends StatelessWidget {
     return ListTile(
       onTap: () => onChanged(!value),
       onLongPress: onLongPress,
-      leading: Text(
-        flag,
-        style: const TextStyle(fontSize: 26),
-      ),
+      leading: Text(flag, style: const TextStyle(fontSize: 26)),
       title: Text(name),
-      trailing: Switch(
-        value: value,
-        onChanged: onChanged,
-      ),
+      trailing: Switch(value: value, onChanged: onChanged),
     );
   }
 }

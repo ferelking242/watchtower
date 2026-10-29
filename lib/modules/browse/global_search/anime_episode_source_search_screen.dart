@@ -94,27 +94,26 @@ class _AnimeEpisodeSourceSearchScreenState
     if (sources.isEmpty) return;
 
     var nextIndex = 0;
-    final workers = List.generate(
-      sources.length < 6 ? sources.length : 6,
-      (_) async {
-        while (mounted) {
-          if (nextIndex >= sources.length) return;
-          final source = sources[nextIndex++];
-          try {
-            final result = await _searchOneSource(source);
-            if (mounted && result != null) {
-              setState(() => _results.add(result));
-            }
-          } catch (_) {
-            _failedSources++;
-          } finally {
-            if (mounted) {
-              setState(() => _checkedSources++);
-            }
+    final workers = List.generate(sources.length < 6 ? sources.length : 6, (
+      _,
+    ) async {
+      while (mounted) {
+        if (nextIndex >= sources.length) return;
+        final source = sources[nextIndex++];
+        try {
+          final result = await _searchOneSource(source);
+          if (mounted && result != null) {
+            setState(() => _results.add(result));
+          }
+        } catch (_) {
+          _failedSources++;
+        } finally {
+          if (mounted) {
+            setState(() => _checkedSources++);
           }
         }
-      },
-    );
+      }
+    });
     await Future.wait(workers);
     if (mounted) setState(() => _isSearching = false);
   }
@@ -193,9 +192,7 @@ class _AnimeEpisodeSourceSearchScreenState
   }
 
   int? _episodeNumber(MChapter chapter) {
-    final parsed = ExtensionEpisodeCardAdapter.parseEpisodeNumber(
-      chapter.name,
-    );
+    final parsed = ExtensionEpisodeCardAdapter.parseEpisodeNumber(chapter.name);
     if (parsed != null) return parsed;
 
     final title = _normalize(chapter.name ?? '');
@@ -307,7 +304,9 @@ class _AnimeEpisodeSourceSearchScreenState
         }
 
         final chapter = Chapter(
-          name: extensionEpisode.name ?? 'Episode ${widget.episode.episodeNumber}',
+          name:
+              extensionEpisode.name ??
+              'Episode ${widget.episode.episodeNumber}',
           url: url,
           mangaId: mangaId,
           dateUpload: extensionEpisode.dateUpload ?? '',
@@ -323,9 +322,9 @@ class _AnimeEpisodeSourceSearchScreenState
       if (mounted) context.push('/animePlayerView', extra: chapterId);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lecture impossible : $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lecture impossible : $error')));
     }
   }
 
@@ -356,9 +355,9 @@ class _AnimeEpisodeSourceSearchScreenState
                 const SizedBox(height: 4),
                 Text(
                   'Épisode $episode · ${widget.episode.displayTitle}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 if (_isSearching) ...[
                   const SizedBox(height: 12),
@@ -445,20 +444,23 @@ class _AnimeEpisodeSourceSearchScreenState
   Widget _resultCard(BuildContext context, _EpisodeSourceResult result) {
     final cs = Theme.of(context).colorScheme;
     final videos = result.videos;
-    final qualities = videos
+    final qualities =
+        videos
             ?.map((video) => video.quality.trim())
             .where((quality) => quality.isNotEmpty)
             .toSet()
             .toList() ??
         const <String>[];
-    final subtitles = videos
+    final subtitles =
+        videos
             ?.expand((video) => video.subtitles ?? const [])
             .map((track) => track.label?.trim() ?? '')
             .where((label) => label.isNotEmpty)
             .toSet()
             .toList() ??
         const <String>[];
-    final audioTracks = videos
+    final audioTracks =
+        videos
             ?.expand((video) => video.audios ?? const [])
             .map((track) => track.label?.trim() ?? '')
             .where((label) => label.isNotEmpty)
@@ -525,9 +527,9 @@ class _AnimeEpisodeSourceSearchScreenState
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
                     result.videoError!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: cs.error,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: cs.error),
                   ),
                 ),
               TextButton.icon(
@@ -539,14 +541,13 @@ class _AnimeEpisodeSourceSearchScreenState
                       : 'Réessayer les pistes',
                 ),
               ),
-            ]
-            else ...[
+            ] else ...[
               if (result.videoError != null)
                 Text(
                   result.videoError!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: cs.error,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: cs.error),
                 )
               else if (videos.isEmpty)
                 Text(
@@ -603,10 +604,16 @@ class _AnimeEpisodeSourceSearchScreenState
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: 16,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 7),
         Text('$label : ', style: Theme.of(context).textTheme.bodySmall),
-        Expanded(child: Text(value, style: Theme.of(context).textTheme.bodySmall)),
+        Expanded(
+          child: Text(value, style: Theme.of(context).textTheme.bodySmall),
+        ),
       ],
     );
   }

@@ -207,10 +207,8 @@ class SourceListTile extends StatelessWidget {
                         minWidth: 40,
                         minHeight: 40,
                       ),
-                      onPressed: () => context.push(
-                        '/extension_detail',
-                        extra: source,
-                      ),
+                      onPressed: () =>
+                          context.push('/extension_detail', extra: source),
                       icon: const Icon(Broken.setting_2, size: 20),
                     ),
                   IconButton(

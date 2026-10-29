@@ -1,4 +1,5 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -30,70 +31,72 @@ class BrowseScreen extends ConsumerStatefulWidget {
 enum BrowseSection { sources, extensions, marketplace }
 
 class _BrowseScreenState extends ConsumerState<BrowseScreen>
-      with TickerProviderStateMixin {
-    late TabController _tabBarController;
-    final _searchController = TextEditingController();
-    BrowseSourceFilters _sourceFilters = const BrowseSourceFilters();
+    with TickerProviderStateMixin {
+  late TabController _tabBarController;
+  final _searchController = TextEditingController();
+  BrowseSourceFilters _sourceFilters = const BrowseSourceFilters();
 
-    List<ItemType> _types = [];
+  List<ItemType> _types = [];
 
   ItemType get _activeType => _types[_tabBarController.index];
 
-    bool _diagnosing = false;
-    bool _bulkWorking = false;
+  bool _diagnosing = false;
+  bool _bulkWorking = false;
 
-    static List<ItemType> _computeTypes(List<String> hideItems) => [
-          if (!hideItems.contains("/AnimeLibrary")) ItemType.anime,
-          if (!hideItems.contains("/MangaLibrary")) ItemType.manga,
-          if (!hideItems.contains("/NovelLibrary")) ItemType.novel,
-          if (!hideItems.contains("/MusicLibrary")) ItemType.music,
-          if (!hideItems.contains("/GameLibrary")) ItemType.game,
-          // L'onglet Plugins dédié a été supprimé : toutes les extensions
-          // (manga/anime/novel/music) se gèrent depuis le Marketplace.
-        ];
+  static List<ItemType> _computeTypes(List<String> hideItems) => [
+    if (!hideItems.contains("/AnimeLibrary")) ItemType.anime,
+    if (!hideItems.contains("/MangaLibrary")) ItemType.manga,
+    if (!hideItems.contains("/NovelLibrary")) ItemType.novel,
+    if (!hideItems.contains("/MusicLibrary")) ItemType.music,
+    if (!hideItems.contains("/GameLibrary")) ItemType.game,
+    // L'onglet Plugins dédié a été supprimé : toutes les extensions
+    // (manga/anime/novel/music) se gèrent depuis le Marketplace.
+  ];
 
-    static bool _typesEqual(List<ItemType> a, List<ItemType> b) {
-      if (a.length != b.length) return false;
-      for (var i = 0; i < a.length; i++) {
-        if (a[i] != b[i]) return false;
-      }
-      return true;
+  static bool _typesEqual(List<ItemType> a, List<ItemType> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
     }
+    return true;
+  }
 
-    void _initTabController(List<ItemType> types, {int initialIndex = 0}) {
-      _tabBarController = TabController(
-        length: types.length,
-        initialIndex: initialIndex.clamp(0, types.length.clamp(0, 9999)),
-        vsync: this,
-      );
-      _tabBarController.addListener(() {
-        _checkPermission();
-        if (mounted) setState(() {});
-      });
-    }
+  void _initTabController(List<ItemType> types, {int initialIndex = 0}) {
+    _tabBarController = TabController(
+      length: types.length,
+      initialIndex: initialIndex.clamp(0, types.length.clamp(0, 9999)),
+      vsync: this,
+    );
+    _tabBarController.addListener(() {
+      _checkPermission();
+      if (mounted) setState(() {});
+    });
+  }
 
-    void _applyNewTypes(List<ItemType> newTypes) {
-      final prevIndex = _tabBarController.index;
-      // Clamp to the valid range for the new type list so animateTo never
-      // throws "Invalid argument: index out of range".
-      final newIndex = prevIndex.clamp(0, (newTypes.length - 1).clamp(0, 9999));
+  void _applyNewTypes(List<ItemType> newTypes) {
+    final prevIndex = _tabBarController.index;
+    // Clamp to the valid range for the new type list so animateTo never
+    // throws "Invalid argument: index out of range".
+    final newIndex = prevIndex.clamp(0, (newTypes.length - 1).clamp(0, 9999));
 
-      _types = newTypes;
-      // Create the new controller BEFORE disposing the old one so that the
-      // current frame's TabBar/TabBarView never reads a disposed controller.
-      final oldController = _tabBarController;
-      _initTabController(newTypes, initialIndex: newIndex);
-      // Defer disposal to after the current frame so the widget tree has
-      // already been rebuilt with the new controller.
-      WidgetsBinding.instance.addPostFrameCallback((_) => oldController.dispose());
-    }
+    _types = newTypes;
+    // Create the new controller BEFORE disposing the old one so that the
+    // current frame's TabBar/TabBarView never reads a disposed controller.
+    final oldController = _tabBarController;
+    _initTabController(newTypes, initialIndex: newIndex);
+    // Defer disposal to after the current frame so the widget tree has
+    // already been rebuilt with the new controller.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => oldController.dispose(),
+    );
+  }
 
-    @override
-    void initState() {
-      super.initState();
-      _types = _computeTypes(ref.read(hideItemsStateProvider));
-      _initTabController(_types);
-    }
+  @override
+  void initState() {
+    super.initState();
+    _types = _computeTypes(ref.read(hideItemsStateProvider));
+    _initTabController(_types);
+  }
 
   Future<void> _checkPermission() async {
     await StorageProvider().requestPermission(requestIfNeeded: false);
@@ -112,7 +115,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   // ── Bulk operations ────────────────────────────────────────────────────────
 
-  Future<void> _installAllExtensions(BuildContext context, ItemType type) async {
+  Future<void> _installAllExtensions(
+    BuildContext context,
+    ItemType type,
+  ) async {
     if (_bulkWorking) return;
     setState(() => _bulkWorking = true);
     final messenger = ScaffoldMessenger.of(context);
@@ -120,12 +126,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       const SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 999),
-        content: Row(children: [
-          SizedBox(width: 16, height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2)),
-          SizedBox(width: 12),
-          Expanded(child: Text('Installation de toutes les extensions…')),
-        ]),
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(child: Text('Installation de toutes les extensions…')),
+          ],
+        ),
       ),
     );
     try {
@@ -138,7 +149,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       for (final src in sources) {
         try {
           final provider = fetchItemSourcesListProvider(
-            id: src.id, reFresh: true, itemType: src.itemType);
+            id: src.id,
+            reFresh: true,
+            itemType: src.itemType,
+          );
           ref.invalidate(provider);
           await ref.read(provider.future);
           done++;
@@ -146,11 +160,13 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       }
       if (context.mounted) {
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('$done extension(s) installée(s).'),
-          duration: const Duration(seconds: 3),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('$done extension(s) installée(s).'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _bulkWorking = false);
@@ -163,7 +179,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       builder: (ctx) => AlertDialog(
         title: const Text('Désinstaller tout'),
         content: const Text(
-            'Voulez-vous vraiment désinstaller toutes les extensions installées ?'),
+          'Voulez-vous vraiment désinstaller toutes les extensions installées ?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -181,22 +198,27 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
                 final now = DateTime.now().millisecondsSinceEpoch;
                 for (final s in sources) {
                   if (!(s.isObsolete ?? false)) {
-                    isar.sources.putSync(s
-                      ..sourceCode = ''
-                      ..isAdded = false
-                      ..isPinned = false
-                      ..updatedAt = now);
+                    isar.sources.putSync(
+                      s
+                        ..sourceCode = ''
+                        ..isAdded = false
+                        ..isPinned = false
+                        ..updatedAt = now,
+                    );
                   } else {
                     isar.sources.deleteSync(s.id!);
                   }
                 }
               });
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                behavior: SnackBarBehavior.floating,
-                content:
-                    Text('${sources.length} extension(s) désinstallée(s).'),
-                duration: const Duration(seconds: 3),
-              ));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  content: Text(
+                    '${sources.length} extension(s) désinstallée(s).',
+                  ),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
             },
             child: const Text('Désinstaller'),
           ),
@@ -213,12 +235,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       const SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 999),
-        content: Row(children: [
-          SizedBox(width: 16, height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2)),
-          SizedBox(width: 12),
-          Expanded(child: Text('Mise à jour de toutes les extensions…')),
-        ]),
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Expanded(child: Text('Mise à jour de toutes les extensions…')),
+          ],
+        ),
       ),
     );
     try {
@@ -227,23 +254,30 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           .itemTypeEqualTo(type)
           .isAddedEqualTo(true)
           .findAllSync()
-              .where(hasPendingExtensionUpdate)
+          .where(hasPendingExtensionUpdate)
           .toList();
       int done = 0;
       for (final src in sources) {
         try {
-          await ref.read(fetchItemSourcesListProvider(
-            id: src.id, reFresh: true, itemType: src.itemType).future);
+          await ref.read(
+            fetchItemSourcesListProvider(
+              id: src.id,
+              reFresh: true,
+              itemType: src.itemType,
+            ).future,
+          );
           done++;
         } catch (_) {}
       }
       if (context.mounted) {
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          content: Text('$done extension(s) mise(s) à jour.'),
-          duration: const Duration(seconds: 3),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text('$done extension(s) mise(s) à jour.'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _bulkWorking = false);
@@ -263,19 +297,23 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         .where((s) => s.sourceCode != null && s.sourceCode!.isNotEmpty)
         .toList();
     if (sources.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        behavior: SnackBarBehavior.floating,
-        content: Text('Aucune source active installée.'),
-        duration: Duration(seconds: 2),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Aucune source active installée.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
       return;
     }
     final src = sources[math.Random().nextInt(sources.length)];
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      behavior: SnackBarBehavior.floating,
-      content: Text('Ouverture de "${src.name}"…'),
-      duration: const Duration(seconds: 2),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Ouverture de "${src.name}"…'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
     context.push('/mangaHome', extra: (src, false));
   }
 
@@ -289,9 +327,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   List<Source> _installedSources(ItemType type) {
     try {
-      return isar.sources.where().findAllSync().where(
-        (source) => source.itemType == type && source.isAdded == true,
-      ).toList();
+      return isar.sources
+          .where()
+          .findAllSync()
+          .where((source) => source.itemType == type && source.isAdded == true)
+          .toList();
     } catch (_) {
       return const [];
     }
@@ -308,8 +348,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           _searchController.text.isNotEmpty
               ? Broken.filter_search
               : _sourceFilters.hasAny
-                  ? Broken.filter_tick
-                  : Broken.filter,
+              ? Broken.filter_tick
+              : Broken.filter,
           size: 20,
           color: active
               ? theme.colorScheme.primary
@@ -395,7 +435,10 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   void _handleSrcMenuAction(
-      BuildContext context, ItemType type, _SrcMenuAction action) {
+    BuildContext context,
+    ItemType type,
+    _SrcMenuAction action,
+  ) {
     switch (action) {
       case _SrcMenuAction.market:
         context.push('/marketplace');
@@ -408,7 +451,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
   }
 
-  PreferredSizeWidget _buildTabBar(BuildContext context, ThemeData theme, AppLocalizations l10n) {
+  PreferredSizeWidget _buildTabBar(
+    BuildContext context,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
     final screenWidth = MediaQuery.of(context).size.width;
     final tabW = screenWidth / 3;
 
@@ -438,23 +485,29 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       labelColor: theme.colorScheme.primary,
       unselectedLabelColor: theme.hintColor,
       labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+      unselectedLabelStyle: const TextStyle(
+        fontWeight: FontWeight.w500,
+        fontSize: 13,
+      ),
       indicator: UnderlineTabIndicator(
-        borderSide: BorderSide(
-          width: 2.5,
-          color: theme.colorScheme.primary,
-        ),
+        borderSide: BorderSide(width: 2.5, color: theme.colorScheme.primary),
         insets: const EdgeInsets.symmetric(horizontal: 20),
       ),
       indicatorSize: TabBarIndicatorSize.tab,
       tabs: [
-        ..._types.map((t) => makeTab(
-          _typeIcon(t),
-          _typeLabel(t, l10n),
-          badge: t.isExtensionUpdateRelevant
-              ? SizedBox(width: 24, height: 18, child: _extensionUpdateBadge(ref, t))
-              : null,
-        )),
+        ..._types.map(
+          (t) => makeTab(
+            _typeIcon(t),
+            _typeLabel(t, l10n),
+            badge: t.isExtensionUpdateRelevant
+                ? SizedBox(
+                    width: 24,
+                    height: 18,
+                    child: _extensionUpdateBadge(ref, t),
+                  )
+                : null,
+          ),
+        ),
       ],
     );
   }
@@ -494,16 +547,16 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   @override
-    Widget build(BuildContext context) {
-      ref.listen<List<String>>(hideItemsStateProvider, (_, next) {
-        final newTypes = _computeTypes(next);
-        if (!_typesEqual(newTypes, _types) && mounted) {
-          setState(() => _applyNewTypes(newTypes));
-        }
-      });
-      if (_types.isEmpty) return const SizedBox.shrink();
-      final l10n = l10nLocalizations(context)!;
-      final theme = Theme.of(context);
+  Widget build(BuildContext context) {
+    ref.listen<List<String>>(hideItemsStateProvider, (_, next) {
+      final newTypes = _computeTypes(next);
+      if (!_typesEqual(newTypes, _types) && mounted) {
+        setState(() => _applyNewTypes(newTypes));
+      }
+    });
+    if (_types.isEmpty) return const SizedBox.shrink();
+    final l10n = l10nLocalizations(context)!;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -536,12 +589,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 // Menu action enum
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum _SrcMenuAction {
-  market,
-  howTo,
-  openRandomSource,
-  diagnostic,
-}
+enum _SrcMenuAction { market, howTo, openRandomSource, diagnostic }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Menu row widget
@@ -565,17 +613,19 @@ class _MenuRow extends StatelessWidget {
     final color = danger
         ? Colors.red.shade400
         : enabled
-            ? null
-            : Theme.of(context).disabledColor;
+        ? null
+        : Theme.of(context).disabledColor;
     return Row(
       children: [
         Icon(icon, size: 20, color: color),
         const SizedBox(width: 12),
-        Text(label,
-            style: TextStyle(
-              color: color,
-              fontWeight: danger ? FontWeight.w600 : null,
-            )),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontWeight: danger ? FontWeight.w600 : null,
+          ),
+        ),
       ],
     );
   }
@@ -600,34 +650,34 @@ class _BrowseTypeView extends ConsumerStatefulWidget {
 }
 
 class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
-    @override
-    Widget build(BuildContext context) {
-      if (widget.itemType == ItemType.music) {
-        return SourcesScreen(
-          itemType: ItemType.music,
-          searchQuery: widget.searchQuery,
-          filters: widget.filters,
-          onShowExtensions: () => context.push('/marketplace'),
-        );
-      }
-      if (widget.itemType == ItemType.game) {
-        return SourcesScreen(
-          itemType: ItemType.game,
-          searchQuery: widget.searchQuery,
-          filters: widget.filters,
-          onShowExtensions: () => context.push('/marketplace'),
-        );
-      }
-      // (ItemType.plugin n'est plus listé dans Browse : les extensions et
-      // outils natifs vivent dans le Marketplace.)
+  @override
+  Widget build(BuildContext context) {
+    if (widget.itemType == ItemType.music) {
       return SourcesScreen(
-        itemType: widget.itemType,
+        itemType: ItemType.music,
         searchQuery: widget.searchQuery,
         filters: widget.filters,
         onShowExtensions: () => context.push('/marketplace'),
       );
     }
+    if (widget.itemType == ItemType.game) {
+      return SourcesScreen(
+        itemType: ItemType.game,
+        searchQuery: widget.searchQuery,
+        filters: widget.filters,
+        onShowExtensions: () => context.push('/marketplace'),
+      );
+    }
+    // (ItemType.plugin n'est plus listé dans Browse : les extensions et
+    // outils natifs vivent dans le Marketplace.)
+    return SourcesScreen(
+      itemType: widget.itemType,
+      searchQuery: widget.searchQuery,
+      filters: widget.filters,
+      onShowExtensions: () => context.push('/marketplace'),
+    );
   }
+}
 
 /// Long-press shortcut on the translate icon: keeps only the device's
 /// language active (and English as a fallback). Long-press again to restore.
@@ -638,16 +688,15 @@ void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
   } catch (_) {
     deviceLang = 'en';
   }
-  final entries = isar.sources
-      .filter()
-      .itemTypeEqualTo(itemType)
-      .findAllSync();
+  final entries = isar.sources.filter().itemTypeEqualTo(itemType).findAllSync();
 
-  final isolated = entries.any((s) =>
-      (s.isActive ?? false) &&
-      s.lang!.toLowerCase() != deviceLang &&
-      s.lang!.toLowerCase() != 'en' &&
-      s.lang!.toLowerCase() != 'all');
+  final isolated = entries.any(
+    (s) =>
+        (s.isActive ?? false) &&
+        s.lang!.toLowerCase() != deviceLang &&
+        s.lang!.toLowerCase() != 'en' &&
+        s.lang!.toLowerCase() != 'all',
+  );
 
   isar.writeTxnSync(() {
     final now = DateTime.now().millisecondsSinceEpoch;

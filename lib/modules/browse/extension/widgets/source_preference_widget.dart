@@ -22,23 +22,18 @@ class SourcePreferenceWidget extends StatefulWidget {
 class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
   final Map<String, TextEditingController> _textControllers = {};
 
-  TextStyle? get _settingTitleStyle =>
-      Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            height: 1.25,
-          );
+  TextStyle? get _settingTitleStyle => Theme.of(
+    context,
+  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, height: 1.25);
 
   TextStyle? get _settingSummaryStyle =>
       Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontSize: 13,
-            height: 1.35,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          );
+        fontSize: 13,
+        height: 1.35,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      );
 
-  TextEditingController _controllerFor(
-    SourcePreference preference,
-    int index,
-  ) {
+  TextEditingController _controllerFor(SourcePreference preference, int index) {
     final key = preference.key ?? 'preference_$index';
     return _textControllers.putIfAbsent(
       key,
@@ -61,10 +56,7 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  Future<void> _saveSwitch(
-    SourcePreference preference,
-    bool value,
-  ) async {
+  Future<void> _saveSwitch(SourcePreference preference, bool value) async {
     setPreferenceSetting(preference, widget.source);
     if (preference.key == extensionKeepSessionKey &&
         !value &&
@@ -116,8 +108,10 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
               labelText: pref.dialogTitle?.isNotEmpty == true
                   ? pref.dialogTitle
                   : pref.title,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
               helperText: pref.dialogMessage?.isNotEmpty == true
                   ? pref.dialogMessage
                   : null,
@@ -146,10 +140,7 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
       return CheckboxListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
         title: Text(pref.title ?? '', style: _settingTitleStyle),
-        subtitle: Text(
-          pref.summary ?? '',
-          style: _settingSummaryStyle,
-        ),
+        subtitle: Text(pref.summary ?? '', style: _settingSummaryStyle),
         value: pref.value ?? false,
         controlAffinity: ListTileControlAffinity.trailing,
         onChanged: (value) {
@@ -163,10 +154,7 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
       return SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
         title: Text(pref.title ?? '', style: _settingTitleStyle),
-        subtitle: Text(
-          pref.summary ?? '',
-          style: _settingSummaryStyle,
-        ),
+        subtitle: Text(pref.summary ?? '', style: _settingSummaryStyle),
         value: pref.value ?? false,
         controlAffinity: ListTileControlAffinity.trailing,
         onChanged: (value) async {
@@ -179,8 +167,9 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     if (preference.listPreference case final pref?) {
       final entries = pref.entries ?? const <String>[];
       if (entries.isEmpty) return const SizedBox.shrink();
-      final selected =
-          (pref.valueIndex ?? 0).clamp(0, entries.length - 1).toInt();
+      final selected = (pref.valueIndex ?? 0)
+          .clamp(0, entries.length - 1)
+          .toInt();
       return _expandableSetting(
         title: pref.title ?? preference.key ?? 'Choix',
         subtitle: entries[selected],
@@ -213,9 +202,11 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
       final values = pref.entryValues ?? const <String>[];
       final selectedValues = <String>{...?pref.values};
       final selectedLabels = [
-        for (var option = 0;
-            option < entries.length && option < values.length;
-            option++)
+        for (
+          var option = 0;
+          option < entries.length && option < values.length;
+          option++
+        )
           if (selectedValues.contains(values[option])) entries[option],
       ];
       return _expandableSetting(
@@ -224,9 +215,11 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
             ? (pref.summary ?? '')
             : selectedLabels.join(', '),
         children: [
-          for (var option = 0;
-              option < entries.length && option < values.length;
-              option++)
+          for (
+            var option = 0;
+            option < entries.length && option < values.length;
+            option++
+          )
             CheckboxListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
@@ -254,9 +247,9 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
 
   @override
   Widget build(BuildContext context) => Column(
-        children: [
-          for (var index = 0; index < widget.sourcePreference.length; index++)
-            _buildPreference(widget.sourcePreference[index], index),
-        ],
-      );
+    children: [
+      for (var index = 0; index < widget.sourcePreference.length; index++)
+        _buildPreference(widget.sourcePreference[index], index),
+    ],
+  );
 }

@@ -102,8 +102,7 @@ class ExtensionsLang extends ConsumerWidget {
                   isar.writeTxnSync(() {
                     final now = DateTime.now().millisecondsSinceEpoch;
                     for (var source in entries) {
-                      final matches =
-                          source.lang!.toLowerCase() == lowerLang;
+                      final matches = source.lang!.toLowerCase() == lowerLang;
                       isar.sources.putSync(
                         source
                           ..isActive = isolate ? matches : true

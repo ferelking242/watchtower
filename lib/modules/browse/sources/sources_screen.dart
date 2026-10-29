@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -90,8 +89,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               // Avoid Isar filters on nullable bool properties. The
               // collection is observed without filters and narrowed in Dart.
               stream: isar.sources.where().watch(fireImmediately: true),
-              initialData:
-                  isar.sources.where().findAllSync(),
+              initialData: isar.sources.where().findAllSync(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return _SourcesLoadError(onRetry: () => setState(() {}));
@@ -102,18 +100,17 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                   );
                 }
                 final showNSFW = ref.watch(showNSFWStateProvider);
-                List<Source> sources = _sourcesForCurrentType(
-                  snapshot.data ?? const <Source>[],
-                )
-                    .where((e) => e.id != null)
-                    .where((e) => showNSFW || !(e.isNsfw ?? false))
-                    // "local" source is always shown via the fixed section
-                    // at the bottom of the column — exclude it from the
-                    // grouped list so it never appears twice.
-                    .where(
-                      (e) => !(e.name == 'local' && (e.lang ?? '').isEmpty),
-                    )
-                    .toList();
+                List<Source> sources =
+                    _sourcesForCurrentType(snapshot.data ?? const <Source>[])
+                        .where((e) => e.id != null)
+                        .where((e) => showNSFW || !(e.isNsfw ?? false))
+                        // "local" source is always shown via the fixed section
+                        // at the bottom of the column — exclude it from the
+                        // grouped list so it never appears twice.
+                        .where(
+                          (e) => !(e.name == 'local' && (e.lang ?? '').isEmpty),
+                        )
+                        .toList();
                 {
                   final seen = <String>{};
                   sources = sources
@@ -122,14 +119,13 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 }
 
                 if (sources.isEmpty) {
-                  final hasInstalledExtension = (snapshot.data ?? const [])
-                      .any(
-                        (source) =>
-                            source.itemType == widget.itemType &&
-                            source.isAdded == true &&
-                            !(source.name == 'local' &&
-                                (source.lang ?? '').isEmpty),
-                      );
+                  final hasInstalledExtension = (snapshot.data ?? const []).any(
+                    (source) =>
+                        source.itemType == widget.itemType &&
+                        source.isAdded == true &&
+                        !(source.name == 'local' &&
+                            (source.lang ?? '').isEmpty),
+                  );
                   return hasInstalledExtension
                       ? const _NoMatchingSources()
                       : _EmptyState(
@@ -142,14 +138,11 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 // Pinned sources must remain visible after toggling the pin.
                 // They are rendered in their own section instead of being
                 // removed from the language groups and silently disappearing.
-                final isPinnedEntries = sources
-                    .where((e) => e.isPinned == true)
-                    .toList()
-                  ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+                final isPinnedEntries =
+                    sources.where((e) => e.isPinned == true).toList()
+                      ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
                 final lastUsedEntries = sources
-                    .where(
-                      (e) => e.lastUsed == true && e.isPinned != true,
-                    )
+                    .where((e) => e.lastUsed == true && e.isPinned != true)
                     .toList();
                 final allEntriesWithoutPinned = sources
                     .where((e) => !(e.isPinned ?? false))
@@ -191,9 +184,9 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                                   Icon(
                                     Broken.bookmark,
                                     size: 15,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
@@ -553,17 +546,17 @@ class _NoMatchingSources extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               context.l10n.no_result,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
               'Aucune extension ne correspond à la recherche ou aux filtres.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurface.withValues(alpha: 0.55),
-                  ),
+                color: colors.onSurface.withValues(alpha: 0.55),
+              ),
               textAlign: TextAlign.center,
             ),
           ],

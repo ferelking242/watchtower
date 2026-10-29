@@ -2793,4 +2793,188 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get catalog_tab_novels => 'Romans';
+
+  @override
+  String get marketplace_search_results => 'Résultats de recherche';
+
+  @override
+  String get marketplace_empty_search_title => 'Aucune extension trouvée';
+
+  @override
+  String get marketplace_empty_catalog_title => 'Aucune extension disponible';
+
+  @override
+  String get marketplace_empty_search_hint =>
+      'Essaie un autre nom ou actualise le catalogue.';
+
+  @override
+  String get marketplace_empty_catalog_hint =>
+      'Le catalogue est vide pour le moment. Réessaie plus tard.';
+
+  @override
+  String get marketplace_empty_semantics => 'Catalogue vide';
+
+  @override
+  String get marketplace_settings_tooltip => 'Paramètres du Marketplace';
+
+  @override
+  String get marketplace_search_hint => 'Rechercher des extensions';
+
+  @override
+  String get marketplace_recent_searches => 'Recherches récentes';
+
+  @override
+  String get marketplace_popular_searches => 'Recherches populaires';
+
+  @override
+  String get marketplace_browse_by_category => 'Parcourir par catégorie';
+
+  @override
+  String get marketplace_nsfw_gate_title => 'Contenu adulte masqué';
+
+  @override
+  String get marketplace_nsfw_gate_body =>
+      'Active le contenu adulte dans les préférences pour afficher ces extensions.';
+
+  @override
+  String get marketplace_nsfw_gate_show => 'Afficher le contenu adulte';
+
+  @override
+  String get marketplace_account_title => 'Compte Watchtower';
+
+  @override
+  String get marketplace_manage_installed => 'Gérer les extensions installées';
+
+  @override
+  String get marketplace_preferences => 'Préférences du Marketplace';
+
+  @override
+  String get marketplace_help_feedback => 'Aide et commentaires';
+
+  @override
+  String get marketplace_details_title => 'Détails';
+
+  @override
+  String marketplace_coming_soon(Object label) {
+    return '$label sera disponible prochainement.';
+  }
+
+  @override
+  String marketplace_source_blurb(Object kind, Object language) {
+    return 'Source $language pour découvrir $kind dans Watchtower.';
+  }
+
+  @override
+  String get marketplace_kind_anime => 'anime et séries';
+
+  @override
+  String get marketplace_kind_manga => 'mangas et bandes dessinées';
+
+  @override
+  String get marketplace_kind_novel => 'romans et light novels';
+
+  @override
+  String get marketplace_kind_music => 'musique et audio';
+
+  @override
+  String get marketplace_kind_default => 'contenus';
+
+  @override
+  String get marketplace_lang_french => 'français';
+
+  @override
+  String get marketplace_lang_english => 'anglais';
+
+  @override
+  String get marketplace_lang_multilingual => 'multilingue';
+
+  @override
+  String get marketplace_unknown_size => 'Taille inconnue';
+
+  @override
+  String marketplace_reviews_count(Object count) {
+    return '$count avis';
+  }
+
+  @override
+  String get marketplace_reviews_unavailable => 'Avis non disponibles';
+
+  @override
+  String get marketplace_update => 'Mettre à jour';
+
+  @override
+  String get marketplace_extension_installed => 'Extension installée';
+
+  @override
+  String get marketplace_about_extension => 'À propos de cette extension';
+
+  @override
+  String get marketplace_info_access => 'Accès';
+
+  @override
+  String get marketplace_info_community => 'Communauté';
+
+  @override
+  String get marketplace_info_repo => 'Dépôt et provenance';
+
+  @override
+  String get marketplace_official_repo_note =>
+      'Mise à jour via le dépôt officiel Watchtower Extensions.';
+
+  @override
+  String get marketplace_ntfy_signals => 'Signaux ntfy';
+
+  @override
+  String marketplace_source_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sources',
+      one: '$count source',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_installed_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions installées',
+      one: '$count extension installée',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get marketplace_info_information => 'Informations';
+
+  @override
+  String get marketplace_info_technology => 'Technologie';
+
+  @override
+  String get marketplace_info_reading => 'Lecture';
+
+  @override
+  String get marketplace_info_catalog => 'Catalogue';
+
+  @override
+  String get marketplace_info_content => 'Contenu';
+
+  @override
+  String get marketplace_access_required => 'Compte requis';
+
+  @override
+  String get marketplace_aggregator => 'Agrégateur';
+
+  @override
+  String get marketplace_comments => 'Commentaires';
+
+  @override
+  String marketplace_available_version(Object version) {
+    return 'disponible v$version';
+  }
+
+  @override
+  String get marketplace_info_size => 'Taille';
 }
