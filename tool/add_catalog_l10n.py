@@ -79,6 +79,8 @@ SHELF = [
     ("catalog_shelf_games", "Games", "Jeux"),
     ("catalog_shelf_adult_watch", "Midnight World", "Midnight World"),
     ("catalog_shelf_adult_read", "Midnight Library", "Midnight Library"),
+    ("catalog_shelf_for_you_watch", "For you · to watch", "Pour toi · à regarder"),
+    ("catalog_shelf_for_you_read", "For you · to read", "Pour toi · à lire"),
 ]
 
 UI = [
@@ -92,6 +94,51 @@ UI = [
     ("marketplace_all_extensions", "All {type} extensions", "Toutes les extensions {type}"),
     ("marketplace_explore_by_language", "Explore by language", "Explorer par langue"),
     ("marketplace_whole_catalogue", "The whole catalogue", "Tout le catalogue"),
+    ("catalog_card_see_more", "See more", "Voir plus"),
+    ("catalog_card_see_less", "See less", "Voir moins"),
+    ("catalog_card_open_site", "Open the website", "Ouvrir le site"),
+    ("catalog_card_open_site_unavailable", "No website for this extension",
+     "Aucun site pour cette extension"),
+    ("plugins_section_builtin", "Built-in plugins", "Plugins intégrés"),
+    ("plugins_section_engines", "Components and engines", "Composants et moteurs"),
+    ("plugins_section_empty", "No plugin available.", "Aucun plugin disponible."),
+    ("plugins_nfile_title", "NFile — file manager",
+     "NFile — gestionnaire de fichiers"),
+    ("plugins_nfile_description",
+     "Built-in file explorer with players and management tools.",
+     "Explorateur de fichiers intégré avec lecteurs et outils de gestion."),
+    ("plugins_smart_library_description",
+     "Scans and organises the videos and mangas already on the device.",
+     "Analyse et organise les vidéos et mangas déjà présents sur l’appareil."),
+    ("plugins_ffmpeg_ready", "Verified binary available for HLS files.",
+     "Exécutable vérifié disponible pour les fichiers HLS."),
+    ("plugins_ffmpeg_optional",
+     "Optional: direct concatenation is used automatically.",
+     "Optionnel : la concaténation directe reste utilisée automatiquement."),
+    ("plugins_mpv_description",
+     "Downloads only mpv.conf, input.conf and the scripts.",
+     "Télécharge uniquement mpv.conf, input.conf et les scripts."),
+    ("plugins_action_open", "Open", "Ouvrir"),
+    ("plugins_action_info", "Info", "Info"),
+    ("plugins_action_install", "Install", "Installer"),
+    ("plugins_action_close", "Close", "Fermer"),
+    ("plugins_mpv_config_exception",
+     "The MPV configuration folder is unavailable.",
+     "Le dossier de configuration MPV est indisponible."),
+    ("plugins_ffmpeg_title", "FFmpeg runtime", "Runtime FFmpeg"),
+    ("plugins_smart_library_title", "Smart Library", "Smart Library"),
+    ("plugins_music_title", "Music plugins", "Plugins Musique"),
+    ("plugins_mpv_title", "MPV configuration", "Configuration MPV"),
+    ("plugins_ffmpeg_info",
+     "FFmpeg only muxes HLS TS/fMP4 fragments into a readable file. It "
+     "downloads neither the player nor MPV.\\n\\nWhen no verified binary is "
+     "installed, Watchtower falls back to direct fragment concatenation, so "
+     "online playback does not depend on this plugin.",
+     "FFmpeg sert uniquement à muxer les fragments HLS TS/fMP4 en fichier "
+     "lisible. Il ne télécharge ni le lecteur ni MPV.\\n\\nSi aucun exécutable "
+     "vérifié n’est installé, Watchtower utilise automatiquement la "
+     "concaténation directe des fragments. La lecture en ligne ne dépend donc "
+     "pas de ce plugin."),
 ]
 
 PLURAL_KEY = "catalog_shelf_count"

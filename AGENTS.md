@@ -316,6 +316,17 @@ vocabularies in sync.
 - New visible strings go through `tool/add_catalog_l10n.py` (idempotent) then
   `flutter gen-l10n`; the generated files under `lib/l10n/generated/` are
   tracked, so commit them with the ARB change.
+- A card icon is always `CatalogIcon` (`catalog_widgets.dart`): a network logo
+  with an initials fallback. The catalogue cards and the music plugin cards
+  share it, so a plugin logo and a source logo can never render differently.
+  Do not add a second icon widget.
+- The plugin list is the hardcoded `_kKnownRepos` in
+  `lib/modules/music/provider/metadata_plugin/core/repositories.dart`. Each
+  entry must carry a distinct `iconUrl` under
+  `watchtower-extensions/main/assets/plugins/`; two plugins sharing a logo is
+  the bug that made Deezer display the Spotify mark, and
+  `test/plugin_repository_icon_test.dart` pins the invariant.
+
 ## WebView browser chrome and user intent (do not regress)
 `lib/modules/webview/webview.dart` has no app bar and no footer toolbar. All
 chrome lives in `_BrowserDock`, a pill overlaid on the page (tabs left, "+"

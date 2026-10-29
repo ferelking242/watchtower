@@ -23,6 +23,18 @@ abstract interface class CatalogEntryView {
 
   /// Adult content. The catalogue declares it, so shelves never have to guess.
   bool get isNsfw;
+
+  /// Website the extension serves content from, when the index publishes one.
+  ///
+  /// Optional: older indexes omit `baseUrl`, in which case the card simply
+  /// hides its "open website" affordance rather than guessing a domain.
+  String? get siteUrl;
+
+  /// Short description published by the index.
+  ///
+  /// Optional for the same reason as [siteUrl]; the card falls back to its
+  /// generated summary when it is empty.
+  String get description;
 }
 
 /// Tags an entry is shelved by.

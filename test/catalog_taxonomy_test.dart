@@ -19,6 +19,10 @@ class FakeEntry implements CatalogEntryView {
   final DateTime? addedAt;
   @override
   final bool isNsfw;
+  @override
+  final String? siteUrl;
+  @override
+  final String description;
 
   const FakeEntry({
     required this.id,
@@ -28,6 +32,8 @@ class FakeEntry implements CatalogEntryView {
     this.languages = const [],
     this.addedAt,
     this.isNsfw = false,
+    this.siteUrl,
+    this.description = '',
   });
 }
 

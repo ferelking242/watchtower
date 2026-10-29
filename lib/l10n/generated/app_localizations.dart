@@ -4960,6 +4960,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Midnight Library'**
   String get catalog_shelf_adult_read;
+
+  /// No description provided for @catalog_shelf_for_you_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'For you · to watch'**
+  String get catalog_shelf_for_you_watch;
+
+  /// No description provided for @catalog_shelf_for_you_read.
+  ///
+  /// In en, this message translates to:
+  /// **'For you · to read'**
+  String get catalog_shelf_for_you_read;
+
+  /// No description provided for @catalog_card_see_more.
+  ///
+  /// In en, this message translates to:
+  /// **'See more'**
+  String get catalog_card_see_more;
+
+  /// No description provided for @catalog_card_see_less.
+  ///
+  /// In en, this message translates to:
+  /// **'See less'**
+  String get catalog_card_see_less;
+
+  /// No description provided for @catalog_card_open_site.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the website'**
+  String get catalog_card_open_site;
+
+  /// No description provided for @catalog_card_open_site_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No website for this extension'**
+  String get catalog_card_open_site_unavailable;
+
+  /// No description provided for @plugins_section_builtin.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in plugins'**
+  String get plugins_section_builtin;
+
+  /// No description provided for @plugins_section_engines.
+  ///
+  /// In en, this message translates to:
+  /// **'Components and engines'**
+  String get plugins_section_engines;
+
+  /// No description provided for @plugins_section_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No plugin available.'**
+  String get plugins_section_empty;
+
+  /// No description provided for @plugins_nfile_title.
+  ///
+  /// In en, this message translates to:
+  /// **'NFile — file manager'**
+  String get plugins_nfile_title;
+
+  /// No description provided for @plugins_nfile_description.
+  ///
+  /// In en, this message translates to:
+  /// **'Built-in file explorer with players and management tools.'**
+  String get plugins_nfile_description;
+
+  /// No description provided for @plugins_smart_library_description.
+  ///
+  /// In en, this message translates to:
+  /// **'Scans and organises the videos and mangas already on the device.'**
+  String get plugins_smart_library_description;
+
+  /// No description provided for @plugins_ffmpeg_ready.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified binary available for HLS files.'**
+  String get plugins_ffmpeg_ready;
+
+  /// No description provided for @plugins_ffmpeg_optional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional: direct concatenation is used automatically.'**
+  String get plugins_ffmpeg_optional;
+
+  /// No description provided for @plugins_mpv_description.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads only mpv.conf, input.conf and the scripts.'**
+  String get plugins_mpv_description;
+
+  /// No description provided for @plugins_action_open.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get plugins_action_open;
+
+  /// No description provided for @plugins_action_info.
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get plugins_action_info;
+
+  /// No description provided for @plugins_action_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get plugins_action_install;
+
+  /// No description provided for @plugins_action_close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get plugins_action_close;
+
+  /// No description provided for @plugins_mpv_config_exception.
+  ///
+  /// In en, this message translates to:
+  /// **'The MPV configuration folder is unavailable.'**
+  String get plugins_mpv_config_exception;
+
+  /// No description provided for @plugins_ffmpeg_title.
+  ///
+  /// In en, this message translates to:
+  /// **'FFmpeg runtime'**
+  String get plugins_ffmpeg_title;
+
+  /// No description provided for @plugins_ffmpeg_info.
+  ///
+  /// In en, this message translates to:
+  /// **'FFmpeg only muxes HLS TS/fMP4 fragments into a readable file. It downloads neither the player nor MPV.\n\nWhen no verified binary is installed, Watchtower falls back to direct fragment concatenation, so online playback does not depend on this plugin.'**
+  String get plugins_ffmpeg_info;
+
+  /// No description provided for @plugins_smart_library_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Library'**
+  String get plugins_smart_library_title;
+
+  /// No description provided for @plugins_mpv_title.
+  ///
+  /// In en, this message translates to:
+  /// **'MPV configuration'**
+  String get plugins_mpv_title;
+
+  /// No description provided for @plugins_music_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Music plugins'**
+  String get plugins_music_title;
 }
 
 class _AppLocalizationsDelegate

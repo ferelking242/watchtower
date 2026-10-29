@@ -605,6 +605,7 @@ _$MetadataPluginRepositoryImpl _$$MetadataPluginRepositoryImplFromJson(
       repoUrl: json['repoUrl'] as String,
       topics:
           (json['topics'] as List<dynamic>).map((e) => e as String).toList(),
+      iconUrl: json['iconUrl'] as String?,
     );
 
 Map<String, dynamic> _$$MetadataPluginRepositoryImplToJson(
@@ -615,4 +616,5 @@ Map<String, dynamic> _$$MetadataPluginRepositoryImplToJson(
       'description': instance.description,
       'repoUrl': instance.repoUrl,
       'topics': instance.topics,
+      'iconUrl': instance.iconUrl,
     };
