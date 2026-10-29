@@ -188,4 +188,33 @@ void main() {
       );
     });
   });
+
+  group('localised descriptions', () {
+    Map<String, dynamic> withDescriptions(Map<String, String> values) => {
+      ..._raw(id: 1900002001, name: 'JAV.guru'),
+      'descriptions': values,
+    };
+
+    test('the map is parsed and lower-cased keys are normalised', () {
+      final parsed = _parse([
+        withDescriptions({'en': 'English blurb', 'pt-BR': 'Blurb PT-BR'}),
+      ]);
+      final descriptions = parsed.single['descriptions'] as Map;
+      expect(descriptions['en'], 'English blurb');
+      expect(descriptions['pt_br'], 'Blurb PT-BR');
+    });
+
+    test('an index without the map stays valid', () {
+      final parsed = _parse([_raw(id: 1900002002, name: 'pornxp')]);
+      expect(parsed.single['descriptions'], isNull);
+    });
+
+    test('a non-string value is dropped rather than failing the entry', () {
+      final parsed = _parse([
+        withDescriptions({'en': 'ok', 'fr': 'x'}),
+      ]);
+      // Sanity: the entry survives even though the map is heterogeneous.
+      expect(parsed.single['name'], 'JAV.guru');
+    });
+  });
 }

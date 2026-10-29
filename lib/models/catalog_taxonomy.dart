@@ -43,6 +43,7 @@ class CatalogTaxonomy {
     'movies',
     'series',
     'documentary',
+    'jav',
     'music',
     'game',
   ];
@@ -203,6 +204,7 @@ class CatalogTaxonomy {
         'movies' => l10n.catalog_tag_movies,
         'series' => l10n.catalog_tag_series,
         'documentary' => l10n.catalog_tag_documentary,
+        'jav' => l10n.catalog_tag_jav,
         'music' => l10n.catalog_tag_music,
         'game' => l10n.catalog_tag_game,
         'action' => l10n.catalog_tag_action,

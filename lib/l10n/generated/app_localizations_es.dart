@@ -2443,6 +2443,8 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get catalog_tag_documentary => 'Documentaries';
+  @override
+  String get catalog_tag_jav => 'JAV';
 
   @override
   String get catalog_tag_music => 'Music';
@@ -5781,6 +5783,8 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get catalog_tag_documentary => 'Documentaries';
+  @override
+  String get catalog_tag_jav => 'JAV';
 
   @override
   String get catalog_tag_music => 'Music';

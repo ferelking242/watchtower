@@ -4487,6 +4487,12 @@ abstract class AppLocalizations {
   /// **'Documentaries'**
   String get catalog_tag_documentary;
 
+  /// No description provided for @catalog_tag_jav.
+  ///
+  /// In en, this message translates to:
+  /// **'JAV'**
+  String get catalog_tag_jav;
+
   /// No description provided for @catalog_tag_music.
   ///
   /// In en, this message translates to:

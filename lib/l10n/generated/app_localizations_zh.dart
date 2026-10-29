@@ -2345,6 +2345,8 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get catalog_tag_documentary => 'Documentaries';
+  @override
+  String get catalog_tag_jav => 'JAV';
 
   @override
   String get catalog_tag_music => 'Music';

@@ -166,6 +166,12 @@ class _ExtEntry implements CatalogEntryView {
   final String upstream;
   @override
   final String description;
+
+  /// Localised summaries published by the index, keyed by locale code
+  /// (`en`, `fr`, `pt_BR`…). Empty for indexes that only carry a single
+  /// [description]. See [localizedDescription].
+  final Map<String, String> descriptions;
+
   final int? sizeBytes;
   final double rating;
   final int reviewCount;
@@ -202,8 +208,24 @@ class _ExtEntry implements CatalogEntryView {
     name,
     lang,
     description,
+    ...descriptions.values,
     ...subCategories,
   ].join(' ').toLowerCase();
+
+  /// Description to show for [entry] in the current [l10n] locale.
+  ///
+  /// A localised summary published by the index wins; the single `description`
+  /// field is the fallback for indexes that predate the localised map.
+  String localizedDescription(String localeName) {
+    if (descriptions.isEmpty) return '';
+    final normalized = localeName.toLowerCase().replaceAll('-', '_');
+    final exact = descriptions[normalized];
+    if (exact != null && exact.isNotEmpty) return exact;
+    final language = normalized.split('_').first;
+    final byLanguage = descriptions[language];
+    if (byLanguage != null && byLanguage.isNotEmpty) return byLanguage;
+    return '';
+  }
 
   _ExtEntry({
     required this.id,
@@ -227,6 +249,7 @@ class _ExtEntry implements CatalogEntryView {
     this.supportsComments = false,
     this.upstream = '',
     this.description = '',
+    this.descriptions = const {},
     this.sizeBytes,
     this.rating = 0,
     this.reviewCount = 0,
@@ -325,6 +348,17 @@ List<Map<String, dynamic>> parseMarketplaceIndex(Map<String, String> args) {
         'uiLayoutVersion': e['uiLayoutVersion'] is String
             ? e['uiLayoutVersion']
             : null,
+        // Localised summaries published by the index, keyed by locale code
+        // (`en`, `fr`, `pt_BR`…). Optional: an index that only carries a single
+        // `description`/`notes` keeps working through the fallback below.
+        'descriptions': e['descriptions'] is Map
+            ? <String, String>{
+                for (final entry in (e['descriptions'] as Map).entries)
+                  if (entry.key is String && entry.value is String)
+                    (entry.key as String).toLowerCase().replaceAll('-', '_'):
+                        (entry.value as String).trim(),
+              }
+            : null,
         'requiresAccount': e['requiresAccount'] is bool
             ? e['requiresAccount'] as bool
             : false,
@@ -403,6 +437,9 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps.map((
     supportsComments: m['supportsComments'] as bool? ?? false,
     upstream: m['upstream'] as String? ?? '',
     description: m['description'] as String? ?? '',
+    descriptions:
+        (m['descriptions'] as Map<String, dynamic>?)?.cast<String, String>() ??
+        const {},
     sizeBytes: _parseMktSize(m['sizeBytes']),
     rating: (m['rating'] as num?)?.toDouble() ?? 0,
     reviewCount: (m['reviewCount'] as num?)?.toInt() ?? 0,
@@ -2543,7 +2580,10 @@ class _PlayStoreCard extends StatelessWidget {
     final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
     final langCode = _MarketplaceScreenState._langCode(entry.lang);
     final slug = _slugify(entry.name);
-    final desc = entry.description.isNotEmpty
+    final localizedDesc = entry.localizedDescription(l10n.localeName);
+    final desc = localizedDesc.isNotEmpty
+        ? localizedDesc
+        : entry.description.isNotEmpty
         ? entry.description
         : _description(context, entry.contentType, entry.lang);
 
@@ -7550,6 +7590,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
 }
 
 String _playDescription(AppLocalizations l10n, _ExtEntry entry) {
+  final localized = entry.localizedDescription(l10n.localeName);
+  if (localized.isNotEmpty) return localized;
   if (entry.description.trim().isNotEmpty) return entry.description.trim();
   final language = entry.lang == 'fr'
       ? l10n.marketplace_lang_french
