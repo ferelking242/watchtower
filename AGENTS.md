@@ -576,3 +576,45 @@ must not leak into watch code paths or logs:
   silent no-op. Wrap in a nullable-returning helper that catches the timeout
   instead (see `_fetchTextOrNull` / `_fetchRangeOrNull`).
 
+
+## Settings navigation (Mihon/Aniyomi parity)
+- Every settings subpage uses `SettingsSubpageScaffold`
+  (`lib/modules/more/settings/widgets/settings_subpage_scaffold.dart`): the
+  title collapses into the app bar header on scroll and the page carries its own
+  back arrow and search action. Icons come from the `Broken` icon font
+  (`lib/core/icon_fonts/broken_icons.dart`), never `Icons.*` — mixing the two is
+  what produced the "broken icons" reports.
+- Subpages animate with the Bare Browser transition
+  (`settings_subpage_route.dart`, `bareSettingsTransitions`): the page slides in
+  from the right while the one behind shifts left and dims. New settings routes
+  must be added to `bareSettingsRoutes`, otherwise they fall back to the default
+  page transition and the header no longer behaves like the rest.
+- Search is global: `lib/modules/more/settings/widgets/settings_search_index.dart`
+  lists every option with its `page` and `route`. A new setting that is not in
+  that index is invisible to search, so add an entry when you add a tile.
+
+## Dock / rail highlight
+- `_FloatingDock` selects by route string, but `_ClassicDock` (bottom
+  `NavigationBar`) and the tablet `NavigationRail` select by **index**. Every
+  library route must therefore map to the Hub entry explicitly
+  (`main_screen.dart`: `libLocationRegex` → `_enableLibSwitch`), or the previous
+  tab stays highlighted when a library page opens.
+
+## Volume-key page navigation
+- The native bridge is `com.watchtower.app.volume_keys` (Android
+  `MainActivity.dispatchKeyEvent`, iOS `AppDelegate`), surfaced as
+  `VolumeKeyChannel` (`lib/modules/manga/reader/services/volume_key_channel.dart`).
+  The reader subscribes in `_initVolumeButtonNavigation` and unsubscribes on
+  dispose. Toggling the preference inside the reader must take effect live —
+  `reader_view.dart` listens to `volumeButtonNavigationStateProvider` in `build`
+  for exactly that reason; do not move the subscription back to `initState` only.
+
+## Library automatic updates
+- `LibraryAutoUpdater` (`lib/services/library_auto_updater.dart`) is started and
+  stopped by `MainScreen` (start in `_initializeTimers`, stop in `dispose`). The
+  due-date maths lives in the pure `isLibraryUpdateDue` helper so it can be
+  unit-tested without a Hive box; keep it pure.
+- Swipe actions run through `LibrarySwipeWrapper` +
+  `runLibrarySwipeAction` (`lib/modules/library/services/library_swipe_actions.dart`),
+  wired into both the grid and list library views. The swipe never dismisses the
+  card; it fires the action and snaps back.
