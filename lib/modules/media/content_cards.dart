@@ -153,7 +153,7 @@ class PosterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final radius = compact ? 11.0 : 14.0;
     final titleStyle = TextStyle(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.onSurface,
       fontSize: compact ? 11 : 11.5,
       fontWeight: FontWeight.w700,
       height: 1.2,
@@ -338,8 +338,8 @@ class LandscapeCard extends StatelessWidget {
               item.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -350,8 +350,10 @@ class LandscapeCard extends StatelessWidget {
                 item.description!.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white60,
+                style: TextStyle(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.60),
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
@@ -366,8 +368,10 @@ class LandscapeCard extends StatelessWidget {
                   const SizedBox(width: 3),
                   Text(
                     item.rating!.toStringAsFixed(1),
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.70),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),

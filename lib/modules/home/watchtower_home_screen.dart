@@ -2040,7 +2040,12 @@ class _HomeHeaderState extends State<_HomeHeader> {
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.paddingOf(context).top;
-    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+    final theme = Theme.of(context);
+    final scaffoldBg = theme.scaffoldBackgroundColor;
+    final isDark = theme.brightness == Brightness.dark;
+    final searchFg = isDark
+        ? Colors.white70
+        : theme.colorScheme.onSurface.withValues(alpha: 0.62);
 
     return ValueListenableBuilder<double>(
       valueListenable: widget.headerOpacity,
@@ -2054,6 +2059,8 @@ class _HomeHeaderState extends State<_HomeHeader> {
             children: [
               // ── Safe-area scrim — dark gradient behind status bar icons ──
               // Ensures white battery/clock stay readable over bright images.
+              // In light mode the header is light, so the scrim is dropped to
+              // avoid a dark band above the content.
               Container(
                 height: topPad,
                 decoration: BoxDecoration(
@@ -2061,7 +2068,9 @@ class _HomeHeaderState extends State<_HomeHeader> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: (1.0 - opacity) * 0.55),
+                      (isDark ? Colors.black : Colors.white).withValues(
+                        alpha: (1.0 - opacity) * (isDark ? 0.55 : 0.70),
+                      ),
                       Colors.transparent,
                     ],
                   ),
@@ -2092,30 +2101,34 @@ class _HomeHeaderState extends State<_HomeHeader> {
                           child: Container(
                             height: 40,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.12),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.12)
+                                  : theme.colorScheme.onSurface.withValues(
+                                      alpha: 0.07,
+                                    ),
                               borderRadius: BorderRadius.circular(24),
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
-                                SizedBox(width: 14),
+                                const SizedBox(width: 14),
                                 Icon(
                                   Icons.search_rounded,
-                                  color: Colors.white54,
+                                  color: searchFg,
                                   size: 18,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     'Rechercher un titre...',
                                     style: TextStyle(
-                                      color: Colors.white54,
+                                      color: searchFg,
                                       fontSize: 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                SizedBox(width: 8),
-                                Text(
+                                const SizedBox(width: 8),
+                                const Text(
                                   'Recherche',
                                   style: TextStyle(
                                     color: Color(0xFF00E676),
@@ -2123,7 +2136,7 @@ class _HomeHeaderState extends State<_HomeHeader> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                SizedBox(width: 14),
+                                const SizedBox(width: 14),
                               ],
                             ),
                           ),

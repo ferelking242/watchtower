@@ -2568,15 +2568,17 @@ class _DockPill extends StatelessWidget {
           );
 
     final decoration = BoxDecoration(
-      // Floating pill is TRANSPARENT — only a subtle border + shadow + blur.
-      // No gray fill box behind the dock (the old surfaceContainerHigh / white
-      // tint made it look like a solid gray bar over the content).
-      color: isGlass ? Colors.transparent : cs.surfaceContainerHigh,
+      // Floating pill is TRANSPARENT in dark mode — only a subtle border +
+      // shadow + blur. In light mode a transparent bar over light content is
+      // unreadable, so it keeps a solid surface fill and a stronger border.
+      color: isGlass
+          ? (isDark ? Colors.transparent : cs.surface.withValues(alpha: 0.92))
+          : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(26),
       border: Border.all(
         color: isDark
             ? Colors.white.withValues(alpha: isGlass ? 0.14 : 0.09)
-            : Colors.black.withValues(alpha: 0.08),
+            : Colors.black.withValues(alpha: 0.14),
         width: 1.0,
       ),
       boxShadow: [
@@ -2657,13 +2659,16 @@ class _UnifiedSubDockPill extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     final decoration = BoxDecoration(
-      // Floating pill is TRANSPARENT — only a subtle border + shadow + blur.
-      color: isGlass ? Colors.transparent : cs.surfaceContainerHigh,
+      // Solid in light mode (readability over light content), transparent in
+      // dark mode where the blur alone is enough.
+      color: isGlass
+          ? (isDark ? Colors.transparent : cs.surface.withValues(alpha: 0.92))
+          : cs.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(26),
       border: Border.all(
         color: isDark
             ? Colors.white.withValues(alpha: isGlass ? 0.14 : 0.09)
-            : Colors.black.withValues(alpha: 0.08),
+            : Colors.black.withValues(alpha: 0.14),
         width: 1.0,
       ),
       boxShadow: [

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/media_hub_screen.dart' show MediaOfflineState;
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart'
+    show isOfflineContentError;
 
 enum TmdbCatalogKind { movies, series }
 
@@ -215,13 +219,20 @@ class _TmdbCatalogError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The TMDB catalogue is remote, so a dropped connection is the common
+    // failure. Show the shared offline state (Lottie + "Activer le réseau")
+    // instead of the raw ClientException/SocketException text.
+    if (isOfflineContentError(error)) {
+      return MediaOfflineState(title: 'le catalogue TMDB', onRetry: onRetry);
+    }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 42),
+            const Icon(Broken.cloud_cross, size: 42),
             const SizedBox(height: 12),
             const Text(
               'Impossible de charger les contenus TMDB.',
@@ -237,7 +248,7 @@ class _TmdbCatalogError extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Broken.refresh_2),
               label: const Text('Réessayer'),
             ),
           ],

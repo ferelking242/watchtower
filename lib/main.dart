@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'utils/io_stub.dart';
 import 'package:app_links/app_links.dart';
+import 'package:collection/collection.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart'
     hide WebViewEnvironment, WebViewEnvironmentSettings;
 import 'package:flutter/foundation.dart';
@@ -30,11 +31,13 @@ import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/models/track_search.dart';
 import 'package:watchtower/modules/manga/detail/providers/track_state_providers.dart';
 import 'package:watchtower/modules/manga/reader/providers/crop_borders_provider.dart';
+import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/storage_usage.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/router/back_navigation.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
@@ -565,6 +568,20 @@ class _MyAppState extends ConsumerState<MyApp>
   Uri? lastUri;
   bool _extensionRefreshInFlight = false;
 
+  /// Gives top-level pages a back destination when the router has nothing to
+  /// pop, so a system back press never closes the app from a settings or
+  /// download page reached with `go()`.
+  WatchtowerBackDispatcher? _backDispatcher;
+
+  String _defaultTabLocation() {
+    final hiddenItems = ref.read(hideItemsStateProvider);
+    return ref
+            .read(navigationOrderStateProvider)
+            .where((e) => !hiddenItems.contains(e))
+            .firstOrNull ??
+        '/WatchtowerHome';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -684,8 +701,15 @@ class _MyAppState extends ConsumerState<MyApp>
     final locale = ref.watch(l10nLocaleStateProvider);
     final router = ref.watch(routerProvider);
     final pageTransStyle = ref.watch(pageTransitionStyleProvider);
+    final backDispatcher =
+        _backDispatcher ??= WatchtowerBackDispatcher(
+          router: () => ref.read(routerProvider),
+          defaultLocation: _defaultTabLocation,
+        );
+    backDispatcher.ensureAttached();
 
     return MaterialApp.router(
+      backButtonDispatcher: backDispatcher,
       theme: ref
           .watch(lightThemeProvider)
           .copyWith(

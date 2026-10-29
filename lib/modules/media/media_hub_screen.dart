@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 
 import 'package:collection/collection.dart';
 import 'package:extended_image/extended_image.dart';
@@ -7,9 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
-import 'package:permission_handler/permission_handler.dart';
-
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/utils/system_settings.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
@@ -351,24 +349,25 @@ class _MediaError extends StatelessWidget {
       return MediaOfflineState(title: title, onRetry: onRetry);
     }
 
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Broken.wifi, color: Colors.white54, size: 44),
+            Icon(Broken.cloud_cross, color: cs.onSurfaceVariant, size: 44),
             const SizedBox(height: 14),
             Text(
               '$title est temporairement indisponible',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
+              style: TextStyle(color: cs.onSurface, fontSize: 18),
             ),
             const SizedBox(height: 8),
             Text(
               'Impossible de charger le catalogue. Réessayez plus tard.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white60),
+              style: TextStyle(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 18),
             FilledButton.tonal(
@@ -393,21 +392,12 @@ class MediaOfflineState extends StatelessWidget {
 
   /// Opens the OS network settings on mobile; on desktop/web it falls back to
   /// the in-app network settings page.
-  Future<void> _openNetworkSettings(BuildContext context) async {
-    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-    if (isMobile) {
-      try {
-        await openAppSettings();
-        return;
-      } catch (_) {
-        // Fall through to the in-app settings page.
-      }
-    }
-    if (context.mounted) context.push('/general');
-  }
+  Future<void> _openNetworkSettings(BuildContext context) =>
+      openNetworkSettings(context);
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
@@ -424,11 +414,11 @@ class MediaOfflineState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Aucune connexion réseau',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white,
+                color: cs.onSurface,
                 fontSize: 19,
                 fontWeight: FontWeight.w700,
               ),
@@ -438,18 +428,21 @@ class MediaOfflineState extends StatelessWidget {
               'Connectez-vous à Internet pour charger $title. '
               'Vérifiez votre Wi-Fi ou vos données mobiles.',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white60, height: 1.35),
+              style: TextStyle(
+                color: cs.onSurface.withValues(alpha: 0.6),
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () => _openNetworkSettings(context),
-              icon: const Icon(Icons.wifi_find_rounded, size: 18),
+              icon: const Icon(Broken.wifi, size: 18),
               label: const Text('Activer le réseau'),
             ),
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
+              icon: const Icon(Broken.refresh_2, size: 18),
               label: const Text('Réessayer'),
             ),
           ],

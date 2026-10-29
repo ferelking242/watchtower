@@ -497,6 +497,41 @@ package com.watchtower.app
                   else -> result.notImplemented()
               }
           }
+
+          // ── 14. Open the OS network settings ───────────────────────────────
+          // Used by the offline error states so "Activer le réseau" lands on the
+          // Wi-Fi / data screen instead of the app's own settings page.
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.system_settings"
+          ).setMethodCallHandler { call, result ->
+              when (call.method) {
+                  "openNetworkSettings" -> {
+                      try {
+                          val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                              Intent(android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
+                          } else {
+                              Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                          }
+                          intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                          startActivity(intent)
+                          result.success(true)
+                      } catch (e: Exception) {
+                          // Fall back to the wireless settings list.
+                          try {
+                              startActivity(
+                                  Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                                      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                              )
+                              result.success(true)
+                          } catch (e2: Exception) {
+                              result.error("SETTINGS_ERROR", e2.message, null)
+                          }
+                      }
+                  }
+                  else -> result.notImplemented()
+              }
+          }
       }
 
       override fun dispatchKeyEvent(event: KeyEvent): Boolean {
