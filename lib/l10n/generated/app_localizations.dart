@@ -5458,6 +5458,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Size'**
   String get marketplace_info_size;
+
+  /// No description provided for @marketplace_load_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the marketplace'**
+  String get marketplace_load_error;
 }
 
 class _AppLocalizationsDelegate

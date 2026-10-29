@@ -2975,6 +2975,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get marketplace_info_size => 'Size';
+
+  @override
+  String get marketplace_load_error => 'Could not load the marketplace';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -5927,4 +5930,7 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get marketplace_info_size => 'Size';
+
+  @override
+  String get marketplace_load_error => 'Could not load the marketplace';
 }

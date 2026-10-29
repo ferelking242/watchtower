@@ -2371,13 +2371,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         ),
         const SizedBox(height: 12),
         Text(
-          'Erreur de chargement',
+          context.l10n.marketplace_load_error,
           style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface),
         ),
         const SizedBox(height: 6),
         FilledButton.tonal(
           onPressed: () => _loadAll(bypassCache: true),
-          child: const Text('Réessayer'),
+          child: Text(context.l10n.retry),
         ),
       ],
     ),

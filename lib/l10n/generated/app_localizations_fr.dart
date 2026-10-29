@@ -2977,4 +2977,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get marketplace_info_size => 'Taille';
+
+  @override
+  String get marketplace_load_error => 'Impossible de charger le Marketplace';
 }

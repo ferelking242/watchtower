@@ -1054,5 +1054,6 @@
   "marketplace_aggregator": "Aggregator",
   "marketplace_comments": "Comments",
   "marketplace_available_version": "available v{version}",
-  "marketplace_info_size": "Size"
+  "marketplace_info_size": "Size",
+  "marketplace_load_error": "Could not load the marketplace"
 }

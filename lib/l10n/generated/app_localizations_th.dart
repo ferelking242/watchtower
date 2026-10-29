@@ -2944,4 +2944,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get marketplace_info_size => 'Size';
+
+  @override
+  String get marketplace_load_error => 'Could not load the marketplace';
 }

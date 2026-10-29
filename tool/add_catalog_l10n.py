@@ -147,6 +147,8 @@ UI = [
     ("marketplace_empty_semantics", "Empty catalogue", "Catalogue vide"),
     ("marketplace_settings_tooltip", "Marketplace settings",
      "Paramètres du Marketplace"),
+    ("marketplace_load_error", "Could not load the marketplace",
+     "Impossible de charger le Marketplace"),
     ("marketplace_search_hint", "Search extensions", "Rechercher des extensions"),
     ("marketplace_recent_searches", "Recent searches", "Recherches récentes"),
     ("marketplace_popular_searches", "Popular searches", "Recherches populaires"),
