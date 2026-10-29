@@ -576,15 +576,29 @@ class CustomExtendedNetworkImageProvider
   ) async {
     if (!BrowserFetchService.isSupported) return null;
     try {
-      // The page the fetch runs in decides the Referer the engine sends, so
-      // prefer the reader page the extension declared: on a hotlink-protected
-      // CDN whose own root serves no HTML, the image's origin is not a page the
-      // challenge can be cleared on.
+      // The page the fetch runs in decides two things at once: the Referer the
+      // engine sends, and the *origin* the in-page `fetch()` is issued from.
+      //
+      // The declared page (the extension Referer, or the reader page) only
+      // helps when it shares the image's origin. When the cover lives on
+      // another host — `img.1porn.tv` while the site is `www.1porn.tv` — a
+      // request issued from that page is cross-origin, and a CDN that happily
+      // serves the image to a plain page sends no
+      // `Access-Control-Allow-Origin`, so the browser rejects the response
+      // (`TypeError: Failed to fetch`) even though the bytes were served. The
+      // image's own origin is same-origin with the request, so the body stays
+      // readable; it also clears the challenge on its own, since navigating to
+      // the host root returns a managed challenge rather than a hard block.
       final referer = headers?['Referer'] ?? headers?['referer'];
-      final page = key.pageUrl ??
+      final declaredPage = key.pageUrl ??
           ((referer != null && referer.trim().isNotEmpty)
               ? referer.trim()
-              : '${resolved.scheme}://${resolved.host}/');
+              : null);
+      final imageHost = resolved.host.toLowerCase();
+      final declaredHost = Uri.tryParse(declaredPage ?? '')?.host.toLowerCase();
+      final page = (declaredPage != null && declaredHost == imageHost)
+          ? declaredPage
+          : '${resolved.scheme}://${resolved.host}/';
       final response = await BrowserFetchService.fetch(
         resolved.toString(),
         sourceId: key.sourceId,
