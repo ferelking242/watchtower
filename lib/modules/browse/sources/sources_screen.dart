@@ -284,12 +284,22 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                               top: 10,
                               bottom: 2,
                             ),
-                            child: Text(
-                              l10n.other,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Broken.element_3,
+                                  size: 15,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  l10n.other,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),

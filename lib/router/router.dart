@@ -285,10 +285,10 @@ class RouterNotifier extends ChangeNotifier {
           name: "downloadQueue",
           child: const DownloadQueueScreen(),
         ),
-        _genericRoute(
-          name: "discover",
-          child: const WatchtowerDiscoverScreen(),
-        ),
+        _genericRoute(name: "discover", child: const WatchtowerDiscoverScreen()),
+        // Inside the shell so the floating dock is present: the page had no
+        // way back when it lived at the top level.
+        _genericRoute(name: "schedule", child: const ScheduleScreen()),
         _genericRoute(name: "liveTv", child: const LiveTvScreen()),
       ],
     ),
@@ -520,7 +520,6 @@ class RouterNotifier extends ChangeNotifier {
       allowNullExtra: true, // opened without extra from the More menu
       builder: (itemType) => CalendarScreen(itemType: itemType),
     ),
-    _genericRoute(name: "schedule", child: const ScheduleScreen()),
     _genericRoute<Manga>(
       name: "migrate",
       builder: (manga) => MigrationScreen(manga: manga),

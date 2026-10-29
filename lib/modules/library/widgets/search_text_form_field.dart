@@ -80,122 +80,134 @@ class _SeachFormTextFieldState extends State<SeachFormTextField>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final focused = _focus.hasFocus;
 
-    return Flexible(
-      child: AnimatedBuilder(
-        animation: _focusAnim,
-        builder: (context, child) {
-          final t = _focusAnim.value;
-          // Neutral focus ring: the previous primary-tinted glow read as an
-          // unwanted blue halo around the field, so we only shift the fill
-          // and outline instead.
-          final borderColor = Color.lerp(
-            cs.outline.withValues(alpha: isDark ? 0.10 : 0.14),
-            cs.onSurface.withValues(alpha: 0.28),
-            t,
-          )!;
-          final fillColor = isDark
-              ? Colors.white.withValues(
-                  alpha: 0.06 + t * 0.08,
-                )
-              : Color.lerp(
-                  cs.surfaceContainerHigh,
-                  cs.surface,
-                  t * 0.5,
-                )!;
+    // The field must not assume its parent is a `Flex`: call sites put it in
+    // `AppBar.actions` (a min-size Row), inside `AppBar.title`, and inside
+    // `Padding` wrappers. The previous internal `Flexible` threw
+    // "Incorrect use of ParentDataWidget" as soon as the direct parent was not
+    // a Flex (e.g. the Padding on the History/Updates app bars), and the
+    // resulting unbounded RenderFlex overflow rendered as the grey square.
+    // Sizing off the incoming constraints instead keeps every call site safe.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final width = maxWidth.isFinite
+            ? maxWidth
+            : (MediaQuery.sizeOf(context).width - 140).clamp(160.0, 360.0);
+        return SizedBox(
+          width: width,
+          child: AnimatedBuilder(
+            animation: _focusAnim,
+            builder: (context, child) {
+              final t = _focusAnim.value;
+              // Neutral focus ring: the previous primary-tinted glow read as an
+              // unwanted blue halo around the field, so we only shift the fill
+              // and outline instead.
+              final borderColor = Color.lerp(
+                cs.outline.withValues(alpha: isDark ? 0.10 : 0.14),
+                cs.onSurface.withValues(alpha: 0.28),
+                t,
+              )!;
+              final fillColor = isDark
+                  ? Colors.white.withValues(alpha: 0.06 + t * 0.08)
+                  : Color.lerp(cs.surfaceContainerHigh, cs.surface, t * 0.5)!;
 
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: 44,
-            decoration: BoxDecoration(
-              color: fillColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.2),
-            ),
-            child: Row(
-              children: [
-                // ── Back arrow ──────────────────────────────────────────
-                GestureDetector(
-                  onTap: widget.onPressed,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Icon(
-                      Broken.arrow_left_2,
-                      size: 20,
-                      color: cs.onSurface.withValues(
-                        alpha: focused ? 0.7 : 0.55,
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 44,
+                decoration: BoxDecoration(
+                  color: fillColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    // ── Back arrow ──────────────────────────────────────────
+                    GestureDetector(
+                      onTap: widget.onPressed,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Icon(
+                          Broken.arrow_left_2,
+                          size: 20,
+                          color: cs.onSurface.withValues(
+                            alpha: focused ? 0.7 : 0.55,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
 
-                // ── Text field ──────────────────────────────────────────
-                Expanded(
-                  child: TextFormField(
-                    focusNode: _focus,
-                    autofocus: widget.autofocus,
-                    controller: widget.controller,
-                    keyboardType: TextInputType.text,
-                    style: TextStyle(
-                      color: cs.onSurface,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    onChanged: (v) {
-                      widget.onChanged?.call(v);
-                      setState(() {});
-                    },
-                    onFieldSubmitted: widget.onFieldSubmitted,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: l10n.search,
-                      hintStyle: TextStyle(
-                        color: cs.onSurface.withValues(alpha: 0.38),
-                        fontSize: 14.5,
-                      ),
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                  ),
-                ),
-
-                // ── Clear button ────────────────────────────────────────
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 120),
-                  opacity: widget.controller.text.isNotEmpty ? 1.0 : 0.0,
-                  child: GestureDetector(
-                    onTap: () {
-                      widget.onSuffixPressed();
-                      setState(() {});
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Icon(
-                        Broken.close_circle,
-                        size: 18,
-                        color: cs.onSurface.withValues(alpha: 0.40),
+                    // ── Text field ──────────────────────────────────────────
+                    Expanded(
+                      child: TextFormField(
+                        focusNode: _focus,
+                        autofocus: widget.autofocus,
+                        controller: widget.controller,
+                        keyboardType: TextInputType.text,
+                        style: TextStyle(
+                          color: cs.onSurface,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        onChanged: (v) {
+                          widget.onChanged?.call(v);
+                          setState(() {});
+                        },
+                        onFieldSubmitted: widget.onFieldSubmitted,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: l10n.search,
+                          hintStyle: TextStyle(
+                            color: cs.onSurface.withValues(alpha: 0.38),
+                            fontSize: 14.5,
+                          ),
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+
+                    // ── Clear button ────────────────────────────────────────
+                    AnimatedOpacity(
+                      duration: const Duration(milliseconds: 120),
+                      opacity: widget.controller.text.isNotEmpty ? 1.0 : 0.0,
+                      child: GestureDetector(
+                        onTap: () {
+                          widget.onSuffixPressed();
+                          setState(() {});
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          child: Icon(
+                            Broken.close_circle,
+                            size: 18,
+                            color: cs.onSurface.withValues(alpha: 0.40),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // ── Optional filter button ──────────────────────────────
+                    if (widget.filterButton != null) ...[
+                      widget.filterButton!,
+                      const SizedBox(width: 6),
+                    ],
+
+                    // Padding when no filter button
+                    if (widget.filterButton == null) const SizedBox(width: 4),
+                  ],
                 ),
-
-                // ── Optional filter button ──────────────────────────────
-                if (widget.filterButton != null) ...[
-                  widget.filterButton!,
-                  const SizedBox(width: 6),
-                ],
-
-                // Padding when no filter button
-                if (widget.filterButton == null) const SizedBox(width: 4),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

@@ -6,11 +6,8 @@ const _kNavBox = 'nav_display';
 
 Box? get _box => Hive.isBoxOpen(_kNavBox) ? Hive.box(_kNavBox) : null;
 
-void _navLog(String msg) => AppLogger.log(
-      msg,
-      logLevel: LogLevel.debug,
-      tag: LogTag.nav,
-    );
+void _navLog(String msg) =>
+    AppLogger.log(msg, logLevel: LogLevel.debug, tag: LogTag.nav);
 
 // ── Show labels ──────────────────────────────────────────────────────────────
 
@@ -126,6 +123,24 @@ final navDockStyleProvider = NotifierProvider<NavDockStyleNotifier, String>(
   NavDockStyleNotifier.new,
 );
 
+// ── Global navigation edit mode ─────────────────────────────────────────────
+// Toggled by the wrench in the menu overlay. While ON, every navigation
+// surface (floating dock, sub-dock, menu overlay) shows a drag handle on each
+// entry so the user can reorder it in place instead of opening a floating box.
+
+class NavEditModeNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+
+  void set(bool v) => state = v;
+}
+
+final navEditModeProvider = NotifierProvider<NavEditModeNotifier, bool>(
+  NavEditModeNotifier.new,
+);
+
 // ── Merge Library on dock (2nd entry: /Library unified page) ─────────────────
 
 class MergeLibraryOnDockNotifier extends Notifier<bool> {
@@ -142,5 +157,5 @@ class MergeLibraryOnDockNotifier extends Notifier<bool> {
 
 final mergeLibraryOnDockProvider =
     NotifierProvider<MergeLibraryOnDockNotifier, bool>(
-  MergeLibraryOnDockNotifier.new,
-);
+      MergeLibraryOnDockNotifier.new,
+    );

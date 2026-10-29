@@ -360,7 +360,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
 
         // ── Browse always in dock, Marketplace always in menu ─────────
-        final inMarketplaceSubDock = location == '/marketplace' ||
+        final inMarketplaceSubDock =
+            location == '/marketplace' ||
             location == '/marketplace/plugins' ||
             location == '/marketplace/search';
         if (inMarketplaceSubDock) {
@@ -525,10 +526,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               } else if (destination == "_watchtower_menu") {
                                 ref.read(menuOpenProvider.notifier).state = !ref
                                     .read(menuOpenProvider);
-                               } else if (destination ==
-                                   "_disableMarketplaceSwitch") {
-                                 route.go('/browse');
-                               } else if (destination == "_nfileBack") {
+                              } else if (destination ==
+                                  "_disableMarketplaceSwitch") {
+                                route.go('/browse');
+                              } else if (destination == "_nfileBack") {
                                 route.go('/marketplace');
                               } else {
                                 route.go(destination);
@@ -616,7 +617,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     if (dest.contains("/Library")) {
       destinations[dest.indexOf("/Library")] = NavigationRailDestination(
-        selectedIcon: const Icon(Broken.book_square),
+        selectedIcon: const Icon(Broken.book_saved),
         icon: const Icon(Broken.book_1),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
@@ -648,8 +649,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       destinations[dest.indexOf(
         "/MoviesLibrary",
       )] = const NavigationRailDestination(
-        selectedIcon: Icon(Broken.video_square),
-        icon: Icon(Broken.video_octagon),
+        selectedIcon: Icon(Broken.video),
+        icon: Icon(Broken.video_horizontal),
         label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Movies')),
       );
     }
@@ -751,21 +752,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
     if (dest.contains('_disableMarketplaceSwitch')) {
-      destinations[dest.indexOf('_disableMarketplaceSwitch')] =
-          const NavigationRailDestination(
+      destinations[dest.indexOf(
+        '_disableMarketplaceSwitch',
+      )] = const NavigationRailDestination(
         selectedIcon: Icon(Broken.arrow_left_2),
         icon: Icon(Broken.arrow_left_2),
-        label: Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text('Retour'),
-        ),
+        label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Retour')),
       );
     }
     if (dest.contains('/marketplace')) {
-      destinations[dest.indexOf('/marketplace')] =
-          const NavigationRailDestination(
-        selectedIcon: Icon(Broken.grid_2),
-        icon: Icon(Broken.category),
+      destinations[dest.indexOf(
+        '/marketplace',
+      )] = const NavigationRailDestination(
+        selectedIcon: Icon(Broken.element_3),
+        icon: Icon(Broken.element_4),
         label: Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Extensions'),
@@ -773,21 +773,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
     if (dest.contains('/marketplace/plugins')) {
-      destinations[dest.indexOf('/marketplace/plugins')] =
-          const NavigationRailDestination(
-        selectedIcon: Icon(Broken.grid_2),
-        icon: Icon(Broken.category),
-        label: Padding(
-          padding: EdgeInsets.only(top: 5),
-          child: Text('Plugin'),
-        ),
+      destinations[dest.indexOf(
+        '/marketplace/plugins',
+      )] = const NavigationRailDestination(
+        selectedIcon: Icon(Broken.element_3),
+        icon: Icon(Broken.element_4),
+        label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Plugin')),
       );
     }
     if (dest.contains('/marketplace/search')) {
-      destinations[dest.indexOf('/marketplace/search')] =
-          const NavigationRailDestination(
-        selectedIcon: Icon(Broken.search_normal),
-        icon: Icon(Broken.search_normal),
+      destinations[dest.indexOf(
+        '/marketplace/search',
+      )] = const NavigationRailDestination(
+        selectedIcon: Icon(Broken.search_normal_1),
+        icon: Icon(Broken.search_normal_1),
         label: Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Rechercher'),
@@ -886,8 +885,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/MoviesLibrary')) {
       destMap['/MoviesLibrary'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.video_square),
-        icon: Icon(Broken.video_octagon),
+        selectedIcon: Icon(Broken.video),
+        icon: Icon(Broken.video_horizontal),
         label: 'Movies',
       );
     }
@@ -975,30 +974,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/marketplace')) {
       destMap['/marketplace'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.grid_2),
-        icon: Icon(Broken.category),
+        selectedIcon: Icon(Broken.element_3),
+        icon: Icon(Broken.element_4),
         label: 'Extensions',
       );
     }
     if (dest.contains('/marketplace/plugins')) {
       destMap['/marketplace/plugins'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.grid_2),
-        icon: Icon(Broken.category),
+        selectedIcon: Icon(Broken.element_3),
+        icon: Icon(Broken.element_4),
         label: 'Plugin',
       );
     }
     if (dest.contains('/marketplace/search')) {
       destMap['/marketplace/search'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.search_normal),
-        icon: Icon(Broken.search_normal),
+        selectedIcon: Icon(Broken.search_normal_1),
+        icon: Icon(Broken.search_normal_1),
         label: 'Rechercher',
       );
     }
     if (dest.contains('/schedule')) {
       destMap['/schedule'] = const NavigationDestination(
-        selectedIcon: Icon(Broken.clock),
-        icon: Icon(Broken.clock_1),
-        label: 'Schedule',
+        selectedIcon: Icon(Broken.calendar_tick),
+        icon: Icon(Broken.calendar_2),
+        label: 'Planning',
       );
     }
     // ── Routes absents du destMap → dock classique n'affichait que 2 éléments ─
@@ -1125,11 +1124,7 @@ class _SideBanners extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Broken.eye_slash,
-                            size: 11,
-                            color: cs.primary,
-                          ),
+                          Icon(Broken.eye_slash, size: 11, color: cs.primary),
                           const SizedBox(width: 4),
                           Text(
                             l10n.incognito_mode,
@@ -1204,6 +1199,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
     '/marketplace/plugins',
     '/marketplace/search',
     '/discover',
+    '/schedule',
     '/nfileHome',
   };
 
@@ -1793,11 +1789,7 @@ class _SidebarFooter extends StatelessWidget {
               ],
             ),
           ),
-          child: const Icon(
-            Broken.user,
-            color: Colors.white,
-            size: 18,
-          ),
+          child: const Icon(Broken.user, color: Colors.white, size: 18),
         ),
       );
     }
@@ -1826,11 +1818,7 @@ class _SidebarFooter extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(
-              Broken.user,
-              color: Colors.white,
-              size: 17,
-            ),
+            child: const Icon(Broken.user, color: Colors.white, size: 17),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1851,7 +1839,7 @@ class _SidebarFooter extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(5),
               child: Icon(
-                Broken.setting_2,
+                Broken.setting_4,
                 size: 16,
                 color: cs.onSurface.withValues(alpha: 0.45),
               ),
@@ -2147,8 +2135,8 @@ class _FloatingDockState extends State<_FloatingDock> {
             const _DockItemData(
               route: '/marketplace',
               label: 'Extensions',
-              icon: Broken.category,
-              activeIcon: Broken.grid_2,
+              icon: Broken.element_4,
+              activeIcon: Broken.element_3,
             ),
           );
         case '/marketplace/plugins':
@@ -2156,8 +2144,8 @@ class _FloatingDockState extends State<_FloatingDock> {
             const _DockItemData(
               route: '/marketplace/plugins',
               label: 'Plugin',
-              icon: Broken.category,
-              activeIcon: Broken.grid_2,
+              icon: Broken.element_4,
+              activeIcon: Broken.element_3,
             ),
           );
         case '/marketplace/search':
@@ -2165,8 +2153,8 @@ class _FloatingDockState extends State<_FloatingDock> {
             const _DockItemData(
               route: '/marketplace/search',
               label: 'Rechercher',
-              icon: Broken.search_normal,
-              activeIcon: Broken.search_normal,
+              icon: Broken.search_normal_1,
+              activeIcon: Broken.search_normal_1,
             ),
           );
         case '_enableLibSwitch':
@@ -2259,6 +2247,42 @@ class _FloatingDockState extends State<_FloatingDock> {
     return items;
   }
 
+  // Persist a dock reorder. `items` is the visible dock order (destinations
+  // first, the pinned Menu slot last), so the moved destination is mapped back
+  // onto the full navigation order by position.
+  void _reorderDock(int oldIdx, int newIdx, List<_DockItemData> items) {
+    final visible = items
+        .where((e) => !e.route.startsWith('_'))
+        .map((e) => e.route)
+        .toList();
+    _reorderRoutes(visible, oldIdx, newIdx);
+  }
+
+  // Rewrite the positions the given visible routes occupied in the navigation
+  // order, keeping every hidden route where it was.
+  void _reorderRoutes(List<String> visible, int oldIdx, int newIdx) {
+    final order = List<String>.from(
+      widget.ref.read(navigationOrderStateProvider),
+    );
+    if (oldIdx < 0 ||
+        oldIdx >= visible.length ||
+        newIdx < 0 ||
+        newIdx >= visible.length) {
+      return;
+    }
+    final reordered = List<String>.from(visible);
+    final moved = reordered.removeAt(oldIdx);
+    reordered.insert(newIdx, moved);
+
+    var cursor = 0;
+    for (var i = 0; i < order.length && cursor < reordered.length; i++) {
+      if (visible.contains(order[i])) {
+        order[i] = reordered[cursor++];
+      }
+    }
+    widget.ref.read(navigationOrderStateProvider.notifier).set(order);
+  }
+
   void _onScrollEnd(ScrollMetrics metrics, double itemWidth) {
     final index = (metrics.pixels / itemWidth).round();
     final snapOffset = (index * itemWidth).clamp(
@@ -2295,11 +2319,10 @@ class _FloatingDockState extends State<_FloatingDock> {
     final visible = _isVisible();
     final items = visible ? _buildItems(context) : <_DockItemData>[];
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final totalHeight = visible
-        ? dockHeight + _dockBottomPad + bottomPad
-        : 0.0;
+    final totalHeight = visible ? dockHeight + _dockBottomPad + bottomPad : 0.0;
 
     final isGlass = widget.ref.read(navDockStyleProvider) == 'immersive';
+    final editMode = widget.ref.watch(navEditModeProvider);
 
     // In sub-dock mode (Back is first item), detach Back and Menu into their
     // own mini pills flanking the content pill for a cleaner visual.
@@ -2349,12 +2372,17 @@ class _FloatingDockState extends State<_FloatingDock> {
                     isActive: _isActive,
                     ref: widget.ref,
                     isGlass: isGlass,
+                    editMode: editMode,
+                    onReorder: (oldIdx, newIdx) => _reorderRoutes(
+                      contentItems.map((e) => e.route).toList(),
+                      oldIdx,
+                      newIdx,
+                    ),
                     onTap: (route) {
                       HapticFeedback.lightImpact();
                       widget.onDestinationSelected(route);
                     },
-                    onScrollEnd: (metrics) =>
-                        _onScrollEnd(metrics, itemWidth),
+                    onScrollEnd: (metrics) => _onScrollEnd(metrics, itemWidth),
                   ),
                 ),
               )
@@ -2393,6 +2421,9 @@ class _FloatingDockState extends State<_FloatingDock> {
                   ref: widget.ref,
                   needsScroll: needsScroll,
                   isGlass: isGlass,
+                  editMode: editMode,
+                  onReorder: (oldIdx, newIdx) =>
+                      _reorderDock(oldIdx, newIdx, items),
                   onTap: (route) {
                     HapticFeedback.lightImpact();
                     widget.onDestinationSelected(route);
@@ -2415,6 +2446,8 @@ class _DockPill extends StatelessWidget {
     required this.ref,
     required this.needsScroll,
     required this.isGlass,
+    required this.editMode,
+    required this.onReorder,
     required this.onTap,
     required this.onScrollEnd,
   });
@@ -2426,6 +2459,8 @@ class _DockPill extends StatelessWidget {
   final WidgetRef ref;
   final bool needsScroll;
   final bool isGlass;
+  final bool editMode;
+  final void Function(int oldIdx, int newIdx) onReorder;
   final void Function(String) onTap;
   final void Function(ScrollMetrics) onScrollEnd;
 
@@ -2448,11 +2483,64 @@ class _DockPill extends StatelessWidget {
         item: item,
         active: active,
         ref: ref,
+        editMode: editMode,
         onTap: () => onTap(item.route),
       );
     }
 
-    final Widget itemsWidget = needsScroll
+    // Edit mode: the real destinations become draggable in place. The Menu
+    // slot is pinned outside the reorderable list so it can never be moved.
+    final bool menuPinned =
+        items.isNotEmpty && items.last.route == '_watchtower_menu';
+    final List<_DockItemData> reorderable = menuPinned
+        ? items.sublist(0, items.length - 1)
+        : items;
+    final bool canReorder = editMode && reorderable.length > 1;
+
+    final Widget itemsWidget = canReorder
+        ? Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: ReorderableListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: true,
+                  itemExtent: itemWidth,
+                  onReorderItem: (oldIdx, newIdx) {
+                    HapticFeedback.selectionClick();
+                    onReorder(oldIdx, newIdx);
+                  },
+                  itemCount: reorderable.length,
+                  itemBuilder: (context, index) => SizedBox(
+                    key: ValueKey(reorderable[index].route),
+                    width: itemWidth,
+                    child: _DockItemWidget(
+                      item: reorderable[index],
+                      active: isActive(reorderable[index].route),
+                      ref: ref,
+                      editMode: true,
+                      onTap: () => onTap(reorderable[index].route),
+                    ),
+                  ),
+                ),
+              ),
+              if (menuPinned)
+                SizedBox(
+                  width: itemWidth,
+                  child: _DockItemWidget(
+                    item: items.last,
+                    active: isActive(items.last.route),
+                    ref: ref,
+                    editMode: false,
+                    onTap: () => onTap(items.last.route),
+                  ),
+                ),
+            ],
+          )
+        : needsScroll
         ? NotificationListener<ScrollEndNotification>(
             onNotification: (n) {
               onScrollEnd(n.metrics);
@@ -2544,6 +2632,8 @@ class _UnifiedSubDockPill extends StatelessWidget {
     required this.isActive,
     required this.ref,
     required this.isGlass,
+    required this.editMode,
+    required this.onReorder,
     required this.onTap,
     required this.onScrollEnd,
   });
@@ -2556,6 +2646,8 @@ class _UnifiedSubDockPill extends StatelessWidget {
   final bool Function(String) isActive;
   final WidgetRef ref;
   final bool isGlass;
+  final bool editMode;
+  final void Function(int, int) onReorder;
   final void Function(String) onTap;
   final void Function(ScrollMetrics) onScrollEnd;
 
@@ -2609,7 +2701,7 @@ class _UnifiedSubDockPill extends StatelessWidget {
         height: double.infinity,
         child: Center(
           child: Icon(
-            Broken.arrow_left_2,
+            Broken.arrow_left_3,
             size: 22,
             color: isDark
                 ? Colors.white.withValues(alpha: 0.42)
@@ -2619,9 +2711,33 @@ class _UnifiedSubDockPill extends StatelessWidget {
       ),
     );
 
-    // Content items — scrollable when > 4
+    // Content items — reorderable while edit mode is on, scrollable when > 4
     final needsScroll = contentItems.length > 4;
-    final Widget contentWidget = needsScroll
+    final Widget contentWidget = editMode && contentItems.length > 1
+        ? ReorderableListView.builder(
+            scrollDirection: Axis.horizontal,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: true,
+            itemExtent: itemWidth,
+            onReorderItem: (oldIdx, newIdx) {
+              HapticFeedback.selectionClick();
+              onReorder(oldIdx, newIdx);
+            },
+            itemCount: contentItems.length,
+            itemBuilder: (context, index) => SizedBox(
+              key: ValueKey(contentItems[index].route),
+              width: itemWidth,
+              child: _DockItemWidget(
+                item: contentItems[index],
+                active: isActive(contentItems[index].route),
+                ref: ref,
+                editMode: true,
+                onTap: () => onTap(contentItems[index].route),
+              ),
+            ),
+          )
+        : needsScroll
         ? NotificationListener<ScrollEndNotification>(
             onNotification: (n) {
               onScrollEnd(n.metrics);
@@ -2831,12 +2947,14 @@ class _DockItemWidget extends StatelessWidget {
     required this.active,
     required this.ref,
     required this.onTap,
+    this.editMode = false,
   });
 
   final _DockItemData item;
   final bool active;
   final WidgetRef ref;
   final VoidCallback onTap;
+  final bool editMode;
 
   @override
   Widget build(BuildContext context) {
@@ -2897,11 +3015,13 @@ class _DockItemWidget extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      onLongPress: () {
-        if (haptic) HapticFeedback.mediumImpact();
-        final desc = _descriptions[item.route] ?? item.label;
-        botToast(desc);
-      },
+      onLongPress: editMode
+          ? null
+          : () {
+              if (haptic) HapticFeedback.mediumImpact();
+              final desc = _descriptions[item.route] ?? item.label;
+              botToast(desc);
+            },
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: Duration(milliseconds: itemAnimMs),
@@ -2934,17 +3054,28 @@ class _DockItemWidget extends StatelessWidget {
                 ),
               ),
             ],
-            // Active indicator dot — bottom of item
-            AnimatedContainer(
-              duration: Duration(milliseconds: itemAnimMs),
-              width: active ? 4 * dockScale : 0,
-              height: active ? 4 * dockScale : 0,
-              margin: EdgeInsets.only(top: active ? 3 * dockScale : 0),
-              decoration: BoxDecoration(
-                color: active ? accent : Colors.transparent,
-                shape: BoxShape.circle,
+            // Active indicator dot — bottom of item. In edit mode it is
+            // replaced by a drag affordance so the reorder target is obvious.
+            if (editMode)
+              Padding(
+                padding: EdgeInsets.only(top: 3 * dockScale),
+                child: Icon(
+                  Broken.menu_1,
+                  size: 12 * dockScale,
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
+              )
+            else
+              AnimatedContainer(
+                duration: Duration(milliseconds: itemAnimMs),
+                width: active ? 4 * dockScale : 0,
+                height: active ? 4 * dockScale : 0,
+                margin: EdgeInsets.only(top: active ? 3 * dockScale : 0),
+                decoration: BoxDecoration(
+                  color: active ? accent : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
           ],
         ),
       ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/changed.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
+import 'package:watchtower/modules/widgets/animated_empty_state.dart';
 import 'package:watchtower/modules/widgets/base_library_tab_screen.dart';
 import 'package:watchtower/modules/widgets/custom_sliver_grouped_list_view.dart';
 import 'package:isar_community/isar.dart';
@@ -32,6 +34,9 @@ class _UpdatesScreenState extends BaseLibraryTabScreenState<UpdatesScreen> {
   String get title => l10nLocalizations(context)!.updates;
 
   @override
+  IconData get titleIcon => Broken.notification;
+
+  @override
   Widget buildTab(ItemType type) {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -45,14 +50,28 @@ class _UpdatesScreenState extends BaseLibraryTabScreenState<UpdatesScreen> {
 
   @override
   Widget buildTabLabel(ItemType type, String label) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Tab(text: label),
-        const SizedBox(width: 8),
-        _updateNumbers(ref, type),
-      ],
-    );
+    IconData icon;
+    switch (type) {
+      case ItemType.anime:
+        icon = Broken.video_play;
+        break;
+      case ItemType.manga:
+        icon = Broken.note;
+        break;
+      case ItemType.novel:
+        icon = Broken.book;
+        break;
+      case ItemType.music:
+        icon = Broken.music_play;
+        break;
+      case ItemType.game:
+        icon = Broken.gameboy;
+        break;
+      case ItemType.plugin:
+        icon = Broken.element_plus;
+        break;
+    }
+    return Tab(icon: _tabIconWithBadge(ref, type, icon), text: label);
   }
 
   @override
@@ -62,15 +81,14 @@ class _UpdatesScreenState extends BaseLibraryTabScreenState<UpdatesScreen> {
     return [
       IconButton(
         splashRadius: 20,
-        icon: Icon(Icons.refresh_outlined, color: Theme.of(context).hintColor),
+        iconSize: 20,
+        icon: Icon(Broken.refresh_2, color: Theme.of(context).hintColor),
         onPressed: _updateLibrary,
       ),
       IconButton(
         splashRadius: 20,
-        icon: Icon(
-          Icons.delete_sweep_outlined,
-          color: Theme.of(context).hintColor,
-        ),
+        iconSize: 20,
+        icon: Icon(Broken.trash, color: Theme.of(context).hintColor),
         onPressed: () {
           showDialog(
             context: context,
@@ -242,7 +260,10 @@ class _UpdateTabState extends ConsumerState<UpdateTab>
                 ],
               );
             }
-            return Center(child: Text(l10n.no_recent_updates));
+            return AnimatedEmptyState(
+              message: l10n.no_recent_updates,
+              icon: Broken.notification,
+            );
           },
           error: (Object error, StackTrace stackTrace) {
             return ErrorText(error);
@@ -266,28 +287,26 @@ class _UpdateTabState extends ConsumerState<UpdateTab>
   }
 }
 
-Widget _updateNumbers(WidgetRef ref, ItemType itemType) {
+Widget _tabIconWithBadge(WidgetRef ref, ItemType itemType, IconData icon) {
   return StreamBuilder(
     stream: isar.updates
         .filter()
         .chapter((q) => q.manga((q) => q.itemTypeEqualTo(itemType)))
         .watch(fireImmediately: true),
     builder: (context, snapshot) {
-      if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-        final entries = snapshot.data!.toList();
-        return entries.isEmpty
-            ? SizedBox.shrink()
-            : Badge(
-                backgroundColor: Theme.of(context).focusColor,
-                label: Text(
-                  entries.length.toString(),
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodySmall!.color,
-                  ),
-                ),
-              );
-      }
-      return Container();
+      final count = snapshot.data?.length ?? 0;
+      return Badge(
+        isLabelVisible: count > 0,
+        backgroundColor: Theme.of(context).focusColor,
+        label: Text(
+          count.toString(),
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodySmall!.color,
+          ),
+        ),
+        child: Icon(icon, size: 18),
+      );
     },
   );
 }
+
