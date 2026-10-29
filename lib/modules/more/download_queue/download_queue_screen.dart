@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,10 +11,9 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
-import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
+import 'package:watchtower/modules/more/download_queue/download_queue_rows.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_progress.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
-import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
@@ -94,8 +94,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = l10nLocalizations(context);
-    final queueState = ref.watch(downloadQueueStateProvider);
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
     final swipeRight = ref.watch(swipeRightActionStateProvider);
 
@@ -306,7 +304,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       allEntries: entries,
                       emptyIcon: Icons.play_circle_outline,
                       emptyLabel: 'Aucun téléchargement Watch',
-                      queueState: queueState,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -320,7 +317,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       allEntries: entries,
                       emptyIcon: Icons.menu_book_outlined,
                       emptyLabel: 'Aucun téléchargement Manga',
-                      queueState: queueState,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -334,7 +330,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       allEntries: entries,
                       emptyIcon: Icons.auto_stories_outlined,
                       emptyLabel: 'Aucun téléchargement Novel',
-                      queueState: queueState,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -348,7 +343,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       allEntries: entries,
                       emptyIcon: Icons.music_note_outlined,
                       emptyLabel: 'Aucun téléchargement Musique',
-                      queueState: queueState,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -362,7 +356,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       allEntries: entries,
                       emptyIcon: Icons.sports_esports_outlined,
                       emptyLabel: 'Aucun téléchargement Jeu',
-                      queueState: queueState,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -1440,7 +1433,6 @@ class _GroupedDownloadTabList extends ConsumerStatefulWidget {
   final List<Download> allEntries;
   final IconData emptyIcon;
   final String emptyLabel;
-  final DownloadQueueStateData queueState;
   final SwipeAction swipeLeft;
   final SwipeAction swipeRight;
   final void Function(Download) onPauseResume;
@@ -1454,7 +1446,6 @@ class _GroupedDownloadTabList extends ConsumerStatefulWidget {
     required this.allEntries,
     required this.emptyIcon,
     required this.emptyLabel,
-    required this.queueState,
     required this.swipeLeft,
     required this.swipeRight,
     required this.onPauseResume,
@@ -1478,6 +1469,10 @@ class _GroupedDownloadTabListState
   /// Custom source order persisted in [DownloadSettingsService].
   List<String> _order = [];
 
+  /// Latest queue state, read here so progress ticks rebuild this list (and its
+  /// visible cards) instead of the whole screen scaffold.
+  DownloadQueueStateData _queueState = const DownloadQueueStateData();
+
   @override
   void initState() {
     super.initState();
@@ -1500,32 +1495,13 @@ class _GroupedDownloadTabListState
     DownloadSettingsService.instance.setSourceDownloadOrder(_order);
   }
 
-  Map<String, List<Download>> _groupBySource() {
-    final groups = <String, List<Download>>{};
-    for (final download in widget.entries) {
-      final source = download.chapter.value?.manga.value?.source ?? 'autre';
-      groups.putIfAbsent(source, () => []).add(download);
-    }
-    groups.removeWhere(
-      (_, downloads) =>
-          downloads.every((download) => download.isDownload == true),
-    );
-    return groups;
-  }
+  Map<String, List<Download>> _groupBySource() =>
+      groupDownloadsBySource(widget.entries);
 
   /// Returns sources in the user's preferred order, with any new sources
   /// appended at the end.
-  List<String> _orderedSources(Map<String, List<Download>> groups) {
-    final all = groups.keys.toList();
-    final result = <String>[];
-    for (final src in _order) {
-      if (all.contains(src)) result.add(src);
-    }
-    for (final src in all) {
-      if (!result.contains(src)) result.add(src);
-    }
-    return result;
-  }
+  List<String> _orderedSources(Map<String, List<Download>> groups) =>
+      orderDownloadSources(groups.keys, preferredOrder: _order);
 
   String _displayName(String src) {
     if (src.isEmpty || src == 'autre') return 'Autre';
@@ -1533,20 +1509,274 @@ class _GroupedDownloadTabListState
     return s[0].toUpperCase() + s.substring(1);
   }
 
-  Map<String, List<Download>> _groupBySeries(List<Download> items) {
-    final groups = <String, List<Download>>{};
-    for (final download in items) {
-      final chapter = download.chapter.value;
-      final manga = chapter?.manga.value;
-      final mangaId = manga?.id ?? chapter?.mangaId;
-      final itemId = download.id ?? chapter?.id ?? identityHashCode(download);
-      final key = mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
-      groups.putIfAbsent(key, () => []).add(download);
+  /// Flattens sources → series → chapters into the exact rows rendered.
+  List<DownloadQueueRow> _flatten(List<String> sources) => flattenDownloadQueue(
+    entries: widget.entries,
+    collapsedSources: _collapsed,
+    collapsedSeries: _collapsedSeries,
+    preferredSourceOrder: sources,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    _queueState = ref.watch(downloadQueueStateProvider);
+    final groups = _groupBySource();
+    if (groups.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              widget.emptyIcon,
+              size: 60,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.12),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              widget.emptyLabel,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
     }
-    return groups;
+
+    final sources = _orderedSources(groups);
+    final rows = _flatten(sources);
+    // Row index of each source header, aligned with [sources]; used to map a
+    // reorderable drag back onto the source order.
+    final headerRows = <int>[
+      for (var i = 0; i < rows.length; i++)
+        if (rows[i] is DownloadSourceHeaderRow) i,
+    ];
+    final scheme = Theme.of(context).colorScheme;
+
+    // Keep source/extension sections visible even when only one is installed.
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.only(bottom: 80),
+      buildDefaultDragHandles: false,
+      itemCount: rows.length,
+      proxyDecorator: (child, _, _) => Material(
+        color: Colors.transparent,
+        elevation: 6,
+        shadowColor: scheme.shadow.withValues(alpha: 0.4),
+        child: child,
+      ),
+      onReorderItem: (oldRow, newRow) {
+        final reordered = reorderDownloadSources(
+          sources: sources,
+          headerRows: headerRows,
+          draggedRow: oldRow,
+          dropRow: newRow,
+        );
+        if (listEquals(reordered, sources)) return;
+        setState(() => _persistOrder(reordered));
+      },
+      itemBuilder: (ctx, idx) {
+        final row = rows[idx];
+        return switch (row) {
+          DownloadSourceHeaderRow() => KeyedSubtree(
+            key: ValueKey('src_${row.source}'),
+            child: _buildSourceHeader(row, idx),
+          ),
+          DownloadSeriesHeaderRow() => KeyedSubtree(
+            key: ValueKey('dl_series_swipe_${row.seriesKey}'),
+            child: _buildSeriesHeader(row),
+          ),
+          DownloadEntryRow() => KeyedSubtree(
+            key: ValueKey(
+              'dl_${row.download.id ?? identityHashCode(row.download)}',
+            ),
+            child: _buildDownloadRow(row),
+          ),
+        };
+      },
+    );
   }
 
-  Widget _buildSeriesGroup(String key, List<Download> items) {
+  // ── Source header ─────────────────────────────────────────────────────────
+  // The extension box (logo + name + chevron) is swipeable: right deletes the
+  // whole group, left pauses / resumes every active item of the group.
+  Widget _buildSourceHeader(DownloadSourceHeaderRow row, int index) {
+    final src = row.source;
+    final items = row.items;
+    final scheme = Theme.of(context).colorScheme;
+    final isCollapsed = _collapsed.contains(src);
+    final itemType = items.first.chapter.value?.manga.value?.itemType;
+    final sourceManga = items.first.chapter.value?.manga.value;
+    final sourceIconUrl = sourceManga == null
+        ? null
+        : getSource(
+            sourceManga.lang ?? '',
+            src,
+            sourceManga.sourceId,
+          )?.iconUrl?.trim();
+    final sourceFallbackIcon = itemType == ItemType.anime
+        ? Icons.play_circle_outline
+        : itemType == ItemType.novel
+        ? Icons.auto_stories_outlined
+        : Icons.menu_book_outlined;
+    final unfinished = items
+        .where((item) => item.isDownload != true)
+        .toList(growable: false);
+    final controllable = unfinished
+        .where((item) => item.status != 'cancelled' && (item.failed ?? 0) == 0)
+        .toList(growable: false);
+    final allPaused =
+        controllable.isNotEmpty &&
+        controllable.every((item) {
+          final id = item.id ?? -1;
+          return _queueState.pausedIds.contains(id) || item.status == 'paused';
+        });
+
+    return Dismissible(
+      key: ValueKey('src_swipe_$src'),
+      direction: DismissDirection.horizontal,
+      dismissThresholds: const {
+        DismissDirection.startToEnd: 0.30,
+        DismissDirection.endToStart: 0.30,
+      },
+      background: _swipeBackground(
+        alignment: Alignment.centerLeft,
+        color: Colors.red.shade700,
+        icon: Icons.delete_outline_rounded,
+        label: 'Supprimer',
+      ),
+      secondaryBackground: _swipeBackground(
+        alignment: Alignment.centerRight,
+        color: Colors.orange.shade700,
+        icon: allPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+        label: allPaused ? 'Reprendre' : 'Pause',
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          for (final item in controllable) {
+            final id = item.id ?? -1;
+            final isPaused =
+                _queueState.pausedIds.contains(id) || item.status == 'paused';
+            if (allPaused || !isPaused) {
+              widget.onPauseResume(item);
+            }
+          }
+        } else {
+          for (final item in items) {
+            widget.onDelete(item);
+          }
+        }
+        // The header stays; the callbacks update its children and the group
+        // disappears only once every entry has been deleted.
+        return false;
+      },
+      child: ReorderableDelayedDragStartListener(
+        index: index,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() {
+              if (_collapsed.contains(src)) {
+                _collapsed.remove(src);
+              } else {
+                _collapsed.add(src);
+              }
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: sourceIconUrl?.isNotEmpty == true
+                        ? cachedNetworkImage(
+                            imageUrl: sourceIconUrl!,
+                            fit: BoxFit.contain,
+                            width: 28,
+                            height: 28,
+                            useCustomNetworkImage: false,
+                            errorWidget: Icon(
+                              sourceFallbackIcon,
+                              size: 15,
+                              color: scheme.primary,
+                            ),
+                          )
+                        : Icon(
+                            sourceFallbackIcon,
+                            size: 15,
+                            color: scheme.primary,
+                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _displayName(src),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${unfinished.length}',
+                      style: TextStyle(
+                        color: scheme.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  AnimatedRotation(
+                    turns: isCollapsed ? -0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Series header ─────────────────────────────────────────────────────────
+  Widget _buildSeriesHeader(DownloadSeriesHeaderRow row) {
+    final items = row.items;
+    final unfinishedItems = row.unfinishedItems;
     final firstDownload = items.first;
     final manga = firstDownload.chapter.value?.manga.value;
     final itemType = manga?.itemType ?? ItemType.manga;
@@ -1556,13 +1786,6 @@ class _GroupedDownloadTabListState
         firstDownload.chapter.value?.name ??
         'Téléchargement';
     final itemUnit = itemType == ItemType.anime ? 'épisodes' : 'chapitres';
-    final unfinishedItems = items
-        .where((download) => download.isDownload != true)
-        .toList();
-    if (!shouldShowDownloadGroupHeader(unfinishedItems)) {
-      if (unfinishedItems.isEmpty) return const SizedBox.shrink();
-      return _buildDismissible(unfinishedItems.single);
-    }
     final animeHasExactTotals =
         itemType == ItemType.anime &&
         items.every((download) => (download.totalBytes ?? 0) > 0);
@@ -1579,7 +1802,7 @@ class _GroupedDownloadTabListState
               .map((download) {
                 final live = download.id == null
                     ? null
-                    : widget.queueState.liveProgress[download.id!];
+                    : _queueState.liveProgress[download.id!];
                 return mangaChapterProgress(
                   storedCompleted: download.succeeded,
                   storedTotal: download.total,
@@ -1595,7 +1818,7 @@ class _GroupedDownloadTabListState
         items.any((download) {
           final live = download.id == null
               ? null
-              : widget.queueState.liveProgress[download.id!];
+              : _queueState.liveProgress[download.id!];
           return download.isDownload == true ||
               (download.total ?? 0) > 1 ||
               (live?.totalUnits ?? 0) > 1;
@@ -1614,9 +1837,6 @@ class _GroupedDownloadTabListState
     final seriesPercent = seriesProgress == null
         ? null
         : (seriesProgress * 100).round();
-    // A fresh manga series whose page total is not known yet must show the
-    // animated sweep, not a static empty bar. Give the bar a null value so the
-    // widget renders its indeterminate sweep.
     final seriesProgressIndeterminate =
         itemType == ItemType.manga &&
         seriesProgress == null &&
@@ -1632,7 +1852,7 @@ class _GroupedDownloadTabListState
               download.status == 'downloading' ||
               download.status == 'initializing',
         );
-    final isCollapsed = _collapsedSeries.contains(key);
+    final isCollapsed = _collapsedSeries.contains(row.seriesKey);
     final scheme = Theme.of(context).colorScheme;
     final controllableItems = unfinishedItems
         .where(
@@ -1644,226 +1864,185 @@ class _GroupedDownloadTabListState
         controllableItems.isNotEmpty &&
         controllableItems.every((download) {
           final id = download.id ?? -1;
-          return widget.queueState.pausedIds.contains(id) ||
+          return _queueState.pausedIds.contains(id) ||
               download.status == 'paused';
         });
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Dismissible(
-          key: ValueKey('dl_series_$key'),
-          direction: DismissDirection.horizontal,
-          dismissThresholds: const {
-            DismissDirection.startToEnd: 0.30,
-            DismissDirection.endToStart: 0.30,
-          },
-          background: _seriesSwipeBackground(
-            alignment: Alignment.centerLeft,
-            color: Colors.red.shade700,
-            icon: Icons.delete_outline_rounded,
-            label: 'Supprimer la série',
-          ),
-          secondaryBackground: _seriesSwipeBackground(
-            alignment: Alignment.centerRight,
-            color: Colors.orange.shade700,
-            icon: allUnfinishedPaused
-                ? Icons.play_arrow_rounded
-                : Icons.pause_rounded,
-            label: allUnfinishedPaused ? 'Reprendre la série' : 'Pause série',
-          ),
-          confirmDismiss: (direction) async {
-            if (direction == DismissDirection.endToStart) {
-              final shouldResume = allUnfinishedPaused;
-              for (final download in controllableItems) {
-                final id = download.id ?? -1;
-                final isPaused =
-                    widget.queueState.pausedIds.contains(id) ||
-                    download.status == 'paused';
-                if (shouldResume || !isPaused) {
-                  widget.onPauseResume(download);
-                }
-              }
-            } else {
-              for (final download in items) {
-                widget.onDelete(download);
-              }
+    return Dismissible(
+      key: ValueKey('dl_series_${row.seriesKey}'),
+      direction: DismissDirection.horizontal,
+      dismissThresholds: const {
+        DismissDirection.startToEnd: 0.30,
+        DismissDirection.endToStart: 0.30,
+      },
+      background: _swipeBackground(
+        alignment: Alignment.centerLeft,
+        color: Colors.red.shade700,
+        icon: Icons.delete_outline_rounded,
+        label: 'Supprimer la série',
+      ),
+      secondaryBackground: _swipeBackground(
+        alignment: Alignment.centerRight,
+        color: Colors.orange.shade700,
+        icon: allUnfinishedPaused
+            ? Icons.play_arrow_rounded
+            : Icons.pause_rounded,
+        label: allUnfinishedPaused ? 'Reprendre la série' : 'Pause série',
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          final shouldResume = allUnfinishedPaused;
+          for (final download in controllableItems) {
+            final id = download.id ?? -1;
+            final isPaused =
+                _queueState.pausedIds.contains(id) ||
+                download.status == 'paused';
+            if (shouldResume || !isPaused) {
+              widget.onPauseResume(download);
             }
-            // Keep the series header in place; callbacks update its children
-            // and the group disappears only if all entries were deleted.
-            return false;
-          },
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.45),
-                width: 0.7,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => setState(() {
-                  if (isCollapsed) {
-                    _collapsedSeries.remove(key);
-                  } else {
-                    _collapsedSeries.add(key);
-                  }
-                }),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
-                  child: Row(
-                    children: [
-                      _CoverThumbnail(
-                        imageUrl: manga?.imageUrl,
-                        customBytes: manga?.customCoverImage?.cast<int>(),
-                        itemType: itemType,
-                        width: 56,
-                        height: 78,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child:
-                            itemType == ItemType.manga ||
-                                itemType == ItemType.anime
-                            ? Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      height: 1.2,
-                                      fontWeight: FontWeight.w700,
-                                      color: scheme.onSurface,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (showSeriesProgress) ...[
-                                    const SizedBox(height: 8),
-                                    MbGradientProgressBar(
-                                      value: seriesProgressIndeterminate
-                                          ? null
-                                          : seriesProgress,
-                                      height: 4,
-                                    ),
-                                    const SizedBox(height: 5),
-                                  ],
-                                  Text(
-                                    seriesPercent == null
-                                        ? '${controllableItems.length} '
-                                              '$itemUnit actifs'
-                                        : '$seriesPercent% · '
-                                              '${controllableItems.length} '
-                                              '$itemUnit actifs',
-                                    style: TextStyle(
-                                      color: scheme.onSurfaceVariant,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: scheme.onSurface,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (controllableItems.isNotEmpty)
-                        IconButton(
-                          tooltip: allUnfinishedPaused
-                              ? 'Reprendre la série'
-                              : 'Mettre la série en pause',
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () {
-                            for (final download in controllableItems) {
-                              final id = download.id ?? -1;
-                              final isPaused =
-                                  widget.queueState.pausedIds.contains(id) ||
-                                  download.status == 'paused';
-                              if (allUnfinishedPaused || !isPaused) {
-                                widget.onPauseResume(download);
-                              }
-                            }
-                          },
-                          icon: Icon(
-                            allUnfinishedPaused
-                                ? Icons.play_arrow_rounded
-                                : Icons.pause_rounded,
-                            color: allUnfinishedPaused
-                                ? scheme.primary
-                                : Colors.orange,
-                          ),
-                        ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${items.length}',
-                            style: TextStyle(
-                              color: scheme.onSurfaceVariant,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          AnimatedRotation(
-                            turns: isCollapsed ? -0.25 : 0,
-                            duration: const Duration(milliseconds: 200),
-                            child: Icon(
-                              Icons.expand_more_rounded,
-                              size: 21,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+          }
+        } else {
+          for (final download in items) {
+            widget.onDelete(download);
+          }
+        }
+        return false;
+      },
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() {
+            if (isCollapsed) {
+              _collapsedSeries.remove(row.seriesKey);
+            } else {
+              _collapsedSeries.add(row.seriesKey);
+            }
+          }),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
+            child: Row(
+              children: [
+                _CoverThumbnail(
+                  imageUrl: _resolveCover(firstDownload),
+                  customBytes: manga?.customCoverImage?.cast<int>(),
+                  itemType: itemType,
+                  width: 56,
+                  height: 78,
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child:
+                      itemType == ItemType.manga || itemType == ItemType.anime
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: 15,
+                                height: 1.2,
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onSurface,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (showSeriesProgress) ...[
+                              const SizedBox(height: 8),
+                              MbGradientProgressBar(
+                                value: seriesProgressIndeterminate
+                                    ? null
+                                    : seriesProgress,
+                                height: 4,
+                              ),
+                              const SizedBox(height: 5),
+                            ],
+                            Text(
+                              seriesPercent == null
+                                  ? '${controllableItems.length} '
+                                        '$itemUnit actifs'
+                                  : '$seriesPercent% · '
+                                        '${controllableItems.length} '
+                                        '$itemUnit actifs',
+                              style: TextStyle(
+                                color: scheme.onSurfaceVariant,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                ),
+                const SizedBox(width: 8),
+                if (controllableItems.isNotEmpty)
+                  IconButton(
+                    tooltip: allUnfinishedPaused
+                        ? 'Reprendre la série'
+                        : 'Mettre la série en pause',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () {
+                      for (final download in controllableItems) {
+                        final id = download.id ?? -1;
+                        final isPaused =
+                            _queueState.pausedIds.contains(id) ||
+                            download.status == 'paused';
+                        if (allUnfinishedPaused || !isPaused) {
+                          widget.onPauseResume(download);
+                        }
+                      }
+                    },
+                    icon: Icon(
+                      allUnfinishedPaused
+                          ? Icons.play_arrow_rounded
+                          : Icons.pause_rounded,
+                      color: allUnfinishedPaused
+                          ? scheme.primary
+                          : Colors.orange,
+                    ),
+                  ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${items.length}',
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    AnimatedRotation(
+                      turns: isCollapsed ? -0.25 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        Icons.expand_more_rounded,
+                        size: 21,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
-        AnimatedCrossFade(
-          duration: const Duration(milliseconds: 200),
-          crossFadeState: isCollapsed
-              ? CrossFadeState.showFirst
-              : CrossFadeState.showSecond,
-          firstChild: const SizedBox.shrink(),
-          secondChild: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: items
-                .asMap()
-                .entries
-                .map(
-                  (entry) => _buildConnectedSeriesChild(
-                    entry.value,
-                    isLast: entry.key == items.length - 1,
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _seriesSwipeBackground({
+  Widget _swipeBackground({
     required Alignment alignment,
     required Color color,
     required IconData icon,
@@ -1892,9 +2071,56 @@ class _GroupedDownloadTabListState
     );
   }
 
+  /// A download's own artwork when the extension provides one, otherwise the
+  /// parent series cover. Resolving it here keeps every card on its own
+  /// thumbnail instead of all falling back to the same series poster.
+  String? _resolveCover(Download download) {
+    final direct = download.posterUrl?.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final chapter = download.chapter.value;
+    final chapterThumb = chapter?.thumbnailUrl?.trim();
+    if (chapterThumb != null && chapterThumb.isNotEmpty) return chapterThumb;
+    final manga = chapter?.manga.value;
+    final mangaImage = manga?.imageUrl?.trim();
+    if (mangaImage != null && mangaImage.isNotEmpty) return mangaImage;
+    return null;
+  }
+
+  Widget _buildDownloadRow(DownloadEntryRow row) {
+    final dismissible = _buildDismissible(
+      row.download,
+      isSeriesChild: row.isSeriesChild,
+    );
+    if (!row.isSeriesChild) return dismissible;
+    final connectorColor = Theme.of(
+      context,
+    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 20,
+              child: CustomPaint(
+                painter: DownloadQueueTreeConnector(
+                  color: connectorColor,
+                  isLast: row.isLastChild,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+            Expanded(child: dismissible),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDismissible(Download element, {bool isSeriesChild = false}) {
     final isPaused =
-        widget.queueState.pausedIds.contains(element.id ?? -1) ||
+        _queueState.pausedIds.contains(element.id ?? -1) ||
         element.status == 'paused' ||
         element.status == 'cancelled';
     final isCancelled = element.status == 'cancelled';
@@ -1904,14 +2130,13 @@ class _GroupedDownloadTabListState
         : itemType == ItemType.novel
         ? 'HERMES'
         : 'HYDRA';
-    final engine =
-        widget.queueState.engineMap[element.id ?? -1] ?? defaultBadge;
-    final retryCount = widget.queueState.retryCounts[element.id ?? -1] ?? 0;
-    final priority = widget.queueState.priorities[element.id ?? -1] ?? 0;
-    final liveProgress = widget.queueState.liveProgress[element.id ?? -1];
+    final engine = _queueState.engineMap[element.id ?? -1] ?? defaultBadge;
+    final retryCount = _queueState.retryCounts[element.id ?? -1] ?? 0;
+    final priority = _queueState.priorities[element.id ?? -1] ?? 0;
+    final liveProgress = _queueState.liveProgress[element.id ?? -1];
 
     return Dismissible(
-      key: ValueKey('dl_${element.id ?? 0}'),
+      key: ValueKey('dl_swipe_${element.id ?? identityHashCode(element)}'),
       direction: DismissDirection.horizontal,
       dismissThresholds: const {
         DismissDirection.startToEnd: 0.30,
@@ -1990,7 +2215,7 @@ class _GroupedDownloadTabListState
           retryCount: retryCount,
           priority: priority,
           liveProgress: liveProgress,
-          speedMbs: widget.queueState.speeds[element.id ?? -1] ?? 0,
+          speedMbs: _queueState.speeds[element.id ?? -1] ?? 0,
           swipeLeftAction: widget.swipeLeft,
           swipeRightAction: widget.swipeRight,
           onPauseResume: () => isCancelled
@@ -2005,246 +2230,7 @@ class _GroupedDownloadTabListState
       ),
     );
   }
-
-  Widget _buildConnectedSeriesChild(Download download, {required bool isLast}) {
-    final connectorColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: 20,
-              child: CustomPaint(
-                painter: DownloadQueueTreeConnector(
-                  color: connectorColor,
-                  isLast: isLast,
-                ),
-                child: const SizedBox.expand(),
-              ),
-            ),
-            Expanded(child: _buildDismissible(download, isSeriesChild: true)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final groups = _groupBySource();
-    if (groups.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              widget.emptyIcon,
-              size: 60,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.12),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              widget.emptyLabel,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final sources = _orderedSources(groups);
-    final scheme = Theme.of(context).colorScheme;
-
-    // Keep source/extension sections visible even when only one is installed.
-    return ReorderableListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
-      buildDefaultDragHandles: false,
-      itemCount: sources.length,
-      proxyDecorator: (child, _, _) => Material(
-        color: Colors.transparent,
-        elevation: 6,
-        shadowColor: scheme.shadow.withValues(alpha: 0.4),
-        child: child,
-      ),
-      onReorderItem: (oldIdx, newIdx) {
-        setState(() {
-          final moved = sources.removeAt(oldIdx);
-          sources.insert(newIdx, moved);
-          _persistOrder(List<String>.from(sources));
-        });
-      },
-      itemBuilder: (ctx, idx) {
-        final src = sources[idx];
-        final items = groups[src]!;
-        final seriesGroups = _groupBySeries(items);
-        final visibleSeriesGroups = seriesGroups.entries
-            .where(
-              (entry) =>
-                  entry.value.any((download) => download.isDownload != true),
-            )
-            .toList(growable: false);
-        final isCollapsed = _collapsed.contains(src);
-        final itemType = items.first.chapter.value?.manga.value?.itemType;
-        final sourceManga = items.first.chapter.value?.manga.value;
-        final sourceIconUrl = sourceManga == null
-            ? null
-            : getSource(
-                sourceManga.lang ?? '',
-                src,
-                sourceManga.sourceId,
-              )?.iconUrl?.trim();
-        final sourceFallbackIcon = itemType == ItemType.anime
-            ? Icons.play_circle_outline
-            : itemType == ItemType.novel
-            ? Icons.auto_stories_outlined
-            : Icons.menu_book_outlined;
-
-        return KeyedSubtree(
-          key: ValueKey('src_$src'),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Source group header ─────────────────────────────────
-              ReorderableDelayedDragStartListener(
-                index: idx,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => setState(() {
-                      if (_collapsed.contains(src)) {
-                        _collapsed.remove(src);
-                      } else {
-                        _collapsed.add(src);
-                      }
-                    }),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHigh.withValues(
-                          alpha: 0.55,
-                        ),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: scheme.outlineVariant.withValues(alpha: 0.5),
-                            width: 0.5,
-                          ),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            clipBehavior: Clip.antiAlias,
-                            decoration: BoxDecoration(
-                              color: scheme.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: sourceIconUrl?.isNotEmpty == true
-                                ? cachedNetworkImage(
-                                    imageUrl: sourceIconUrl!,
-                                    fit: BoxFit.contain,
-                                    width: 28,
-                                    height: 28,
-                                    useCustomNetworkImage: false,
-                                    errorWidget: Icon(
-                                      sourceFallbackIcon,
-                                      size: 15,
-                                      color: scheme.primary,
-                                    ),
-                                  )
-                                : Icon(
-                                    sourceFallbackIcon,
-                                    size: 15,
-                                    color: scheme.primary,
-                                  ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Source name
-                          Expanded(
-                            child: Text(
-                              _displayName(src),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: scheme.onSurface,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          // Count badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.primary.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${items.where((item) => item.isDownload != true).length}',
-                              style: TextStyle(
-                                color: scheme.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          // Collapse chevron
-                          AnimatedRotation(
-                            turns: isCollapsed ? -0.25 : 0,
-                            duration: const Duration(milliseconds: 200),
-                            child: Icon(
-                              Icons.expand_more_rounded,
-                              size: 20,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // ── Download items (animated collapse) ──────────────────
-              AnimatedCrossFade(
-                duration: const Duration(milliseconds: 200),
-                crossFadeState: isCollapsed
-                    ? CrossFadeState.showFirst
-                    : CrossFadeState.showSecond,
-                firstChild: const SizedBox.shrink(),
-                secondChild: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: visibleSeriesGroups.map((group) {
-                    return _buildSeriesGroup(group.key, group.value);
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
-
-// ──────────────────────────────────────────────────────────────
 // Download Card — with cover + progressive swipe
 // ──────────────────────────────────────────────────────────────
 
@@ -2411,12 +2397,7 @@ class _DownloadCard extends ConsumerWidget {
     final fileDetails = fileMetadata.join(' • ');
     final progressLabel = isComplete && itemType == ItemType.anime
         ? ''
-        : _buildProgressLabel(
-      itemType,
-      succeeded,
-      total,
-      failed,
-    );
+        : _buildProgressLabel(itemType, succeeded, total, failed);
 
     final scheme = Theme.of(context).colorScheme;
 
@@ -2571,81 +2552,69 @@ class _DownloadCard extends ConsumerWidget {
           ? 'En pause'
           : progressLabel;
 
-      return Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerLow.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.30),
-            width: 0.5,
-          ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-          child: Row(
-            children: [
-              _CoverThumbnail(
-                imageUrl: manga?.imageUrl,
-                customBytes: manga?.customCoverImage?.cast<int>(),
-                itemType: itemType,
-                width: 40,
-                height: 56,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            _CoverThumbnail(
+              imageUrl: _itemCover(download),
+              customBytes: manga?.customCoverImage?.cast<int>(),
+              itemType: itemType,
+              width: 40,
+              height: 56,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    childTitle,
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: 12.5,
+                      height: 1.15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  if (childDetails.isNotEmpty) ...[
+                    const SizedBox(height: 4),
                     Text(
-                      childTitle,
+                      childDetails,
                       style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 12.5,
-                        height: 1.15,
-                        fontWeight: FontWeight.w600,
+                        color: hasFailed || isCancelled
+                            ? Colors.redAccent
+                            : statusColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
-                    if (childDetails.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        childDetails,
-                        style: TextStyle(
-                          color: hasFailed || isCancelled
-                              ? Colors.redAccent
-                              : statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    if (progressBar != null) ...[
-                      const SizedBox(height: 4),
-                      progressBar,
-                    ],
                   ],
-                ),
+                  if (progressBar != null) ...[
+                    const SizedBox(height: 4),
+                    progressBar,
+                  ],
+                ],
               ),
-              const SizedBox(width: 5),
-              MbRowActions(
-                isComplete: isComplete,
-                hasFailed: hasFailed,
-                isPaused: isPaused,
-                onPauseResume: onPauseResume,
-                onCancel: onCancel,
-                onDelete: onDelete,
-                onRetry: onRetry,
-                onOpen: onOpen,
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 5),
+            MbRowActions(
+              isComplete: isComplete,
+              hasFailed: hasFailed,
+              isPaused: isPaused,
+              onPauseResume: onPauseResume,
+              onCancel: onCancel,
+              onDelete: onDelete,
+              onRetry: onRetry,
+              onOpen: onOpen,
+            ),
+          ],
         ),
       );
     }
@@ -2654,8 +2623,7 @@ class _DownloadCard extends ConsumerWidget {
     // Ultra-dense: single row with title · chapter, status dot, and action icon.
     // Progress shown as a hairline bar at the bottom.
     if (layout == DownloadCardLayout.minimal) {
-      return Container(
-        color: Colors.transparent,
+      return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2761,8 +2729,7 @@ class _DownloadCard extends ConsumerWidget {
 
     // ── Compact layout ──────────────────────────────────────────────────────
     if (layout == DownloadCardLayout.compact) {
-      return Container(
-        color: Colors.transparent,
+      return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2834,128 +2801,113 @@ class _DownloadCard extends ConsumerWidget {
     // ── Media layout ────────────────────────────────────────────────────────
     // Large card with a prominent cover — designed for anime / video queues.
     if (layout == DownloadCardLayout.media) {
-      return Container(
-        color: Colors.transparent,
+      return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Container(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
-              width: 0.5,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _CoverThumbnail(
+              imageUrl: _itemCover(download),
+              customBytes: manga?.customCoverImage?.cast<int>(),
+              itemType: itemType,
+              width: 70,
+              height: 100,
             ),
-          ),
-          clipBehavior: Clip.hardEdge,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _CoverThumbnail(
-                imageUrl: manga?.imageUrl,
-                customBytes: manga?.customCoverImage?.cast<int>(),
-                itemType: itemType,
-                width: 70,
-                height: 100,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        manga?.name ?? 'Inconnu',
-                        style: TextStyle(
-                          color: scheme.onSurface,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      manga?.name ?? 'Inconnu',
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        chapter?.name ?? '',
-                        style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      chapter?.name ?? '',
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 12,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            priority > 0 ? '⚡ $engine' : engine,
+                            style: TextStyle(
+                              color: scheme.primary,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            statusText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        if ((progress > 0 ||
+                                isIndeterminateTransfer ||
+                                hasKnownUnitProgress) &&
+                            !isComplete)
+                          Text(
+                            progressLabel,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant.withValues(
+                                alpha: 0.7,
+                              ),
+                              fontSize: 10,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (progressBar != null) ...[
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              priority > 0 ? '⚡ $engine' : engine,
-                              style: TextStyle(
-                                color: scheme.primary,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              statusText,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          if ((progress > 0 ||
-                                  isIndeterminateTransfer ||
-                                  hasKnownUnitProgress) &&
-                              !isComplete)
-                            Text(
-                              progressLabel,
-                              style: TextStyle(
-                                color: scheme.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
-                                ),
-                                fontSize: 10,
-                              ),
-                            ),
+                          Expanded(child: progressBar!),
+                          const SizedBox(width: 8),
+                          actionBtn,
                         ],
                       ),
-                      if (progressBar != null) ...[
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(child: progressBar!),
-                            const SizedBox(width: 8),
-                            actionBtn,
-                          ],
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 4),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: actionBtn,
-                        ),
-                      ],
+                    ] else ...[
+                      const SizedBox(height: 4),
+                      Align(alignment: Alignment.centerRight, child: actionBtn),
                     ],
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -2970,7 +2922,7 @@ class _DownloadCard extends ConsumerWidget {
           children: [
             // Larger cover
             _CoverThumbnail(
-              imageUrl: manga?.imageUrl,
+              imageUrl: _itemCover(download),
               customBytes: manga?.customCoverImage?.cast<int>(),
               itemType: itemType,
               width: 60,
@@ -3060,13 +3012,12 @@ class _DownloadCard extends ConsumerWidget {
     }
 
     // ── Standard layout (default) ───────────────────────────────────────────
-    return Container(
-      color: Colors.transparent,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
           MbThumb(
-            imageUrl: download.posterUrl ?? manga?.imageUrl,
+            imageUrl: _itemCover(download),
             customBytes: manga?.customCoverImage?.cast<int>(),
             itemType: itemType,
             badge: srcBadge,
@@ -3167,6 +3118,21 @@ class _DownloadCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// This download's own artwork when the extension provides one, otherwise
+  /// the parent series cover. Resolving per item keeps each card on its own
+  /// thumbnail instead of every card falling back to the same series poster.
+  String? _itemCover(Download download) {
+    final direct = download.posterUrl?.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final chapter = download.chapter.value;
+    final chapterThumb = chapter?.thumbnailUrl?.trim();
+    if (chapterThumb != null && chapterThumb.isNotEmpty) return chapterThumb;
+    final manga = chapter?.manga.value;
+    final mangaImage = manga?.imageUrl?.trim();
+    if (mangaImage != null && mangaImage.isNotEmpty) return mangaImage;
+    return null;
   }
 
   String _buildProgressLabel(

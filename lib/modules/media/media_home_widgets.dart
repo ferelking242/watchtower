@@ -1929,16 +1929,19 @@ abstract final class CatalogBulkDownload {
     final detail = await ref.read(
       getDetailProvider(url: url, source: source).future,
     );
-    final mangaCandidates = isar.mangas
-        .filter()
-        .sourceIdEqualTo(source.id)
-        .findAllSync();
+    // Point lookup instead of scanning every manga of the source: a bulk run
+    // can enqueue hundreds of items back to back.
     Manga? existing;
-    for (final candidate in mangaCandidates) {
-      if (candidate.link == url) {
-        existing = candidate;
-        break;
-      }
+    try {
+      existing = isar.mangas
+          .filter()
+          .sourceIdEqualTo(source.id)
+          .and()
+          .linkEqualTo(url)
+          .findFirstSync();
+    } catch (_) {
+      // A corrupt row must not abort the whole batch.
+      existing = null;
     }
     final name =
         item.name?.trim().isNotEmpty == true
