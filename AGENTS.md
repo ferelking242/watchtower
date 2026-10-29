@@ -508,6 +508,14 @@ must return that URL unchanged (see the extension's `harimanga.js`).
   `ref.watch(headersProvider(...))`, which is what makes every nested card send
   the headers. A new extension screen that renders covers must install it too,
   or its artwork silently falls back to placeholders.
+- A pushed route does **not** inherit the scope. `TmdbMoviesListScreen`, which
+  is what every "tout voir" / see-all action opens, installs it itself from
+  `widget.extensionSource`. This was the 2026-10-29 Harimanga bug: the home and
+  search covers loaded, but every see-all page showed placeholders because its
+  log lines read `ref=NONE ua=NONE` while the home ones read
+  `ref=www.harimanga.co.uk ua=yes`. Any new screen reached through
+  `Navigator.push` must install the scope on its own; the log line's `ref=` /
+  `ua=` pair is the fastest way to tell which side of the push you are on.
 - Any widget that calls `cachedNetworkImage` directly instead of going through
   `ContentImage` bypasses the scope and must read `ExtensionImageHeaders.of`
   itself (see `_CatalogListRow`, `AppGenreTile`).

@@ -25,6 +25,7 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/extension_image_headers.dart';
+import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
@@ -2470,7 +2471,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     final movies = _sortedMovies;
     final extensionItems = _sortedExtensionItems;
     final isFrench = Localizations.localeOf(context).languageCode == 'fr';
-    return Scaffold(
+    final screen = Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
@@ -2514,6 +2515,24 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           : movies.isEmpty && _loading
           ? const AppMediaGridShimmer()
           : _buildMoviesBody(movies, isFrench),
+    );
+
+    final source = widget.extensionSource;
+    if (source == null) return screen;
+
+    // "See all" pages are pushed on their own route, so they do not inherit the
+    // home screen's ExtensionImageHeaders scope. Without this the covers are
+    // fetched headerless and hotlink-protected CDNs answer 403 (the log shows
+    // ref=NONE ua=NONE on this screen, ref=www.harimanga.co.uk ua=yes on home).
+    return ExtensionImageHeaders(
+      headers: ref.watch(
+        headersProvider(
+          source: source.name ?? '',
+          lang: source.lang ?? '',
+          sourceId: source.id,
+        ),
+      ),
+      child: screen,
     );
   }
 

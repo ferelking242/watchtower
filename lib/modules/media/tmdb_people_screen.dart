@@ -15,12 +15,14 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
+import 'package:watchtower/utils/headers.dart';
 
 const _tmdbBackground = Color(0xFF0B0B11);
 
@@ -413,12 +415,24 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
   @override
   Widget build(BuildContext context) {
     if (_isExtensionProfile) {
-      return Scaffold(
-        backgroundColor: _tmdbBackground,
-        body: FutureBuilder<MManga>(
-          future: _extensionDetails,
-          builder: (context, snapshot) =>
-              _buildExtensionProfile(context, snapshot.data),
+      // Reached through a Navigator.push from the extension home, so this route
+      // inherits no scope: install the extension headers here or the profile
+      // artwork is fetched headerless and a hotlink-protected CDN answers 403.
+      return ExtensionImageHeaders(
+        headers: ref.watch(
+          headersProvider(
+            source: widget.extensionSource?.name ?? '',
+            lang: widget.extensionSource?.lang ?? '',
+            sourceId: widget.extensionSource?.id,
+          ),
+        ),
+        child: Scaffold(
+          backgroundColor: _tmdbBackground,
+          body: FutureBuilder<MManga>(
+            future: _extensionDetails,
+            builder: (context, snapshot) =>
+                _buildExtensionProfile(context, snapshot.data),
+          ),
         ),
       );
     }
