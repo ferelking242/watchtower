@@ -196,8 +196,8 @@ class _CookieCardState extends State<_CookieCard> {
                     ),
                     child: Icon(
                       hasCookie
-                          ? Icons.cookie_rounded
-                          : Icons.no_food_outlined,
+                          ? Broken.cup
+                          : Broken.close_circle,
                       color: hasCookie ? cs.primary : cs.onSurfaceVariant,
                       size: 18,
                     ),
@@ -251,8 +251,8 @@ class _CookieCardState extends State<_CookieCard> {
                   const SizedBox(width: 4),
                   Icon(
                     _expanded
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
+                        ? Broken.arrow_up_2
+                        : Broken.arrow_down_2,
                     color: cs.onSurfaceVariant,
                     size: 20,
                   ),
@@ -295,7 +295,7 @@ class _CookieCardState extends State<_CookieCard> {
                       ),
                       contentPadding: const EdgeInsets.all(10),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.paste_rounded, size: 18),
+                        icon: const Icon(Broken.clipboard, size: 18),
                         tooltip: 'Coller depuis le presse-papiers',
                         onPressed: () async {
                           final data =
@@ -338,7 +338,7 @@ class _CookieCardState extends State<_CookieCard> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Icon(Icons.save_rounded, size: 16),
+                              : const Icon(Broken.save_2, size: 16),
                           label: const Text('Sauvegarder'),
                         ),
                       ),
@@ -359,7 +359,7 @@ class _CookieCardState extends State<_CookieCard> {
                               botToast('Cookie supprimé pour $host')();
                             } catch (_) {}
                           },
-                          icon: const Icon(Icons.delete_outline, size: 16),
+                          icon: const Icon(Broken.trash, size: 16),
                           label: const Text('Effacer'),
                         ),
                     ],

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Novel download settings sub-page
@@ -37,7 +38,7 @@ class NovelDownloadScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.auto_stories_outlined,
+                  Icon(Broken.book,
                       color: scheme.primary, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
@@ -58,7 +59,7 @@ class NovelDownloadScreen extends ConsumerWidget {
               label: 'Connexions simultanées',
               subtitle: 'Connexions parallèles par chapitre',
               value: novelConnections,
-              icon: Icons.download_outlined,
+              icon: Broken.document_download,
               onChanged: (v) =>
                   ref.read(novelConnectionsStateProvider.notifier).set(v),
               scheme: scheme,
@@ -67,7 +68,7 @@ class NovelDownloadScreen extends ConsumerWidget {
               label: 'Chapitres simultanés (file)',
               subtitle: 'Nombre de chapitres téléchargés en même temps',
               value: novelSimultaneous,
-              icon: Icons.queue_outlined,
+              icon: Broken.note_2,
               onChanged: (v) =>
                   ref.read(novelSimultaneousStateProvider.notifier).set(v),
               scheme: scheme,
@@ -77,7 +78,7 @@ class NovelDownloadScreen extends ConsumerWidget {
             _SectionHeader(title: 'Comportement'),
             SwitchListTile(
               dense: true,
-              secondary: const Icon(Icons.wifi_outlined),
+              secondary: const Icon(Broken.wifi),
               title: const Text('Wi-Fi uniquement'),
               subtitle: const Text(
                 'Télécharger uniquement via Wi-Fi',
@@ -209,7 +210,7 @@ class _InlineNumberPicker extends StatelessWidget {
       children: [
         IconButton(
           onPressed: value > min ? () => onChanged(value - 1) : null,
-          icon: const Icon(Icons.remove_circle_outline),
+          icon: const Icon(Broken.minus_cirlce),
         ),
         Container(
           width: 60,
@@ -230,7 +231,7 @@ class _InlineNumberPicker extends StatelessWidget {
         ),
         IconButton(
           onPressed: value < max ? () => onChanged(value + 1) : null,
-          icon: const Icon(Icons.add_circle_outline),
+          icon: const Icon(Broken.add_circle),
         ),
       ],
     );

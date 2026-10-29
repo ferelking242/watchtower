@@ -6,6 +6,8 @@ import Flutter
 // Les deux utilisent SIGURG → conflit → abort().
 // Fix : dlopen() appelé APRÈS l'init Flutter dans le channel handler.
 import Darwin   // dlopen / dlsym / dlerror
+import AVFoundation
+import MediaPlayer
 import app_links
 
 @main
@@ -116,6 +118,14 @@ import app_links
                 // Returns total physical RAM in megabytes.
                 // Used by DeviceCapabilities.dart to tier cache limits per device class.
                 result(Int(ProcessInfo.processInfo.physicalMemory / 1024 / 1024))
+
+            case "isCharging":
+                // Drives the library auto-update "only while charging"
+                // restriction. Reading the state enables battery monitoring.
+                let device = UIDevice.current
+                device.isBatteryMonitoringEnabled = true
+                let state = device.batteryState
+                result(state == .charging || state == .full)
 
             case "getYtDlpPath":
                 // Rootless (Dopamine/Fugu15): prefix /var/jb
@@ -272,6 +282,35 @@ import app_links
             }
         }
 
+        // ── Volume-key navigation (reader) ─────────────────────────────────────────
+        // iOS exposes no key-down callback for the hardware volume buttons, so we
+        // observe the audio session's output volume instead: a change means a
+        // button was pressed. We immediately restore the previous level so the
+        // device volume never actually moves, and the direction is forwarded to
+        // the reader over the same channel the Android side uses.
+        let volumeEventChannel = FlutterEventChannel(
+            name: "com.watchtower.app.volume_keys",
+            binaryMessenger: controller.binaryMessenger
+        )
+        let volumeEventStreamHandler = VolumeKeyStreamHandler()
+        volumeEventChannel.setStreamHandler(volumeEventStreamHandler)
+
+        let volumeMethodChannel = FlutterMethodChannel(
+            name: "com.watchtower.app.volume_keys",
+            binaryMessenger: controller.binaryMessenger
+        )
+        volumeMethodChannel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+            switch call.method {
+            case "setEnabled":
+                let args    = call.arguments as? [String: Any]
+                let enabled = (args?["enabled"] as? Bool) ?? false
+                volumeEventStreamHandler.setEnabled(enabled)
+                result(nil)
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
+
         // ── Register all Flutter plugins (wrapped in ObjC exception handler) ───────
         // A duplicate plugin registration throws NSInvalidArgumentException and
         // crashes the process with SIGABRT. PluginSafeRegistrar catches the exception
@@ -299,5 +338,87 @@ import app_links
     ) -> Bool {
         AppLinks.shared.handleLink(url: url)
         return super.application(app, open: url, options: options)
+    }
+}
+
+/// Bridges iOS hardware volume buttons to the reader's page navigation.
+///
+/// The system gives no key event for volume buttons, so we watch
+/// `AVAudioSession.outputVolume` and treat every change as one press. The
+/// volume is restored right away, so the physical level is unchanged.
+class VolumeKeyStreamHandler: NSObject, FlutterStreamHandler {
+    private var sink: FlutterEventSink?
+    private var enabled = false
+    private var volumeView: MPVolumeView?
+    private var lastVolume: Float = 0
+
+    func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+        sink = events
+        return nil
+    }
+
+    func onCancel(withArguments arguments: Any?) -> FlutterError? {
+        sink = nil
+        setEnabled(false)
+        return nil
+    }
+
+    func setEnabled(_ value: Bool) {
+        if value == enabled { return }
+        enabled = value
+
+        let session = AVAudioSession.sharedInstance()
+        try? session.setActive(true)
+
+        if value {
+            lastVolume = session.outputVolume
+            // MPVolumeView is only needed to programmatically reset the volume.
+            if volumeView == nil {
+                volumeView = MPVolumeView(frame: .zero)
+            }
+            session.addObserver(
+                self,
+                forKeyPath: "outputVolume",
+                options: [.new],
+                context: nil
+            )
+        } else {
+            session.removeObserver(self, forKeyPath: "outputVolume")
+            volumeView?.removeFromSuperview()
+            volumeView = nil
+        }
+    }
+
+    override func observeValue(
+        forKeyPath keyPath: String?,
+        of object: Any?,
+        change: [NSKeyValueChangeKey: Any]?,
+        context: UnsafeMutableRawPointer?
+    ) {
+        guard keyPath == "outputVolume", enabled else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
+            return
+        }
+
+        let newVolume = (change?[.newKey] as? NSNumber)?.floatValue
+            ?? AVAudioSession.sharedInstance().outputVolume
+
+        // Ignore the echo of our own restore.
+        if abs(newVolume - lastVolume) < 0.0001 { return }
+
+        let direction = newVolume > lastVolume ? 1 : -1
+        let previous  = lastVolume
+        lastVolume = newVolume
+
+        restoreVolume(previous)
+        sink?(direction)
+    }
+
+    private func restoreVolume(_ level: Float) {
+        guard let slider = volumeView?.subviews.compactMap({ $0 as? UISlider }).first else { return }
+        DispatchQueue.main.async { [weak self] in
+            slider.value = level
+            self?.lastVolume = level
+        }
     }
 }

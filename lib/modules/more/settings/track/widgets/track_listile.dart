@@ -5,6 +5,7 @@ import 'package:watchtower/modules/more/settings/track/providers/track_providers
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class TrackListile extends ConsumerWidget {
   final VoidCallback onTap;
@@ -39,7 +40,7 @@ class TrackListile extends ConsumerWidget {
           child: Image.asset(trackInfos(id).$1, height: 30),
         ),
         trailing: (isLogged
-            ? const Icon(Icons.check, size: 30, color: Colors.green)
+            ? const Icon(Broken.check, size: 30, color: Colors.green)
             : null),
         onTap: isLogged
             ? () {

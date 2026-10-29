@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode_state_provider.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // Adapted: multipliedRadius (Namida ext) → inline constant
 // Adapted: e.toIcon() (Namida ext on ThemeMode) → _themeModeIcon()
@@ -65,11 +66,11 @@ class _ToggleThemeModeContainerState
   IconData _themeModeToIcon(ThemeMode e) {
     switch (e) {
       case ThemeMode.light:
-        return Icons.light_mode_rounded;
+        return Broken.sun;
       case ThemeMode.dark:
-        return Icons.dark_mode_rounded;
+        return Broken.moon;
       case ThemeMode.system:
-        return Icons.brightness_auto_rounded;
+        return Broken.monitor;
     }
   }
 

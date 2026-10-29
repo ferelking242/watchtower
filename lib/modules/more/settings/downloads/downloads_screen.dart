@@ -16,6 +16,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/watchtower_folder_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hub screen
@@ -53,21 +54,21 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             // ── Par média ─────────────────────────────────────────────────
             _SectionHeader(title: 'Par média'),
             _NavTile(
-              icon: Icons.play_circle_outline,
+              icon: Broken.play_circle,
               label: 'Watch',
               subtitle: 'Moteur, connexions, épisodes, fillers',
               iconColor: scheme.primary,
               onTap: () => _push(context, const WatchDownloadScreen()),
             ),
             _NavTile(
-              icon: Icons.menu_book_outlined,
+              icon: Broken.book,
               label: 'Manga',
               subtitle: 'Format d\'archive, compression, chapitres',
               iconColor: scheme.secondary,
               onTap: () => _push(context, const MangaDownloadScreen()),
             ),
             _NavTile(
-              icon: Icons.auto_stories_outlined,
+              icon: Broken.book,
               label: 'Roman',
               subtitle: 'Connexions, téléchargements Wi-Fi',
               iconColor: scheme.tertiary,
@@ -77,7 +78,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             // ── Général ───────────────────────────────────────────────────
             _SectionHeader(title: 'Général'),
             ListTile(
-              leading: const Icon(Icons.download_outlined),
+              leading: const Icon(Broken.document_download),
               title: const Text('Téléchargements simultanés (max)'),
               subtitle: Text(
                 '$concurrentDownloads téléchargement(s) en parallèle',
@@ -98,7 +99,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.speed_outlined),
+              leading: const Icon(Broken.timer),
               title: const Text('Limite de vitesse'),
               subtitle: Text(
                 speedLimit == 0
@@ -115,7 +116,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               onTap: () => _showSpeedLimitDialog(context, speedLimit),
             ),
             ListTile(
-              leading: const Icon(Icons.save_outlined),
+              leading: const Icon(Broken.save_2),
               title: const Text('Mode d\'écriture disque'),
               subtitle: Text(switch (writeMode) {
                 0 => '.part + reprise automatique (recommandé)',
@@ -144,7 +145,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             // ── Cartes & Gestes ───────────────────────────────────────────
             _SectionHeader(title: 'Cartes & Gestes'),
             _NavTile(
-              icon: Icons.credit_card_outlined,
+              icon: Broken.card,
               label: 'Cartes de téléchargement',
               subtitle: 'Boutons affichés et actions de balayage',
               iconColor: scheme.primary,
@@ -154,7 +155,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             // ── Suppression ───────────────────────────────────────────────
             _SectionHeader(title: 'Suppression'),
             SwitchListTile(
-              secondary: const Icon(Icons.auto_delete_outlined),
+              secondary: const Icon(Broken.trash),
               title: const Text('Suppression automatique après lecture'),
               subtitle: const Text(
                 'Supprime le fichier une fois le contenu lu/visionné',
@@ -166,7 +167,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   .set(v),
             ),
             SwitchListTile(
-              secondary: const Icon(Icons.bookmark_outlined),
+              secondary: const Icon(Broken.bookmark),
               title: const Text(
                 'Autoriser la suppression des chapitres marqués',
               ),
@@ -188,7 +189,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 return Column(
                   children: [
                     SwitchListTile(
-                      secondary: const Icon(Icons.history_rounded),
+                      secondary: const Icon(Broken.clock),
                       title: const Text('Historique dans le dock'),
                       subtitle: const Text(
                         'Affiche l\'onglet Historique dans la barre de navigation',
@@ -206,7 +207,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                       },
                     ),
                     SwitchListTile(
-                      secondary: const Icon(Icons.new_releases_outlined),
+                      secondary: const Icon(Broken.magic_star),
                       title: const Text('Mises à jour dans le dock'),
                       subtitle: const Text(
                         'Affiche l\'onglet Mises à jour dans la barre de navigation',
@@ -231,12 +232,12 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             // ── Dossiers locaux ───────────────────────────────────────────
             _SectionHeader(title: l10n.local_folder),
             ListTile(
-              leading: const Icon(Icons.refresh_outlined),
+              leading: const Icon(Broken.refresh),
               title: Text(l10n.rescan_local_folder),
               onTap: () async => ref.read(scanLocalLibraryProvider.future),
             ),
             ListTile(
-              leading: const Icon(Icons.add_outlined),
+              leading: const Icon(Broken.add),
               title: Text(l10n.add_local_folder),
               onTap: () async {
                 final result = await FilePicker.getDirectoryPath();
@@ -256,7 +257,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     padding: const EdgeInsets.only(right: 8, top: 4, bottom: 8),
                     child: OutlinedButton.icon(
                       onPressed: () => _showHelpDialog(context),
-                      label: const Icon(Icons.question_mark),
+                      label: const Icon(Broken.message_question),
                       icon: const Text('Folder Structure'),
                     ),
                   ),
@@ -429,30 +430,30 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
         (
           'MangaName',
           [
-            ('cover.jpg', Icons.image_outlined),
+            ('cover.jpg', Broken.image),
             (
               'Chapter1',
               [
-                ('Page1.jpg', Icons.image_outlined),
-                ('Page2.jpeg', Icons.image_outlined),
+                ('Page1.jpg', Broken.image),
+                ('Page2.jpeg', Broken.image),
               ],
             ),
-            ('Chapter2.cbz', Icons.folder_zip_outlined),
+            ('Chapter2.cbz', Broken.archive),
           ],
         ),
         (
           'AnimeName',
           [
-            ('cover.jpg', Icons.image_outlined),
-            ('Episode1.mp4', Icons.video_file_outlined),
-            ('Episode1_subtitles', [('en.srt', Icons.subtitles_outlined)]),
+            ('cover.jpg', Broken.image),
+            ('Episode1.mp4', Broken.video),
+            ('Episode1_subtitles', [('en.srt', Broken.subtitle)]),
           ],
         ),
         (
           'NovelName',
           [
-            ('cover.jpg', Icons.image_outlined),
-            ('NovelName.epub', Icons.book_outlined),
+            ('cover.jpg', Broken.image),
+            ('NovelName.epub', Broken.book_1),
           ],
         ),
       ],
@@ -470,9 +471,9 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     const WidgetSpan(child: SizedBox(width: 20)),
                   if (level > 0)
                     const WidgetSpan(
-                      child: Icon(Icons.subdirectory_arrow_right),
+                      child: Icon(Broken.arrow_right_3),
                     ),
-                  const WidgetSpan(child: Icon(Icons.folder)),
+                  const WidgetSpan(child: Icon(Broken.folder)),
                   const WidgetSpan(child: SizedBox(width: 5)),
                   TextSpan(text: data.$1),
                 ],
@@ -490,7 +491,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             for (int i = 1; i < level; i++)
               const WidgetSpan(child: SizedBox(width: 20)),
             if (level > 0)
-              const WidgetSpan(child: Icon(Icons.subdirectory_arrow_right)),
+              const WidgetSpan(child: Icon(Broken.arrow_right_3)),
             WidgetSpan(child: Icon(data.$2 as IconData)),
             const WidgetSpan(child: SizedBox(width: 5)),
             TextSpan(text: data.$1),
@@ -552,7 +553,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Icon(Icons.label_outline_rounded),
+                  const Icon(Broken.tag),
                   const SizedBox(width: 10),
                   Expanded(child: Text(folder)),
                   if (isDefault)
@@ -604,7 +605,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.delete_outlined),
+                    icon: const Icon(Broken.trash),
                     tooltip: 'Supprimer le dossier',
                   ),
                 ],
@@ -677,7 +678,7 @@ class _NavTile extends StatelessWidget {
         subtitle,
         style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
       ),
-      trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+      trailing: Icon(Broken.arrow_right_3, color: scheme.onSurfaceVariant),
       onTap: onTap,
     );
   }
@@ -789,7 +790,7 @@ class _WatchtowerDossiersSectionState
             child: Row(
               children: [
                 Icon(
-                  Icons.folder_outlined,
+                  Broken.folder,
                   size: 13,
                   color: scheme.onSurfaceVariant,
                 ),
@@ -808,7 +809,7 @@ class _WatchtowerDossiersSectionState
                 ),
                 IconButton(
                   icon: Icon(
-                    Icons.refresh_rounded,
+                    Broken.refresh,
                     size: 16,
                     color: scheme.primary,
                   ),
@@ -842,7 +843,7 @@ class _WatchtowerDossiersSectionState
                 const SizedBox(height: 8),
                 FilledButton.icon(
                   onPressed: _requestPerms,
-                  icon: const Icon(Icons.folder_open_rounded, size: 16),
+                  icon: const Icon(Broken.folder_open, size: 16),
                   label: const Text('Autoriser l\'accès'),
                 ),
               ],
@@ -876,12 +877,12 @@ class _WatchtowerDossiersSectionState
               ),
               trailing: f.exists
                   ? Icon(
-                      Icons.check_circle_outline_rounded,
+                      Broken.tick_circle,
                       size: 17,
                       color: Colors.green.shade400,
                     )
                   : Icon(
-                      Icons.radio_button_unchecked_rounded,
+                      Broken.radio,
                       size: 17,
                       color: scheme.outlineVariant,
                     ),

@@ -7,6 +7,7 @@ import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/fetch_interval.dart';
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'update_manga_detail_providers.g.dart';
@@ -21,6 +22,18 @@ Future<dynamic> updateMangaDetail(
   try {
     final manga = isar.mangas.getSync(mangaId!);
     if (manga == null) return;
+
+    // Library update preferences (Mihon "Mises à jour" section). They only
+    // apply to background/library refreshes — opening a title always shows
+    // fresh data.
+    final autoRefreshMetadata = !isInit
+        ? ref.read(libraryAutoRefreshMetadataProvider)
+        : true;
+    final checkNewCover = !isInit
+        ? ref.read(libraryCheckNewCoverProvider)
+        : true;
+    final markDuplicateRead =
+        !isInit && ref.read(libraryMarkDuplicateReadProvider) == 1;
 
     // loadSync() so .isNotEmpty is reliable (IsarLinks are lazy by default).
     manga.chapters.loadSync();
@@ -51,21 +64,29 @@ Future<dynamic> updateMangaDetail(
     final imgUrl = getManga.imageUrl.trimmedOrDefault(manga.imageUrl);
     final now = DateTime.now().millisecondsSinceEpoch;
 
+    // Cover/synopsis are only rewritten when the user asked for it; the rest
+    // of the metadata is skipped entirely when auto-refresh is disabled.
+    if (checkNewCover) {
+      manga
+        ..imageUrl = imgUrl == null
+            ? null
+            : imgUrl.startsWith('http')
+            ? imgUrl
+            : '${source.baseUrl ?? ''}/${imgUrl.getUrlWithoutDomain}'
+        ..description =
+            getManga.description.trimmedOrDefault(manga.description) ?? "";
+    }
+    if (autoRefreshMetadata) {
+      manga
+        ..name = getManga.name.trimmedOrDefault(manga.name)
+        ..genre = (genre.isEmpty ? null : genre) ?? manga.genre ?? []
+        ..author = getManga.author.trimmedOrDefault(manga.author) ?? ""
+        ..artist = getManga.artist.trimmedOrDefault(manga.artist) ?? ""
+        ..status = getManga.status == Status.unknown
+            ? manga.status
+            : getManga.status ?? Status.unknown;
+    }
     manga
-      ..imageUrl = imgUrl == null
-          ? null
-          : imgUrl.startsWith('http')
-          ? imgUrl
-          : '${source.baseUrl ?? ''}/${imgUrl.getUrlWithoutDomain}'
-      ..name = getManga.name.trimmedOrDefault(manga.name)
-      ..genre = (genre.isEmpty ? null : genre) ?? manga.genre ?? []
-      ..author = getManga.author.trimmedOrDefault(manga.author) ?? ""
-      ..artist = getManga.artist.trimmedOrDefault(manga.artist) ?? ""
-      ..status = getManga.status == Status.unknown
-          ? manga.status
-          : getManga.status ?? Status.unknown
-      ..description =
-          getManga.description.trimmedOrDefault(manga.description) ?? ""
       ..link = getManga.link.trimmedOrDefault(manga.link)
       ..source = manga.source
       ..lang = manga.lang
@@ -93,10 +114,12 @@ Future<dynamic> updateMangaDetail(
       // a chapter the user has already read, the new entry is pre-marked read.
       final recognition = ChapterRecognition();
       final readByNumber = <int, bool>{};
+      final existingByNumber = <int>{};
       for (final c in existingChapters) {
         if (c.name == null) continue;
         final num = recognition.parseChapterNumber(manga.name ?? '', c.name!);
         if (num > 0) {
+          existingByNumber.add(num);
           readByNumber[num] =
               (readByNumber[num] ?? false) || (c.isRead ?? false);
         }
@@ -118,7 +141,12 @@ Future<dynamic> updateMangaDetail(
           final chapNum = chap.name != null
               ? recognition.parseChapterNumber(manga.name!, chap.name!)
               : 0;
-          final alreadyRead = chapNum > 0 && (readByNumber[chapNum] ?? false);
+          final alreadyRead =
+              chapNum > 0 &&
+              ((readByNumber[chapNum] ?? false) ||
+                  // "Marquer un chapitre dupliqué comme lu": a chapter number
+                  // already present under another scanlator counts as duplicate.
+                  (markDuplicateRead && existingByNumber.contains(chapNum)));
 
           final newChapter = Chapter(
             name: chap.name!,

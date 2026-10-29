@@ -10,6 +10,7 @@ package com.watchtower.app
   import android.net.Uri
   import android.os.Build
   import android.os.Environment
+  import android.view.KeyEvent
   import androidx.annotation.NonNull
   import androidx.core.content.FileProvider
   import io.flutter.embedding.android.FlutterFragmentActivity
@@ -31,6 +32,14 @@ package com.watchtower.app
       // ── Shizuku permission callback ────────────────────────────────────────
       private var pendingShizukuResult: MethodChannel.Result? = null
   private var _wakeLock: android.os.PowerManager.WakeLock? = null
+
+  // ── Volume-key navigation ──────────────────────────────────────────────
+  // The volume_controller plugin relies on the VOLUME_CHANGED_ACTION
+  // broadcast, which Android 13+ no longer delivers reliably. The reader
+  // instead intercepts the hardware keys here and forwards the direction
+  // over an EventChannel, so the system volume never moves.
+  private var volumeNavEnabled = false
+  private var volumeNavSink: io.flutter.plugin.common.EventChannel.EventSink? = null
       private val shizukuPermListener =
           Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
               if (requestCode == SHIZUKU_CODE) {
@@ -90,6 +99,18 @@ package com.watchtower.app
                       val mi = android.app.ActivityManager.MemoryInfo()
                       am.getMemoryInfo(mi)
                       result.success((mi.totalMem / 1024 / 1024).toInt())
+                  }
+                  // Used by the library auto-update "only while charging"
+                  // restriction. BATTERY_PROPERTY_STATUS returns the same value
+                  // as BatteryManager.BATTERY_STATUS_CHARGING (2) / FULL (5)
+                  // while plugged in, and DISCHARGING (3) otherwise.
+                  "isCharging" -> {
+                      val bm = getSystemService(BATTERY_SERVICE) as android.os.BatteryManager
+                      val status = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_STATUS)
+                      result.success(
+                          status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                              status == android.os.BatteryManager.BATTERY_STATUS_FULL
+                      )
                   }
                   else -> result.notImplemented()
               }
@@ -451,6 +472,50 @@ package com.watchtower.app
                   result.error("SVC_ERR", e.message, null)
               }
           }
+          // ── 13. Volume-key navigation (reader) ─────────────────────────────
+          io.flutter.plugin.common.EventChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.volume_keys"
+          ).setStreamHandler(object : io.flutter.plugin.common.EventChannel.StreamHandler {
+              override fun onListen(arguments: Any?, events: io.flutter.plugin.common.EventChannel.EventSink?) {
+                  volumeNavSink = events
+              }
+              override fun onCancel(arguments: Any?) {
+                  volumeNavSink = null
+              }
+          })
+
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "com.watchtower.app.volume_keys"
+          ).setMethodCallHandler { call, result ->
+              when (call.method) {
+                  "setEnabled" -> {
+                      volumeNavEnabled = call.argument<Boolean>("enabled") ?: false
+                      result.success(null)
+                  }
+                  else -> result.notImplemented()
+              }
+          }
+      }
+
+      override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+          if (volumeNavEnabled) {
+              val dir = when (event.keyCode) {
+                  KeyEvent.KEYCODE_VOLUME_UP   -> 1
+                  KeyEvent.KEYCODE_VOLUME_DOWN -> -1
+                  else -> 0
+              }
+              if (dir != 0) {
+                  if (event.action == KeyEvent.ACTION_DOWN &&
+                      event.repeatCount == 0) {
+                      volumeNavSink?.success(dir)
+                  }
+                  // Swallow both down and up so the system volume UI stays hidden.
+                  return true
+              }
+          }
+          return super.dispatchKeyEvent(event)
       }
 
       private fun openDownloadedFile(filePath: String?) {

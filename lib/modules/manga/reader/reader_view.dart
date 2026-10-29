@@ -1,7 +1,7 @@
 import 'package:watchtower/utils/log/logger.dart';
 import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:watchtower/modules/manga/reader/services/vol_nav_helper.dart';
+import 'package:watchtower/modules/manga/reader/services/volume_key_channel.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/foundation.dart';
@@ -187,15 +187,7 @@ class _MangaChapterPageGalleryState
   final Stopwatch _readingStopwatch = Stopwatch();
 
   // ── Volume-button navigation ───────────────────────────────────────────
-  double _lastVolume = 0.5;
   bool _volumeListenerActive = false;
-  // Restoring the physical volume fires the platform listener again. Instead of
-  // guessing with a time window (which swallowed genuine rapid presses), we
-  // remember the level we restored to and ignore any event that lands back on
-  // it: the echo of our own restore is always at the baseline, while a real key
-  // press moves the volume by one step.
-  double? _volumeBaseline;
-  static const double _volumeStepEpsilon = 0.01;
 
   /// Flag to prevent fullscreen from being disabled when navigating between
   /// chapters via pushReplacement. The old widget's dispose runs after the new
@@ -234,7 +226,7 @@ class _MangaChapterPageGalleryState
     // Tear down volume listener and restore system volume UI
     if (_volumeListenerActive) {
       _volumeListenerActive = false;
-      volNavDispose();
+      VolumeKeyChannel.disable();
     }
     _connectivitySub?.cancel();
     _tapZonesOverlayTimer?.cancel();
@@ -453,86 +445,48 @@ class _MangaChapterPageGalleryState
     return _readerController.getNextChapter();
   }
 
-  /// Wires volume-up/down key events to page navigation.
-  /// Works on Android and iOS; no-op on desktop/web.
-  /// Direction: Vol↑ = previous page, Vol↓ = next page (inverted when setting is on).
+  /// Wires hardware volume keys to page navigation.
+  ///
+  /// Direction: Vol↑ = previous page, Vol↓ = next page (inverted when the
+  /// "Inverser les boutons de volume" setting is on). Keys are intercepted by
+  /// the host activity, so the system volume never changes.
   Future<void> _initVolumeButtonNavigation() async {
-    // kIsWeb check is runtime, but vol_nav_helper is a no-op on web at
-    // compile time thanks to conditional exports — safe to call always.
     final settings = isar.settings.getSync(kSettingsId) ?? Settings();
     if (!(settings.volumeButtonNavigation ?? false)) return;
 
-    _lastVolume = await volNavInit();
-    _volumeBaseline = _lastVolume;
     _volumeListenerActive = true;
+    await VolumeKeyChannel.enable(_handleVolumeKey);
+  }
 
-    volNavListenRaw((newVolume) {
-      if (!mounted || !_volumeListenerActive) return;
+  void _handleVolumeKey(int direction) {
+    if (!mounted || !_volumeListenerActive) return;
 
-      // Ignore the echo of our own restore: the platform reports the volume
-      // back at the baseline we just set, whereas a genuine key press lands a
-      // step away from it.
-      final baseline = _volumeBaseline;
-      if (baseline != null &&
-          (newVolume - baseline).abs() <= _volumeStepEpsilon) {
-        _lastVolume = newVolume;
-        return;
-      }
+    final invert =
+        (isar.settings.getSync(kSettingsId) ?? Settings())
+            .invertVolumeButtonNavigation ??
+        false;
+    final readerMode = ref.read(_currentReaderMode);
+    final index = _currentIndex;
+    if (readerMode == null || index == null) return;
 
-      final invert =
-          (isar.settings.getSync(kSettingsId) ?? Settings()).invertVolumeButtonNavigation ?? false;
-      final readerMode = ref.read(_currentReaderMode);
-      if (readerMode == null || _currentIndex == null) return;
+    // direction: 1 = volume up, -1 = volume down.
+    final volUp = direction > 0;
+    final goNext = invert ? !volUp : volUp == false;
 
-      final volUp = newVolume > _lastVolume;
-      final volDown = newVolume < _lastVolume;
-      if (!volUp && !volDown) return;
-
-      // Capture baseline BEFORE updating so restore targets the right level.
-      final previousVolume = _lastVolume;
-      _lastVolume = newVolume;
-
-      // Restore the system volume so the physical level stays unchanged, then
-      // remember the restored level so its echo is ignored.
-      _volumeBaseline = previousVolume;
-      volNavRestore(previousVolume);
-      Future.delayed(const Duration(milliseconds: 80), () {
-        if (!_volumeListenerActive) return;
-        _volumeBaseline = previousVolume;
-      });
-
-      if (volUp) {
-        if (invert) {
-          navigationService.nextPage(
-            readerMode: readerMode,
-            currentIndex: _currentIndex!,
-            maxPages: _pageViewPageCount,
-            animate: true,
-          );
-        } else {
-          navigationService.previousPage(
-            readerMode: readerMode,
-            currentIndex: _currentIndex!,
-            animate: true,
-          );
-        }
-      } else {
-        if (invert) {
-          navigationService.previousPage(
-            readerMode: readerMode,
-            currentIndex: _currentIndex!,
-            animate: true,
-          );
-        } else {
-          navigationService.nextPage(
-            readerMode: readerMode,
-            currentIndex: _currentIndex!,
-            maxPages: _pageViewPageCount,
-            animate: true,
-          );
-        }
-      }
-    });
+    if (goNext) {
+      navigationService.nextPage(
+        readerMode: readerMode,
+        currentIndex: index,
+        maxPages: _pageViewPageCount,
+        animate: true,
+      );
+    } else {
+      navigationService.previousPage(
+        readerMode: readerMode,
+        currentIndex: index,
+        animate: true,
+      );
+    }
   }
 
   void _initWakelock() {
@@ -616,6 +570,18 @@ class _MangaChapterPageGalleryState
 
   @override
   Widget build(BuildContext context) {
+    // React to the volume-key toggle immediately: flipping it in the reader
+    // settings sheet must start/stop the hardware listener without reopening
+    // the chapter.
+    ref.listen<bool>(volumeButtonNavigationStateProvider, (_, enabled) {
+      if (!mounted) return;
+      if (enabled) {
+        _initVolumeButtonNavigation();
+      } else if (_volumeListenerActive) {
+        _volumeListenerActive = false;
+        VolumeKeyChannel.disable();
+      }
+    });
     final backgroundColor = ref.watch(backgroundColorStateProvider);
     final fullScreenReader = ref.watch(fullScreenReaderStateProvider);
     final cropBorders = ref.watch(cropBordersStateProvider);

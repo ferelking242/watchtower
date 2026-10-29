@@ -22,12 +22,14 @@ import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.d
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/library_auto_updater.dart';
 import 'package:watchtower/services/sync_server.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart';
 import 'package:watchtower/modules/home/widgets/home_header.dart'
     show showAccountSheet;
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
@@ -145,6 +147,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         _onSyncTimerTick,
       );
     }
+
+    // Library automatic updates (Mihon "Mises à jour" settings). The scheduler
+    // honours the user interval plus the Wi-Fi/charging restrictions.
+    LibraryAutoUpdater.instance.start(
+      ProviderScope.containerOf(context, listen: false),
+    );
   }
 
   void _initializeProviders() {
@@ -193,6 +201,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void dispose() {
     _backupTimer?.cancel();
     _syncTimer?.cancel();
+    LibraryAutoUpdater.instance.stop();
     discordRpc?.disconnect();
     super.dispose();
   }
@@ -392,8 +401,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ? dest
             : dest.where((nav) => nav != '/marketplace').toList();
         if (!inMarketplaceSubDock) {
-          final dockIndex = _dockDest.indexOf(location ?? _defaultLocation);
-          if (dockIndex >= 0) currentIndex = dockIndex;
+          final effectiveLocation = location ?? _defaultLocation;
+          final dockIndex = _dockDest.indexOf(effectiveLocation);
+          if (dockIndex >= 0) {
+            currentIndex = dockIndex;
+          } else if (libLocationRegex.hasMatch(effectiveLocation) &&
+              _dockDest.contains('_enableLibSwitch')) {
+            // The Hub entry stands in for every individual library route on
+            // the classic dock / tablet rail, which select by index. Without
+            // this the highlighted item stayed on the previous tab (Hub was
+            // left uncoloured when a library page was open).
+            currentIndex = _dockDest.indexOf('_enableLibSwitch');
+          } else if (effectiveLocation == '/Library' &&
+              _dockDest.contains('_enableLibrarySwitch')) {
+            currentIndex = _dockDest.indexOf('_enableLibrarySwitch');
+          }
         }
         final _cappedDest = _dockDest.take(4).toList();
         final _overflowRoutes = <String>[
@@ -594,8 +616,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     if (dest.contains("/Library")) {
       destinations[dest.indexOf("/Library")] = NavigationRailDestination(
-        selectedIcon: const Icon(Icons.collections_bookmark),
-        icon: const Icon(Icons.collections_bookmark_outlined),
+        selectedIcon: const Icon(Broken.book_square),
+        icon: const Icon(Broken.book_1),
         label: Padding(
           padding: const EdgeInsets.only(top: 5),
           child: Text(l10n.library),
@@ -626,8 +648,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       destinations[dest.indexOf(
         "/MoviesLibrary",
       )] = const NavigationRailDestination(
-        selectedIcon: Icon(Icons.movie_rounded),
-        icon: Icon(Icons.movie_outlined),
+        selectedIcon: Icon(Broken.video_square),
+        icon: Icon(Broken.video_octagon),
         label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Movies')),
       );
     }
@@ -635,8 +657,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       destinations[dest.indexOf(
         "/SeriesLibrary",
       )] = const NavigationRailDestination(
-        selectedIcon: Icon(Icons.tv_rounded),
-        icon: Icon(Icons.tv_outlined),
+        selectedIcon: Icon(Broken.monitor),
+        icon: Icon(Broken.monitor_mobbile),
         label: Padding(padding: EdgeInsets.only(top: 5), child: Text('Séries')),
       );
     }
@@ -731,8 +753,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (dest.contains('_disableMarketplaceSwitch')) {
       destinations[dest.indexOf('_disableMarketplaceSwitch')] =
           const NavigationRailDestination(
-        selectedIcon: Icon(Icons.arrow_back_rounded),
-        icon: Icon(Icons.arrow_back_rounded),
+        selectedIcon: Icon(Broken.arrow_left_2),
+        icon: Icon(Broken.arrow_left_2),
         label: Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Retour'),
@@ -742,8 +764,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (dest.contains('/marketplace')) {
       destinations[dest.indexOf('/marketplace')] =
           const NavigationRailDestination(
-        selectedIcon: Icon(Icons.extension_rounded),
-        icon: Icon(Icons.extension_outlined),
+        selectedIcon: Icon(Broken.grid_2),
+        icon: Icon(Broken.category),
         label: Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Extensions'),
@@ -753,8 +775,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (dest.contains('/marketplace/plugins')) {
       destinations[dest.indexOf('/marketplace/plugins')] =
           const NavigationRailDestination(
-        selectedIcon: Icon(Icons.extension_rounded),
-        icon: Icon(Icons.extension_outlined),
+        selectedIcon: Icon(Broken.grid_2),
+        icon: Icon(Broken.category),
         label: Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Plugin'),
@@ -764,8 +786,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (dest.contains('/marketplace/search')) {
       destinations[dest.indexOf('/marketplace/search')] =
           const NavigationRailDestination(
-        selectedIcon: Icon(Icons.search_rounded),
-        icon: Icon(Icons.search_rounded),
+        selectedIcon: Icon(Broken.search_normal),
+        icon: Icon(Broken.search_normal),
         label: Padding(
           padding: EdgeInsets.only(top: 5),
           child: Text('Rechercher'),
@@ -829,8 +851,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('_disableMarketplaceSwitch')) {
       destMap['_disableMarketplaceSwitch'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.arrow_back_rounded),
-        icon: Icon(Icons.arrow_back_rounded),
+        selectedIcon: Icon(Broken.arrow_left_2),
+        icon: Icon(Broken.arrow_left_2),
         label: 'Retour',
       );
     }
@@ -864,15 +886,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/MoviesLibrary')) {
       destMap['/MoviesLibrary'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.movie_rounded),
-        icon: Icon(Icons.movie_outlined),
+        selectedIcon: Icon(Broken.video_square),
+        icon: Icon(Broken.video_octagon),
         label: 'Movies',
       );
     }
     if (dest.contains('/SeriesLibrary')) {
       destMap['/SeriesLibrary'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.tv_rounded),
-        icon: Icon(Icons.tv_outlined),
+        selectedIcon: Icon(Broken.monitor),
+        icon: Icon(Broken.monitor_mobbile),
         label: 'Séries',
       );
     }
@@ -953,22 +975,22 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/marketplace')) {
       destMap['/marketplace'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.extension_rounded),
-        icon: Icon(Icons.extension_outlined),
+        selectedIcon: Icon(Broken.grid_2),
+        icon: Icon(Broken.category),
         label: 'Extensions',
       );
     }
     if (dest.contains('/marketplace/plugins')) {
       destMap['/marketplace/plugins'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.extension_rounded),
-        icon: Icon(Icons.extension_outlined),
+        selectedIcon: Icon(Broken.grid_2),
+        icon: Icon(Broken.category),
         label: 'Plugin',
       );
     }
     if (dest.contains('/marketplace/search')) {
       destMap['/marketplace/search'] = const NavigationDestination(
-        selectedIcon: Icon(Icons.search_rounded),
-        icon: Icon(Icons.search_rounded),
+        selectedIcon: Icon(Broken.search_normal),
+        icon: Icon(Broken.search_normal),
         label: 'Rechercher',
       );
     }
@@ -1059,7 +1081,7 @@ class _SideBanners extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.download_done_rounded,
+                            Broken.tick_circle,
                             size: 11,
                             color: Colors.white,
                           ),
@@ -1104,7 +1126,7 @@ class _SideBanners extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.visibility_off_rounded,
+                            Broken.eye_slash,
                             size: 11,
                             color: cs.primary,
                           ),
@@ -1427,7 +1449,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                     ),
                                   ),
                                   child: const Icon(
-                                    Icons.person_rounded,
+                                    Broken.user,
                                     color: Colors.white,
                                     size: 22,
                                   ),
@@ -1487,7 +1509,7 @@ class _SidebarToggle extends StatelessWidget {
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeInOutCubic,
               child: Icon(
-                Icons.chevron_right_rounded,
+                Broken.arrow_right_3,
                 size: 20,
                 color: cs.onSurface.withValues(alpha: 0.65),
               ),
@@ -1772,7 +1794,7 @@ class _SidebarFooter extends StatelessWidget {
             ),
           ),
           child: const Icon(
-            Icons.person_rounded,
+            Broken.user,
             color: Colors.white,
             size: 18,
           ),
@@ -1805,7 +1827,7 @@ class _SidebarFooter extends StatelessWidget {
               ],
             ),
             child: const Icon(
-              Icons.person_rounded,
+              Broken.user,
               color: Colors.white,
               size: 17,
             ),
@@ -1829,7 +1851,7 @@ class _SidebarFooter extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(5),
               child: Icon(
-                Icons.settings_outlined,
+                Broken.setting_2,
                 size: 16,
                 color: cs.onSurface.withValues(alpha: 0.45),
               ),
@@ -2125,8 +2147,8 @@ class _FloatingDockState extends State<_FloatingDock> {
             const _DockItemData(
               route: '/marketplace',
               label: 'Extensions',
-              icon: Icons.extension_outlined,
-              activeIcon: Icons.extension_rounded,
+              icon: Broken.category,
+              activeIcon: Broken.grid_2,
             ),
           );
         case '/marketplace/plugins':
@@ -2134,8 +2156,8 @@ class _FloatingDockState extends State<_FloatingDock> {
             const _DockItemData(
               route: '/marketplace/plugins',
               label: 'Plugin',
-              icon: Icons.extension_outlined,
-              activeIcon: Icons.extension_rounded,
+              icon: Broken.category,
+              activeIcon: Broken.grid_2,
             ),
           );
         case '/marketplace/search':
@@ -2143,8 +2165,8 @@ class _FloatingDockState extends State<_FloatingDock> {
             const _DockItemData(
               route: '/marketplace/search',
               label: 'Rechercher',
-              icon: Icons.search_rounded,
-              activeIcon: Icons.search_rounded,
+              icon: Broken.search_normal,
+              activeIcon: Broken.search_normal,
             ),
           );
         case '_enableLibSwitch':
@@ -2188,8 +2210,8 @@ class _FloatingDockState extends State<_FloatingDock> {
             _DockItemData(
               route: '_disableMarketplaceSwitch',
               label: l10n.go_back,
-              icon: Icons.arrow_back_rounded,
-              activeIcon: Icons.arrow_back_rounded,
+              icon: Broken.arrow_left_2,
+              activeIcon: Broken.arrow_left_2,
             ),
           );
         case '_nfileBack':
@@ -2587,7 +2609,7 @@ class _UnifiedSubDockPill extends StatelessWidget {
         height: double.infinity,
         child: Center(
           child: Icon(
-            Icons.chevron_left_rounded,
+            Broken.arrow_left_2,
             size: 22,
             color: isDark
                 ? Colors.white.withValues(alpha: 0.42)
@@ -2939,6 +2961,9 @@ class _ExtensionBadgeWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hideItems = ref.watch(hideItemsStateProvider);
+    // The badge is opt-out: "Afficher le nombre de chapitres non lus sur
+    // l'icône des mises à jour".
+    if (!ref.watch(libraryUnreadBadgeProvider)) return icon;
 
     return StreamBuilder(
       stream: isar.sources
@@ -2996,6 +3021,9 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hideItems = ref.watch(hideItemsStateProvider);
+    // Opt-out: "Afficher le nombre de chapitres non lus sur l'icône des
+    // mises à jour". When off, the icon renders without its counter badge.
+    if (!ref.watch(libraryUnreadBadgeProvider)) return icon;
 
     return StreamBuilder(
       stream: isar.updates.where().watch(fireImmediately: true),

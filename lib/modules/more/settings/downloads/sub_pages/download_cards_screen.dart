@@ -4,6 +4,7 @@ import 'package:watchtower/modules/more/settings/downloads/providers/downloads_s
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Download cards & gestures settings sub-page
@@ -57,7 +58,7 @@ class DownloadCardsScreen extends ConsumerWidget {
             ),
             _SwipeActionTile(
               label: 'Balayer à gauche',
-              icon: Icons.swipe_left_outlined,
+              icon: Broken.arrow_left,
               current: swipeLeft,
               scheme: scheme,
               onChanged: (v) =>
@@ -65,7 +66,7 @@ class DownloadCardsScreen extends ConsumerWidget {
             ),
             _SwipeActionTile(
               label: 'Balayer à droite',
-              icon: Icons.swipe_right_outlined,
+              icon: Broken.arrow_right,
               current: swipeRight,
               scheme: scheme,
               onChanged: (v) =>
@@ -184,7 +185,7 @@ class _CardPreview extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  Icons.movie_outlined,
+                  Broken.video,
                   color: scheme.primary,
                   size: 22,
                 ),
@@ -327,7 +328,7 @@ class _SwipeActionTile extends StatelessWidget {
           current.label,
           style: TextStyle(fontSize: 12, color: scheme.primary),
         ),
-        trailing: Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+        trailing: Icon(Broken.arrow_right_3, color: scheme.onSurfaceVariant),
         onTap: () => _showPicker(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),

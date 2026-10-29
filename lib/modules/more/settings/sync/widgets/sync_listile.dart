@@ -4,6 +4,7 @@ import 'package:watchtower/models/sync_preference.dart';
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class SyncListile extends ConsumerWidget {
   final VoidCallback onTap;
@@ -35,10 +36,10 @@ class SyncListile extends ConsumerWidget {
           ),
           width: 60,
           height: 70,
-          child: const Icon(Icons.dns_outlined, size: 30, color: Colors.grey),
+          child: const Icon(Broken.global, size: 30, color: Colors.grey),
         ),
         trailing: (isLogged
-            ? const Icon(Icons.check, size: 30, color: Colors.green)
+            ? const Icon(Broken.check, size: 30, color: Colors.green)
             : null),
         enabled: enabled,
         onTap: isLogged

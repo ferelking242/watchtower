@@ -199,7 +199,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
             counts.when(
               loading: () => const LinearProgressIndicator(),
               error: (error, _) => _InlineMessage(
-                icon: Icons.error_outline_rounded,
+                icon: Broken.danger,
                 text: 'Library statistics unavailable: $error',
               ),
               data: (value) => _StatsRow(
@@ -235,7 +235,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
                 ),
               ),
               error: (error, _) => _InlineMessage(
-                icon: Icons.error_outline_rounded,
+                icon: Broken.danger,
                 text: 'Could not load the index: $error',
               ),
               data: (items) {
@@ -271,17 +271,17 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         ButtonSegment(
           value: _SmartLibraryFilter.all,
           label: Text('All'),
-          icon: Icon(Icons.apps_rounded),
+          icon: Icon(Broken.category),
         ),
         ButtonSegment(
           value: _SmartLibraryFilter.manga,
           label: Text('Manga'),
-          icon: Icon(Icons.menu_book_rounded),
+          icon: Icon(Broken.book),
         ),
         ButtonSegment(
           value: _SmartLibraryFilter.unknown,
           label: Text('Review'),
-          icon: Icon(Icons.help_outline_rounded),
+          icon: Icon(Broken.message_question),
         ),
       ];
     }
@@ -289,17 +289,17 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       const ButtonSegment(
         value: _SmartLibraryFilter.all,
         label: Text('All'),
-        icon: Icon(Icons.apps_rounded),
+        icon: Icon(Broken.category),
       ),
       const ButtonSegment(
         value: _SmartLibraryFilter.movies,
         label: Text('Movies'),
-        icon: Icon(Icons.movie_creation_outlined),
+        icon: Icon(Broken.video),
       ),
       const ButtonSegment(
         value: _SmartLibraryFilter.series,
         label: Text('Series'),
-        icon: Icon(Icons.tv_rounded),
+        icon: Icon(Broken.monitor),
       ),
     ];
     if (type == null) {
@@ -307,7 +307,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         const ButtonSegment(
           value: _SmartLibraryFilter.manga,
           label: Text('Manga'),
-          icon: Icon(Icons.menu_book_rounded),
+          icon: Icon(Broken.book),
         ),
       );
     }
@@ -315,7 +315,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       const ButtonSegment(
         value: _SmartLibraryFilter.unknown,
         label: Text('Review'),
-        icon: Icon(Icons.help_outline_rounded),
+        icon: Icon(Broken.message_question),
       ),
     );
     return segments;
@@ -396,7 +396,7 @@ class _LibraryHeader extends StatelessWidget {
             IconButton(
               onPressed: onScan,
               tooltip: 'Check for changes',
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Broken.refresh),
             )
           else
             const SizedBox(
@@ -481,11 +481,11 @@ class _MediaIndexTile extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final isUnknown = item.kind == LocalMediaKind.unknown;
     final icon = switch (item.kind) {
-      LocalMediaKind.movie => Icons.movie_creation_outlined,
-      LocalMediaKind.series || LocalMediaKind.anime => Icons.tv_rounded,
-      LocalMediaKind.manga => Icons.menu_book_rounded,
-      LocalMediaKind.novel => Icons.article_outlined,
-      LocalMediaKind.unknown => Icons.help_outline_rounded,
+      LocalMediaKind.movie => Broken.video,
+      LocalMediaKind.series || LocalMediaKind.anime => Broken.monitor,
+      LocalMediaKind.manga => Broken.book,
+      LocalMediaKind.novel => Broken.document_text,
+      LocalMediaKind.unknown => Broken.message_question,
     };
     return FutureBuilder<LocalMediaMetadata?>(
       key: ValueKey('${item.id}:$metadataRefresh'),
@@ -531,7 +531,7 @@ class _MediaIndexTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             trailing: item.confidence < 0.5
-                ? const Icon(Icons.warning_amber_rounded)
+                ? const Icon(Broken.danger)
                 : Text('${(item.confidence * 100).round()}%'),
           ),
         );
@@ -565,8 +565,8 @@ class _EmptyLibrary extends StatelessWidget {
         children: [
           Icon(
             isScanning
-                ? Icons.hourglass_top_rounded
-                : Icons.video_library_outlined,
+                ? Broken.timer
+                : Broken.video_square,
             size: 58,
             color: Theme.of(context).colorScheme.outline,
           ),
@@ -585,7 +585,7 @@ class _EmptyLibrary extends StatelessWidget {
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: onScan,
-              icon: const Icon(Icons.radar_rounded),
+              icon: const Icon(Broken.radar),
               label: const Text('Scan accessible storage'),
             ),
           ],

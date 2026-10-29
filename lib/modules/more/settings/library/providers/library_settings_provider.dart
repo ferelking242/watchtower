@@ -245,6 +245,58 @@ final libraryPerCategorySortProvider =
   LibraryPerCategorySortNotifier.new,
 );
 
+// ── Category include / exclude lists for automatic updates ───────────────────
+
+/// Category ids the automatic update must be limited to. Empty = all.
+class LibraryUpdateIncludeCategoriesNotifier extends Notifier<Set<int>> {
+  @override
+  Set<int> build() => _readSet('update_include_categories');
+
+  void set(Set<int> v) {
+    _write('update_include_categories', v.toList());
+    state = v;
+  }
+
+  void toggle(int id) {
+    final next = {...state};
+    next.contains(id) ? next.remove(id) : next.add(id);
+    set(next);
+  }
+}
+
+final libraryUpdateIncludeCategoriesProvider =
+    NotifierProvider<LibraryUpdateIncludeCategoriesNotifier, Set<int>>(
+  LibraryUpdateIncludeCategoriesNotifier.new,
+);
+
+/// Category ids the automatic update must skip. Empty = none.
+class LibraryUpdateExcludeCategoriesNotifier extends Notifier<Set<int>> {
+  @override
+  Set<int> build() => _readSet('update_exclude_categories');
+
+  void set(Set<int> v) {
+    _write('update_exclude_categories', v.toList());
+    state = v;
+  }
+
+  void toggle(int id) {
+    final next = {...state};
+    next.contains(id) ? next.remove(id) : next.add(id);
+    set(next);
+  }
+}
+
+final libraryUpdateExcludeCategoriesProvider =
+    NotifierProvider<LibraryUpdateExcludeCategoriesNotifier, Set<int>>(
+  LibraryUpdateExcludeCategoriesNotifier.new,
+);
+
+Set<int> _readSet(String key) {
+  final raw = _box?.get(key);
+  if (raw is List) return raw.whereType<int>().toSet();
+  return <int>{};
+}
+
 // ── Default category ─────────────────────────────────────────────────────────
 
 class DefaultCategoryNotifier extends Notifier<String> {

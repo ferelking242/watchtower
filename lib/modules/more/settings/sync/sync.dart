@@ -14,6 +14,7 @@ import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class SyncScreen extends ConsumerWidget {
   static const serverUrl = "https://github.com/Schnitzel5/watchtower-server";
@@ -139,7 +140,7 @@ class SyncScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.warning_amber_outlined,
+                          Broken.danger,
                           color: context.secondaryColor,
                         ),
                         const SizedBox(width: 10),
@@ -213,7 +214,7 @@ class SyncScreen extends ConsumerWidget {
                           }
                         },
                         label: Text(l10n.get_sync_server),
-                        icon: const Icon(Icons.download_outlined),
+                        icon: const Icon(Broken.document_download),
                       ),
                     ],
                   ),
@@ -251,7 +252,7 @@ class SyncScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.info_outline_rounded,
+                          Broken.info_circle,
                           color: context.secondaryColor,
                         ),
                         const SizedBox(width: 10),
@@ -274,7 +275,7 @@ class SyncScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
-                        Icon(Icons.sync, color: context.secondaryColor),
+                        Icon(Broken.refresh_2, color: context.secondaryColor),
                         const SizedBox(width: 10),
                         Column(
                           children: [
@@ -326,7 +327,7 @@ class SyncScreen extends ConsumerWidget {
                                       .startSync(l10n, false);
                                 },
                           icon: Icon(
-                            Icons.sync,
+                            Broken.refresh_2,
                             color: !syncPreference.syncOn || !isLogged
                                 ? context.secondaryColor
                                 : context.primaryColor,
@@ -343,7 +344,7 @@ class SyncScreen extends ConsumerWidget {
                               ? null
                               : () => _showConfirmDialog(context, ref, true),
                           icon: Icon(
-                            Icons.file_upload_outlined,
+                            Broken.document_upload,
                             color: !syncPreference.syncOn || !isLogged
                                 ? context.secondaryColor
                                 : context.primaryColor,
@@ -360,7 +361,7 @@ class SyncScreen extends ConsumerWidget {
                               ? null
                               : () => _showConfirmDialog(context, ref, false),
                           icon: Icon(
-                            Icons.file_download_outlined,
+                            Broken.document_download,
                             color: !syncPreference.syncOn || !isLogged
                                 ? context.secondaryColor
                                 : context.primaryColor,
@@ -529,8 +530,8 @@ class SyncScreen extends ConsumerWidget {
                           }),
                           icon: Icon(
                             obscureText
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
+                                ? Broken.eye
+                                : Broken.eye_slash,
                           ),
                         ),
                         filled: false,
