@@ -305,6 +305,8 @@ class RemoteApiHandler {
   Map<String, dynamic> _videoToMap(Video v) => {
     'url': v.url, 'quality': v.quality, 'originalUrl': v.originalUrl,
     'headers': v.headers,
+    'subtitles': v.subtitles?.map((track) => track.toJson()).toList(),
+    'audios': v.audios?.map((track) => track.toJson()).toList(),
   };
 
   Map<String, dynamic> _mMangaToMap(MManga m) => {

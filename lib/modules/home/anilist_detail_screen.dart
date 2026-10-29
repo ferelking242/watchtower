@@ -3730,13 +3730,12 @@ class _StreamSheetState extends ConsumerState<_StreamSheet> {
     }
   }
 
-  // ── Search installed anime extensions for this exact episode ──────────────
+  // ── Extensions: resolve this exact AniList episode across sources ───────────
   void _searchExtension(BuildContext context) {
+    final router = GoRouter.of(context);
+    final request = (widget.media, widget.episode);
     Navigator.pop(context);
-    context.pushNamed(
-      'animeEpisodeSources',
-      extra: (widget.media, widget.episode),
-    );
+    router.push('/animeEpisodeResolver', extra: request);
   }
 
   // ── Manual URL: open in webview ─────────────────────────────────────────────

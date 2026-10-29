@@ -33,6 +33,7 @@ import 'dart:async';
     final String? titleRomaji;
     final String? titleEnglish;
     final String? titleNative;
+    final List<String> synonyms;
     final String? coverLarge;
     final String? coverExtraLarge;
     final String? bannerImage;
@@ -86,6 +87,7 @@ import 'dart:async';
       this.titleRomaji,
       this.titleEnglish,
       this.titleNative,
+      this.synonyms = const [],
       this.coverLarge,
       this.coverExtraLarge,
       this.bannerImage,
@@ -163,6 +165,11 @@ import 'dart:async';
         titleRomaji: title['romaji'] as String?,
         titleEnglish: title['english'] as String?,
         titleNative: title['native'] as String?,
+        synonyms: (json['synonyms'] as List?)
+                ?.whereType<String>()
+                .where((title) => title.trim().isNotEmpty)
+                .toList(growable: false) ??
+            const [],
         coverLarge: cover['large'] as String?,
         coverExtraLarge: cover['extraLarge'] as String?,
         bannerImage: json['bannerImage'] as String?,
@@ -1015,6 +1022,7 @@ import 'dart:async';
       id type format status season seasonYear episodes chapters duration source
       averageScore meanScore popularity favourites bannerImage description countryOfOrigin
       title { romaji english native }
+      synonyms
       coverImage { large extraLarge }
       genres
       startDate { year month day }
