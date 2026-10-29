@@ -2690,4 +2690,86 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get catalog_shelf_adult_read => 'Midnight Library';
+
+  @override
+  String get catalog_shelf_for_you_watch => 'For you · to watch';
+
+  @override
+  String get catalog_shelf_for_you_read => 'For you · to read';
+
+  @override
+  String get catalog_card_see_more => 'See more';
+
+  @override
+  String get catalog_card_see_less => 'See less';
+
+  @override
+  String get catalog_card_open_site => 'Open the website';
+
+  @override
+  String get catalog_card_open_site_unavailable =>
+      'No website for this extension';
+
+  @override
+  String get plugins_section_builtin => 'Built-in plugins';
+
+  @override
+  String get plugins_section_engines => 'Components and engines';
+
+  @override
+  String get plugins_section_empty => 'No plugin available.';
+
+  @override
+  String get plugins_nfile_title => 'NFile — file manager';
+
+  @override
+  String get plugins_nfile_description =>
+      'Built-in file explorer with players and management tools.';
+
+  @override
+  String get plugins_smart_library_description =>
+      'Scans and organises the videos and mangas already on the device.';
+
+  @override
+  String get plugins_ffmpeg_ready => 'Verified binary available for HLS files.';
+
+  @override
+  String get plugins_ffmpeg_optional =>
+      'Optional: direct concatenation is used automatically.';
+
+  @override
+  String get plugins_mpv_description =>
+      'Downloads only mpv.conf, input.conf and the scripts.';
+
+  @override
+  String get plugins_action_open => 'Open';
+
+  @override
+  String get plugins_action_info => 'Info';
+
+  @override
+  String get plugins_action_install => 'Install';
+
+  @override
+  String get plugins_action_close => 'Close';
+
+  @override
+  String get plugins_mpv_config_exception =>
+      'The MPV configuration folder is unavailable.';
+
+  @override
+  String get plugins_ffmpeg_title => 'FFmpeg runtime';
+
+  @override
+  String get plugins_ffmpeg_info =>
+      'FFmpeg only muxes HLS TS/fMP4 fragments into a readable file. It downloads neither the player nor MPV.\n\nWhen no verified binary is installed, Watchtower falls back to direct fragment concatenation, so online playback does not depend on this plugin.';
+
+  @override
+  String get plugins_smart_library_title => 'Smart Library';
+
+  @override
+  String get plugins_mpv_title => 'MPV configuration';
+
+  @override
+  String get plugins_music_title => 'Music plugins';
 }

@@ -2692,4 +2692,87 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get catalog_shelf_adult_read => 'Midnight Library';
+
+  @override
+  String get catalog_shelf_for_you_watch => 'Pour toi · à regarder';
+
+  @override
+  String get catalog_shelf_for_you_read => 'Pour toi · à lire';
+
+  @override
+  String get catalog_card_see_more => 'Voir plus';
+
+  @override
+  String get catalog_card_see_less => 'Voir moins';
+
+  @override
+  String get catalog_card_open_site => 'Ouvrir le site';
+
+  @override
+  String get catalog_card_open_site_unavailable =>
+      'Aucun site pour cette extension';
+
+  @override
+  String get plugins_section_builtin => 'Plugins intégrés';
+
+  @override
+  String get plugins_section_engines => 'Composants et moteurs';
+
+  @override
+  String get plugins_section_empty => 'Aucun plugin disponible.';
+
+  @override
+  String get plugins_nfile_title => 'NFile — gestionnaire de fichiers';
+
+  @override
+  String get plugins_nfile_description =>
+      'Explorateur de fichiers intégré avec lecteurs et outils de gestion.';
+
+  @override
+  String get plugins_smart_library_description =>
+      'Analyse et organise les vidéos et mangas déjà présents sur l’appareil.';
+
+  @override
+  String get plugins_ffmpeg_ready =>
+      'Exécutable vérifié disponible pour les fichiers HLS.';
+
+  @override
+  String get plugins_ffmpeg_optional =>
+      'Optionnel : la concaténation directe reste utilisée automatiquement.';
+
+  @override
+  String get plugins_mpv_description =>
+      'Télécharge uniquement mpv.conf, input.conf et les scripts.';
+
+  @override
+  String get plugins_action_open => 'Ouvrir';
+
+  @override
+  String get plugins_action_info => 'Info';
+
+  @override
+  String get plugins_action_install => 'Installer';
+
+  @override
+  String get plugins_action_close => 'Fermer';
+
+  @override
+  String get plugins_mpv_config_exception =>
+      'Le dossier de configuration MPV est indisponible.';
+
+  @override
+  String get plugins_ffmpeg_title => 'Runtime FFmpeg';
+
+  @override
+  String get plugins_ffmpeg_info =>
+      'FFmpeg sert uniquement à muxer les fragments HLS TS/fMP4 en fichier lisible. Il ne télécharge ni le lecteur ni MPV.\n\nSi aucun exécutable vérifié n’est installé, Watchtower utilise automatiquement la concaténation directe des fragments. La lecture en ligne ne dépend donc pas de ce plugin.';
+
+  @override
+  String get plugins_smart_library_title => 'Smart Library';
+
+  @override
+  String get plugins_mpv_title => 'Configuration MPV';
+
+  @override
+  String get plugins_music_title => 'Plugins Musique';
 }

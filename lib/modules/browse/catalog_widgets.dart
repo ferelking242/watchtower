@@ -4,6 +4,7 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/models/catalog_entry.dart';
 import 'package:watchtower/models/catalog_shelf.dart';
 import 'package:watchtower/models/catalog_taxonomy.dart';
+import 'package:watchtower/modules/browse/marketplace_palette.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Card geometry shared by every shelf, so two shelves never disagree on how
@@ -62,6 +63,17 @@ class CatalogCard extends StatelessWidget {
   /// Icon URL, already normalised by the caller.
   final String? iconUrl;
 
+  /// Description published by the index, already trimmed by the caller.
+  ///
+  /// This is the same text the extension's settings page shows, so the card
+  /// never invents a summary: when the index has nothing to say the card
+  /// simply omits the description line.
+  final String description;
+
+  /// Opens the extension's website. Null when the index publishes no base URL,
+  /// in which case the redirect affordance is hidden instead of dead.
+  final VoidCallback? onOpenSite;
+
   const CatalogCard({
     super.key,
     required this.entry,
@@ -73,6 +85,8 @@ class CatalogCard extends StatelessWidget {
     this.isNew = false,
     this.onInstall,
     this.onSettings,
+    this.description = '',
+    this.onOpenSite,
   });
 
   bool get _featured => tags.contains('featured');
@@ -82,8 +96,13 @@ class CatalogCard extends StatelessWidget {
     final l10n = context.l10n;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final surface = const Color(0xFF202023);
-    final border = const Color(0xFF303035);
+    // Same source of truth as the rest of the Marketplace, so a light-theme
+    // user gets a light card instead of the black tile this used to be.
+    final palette = MarketplacePalette.of(context);
+    final surface = palette.surface;
+    final border = palette.border;
+    final text = palette.text;
+    final muted = palette.muted;
 
     return Semantics(
       button: true,
@@ -106,7 +125,7 @@ class CatalogCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _CatalogIcon(
+                    CatalogIcon(
                       name: entry.name,
                       iconUrl: iconUrl,
                       size: 38,
@@ -126,8 +145,8 @@ class CatalogCard extends StatelessWidget {
                   entry.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: text,
                     fontSize: 13,
                     height: 1.2,
                     fontWeight: FontWeight.w700,
@@ -138,17 +157,30 @@ class CatalogCard extends StatelessWidget {
                   _metaLine(l10n),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF9E9DA3),
-                    fontSize: 10.5,
-                  ),
+                  style: TextStyle(color: muted, fontSize: 10.5),
                 ),
-                const Spacer(),
+                if (description.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: Text(
+                      description.trim(),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: muted,
+                        fontSize: 10.5,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ] else
+                  const Spacer(),
                 _Footer(
                   l10n: l10n,
                   tags: tags,
                   isNew: isNew,
                   featured: _featured,
+                  onOpenSite: onOpenSite,
                 ),
               ],
             ),
@@ -172,54 +204,174 @@ class CatalogCard extends StatelessWidget {
   }
 }
 
-/// Up to two tags, or the short description when the entry carries no tag.
-///
-/// The card shows one or the other, never both: stacking a description under a
-/// row of chips is what made the previous cards unreadable at this size.
+/// Bottom row of a card: auto-scrolling tags on the left, the "open website"
+/// redirect pinned to the bottom-right corner.
 class _Footer extends StatelessWidget {
   final AppLocalizations l10n;
   final List<String> tags;
   final bool isNew;
   final bool featured;
+  final VoidCallback? onOpenSite;
 
   const _Footer({
     required this.l10n,
     required this.tags,
     required this.isNew,
     required this.featured,
+    this.onOpenSite,
   });
 
   @override
   Widget build(BuildContext context) {
+    return SizedBox(
+      height: 20,
+      child: Row(
+        children: [
+          Expanded(child: _tagStrip(context)),
+          if (onOpenSite != null) ...[
+            const SizedBox(width: 4),
+            _SiteRedirect(l10n: l10n, onTap: onOpenSite!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _tagStrip(BuildContext context) {
     if (featured || isNew) {
-      return _Badge(
-        label: featured ? l10n.catalog_tag_featured : l10n.catalog_tag_new,
-        color: featured ? const Color(0xFFB7F4F0) : const Color(0xFF8ED081),
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: _Badge(
+          label: featured ? l10n.catalog_tag_featured : l10n.catalog_tag_new,
+          color: featured ? const Color(0xFFB7F4F0) : const Color(0xFF8ED081),
+        ),
       );
     }
     // Content and language tags are already in the meta line, so only the
-    // distinguishing tags are worth the space.
+    // distinguishing tags are worth the space. Two chips is the ceiling: a
+    // third starts to crowd the card and push the title out of view.
     final shown = tags
         .where((tag) => !CatalogTaxonomy.isLanguageTag(tag))
         .where((tag) => tag != 'watch' && tag != 'read')
         .take(2)
         .toList();
-    if (shown.isEmpty) return const SizedBox(height: 18);
-    return SizedBox(
-      height: 18,
-      child: Row(
-        children: [
-          for (final tag in shown) ...[
-            Flexible(
-              child: _Badge(
-                label: CatalogTaxonomy.label(l10n, tag),
-                color: const Color(0xFF9E9DA3),
-                outlined: true,
-              ),
+    if (shown.isEmpty) return const SizedBox.shrink();
+    return _AutoScrollTags(
+      children: [
+        for (final tag in shown)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: _Badge(
+              label: CatalogTaxonomy.label(l10n, tag),
+              color: MarketplacePalette.of(context).muted,
+              outlined: true,
             ),
-            const SizedBox(width: 4),
-          ],
-        ],
+          ),
+      ],
+    );
+  }
+}
+
+/// A row that drifts left and right on its own when it is wider than the card.
+///
+/// The strip is a plain horizontal [SingleChildScrollView], so the user can
+/// also drag it by hand and the animation simply follows the same offset. When
+/// the tags fit there is nothing to scroll and no ticker is started at all,
+/// which keeps a shelf of small cards free of idle animations.
+class _AutoScrollTags extends StatefulWidget {
+  final List<Widget> children;
+
+  const _AutoScrollTags({required this.children});
+
+  @override
+  State<_AutoScrollTags> createState() => _AutoScrollTagsState();
+}
+
+class _AutoScrollTagsState extends State<_AutoScrollTags>
+    with SingleTickerProviderStateMixin {
+  final ScrollController _scroll = ScrollController();
+  AnimationController? _drift;
+  double _extent = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(_sync);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutoScrollTags oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback(_sync);
+  }
+
+  @override
+  void dispose() {
+    _drift?.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _sync(Duration _) {
+    if (!mounted || !_scroll.hasClients) return;
+    _extent = _scroll.position.maxScrollExtent;
+    if (_extent <= 0 || MediaQuery.disableAnimationsOf(context)) {
+      _drift?.stop();
+      return;
+    }
+    final duration = Duration(
+      milliseconds: (_extent * 26).round().clamp(1400, 12000),
+    );
+    if (_drift == null) {
+      _drift = AnimationController(vsync: this, duration: duration)
+        ..addListener(() {
+          if (_scroll.hasClients) _scroll.jumpTo(_drift!.value * _extent);
+        })
+        ..repeat(reverse: true);
+    } else if (_drift!.duration != duration) {
+      _drift!.duration = duration;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: _scroll,
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(children: widget.children),
+    );
+  }
+}
+
+/// Bottom-right redirect to the extension's own website.
+class _SiteRedirect extends StatelessWidget {
+  final AppLocalizations l10n;
+  final VoidCallback onTap;
+
+  const _SiteRedirect({required this.l10n, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Tooltip(
+      message: l10n.catalog_card_open_site,
+      child: Semantics(
+        button: true,
+        label: l10n.catalog_card_open_site,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(7),
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(Icons.open_in_new_rounded, size: 13, color: color),
+          ),
+        ),
       ),
     );
   }
@@ -325,13 +477,18 @@ class _StatusAction extends StatelessWidget {
 }
 
 /// Icon with initials fallback, matching the rest of the Marketplace.
-class _CatalogIcon extends StatelessWidget {
+///
+/// Public so the plugin cards can show a repository-hosted logo with the same
+/// fallback behaviour the catalogue cards use, instead of a second, slightly
+/// different implementation.
+class CatalogIcon extends StatelessWidget {
   final String name;
   final String? iconUrl;
   final double size;
   final Color tint;
 
-  const _CatalogIcon({
+  const CatalogIcon({
+    super.key,
     required this.name,
     required this.iconUrl,
     required this.size,
@@ -347,19 +504,19 @@ class _CatalogIcon extends StatelessWidget {
         width: size,
         height: size,
         child: url == null || url.isEmpty
-            ? _fallback()
+            ? _fallback(context)
             : Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _fallback(),
+                errorBuilder: (_, _, _) => _fallback(context),
                 loadingBuilder: (_, child, progress) =>
-                    progress == null ? child : _fallback(),
+                    progress == null ? child : _fallback(context),
               ),
       ),
     );
   }
 
-  Widget _fallback() {
+  Widget _fallback(BuildContext context) {
     final words = name.trim().split(RegExp(r'\s+'));
     final initials = words
         .where((word) => word.isNotEmpty)
@@ -369,7 +526,7 @@ class _CatalogIcon extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [tint, const Color(0xFF252527)],
+          colors: [tint, MarketplacePalette.of(context).surfaceHigh],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -476,8 +633,8 @@ class CatalogShelfHeader extends StatelessWidget {
                   spec.title(l10n),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: MarketplacePalette.of(context).text,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -489,8 +646,8 @@ class CatalogShelfHeader extends StatelessWidget {
                       note,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF8A8990),
+                      style: TextStyle(
+                        color: MarketplacePalette.of(context).muted,
                         fontSize: 10.5,
                       ),
                     ),
@@ -531,7 +688,7 @@ class CatalogShelfSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surface = const Color(0xFF252527);
+    final surface = MarketplacePalette.of(context).surfaceHigh;
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = CatalogCardMetrics.cardWidthFor(

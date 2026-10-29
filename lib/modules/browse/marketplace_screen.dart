@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/models/catalog_entry.dart';
+import 'package:watchtower/modules/browse/marketplace_palette.dart';
 import 'package:watchtower/models/catalog_shelf.dart';
 import 'package:watchtower/models/catalog_taxonomy.dart';
 import 'package:watchtower/models/manga.dart';
@@ -158,6 +159,10 @@ class _ExtEntry implements CatalogEntryView {
   /// Marketplace tags published by the index, already filtered to the tags this
   /// build understands. Empty for indexes that predate the tag system, in which
   /// case [effectiveTags] derives the shelves from the catalogue and language.
+  /// Website the extension serves content from, when the index publishes one.
+  @override
+  final String? siteUrl;
+
   @override
   final List<String> tags;
 
@@ -214,6 +219,7 @@ class _ExtEntry implements CatalogEntryView {
     this.tags = const [],
     this.languages = const [],
     this.addedAt,
+    this.siteUrl,
     int? itemType,
   }) : itemType = itemType ?? contentType.index;
 }
@@ -286,6 +292,9 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
         'tags': rawTags is List
             ? rawTags.whereType<String>().toList()
             : <String>[],
+        'siteUrl': e['baseUrl'] is String && (e['baseUrl'] as String).isNotEmpty
+            ? e['baseUrl'] as String
+            : null,
         'addedAt': e['addedAt'] is String ? e['addedAt'] as String : null,
         'version': e['version'] is String ? e['version'] : '?',
         'contentType': itemTypeIdx,
@@ -314,11 +323,14 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
             ? e['supportsComments'] as bool
             : false,
         'upstream': e['upstream'] is String ? e['upstream'] : '',
-        'description': e['description'] is String
-            ? e['description']
-            : e['notes'] is String
-            ? e['notes']
-            : '',
+        // The index `notes` field is exactly the text the extension's own
+        // settings page shows, so the card reuses it verbatim instead of
+        // inventing a summary. A catalogue that publishes a non-empty
+        // `description` wins.
+        'description': switch (e['description']) {
+          final String value when value.trim().isNotEmpty => value.trim(),
+          _ => e['notes'] is String ? (e['notes'] as String).trim() : '',
+        },
         'sizeBytes': _parseMktSize(
           e['sizeBytes'] ?? e['size'] ?? e['downloadSize'],
         ),
@@ -386,6 +398,7 @@ List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps.map((
         (m['languages'] as List<dynamic>?)?.whereType<String>().toList() ??
         <String>[],
     addedAt: _parseMktDate(m['addedAt']),
+    siteUrl: m['siteUrl'] as String?,
     itemType: (m['itemType'] as num?)?.toInt() ?? itemType.index,
   );
 }).toList();
@@ -1458,7 +1471,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
     if (widget.initialSection != MarketplaceSection.plugins) {
       return Scaffold(
-        backgroundColor: const Color(0xFF101010),
+        backgroundColor: MarketplacePalette.of(context).background,
         body: SafeArea(
           bottom: false,
           child: _PlayStoreMarketplaceView(
@@ -4923,22 +4936,13 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Plugin icon
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0288D1).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF0288D1).withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.extension_rounded,
-                    size: 26,
-                    color: Color(0xFF0288D1),
-                  ),
+                // Plugin icon — the real logo published by the catalogue, with
+                // the same initials fallback the catalogue cards use.
+                CatalogIcon(
+                  name: _displayName,
+                  iconUrl: _repo.iconUrl,
+                  size: 48,
+                  tint: const Color(0xFF0288D1),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -5354,39 +5358,42 @@ class _MusicPluginsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
+    final palette = MarketplacePalette.of(context);
     final snapshot = ref.watch(metadataPluginRepositoriesProvider);
     final repos = snapshot.asData?.value.items ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Section header ───────────────────────────────────────────────
+        // Same header rhythm as the catalogue shelves, so the music plugins
+        // read as one more shelf instead of a differently-styled list.
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
           child: Row(
             children: [
               Container(
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0288D1).withValues(alpha: 0.15),
+                  color: palette.accent.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.extension_rounded,
+                child: Icon(
+                  Icons.library_music_rounded,
                   size: 16,
-                  color: Color(0xFF0288D1),
+                  color: palette.accent,
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Plugins Musique',
+                  context.l10n.plugins_music_title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: palette.text,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -5400,13 +5407,12 @@ class _MusicPluginsSection extends ConsumerWidget {
             ],
           ),
         ),
-        // ── Cards ────────────────────────────────────────────────────────
         if (repos.isEmpty && !snapshot.isLoading)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text(
-              'Aucun plugin trouvé',
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+              context.l10n.plugins_section_empty,
+              style: TextStyle(fontSize: 13, color: palette.muted),
             ),
           )
         else
@@ -9271,8 +9277,12 @@ class _BinaryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return const CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: SizedBox(height: 12)),
+        SliverToBoxAdapter(child: SizedBox(height: 4)),
         SliverToBoxAdapter(child: PluginsSection()),
+        // The music plugins are part of the same catalogue surface: they were
+        // previously reachable only from the music settings page, so their real
+        // logos never showed up in the Marketplace.
+        SliverToBoxAdapter(child: _MusicPluginsSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -9348,9 +9358,14 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   static const _green = Color(0xFF8ED081);
-  static const _surface = Color(0xFF1B1B1D);
-  static const _surfaceHigh = Color(0xFF252527);
-  static const _muted = Color(0xFFB9B8BE);
+
+  /// Colours for the current theme. Replaces the hard-coded dark constants the
+  /// Marketplace used to paint itself with, so the light theme is actually
+  /// light instead of a black page with white text.
+  MarketplacePalette get _palette => MarketplacePalette.of(context);
+  Color get _surface => _palette.surface;
+  Color get _surfaceHigh => _palette.surfaceHigh;
+  Color get _muted => _palette.muted;
 
   static const _recentSearchKey = 'marketplace_recent_searches';
   static const _maxRecentSearches = 8;
@@ -9570,6 +9585,13 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           : CatalogCardStatus.installed,
       isNew: _shelfBuilder.isNew(entry),
       busy: widget.busy[entry.id] == true,
+      description: _playDescription(entry),
+      onOpenSite: entry.siteUrl == null
+          ? null
+          : () => launchUrl(
+              Uri.parse(entry.siteUrl!),
+              mode: LaunchMode.externalApplication,
+            ),
       onTap: () => _showDetails(entry),
       onInstall: () => widget.onInstall(entry),
       onSettings: installed ? () => widget.onSettings(entry.id) : null,
@@ -9850,12 +9872,12 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 repeat: true,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: MarketplacePalette.of(context).text,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -9864,7 +9886,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: _muted, fontSize: 13, height: 1.4),
+              style: TextStyle(color: _muted, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 14),
             TextButton.icon(
@@ -9879,17 +9901,18 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildHeader() {
+    final palette = MarketplacePalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 12, 14, 8),
       child: Row(
         children: [
           const _EyeLogo(size: 28),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               'Watchtower',
               style: TextStyle(
-                color: Colors.white,
+                color: palette.text,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.6,
@@ -9905,12 +9928,12 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             message: 'Paramètres du Marketplace',
             child: GestureDetector(
               onTap: widget.onOpenSettings,
-              child: const CircleAvatar(
+              child: CircleAvatar(
                 radius: 18,
-                backgroundColor: Color(0xFF3B4D58),
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                 child: Icon(
                   Icons.view_in_ar_rounded,
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                   size: 21,
                 ),
               ),
@@ -9947,14 +9970,17 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 },
                 onChanged: _setSearch,
                 onSubmitted: (_) => _recordSearch(),
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style: TextStyle(
+                  color: MarketplacePalette.of(context).text,
+                  fontSize: 14,
+                ),
                 textAlignVertical: TextAlignVertical.center,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
-                  prefixIcon: const Icon(Icons.search_rounded, color: _muted),
+                  prefixIcon: Icon(Icons.search_rounded, color: _muted),
                   prefixIconConstraints: const BoxConstraints(
                     minWidth: 48,
                     minHeight: 48,
@@ -9965,15 +9991,15 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                             _searchController.clear();
                             setState(() {});
                           },
-                          icon: const Icon(Icons.close_rounded, color: _muted),
+                          icon: Icon(Icons.close_rounded, color: _muted),
                         )
-                      : const Icon(Icons.mic_none_rounded, color: _muted),
+                      : Icon(Icons.mic_none_rounded, color: _muted),
                   suffixIconConstraints: const BoxConstraints(
                     minWidth: 44,
                     minHeight: 48,
                   ),
                   hintText: 'Rechercher des extensions',
-                  hintStyle: const TextStyle(color: _muted, fontSize: 14),
+                  hintStyle: TextStyle(color: _muted, fontSize: 14),
                 ),
               ),
             ),
@@ -10003,10 +10029,50 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildHero() {
-    return _buildHeroFor(_featured);
+    return _buildHeroFor(_featuredForTab(_tab), _heroLabel(_tab));
   }
 
-  Widget _buildHeroFor(List<_ExtEntry> sourceEntries) {
+  /// Caption of the hero banner, so a tab-specific selection is not labelled as
+  /// a catalogue-wide recommendation.
+  String _heroLabel(int tab) {
+    final l10n = context.l10n;
+    return switch (tab) {
+      1 => l10n.catalog_shelf_for_you_watch,
+      2 || 5 => l10n.catalog_shelf_for_you_read,
+      3 => l10n.catalog_shelf_music,
+      4 => l10n.catalog_shelf_games,
+      _ => l10n.catalog_shelf_recommended,
+    };
+  }
+
+  /// Hero entries for the active tab.
+  ///
+  /// The banner used to ignore the selected tab and always show the same
+  /// catalogue-wide featured sources, so switching to Manga still advertised
+  /// watch extensions. Each tab now leads with its own selection: the featured
+  /// entries of that tab when the index declares any, otherwise the tab's
+  /// entries in the same deterministic order as its shelves.
+  List<_ExtEntry> _featuredForTab(int tab) {
+    if (tab == 0) return _featured;
+    final builder = _shelfBuilder;
+    final scoped = _visible.where(_tabMatches).toList();
+    if (scoped.isEmpty) return const [];
+    final featured = scoped
+        .where((entry) => builder.tagsOf(entry).contains('featured'))
+        .toList();
+    final source = featured.isNotEmpty ? featured : scoped;
+    source.sort(
+      (a, b) => CatalogShelves.featured.compare(
+        a,
+        b,
+        builder.tagsOf(a),
+        builder.tagsOf(b),
+      ),
+    );
+    return source;
+  }
+
+  Widget _buildHeroFor(List<_ExtEntry> sourceEntries, String label) {
     final entries = sourceEntries.take(6).toList();
     if (entries.isEmpty) return const SizedBox(height: 8);
     return SizedBox(
@@ -10049,9 +10115,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          const Text(
-                            'Recommandé pour toi',
-                            style: TextStyle(
+                          Text(
+                            label,
+                            style: const TextStyle(
                               color: Color(0xFFD8EEDB),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -10175,20 +10241,20 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                     _MarketplaceScreenState._langFlag(language),
                     style: const TextStyle(fontSize: 25),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     _MarketplaceScreenState._langDisplayName(language),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: MarketplacePalette.of(context).text,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
                     '$count source${count == 1 ? '' : 's'}',
-                    style: const TextStyle(color: _muted, fontSize: 10),
+                    style: TextStyle(color: _muted, fontSize: 10),
                   ),
                 ],
               ),
@@ -10303,8 +10369,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: MarketplacePalette.of(context).text,
           fontSize: 15,
           fontWeight: FontWeight.w800,
         ),
@@ -10320,8 +10386,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: MarketplacePalette.of(context).text,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -10330,7 +10396,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           if (showArrow)
             IconButton(
               onPressed: () => setState(() => _tab = 1),
-              icon: const Icon(Icons.arrow_forward_rounded, color: _muted),
+              icon: Icon(Icons.arrow_forward_rounded, color: _muted),
               visualDensity: VisualDensity.compact,
             ),
         ],
@@ -10346,7 +10412,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
           child: Text(
             context.l10n.catalog_shelf_empty,
-            style: const TextStyle(color: _muted, fontSize: 13, height: 1.35),
+            style: TextStyle(color: _muted, fontSize: 13, height: 1.35),
           ),
         ),
       );
@@ -10393,10 +10459,10 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 size: 32,
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'Contenu adulte masqué',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: MarketplacePalette.of(context).text,
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                 ),
@@ -10459,13 +10525,13 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               ),
               child: Row(
                 children: [
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Icon(category.$1, color: category.$3, size: 27),
-                  const SizedBox(width: 9),
+                  SizedBox(width: 9),
                   Text(
                     category.$2,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: MarketplacePalette.of(context).text,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -10489,16 +10555,16 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               children: [
                 IconButton(
                   onPressed: () => setState(() => _accountOpen = false),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_rounded,
-                    color: Colors.white,
+                    color: MarketplacePalette.of(context).text,
                   ),
                 ),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Compte',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: MarketplacePalette.of(context).text,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                     ),
@@ -10506,7 +10572,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 ),
                 IconButton(
                   onPressed: widget.onRefresh,
-                  icon: const Icon(Broken.refresh_2, color: _muted),
+                  icon: Icon(Broken.refresh_2, color: _muted),
                 ),
               ],
             ),
@@ -10515,20 +10581,20 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         SliverToBoxAdapter(
           child: Column(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 42,
                 backgroundColor: Color(0xFF3B4D58),
                 child: Icon(
                   Icons.person_rounded,
-                  color: Colors.white,
+                  color: MarketplacePalette.of(context).text,
                   size: 48,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Compte Watchtower',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: MarketplacePalette.of(context).text,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -10536,7 +10602,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               const SizedBox(height: 4),
               Text(
                 '${widget.installed.length} extension${widget.installed.length == 1 ? '' : 's'} installée${widget.installed.length == 1 ? '' : 's'}',
-                style: const TextStyle(color: _muted, fontSize: 13),
+                style: TextStyle(color: _muted, fontSize: 13),
               ),
             ],
           ),
@@ -10580,18 +10646,18 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded, color: _muted, size: 48),
+            Icon(Icons.cloud_off_rounded, color: _muted, size: 48),
             const SizedBox(height: 14),
-            const Text(
+            Text(
               'Le catalogue est indisponible',
               style: TextStyle(
-                color: Colors.white,
+                color: MarketplacePalette.of(context).text,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Vérifie ta connexion puis réessaie.',
               textAlign: TextAlign.center,
               style: TextStyle(color: _muted, fontSize: 13),
@@ -10619,7 +10685,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           backgroundColor: _surface,
           appBar: AppBar(
             backgroundColor: _surface,
-            foregroundColor: Colors.white,
+            foregroundColor: MarketplacePalette.of(context).text,
             title: const Text('Détails'),
           ),
           body: _PlayStoreDetails(
@@ -10724,30 +10790,33 @@ class _SearchDiscoveryRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
           children: [
-            Icon(icon, color: _PlayStoreMarketplaceViewState._muted, size: 18),
+            Icon(icon, color: MarketplacePalette.of(context).muted, size: 18),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: TextStyle(
+                  color: MarketplacePalette.of(context).text,
+                  fontSize: 13,
+                ),
               ),
             ),
             if (trailing != null) ...[
               const SizedBox(width: 10),
               Text(
                 trailing!,
-                style: const TextStyle(
-                  color: _PlayStoreMarketplaceViewState._muted,
+                style: TextStyle(
+                  color: MarketplacePalette.of(context).muted,
                   fontSize: 11,
                 ),
               ),
             ],
             const SizedBox(width: 8),
-            const Icon(
+            Icon(
               Icons.arrow_outward_rounded,
-              color: _PlayStoreMarketplaceViewState._muted,
+              color: MarketplacePalette.of(context).muted,
               size: 16,
             ),
           ],
@@ -10771,13 +10840,16 @@ class _SearchChip extends StatelessWidget {
       child: Ink(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: _PlayStoreMarketplaceViewState._surface,
+          color: MarketplacePalette.of(context).surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFF353539)),
         ),
         child: Text(
           label,
-          style: const TextStyle(color: Colors.white, fontSize: 12.5),
+          style: TextStyle(
+            color: MarketplacePalette.of(context).text,
+            fontSize: 12.5,
+          ),
         ),
       ),
     );
@@ -10809,14 +10881,16 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
+    final palette = MarketplacePalette.of(context);
+    final selectedColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFB7F4F0)
+        : Theme.of(context).colorScheme.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF111113),
+        color: palette.background,
         border: Border(
           bottom: BorderSide(
-            color: overlapsContent
-                ? const Color(0xFF353539)
-                : Colors.transparent,
+            color: overlapsContent ? palette.border : Colors.transparent,
           ),
         ),
       ),
@@ -10838,17 +10912,13 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
                     Icon(
                       icons[index],
                       size: 15,
-                      color: isSelected
-                          ? const Color(0xFFB7F4F0)
-                          : const Color(0xFF85848A),
+                      color: isSelected ? selectedColor : palette.muted,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       labels[index],
                       style: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFFB9B8BE),
+                        color: isSelected ? palette.text : palette.muted,
                         fontSize: 13,
                         fontWeight: isSelected
                             ? FontWeight.w700
@@ -10862,7 +10932,7 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
                   duration: const Duration(milliseconds: 160),
                   width: isSelected ? 34 : 0,
                   height: 3,
-                  decoration: const BoxDecoration(color: Color(0xFFB7F4F0)),
+                  decoration: BoxDecoration(color: selectedColor),
                 ),
               ],
             ),
@@ -10911,15 +10981,15 @@ class _PlayStoreDetails extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _PlayStoreIcon(entry: entry, size: 82),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         entry.name,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: MarketplacePalette.of(context).text,
                           fontSize: 21,
                           fontWeight: FontWeight.w800,
                         ),
@@ -10927,8 +10997,8 @@ class _PlayStoreDetails extends StatelessWidget {
                       const SizedBox(height: 5),
                       Text(
                         '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
-                        style: const TextStyle(
-                          color: _PlayStoreMarketplaceViewState._muted,
+                        style: TextStyle(
+                          color: MarketplacePalette.of(context).muted,
                           fontSize: 12,
                         ),
                       ),
@@ -10941,7 +11011,7 @@ class _PlayStoreDetails extends StatelessWidget {
                           style: TextStyle(
                             color: hasUpdate
                                 ? _PlayStoreMarketplaceViewState._green
-                                : _PlayStoreMarketplaceViewState._muted,
+                                : MarketplacePalette.of(context).muted,
                             fontSize: 11,
                             fontWeight: hasUpdate
                                 ? FontWeight.w700
@@ -10949,13 +11019,13 @@ class _PlayStoreDetails extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Row(
                         children: [
                           Text(
                             _playRatingLabel(entry),
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: MarketplacePalette.of(context).text,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -10968,8 +11038,8 @@ class _PlayStoreDetails extends StatelessWidget {
                           const SizedBox(width: 10),
                           Text(
                             _playReviewLabel(entry),
-                            style: const TextStyle(
-                              color: _PlayStoreMarketplaceViewState._muted,
+                            style: TextStyle(
+                              color: MarketplacePalette.of(context).muted,
                               fontSize: 12,
                             ),
                           ),
@@ -11023,37 +11093,30 @@ class _PlayStoreDetails extends StatelessWidget {
                     style: IconButton.styleFrom(
                       backgroundColor: const Color(0xFF343438),
                     ),
-                    icon: const Icon(
+                    icon: Icon(
                       Broken.setting_2,
-                      color: _PlayStoreMarketplaceViewState._muted,
+                      color: MarketplacePalette.of(context).muted,
                     ),
                   ),
                 ],
               ],
             ),
             const SizedBox(height: 25),
-            const Text(
+            Text(
               'À propos de cette extension',
               style: TextStyle(
-                color: Colors.white,
+                color: MarketplacePalette.of(context).text,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              _playDescription(entry),
-              style: const TextStyle(
-                color: Color(0xFFD5D4D9),
-                fontSize: 13,
-                height: 1.45,
-              ),
-            ),
+            _ExpandableDescription(text: _playDescription(entry)),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Informations',
               style: TextStyle(
-                color: Colors.white,
+                color: MarketplacePalette.of(context).text,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -11098,10 +11161,10 @@ class _PlayStoreDetails extends StatelessWidget {
             ),
             const SizedBox(height: 22),
             if (entry.upstream.isNotEmpty) ...[
-              const Text(
+              Text(
                 'Dépôt et provenance',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: MarketplacePalette.of(context).text,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -11120,9 +11183,9 @@ class _PlayStoreDetails extends StatelessWidget {
             Text(
               'Mise à jour via le dépôt officiel Watchtower Extensions.',
               style: TextStyle(
-                color: _PlayStoreMarketplaceViewState._muted.withValues(
-                  alpha: 0.8,
-                ),
+                color: MarketplacePalette.of(
+                  context,
+                ).muted.withValues(alpha: 0.8),
                 fontSize: 11,
               ),
             ),
@@ -11149,8 +11212,8 @@ class _DetailInfoRow extends StatelessWidget {
             width: 104,
             child: Text(
               label,
-              style: const TextStyle(
-                color: _PlayStoreMarketplaceViewState._muted,
+              style: TextStyle(
+                color: MarketplacePalette.of(context).muted,
                 fontSize: 12,
               ),
             ),
@@ -11186,14 +11249,17 @@ class _AccountOption extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      leading: Icon(icon, color: _PlayStoreMarketplaceViewState._muted),
+      leading: Icon(icon, color: MarketplacePalette.of(context).muted),
       title: Text(
         label,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(
+          color: MarketplacePalette.of(context).text,
+          fontSize: 14,
+        ),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         Broken.arrow_right,
-        color: _PlayStoreMarketplaceViewState._muted,
+        color: MarketplacePalette.of(context).muted,
       ),
     );
   }
@@ -11216,16 +11282,19 @@ class _NtfyToggleTileState extends State<_NtfyToggleTile> {
     return SwitchListTile.adaptive(
       secondary: Icon(
         Icons.notifications_active_rounded,
-        color: _PlayStoreMarketplaceViewState._muted,
+        color: MarketplacePalette.of(context).muted,
       ),
-      title: const Text(
+      title: Text(
         'Signaux ntfy',
-        style: TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(
+          color: MarketplacePalette.of(context).text,
+          fontSize: 14,
+        ),
       ),
-      subtitle: const Text(
+      subtitle: Text(
         'Pousser une alerte en cas d\'erreur',
         style: TextStyle(
-          color: _PlayStoreMarketplaceViewState._muted,
+          color: MarketplacePalette.of(context).muted,
           fontSize: 12,
         ),
       ),
@@ -11253,7 +11322,11 @@ class _HeaderIcon extends StatelessWidget {
       children: [
         IconButton(
           onPressed: onTap,
-          icon: Icon(icon, color: Colors.white, size: 23),
+          icon: Icon(
+            icon,
+            color: MarketplacePalette.of(context).text,
+            size: 23,
+          ),
           visualDensity: VisualDensity.compact,
         ),
         if (badge != null)
@@ -11352,10 +11425,82 @@ class _PlayStoreIcon extends StatelessWidget {
   }
 }
 
+/// The extension's description, collapsed to four lines with a "see more".
+///
+/// The text is exactly what the index publishes and what the extension's own
+/// settings page shows; the card never rewrites it, it only decides how much
+/// of it fits before offering to expand.
+class _ExpandableDescription extends StatefulWidget {
+  final String text;
+
+  const _ExpandableDescription({required this.text});
+
+  @override
+  State<_ExpandableDescription> createState() => _ExpandableDescriptionState();
+}
+
+class _ExpandableDescriptionState extends State<_ExpandableDescription> {
+  static const int _collapsedLines = 4;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    final style = TextStyle(
+      color: MarketplacePalette.of(context).muted,
+      fontSize: 13,
+      height: 1.45,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: widget.text, style: style),
+          maxLines: _collapsedLines,
+          textDirection: Directionality.of(context),
+        )..layout(maxWidth: constraints.maxWidth);
+        final overflows = painter.didExceedMaxLines;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.text,
+              style: style,
+              maxLines: _expanded ? null : _collapsedLines,
+              overflow: _expanded
+                  ? TextOverflow.visible
+                  : TextOverflow.ellipsis,
+            ),
+            if (overflows)
+              TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  _expanded
+                      ? l10n.catalog_card_see_less
+                      : l10n.catalog_card_see_more,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _LoadingRows extends StatelessWidget {
   const _LoadingRows();
 
-  Widget _bone({
+  Widget _bone(
+    BuildContext context, {
     required double width,
     required double height,
     double radius = 7,
@@ -11364,36 +11509,37 @@ class _LoadingRows extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: _PlayStoreMarketplaceViewState._surfaceHigh,
+        color: MarketplacePalette.of(context).surfaceHigh,
         borderRadius: BorderRadius.circular(radius),
       ),
     );
   }
 
-  Widget _card(int index) {
+  Widget _card(BuildContext context, int index) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 9, 16, 9),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _bone(width: 54, height: 54, radius: 14),
+          _bone(context, width: 54, height: 54, radius: 14),
           const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _bone(width: 130 + (index % 3) * 25.0, height: 14),
+                _bone(context, width: 130 + (index % 3) * 25.0, height: 14),
                 const SizedBox(height: 6),
-                _bone(width: 92, height: 10, radius: 5),
+                _bone(context, width: 92, height: 10, radius: 5),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    _bone(width: 28, height: 11, radius: 5),
+                    _bone(context, width: 28, height: 11, radius: 5),
                     const SizedBox(width: 6),
-                    _bone(width: 13, height: 13, radius: 7),
+                    _bone(context, width: 13, height: 13, radius: 7),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _bone(
+                        context,
                         width: double.infinity,
                         height: 10,
                         radius: 5,
@@ -11405,7 +11551,7 @@ class _LoadingRows extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _bone(width: 54, height: 34, radius: 17),
+          _bone(context, width: 54, height: 34, radius: 17),
         ],
       ),
     );
@@ -11424,13 +11570,13 @@ class _LoadingRows extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
             child: Row(
               children: [
-                _bone(width: 94, height: 13),
+                _bone(context, width: 94, height: 13),
                 const Spacer(),
-                _bone(width: 78, height: 30, radius: 15),
+                _bone(context, width: 78, height: 30, radius: 15),
               ],
             ),
           ),
-          ...List.generate(7, _card),
+          ...List.generate(7, (index) => _card(context, index)),
         ],
       ),
     );
