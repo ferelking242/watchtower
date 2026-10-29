@@ -3,9 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/calendar/providers/calendar_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
+import 'package:watchtower/modules/widgets/animated_empty_state.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/fetch_interval.dart';
 import 'package:watchtower/utils/headers.dart';
@@ -49,21 +52,24 @@ class _ScheduleSettings {
 class _ScheduleSettingsNotifier extends Notifier<_ScheduleSettings> {
   @override
   _ScheduleSettings build() => _ScheduleSettings(
-        weekStartsMonday: true,
-        visibleStatuses: {
-          ScheduleFilterStatus.watching,
-          ScheduleFilterStatus.planning,
-          ScheduleFilterStatus.completed,
-          ScheduleFilterStatus.paused,
-        },
-        indicateWatched: true,
-        disableImageTransitions: false,
-      );
+    weekStartsMonday: true,
+    visibleStatuses: {
+      ScheduleFilterStatus.watching,
+      ScheduleFilterStatus.planning,
+      ScheduleFilterStatus.completed,
+      ScheduleFilterStatus.paused,
+    },
+    indicateWatched: true,
+    disableImageTransitions: false,
+  );
+
+  void set(_ScheduleSettings value) => state = value;
 }
 
 final _scheduleSettingsProvider =
     NotifierProvider<_ScheduleSettingsNotifier, _ScheduleSettings>(
-        _ScheduleSettingsNotifier.new);
+      _ScheduleSettingsNotifier.new,
+    );
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -99,15 +105,15 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
 
   String _monthLabel(DateTime d) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
     ];
-    return '${months[d.month - 1]} ${d.year}';
+    final month = d.month >= 1 && d.month <= 12 ? months[d.month - 1] : '';
+    return '$month ${d.year}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     final hideItems = ref.watch(hideItemsStateProvider);
     final visibleTypes = hiddenItemTypes(hideItems);
@@ -115,7 +121,9 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     final animeVisible = visibleTypes.contains(ItemType.anime);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0A0C) : cs.surface,
+      // Theme-driven surface: the page used to hard-code #0A0A0C, so it
+      // ignored the app theme and accent entirely.
+      backgroundColor: cs.surface,
       body: SafeArea(
         child: Column(
           children: [
@@ -131,21 +139,14 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
               _SettingsPanel(
                 settings: settings,
                 onChanged: (s) =>
-                    ref.read(_scheduleSettingsProvider.notifier).state = s,
+                    ref.read(_scheduleSettingsProvider.notifier).set(s),
               ),
             Expanded(
               child: animeVisible
-                  ? _ScheduleBody(
-                      month: _selectedMonth,
-                      settings: settings,
-                    )
-                  : Center(
-                      child: Text(
-                        'Anime library is hidden',
-                        style: TextStyle(
-                          color: isDark ? Colors.white54 : Colors.black45,
-                        ),
-                      ),
+                  ? _ScheduleBody(month: _selectedMonth, settings: settings)
+                  : const AnimatedEmptyState(
+                      message: 'Bibliothèque anime masquée',
+                      icon: Broken.video_play,
                     ),
             ),
           ],
@@ -175,8 +176,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fg = isDark ? Colors.white70 : Colors.black54;
+    final fg = cs.onSurface.withValues(alpha: 0.7);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 6, 8, 4),
@@ -185,34 +185,48 @@ class _Header extends StatelessWidget {
           IconButton(
             onPressed: () {
               HapticFeedback.lightImpact();
-              Navigator.of(context).maybePop();
+              // The dock is not present on this route, so the header itself
+              // must provide the way back.
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/WatchtowerHome');
+              }
             },
-            icon: Icon(Icons.arrow_back_rounded, color: fg),
+            icon: Icon(Broken.arrow_left_2, color: fg),
           ),
           IconButton(
-            icon: Icon(Icons.chevron_left_rounded, color: fg),
+            icon: Icon(Broken.arrow_left_3, color: fg),
             onPressed: onPrev,
           ),
           Expanded(
-            child: Text(
-              monthLabel,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Broken.calendar_2, size: 20, color: cs.primary),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    monthLabel,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.chevron_right_rounded, color: fg),
+            icon: Icon(Broken.arrow_right_3, color: fg),
             onPressed: onNext,
           ),
           IconButton(
             icon: Icon(
-              settingsOpen
-                  ? Icons.settings_rounded
-                  : Icons.settings_outlined,
+              settingsOpen ? Broken.setting_2 : Broken.setting_4,
               color: settingsOpen ? cs.primary : fg,
             ),
             onPressed: onToggleSettings,
@@ -235,13 +249,11 @@ class _SettingsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
-    final panelColor =
-        isDark ? const Color(0xFF1A1A1E) : cs.surfaceContainerLow;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       decoration: BoxDecoration(
-        color: panelColor,
+        color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
@@ -252,66 +264,42 @@ class _SettingsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-            child: Text(
-              'Week starts on',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-          ),
+          const _SectionLabel(text: 'Début de semaine'),
           Row(
             children: [
               _RadioRow(
-                label: 'Monday',
+                label: 'Lundi',
                 selected: settings.weekStartsMonday,
                 onTap: () =>
                     onChanged(settings.copyWith(weekStartsMonday: true)),
               ),
               _RadioRow(
-                label: 'Sunday',
+                label: 'Dimanche',
                 selected: !settings.weekStartsMonday,
                 onTap: () =>
                     onChanged(settings.copyWith(weekStartsMonday: false)),
               ),
             ],
           ),
-          Divider(
-            height: 1,
-            indent: 16,
-            endIndent: 16,
-            color: isDark ? Colors.white12 : Colors.black12,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-            child: Text(
-              'Status',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-          ),
+          const _Divider(),
+          const _SectionLabel(text: 'Statut'),
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
             child: Wrap(
               children: [
                 for (final entry in [
-                  (ScheduleFilterStatus.watching, 'Watching'),
-                  (ScheduleFilterStatus.planning, 'Planning'),
-                  (ScheduleFilterStatus.completed, 'Completed'),
-                  (ScheduleFilterStatus.paused, 'Paused'),
+                  (ScheduleFilterStatus.watching, 'En cours'),
+                  (ScheduleFilterStatus.planning, 'À voir'),
+                  (ScheduleFilterStatus.completed, 'Terminé'),
+                  (ScheduleFilterStatus.paused, 'En pause'),
                 ])
                   _CheckRow(
                     label: entry.$2,
                     checked: settings.visibleStatuses.contains(entry.$1),
                     onTap: () {
-                      final next =
-                          Set<ScheduleFilterStatus>.from(settings.visibleStatuses);
+                      final next = Set<ScheduleFilterStatus>.from(
+                        settings.visibleStatuses,
+                      );
                       if (next.contains(entry.$1)) {
                         next.remove(entry.$1);
                       } else {
@@ -324,21 +312,15 @@ class _SettingsPanel extends StatelessWidget {
               ],
             ),
           ),
-          Divider(
-            height: 1,
-            indent: 16,
-            endIndent: 16,
-            color: isDark ? Colors.white12 : Colors.black12,
-          ),
+          const _Divider(),
           _SwitchRow(
-            label: 'Indicate watched episodes',
+            label: 'Indiquer les épisodes vus',
             value: settings.indicateWatched,
-            onChanged: (v) =>
-                onChanged(settings.copyWith(indicateWatched: v)),
+            onChanged: (v) => onChanged(settings.copyWith(indicateWatched: v)),
             cs: cs,
           ),
           _SwitchRow(
-            label: 'Disable image transitions',
+            label: 'Désactiver les transitions d’image',
             value: settings.disableImageTransitions,
             onChanged: (v) =>
                 onChanged(settings.copyWith(disableImageTransitions: v)),
@@ -347,6 +329,43 @@ class _SettingsPanel extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.1,
+          color: cs.onSurface.withValues(alpha: 0.45),
+        ),
+      ),
+    );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Divider(
+      height: 1,
+      indent: 16,
+      endIndent: 16,
+      color: isDark ? Colors.white12 : Colors.black12,
     );
   }
 }
@@ -374,12 +393,14 @@ class _RadioRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              selected ? Broken.radio : Broken.record_circle,
               size: 18,
-              color: selected ? cs.primary : Colors.grey,
+              color: selected
+                  ? cs.primary
+                  : cs.onSurface.withValues(alpha: 0.4),
             ),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 14)),
+            Text(label, style: TextStyle(fontSize: 14, color: cs.onSurface)),
           ],
         ),
       ),
@@ -411,14 +432,14 @@ class _CheckRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              checked
-                  ? Icons.check_box_rounded
-                  : Icons.check_box_outline_blank_rounded,
+              checked ? Broken.tick_square : Broken.square,
               size: 18,
-              color: checked ? cs.primary : Colors.grey,
+              color: checked
+                  ? cs.primary
+                  : cs.onSurface.withValues(alpha: 0.4),
             ),
             const SizedBox(width: 6),
-            Text(label, style: const TextStyle(fontSize: 14)),
+            Text(label, style: TextStyle(fontSize: 14, color: cs.onSurface)),
           ],
         ),
       ),
@@ -441,7 +462,6 @@ class _SwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
@@ -449,10 +469,7 @@ class _SwitchRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+              style: TextStyle(fontSize: 14, color: cs.onSurface),
             ),
           ),
           Switch(
@@ -483,8 +500,9 @@ class _ScheduleBody extends ConsumerWidget {
         case ScheduleFilterStatus.planning:
           if (s == Status.unknown) return true;
         case ScheduleFilterStatus.completed:
-          if (s == Status.completed ||
-              s == Status.publishingFinished) return true;
+          if (s == Status.completed || s == Status.publishingFinished) {
+            return true;
+          }
         case ScheduleFilterStatus.paused:
           if (s == Status.onHiatus || s == Status.canceled) return true;
       }
@@ -492,67 +510,85 @@ class _ScheduleBody extends ConsumerWidget {
     return false;
   }
 
-  DateTime? _computeExpectedDate(Manga manga) {
-    if (manga.smartUpdateDays == null || manga.smartUpdateDays! <= 0) {
-      return null;
+  /// Expected release dates for [manga] inside [month].
+  ///
+  /// Chapters are sorted oldest → newest so the newest upload anchors the
+  /// cadence, then the interval is projected across the whole window using
+  /// integer arithmetic from that anchor. Projecting only backwards (the
+  /// previous behaviour) left the current and next month empty for shows whose
+  /// latest chapter predates the window, and the previous day-by-day walk
+  /// could skip a release that landed exactly on the first of the month.
+  List<DateTime> _expectedDates(Manga manga, DateTime month) {
+    final chapters = manga.chapters.toList()
+      ..sort((a, b) => _chapterMs(a).compareTo(_chapterMs(b)));
+    if (chapters.isEmpty) return const [];
+
+    final intervalDays = _intervalDays(manga, chapters);
+    if (intervalDays <= 0) return const [];
+
+    final anchor = _anchorDate(manga, chapters);
+    if (anchor == null) return const [];
+
+    final monthStart = DateTime(month.year, month.month, 1);
+    final monthEnd = DateTime(month.year, month.month + 1, 0);
+    final anchorDay = DateTime(anchor.year, anchor.month, anchor.day);
+
+    // First multiple of the interval at or after the first day of the month.
+    final offsetDays = monthStart.difference(anchorDay).inDays;
+    final steps = (offsetDays / intervalDays).ceil();
+    var cur = anchorDay.add(Duration(days: steps * intervalDays));
+
+    final dates = <DateTime>[];
+    while (!cur.isAfter(monthEnd)) {
+      dates.add(cur);
+      cur = cur.add(Duration(days: intervalDays));
     }
-    final _chapterList = manga.chapters.toList()
-      ..sort((a, b) => (b.dateUpload ?? '0').compareTo(a.dateUpload ?? '0'));
-    final lastChapter = _chapterList.isEmpty ? null : _chapterList.first;
-    final lastChapterMs = int.tryParse(lastChapter?.dateUpload ?? '');
-    return FetchInterval.computeExpectedDate(
-      lastChapterDateMs: lastChapterMs,
-      lastUpdateMs: manga.lastUpdate,
-      interval: manga.smartUpdateDays,
-    );
+    return dates;
+  }
+
+  int _chapterMs(Chapter c) => int.tryParse(c.dateUpload ?? '') ?? 0;
+
+  int _intervalDays(Manga manga, List<Chapter> chapters) {
+    final fromModel = manga.smartUpdateDays ?? 0;
+    if (fromModel > 0) return fromModel;
+    final computed = FetchInterval.calculateInterval(chapters);
+    return computed.clamp(1, FetchInterval.maxInterval);
+  }
+
+  DateTime? _anchorDate(Manga manga, List<Chapter> chapters) {
+    final newest = chapters.last;
+    final ms = _chapterMs(newest);
+    if (ms > 0) return DateTime.fromMillisecondsSinceEpoch(ms);
+    if ((manga.lastUpdate ?? 0) > 0) {
+      return DateTime.fromMillisecondsSinceEpoch(manga.lastUpdate!);
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stream =
-        ref.watch(getCalendarStreamProvider(itemType: ItemType.anime));
+    final stream = ref.watch(getCalendarStreamProvider(itemType: ItemType.anime));
 
     return stream.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
+      error: (e, _) => Center(child: Text('Erreur : $e')),
       data: (mangas) {
         final filtered = settings.visibleStatuses.isEmpty
             ? mangas
             : mangas
-                .where((m) => _matchesFilter(m, settings.visibleStatuses))
-                .toList();
+                  .where((m) => _matchesFilter(m, settings.visibleStatuses))
+                  .toList();
 
         final Map<DateTime, List<Manga>> byDay = {};
-
-        final monthStart = DateTime(month.year, month.month, 1);
-        final monthEnd = DateTime(month.year, month.month + 1, 0);
-
         for (final manga in filtered) {
-          DateTime? baseDate = _computeExpectedDate(manga);
-          if (baseDate == null) continue;
-          final interval = manga.smartUpdateDays ?? 7;
-
-          DateTime cur = baseDate;
-          while (cur.isAfter(monthEnd)) {
-            cur = cur.subtract(Duration(days: interval));
-          }
-          while (cur.isBefore(monthStart)) {
-            cur = cur.add(Duration(days: interval));
-          }
-
-          while (!cur.isAfter(monthEnd)) {
-            if (!cur.isBefore(monthStart)) {
-              final key = DateTime(cur.year, cur.month, cur.day);
-              byDay.putIfAbsent(key, () => []).add(manga);
-            }
-            cur = cur.add(Duration(days: interval));
+          for (final day in _expectedDates(manga, month)) {
+            byDay.putIfAbsent(day, () => []).add(manga);
           }
         }
 
         final sortedDays = byDay.keys.toList()..sort();
-
         if (sortedDays.isEmpty) {
-          return _EmptySchedule();
+          return const _EmptySchedule();
         }
 
         return ListView.builder(
@@ -577,38 +613,9 @@ class _EmptySchedule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.calendar_today_outlined,
-            size: 56,
-            color: isDark ? Colors.white24 : Colors.black26,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'No schedule for this month',
-            style: TextStyle(
-              fontSize: 16,
-              color: isDark ? Colors.white54 : Colors.black45,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
-              'Add anime to your library with smart updates enabled',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? Colors.white38 : Colors.black38,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return const AnimatedEmptyState(
+      message: 'Aucune sortie ce mois-ci',
+      icon: Broken.calendar_2,
     );
   }
 }
@@ -628,14 +635,14 @@ class _DayGroup extends StatelessWidget {
 
   static const _dayNames = [
     '',
-    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-    'Friday', 'Saturday', 'Sunday',
+    'Lundi', 'Mardi', 'Mercredi', 'Jeudi',
+    'Vendredi', 'Samedi', 'Dimanche',
   ];
 
   static const _monthNames = [
     '',
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
   ];
 
   @override
@@ -650,10 +657,8 @@ class _DayGroup extends StatelessWidget {
     final dayBg = isToday
         ? cs.primary
         : isPast
-            ? (isDark ? Colors.white12 : Colors.black12)
-            : (isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.06));
+        ? (isDark ? Colors.white12 : Colors.black12)
+        : cs.surfaceContainerHighest;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,9 +680,7 @@ class _DayGroup extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
-                      color: isToday
-                          ? Colors.white
-                          : (isDark ? Colors.white : Colors.black87),
+                      color: isToday ? cs.onPrimary : cs.onSurface,
                     ),
                   ),
                 ),
@@ -691,34 +694,34 @@ class _DayGroup extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : Colors.black87,
+                      color: cs.onSurface,
                     ),
                   ),
                   Text(
                     '${_monthNames[date.month]} ${date.day}',
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? Colors.white54 : Colors.black45,
+                      color: cs.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
                 ],
               ),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.06),
+                  color: cs.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${items.length} episode${items.length == 1 ? '' : 's'}',
+                  '${items.length} épisode${items.length == 1 ? '' : 's'}',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white70 : Colors.black54,
+                    color: cs.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ),
@@ -747,20 +750,22 @@ class _ScheduleItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
 
     ImageProvider? imgProvider;
     if (manga.customCoverImage != null) {
       imgProvider = MemoryImage(manga.customCoverImage as Uint8List);
-    } else if ((manga.customCoverFromTracker ?? manga.imageUrl ?? '').isNotEmpty) {
+    } else if ((manga.customCoverFromTracker ?? manga.imageUrl ?? '')
+        .isNotEmpty) {
       imgProvider = CustomExtendedNetworkImageProvider(
         manga.customCoverFromTracker ?? manga.imageUrl!,
-        headers: ref.watch(headersProvider(
-          source: manga.source ?? '',
-          lang: manga.lang ?? '',
-          sourceId: manga.sourceId,
-        )),
+        headers: ref.watch(
+          headersProvider(
+            source: manga.source ?? '',
+            lang: manga.lang ?? '',
+            sourceId: manga.sourceId,
+          ),
+        ),
         cache: !settings.disableImageTransitions,
       );
     }
@@ -785,9 +790,9 @@ class _ScheduleItem extends ConsumerWidget {
                         image: imgProvider,
                         fit: BoxFit.cover,
                         gaplessPlayback: settings.disableImageTransitions,
-                        errorBuilder: (_, _, _) => _PlaceholderCover(),
+                        errorBuilder: (_, _, _) => const _PlaceholderCover(),
                       )
-                    : _PlaceholderCover(),
+                    : const _PlaceholderCover(),
               ),
             ),
             const SizedBox(width: 14),
@@ -802,7 +807,7 @@ class _ScheduleItem extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.white : Colors.black87,
+                      color: cs.onSurface,
                       height: 1.3,
                     ),
                   ),
@@ -810,16 +815,16 @@ class _ScheduleItem extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.play_circle_outline_rounded,
+                        Broken.play_circle,
                         size: 13,
-                        color: isDark ? Colors.white54 : Colors.black45,
+                        color: cs.onSurface.withValues(alpha: 0.55),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Episode $_nextEpisodeNum',
+                        'Épisode $_nextEpisodeNum',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? Colors.white54 : Colors.black45,
+                          color: cs.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
                       if (settings.indicateWatched) ...[
@@ -850,13 +855,13 @@ class _PlaceholderCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: isDark ? const Color(0xFF1E1E22) : const Color(0xFFE0E0E0),
+      color: cs.surfaceContainerHighest,
       child: Icon(
-        Icons.live_tv_outlined,
+        Broken.video_play,
         size: 24,
-        color: isDark ? Colors.white24 : Colors.black26,
+        color: cs.onSurface.withValues(alpha: 0.35),
       ),
     );
   }

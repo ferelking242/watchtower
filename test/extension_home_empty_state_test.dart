@@ -222,6 +222,8 @@ void main() {
 
     expect(find.text('Extension source header'), findsOneWidget);
     expect(find.byTooltip('Rechercher'), findsNothing);
+    // The empty state uses a resolution-free kaomoji glyph rather than the
+    // former Lottie animation.
     expect(
       find.byKey(const ValueKey('extension-empty-kaomoji')),
       findsOneWidget,

@@ -1,8 +1,8 @@
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
     show
         pendingUpdateBanner,
@@ -13,6 +13,8 @@ import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
 import 'package:watchtower/modules/more/about/providers/download_file_screen.dart'
     show DownloadFileScreen, ApkInstaller;
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
+import 'package:watchtower/modules/more/settings/appearance/providers/nav_display_state_provider.dart'
+    show navEditModeProvider;
 
 // ── Route metadata ─────────────────────────────────────────────────────────────
 
@@ -28,25 +30,25 @@ class _MenuItem {
 }
 
 const kWtRouteInfo = <String, (String, IconData)>{
-  '/WatchtowerHome': ('Accueil', Icons.home_rounded),
-  '/AnimeLibrary': ('Anime', Icons.live_tv_rounded),
-  '/MoviesLibrary': ('Movies', Icons.movie_rounded),
-  '/MangaLibrary': ('Manga', Icons.auto_stories),
-  '/NovelLibrary': ('Novel', Icons.local_library),
-  '/MusicLibrary': ('Music', Icons.music_note),
-  '/GameLibrary': ('Games', Icons.sports_esports),
-  '/Library': ('Library', Icons.collections_bookmark),
-  '/componentGallery': ('Gallery', Icons.grid_view_rounded),
-  '/discover': ('Search', Icons.travel_explore_rounded),
-  '/browse': ('Browser', Icons.explore_rounded),
-  '/history': ('History', Icons.history_rounded),
-  '/updates': ('Updates', Icons.new_releases_rounded),
-  '/trackerLibrary': ('Tracking', Icons.account_tree),
-  '/schedule': ('Schedule', Icons.calendar_month_rounded),
-  '/marketplace': ('Market', Icons.storefront_rounded),
-  '/downloadQueue': ('Downloads', Icons.download_rounded),
-  '/settings': ('Settings', Icons.settings_rounded),
-  '_enableLibSwitch': ('Hub', Icons.grid_view_rounded),
+  '/WatchtowerHome': ('Accueil', Broken.home_2),
+  '/AnimeLibrary': ('Anime', Broken.video_play),
+  '/MoviesLibrary': ('Movies', Broken.video),
+  '/MangaLibrary': ('Manga', Broken.book),
+  '/NovelLibrary': ('Novel', Broken.note),
+  '/MusicLibrary': ('Music', Broken.music),
+  '/GameLibrary': ('Games', Broken.gameboy),
+  '/Library': ('Library', Broken.book_saved),
+  '/componentGallery': ('Gallery', Broken.grid_2),
+  '/discover': ('Search', Broken.discover_1),
+  '/browse': ('Browser', Broken.discover),
+  '/history': ('History', Broken.clock),
+  '/updates': ('Updates', Broken.notification),
+  '/trackerLibrary': ('Tracking', Broken.category_2),
+  '/schedule': ('Schedule', Broken.calendar_2),
+  '/marketplace': ('Market', Broken.shop),
+  '/downloadQueue': ('Downloads', Broken.document_download),
+  '/settings': ('Settings', Broken.setting_2),
+  '_enableLibSwitch': ('Hub', Broken.element_3),
 };
 
 const kWtDefaultNavOrder = [
@@ -126,7 +128,6 @@ class WatchtowerMenuOverlay extends ConsumerStatefulWidget {
 class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  bool _reorderMode = false;
 
   // ── Timing constants (ms) ──────────────────────────────────────────────────
   // Phase 1: icons pop up one by one from bottom (short stagger).
@@ -258,8 +259,10 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
     final cs = Theme.of(context).colorScheme;
     final dockBot = 14.0 + 64.0 + mq.padding.bottom;
 
-    if (_reorderMode) {
-      return _buildReorderMode(context, mq, isDark, cs, dockBot);
+    final editMode = ref.watch(navEditModeProvider);
+
+    if (editMode) {
+      return _buildEditMode(context, isDark, cs, dockBot);
     }
 
     final items = _buildItems(context);
@@ -286,7 +289,11 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
           child: GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
-              _close();
+              if (editMode) {
+                ref.read(navEditModeProvider.notifier).set(false);
+              } else {
+                _close();
+              }
             },
             behavior: HitTestBehavior.translucent,
             child: const SizedBox.expand(),
@@ -369,7 +376,7 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
           ),
         ),
 
-        // ── Wrench — bottom-left ────────────────────────────────────────────
+        // ── Wrench — bottom-left. Toggles in-place edit mode ────────────────
         Positioned(
           bottom: dockBot + 6,
           left: 16,
@@ -381,16 +388,19 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
                 child: _ControlBtn(
                   onTap: () {
                     HapticFeedback.mediumImpact();
-                    setState(() => _reorderMode = true);
+                    ref.read(navEditModeProvider.notifier).toggle();
                   },
                   isDark: isDark,
                   cs: cs,
+                  active: editMode,
                   child: Icon(
-                    Icons.build_rounded,
+                    Broken.setting_4,
                     size: 20,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.80)
-                        : Colors.black.withValues(alpha: 0.65),
+                    color: editMode
+                        ? cs.primary
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.80)
+                              : Colors.black.withValues(alpha: 0.65)),
                   ),
                 ),
               ),
@@ -398,7 +408,7 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
           ),
         ),
 
-        // ── X reset — above wrench, offset right → diagonal line ───────────
+        // ── X — above wrench. Leaves edit mode, or resets the layout ────────
         Positioned(
           bottom: dockBot + 58,
           left: 44,
@@ -410,12 +420,16 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
                 child: _ControlBtn(
                   onTap: () {
                     HapticFeedback.mediumImpact();
-                    _resetProviders();
+                    if (editMode) {
+                      ref.read(navEditModeProvider.notifier).set(false);
+                    } else {
+                      _resetProviders();
+                    }
                   },
                   isDark: isDark,
                   cs: cs,
                   isError: true,
-                  child: Icon(Icons.close_rounded, size: 20, color: cs.error),
+                  child: Icon(Broken.close_circle, size: 20, color: cs.error),
                 ),
               ),
             ),
@@ -425,17 +439,25 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
     );
   }
 
-  // ── Reorder mode ─────────────────────────────────────────────────────────────
+  // ── Inline edit mode ────────────────────────────────────────────────────────
+  // The wrench flips this on instead of opening a floating box: every entry
+  // then exposes a drag handle and the list is reorderable in place. The same
+  // `navEditModeProvider` flag drives the floating dock and the sub-dock.
 
-  Widget _buildReorderMode(
+  Widget _buildEditMode(
     BuildContext context,
-    MediaQueryData mq,
     bool isDark,
     ColorScheme cs,
     double dockBot,
   ) {
     final navOrder = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
+    final isFr = Localizations.localeOf(context).languageCode == 'fr';
+
+    String label(String route) {
+      final base = kWtRouteInfo[route]?.$1 ?? route.replaceAll('/', '');
+      return isFr ? (_kFrLabels[route] ?? base) : base;
+    }
 
     return Stack(
       children: [
@@ -443,187 +465,124 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
           child: GestureDetector(
             onTap: () {
               HapticFeedback.lightImpact();
-              setState(() => _reorderMode = false);
+              ref.read(navEditModeProvider.notifier).set(false);
             },
             behavior: HitTestBehavior.translucent,
             child: const SizedBox.expand(),
           ),
         ),
+
+        // ── In-place reorder list — no floating box ─────────────────────────
+        // Every entry keeps the exact menu chrome and gains a drag handle on
+        // its right; dragging it moves the entry itself, not a copy in a
+        // separate panel.
         Positioned(
-          left: 16,
           right: 16,
-          bottom: dockBot + 10,
+          left: 16,
+          bottom: dockBot + 18,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: mq.size.height * 0.55),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF0F0F14).withValues(alpha: 0.96)
-                        : Colors.white.withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.10)
-                          : Colors.black.withValues(alpha: 0.06),
-                      width: 0.8,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.62,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _EditAction(
+                      icon: Broken.refresh_2,
+                      color: cs.error,
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        _resetProviders();
+                      },
                     ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+                    const SizedBox(width: 8),
+                    _EditAction(
+                      icon: Broken.tick_circle,
+                      color: cs.primary,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        ref.read(navEditModeProvider.notifier).set(false);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Flexible(
+                  child: ReorderableListView.builder(
+                    reverse: true,
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    buildDefaultDragHandles: false,
+                    proxyDecorator: (child, index, animation) => Material(
+                      color: Colors.transparent,
+                      elevation: 0,
+                      child: child,
+                    ),
+                    onReorderItem: (oldIdx, newIdx) {
+                      HapticFeedback.selectionClick();
+                      _onReorder(navOrder, oldIdx, newIdx);
+                    },
+                    itemCount: navOrder.length,
+                    itemBuilder: (context, index) {
+                      final route = navOrder[index];
+                      final info = kWtRouteInfo[route];
+                      final isHidden = hideItems.contains(route);
+                      final inDock = index < 4 && !isHidden;
+
+                      return Padding(
+                        key: ValueKey(route),
+                        padding: const EdgeInsets.only(bottom: 10),
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Icon(
-                              Icons.swap_vert_rounded,
-                              size: 15,
-                              color: cs.primary,
+                            _MenuRow(
+                              item: _MenuItem(
+                                route: route,
+                                label: label(route),
+                                icon: info?.$2 ?? Broken.element_3,
+                              ),
+                              isActive: inDock,
+                              isDark: isDark,
+                              cs: cs,
+                              iconFade: const AlwaysStoppedAnimation(1),
+                              iconSlide: const AlwaysStoppedAnimation(
+                                Offset.zero,
+                              ),
+                              lblFade: const AlwaysStoppedAnimation(1),
+                              onTap: () {},
                             ),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Réorganiser',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: cs.onSurface,
-                                  decoration: TextDecoration.none,
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: Container(
+                                width: 44,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.06)
+                                      : Colors.black.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(
+                                  Broken.menu_1,
+                                  size: 20,
+                                  color: cs.onSurface.withValues(
+                                    alpha: isHidden ? 0.28 : 0.6,
+                                  ),
                                 ),
                               ),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                HapticFeedback.mediumImpact();
-                                _resetProviders();
-                              },
-                              icon: Icon(
-                                Icons.refresh_rounded,
-                                size: 17,
-                                color: cs.error,
-                              ),
-                              padding: const EdgeInsets.all(6),
-                              constraints: const BoxConstraints(),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                HapticFeedback.lightImpact();
-                                setState(() => _reorderMode = false);
-                              },
-                              icon: Icon(
-                                Icons.check_rounded,
-                                size: 17,
-                                color: cs.primary,
-                              ),
-                              padding: const EdgeInsets.all(6),
-                              constraints: const BoxConstraints(),
                             ),
                           ],
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: Text(
-                          '4 premiers = dock  ·  reste = menu',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: cs.onSurface.withValues(alpha: 0.42),
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                      Divider(
-                        height: 1,
-                        thickness: 0.5,
-                        color: cs.onSurface.withValues(alpha: 0.10),
-                      ),
-                      Flexible(
-                        child: ReorderableListView.builder(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          proxyDecorator: (child, index, animation) => Material(
-                            color: Colors.transparent,
-                            elevation: 0,
-                            child: child,
-                          ),
-                          onReorderItem: (oldIdx, newIdx) {
-                            HapticFeedback.selectionClick();
-                            _onReorder(navOrder, oldIdx, newIdx);
-                          },
-                          itemCount: navOrder.length,
-                          itemBuilder: (context, index) {
-                            final route = navOrder[index];
-                            final info = kWtRouteInfo[route];
-                            final label = info?.$1 ?? route.replaceAll('/', '');
-                            final icon = info?.$2 ?? Icons.circle_outlined;
-                            final isHidden = hideItems.contains(route);
-                            final inDock = index < 4 && !isHidden;
-
-                            return ListTile(
-                              key: ValueKey(route),
-                              leading: Icon(
-                                icon,
-                                size: 20,
-                                color: inDock
-                                    ? cs.primary
-                                    : cs.onSurface.withValues(
-                                        alpha: isHidden ? 0.28 : 0.52,
-                                      ),
-                              ),
-                              title: Text(
-                                label,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: inDock
-                                      ? FontWeight.w500
-                                      : FontWeight.w400,
-                                  color: cs.onSurface.withValues(
-                                    alpha: isHidden ? 0.35 : 1.0,
-                                  ),
-                                  decoration: TextDecoration.none,
-                                ),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _Badge(
-                                    label: inDock
-                                        ? 'dock'
-                                        : isHidden
-                                        ? 'caché'
-                                        : 'menu',
-                                    color: inDock
-                                        ? cs.primary
-                                        : cs.onSurface.withValues(alpha: 0.38),
-                                    bg: inDock
-                                        ? cs.primary.withValues(alpha: 0.12)
-                                        : cs.onSurface.withValues(alpha: 0.07),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    Icons.drag_handle_rounded,
-                                    size: 18,
-                                    color: cs.onSurface.withValues(alpha: 0.28),
-                                  ),
-                                ],
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              dense: true,
-                              minVerticalPadding: 4,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -632,7 +591,38 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
   }
 }
 
-// ── Menu row: [label] · [icon box] ────────────────────────────────────────────
+// ── Small round edit-mode action (tick / reset) ───────────────────────────────
+
+class _EditAction extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _EditAction({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isDark ? _kDarkIconBg : _kLightIconBg,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 20, color: color),
+      ),
+    );
+  }
+}
+
 // Seanime style: solid opaque dark boxes, bold white text, large radius.
 
 class _MenuRow extends StatelessWidget {
@@ -755,6 +745,7 @@ class _ControlBtn extends StatelessWidget {
   final ColorScheme cs;
   final Widget child;
   final bool isError;
+  final bool active;
 
   const _ControlBtn({
     required this.onTap,
@@ -762,15 +753,20 @@ class _ControlBtn extends StatelessWidget {
     required this.cs,
     required this.child,
     this.isError = false,
+    this.active = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final bg = isError
         ? cs.error.withValues(alpha: isDark ? 0.18 : 0.12)
+        : active
+        ? cs.primary.withValues(alpha: isDark ? 0.22 : 0.14)
         : (isDark ? _kDarkIconBg : _kLightIconBg);
     final border = isError
         ? cs.error.withValues(alpha: 0.32)
+        : active
+        ? cs.primary.withValues(alpha: 0.45)
         : (isDark
               ? Colors.white.withValues(alpha: 0.10)
               : Colors.black.withValues(alpha: 0.08));
@@ -787,226 +783,6 @@ class _ControlBtn extends StatelessWidget {
           border: Border.all(color: border, width: 1),
         ),
         child: Center(child: child),
-      ),
-    );
-  }
-}
-
-// ── Badge chip ─────────────────────────────────────────────────────────────────
-
-class _Badge extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Color bg;
-  const _Badge({required this.label, required this.color, required this.bg});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 9.5,
-          fontWeight: FontWeight.w600,
-          color: color,
-          decoration: TextDecoration.none,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Public helper ──────────────────────────────────────────────────────────────
-
-void showWatchtowerReorderSheet(BuildContext context, WidgetRef ref) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    isDismissible: true,
-    enableDrag: true,
-    builder: (_) => const _ReorderSheet(),
-  );
-}
-
-class _ReorderSheet extends ConsumerWidget {
-  const _ReorderSheet();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final navOrder = ref.watch(navigationOrderStateProvider);
-    final hideItems = ref.watch(hideItemsStateProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cs = Theme.of(context).colorScheme;
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.65,
-        ),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.22)
-                      : Colors.black.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
-              child: Row(
-                children: [
-                  Icon(Icons.swap_vert_rounded, size: 16, color: cs.primary),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Réorganiser la navigation',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurface,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.refresh_rounded,
-                      size: 18,
-                      color: cs.error,
-                    ),
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      ref
-                          .read(navigationOrderStateProvider.notifier)
-                          .set(List<String>.from(kWtDefaultNavOrder));
-                      ref
-                          .read(hideItemsStateProvider.notifier)
-                          .set(List<String>.from(kWtDefaultHideItems));
-                    },
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.check_rounded,
-                      size: 18,
-                      color: cs.primary,
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(
-                '4 premiers = dock  ·  glisser pour réordonner  ·  reste = menu',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: cs.onSurface.withValues(alpha: 0.45),
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ),
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              color: cs.onSurface.withValues(alpha: 0.12),
-            ),
-            Flexible(
-              child: ReorderableListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                proxyDecorator: (child, index, animation) =>
-                    Material(color: Colors.transparent, child: child),
-                onReorderItem: (oldIndex, newIndex) {
-                  HapticFeedback.selectionClick();
-                  final list = List<String>.from(navOrder);
-                  list.insert(newIndex, list.removeAt(oldIndex));
-                  ref.read(navigationOrderStateProvider.notifier).set(list);
-                },
-                itemCount: navOrder.length,
-                itemBuilder: (context, index) {
-                  final route = navOrder[index];
-                  final info = kWtRouteInfo[route];
-                  final label = info?.$1 ?? route.replaceAll('/', '');
-                  final icon = info?.$2 ?? Icons.circle_outlined;
-                  final isHidden = hideItems.contains(route);
-                  final inDock = index < 4 && !isHidden;
-
-                  return ListTile(
-                    key: ValueKey(route),
-                    leading: Icon(
-                      icon,
-                      size: 20,
-                      color: inDock
-                          ? cs.primary
-                          : cs.onSurface.withValues(
-                              alpha: isHidden ? 0.28 : 0.52,
-                            ),
-                    ),
-                    title: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: inDock ? FontWeight.w500 : FontWeight.w400,
-                        color: cs.onSurface.withValues(
-                          alpha: isHidden ? 0.35 : 1.0,
-                        ),
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _Badge(
-                          label: inDock
-                              ? 'dock'
-                              : isHidden
-                              ? 'caché'
-                              : 'menu',
-                          color: inDock
-                              ? cs.primary
-                              : cs.onSurface.withValues(alpha: 0.38),
-                          bg: inDock
-                              ? cs.primary.withValues(alpha: 0.12)
-                              : cs.onSurface.withValues(alpha: 0.07),
-                        ),
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.drag_handle_rounded,
-                          size: 18,
-                          color: cs.onSurface.withValues(alpha: 0.28),
-                        ),
-                      ],
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    dense: true,
-                    minVerticalPadding: 4,
-                  );
-                },
-              ),
-            ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
-          ],
-        ),
       ),
     );
   }
@@ -1079,11 +855,7 @@ class _InstallBannerState extends State<_InstallBanner>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.install_mobile_rounded,
-                size: 15,
-                color: Colors.white,
-              ),
+              const Icon(Broken.mobile, size: 15, color: Colors.white),
               const SizedBox(width: 8),
               Text(
                 'Installer v${widget.version}',
@@ -1096,11 +868,7 @@ class _InstallBannerState extends State<_InstallBanner>
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 15,
-                color: Colors.white70,
-              ),
+              const Icon(Broken.arrow_right_2, size: 15, color: Colors.white70),
             ],
           ),
         ),
@@ -1176,11 +944,7 @@ class _UpdateBannerState extends State<_UpdateBanner>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.system_update_alt_rounded,
-                size: 15,
-                color: Colors.white,
-              ),
+              const Icon(Broken.document_download, size: 15, color: Colors.white),
               const SizedBox(width: 8),
               Text(
                 'v${widget.version} disponible',
@@ -1193,11 +957,7 @@ class _UpdateBannerState extends State<_UpdateBanner>
                 ),
               ),
               const SizedBox(width: 6),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 15,
-                color: Colors.white70,
-              ),
+              const Icon(Broken.arrow_right_2, size: 15, color: Colors.white70),
             ],
           ),
         ),

@@ -1,8 +1,10 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
+import 'package:watchtower/local_indexer/models/local_work.dart';
 import 'package:watchtower/local_indexer/search/search_engine.dart';
 import 'package:watchtower/local_indexer/search/search_result.dart';
 import 'package:watchtower/main.dart' show isar;
@@ -26,10 +28,7 @@ IndexerEngine localIndexerEngine(Ref ref) {
   // itself is disposed, otherwise Riverpod can dispose it while scan() is
   // awaiting filesystem or isolate work.
   ref.keepAlive();
-  final engine = IndexerEngine(
-    isar: isar,
-    searchEngine: _sharedSearchEngine,
-  );
+  final engine = IndexerEngine(isar: isar, searchEngine: _sharedSearchEngine);
 
   ref.onDispose(() => engine.dispose());
   return engine;
@@ -155,8 +154,17 @@ Future<List<LocalIndexedItem>> recentlyIndexed(Ref ref) async {
 /// Récupère un item par chemin de fichier.
 @riverpod
 Future<LocalIndexedItem?> localItemByPath(Ref ref, String path) async {
-  return isar.localIndexedItems
-      .where()
-      .filePathEqualTo(path)
-      .findFirst();
+  return isar.localIndexedItems.where().filePathEqualTo(path).findFirst();
 }
+
+/// Regroupe l'index en « œuvres » — une entrée par clé canonique, par type et
+/// par saison.
+///
+/// C'est la vue de la Smart Library : chaque fichier indexé devient un épisode
+/// (ou un film) rattaché à son œuvre, ce qui permet d'afficher un vrai
+/// catalogue (films et séries), de compter les épisodes présents et de repérer
+/// les numéros manquants au lieu d'une simple liste de fichiers.
+final localWorksProvider = FutureProvider<List<LocalWork>>((ref) async {
+  final items = await isar.localIndexedItems.where().findAll();
+  return LocalWork.group(items);
+});

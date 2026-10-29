@@ -1,24 +1,21 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
-import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
-import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
 import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
+import 'package:watchtower/local_indexer/models/local_work.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
-import 'package:watchtower/modules/more/settings/downloads/smart_library_icon.dart';
+import 'package:watchtower/modules/widgets/animated_empty_state.dart';
 import 'package:watchtower/providers/storage_provider.dart';
-
-enum _SmartLibraryFilter { all, movies, series, manga, unknown }
-enum _SmartLibraryAction { refresh, fullRescan }
 
 /// The global, non-destructive media index.
 ///
@@ -33,29 +30,33 @@ class SmartLibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<SmartLibraryScreen> createState() => _SmartLibraryScreenState();
 }
 
+/// Filter applied to the library grid.
+enum _SmartLibraryFilter { all, movies, series, review }
+
 class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   _SmartLibraryFilter _filter = _SmartLibraryFilter.all;
   bool _starting = false;
-  int _metadataRefresh = 0;
 
+  bool get _isManga => widget.itemType == ItemType.manga;
+
+  /// Directories that are worth walking for media. On Android the shared
+  /// storage root is used when "all files" access is granted, which is what
+  /// makes a single scan find every movie/series on the device.
   Future<List<String>> _scanRoots() async {
     final storage = StorageProvider();
-    final base = await storage.getDefaultDirectory();
-    final roots = <String>[
-      if (base != null) base.path,
-    ];
+    final roots = <String>[];
 
-    // Storage permission is granted from the onboarding Permissions page.
-    // Smart Library never shows a second permission dialog: it simply uses
-    // the app folder when "all files" access has not been granted yet.
     if (!kIsWeb && Platform.isAndroid) {
-      final hasAllFilesAccess =
-          await storage.requestPermission(requestIfNeeded: false);
+      final hasAllFilesAccess = await storage.requestPermission();
       if (hasAllFilesAccess) {
         const sharedStorage = '/storage/emulated/0';
         if (Directory(sharedStorage).existsSync()) roots.add(sharedStorage);
       }
     }
+
+    final base = await storage.getDefaultDirectory();
+    if (base != null && !roots.contains(base.path)) roots.add(base.path);
+
     return roots;
   }
 
@@ -65,11 +66,9 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     try {
       final roots = await _scanRoots();
       if (roots.isEmpty) {
-        throw StateError('No accessible storage location was found.');
+        throw StateError('Aucun emplacement de stockage accessible.');
       }
-      final scanMode = widget.itemType == ItemType.manga
-          ? LocalScanMode.manga
-          : LocalScanMode.videos;
+      final scanMode = _isManga ? LocalScanMode.manga : LocalScanMode.videos;
       final scan = ref.read(localIndexerScanProvider.notifier);
       if (fullRescan) {
         await scan.fullRescan(roots, mode: scanMode);
@@ -77,33 +76,38 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         await scan.refresh(roots, mode: scanMode);
       }
       await scan.startWatching(roots, mode: scanMode);
-      ref.invalidate(localIndexedCountProvider);
-      ref.invalidate(localIndexedCountByKindProvider);
-      ref.invalidate(recentlyIndexedProvider);
+      _invalidate();
       unawaited(_enrichMetadata());
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Smart Library scan failed: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Échec du scan : $error')));
       }
     } finally {
       if (mounted) setState(() => _starting = false);
     }
   }
 
+  void _invalidate() {
+    ref.invalidate(localIndexedCountProvider);
+    ref.invalidate(localIndexedCountByKindProvider);
+    ref.invalidate(recentlyIndexedProvider);
+    ref.invalidate(localWorksProvider);
+  }
+
   Future<void> _enrichMetadata() async {
     try {
-      final items = await ref.read(recentlyIndexedProvider.future);
+      final works = await ref.read(localWorksProvider.future);
+      final items = [for (final work in works) work.files.first];
       final summary = await LocalMetadataResolver.instance.enrich(items);
       if (!mounted) return;
-      setState(() => _metadataRefresh++);
-      ref.invalidate(recentlyIndexedProvider);
+      ref.invalidate(localWorksProvider);
       if (summary.tmdbUnavailable) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'TMDB metadata is unavailable in this build; AniList lookups still work.',
+              'Les métadonnées TMDB sont indisponibles ; AniList reste utilisé.',
             ),
           ),
         );
@@ -113,150 +117,103 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     }
   }
 
-  List<LocalIndexedItem> _filterItems(List<LocalIndexedItem> items) {
-    return items.where((item) {
-      if (item.kind == LocalMediaKind.novel) return false;
-      if (widget.itemType == ItemType.manga &&
-          item.kind != LocalMediaKind.manga &&
-          item.kind != LocalMediaKind.unknown) {
-        return false;
-      }
-      if (widget.itemType == ItemType.anime &&
-          item.kind != LocalMediaKind.anime &&
-          item.kind != LocalMediaKind.series &&
-          item.kind != LocalMediaKind.movie &&
-          item.kind != LocalMediaKind.unknown) {
-        return false;
-      }
+  bool _kindAllowed(LocalMediaKind kind) {
+    if (kind == LocalMediaKind.novel) return false;
+    if (_isManga) {
+      return kind == LocalMediaKind.manga || kind == LocalMediaKind.unknown;
+    }
+    return kind == LocalMediaKind.anime ||
+        kind == LocalMediaKind.series ||
+        kind == LocalMediaKind.movie ||
+        kind == LocalMediaKind.unknown;
+  }
+
+  List<LocalWork> _filterWorks(List<LocalWork> works) {
+    return works.where((work) {
+      if (!_kindAllowed(work.kind)) return false;
       switch (_filter) {
         case _SmartLibraryFilter.all:
           return true;
         case _SmartLibraryFilter.movies:
-          return item.kind == LocalMediaKind.movie;
+          return work.kind == LocalMediaKind.movie;
         case _SmartLibraryFilter.series:
-          return item.kind == LocalMediaKind.series ||
-              item.kind == LocalMediaKind.anime;
-        case _SmartLibraryFilter.manga:
-          return item.kind == LocalMediaKind.manga;
-        case _SmartLibraryFilter.unknown:
-          return item.kind == LocalMediaKind.unknown;
+          return work.isSeries;
+        case _SmartLibraryFilter.review:
+          return work.kind == LocalMediaKind.unknown ||
+              work.missingEpisodes.isNotEmpty;
       }
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final counts = ref.watch(localIndexedCountByKindProvider);
-    final recent = ref.watch(recentlyIndexedProvider);
+    final cs = Theme.of(context).colorScheme;
     final status = ref.watch(indexerStatusProvider).asData?.value;
     final isScanning = _starting || (status?.isScanning ?? false);
+    final works = ref.watch(localWorksProvider);
 
-    return SettingsSubpageScaffold(
-      title: widget.itemType == ItemType.manga
-          ? 'Smart Library Manga'
-          : 'Smart Library Watch',
-      trailing: PopupMenuButton<_SmartLibraryAction>(
-        tooltip: 'Scan options',
-        icon: const Icon(Broken.setting_4),
-        onSelected: (action) => _scan(
-          fullRescan: action == _SmartLibraryAction.fullRescan,
-        ),
-        itemBuilder: (context) => const [
-          PopupMenuItem(
-            value: _SmartLibraryAction.refresh,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Broken.refresh_2),
-              title: Text('Check for changes'),
-            ),
-          ),
-          PopupMenuItem(
-            value: _SmartLibraryAction.fullRescan,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Broken.search_zoom_in),
-              title: Text('Verify all storage'),
-            ),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => _scan(fullRescan: false),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+    return Scaffold(
+      backgroundColor: cs.surface,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
-            _LibraryHeader(
-              colors: colors,
+            _Header(
+              title: _isManga ? 'Smart Library Manga' : 'Smart Library Watch',
+              isManga: _isManga,
               isScanning: isScanning,
-              status: status,
+              discovered: status?.discovered ?? 0,
               onScan: () => _scan(fullRescan: false),
-              isManga: widget.itemType == ItemType.manga,
+              onFullRescan: () => _scan(fullRescan: true),
             ),
-            const SizedBox(height: 18),
-            counts.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (error, _) => _InlineMessage(
-                icon: Broken.danger,
-                text: 'Library statistics unavailable: $error',
-              ),
-              data: (value) => _StatsRow(
-                counts: value,
-                itemType: widget.itemType,
-              ),
-            ),
-            const SizedBox(height: 18),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SegmentedButton<_SmartLibraryFilter>(
-                segments: _filterSegments,
-                selected: {_filter},
-                onSelectionChanged: (selection) {
-                  setState(() => _filter = selection.first);
-                },
-                showSelectedIcon: false,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Recently indexed',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 10),
-            recent.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _scan(fullRescan: false),
+                child: works.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      const SizedBox(height: 80),
+                      AnimatedEmptyState(
+                        message: 'Index illisible : $error',
+                        icon: Broken.danger,
+                      ),
+                    ],
+                  ),
+                  data: (allWorks) {
+                    final visible = _filterWorks(allWorks);
+                    return CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: _FilterBar(
+                            isManga: _isManga,
+                            selected: _filter,
+                            onChanged: (f) => setState(() => _filter = f),
+                          ),
+                        ),
+                        if (visible.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: AnimatedEmptyState(
+                              message: isScanning
+                                  ? 'Analyse du stockage…'
+                                  : 'Aucun média indexé pour le moment',
+                              icon: isScanning
+                                  ? Broken.refresh_2
+                                  : Broken.folder_open,
+                            ),
+                          )
+                        else
+                          _WorkSliverGrid(works: visible, onOpen: _openWork),
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                      ],
+                    );
+                  },
                 ),
               ),
-              error: (error, _) => _InlineMessage(
-                icon: Broken.danger,
-                text: 'Could not load the index: $error',
-              ),
-              data: (items) {
-                final visible = _filterItems(items);
-                if (visible.isEmpty) {
-                  return _EmptyLibrary(
-                    isScanning: isScanning,
-                    onScan: () => _scan(fullRescan: false),
-                  );
-                }
-                return Column(
-                  children: visible
-                      .map(
-                        (item) => _MediaIndexTile(
-                          item: item,
-                          metadataRefresh: _metadataRefresh,
-                        ),
-                      )
-                      .toList(),
-                );
-              },
             ),
           ],
         ),
@@ -264,353 +221,360 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     );
   }
 
-  List<ButtonSegment<_SmartLibraryFilter>> get _filterSegments {
-    final type = widget.itemType;
-    if (type == ItemType.manga) {
-      return const [
-        ButtonSegment(
-          value: _SmartLibraryFilter.all,
-          label: Text('All'),
-          icon: Icon(Broken.category),
+  void _openWork(LocalWork work) {
+    // Local playback wiring is owned by the reader/player modules; until a
+    // local player route exists we surface the work so the entry is not a
+    // dead end.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          work.files.length == 1
+              ? p.basename(work.files.first.filePath)
+              : '${work.title} · ${work.episodes.length} épisodes',
         ),
-        ButtonSegment(
-          value: _SmartLibraryFilter.manga,
-          label: Text('Manga'),
-          icon: Icon(Broken.book),
-        ),
-        ButtonSegment(
-          value: _SmartLibraryFilter.unknown,
-          label: Text('Review'),
-          icon: Icon(Broken.message_question),
-        ),
-      ];
-    }
-    final segments = <ButtonSegment<_SmartLibraryFilter>>[
-      const ButtonSegment(
-        value: _SmartLibraryFilter.all,
-        label: Text('All'),
-        icon: Icon(Broken.category),
-      ),
-      const ButtonSegment(
-        value: _SmartLibraryFilter.movies,
-        label: Text('Movies'),
-        icon: Icon(Broken.video),
-      ),
-      const ButtonSegment(
-        value: _SmartLibraryFilter.series,
-        label: Text('Series'),
-        icon: Icon(Broken.monitor),
-      ),
-    ];
-    if (type == null) {
-      segments.add(
-        const ButtonSegment(
-          value: _SmartLibraryFilter.manga,
-          label: Text('Manga'),
-          icon: Icon(Broken.book),
-        ),
-      );
-    }
-    segments.add(
-      const ButtonSegment(
-        value: _SmartLibraryFilter.unknown,
-        label: Text('Review'),
-        icon: Icon(Broken.message_question),
       ),
     );
-    return segments;
   }
 }
 
-class _LibraryHeader extends StatelessWidget {
-  final ColorScheme colors;
-  final bool isScanning;
-  final IndexerStatus? status;
-  final VoidCallback onScan;
-  final bool isManga;
+// ── Header ────────────────────────────────────────────────────────────────────
 
-  const _LibraryHeader({
-    required this.colors,
-    required this.isScanning,
-    required this.status,
-    required this.onScan,
+class _Header extends StatelessWidget {
+  final String title;
+  final bool isManga;
+  final bool isScanning;
+  final int discovered;
+  final VoidCallback onScan;
+  final VoidCallback onFullRescan;
+
+  const _Header({
+    required this.title,
     required this.isManga,
+    required this.isScanning,
+    required this.discovered,
+    required this.onScan,
+    required this.onFullRescan,
   });
 
   @override
   Widget build(BuildContext context) {
-    final discovered = status?.discovered ?? 0;
-    final analyzed = status?.analyzed ?? 0;
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: [
-            colors.primaryContainer,
-            colors.primaryContainer.withValues(alpha: 0.55),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 4, 6),
       child: Row(
         children: [
-          SizedBox(
-            width: 54,
-            height: 54,
-            child: Center(
-              child: SmartLibraryIcon(
-                isManga: isManga,
-                color: colors.primary,
-                size: 46,
-              ),
-            ),
+          Icon(
+            isManga ? Broken.book : Broken.video_play,
+            size: 22,
+            color: cs.primary,
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isManga
-                      ? 'Manga, organisé localement'
-                      : 'Vidéos, organisées localement',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: cs.onSurface,
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  isScanning
-                      ? 'Scanning storage · $discovered found · $analyzed analyzed'
-                      : isManga
-                          ? 'CBZ et chapitres en dossiers · index local'
-                          : 'Vidéos uniquement · index local rapide',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                if (isScanning)
+                  Text(
+                    'Analyse du stockage · $discovered fichiers',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
               ],
             ),
           ),
-          if (!isScanning)
-            IconButton(
-              onPressed: onScan,
-              tooltip: 'Check for changes',
-              icon: const Icon(Broken.refresh),
+          if (isScanning)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
             )
           else
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5),
+            IconButton(
+              tooltip: 'Rechercher des changements',
+              onPressed: onScan,
+              icon: const Icon(Broken.refresh_2),
             ),
+          IconButton(
+            tooltip: 'Vérifier tout le stockage',
+            onPressed: isScanning ? null : onFullRescan,
+            icon: const Icon(Broken.search_zoom_in),
+          ),
         ],
       ),
     );
   }
 }
 
-class _StatsRow extends StatelessWidget {
-  final Map<LocalMediaKind, int> counts;
-  final ItemType? itemType;
+// ── Filter bar ────────────────────────────────────────────────────────────────
 
-  const _StatsRow({required this.counts, required this.itemType});
+class _FilterBar extends StatelessWidget {
+  final bool isManga;
+  final _SmartLibraryFilter selected;
+  final ValueChanged<_SmartLibraryFilter> onChanged;
 
-  @override
-  Widget build(BuildContext context) {
-    final stats = itemType == ItemType.manga
-        ? [
-            ('Manga', counts[LocalMediaKind.manga] ?? 0),
-            ('Review', counts[LocalMediaKind.unknown] ?? 0),
-          ]
-        : [
-            (
-              'Videos',
-              (counts[LocalMediaKind.movie] ?? 0) +
-                  (counts[LocalMediaKind.series] ?? 0) +
-                  (counts[LocalMediaKind.anime] ?? 0),
-            ),
-            ('Movies', counts[LocalMediaKind.movie] ?? 0),
-            (
-              'Series',
-              (counts[LocalMediaKind.series] ?? 0) +
-                  (counts[LocalMediaKind.anime] ?? 0),
-            ),
-            if (itemType == null) ('Manga', counts[LocalMediaKind.manga] ?? 0),
-          ];
-    return Row(
-      children: stats
-          .map(
-            (stat) => Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${stat.$2}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    Text(
-                      stat.$1,
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-}
-
-class _MediaIndexTile extends StatelessWidget {
-  final LocalIndexedItem item;
-  final int metadataRefresh;
-
-  const _MediaIndexTile({
-    required this.item,
-    required this.metadataRefresh,
+  const _FilterBar({
+    required this.isManga,
+    required this.selected,
+    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final isUnknown = item.kind == LocalMediaKind.unknown;
-    final icon = switch (item.kind) {
-      LocalMediaKind.movie => Broken.video,
-      LocalMediaKind.series || LocalMediaKind.anime => Broken.monitor,
-      LocalMediaKind.manga => Broken.book,
-      LocalMediaKind.novel => Broken.document_text,
-      LocalMediaKind.unknown => Broken.message_question,
-    };
+    final segments = <(_SmartLibraryFilter, String, IconData)>[
+      (_SmartLibraryFilter.all, 'Tout', Broken.element_3),
+      if (!isManga) ...[
+        (_SmartLibraryFilter.movies, 'Films', Broken.video),
+        (_SmartLibraryFilter.series, 'Séries', Broken.monitor),
+      ],
+      (_SmartLibraryFilter.review, 'À vérifier', Broken.warning_2),
+    ];
+    final cs = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      height: 46,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        itemCount: segments.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final (value, label, icon) = segments[i];
+          final isSelected = value == selected;
+          return GestureDetector(
+            onTap: () => onChanged(value),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? cs.primary.withValues(alpha: 0.16)
+                    : cs.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? cs.primary : Colors.transparent,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 15,
+                    color: isSelected
+                        ? cs.primary
+                        : cs.onSurface.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: isSelected ? cs.primary : cs.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+// ── Work grid ─────────────────────────────────────────────────────────────────
+
+/// Grid of indexed works. Each card is one movie or one season of a series,
+/// with its poster (from the metadata sidecar when available), the episode
+/// count and, when the season is incomplete, the numbers that are missing.
+class _WorkSliverGrid extends StatelessWidget {
+  final List<LocalWork> works;
+  final void Function(LocalWork) onOpen;
+
+  const _WorkSliverGrid({required this.works, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final columns = width >= 1200
+        ? 6
+        : width >= 900
+        ? 5
+        : width >= 700
+        ? 4
+        : 3;
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      sliver: SliverGrid(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          childAspectRatio: 0.62,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, i) =>
+              _WorkCard(work: works[i], onTap: () => onOpen(works[i])),
+          childCount: works.length,
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkCard extends StatelessWidget {
+  final LocalWork work;
+  final VoidCallback onTap;
+
+  const _WorkCard({required this.work, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return FutureBuilder<LocalMediaMetadata?>(
-      key: ValueKey('${item.id}:$metadataRefresh'),
-      future: LocalMediaMetadataStore.instance.get(item),
+      future: LocalMediaMetadataStore.instance.get(work.files.first),
       builder: (context, snapshot) {
         final metadata = snapshot.data;
-        final detailParts = <String>[
-          if (item.episodeKey.isNotEmpty) item.episodeKey,
-          if (metadata?.year != null) '${metadata!.year}',
-          if (item.badge.isNotEmpty) item.badge,
-          if (metadata?.people.isNotEmpty == true)
-            'Avec ${metadata!.people.take(3).join(', ')}',
-          p.basename(item.filePath),
-        ];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          elevation: 0,
-          child: ListTile(
-            leading: metadata?.posterUrl != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      metadata!.posterUrl!,
-                      width: 42,
-                      height: 56,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _kindIcon(
-                        icon,
-                        isUnknown,
-                        colors,
+        final poster = metadata?.posterUrl;
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Container(
+                        color: cs.surfaceContainerHighest,
+                        child: poster != null
+                            ? Image.network(
+                                poster,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => _fallback(cs),
+                              )
+                            : _fallback(cs),
                       ),
-                    ),
-                  )
-                : _kindIcon(icon, isUnknown, colors),
-            title: Text(
-              metadata?.title ?? item.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              detailParts.join(' · '),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: item.confidence < 0.5
-                ? const Icon(Broken.danger)
-                : Text('${(item.confidence * 100).round()}%'),
+                      if (work.isSeries)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: _Pill(
+                            label: '${work.episodeLabel} ép.',
+                            color: cs.primary,
+                          ),
+                        ),
+                      if (work.missingEpisodes.isNotEmpty)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: _Pill(
+                            label:
+                                '${work.missingEpisodes.length} manquant'
+                                '${work.missingEpisodes.length == 1 ? '' : 's'}',
+                            color: cs.error,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                metadata?.title ?? work.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface,
+                ),
+              ),
+              Text(
+                _subtitle(metadata),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _kindIcon(IconData icon, bool isUnknown, ColorScheme colors) {
-    return CircleAvatar(
-      backgroundColor:
-          isUnknown ? colors.errorContainer : colors.secondaryContainer,
-      child: Icon(
-        icon,
-        color: isUnknown ? colors.onErrorContainer : colors.onSecondaryContainer,
-      ),
-    );
+  String _subtitle(LocalMediaMetadata? metadata) {
+    final parts = <String>[
+      if (work.isSeries && (work.season ?? 1) > 1) 'Saison ${work.season}',
+      if (metadata?.year != null) '${metadata!.year}',
+      if (work.isSeries && work.episodes.isNotEmpty)
+        'S${work.season ?? 1}E${work.episodes.first}'
+            '${work.episodes.length > 1 ? '-E${work.episodes.last}' : ''}',
+      if (!work.isSeries && work.kind == LocalMediaKind.movie) 'Film',
+    ];
+    if (parts.isEmpty) return p.basename(work.files.first.filePath);
+    return parts.join(' · ');
   }
+
+  Widget _fallback(ColorScheme cs) => Center(
+    child: Icon(
+      switch (work.kind) {
+        LocalMediaKind.movie => Broken.video,
+        LocalMediaKind.series || LocalMediaKind.anime => Broken.monitor,
+        LocalMediaKind.manga => Broken.book,
+        LocalMediaKind.novel => Broken.document_text,
+        LocalMediaKind.unknown => Broken.warning_2,
+      },
+      size: 30,
+      color: cs.onSurface.withValues(alpha: 0.35),
+    ),
+  );
 }
 
-class _EmptyLibrary extends StatelessWidget {
-  final bool isScanning;
-  final VoidCallback onScan;
+class _Pill extends StatelessWidget {
+  final String label;
+  final Color color;
 
-  const _EmptyLibrary({required this.isScanning, required this.onScan});
+  const _Pill({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48),
-      child: Column(
-        children: [
-          Icon(
-            isScanning
-                ? Broken.timer
-                : Broken.video_square,
-            size: 58,
-            color: Theme.of(context).colorScheme.outline,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            isScanning ? 'Scanning storage…' : 'No indexed media yet',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Smart Library never moves or deletes your files.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          if (!isScanning) ...[
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onScan,
-              icon: const Icon(Broken.radar),
-              label: const Text('Scan accessible storage'),
-            ),
-          ],
-        ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(6),
       ),
-    );
-  }
-}
-
-class _InlineMessage extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _InlineMessage({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text)),
-        ],
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
       ),
     );
   }
