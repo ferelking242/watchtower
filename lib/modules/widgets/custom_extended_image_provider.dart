@@ -576,12 +576,20 @@ class CustomExtendedNetworkImageProvider
   ) async {
     if (!BrowserFetchService.isSupported) return null;
     try {
-      final origin = '${resolved.scheme}://${resolved.host}/';
+      // The page the fetch runs in decides the Referer the engine sends, so
+      // prefer the reader page the extension declared: on a hotlink-protected
+      // CDN whose own root serves no HTML, the image's origin is not a page the
+      // challenge can be cleared on.
+      final referer = headers?['Referer'] ?? headers?['referer'];
+      final page = key.pageUrl ??
+          ((referer != null && referer.trim().isNotEmpty)
+              ? referer.trim()
+              : '${resolved.scheme}://${resolved.host}/');
       final response = await BrowserFetchService.fetch(
         resolved.toString(),
         sourceId: key.sourceId,
         headers: headers,
-        pageUrl: key.pageUrl ?? origin,
+        pageUrl: page,
         binary: true,
         timeout: const Duration(seconds: 15),
       );
