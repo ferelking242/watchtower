@@ -1,7 +1,7 @@
 name: watchtower
 description: Application Flutter open-source — streaming anime, lecture manga, séries, musique, novels. Multi-plateformes.
 publish_to: "none"
-version: 8.1.166+166
+version: 8.1.167+167
 
 environment:
   sdk: '>=3.11.0 <4.0.0'

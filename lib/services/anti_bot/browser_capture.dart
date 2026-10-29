@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/widgets.dart' show Size;
@@ -88,6 +89,8 @@ class BrowserCaptureRequest {
     this.headers = const <String, String>{},
     this.timeout = const Duration(seconds: 12),
     this.solveTimeout = const Duration(seconds: 15),
+    this.pageUrl,
+    this.binary = false,
   });
 
   final String url;
@@ -100,12 +103,26 @@ class BrowserCaptureRequest {
   /// Time granted to the first navigation to clear the challenge.
   final Duration solveTimeout;
 
+  /// Page the session navigates to first, so the managed challenge is solved on
+  /// a real HTML page instead of on the target itself. Defaults to [url].
+  ///
+  /// Required for binary targets: navigating a WebView straight to an image
+  /// leaves the challenge interstitial unresolved, so the session must open the
+  /// site (or the reader page) and fetch the image from inside it.
+  final String? pageUrl;
+
+  /// Ask the engine for the raw bytes (`arrayBuffer`) instead of text. Needed
+  /// for covers and reader pages, which are not UTF-8 text.
+  final bool binary;
+
   Map<String, dynamic> toMap() => {
     'url': url,
     'sourceId': sourceId,
     'headers': headers,
     'timeoutMs': timeout.inMilliseconds,
     'solveTimeoutMs': solveTimeout.inMilliseconds,
+    if (pageUrl != null) 'pageUrl': pageUrl,
+    if (binary) 'binary': true,
   };
 
   static BrowserCaptureRequest fromMap(Map<String, dynamic> map) {
@@ -122,6 +139,8 @@ class BrowserCaptureRequest {
       solveTimeout: Duration(
         milliseconds: map['solveTimeoutMs'] as int? ?? 15000,
       ),
+      pageUrl: map['pageUrl'] as String?,
+      binary: map['binary'] as bool? ?? false,
     );
   }
 }
@@ -131,16 +150,25 @@ class BrowserCaptureResult {
     required this.body,
     required this.finalUrl,
     required this.statusCode,
+    this.bodyBase64 = '',
   });
 
   final String body;
   final String finalUrl;
   final int statusCode;
 
+  /// Base64 of the raw response body when the request asked for [binary] data.
+  /// Empty for text requests, which carry their payload in [body].
+  final String bodyBase64;
+
+  /// Decoded raw body for a binary request, `null` for a text one.
+  Uint8List? get bytes => bodyBase64.isEmpty ? null : base64Decode(bodyBase64);
+
   Map<String, dynamic> toMap() => {
     'body': body,
     'finalUrl': finalUrl,
     'statusCode': statusCode,
+    if (bodyBase64.isNotEmpty) 'bodyBase64': bodyBase64,
   };
 
   static BrowserCaptureResult fromMap(Map<String, dynamic> map) {
@@ -148,6 +176,7 @@ class BrowserCaptureResult {
       body: map['body'] as String? ?? '',
       finalUrl: map['finalUrl'] as String? ?? '',
       statusCode: map['statusCode'] as int? ?? 200,
+      bodyBase64: map['bodyBase64'] as String? ?? '',
     );
   }
 }
@@ -259,7 +288,7 @@ class BrowserCapture {
     final session = _BrowserSession(
       host: host,
       sourceId: request.sourceId,
-      firstUrl: request.url,
+      firstUrl: request.pageUrl ?? request.url,
       solveTimeout: request.solveTimeout,
     );
     _sessions[host] = session;
@@ -334,7 +363,9 @@ class _BrowserSession {
     try {
       final key = '__tw_browser_${DateTime.now().microsecondsSinceEpoch}'
           '_${_ticket++}';
-      final script = _fetchScript(key, request.url, request.headers);
+      final script = request.binary
+          ? _fetchBinaryScript(key, request.url, request.headers)
+          : _fetchScript(key, request.url, request.headers);
       await _evaluate(controller, script);
 
       final deadline = DateTime.now().add(request.timeout);
@@ -364,13 +395,40 @@ class _BrowserSession {
         final status = decoded['status'] as int? ?? 0;
         // The browser was refused as well: nothing better to hand back.
         if (status <= 0 || status >= 400) return null;
+        final contentType = decoded['contentType']?.toString() ?? '';
+        if (decoded['binary'] == true) {
+          // The payload sits in a sibling global (see [_fetchBinaryScript]) so
+          // the poll does not re-serialize it on every tick.
+          final rawBase64 = await _evaluate(
+            controller,
+            "(() => { const v = window['${key}_b'] || ''; "
+            "delete window['${key}_b']; return v; })()",
+          );
+          final bodyBase64 = rawBase64 is String ? rawBase64 : '';
+          if (bodyBase64.isEmpty) return null;
+          // A challenge interstitial is HTML, so the content type is the only
+          // signal worth checking: scanning base64 as text would never match a
+          // marker and could flag a real image.
+          final assessment = assessHttpResponse(
+            statusCode: status,
+            headers: {'content-type': contentType},
+            body: null,
+          );
+          if (assessment.challenge || assessment.blocked) return null;
+          return BrowserCaptureResult(
+            body: '',
+            finalUrl: decoded['url']?.toString() ?? request.url,
+            statusCode: status,
+            bodyBase64: bodyBase64,
+          );
+        }
         final body = decoded['body']?.toString() ?? '';
         // A challenge can also arrive as a 200 interstitial. Handing it to the
         // extension would parse as an empty list instead of raising the panel,
         // which is the silent failure this whole path exists to remove.
         final assessment = assessHttpResponse(
           statusCode: status,
-          headers: {'content-type': decoded['contentType']?.toString() ?? ''},
+          headers: {'content-type': contentType},
           body: body,
         );
         if (assessment.challenge || assessment.blocked) return null;
@@ -465,6 +523,62 @@ class _BrowserSession {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Runs the request inside the page that Cloudflare accepted, for a **binary**
+  /// payload (cover image, reader page).
+  ///
+  /// The body is read as an `ArrayBuffer` and base64-encoded in the page:
+  /// `response.text()` would corrupt a JPEG/WebP. Everything else mirrors
+  /// [_fetchScript] — a global is written and the caller polls it, because a
+  /// `Promise` is not awaited by `evaluateJavascript` on every platform.
+  static String _fetchBinaryScript(
+    String key,
+    String url,
+    Map<String, String> headers,
+  ) {
+    final target = jsonEncode(url);
+    final extra = jsonEncode(browserFetchHeaders(headers));
+    return '''
+(() => {
+  const key = '$key';
+  window[key] = { done: false };
+  const init = {
+    method: 'GET',
+    credentials: 'include',
+    cache: 'no-store',
+    redirect: 'follow',
+    headers: $extra
+  };
+  const toBase64 = (buffer) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(
+        null, bytes.subarray(i, Math.min(i + chunk, bytes.length)));
+    }
+    return btoa(binary);
+  };
+  fetch($target, init)
+    .then((response) => response.arrayBuffer().then((buffer) => {
+      // The payload goes to its own global: the poll reads the small status
+      // object on every tick, so serializing the whole base64 each time would
+      // make a slow download quadratic.
+      window[key + '_b'] = toBase64(buffer);
+      window[key] = {
+        done: true,
+        status: response.status,
+        url: String(response.url || $target),
+        contentType: String(response.headers.get('content-type') || ''),
+        binary: true
+      };
+    }))
+    .catch((error) => {
+      window[key] = { done: true, status: 0, error: String(error) };
+    });
+})()
+''';
   }
 
   /// Runs the request inside the page that Cloudflare accepted.

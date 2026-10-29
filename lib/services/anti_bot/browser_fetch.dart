@@ -1,3 +1,5 @@
+import 'dart:typed_data' show Uint8List;
+
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/anti_bot/browser_bridge.dart';
 import 'package:watchtower/services/anti_bot/browser_capture.dart';
@@ -5,10 +7,17 @@ import 'package:watchtower/utils/log/logger.dart';
 
 /// Result of a request performed by a real browser engine.
 class BrowserFetchResult {
-  const BrowserFetchResult({required this.body, required this.statusCode});
+  const BrowserFetchResult({
+    required this.body,
+    required this.statusCode,
+    this.bytes,
+  });
 
   final String body;
   final int statusCode;
+
+  /// Raw payload for a binary request (cover, reader page); `null` for text.
+  final Uint8List? bytes;
 }
 
 enum BrowserFetchOutcome {
@@ -61,10 +70,17 @@ class BrowserFetchService {
   /// Fetches [url] through the browser engine. Never throws: a response the
   /// browser could not obtain is reported as
   /// [BrowserFetchOutcome.unavailable].
+  ///
+  /// [pageUrl] is the HTML page the session should solve the challenge on
+  /// before fetching [url] from inside it. Binary targets (images) must pass
+  /// one: a WebView navigated straight to an image never clears the challenge.
   static Future<BrowserFetchResponse> fetch(
     String url, {
     int? sourceId,
     Map<String, String>? headers,
+    String? pageUrl,
+    bool binary = false,
+    Duration timeout = const Duration(seconds: 12),
   }) async {
     final host = _hostOf(url);
     if (host == null || !isSupported) {
@@ -77,6 +93,9 @@ class BrowserFetchService {
         url: url,
         sourceId: sourceId,
         headers: headers ?? const <String, String>{},
+        pageUrl: pageUrl,
+        binary: binary,
+        timeout: timeout,
       );
       final result = BrowserBridge.isRootIsolate
           ? await BrowserCapture.fetch(request)
@@ -101,6 +120,7 @@ class BrowserFetchService {
         BrowserFetchResult(
           body: result.body,
           statusCode: result.statusCode,
+          bytes: result.bytes,
         ),
       );
     } finally {

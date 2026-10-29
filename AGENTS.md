@@ -101,6 +101,21 @@ inside an extension worker. It reads the plugin registry of the current
 isolate, which is empty there; use `BrowserFetchService.isSupported`, which
 routes through the bridge.
 
+Covers and reader pages follow the same rule. A host can serve its HTML to the
+browser session while refusing every **image** to the native client with the
+same `403 + cf-mitigated: challenge` — `manga-scantrad.io` does exactly that,
+whatever the headers (no header, UA alone, UA + Referer + Sec-Fetch all
+tested). The fix is not a header: `CustomExtendedNetworkImageProvider` asks
+`BrowserFetchService` for the bytes when the native response carries a
+Cloudflare marker (`_looksLikeCloudflareRefusal`, so a plain 404 keeps the fast
+placeholder path). That request sets `binary: true`, which makes the in-page
+script read `arrayBuffer()` and base64 it — `response.text()` would corrupt a
+WebP/JPEG. Two details are load-bearing: the session navigates to `pageUrl`
+(the image's origin, or the reader page) because a WebView opened straight on
+an image never clears the challenge, and the base64 payload is written to a
+**sibling global** so the poll loop re-reads a small status object instead of
+re-serializing the whole image on every tick.
+
 Consequences that must not regress:
 
 * The HTTP client always sends a User-Agent, and it is the one stored for the

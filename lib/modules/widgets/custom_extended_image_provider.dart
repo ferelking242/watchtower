@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http_client_helper/http_client_helper.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
+import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart';
@@ -117,6 +119,21 @@ bool _looksLikeMarkupOrText(Uint8List data) {
   return data[i] == 0x3C; // '<'
 }
 
+/// Whether a cover failure is worth retrying through the browser engine.
+///
+/// Evidence-based, like the rest of the anti-bot path: a bare 403/404 with no
+/// Cloudflare marker is a missing or forbidden file the browser would not
+/// recover either, so the placeholder is shown at once. `cf-mitigated`,
+/// `cf-ray` or `server: cloudflare` on a refusal is the signature this fallback
+/// exists for.
+bool _looksLikeCloudflareRefusal(StreamedResponse response) {
+  final assessment = assessHttpResponse(
+    statusCode: response.statusCode,
+    headers: response.headers,
+  );
+  return assessment.cloudflareInvolved;
+}
+
 /// Routes image-pipeline events to the release log under the [IMG] tag.
 /// The former `debugPrint` calls only exist in debug builds, so a release
 /// build gave no way to tell a failed download from an empty `imageUrl`.
@@ -214,6 +231,8 @@ class CustomExtendedNetworkImageProvider
     this.imageCacheFolderName,
     this.cacheMaxAge = const Duration(days: 3650),
     this.showCloudFlareError = false,
+    this.sourceId,
+    this.pageUrl,
   });
 
   /// The name of [ImageCache], you can define custom [ImageCache] to store this provider.
@@ -273,6 +292,15 @@ class CustomExtendedNetworkImageProvider
   final Duration? cacheMaxAge;
 
   final bool showCloudFlareError;
+
+  /// Extension the cover belongs to. Passed to the browser fallback so it reuses
+  /// that extension's session (cookies, User-Agent) when Cloudflare refuses the
+  /// native request.
+  final int? sourceId;
+
+  /// HTML page the browser fallback solves the challenge on before fetching the
+  /// image. Defaults to the image's origin when null.
+  final String? pageUrl;
 
   final String? imageCacheFolderName;
 
@@ -536,6 +564,45 @@ class CustomExtendedNetworkImageProvider
     return '$refLabel $uaLabel';
   }
 
+  /// Fetches a cover the native client was refused through the browser engine.
+  ///
+  /// Only a real browser holds the Cloudflare clearance for these hosts, so the
+  /// request is performed inside the accepted page and the raw bytes come back
+  /// base64-encoded. Returns `null` when the browser is unavailable or was
+  /// refused too, leaving the caller on the normal failure path.
+  Future<Uint8List?> _loadCoverViaBrowser(
+    CustomExtendedNetworkImageProvider key,
+    Uri resolved,
+  ) async {
+    if (!BrowserFetchService.isSupported) return null;
+    try {
+      final origin = '${resolved.scheme}://${resolved.host}/';
+      final response = await BrowserFetchService.fetch(
+        resolved.toString(),
+        sourceId: key.sourceId,
+        headers: headers,
+        pageUrl: key.pageUrl ?? origin,
+        binary: true,
+        timeout: const Duration(seconds: 15),
+      );
+      if (response.outcome != BrowserFetchOutcome.resolved) return null;
+      final bytes = response.result?.bytes;
+      if (bytes == null || bytes.isEmpty || _looksLikeMarkupOrText(bytes)) {
+        return null;
+      }
+      _imgLog(
+        'NET-OK    ${_shortUrl(key.url)} (${bytes.length} B, navigateur)',
+      );
+      return bytes;
+    } catch (error) {
+      _imgLog(
+        'navigateur indisponible pour ${_shortUrl(key.url)} — $error',
+        level: LogLevel.debug,
+      );
+      return null;
+    }
+  }
+
   /// Get the image from network.
   Future<Uint8List?> _loadNetwork(
     CustomExtendedNetworkImageProvider key,
@@ -548,6 +615,17 @@ class CustomExtendedNetworkImageProvider
       final StreamedResponse? response = await _tryGetResponse(resolved);
 
       if (response == null || response.statusCode != io.HttpStatus.ok) {
+        // Only a Cloudflare-style refusal is worth the browser: a 404/410 is a
+        // genuinely missing cover, and opening a WebView for it would waste a
+        // session and delay the placeholder for nothing.
+        if (response != null && _looksLikeCloudflareRefusal(response)) {
+          // Cloudflare refuses these covers to the native client whatever the
+          // headers (tested: 403 + `cf-mitigated: challenge` with no headers,
+          // with UA, Referer and Sec-Fetch alike). The browser engine holds the
+          // clearance, so ask it to fetch the bytes from an accepted page.
+          final viaBrowser = await _loadCoverViaBrowser(key, resolved);
+          if (viaBrowser != null) return viaBrowser;
+        }
         final ms = DateTime.now().difference(t0).inMilliseconds;
         final status = response?.statusCode;
         _logCoverFailure(
@@ -726,6 +804,8 @@ class CustomExtendedNetworkImageProvider
         imageCacheFolderName == other.imageCacheFolderName &&
         cacheMaxAge == other.cacheMaxAge &&
         showCloudFlareError == other.showCloudFlareError &&
+        sourceId == other.sourceId &&
+        pageUrl == other.pageUrl &&
         printError == other.printError;
   }
 
@@ -745,6 +825,8 @@ class CustomExtendedNetworkImageProvider
     imageCacheFolderName,
     cacheMaxAge,
     showCloudFlareError,
+    sourceId,
+    pageUrl,
     printError,
   );
 
