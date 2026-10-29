@@ -9897,7 +9897,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             TextButton.icon(
               onPressed: widget.onRefresh,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Actualiser'),
+              label: Text(l10n.refresh),
             ),
           ],
         ),
