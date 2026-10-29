@@ -9,6 +9,7 @@ import 'package:watchtower/eval/model/m_chapter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
@@ -347,11 +348,14 @@ class _AnimeEpisodeSourceResolverState
         .toList(growable: false);
   }
 
+  static int _boolRank(bool value) => value ? 1 : 0;
+
   void _sortMatches() {
     _matches.sort((a, b) {
       final confidence = b.confidence.compareTo(a.confidence);
       if (confidence != 0) return confidence;
-      final playable = b.videos.isNotEmpty.compareTo(a.videos.isNotEmpty);
+      final playable = _boolRank(b.videos.isNotEmpty)
+          .compareTo(_boolRank(a.videos.isNotEmpty));
       if (playable != 0) return playable;
       return (a.source.name ?? '').compareTo(b.source.name ?? '');
     });

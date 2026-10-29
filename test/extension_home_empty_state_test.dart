@@ -223,7 +223,7 @@ void main() {
     expect(find.text('Extension source header'), findsOneWidget);
     expect(find.byTooltip('Rechercher'), findsNothing);
     expect(
-      find.byKey(const ValueKey('extension-empty-lottie')),
+      find.byKey(const ValueKey('extension-empty-kaomoji')),
       findsOneWidget,
     );
     expect(find.text('Aucun contenu disponible'), findsOneWidget);
