@@ -484,6 +484,41 @@ starts the video.
   and `completeError` on mismatch.
 
 
+## Extension artwork needs the extension's headers (do not regress)
+Some extension CDNs are hotlink-protected and the app must send the headers the
+extension declares. But do not treat "hotlink protection" as the first
+explanation for covers that all show a placeholder — measure first.
+
+Measured on Harimanga (`img-r1.2xstorage.com`, Cloudflare) on 2026-10-26 from a
+plain client: `Referer: https://www.harimanga.co.uk/` → `200 image/webp`, and
+the same URL **without any header also returned `200`**; 25 parallel requests
+did not trigger a `429`. The same `200` held with the app's Android UA, the
+extension's desktop UA, and no UA at all. So the "no Referer → 403" story did
+not reproduce, and it was not the cause of the all-placeholder bug.
+
+The real cause was on the extension side: it rewrote every cover URL onto a
+sharded mirror and `cdn.zinmanga1.com` only carries a slice of the catalogue
+(`/thumb/alexandrite-knight.webp` → `200` on `img-r1`, `404` on `cdn`). The site
+already emits a working mirror per cover in the card markup, so the extension
+must return that URL unchanged (see the extension's `harimanga.js`).
+
+- `ContentImage` is the single consumer of the scope: it reads
+  `ExtensionImageHeaders.of(context)` when no explicit `headers` are passed.
+  Screens install `ExtensionImageHeaders` at their root with
+  `ref.watch(headersProvider(...))`, which is what makes every nested card send
+  the headers. A new extension screen that renders covers must install it too,
+  or its artwork silently falls back to placeholders.
+- Any widget that calls `cachedNetworkImage` directly instead of going through
+  `ContentImage` bypasses the scope and must read `ExtensionImageHeaders.of`
+  itself (see `_CatalogListRow`, `AppGenreTile`).
+- The detail view was never affected: it has always passed the extension
+  headers to `cachedNetworkImage` explicitly.
+- Debug aid: `custom_extended_image_provider.dart` logs a headers summary and
+  the failing status on each cover request (`NET-START`, retry, final failure),
+  and `cached_network.dart` logs render failures with `headers=oui|NON`. Use
+  those before blaming the CDN.
+
+
 ## Item naming conventions (do not regress)
 `Manga` is the **shared** Isar model for every medium — manga, watch, novel,
 music, game, plugin (`ItemType`). `MangaReaderDetail` (`/manga-reader/detail`)

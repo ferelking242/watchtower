@@ -10,13 +10,17 @@ import 'package:watchtower/utils/log/logger.dart';
 /// `LoadState.failed`). First 5 per host, then every 20th, with a total.
 final _renderFailures = <String, int>{};
 
-void _logRenderFailure(String url) {
+void _logRenderFailure(String url, {bool hasHeaders = false}) {
   final host = Uri.tryParse(url)?.host ?? '?';
   final count = (_renderFailures[host] ?? 0) + 1;
   _renderFailures[host] = count;
   if (count <= 5 || count % 20 == 0) {
+    // `headers=NON` on a hotlink-protected CDN means the card never inherited
+    // the extension headers (missing `ExtensionImageHeaders` scope); that is a
+    // different bug from a download the server rejected.
     AppLogger.log(
-      'rendu impossible (#$count) $host → placeholder',
+      'rendu impossible (#$count) $host → placeholder '
+      '${hasHeaders ? "headers=oui" : "headers=NON"}',
       logLevel: LogLevel.warning,
       tag: LogTag.image,
     );
@@ -59,7 +63,7 @@ Widget cachedNetworkImage({
         return const _SkeletonShimmer();
       }
       if (state.extendedImageLoadState == LoadState.failed) {
-        _logRenderFailure(imageUrl);
+        _logRenderFailure(imageUrl, hasHeaders: headers != null && headers.isNotEmpty);
         return errorWidget;
       }
       return null;
@@ -108,7 +112,7 @@ Widget cachedCompressedNetworkImage({
         return const _SkeletonShimmer();
       }
       if (state.extendedImageLoadState == LoadState.failed) {
-        _logRenderFailure(imageUrl);
+        _logRenderFailure(imageUrl, hasHeaders: headers != null && headers.isNotEmpty);
         return errorWidget;
       }
       return null;

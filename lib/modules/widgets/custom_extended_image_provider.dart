@@ -518,6 +518,24 @@ class CustomExtendedNetworkImageProvider
     }
   }
 
+  /// One-line summary of the headers a cover request carries.
+  ///
+  /// The failure mode that matters for covers is a missing `Referer`: a
+  /// hotlink-protected CDN answers 403 to every request without it, so a 403
+  /// line that does not say whether a `Referer` was sent leaves the reader to
+  /// guess between "the app sent none" and "the CDN rejected ours". Both the
+  /// start and the failure lines print this summary, so a single grep on
+  /// `ref=NONE` localises the bug immediately.
+  String _headersSummary() {
+    final referer = headers?['Referer'] ?? headers?['referer'];
+    final refLabel = referer == null || referer.isEmpty
+        ? 'ref=NONE'
+        : 'ref=${Uri.tryParse(referer)?.host ?? referer}';
+    final userAgent = headers?['User-Agent'] ?? headers?['user-agent'];
+    final uaLabel = userAgent == null || userAgent.isEmpty ? 'ua=NONE' : 'ua=yes';
+    return '$refLabel $uaLabel';
+  }
+
   /// Get the image from network.
   Future<Uint8List?> _loadNetwork(
     CustomExtendedNetworkImageProvider key,
@@ -526,7 +544,7 @@ class CustomExtendedNetworkImageProvider
     final t0 = DateTime.now();
     try {
       final Uri resolved = Uri.base.resolve(key.url);
-      _imgLog('NET-START ${_shortUrl(key.url)}');
+      _imgLog('NET-START ${_shortUrl(key.url)} ${_headersSummary()}');
       final StreamedResponse? response = await _tryGetResponse(resolved);
 
       if (response == null || response.statusCode != io.HttpStatus.ok) {
@@ -534,7 +552,8 @@ class CustomExtendedNetworkImageProvider
         final status = response?.statusCode;
         _logCoverFailure(
           '${status ?? "null"}|${resolved.host}',
-          '${_shortUrl(key.url)} status=${status ?? "null"} ${ms}ms',
+          '${_shortUrl(key.url)} status=${status ?? "null"} ${ms}ms '
+          '${_headersSummary()}',
         );
         return null;
       }
@@ -623,7 +642,7 @@ class CustomExtendedNetworkImageProvider
       // needs a fresh instance rather than `response.request`.
       _imgLog(
         'retry (dart http) ${_shortUrl(resolved.toString())} '
-        'after status=${response.statusCode}',
+        'after status=${response.statusCode} ${_headersSummary()}',
       );
       final res = await MClient.init(
         reqcopyWith: {'useDartHttpClient': true},
@@ -633,13 +652,15 @@ class CustomExtendedNetworkImageProvider
         _logCoverFailure(
           '${res.statusCode}|${resolved.host}',
           '${_shortUrl(resolved.toString())} status=${res.statusCode} '
-          '(rhttp=${response.statusCode}, dart=${res.statusCode})',
+          '(rhttp=${response.statusCode}, dart=${res.statusCode}) '
+          '${_headersSummary()}',
         );
         // The render path only reports `FAILED` with no status, which hides
         // whether this was a server rejection (403/429) or a transport error.
         _imgLog(
           'ÉCHEC définitif ${_shortUrl(resolved.toString())} '
-          'rhttp=${response.statusCode} dart=${res.statusCode}',
+          'rhttp=${response.statusCode} dart=${res.statusCode} '
+          '${_headersSummary()}',
           level: LogLevel.warning,
         );
       }

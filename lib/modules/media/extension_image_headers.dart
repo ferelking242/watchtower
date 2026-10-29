@@ -3,11 +3,13 @@ import 'package:flutter/widgets.dart';
 /// Carries the HTTP headers an extension declares (browser User-Agent and
 /// Referer) down to the artwork widgets.
 ///
-/// Some image CDNs refuse a request whose `Referer` is absent or is not the
-/// reader site: Harimanga's `img-r1.2xstorage.com` answers 403 to everything
-/// except `Referer: https://www.harimanga.co.uk/`. Cards build a
-/// [ContentImage] from a bare URL, so without this they would fetch every
-/// cover headerless and show a placeholder for all of them.
+/// Some image CDNs are hotlink-protected and want the reader site's `Referer`.
+/// Cards build a [ContentImage] from a bare URL, so without this scope they
+/// would fetch covers headerless and risk a placeholder. Note that not every
+/// reported placeholder bug is a hotlink one: the 2026-10-26 Harimanga case
+/// (`img-r1.2xstorage.com`) served `200` even with no header at all, and the
+/// real cause was the extension routing covers onto an incomplete mirror. This
+/// scope is still the right place to pass extension headers to artwork.
 ///
 /// Installed once per extension screen; [ContentImage] reads it back with
 /// [of]. Callers that already pass explicit headers keep precedence.
