@@ -114,17 +114,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   Future<void> _installAllExtensions(BuildContext context, ItemType type) async {
     if (_bulkWorking) return;
+    final l10n = l10nLocalizations(context)!;
     setState(() => _bulkWorking = true);
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
-      const SnackBar(
+      SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 999),
         content: Row(children: [
           SizedBox(width: 16, height: 16,
               child: CircularProgressIndicator(strokeWidth: 2)),
           SizedBox(width: 12),
-          Expanded(child: Text('Installation de toutes les extensions…')),
+          Expanded(child: Text(l10n.browse_installing_all)),
         ]),
       ),
     );
@@ -148,7 +149,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         messenger.hideCurrentSnackBar();
         messenger.showSnackBar(SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text('$done extension(s) installée(s).'),
+          content: Text(l10n.browse_installed_count(done)),
           duration: const Duration(seconds: 3),
         ));
       }
@@ -158,16 +159,16 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   void _uninstallAllExtensions(BuildContext context, ItemType type) {
+    final l10n = l10nLocalizations(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Désinstaller tout'),
-        content: const Text(
-            'Voulez-vous vraiment désinstaller toutes les extensions installées ?'),
+        title: Text(l10n.browse_uninstall_all_title),
+        content: Text(l10n.browse_uninstall_all_body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -193,12 +194,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               });
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                 behavior: SnackBarBehavior.floating,
-                content:
-                    Text('${sources.length} extension(s) désinstallée(s).'),
+                content: Text(l10n.browse_uninstalled_count(sources.length)),
                 duration: const Duration(seconds: 3),
               ));
             },
-            child: const Text('Désinstaller'),
+            child: Text(l10n.uninstall),
           ),
         ],
       ),
@@ -207,17 +207,18 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
 
   Future<void> _updateAllExtensions(BuildContext context, ItemType type) async {
     if (_bulkWorking) return;
+    final l10n = l10nLocalizations(context)!;
     setState(() => _bulkWorking = true);
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
-      const SnackBar(
+      SnackBar(
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 999),
         content: Row(children: [
           SizedBox(width: 16, height: 16,
               child: CircularProgressIndicator(strokeWidth: 2)),
           SizedBox(width: 12),
-          Expanded(child: Text('Mise à jour de toutes les extensions…')),
+          Expanded(child: Text(l10n.browse_updating_all)),
         ]),
       ),
     );
@@ -241,7 +242,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         messenger.hideCurrentSnackBar();
         messenger.showSnackBar(SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text('$done extension(s) mise(s) à jour.'),
+          content: Text(l10n.browse_updated_count(done)),
           duration: const Duration(seconds: 3),
         ));
       }
@@ -253,6 +254,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   // ── Random source opener ───────────────────────────────────────────────────
 
   void _openRandomSource(BuildContext context, ItemType type) {
+    final l10n = l10nLocalizations(context)!;
     final sources = isar.sources
         .filter()
         .itemTypeEqualTo(type)
@@ -263,17 +265,17 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         .where((s) => s.sourceCode != null && s.sourceCode!.isNotEmpty)
         .toList();
     if (sources.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
-        content: Text('Aucune source active installée.'),
-        duration: Duration(seconds: 2),
+        content: Text(l10n.browse_no_active_source),
+        duration: const Duration(seconds: 2),
       ));
       return;
     }
     final src = sources[math.Random().nextInt(sources.length)];
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
-      content: Text('Ouverture de "${src.name}"…'),
+      content: Text(l10n.browse_opening_source(src.name ?? '')),
       duration: const Duration(seconds: 2),
     ));
     context.push('/mangaHome', extra: (src, false));
@@ -337,6 +339,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
   }
 
   List<Widget> _appBarActions(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final theme = Theme.of(context);
     if (_types.isEmpty) return const [];
     final type = _activeType;
@@ -345,7 +348,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       GestureDetector(
         onLongPress: () => context.push('/extensionDiagnostic', extra: type),
         child: IconButton(
-          tooltip: 'Recherche globale · appui long = diagnostic',
+          tooltip: l10n.browse_global_search_tooltip,
           splashRadius: 20,
           onPressed: () => context.push('/globalSearch', extra: (null, type)),
           icon: Icon(Icons.travel_explore_rounded, color: theme.hintColor),
@@ -353,7 +356,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       ),
       filterButton,
       AdaptiveOverlayMenu<_SrcMenuAction>(
-        tooltip: "Plus d'options",
+        tooltip: l10n.browse_more_options,
         icon: Icon(Broken.more_2, color: theme.hintColor),
         menuWidth: 240,
         onSelected: (action) => _handleSrcMenuAction(context, type, action),
@@ -362,7 +365,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             value: _SrcMenuAction.market,
             child: _MenuRow(
               icon: Icons.storefront_rounded,
-              label: 'Marketplace',
+              label: l10n.browse_marketplace,
             ),
           ),
           const PopupMenuDivider(),
@@ -370,14 +373,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             value: _SrcMenuAction.howTo,
             child: _MenuRow(
               icon: Icons.help_outline_rounded,
-              label: 'How To — Source Locale',
+              label: l10n.browse_how_to_local_source,
             ),
           ),
           PopupMenuItem(
             value: _SrcMenuAction.openRandomSource,
             child: _MenuRow(
               icon: Icons.shuffle_rounded,
-              label: 'Source aléatoire',
+              label: l10n.browse_random_source,
             ),
           ),
           const PopupMenuDivider(),
@@ -385,7 +388,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
             value: _SrcMenuAction.diagnostic,
             child: _MenuRow(
               icon: Icons.bug_report_rounded,
-              label: 'Diagnostic',
+              label: l10n.browse_diagnostic,
             ),
           ),
         ],
@@ -468,11 +471,11 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       case ItemType.novel:
         return l10n.novel;
       case ItemType.music:
-        return 'Music';
+        return l10n.catalog_tab_music;
       case ItemType.game:
-        return 'Games';
+        return l10n.catalog_tab_games;
       case ItemType.plugin:
-        return 'Plugins';
+        return l10n.browse_plugins;
     }
   }
 
@@ -632,6 +635,7 @@ class _BrowseTypeViewState extends ConsumerState<_BrowseTypeView> {
 /// Long-press shortcut on the translate icon: keeps only the device's
 /// language active (and English as a fallback). Long-press again to restore.
 void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
+  final l10n = l10nLocalizations(context)!;
   String deviceLang;
   try {
     deviceLang = Platform.localeName.split(RegExp('[_-]')).first.toLowerCase();
@@ -668,8 +672,8 @@ void _isolateDeviceLanguage(BuildContext context, ItemType itemType) {
       duration: const Duration(seconds: 2),
       content: Text(
         isolated
-            ? 'Sources limitées à ${deviceLang.toUpperCase()} + EN'
-            : 'Toutes les langues réactivées',
+            ? l10n.browse_sources_limited(deviceLang.toUpperCase())
+            : l10n.browse_all_languages_restored,
       ),
     ),
   );

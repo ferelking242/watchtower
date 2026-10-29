@@ -2718,7 +2718,11 @@ class _PlayStoreCard extends StatelessWidget {
                 _TagChip(label: langCode, cs: cs),
                 _TagChip(label: compatLabel, cs: cs),
                 if (entry.isNsfw)
-                  _TagChip(label: 'Adulte', cs: cs, color: Colors.red.shade400),
+                  _TagChip(
+                    label: context.l10n.marketplace_tag_adult,
+                    cs: cs,
+                    color: Colors.red.shade400,
+                  ),
                 if (hasUpdate)
                   _TagChip(
                     label: '↑ v${entry.version}',
@@ -3300,7 +3304,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                             const SizedBox(height: 20),
                             FilledButton(
                               onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Compris'),
+                              child: Text(context.l10n.marketplace_got_it),
                             ),
                           ],
                         ),
@@ -5148,7 +5152,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                       runSpacing: 8,
                       children: [
                         _SortChip(
-                          label: 'A → Z',
+                          label: context.l10n.marketplace_sort_alpha,
                           icon: Icons.sort_by_alpha_rounded,
                           active: _sortBy == 'alpha',
                           onTap: () {
@@ -5901,7 +5905,12 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                               height: 14,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                            label: Text('Installation… $_done/$_total'),
+                            label: Text(
+                              context.l10n.marketplace_installing_progress(
+                                '$_done',
+                                '$_total',
+                              ),
+                            ),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(

@@ -359,6 +359,51 @@ MARKETPLACE = [
     ("marketplace_size_kb", "{value} KB", "{value} Ko"),
     ("marketplace_size_mb", "{value} MB", "{value} Mo"),
     ("marketplace_failed_count", "{count} failed", "{count} échec(s)"),
+    ("marketplace_got_it", "Got it", "Compris"),
+    ("marketplace_installing_progress", "Installing… {done}/{total}",
+     "Installation… {done}/{total}"),
+    ("marketplace_tag_adult", "Adult", "Adulte"),
+    ("marketplace_sort_alpha", "A → Z", "A → Z"),
+]
+
+# The Browse screen's own chrome: bulk install/uninstall/update banners, the
+# overflow menu and the language-isolation toggle. Kept separate from
+# MARKETPLACE because these strings belong to the source list, not the
+# catalogue, and the screen is where the two surfaces meet.
+BROWSE = [
+    ("browse_installing_all", "Installing all extensions…",
+     "Installation de toutes les extensions…"),
+    ("browse_installed_count",
+     "{count, plural, =1{{count} extension installed} other{{count} extensions installed}}",
+     "{count, plural, =1{{count} extension installée} other{{count} extensions installées}}"),
+    ("browse_uninstall_all_title", "Uninstall all", "Désinstaller tout"),
+    ("browse_uninstall_all_body",
+     "Really uninstall every installed extension?",
+     "Voulez-vous vraiment désinstaller toutes les extensions installées ?"),
+    ("browse_uninstalled_count",
+     "{count, plural, =1{{count} extension uninstalled} other{{count} extensions uninstalled}}",
+     "{count, plural, =1{{count} extension désinstallée} other{{count} extensions désinstallées}}"),
+    ("browse_updating_all", "Updating all extensions…",
+     "Mise à jour de toutes les extensions…"),
+    ("browse_updated_count",
+     "{count, plural, =1{{count} extension updated} other{{count} extensions updated}}",
+     "{count, plural, =1{{count} extension mise à jour} other{{count} extensions mises à jour}}"),
+    ("browse_no_active_source", "No active source installed.",
+     "Aucune source active installée."),
+    ("browse_opening_source", 'Opening "{name}"…', 'Ouverture de "{name}"…'),
+    ("browse_global_search_tooltip", "Global search · long-press = diagnostic",
+     "Recherche globale · appui long = diagnostic"),
+    ("browse_more_options", "More options", "Plus d'options"),
+    ("browse_marketplace", "Marketplace", "Marketplace"),
+    ("browse_how_to_local_source", "How To — Local Source",
+     "How To — Source Locale"),
+    ("browse_random_source", "Random source", "Source aléatoire"),
+    ("browse_diagnostic", "Diagnostic", "Diagnostic"),
+    ("browse_plugins", "Plugins", "Plugins"),
+    ("browse_sources_limited", "Sources limited to {lang} + EN",
+     "Sources limitées à {lang} + EN"),
+    ("browse_all_languages_restored", "All languages re-enabled",
+     "Toutes les langues réactivées"),
 ]
 
 PLURAL_KEY = "catalog_shelf_count"
@@ -405,6 +450,8 @@ en_entries += [(key, en) for key, en, _ in UI]
 fr_entries += [(key, fr) for key, _, fr in UI]
 en_entries += [(key, en) for key, en, _ in MARKETPLACE]
 fr_entries += [(key, fr) for key, _, fr in MARKETPLACE]
+en_entries += [(key, en) for key, en, _ in BROWSE]
+fr_entries += [(key, fr) for key, _, fr in BROWSE]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

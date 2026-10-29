@@ -3263,6 +3263,104 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get marketplace_type_subtitles => 'Subtitles';
+
+  @override
+  String get marketplace_got_it => 'Got it';
+
+  @override
+  String marketplace_installing_progress(Object done, Object total) {
+    return 'Installing… $done/$total';
+  }
+
+  @override
+  String get browse_installing_all => 'Installing all extensions…';
+
+  @override
+  String browse_installed_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions installed',
+      one: '$count extension installed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_uninstall_all_title => 'Uninstall all';
+
+  @override
+  String get browse_uninstall_all_body =>
+      'Really uninstall every installed extension?';
+
+  @override
+  String browse_uninstalled_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions uninstalled',
+      one: '$count extension uninstalled',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_updating_all => 'Updating all extensions…';
+
+  @override
+  String browse_updated_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions updated',
+      one: '$count extension updated',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_no_active_source => 'No active source installed.';
+
+  @override
+  String browse_opening_source(Object name) {
+    return 'Opening \"$name\"…';
+  }
+
+  @override
+  String get browse_global_search_tooltip =>
+      'Global search · long-press = diagnostic';
+
+  @override
+  String get browse_more_options => 'More options';
+
+  @override
+  String get browse_marketplace => 'Marketplace';
+
+  @override
+  String get browse_how_to_local_source => 'How To — Local Source';
+
+  @override
+  String get browse_random_source => 'Random source';
+
+  @override
+  String get browse_diagnostic => 'Diagnostic';
+
+  @override
+  String get browse_plugins => 'Plugins';
+
+  @override
+  String browse_sources_limited(Object lang) {
+    return 'Sources limited to $lang + EN';
+  }
+
+  @override
+  String get browse_all_languages_restored => 'All languages re-enabled';
+
+  @override
+  String get marketplace_tag_adult => 'Adult';
+
+  @override
+  String get marketplace_sort_alpha => 'A → Z';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -6503,4 +6601,102 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get marketplace_type_subtitles => 'Subtitles';
+
+  @override
+  String get marketplace_got_it => 'Got it';
+
+  @override
+  String marketplace_installing_progress(Object done, Object total) {
+    return 'Installing… $done/$total';
+  }
+
+  @override
+  String get browse_installing_all => 'Installing all extensions…';
+
+  @override
+  String browse_installed_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions installed',
+      one: '$count extension installed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_uninstall_all_title => 'Uninstall all';
+
+  @override
+  String get browse_uninstall_all_body =>
+      'Really uninstall every installed extension?';
+
+  @override
+  String browse_uninstalled_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions uninstalled',
+      one: '$count extension uninstalled',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_updating_all => 'Updating all extensions…';
+
+  @override
+  String browse_updated_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions updated',
+      one: '$count extension updated',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_no_active_source => 'No active source installed.';
+
+  @override
+  String browse_opening_source(Object name) {
+    return 'Opening \"$name\"…';
+  }
+
+  @override
+  String get browse_global_search_tooltip =>
+      'Global search · long-press = diagnostic';
+
+  @override
+  String get browse_more_options => 'More options';
+
+  @override
+  String get browse_marketplace => 'Marketplace';
+
+  @override
+  String get browse_how_to_local_source => 'How To — Local Source';
+
+  @override
+  String get browse_random_source => 'Random source';
+
+  @override
+  String get browse_diagnostic => 'Diagnostic';
+
+  @override
+  String get browse_plugins => 'Plugins';
+
+  @override
+  String browse_sources_limited(Object lang) {
+    return 'Sources limited to $lang + EN';
+  }
+
+  @override
+  String get browse_all_languages_restored => 'All languages re-enabled';
+
+  @override
+  String get marketplace_tag_adult => 'Adult';
+
+  @override
+  String get marketplace_sort_alpha => 'A → Z';
 }

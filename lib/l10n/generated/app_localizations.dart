@@ -5884,6 +5884,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Subtitles'**
   String get marketplace_type_subtitles;
+
+  /// No description provided for @marketplace_got_it.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get marketplace_got_it;
+
+  /// No description provided for @marketplace_installing_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing… {done}/{total}'**
+  String marketplace_installing_progress(Object done, Object total);
+
+  /// No description provided for @browse_installing_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing all extensions…'**
+  String get browse_installing_all;
+
+  /// No description provided for @browse_installed_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension installed} other{{count} extensions installed}}'**
+  String browse_installed_count(num count);
+
+  /// No description provided for @browse_uninstall_all_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall all'**
+  String get browse_uninstall_all_title;
+
+  /// No description provided for @browse_uninstall_all_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Really uninstall every installed extension?'**
+  String get browse_uninstall_all_body;
+
+  /// No description provided for @browse_uninstalled_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension uninstalled} other{{count} extensions uninstalled}}'**
+  String browse_uninstalled_count(num count);
+
+  /// No description provided for @browse_updating_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating all extensions…'**
+  String get browse_updating_all;
+
+  /// No description provided for @browse_updated_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension updated} other{{count} extensions updated}}'**
+  String browse_updated_count(num count);
+
+  /// No description provided for @browse_no_active_source.
+  ///
+  /// In en, this message translates to:
+  /// **'No active source installed.'**
+  String get browse_no_active_source;
+
+  /// No description provided for @browse_opening_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening \"{name}\"…'**
+  String browse_opening_source(Object name);
+
+  /// No description provided for @browse_global_search_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Global search · long-press = diagnostic'**
+  String get browse_global_search_tooltip;
+
+  /// No description provided for @browse_more_options.
+  ///
+  /// In en, this message translates to:
+  /// **'More options'**
+  String get browse_more_options;
+
+  /// No description provided for @browse_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketplace'**
+  String get browse_marketplace;
+
+  /// No description provided for @browse_how_to_local_source.
+  ///
+  /// In en, this message translates to:
+  /// **'How To — Local Source'**
+  String get browse_how_to_local_source;
+
+  /// No description provided for @browse_random_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Random source'**
+  String get browse_random_source;
+
+  /// No description provided for @browse_diagnostic.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic'**
+  String get browse_diagnostic;
+
+  /// No description provided for @browse_plugins.
+  ///
+  /// In en, this message translates to:
+  /// **'Plugins'**
+  String get browse_plugins;
+
+  /// No description provided for @browse_sources_limited.
+  ///
+  /// In en, this message translates to:
+  /// **'Sources limited to {lang} + EN'**
+  String browse_sources_limited(Object lang);
+
+  /// No description provided for @browse_all_languages_restored.
+  ///
+  /// In en, this message translates to:
+  /// **'All languages re-enabled'**
+  String get browse_all_languages_restored;
+
+  /// No description provided for @marketplace_tag_adult.
+  ///
+  /// In en, this message translates to:
+  /// **'Adult'**
+  String get marketplace_tag_adult;
+
+  /// No description provided for @marketplace_sort_alpha.
+  ///
+  /// In en, this message translates to:
+  /// **'A → Z'**
+  String get marketplace_sort_alpha;
 }
 
 class _AppLocalizationsDelegate

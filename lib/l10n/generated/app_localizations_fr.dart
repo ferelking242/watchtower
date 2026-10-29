@@ -3270,4 +3270,102 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get marketplace_type_subtitles => 'Sous-titres';
+
+  @override
+  String get marketplace_got_it => 'Compris';
+
+  @override
+  String marketplace_installing_progress(Object done, Object total) {
+    return 'Installation… $done/$total';
+  }
+
+  @override
+  String get browse_installing_all => 'Installation de toutes les extensions…';
+
+  @override
+  String browse_installed_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions installées',
+      one: '$count extension installée',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_uninstall_all_title => 'Désinstaller tout';
+
+  @override
+  String get browse_uninstall_all_body =>
+      'Voulez-vous vraiment désinstaller toutes les extensions installées ?';
+
+  @override
+  String browse_uninstalled_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions désinstallées',
+      one: '$count extension désinstallée',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_updating_all => 'Mise à jour de toutes les extensions…';
+
+  @override
+  String browse_updated_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions mises à jour',
+      one: '$count extension mise à jour',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get browse_no_active_source => 'Aucune source active installée.';
+
+  @override
+  String browse_opening_source(Object name) {
+    return 'Ouverture de \"$name\"…';
+  }
+
+  @override
+  String get browse_global_search_tooltip =>
+      'Recherche globale · appui long = diagnostic';
+
+  @override
+  String get browse_more_options => 'Plus d\'options';
+
+  @override
+  String get browse_marketplace => 'Marketplace';
+
+  @override
+  String get browse_how_to_local_source => 'How To — Source Locale';
+
+  @override
+  String get browse_random_source => 'Source aléatoire';
+
+  @override
+  String get browse_diagnostic => 'Diagnostic';
+
+  @override
+  String get browse_plugins => 'Plugins';
+
+  @override
+  String browse_sources_limited(Object lang) {
+    return 'Sources limitées à $lang + EN';
+  }
+
+  @override
+  String get browse_all_languages_restored => 'Toutes les langues réactivées';
+
+  @override
+  String get marketplace_tag_adult => 'Adulte';
+
+  @override
+  String get marketplace_sort_alpha => 'A → Z';
 }
