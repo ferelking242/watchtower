@@ -3234,4 +3234,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String marketplace_size_mb(Object value) {
     return '$value MB';
   }
+
+  @override
+  String get marketplace_kind_subtitles => 'subtitles and caption tracks';
+
+  @override
+  String get marketplace_type_subtitles => 'Subtitles';
 }

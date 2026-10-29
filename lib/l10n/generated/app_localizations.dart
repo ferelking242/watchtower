@@ -5872,6 +5872,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{value} MB'**
   String marketplace_size_mb(Object value);
+
+  /// No description provided for @marketplace_kind_subtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'subtitles and caption tracks'**
+  String get marketplace_kind_subtitles;
+
+  /// No description provided for @marketplace_type_subtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles'**
+  String get marketplace_type_subtitles;
 }
 
 class _AppLocalizationsDelegate

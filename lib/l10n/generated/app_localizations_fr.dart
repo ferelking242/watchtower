@@ -3263,4 +3263,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String marketplace_size_mb(Object value) {
     return '$value Mo';
   }
+
+  @override
+  String get marketplace_kind_subtitles =>
+      'sous-titres et pistes de sous-titres';
+
+  @override
+  String get marketplace_type_subtitles => 'Sous-titres';
 }

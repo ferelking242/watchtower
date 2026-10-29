@@ -47,6 +47,21 @@ import 'package:watchtower/widgets/shimmer_skeleton.dart';
 const _kWtBase =
     'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
 
+/// Catalogue indices the Marketplace fetches.
+///
+/// The repository publishes one index per content type; this list is the single
+/// source of truth for both the loader and the jsDelivr purge. It previously
+/// lived as two hand-maintained copies, and `subtitles.json` was missing from
+/// both, which is why the subtitle sources never appeared in the Marketplace.
+const List<String> kMarketplaceIndexPaths = [
+  'index/manga.json',
+  'index/watch.json',
+  'index/novel.json',
+  'index/music.json',
+  'index/game.json',
+  'index/subtitles.json',
+];
+
 const _kFeaturedNames = {
   'MangaDex',
   'Webtoons',
@@ -669,12 +684,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
     try {
       var failures = 0;
-      const catalogUrls = [
-        '$_kWtBase/index/manga.json',
-        '$_kWtBase/index/watch.json',
-        '$_kWtBase/index/novel.json',
-        '$_kWtBase/index/music.json',
-        '$_kWtBase/index/game.json',
+      final catalogUrls = [
+        for (final path in kMarketplaceIndexPaths) '$_kWtBase/$path',
       ];
       final catalogLoaded = List<bool>.filled(catalogUrls.length, false);
       Future<List<_ExtEntry>> safe(
@@ -774,13 +785,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Future<void> _purgeJsDelivr() async {
     const purgeBase =
         'https://purge.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
-    const indexes = [
-      'index/manga.json',
-      'index/watch.json',
-      'index/novel.json',
-      'index/music.json',
-      'index/game.json',
-    ];
+    const indexes = kMarketplaceIndexPaths;
     await Future.wait(
       indexes.map(
         (p) => http
@@ -6259,17 +6264,21 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   bool _tabMatches(_ExtEntry entry) {
+    // Routed on the raw `itemType`, not [ItemType]: subtitle providers publish
+    // itemType 7, which the enum cannot represent and which would otherwise
+    // fall through to the wrong tab. Legacy entries default their itemType to
+    // `contentType.index`, so the mapping below is unchanged for them.
     switch (_tab) {
       case 1:
-        return entry.contentType == ItemType.anime;
+        return entry.itemType == 1 || entry.itemType == 7;
       case 2:
-        return entry.contentType == ItemType.manga;
+        return entry.itemType == 0;
       case 3:
-        return entry.contentType == ItemType.music;
+        return entry.itemType == 3;
       case 4:
-        return entry.contentType == ItemType.game;
+        return entry.itemType == 4;
       case 5:
-        return entry.contentType == ItemType.novel;
+        return entry.itemType == 2;
     }
     return true;
   }
@@ -7540,11 +7549,12 @@ String _playDescription(AppLocalizations l10n, _ExtEntry entry) {
       : entry.lang == 'multi' || entry.lang == 'all'
       ? l10n.marketplace_lang_multilingual
       : entry.lang.toUpperCase();
-  final kind = switch (entry.contentType) {
-    ItemType.anime => l10n.marketplace_kind_anime,
-    ItemType.manga => l10n.marketplace_kind_manga,
-    ItemType.novel => l10n.marketplace_kind_novel,
-    ItemType.music => l10n.marketplace_kind_music,
+  final kind = switch (entry.itemType) {
+    1 => l10n.marketplace_kind_anime,
+    0 => l10n.marketplace_kind_manga,
+    2 => l10n.marketplace_kind_novel,
+    3 => l10n.marketplace_kind_music,
+    7 => l10n.marketplace_kind_subtitles,
     _ => l10n.marketplace_kind_default,
   };
   return l10n.marketplace_source_blurb(language, kind);
@@ -7553,11 +7563,12 @@ String _playDescription(AppLocalizations l10n, _ExtEntry entry) {
 /// Content-type caption. Reuses the tab captions so a card, its detail page and
 /// the tab it came from cannot disagree.
 String _playTypeLabel(AppLocalizations l10n, _ExtEntry entry) =>
-    switch (entry.contentType) {
-      ItemType.anime => l10n.catalog_tab_watch,
-      ItemType.manga => l10n.catalog_tab_manga,
-      ItemType.novel => l10n.catalog_tab_novels,
-      ItemType.music => l10n.catalog_tab_music,
+    switch (entry.itemType) {
+      1 => l10n.catalog_tab_watch,
+      0 => l10n.catalog_tab_manga,
+      2 => l10n.catalog_tab_novels,
+      3 => l10n.catalog_tab_music,
+      7 => l10n.marketplace_type_subtitles,
       _ => l10n.catalog_tab_games,
     };
 

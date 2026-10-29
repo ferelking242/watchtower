@@ -1123,5 +1123,7 @@
   "marketplace_progress": "{done} / {total} processed",
   "marketplace_failed_count": "{count} failed",
   "marketplace_size_kb": "{value} KB",
-  "marketplace_size_mb": "{value} MB"
+  "marketplace_size_mb": "{value} MB",
+  "marketplace_kind_subtitles": "subtitles and caption tracks",
+  "marketplace_type_subtitles": "Subtitles"
 }

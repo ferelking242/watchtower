@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/models/catalog_taxonomy.dart';
 import 'package:watchtower/modules/browse/marketplace_screen.dart';
 
 /// Builds one raw index entry with the fields the parser requires.
@@ -148,6 +149,43 @@ void main() {
       ]);
 
       expect(parsed.map((e) => e['name']), <String>['A', 'C', 'E']);
+    });
+  });
+  group('subtitles catalogue (itemType 7)', () {
+    // The repository publishes `index/subtitles.json` alongside the six other
+    // catalogues, but the Marketplace only ever fetched five of them, so the
+    // subtitle sources were silently absent from the whole app.
+    test('every published catalogue index is actually loaded', () {
+      expect(kMarketplaceIndexPaths, contains('index/subtitles.json'));
+      expect(
+        kMarketplaceIndexPaths.toSet(),
+        hasLength(kMarketplaceIndexPaths.length),
+        reason: 'no catalogue may be listed twice',
+      );
+    });
+
+    test('itemType 7 keeps its raw value instead of clamping to manga', () {
+      final parsed = _parse([
+        _raw(id: 7000000001, name: 'Kitsunekko', itemType: 7, lang: 'multi'),
+      ]);
+      expect(parsed.single['itemType'], 7);
+    });
+
+    test('a subtitle entry is shelved as watch, not manga', () {
+      final parsed = _parse([
+        _raw(
+          id: 7000000001,
+          name: 'Kitsunekko',
+          itemType: 7,
+          lang: 'multi',
+          tags: const ['watch', 'multilingual'],
+        ),
+      ]);
+      final entry = parsed.single;
+      expect(
+        CatalogTaxonomy.itemTypeToContent[entry['itemType'] as int],
+        'watch',
+      );
     });
   });
 }

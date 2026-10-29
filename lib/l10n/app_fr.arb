@@ -1010,5 +1010,7 @@
   "marketplace_progress": "{done} / {total} traitées",
   "marketplace_failed_count": "{count} échec(s)",
   "marketplace_size_kb": "{value} Ko",
-  "marketplace_size_mb": "{value} Mo"
+  "marketplace_size_mb": "{value} Mo",
+  "marketplace_kind_subtitles": "sous-titres et pistes de sous-titres",
+  "marketplace_type_subtitles": "Sous-titres"
 }
