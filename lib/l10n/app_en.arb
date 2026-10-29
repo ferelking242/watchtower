@@ -980,5 +980,11 @@
   "plugins_ffmpeg_info": "FFmpeg only muxes HLS TS/fMP4 fragments into a readable file. It downloads neither the player nor MPV.\n\nWhen no verified binary is installed, Watchtower falls back to direct fragment concatenation, so online playback does not depend on this plugin.",
   "plugins_smart_library_title": "Smart Library",
   "plugins_mpv_title": "MPV configuration",
-  "plugins_music_title": "Music plugins"
+  "plugins_music_title": "Music plugins",
+  "catalog_tab_for_you": "For you",
+  "catalog_tab_watch": "Watch",
+  "catalog_tab_manga": "Manga",
+  "catalog_tab_music": "Music",
+  "catalog_tab_games": "Games",
+  "catalog_tab_novels": "Novels"
 }

@@ -5110,6 +5110,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Music plugins'**
   String get plugins_music_title;
+
+  /// No description provided for @catalog_tab_for_you.
+  ///
+  /// In en, this message translates to:
+  /// **'For you'**
+  String get catalog_tab_for_you;
+
+  /// No description provided for @catalog_tab_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get catalog_tab_watch;
+
+  /// No description provided for @catalog_tab_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get catalog_tab_manga;
+
+  /// No description provided for @catalog_tab_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get catalog_tab_music;
+
+  /// No description provided for @catalog_tab_games.
+  ///
+  /// In en, this message translates to:
+  /// **'Games'**
+  String get catalog_tab_games;
+
+  /// No description provided for @catalog_tab_novels.
+  ///
+  /// In en, this message translates to:
+  /// **'Novels'**
+  String get catalog_tab_novels;
 }
 
 class _AppLocalizationsDelegate
