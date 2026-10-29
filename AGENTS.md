@@ -637,3 +637,35 @@ must not leak into watch code paths or logs:
   `runLibrarySwipeAction` (`lib/modules/library/services/library_swipe_actions.dart`),
   wired into both the grid and list library views. The swipe never dismisses the
   card; it fires the action and snaps back.
+
+## Onboarding showcase (slogan page performance)
+- `lib/modules/onboarding/onboarding_screen.dart` holds the two animated pages.
+  The slogan page used to build **450 cards** (5 lanes × 2 copies × 45 items),
+  each with a `BoxShadow` and four gradients, all rebuilt on every `setState`,
+  while off-screen `PageView` pages kept their tickers running. That is what
+  made it crash and stutter. Keep the fixes in place:
+  - `OnboardingShowcaseConfig` owns every geometry/count tunable. Do not
+    re-hardcode lane counts, card sizes or cycle durations in the screen.
+  - Cards are capped per lane (`maxItems`) and the slogan pool is capped too;
+    raise a cap only with a measurement.
+  - Each page exposes `enabled:` to its `TickerMode` from `_currentPage`, so
+    only the visible page animates. A `PageView` keeps off-screen pages alive.
+  - `showcaseMotionDisabled(context)` honours the platform "reduce motion"
+    setting; when set, the lane controller and the lane-rotation timer stop.
+  - Cards pass `loadingWidget: SizedBox.shrink()` to `cachedNetworkImage`:
+    the default `_SkeletonShimmer` owns one `AnimationController` each, so
+    dozens of loading posters meant dozens of live tickers. The card already
+    paints its own gradient placeholder.
+- `OnboardingMediaService` fills lanes from keyless sources (AniList GraphQL,
+  iTunes Search, Steam featured, TMDB images) and falls back to
+  `OnboardingFallbackCatalog` when a source is unreachable or needs a token.
+  AniList wraps its payload in a top-level `data` object — read
+  `body['data']['Page']['media']`.
+- `DeviceCapabilities.ramTierForMB` is the single source of truth for RAM
+  tiers; `deviceRamTierFromMB` in the showcase config reuses it (a reading of
+  `0`, i.e. desktop/web/unknown, is treated as `high` for the showcase only).
+- Regression tests: `test/onboarding_showcase_test.dart` (config + catalogue),
+  `test/onboarding_media_service_test.dart` (real parsing via a `MockClient`
+  transport), `test/onboarding_screen_layout_test.dart` (layout at phone /
+  tablet / desktop sizes, plus reduce-motion). The screen animates forever, so
+  these use `pump`, never `pumpAndSettle`.

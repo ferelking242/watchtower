@@ -22,10 +22,17 @@ class DeviceCapabilities {
   /// low  = < 3 GB  (e.g. iPhone 7/8, SE, budget Android)
   /// mid  = 3–5 GB  (iPhone 11/12 mini, mid-range Android)
   /// high = > 5 GB  (iPhone 14+, flagship Android)
-  static String get ramTier {
-    if (_physicalMemoryMB <= 0) return 'mid';
-    if (_physicalMemoryMB < 3000) return 'low';
-    if (_physicalMemoryMB < 5500) return 'mid';
+  static String get ramTier => ramTierForMB(_physicalMemoryMB);
+
+  /// The tier a physical-memory reading in megabytes falls into.
+  ///
+  /// Pure and platform-free, so callers that need to reason about a device
+  /// without touching a channel — layout maths, tests — reuse the exact
+  /// thresholds applied at startup instead of duplicating them.
+  static String ramTierForMB(int physicalMemoryMB) {
+    if (physicalMemoryMB <= 0) return 'mid';
+    if (physicalMemoryMB < 3000) return 'low';
+    if (physicalMemoryMB < 5500) return 'mid';
     return 'high';
   }
 

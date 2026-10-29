@@ -36,6 +36,13 @@ Widget cachedNetworkImage({
   AlignmentGeometry? alignment,
   bool useCustomNetworkImage = true,
   Widget errorWidget = const Icon(Icons.image_not_supported_outlined, size: 50, color: Colors.white38),
+  /// Shown while the image downloads.
+  ///
+  /// The default shimmer owns an [AnimationController], so a screen that stacks
+  /// dozens of images pays for dozens of tickers until they all land. A caller
+  /// that already paints its own placeholder should pass a static widget
+  /// instead (e.g. `SizedBox.shrink()`).
+  Widget loadingWidget = const _SkeletonShimmer(),
 }) {
   if (kIsWeb) {
     return Image.network(
@@ -60,7 +67,7 @@ Widget cachedNetworkImage({
     handleLoadingProgress: true,
     loadStateChanged: (state) {
       if (state.extendedImageLoadState == LoadState.loading) {
-        return const _SkeletonShimmer();
+        return loadingWidget;
       }
       if (state.extendedImageLoadState == LoadState.failed) {
         _logRenderFailure(imageUrl, hasHeaders: headers != null && headers.isNotEmpty);

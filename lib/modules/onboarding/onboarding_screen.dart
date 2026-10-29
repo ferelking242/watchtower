@@ -6,8 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:watchtower/modules/onboarding/onboarding_fallback_catalog.dart';
+import 'package:watchtower/modules/onboarding/onboarding_media_service.dart';
+import 'package:watchtower/modules/onboarding/onboarding_showcase_config.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/device_capabilities.dart';
 import 'package:watchtower/services/onboarding_dependency_service.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 const String _onboardingMarkerFileName = '.onboarding_complete';
 
@@ -248,8 +253,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void _next() {
     if (_currentPage < 2) {
       _page.nextPage(
-          duration: const Duration(milliseconds: 420),
-          curve: Curves.easeInOut);
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -277,8 +283,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               controller: _page,
               onPageChanged: (i) => setState(() => _currentPage = i),
               children: [
-                _ShowcasePage(onNext: _next),
-                _SloganPage(onNext: _next),
+                // Only the visible page animates. A `PageView` builds and keeps
+                // its neighbours, so without this the slogan backdrop kept
+                // ticking behind the showcase (and vice versa), doubling the
+                // per-frame cost of a screen that only ever shows one page.
+                TickerMode(
+                  enabled: _currentPage == 0,
+                  child: _ShowcasePage(onNext: _next),
+                ),
+                TickerMode(
+                  enabled: _currentPage == 1,
+                  child: _SloganPage(onNext: _next),
+                ),
                 _PermissionsPage(
                   storageGranted: _storageGranted,
                   notifGranted: _notifGranted,
@@ -336,117 +352,124 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Data — every card is drawn locally, so the first launch never waits on the
-// network. One lane per category the app actually hosts.
+// Data — the lanes below are filled by `OnboardingMediaService` from the real
+// catalogues (AniList, TMDB, Apple Music, Steam) and fall back to
+// `OnboardingFallbackCatalog` posters until — or if — a source answers. Every
+// card therefore shows a real cover and the real figure the source publishes.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MediaItem {
-  final String title;
-  final String tag;
-  final IconData icon;
-  final Color color;
-  const _MediaItem(this.title, this.tag, this.icon, this.color);
-}
+/// One category lane: its label, its accent colour, its icon and its content.
+class ShowcaseLaneSpec {
+  const ShowcaseLaneSpec({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.items,
+  });
 
-class _LaneSpec {
+  final String id;
   final String label;
   final IconData icon;
   final Color color;
-  final List<_MediaItem> items;
-  const _LaneSpec(this.label, this.icon, this.color, this.items);
+  final List<ShowcaseItem> items;
+
+  ShowcaseLaneSpec withItems(List<ShowcaseItem> value) => ShowcaseLaneSpec(
+    id: id,
+    label: label,
+    icon: icon,
+    color: color,
+    items: value,
+  );
 }
 
-const _animeItems = [
-  _MediaItem('Naruto', 'Shōnen', Icons.live_tv_rounded, Color(0xFFFF6B00)),
-  _MediaItem('Dragon Ball Z', 'Shōnen', Icons.live_tv_rounded, Color(0xFFFFB703)),
-  _MediaItem('Hunter x Hunter', 'Shōnen', Icons.live_tv_rounded, Color(0xFF06D6A0)),
-  _MediaItem('One Piece', 'Shōnen', Icons.live_tv_rounded, Color(0xFF3A86FF)),
-  _MediaItem('Attack on Titan', 'Seinen', Icons.live_tv_rounded, Color(0xFFFF4D6D)),
-  _MediaItem('Demon Slayer', 'Shōnen', Icons.live_tv_rounded, Color(0xFF8338EC)),
-  _MediaItem('Jujutsu Kaisen', 'Shōnen', Icons.live_tv_rounded, Color(0xFF0077B6)),
-  _MediaItem('Bleach', 'Shōnen', Icons.live_tv_rounded, Color(0xFF48CAE4)),
+/// The seven lanes, wired to the live catalogues.
+///
+/// Built once: the label, icon and colour are fixed, only [items] changes when
+/// a source lands.
+final List<ShowcaseLaneSpec> _laneSpecs = [
+  ShowcaseLaneSpec(
+    id: 'anime',
+    label: 'Anime',
+    icon: Icons.live_tv_rounded,
+    color: const Color(0xFFFF6B00),
+    items: OnboardingFallbackCatalog.anime,
+  ),
+  ShowcaseLaneSpec(
+    id: 'manga',
+    label: 'Manga',
+    icon: Icons.menu_book_rounded,
+    color: const Color(0xFF9D4EDD),
+    items: OnboardingFallbackCatalog.manga,
+  ),
+  ShowcaseLaneSpec(
+    id: 'novels',
+    label: 'Novels',
+    icon: Icons.auto_stories_rounded,
+    color: const Color(0xFF06D6A0),
+    items: OnboardingFallbackCatalog.novels,
+  ),
+  ShowcaseLaneSpec(
+    id: 'music',
+    label: 'Musique',
+    icon: Icons.music_note_rounded,
+    color: const Color(0xFF3A86FF),
+    items: OnboardingFallbackCatalog.music,
+  ),
+  ShowcaseLaneSpec(
+    id: 'series',
+    label: 'Séries',
+    icon: Icons.theaters_rounded,
+    color: const Color(0xFFE63946),
+    items: OnboardingFallbackCatalog.series,
+  ),
+  ShowcaseLaneSpec(
+    id: 'films',
+    label: 'Films',
+    icon: Icons.movie_rounded,
+    color: const Color(0xFFFF9F1C),
+    items: OnboardingFallbackCatalog.films,
+  ),
+  ShowcaseLaneSpec(
+    id: 'games',
+    label: 'Jeux',
+    icon: Icons.sports_esports_rounded,
+    color: const Color(0xFF00C2A8),
+    items: OnboardingFallbackCatalog.games,
+  ),
 ];
 
-const _mangaItems = [
-  _MediaItem('Berserk', 'Seinen', Icons.menu_book_rounded, Color(0xFF6C757D)),
-  _MediaItem('Vagabond', 'Seinen', Icons.menu_book_rounded, Color(0xFF495057)),
-  _MediaItem('Vinland Saga', 'Seinen', Icons.menu_book_rounded, Color(0xFF2D6A4F)),
-  _MediaItem('Tokyo Ghoul', 'Seinen', Icons.menu_book_rounded, Color(0xFF9D4EDD)),
-  _MediaItem('Chainsaw Man', 'Shōnen', Icons.menu_book_rounded, Color(0xFFD62828)),
-  _MediaItem('Blue Period', 'Seinen', Icons.menu_book_rounded, Color(0xFF1D3557)),
-  _MediaItem('Goodnight PunPun', 'Seinen', Icons.menu_book_rounded, Color(0xFF457B9D)),
+/// The lanes the media service is asked to fill.
+List<ShowcaseLane> get _laneRequests => [
+  for (final spec in _laneSpecs)
+    ShowcaseLane(id: spec.id, label: spec.label, fallback: spec.items),
 ];
 
-const _novelItems = [
-  _MediaItem('Solo Leveling', 'Web novel', Icons.auto_stories_rounded, Color(0xFF7B2FBE)),
-  _MediaItem('Overlord', 'Light novel', Icons.auto_stories_rounded, Color(0xFFBC4749)),
-  _MediaItem('Re:Zero', 'Light novel', Icons.auto_stories_rounded, Color(0xFF0077B6)),
-  _MediaItem('Mushoku Tensei', 'Light novel', Icons.auto_stories_rounded, Color(0xFF06D6A0)),
-  _MediaItem('Classroom of the Elite', 'Light novel', Icons.auto_stories_rounded, Color(0xFF457B9D)),
-  _MediaItem('The Beginning After the End', 'Web novel', Icons.auto_stories_rounded, Color(0xFF2D6A4F)),
-];
+/// The content a lane currently has: the live result once cached, else the
+/// curated posters.
+List<ShowcaseItem> _itemsFor(ShowcaseLaneSpec spec) =>
+    OnboardingMediaService.cached(spec.id) ?? spec.items;
 
-const _musicItems = [
-  _MediaItem('Lo-fi Beats', 'Playlist', Icons.music_note_rounded, Color(0xFF3A86FF)),
-  _MediaItem('J-Pop Hits', 'Playlist', Icons.music_note_rounded, Color(0xFFFF4D6D)),
-  _MediaItem('Anime Openings', 'Playlist', Icons.music_note_rounded, Color(0xFFFF6B00)),
-  _MediaItem('City Pop', 'Playlist', Icons.music_note_rounded, Color(0xFF8338EC)),
-  _MediaItem('Chill Piano', 'Playlist', Icons.music_note_rounded, Color(0xFF48CAE4)),
-  _MediaItem('Rock Classics', 'Playlist', Icons.music_note_rounded, Color(0xFFE63946)),
-];
-
-const _serieItems = [
-  _MediaItem('Breaking Bad', 'Drame', Icons.theaters_rounded, Color(0xFF2DC653)),
-  _MediaItem('Arcane', 'Animation', Icons.theaters_rounded, Color(0xFF7B2FBE)),
-  _MediaItem('The Bear', 'Drame', Icons.theaters_rounded, Color(0xFFE63946)),
-  _MediaItem('Shogun', 'Historique', Icons.theaters_rounded, Color(0xFFBC4749)),
-  _MediaItem('Severance', 'Thriller', Icons.theaters_rounded, Color(0xFF0077B6)),
-  _MediaItem('Dark', 'Sci-fi', Icons.theaters_rounded, Color(0xFF1D3557)),
-];
-
-const _filmItems = [
-  _MediaItem('Oppenheimer', 'Biopic', Icons.movie_rounded, Color(0xFFFF9F1C)),
-  _MediaItem('Dune', 'Sci-fi', Icons.movie_rounded, Color(0xFFD4A017)),
-  _MediaItem('Interstellar', 'Sci-fi', Icons.movie_rounded, Color(0xFF457B9D)),
-  _MediaItem('Spirited Away', 'Ghibli', Icons.movie_rounded, Color(0xFF06D6A0)),
-  _MediaItem('Blade Runner 2049', 'Sci-fi', Icons.movie_rounded, Color(0xFF8338EC)),
-  _MediaItem('Your Name', 'Romance', Icons.movie_rounded, Color(0xFFFF4D6D)),
-];
-
-const _gameItems = [
-  _MediaItem('Genshin Impact', 'Aventure', Icons.sports_esports_rounded, Color(0xFF00C2A8)),
-  _MediaItem('Elden Ring', 'Action-RPG', Icons.sports_esports_rounded, Color(0xFFD4A017)),
-  _MediaItem('Zelda', 'Aventure', Icons.sports_esports_rounded, Color(0xFF06D6A0)),
-  _MediaItem('Minecraft', 'Bac à sable', Icons.sports_esports_rounded, Color(0xFF2DC653)),
-  _MediaItem('Hollow Knight', 'Metroidvania', Icons.sports_esports_rounded, Color(0xFF0077B6)),
-  _MediaItem('Cyberpunk 2077', 'Action-RPG', Icons.sports_esports_rounded, Color(0xFFFFB703)),
-];
-
-/// One lane per category the app hosts.
-const _lanes = [
-  _LaneSpec('Anime', Icons.live_tv_rounded, Color(0xFFFF6B00), _animeItems),
-  _LaneSpec('Manga', Icons.menu_book_rounded, Color(0xFF9D4EDD), _mangaItems),
-  _LaneSpec('Novels', Icons.auto_stories_rounded, Color(0xFF06D6A0), _novelItems),
-  _LaneSpec('Musique', Icons.music_note_rounded, Color(0xFF3A86FF), _musicItems),
-  _LaneSpec('Séries', Icons.theaters_rounded, Color(0xFFE63946), _serieItems),
-  _LaneSpec('Films', Icons.movie_rounded, Color(0xFFFF9F1C), _filmItems),
-  _LaneSpec('Jeux', Icons.sports_esports_rounded, Color(0xFF00C2A8), _gameItems),
-];
-
-/// How many lanes are on screen at once. The showcase slides a window of this
-/// width over `_lanes`, so every category is seen without ever duplicating one.
-const int _lanesPerPage = 3;
-
-/// Flat pool for the slogan page — every item across every category.
-const _pool = [
-  ..._animeItems,
-  ..._mangaItems,
-  ..._novelItems,
-  ..._musicItems,
-  ..._serieItems,
-  ..._filmItems,
-  ..._gameItems,
-];
+/// Flat pool for the slogan page, capped so the diagonal backdrop never builds
+/// more than the configured budget of cards.
+List<ShowcaseItem> _poolFor(int limit) {
+  final out = <ShowcaseItem>[];
+  // Interleave categories so a capped pool still shows every kind of content
+  // instead of eight anime posters.
+  for (var i = 0; out.length < limit; i++) {
+    var added = false;
+    for (final spec in _laneSpecs) {
+      final items = _itemsFor(spec);
+      if (i < items.length) {
+        out.add(items[i]);
+        added = true;
+        if (out.length >= limit) break;
+      }
+    }
+    if (!added) break;
+  }
+  return out;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page 1 — Showcase
@@ -465,20 +488,58 @@ class _ShowcasePage extends StatefulWidget {
 class _ShowcasePageState extends State<_ShowcasePage>
     with TickerProviderStateMixin {
   late final AnimationController _ctrl;
+  final _service = OnboardingMediaService();
   Timer? _rotate;
   int _window = 0;
+
+  /// Live lane content, keyed by lane id. Falls back to the curated posters
+  /// for any lane the catalogues have not answered for yet.
+  late List<ShowcaseLaneSpec> _lanes;
 
   @override
   void initState() {
     super.initState();
+    _lanes = _laneSpecs;
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 18),
-    )..repeat();
-    _rotate = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted) return;
-      setState(() => _window = (_window + 1) % _lanes.length);
-    });
+      duration: OnboardingShowcaseConfig.laneCycle,
+    );
+    _ctrl.repeat();
+    _loadLiveContent();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Honour the platform's "reduce motion" setting: a user who asked for
+    // stillness gets a still showcase, and a slow phone gets a page that stops
+    // driving frames instead of one that keeps a ticker alive forever.
+    final reduce = showcaseMotionDisabled(context);
+    if (reduce) {
+      _rotate?.cancel();
+      if (_ctrl.isAnimating) _ctrl.stop();
+    } else {
+      if (!_ctrl.isAnimating) _ctrl.repeat();
+      _rotate ??= Timer.periodic(OnboardingShowcaseConfig.windowRotate, (_) {
+        if (!mounted) return;
+        setState(() => _window = (_window + 1) % _lanes.length);
+      });
+    }
+  }
+
+  Future<void> _loadLiveContent() async {
+    await _service.loadAll(
+      _laneRequests,
+      onLane: (laneId, items) {
+        if (!mounted) return;
+        setState(() {
+          _lanes = [
+            for (final spec in _lanes)
+              spec.id == laneId ? spec.withItems(items) : spec,
+          ];
+        });
+      },
+    );
   }
 
   @override
@@ -488,55 +549,83 @@ class _ShowcasePageState extends State<_ShowcasePage>
     super.dispose();
   }
 
-  List<_LaneSpec> _visible() => [
-        for (var i = 0; i < _lanesPerPage; i++)
-          _lanes[(_window + i) % _lanes.length],
-      ];
+  List<ShowcaseLaneSpec> _visible() => [
+    for (var i = 0; i < _lanesOnScreen; i++)
+      _lanes[(_window + i) % _lanes.length],
+  ];
+
+  /// How many lanes fit the current screen. Computed from the width so a
+  /// tablet or a desktop window shows more columns instead of stretching
+  /// three of them across the whole window.
+  int get _lanesOnScreen =>
+      OnboardingShowcaseConfig.laneCountFor(MediaQuery.sizeOf(context).width);
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    final lw = w / _lanesPerPage;
+    final width = MediaQuery.sizeOf(context).width;
     final lanes = _visible();
+    final laneWidth = OnboardingShowcaseConfig.laneWidthFor(width);
+    final contentWidth = OnboardingShowcaseConfig.contentWidthFor(width);
+    final cardHeight = OnboardingShowcaseConfig.cardHeightFor(laneWidth);
+
+    // A low-RAM phone builds fewer cards, and shadows are dropped there and on
+    // the slogan page where the gradient hides them anyway.
+    final ramTier = deviceRamTierFromMB(DeviceCapabilities.physicalMemoryMB);
+    final constrained = ramTier == DeviceRamTier.low;
+    final itemsPerLane = OnboardingShowcaseConfig.itemsPerLaneFor(ramTier);
+    final shadows = OnboardingShowcaseConfig.shadowsEnabled(
+      ramConstrained: constrained,
+      covered: false,
+    );
 
     return Stack(
       children: [
         // ── Card lanes, ALL sharing _ctrl → strictly synchronized ───────
         Positioned.fill(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 600),
-            child: Row(
-              key: ValueKey(_window),
-              children: [
-                for (var i = 0; i < lanes.length; i++)
-                  RepaintBoundary(
-                    child: _Lane(
-                      animation: _ctrl,
-                      lane: lanes[i],
-                      goUp: i.isEven,
-                      width: lw,
-                    ),
-                  ),
-              ],
+          child: Center(
+            child: SizedBox(
+              width: contentWidth,
+              child: AnimatedSwitcher(
+                duration: OnboardingShowcaseConfig.windowSwitch,
+                child: Row(
+                  key: ValueKey(_window),
+                  children: [
+                    for (var i = 0; i < lanes.length; i++)
+                      RepaintBoundary(
+                        child: _Lane(
+                          animation: _ctrl,
+                          lane: lanes[i],
+                          goUp: i.isEven,
+                          width: laneWidth,
+                          cardHeight: cardHeight,
+                          maxItems: itemsPerLane,
+                          shadows: shadows,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
 
         // ── Gradient vignette — top & bottom fade ───────────────────────
         Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black,
-                  Colors.black.withValues(alpha: 0),
-                  Colors.black.withValues(alpha: 0),
-                  Colors.black.withValues(alpha: 0.88),
-                  Colors.black,
-                ],
-                stops: const [0.0, 0.15, 0.52, 0.80, 1.0],
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black,
+                    Colors.black.withValues(alpha: 0),
+                    Colors.black.withValues(alpha: 0),
+                    Colors.black.withValues(alpha: 0.88),
+                    Colors.black,
+                  ],
+                  stops: const [0.0, 0.15, 0.52, 0.80, 1.0],
+                ),
               ),
             ),
           ),
@@ -546,38 +635,45 @@ class _ShowcasePageState extends State<_ShowcasePage>
         Positioned(
           left: 0, right: 0, bottom: 0,
           child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 0, 28, 60),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Watchtower',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1.8,
-                      height: 1.0,
-                    ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: OnboardingShowcaseConfig.maxContentWidth,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 0, 28, 60),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Watchtower',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 40,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.8,
+                          height: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Category chips — the whole point: the app is not only
+                      // films and series, every category below lives in it.
+                      _CategoryChips(active: lanes.map((l) => l.label).toSet()),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Anime, manga, novels, musique,\nfilms, séries et jeux — au même endroit.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.82),
+                          fontSize: 16,
+                          height: 1.55,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      _WhiteButton(label: 'Suivant', onTap: widget.onNext),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  // Category chips — the whole point: the app is not only films
-                  // and series, every category below lives in it.
-                  _CategoryChips(active: lanes.map((l) => l.label).toSet()),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Anime, manga, novels, musique,\nfilms, séries et jeux — au même endroit.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: 16,
-                      height: 1.55,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  _WhiteButton(label: 'Suivant', onTap: widget.onNext),
-                ],
+                ),
               ),
             ),
           ),
@@ -597,7 +693,7 @@ class _CategoryChips extends StatelessWidget {
     return Wrap(
       spacing: 7,
       runSpacing: 7,
-      children: _lanes.map((lane) {
+      children: _laneSpecs.map((lane) {
         final on = active.contains(lane.label);
         return AnimatedContainer(
           duration: const Duration(milliseconds: 400),
@@ -664,20 +760,25 @@ class _SloganPageState extends State<_SloganPage>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 28),
+      duration: OnboardingShowcaseConfig.sloganCycle,
     )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = showcaseMotionDisabled(context);
+    if (reduce && _ctrl.isAnimating) {
+      _ctrl.stop();
+    } else if (!reduce && !_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
-  }
-
-  List<_MediaItem> _stagger(int lane) {
-    final n = _pool.length;
-    final start = (lane * 4) % n;
-    return [..._pool.sublist(start), ..._pool.sublist(0, start)];
   }
 
   @override
@@ -688,8 +789,18 @@ class _SloganPageState extends State<_SloganPage>
             size.width * size.width + size.height * size.height)
         .ceil()
         .toDouble();
-    const laneW = 130.0;
-    const laneCount = 5;
+
+    final laneCount = OnboardingShowcaseConfig.sloganLaneCountFor(size.width);
+    final itemsPerLane = OnboardingShowcaseConfig.sloganItemsPerLaneFor(
+      size.width,
+    );
+    final laneW = OnboardingShowcaseConfig.laneWidthFor(size.width);
+    final cardHeight = OnboardingShowcaseConfig.cardHeightFor(laneW);
+
+    // The pool is capped: this page rotates dozens of cards behind the text
+    // where they are decorative and largely covered by the overlay, and an
+    // uncapped pool is what made it drop frames on a phone.
+    final pool = _poolFor(itemsPerLane * laneCount);
 
     return Stack(
       children: [
@@ -710,12 +821,16 @@ class _SloganPageState extends State<_SloganPage>
                         laneCount,
                         (i) => _Lane(
                           animation: _ctrl,
-                          lane: _lanes[i % _lanes.length],
-                          items: _stagger(i),
+                          lane: _laneSpecs[i % _laneSpecs.length],
+                          items: _stagger(pool, i),
                           goUp: i.isEven,
                           width: laneW,
-                          cardHeight: 130,
-                          gap: 6,
+                          cardHeight: cardHeight,
+                          gap: OnboardingShowcaseConfig.sloganCardGap,
+                          maxItems: itemsPerLane,
+                          // Shadows are invisible under the dark overlay here
+                          // and are the most expensive part of a card.
+                          shadows: false,
                         ),
                       ),
                     ),
@@ -728,17 +843,19 @@ class _SloganPageState extends State<_SloganPage>
 
         // ── Dark overlay ────────────────────────────────────────────────
         Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.72),
-                  Colors.black.withValues(alpha: 0.54),
-                  Colors.black.withValues(alpha: 0.72),
-                ],
-                stops: const [0.0, 0.5, 1.0],
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.72),
+                    Colors.black.withValues(alpha: 0.54),
+                    Colors.black.withValues(alpha: 0.72),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
               ),
             ),
           ),
@@ -746,31 +863,38 @@ class _SloganPageState extends State<_SloganPage>
 
         // ── Slogan ──────────────────────────────────────────────────────
         Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 36),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _sloganLine('Regarde.', dim: true),
-                const SizedBox(height: 4),
-                _sloganLine('Lis.', dim: true),
-                const SizedBox(height: 4),
-                _sloganLine('Ecoute.', dim: true),
-                const SizedBox(height: 20),
-                _sloganLine('Tout.', dim: false),
-                const SizedBox(height: 16),
-                Text(
-                  'Un seul endroit pour tout ce\nque tu aimes.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w400,
-                    height: 1.5,
-                    letterSpacing: 0.1,
-                  ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: OnboardingShowcaseConfig.maxContentWidth,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 36),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _sloganLine('Regarde.', dim: true),
+                    const SizedBox(height: 4),
+                    _sloganLine('Lis.', dim: true),
+                    const SizedBox(height: 4),
+                    _sloganLine('Ecoute.', dim: true),
+                    const SizedBox(height: 20),
+                    _sloganLine('Tout.', dim: false),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Un seul endroit pour tout ce\nque tu aimes.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w400,
+                        height: 1.5,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -779,14 +903,29 @@ class _SloganPageState extends State<_SloganPage>
         Positioned(
           left: 28, right: 28, bottom: 0,
           child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 60),
-              child: _WhiteButton(label: 'Commencer', onTap: widget.onNext),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: OnboardingShowcaseConfig.maxContentWidth,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 60),
+                  child: _WhiteButton(label: 'Commencer', onTap: widget.onNext),
+                ),
+              ),
             ),
           ),
         ),
       ],
     );
+  }
+
+  /// Rotates [pool] so a column starts at a different title than its
+  /// neighbour, without ever building more cards than the budget allows.
+  List<ShowcaseItem> _stagger(List<ShowcaseItem> pool, int lane) {
+    if (pool.isEmpty) return pool;
+    final start = (lane * 4) % pool.length;
+    return [...pool.sublist(start), ...pool.sublist(0, start)];
   }
 
   Widget _sloganLine(String text, {required bool dim}) {
@@ -820,12 +959,14 @@ class _SloganPageState extends State<_SloganPage>
 
 class _Lane extends StatefulWidget {
   final Animation<double> animation;
-  final _LaneSpec lane;
-  final List<_MediaItem>? items;
+  final ShowcaseLaneSpec lane;
+  final List<ShowcaseItem>? items;
   final bool goUp;
   final double width;
   final double cardHeight;
   final double gap;
+  final int maxItems;
+  final bool shadows;
 
   const _Lane({
     required this.animation,
@@ -834,7 +975,9 @@ class _Lane extends StatefulWidget {
     required this.width,
     this.items,
     this.cardHeight = 160,
-    this.gap = 10,
+    this.gap = OnboardingShowcaseConfig.cardGap,
+    this.maxItems = OnboardingShowcaseConfig.itemsPerLaneDesktop,
+    this.shadows = true,
   });
 
   @override
@@ -844,6 +987,16 @@ class _Lane extends StatefulWidget {
 class _LaneState extends State<_Lane> {
   late Widget _col1;
   late Widget _col2;
+
+  /// The cards this lane actually builds.
+  ///
+  /// Capped at [maxItems]: the lane duplicates its column to scroll
+  /// seamlessly, so an unbounded list is paid for twice, on every lane.
+  List<ShowcaseItem> get _resolved {
+    final all = widget.items ?? widget.lane.items;
+    if (all.length <= widget.maxItems) return all;
+    return all.sublist(0, widget.maxItems);
+  }
 
   @override
   void initState() {
@@ -858,7 +1011,9 @@ class _LaneState extends State<_Lane> {
         oldWidget.cardHeight != widget.cardHeight ||
         oldWidget.gap != widget.gap ||
         oldWidget.lane != widget.lane ||
-        oldWidget.items != widget.items) {
+        oldWidget.items != widget.items ||
+        oldWidget.maxItems != widget.maxItems ||
+        oldWidget.shadows != widget.shadows) {
       _rebuild();
     }
   }
@@ -869,20 +1024,27 @@ class _LaneState extends State<_Lane> {
   }
 
   Widget _buildCol(int copyIdx) {
-    final items = widget.items ?? widget.lane.items;
+    final items = _resolved;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: OnboardingShowcaseConfig.lanePadding,
+      ),
       child: Column(
+        // Natural height: the column is deliberately taller than the viewport
+        // and is clipped by the `ClipRect` above. Forcing it to the incoming
+        // height makes the flex overflow on every frame.
+        mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < items.length; i++)
             _Card(
               key: ValueKey('$copyIdx/${items[i].title}'),
               item: items[i],
               lane: widget.lane,
-              width: widget.width - 8,
+              width: widget.width - 2 * OnboardingShowcaseConfig.lanePadding,
               height: widget.cardHeight,
               gap: widget.gap,
               number: i + 1,
+              shadows: widget.shadows,
             ),
         ],
       ),
@@ -891,31 +1053,42 @@ class _LaneState extends State<_Lane> {
 
   @override
   Widget build(BuildContext context) {
-    final items = widget.items ?? widget.lane.items;
+    final items = _resolved;
     final totalH = (widget.cardHeight + widget.gap) * items.length;
     return SizedBox(
       width: widget.width,
       child: ClipRect(
-        child: AnimatedBuilder(
-          animation: widget.animation,
-          builder: (_, _) {
-            final progress = (widget.animation.value * totalH) % totalH;
-            final double off1, off2;
-            if (widget.goUp) {
-              off1 = -progress;
-              off2 = -progress + totalH;
-            } else {
-              off1 = progress;
-              off2 = progress - totalH;
-            }
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Transform.translate(offset: Offset(0, off1), child: _col1),
-                Transform.translate(offset: Offset(0, off2), child: _col2),
-              ],
-            );
-          },
+        // The column of cards is deliberately taller than the viewport and is
+        // scrolled through it, so it must be allowed its natural height instead
+        // of being squeezed into the incoming constraints (which overflows).
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          maxHeight: double.infinity,
+          child: AnimatedBuilder(
+            animation: widget.animation,
+            builder: (_, _) {
+              final progress = (widget.animation.value * totalH) % totalH;
+              final double off1, off2;
+              if (widget.goUp) {
+                off1 = -progress;
+                off2 = -progress + totalH;
+              } else {
+                off1 = progress;
+                off2 = progress - totalH;
+              }
+              return SizedBox(
+                width: widget.width,
+                height: totalH * 2,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Transform.translate(offset: Offset(0, off1), child: _col1),
+                    Transform.translate(offset: Offset(0, off2), child: _col2),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -923,19 +1096,23 @@ class _LaneState extends State<_Lane> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _Card — 100% local gradient card, zero network calls.
-// Poster-style: big category watermark icon, diagonal sheen, ranking number,
-// tag pill and title. Everything is painted locally so the first frame is
-// instant and deterministic (no colours-only "loading" state).
+// _Card — a real poster with the real figure the source publishes.
+//
+// The cover comes from the same CDNs the rest of the app uses (AniList, TMDB,
+// Apple, Steam) and is served through the shared image cache, so a card that
+// has already been seen costs nothing to paint again. A colour gradient sits
+// behind the image and shows through until it lands, so the first frame is
+// never an empty box.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Card extends StatelessWidget {
-  final _MediaItem item;
-  final _LaneSpec lane;
+  final ShowcaseItem item;
+  final ShowcaseLaneSpec lane;
   final double width;
   final double height;
   final double gap;
   final int number;
+  final bool shadows;
   const _Card({
     super.key,
     required this.item,
@@ -944,6 +1121,7 @@ class _Card extends StatelessWidget {
     required this.height,
     required this.gap,
     required this.number,
+    this.shadows = true,
   });
 
   @override
@@ -954,61 +1132,53 @@ class _Card extends StatelessWidget {
       margin: EdgeInsets.only(bottom: gap),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: item.color.withValues(alpha: 0.25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(
+          OnboardingShowcaseConfig.cardRadius,
+        ),
+        color: lane.color.withValues(alpha: 0.25),
+        // The blur is the most expensive part of a card and dozens are stacked,
+        // so it is dropped on constrained devices.
+        boxShadow: shadows
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Base colour gradient
+          // Base colour gradient — also the placeholder until the poster lands.
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  item.color.withValues(alpha: 0.95),
-                  item.color.withValues(alpha: 0.55),
-                  item.color.withValues(alpha: 0.16),
+                  lane.color.withValues(alpha: 0.95),
+                  lane.color.withValues(alpha: 0.55),
+                  lane.color.withValues(alpha: 0.16),
                 ],
                 stops: const [0.0, 0.52, 1.0],
               ),
             ),
           ),
 
-          // Category watermark — makes each card feel like a poster, and
-          // instantly communicates which section it belongs to.
-          Positioned(
-            right: -10,
-            top: -6,
-            child: Icon(
-              lane.icon,
-              size: height * 0.62,
-              color: Colors.white.withValues(alpha: 0.14),
-            ),
-          ),
-
-          // Diagonal sheen
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                stops: const [0.35, 0.5, 0.65],
-                colors: [
-                  Colors.white.withValues(alpha: 0),
-                  Colors.white.withValues(alpha: 0.10),
-                  Colors.white.withValues(alpha: 0),
-                ],
-              ),
-            ),
+          // The real cover. `errorWidget` is transparent so a dead image leaves
+          // the gradient visible instead of a broken-image icon, and the loading
+          // placeholder is static: the card already paints its own gradient, and
+          // the default shimmer would add one animation controller per card —
+          // dozens of them, all ticking until every poster has landed.
+          cachedNetworkImage(
+            imageUrl: item.imageUrl,
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+            errorWidget: const SizedBox.shrink(),
+            loadingWidget: const SizedBox.shrink(),
           ),
 
           // Bottom gradient for text legibility
@@ -1020,9 +1190,9 @@ class _Card extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.78),
+                    Colors.black.withValues(alpha: 0.82),
                   ],
-                  stops: const [0.32, 1.0],
+                  stops: const [0.34, 1.0],
                 ),
               ),
             ),
@@ -1035,13 +1205,42 @@ class _Card extends StatelessWidget {
             child: Text(
               '$number',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: Colors.white.withValues(alpha: 0.72),
                 fontSize: 15,
                 fontWeight: FontWeight.w900,
                 height: 1.0,
+                shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
               ),
             ),
           ),
+
+          // Real figure — top-right. This is the source's own number: an
+          // AniList score, a TMDB rating, an album artist or a Steam price.
+          if (item.badge != null)
+            Positioned(
+              right: 7,
+              top: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.62),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  item.badge!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ),
 
           // Category pill + title
           Positioned(
@@ -1053,10 +1252,12 @@ class _Card extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.40),
+                    color: Colors.black.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: lane.color.withValues(alpha: 0.85),
@@ -1092,6 +1293,19 @@ class _Card extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (item.subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.subtitle!,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.62),
+                      fontSize: 10,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1426,8 +1640,11 @@ class _DependencyCard extends StatelessWidget {
                       const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.check_circle_rounded,
-                              color: Color(0xFF06D6A0), size: 16),
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF06D6A0),
+                            size: 16,
+                          ),
                           SizedBox(width: 5),
                           Text(
                             'Disponible',
@@ -1445,7 +1662,9 @@ class _DependencyCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(9),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 11, vertical: 7),
+                            horizontal: 11,
+                            vertical: 7,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(9),
@@ -1455,7 +1674,9 @@ class _DependencyCard extends StatelessWidget {
                                   width: 14,
                                   height: 14,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Text(
                                   'Installer',
@@ -1520,25 +1741,34 @@ class _PermRow extends StatelessWidget {
             color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon,
-              color: Colors.white.withValues(alpha: 0.7), size: 22),
+          child: Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.7),
+            size: 22,
+          ),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600)),
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(subtitle,
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.42),
-                      fontSize: 12,
-                      height: 1.4)),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.42),
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
             ],
           ),
         ),
@@ -1551,8 +1781,11 @@ class _PermRow extends StatelessWidget {
               color: const Color(0xFF06D6A0).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_rounded,
-                color: Color(0xFF06D6A0), size: 18),
+            child: const Icon(
+              Icons.check_rounded,
+              color: Color(0xFF06D6A0),
+              size: 18,
+            ),
           )
         else
           InkWell(
@@ -1567,21 +1800,26 @@ class _PermRow extends StatelessWidget {
                     Colors.white.withValues(alpha: busy ? 0.04 : 0.10),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    width: 1),
+                  color: Colors.white.withValues(alpha: 0.15),
+                  width: 1,
+                ),
               ),
               child: busy
                   ? const SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Text('Autoriser',
                       style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
       ],
@@ -1667,10 +1905,7 @@ class _LanguagePage extends StatelessWidget {
 
             const SizedBox(height: 40),
 
-            _WhiteButton(
-              label: 'Continuer',
-              onTap: onNext,
-            ),
+            _WhiteButton(label: 'Continuer', onTap: onNext),
           ],
         ),
       ),
@@ -1697,7 +1932,10 @@ class _LangCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -1774,9 +2012,9 @@ class _WhiteButton extends StatelessWidget {
           foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
-          textStyle: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w700),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         child: Text(label),
       ),

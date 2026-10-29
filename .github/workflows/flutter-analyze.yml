@@ -145,6 +145,13 @@ jobs:
             test/custom_extended_image_provider_test.dart \
             test/icon_cache_service_test.dart
 
+      - name: Run onboarding showcase tests
+        run: |
+          flutter test \
+            test/onboarding_showcase_test.dart \
+            test/onboarding_media_service_test.dart \
+            test/onboarding_screen_layout_test.dart
+
       - name: Record outdated package report
         if: always()
         run: |
