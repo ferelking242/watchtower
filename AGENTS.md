@@ -669,3 +669,27 @@ must not leak into watch code paths or logs:
   transport), `test/onboarding_screen_layout_test.dart` (layout at phone /
   tablet / desktop sizes, plus reduce-motion). The screen animates forever, so
   these use `pump`, never `pumpAndSettle`.
+## Marketplace catalogue loading
+- The Marketplace fetches its catalogues from
+  `raw.githubusercontent.com/ferelking242/watchtower-extensions/main/index/*.json`
+  in `_loadAll` (`marketplace_screen.dart`). The list is the single
+  `kMarketplaceIndexPaths` const (`manga`, `watch`, `novel`, `music`, `game`,
+  `subtitles`); the loader and the jsDelivr purge both read it, because they
+  used to be two hand-kept copies and `index/subtitles.json` was missing from
+  both, which is why its 5 sources (itemType 7) never reached the app. Add a
+  catalogue in one place only. `index/plugins.json` is a different shape (an
+  object, not an array) and is read by the CLI only.
+- Route tabs and type labels on the raw `itemType`, not on `ItemType`: subtitle
+  providers publish `7`, which the enum cannot represent, so `contentType`
+  clamps it and the entry would land under Games. `contentType` is only for the
+  Isar install path; a legacy entry defaults `itemType` to `contentType.index`,
+  so the mapping is unchanged for it.
+- `parseMarketplaceIndex` (`@visibleForTesting`) is the single parse entry
+  point. It de-duplicates by `id`, **not** by name: two extensions may share a
+  display name (`SpankBang` ships `spankbang.js` and `spankbang_new.js`, plus
+  `AnimeSongLyrics`, `AniPool`, `DonghuaStream`, `YouTube Music`). A name-keyed
+  rule silently dropped one of each pair from the whole Marketplace. The
+  extensions repo's `tools/validate-extensions.mjs` fails on a repeated id and
+  warns on a reused name, so keep the two in step.
+- Tags come from the index `tags` list (`effectiveTags`, `catalog_entry.dart`).
+  Never infer a category from the extension name or domain.

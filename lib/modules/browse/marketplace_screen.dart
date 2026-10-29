@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +31,6 @@ import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/browse/plugins_section.dart';
-import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -48,6 +46,21 @@ import 'package:watchtower/widgets/shimmer_skeleton.dart';
 // No CDN purge needed.
 const _kWtBase =
     'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
+
+/// Catalogue indices the Marketplace fetches.
+///
+/// The repository publishes one index per content type; this list is the single
+/// source of truth for both the loader and the jsDelivr purge. It previously
+/// lived as two hand-maintained copies, and `subtitles.json` was missing from
+/// both, which is why the subtitle sources never appeared in the Marketplace.
+const List<String> kMarketplaceIndexPaths = [
+  'index/manga.json',
+  'index/watch.json',
+  'index/novel.json',
+  'index/music.json',
+  'index/game.json',
+  'index/subtitles.json',
+];
 
 const _kFeaturedNames = {
   'MangaDex',
@@ -95,15 +108,14 @@ String? _mktIconUrl(String? raw) {
   return raw;
 }
 
-String _mktSlugify(String name) => name
-    .toLowerCase()
-    .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-    .replaceAll(RegExp(r'^-+|-+$'), '');
-
-String _formatMktSize(int? bytes) {
-  if (bytes == null || bytes <= 0) return 'Taille inconnue';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} Ko';
-  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+/// Formats a byte count for a card. Unit suffixes are localised ("Ko"/"Mo" in
+/// French); the value itself is never localised so it stays a plain number.
+String _formatMktSize(AppLocalizations l10n, int? bytes) {
+  if (bytes == null || bytes <= 0) return '';
+  if (bytes < 1024 * 1024) {
+    return l10n.marketplace_size_kb((bytes / 1024).toStringAsFixed(0));
+  }
+  return l10n.marketplace_size_mb((bytes / (1024 * 1024)).toStringAsFixed(1));
 }
 
 int? _parseMktSize(dynamic raw) {
@@ -152,6 +164,7 @@ class _ExtEntry implements CatalogEntryView {
   final String paywall;
   final bool supportsComments;
   final String upstream;
+  @override
   final String description;
   final int? sizeBytes;
   final double rating;
@@ -237,12 +250,12 @@ bool _isMusicPluginEntry(_ExtEntry entry) {
 
 // ─── Top-level parse helpers ───────────────────────────────────────────────────
 
-String _mktConvertLang(Map<dynamic, dynamic> e) {
-  final raw = (e['lang'] ?? e['language'] ?? 'en') as String;
-  return raw.toLowerCase().replaceAll(' ', '-');
-}
-
-List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
+/// Parses one catalogue index body into the maps [_mapsToEntries] consumes.
+///
+/// Public (rather than private) so the de-duplication rule below can be
+/// exercised directly in tests; the Marketplace screen is its only caller.
+@visibleForTesting
+List<Map<String, dynamic>> parseMarketplaceIndex(Map<String, String> args) {
   final String body = args['body']!;
   final String url = args['url']!;
   dynamic decoded;
@@ -345,11 +358,14 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       continue;
     }
   }
-  final seen = <String>{};
-  return results.where((r) {
-    final k = '${r["name"]}|${r["contentType"]}|${r["lang"]}';
-    return seen.add(k);
-  }).toList();
+  // Two extensions may legitimately share a display name — `SpankBang` ships a
+  // `spankbang.js` and a newer `spankbang_new.js`, `AnimeSongLyrics` has an old
+  // and a rewritten source, and so on. Keying the de-duplication on the name
+  // hid one of each pair from the whole Marketplace, so the key is the id the
+  // catalogue guarantees to be unique. Entries without a usable id were
+  // already skipped above, so this never merges two distinct sources.
+  final seen = <int>{};
+  return results.where((r) => seen.add(r['id'] as int)).toList();
 }
 
 List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps.map((
@@ -414,141 +430,6 @@ DateTime? _parseMktDate(dynamic raw) {
 }
 
 // ─── Outils natifs (ancienne « page plugin », désormais dans le Marketplace) ──
-
-class _NativeToolsTab extends StatelessWidget {
-  const _NativeToolsTab();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 120),
-      children: [
-        Text(
-          'Outils natifs',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            color: cs.onSurface.withValues(alpha: 0.55),
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _NativeToolCard(
-          label: 'File Manager',
-          subtitle: 'Explorateur de fichiers avancé avec lecteurs',
-          icon: Broken.folder,
-          color: const Color(0xFFFFA726),
-          onTap: () => context.push('/nfileHome'),
-        ),
-        const SizedBox(height: 12),
-        _NativeToolCard(
-          label: 'Smart Library',
-          subtitle: 'Découvre et organise tous tes médias locaux',
-          icon: Broken.category,
-          color: const Color(0xFF5C6BC0),
-          onTap: () => context.push('/smartLibrary'),
-        ),
-      ],
-    );
-  }
-}
-
-class _NativeToolCard extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _NativeToolCard({
-    required this.label,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark ? cs.surfaceContainerHigh : cs.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.07)
-                : Colors.black.withValues(alpha: 0.05),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.10),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color, color.withValues(alpha: 0.6)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.30),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: Colors.white, size: 26),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurface.withValues(alpha: 0.55),
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Broken.arrow_right,
-              color: cs.onSurface.withValues(alpha: 0.35),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ─── Screen ────────────────────────────────────────────────────────────────────
 
@@ -624,33 +505,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   String? _globalRepoFilter;
   SourceCodeLanguage? _globalProgLangFilter;
 
-  // ── Account dropdown ─────────────────────────────────────────────────────────
-  final _accountKey = GlobalKey();
   OverlayEntry? _accountOverlay;
-  bool _accountOpen = false;
 
   // ── Banner ───────────────────────────────────────────────────────────────────
   final _bannerCtrl = PageController(viewportFraction: 0.88);
   Timer? _bannerTimer;
-  int _bannerPage = 0;
-
-  void _startBannerTimer(int count) {
-    _bannerTimer?.cancel();
-    if (count <= 1) return;
-    _bannerTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      _bannerPage = (_bannerPage + 1) % count;
-      _bannerCtrl.animateToPage(
-        _bannerPage,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOutCubic,
-      );
-    });
-  }
-
-  // ── Init ─────────────────────────────────────────────────────────────────────
-
-  @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(
@@ -788,15 +647,18 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         .get(Uri.parse(bustUrl))
         .timeout(const Duration(seconds: 12));
     if (r.statusCode != 200) {
-      throw Exception('HTTP ${r.statusCode} pour $url');
+      throw Exception('HTTP ${r.statusCode} for $url');
     }
     if (r.bodyBytes.isEmpty) {
-      throw Exception('Réponse vide pour $url');
+      throw Exception('Empty response for $url');
     }
     final decodedBody = utf8.decode(r.bodyBytes, allowMalformed: true);
     final maps = r.bodyBytes.length > 80000
-        ? await compute(_parseIndexIsolate, {'body': decodedBody, 'url': url})
-        : _parseIndexIsolate({'body': decodedBody, 'url': url});
+        ? await compute(parseMarketplaceIndex, {
+            'body': decodedBody,
+            'url': url,
+          })
+        : parseMarketplaceIndex({'body': decodedBody, 'url': url});
     return _mapsToEntries(maps);
   }
 
@@ -822,12 +684,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
     try {
       var failures = 0;
-      const catalogUrls = [
-        '$_kWtBase/index/manga.json',
-        '$_kWtBase/index/watch.json',
-        '$_kWtBase/index/novel.json',
-        '$_kWtBase/index/music.json',
-        '$_kWtBase/index/game.json',
+      final catalogUrls = [
+        for (final path in kMarketplaceIndexPaths) '$_kWtBase/$path',
       ];
       final catalogLoaded = List<bool>.filled(catalogUrls.length, false);
       Future<List<_ExtEntry>> safe(
@@ -906,7 +764,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           _loading = false;
           _refreshing = false;
           _error = _all.isEmpty
-              ? 'Échec du chargement de $failures dépôt(s).'
+              ? context.l10n.marketplace_error_load_failed(failures)
               : null;
         });
       // Entries are loaded now — recompute the installed set (music
@@ -927,13 +785,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   Future<void> _purgeJsDelivr() async {
     const purgeBase =
         'https://purge.jsdelivr.net/gh/ferelking242/watchtower-extensions@main';
-    const indexes = [
-      'index/manga.json',
-      'index/watch.json',
-      'index/novel.json',
-      'index/music.json',
-      'index/game.json',
-    ];
+    const indexes = kMarketplaceIndexPaths;
     await Future.wait(
       indexes.map(
         (p) => http
@@ -997,7 +849,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         }
         if (!installed) {
           throw StateError(
-            'Le plugin ${entry.name} n’a pas été enregistré après le téléchargement.',
+            context.l10n.marketplace_error_plugin_not_registered(entry.name),
           );
         }
         await ExtensionCatalogNotifications.dismissById(
@@ -1011,7 +863,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         if (mounted) {
           _showToast(
             context,
-            '${entry.name} installé',
+            context.l10n.marketplace_installed_toast(entry.name),
             icon: Broken.tick_circle,
           );
         }
@@ -1043,14 +895,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (mounted) {
         _showToast(
           context,
-          '${entry.name} installée',
+          context.l10n.marketplace_installed_toast(entry.name),
           icon: Broken.tick_circle,
         );
       }
       return true;
     } catch (e) {
       if (mounted) {
-        _showToast(context, 'Erreur : $e', isError: true, icon: Broken.danger);
+        _showToast(
+          context,
+          context.l10n.marketplace_error_generic('$e'),
+          isError: true,
+          icon: Broken.danger,
+        );
       }
       return false;
     } finally {
@@ -1114,32 +971,33 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         source.isAdded != true ||
         (source.sourceCode ?? '').trim().isEmpty) {
       throw StateError(
-        'L’extension ${entry.name} n’a pas pu être installée. '
-        'Aucune source active n’a été enregistrée.',
+        context.l10n.marketplace_error_not_installed(entry.name),
       );
     }
     if (entry.uiLayout?.isNotEmpty == true) {
       if (source.uiLayout != entry.uiLayout ||
           source.uiLayoutVersion != entry.uiLayoutVersion) {
         throw StateError(
-          'Le layout UI de ${entry.name} n’a pas été enregistré.',
+          context.l10n.marketplace_error_layout_not_saved(entry.name),
         );
       }
       await LayoutRegistry.instance.load(source);
       if (!LayoutRegistry.instance.has(source)) {
-        throw StateError('Le layout UI de ${entry.name} est illisible.');
+        throw StateError(
+          context.l10n.marketplace_error_layout_unreadable(entry.name),
+        );
       }
     }
     if (entry.subCategories.isNotEmpty &&
         !_sameStrings(source.subCategories, entry.subCategories)) {
       throw StateError(
-        'Les catégories de ${entry.name} n’ont pas été enregistrées.',
+        context.l10n.marketplace_error_categories_not_saved(entry.name),
       );
     }
     if (entry.contentSubtype.isNotEmpty &&
         !_sameStrings(source.contentSubtype, entry.contentSubtype)) {
       throw StateError(
-        'Les types de contenu de ${entry.name} n’ont pas été enregistrés.',
+        context.l10n.marketplace_error_content_types_not_saved(entry.name),
       );
     }
   }
@@ -1183,21 +1041,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Désinstaller ${entry.name}'),
-        content: const Text(
-          "L'extension sera désinstallée. Réinstallable à tout moment.",
-        ),
+        title: Text(context.l10n.marketplace_uninstall_title(entry.name)),
+        content: Text(context.l10n.marketplace_uninstall_body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Désinstaller'),
+            child: Text(context.l10n.uninstall),
           ),
         ],
       ),
@@ -1208,14 +1064,14 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       if (_isMusicPluginEntry(entry)) {
         final plugin = _musicPluginFor(entry);
         if (plugin == null) {
-          throw StateError('Plugin audio introuvable dans le stockage local.');
+          throw StateError(context.l10n.marketplace_error_audio_plugin_missing);
         }
         await ref.read(metadataPluginsProvider.notifier).removePlugin(plugin);
         ref.invalidate(metadataPluginsProvider);
       } else {
         final source = await isar.sources.get(entry.id);
         if (source == null) {
-          throw StateError('Extension introuvable dans le stockage local.');
+          throw StateError(context.l10n.marketplace_error_extension_missing);
         }
         final prefsIds = await isar.sourcePreferences
             .filter()
@@ -1246,11 +1102,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       );
       await _refreshInstalled();
       if (mounted) {
-        _showToast(context, '${entry.name} désinstallée', icon: Broken.trash);
+        _showToast(
+          context,
+          context.l10n.marketplace_uninstalled_toast(entry.name),
+          icon: Broken.trash,
+        );
       }
     } catch (e) {
       if (mounted) {
-        _showToast(context, 'Erreur désinstallation : $e', isError: true);
+        _showToast(
+          context,
+          context.l10n.marketplace_error_uninstall('$e'),
+          isError: true,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy.remove(entry.id));
@@ -1258,18 +1122,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   // ── Marketplace settings ──────────────────────────────────────────────────────
-
-  void _showVersionHistory(_ExtEntry entry) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _VersionHistorySheet(entry: entry, state: this),
-    );
-  }
 
   void _showMarketplaceSettings() {
     showModalBottomSheet(
@@ -1336,47 +1188,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     return m[tabConst] ?? 0;
   }
 
-  List<_ExtEntry> _forTab(int tab) {
-    List<_ExtEntry> list = List<_ExtEntry>.from(_forTabRaw(tab));
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      list = list
-          .where(
-            (e) =>
-                e.name.toLowerCase().contains(q) ||
-                e.lang.toLowerCase().contains(q),
-          )
-          .toList();
-    }
-    if (!_showNsfw) list = list.where((e) => !e.isNsfw).toList();
-    if (_globalRepoFilter != null) {
-      list = list.where((e) => e.repoUrl.contains(_globalRepoFilter!)).toList();
-    }
-    if (_globalProgLangFilter != null) {
-      list = list.where((e) => e.compat == _globalProgLangFilter).toList();
-    }
-    if (_globalLangFilter != null) {
-      list = list.where((e) => e.lang == _globalLangFilter).toList();
-    }
-    if (_installedOnly)
-      list = list.where((e) => _installed.contains(e.id)).toList();
-    if (_withUpdatesOnly)
-      list = list
-          .where((e) => _hasUpdate(e.id, e.version, e.uiLayoutVersion))
-          .toList();
-    if (_sortBy == 'alpha') {
-      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    } else if (_sortBy == 'installed') {
-      list.sort((a, b) {
-        final ai = _installed.contains(a.id) ? 0 : 1;
-        final bi = _installed.contains(b.id) ? 0 : 1;
-        if (ai != bi) return ai.compareTo(bi);
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-      });
-    }
-    return list;
-  }
-
   List<_ExtEntry> get _searchResults {
     if (_searchQuery.isEmpty) return [];
     final q = _searchQuery.toLowerCase();
@@ -1409,21 +1220,37 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         SourceCodeLanguage.unsupported => const Color(0xFF757575),
       };
 
-  static IconData _typeIcon(ItemType t) => switch (t) {
-    ItemType.anime => Broken.video,
-    ItemType.manga => Broken.bookmark,
-    ItemType.novel => Broken.book_1,
-    ItemType.music => Broken.musicnote,
-    _ => Broken.game,
-  };
+  /// `_kItemTypeSubtitle` is the subtitle catalogue's raw index. It has no
+  /// `ItemType` member, so these helpers take the raw index instead.
+  static const int _kItemTypeSubtitle = 7;
 
-  static Color _typeColor(ItemType t) => switch (t) {
-    ItemType.anime => const Color(0xFF9C27B0),
-    ItemType.manga => const Color(0xFFE91E63),
-    ItemType.novel => const Color(0xFF009688),
-    ItemType.music => const Color(0xFF0288D1),
-    _ => const Color(0xFF607D8B),
-  };
+  static IconData _typeIcon(int itemType) {
+    if (itemType == _kItemTypeSubtitle) return Icons.subtitles_rounded;
+    return switch (ItemType.values[itemType.clamp(
+      0,
+      ItemType.values.length - 1,
+    )]) {
+      ItemType.anime => Broken.video,
+      ItemType.manga => Broken.bookmark,
+      ItemType.novel => Broken.book_1,
+      ItemType.music => Broken.musicnote,
+      _ => Broken.game,
+    };
+  }
+
+  static Color _typeColor(int itemType) {
+    if (itemType == _kItemTypeSubtitle) return const Color(0xFF43A047);
+    return switch (ItemType.values[itemType.clamp(
+      0,
+      ItemType.values.length - 1,
+    )]) {
+      ItemType.anime => const Color(0xFF9C27B0),
+      ItemType.manga => const Color(0xFFE91E63),
+      ItemType.novel => const Color(0xFF009688),
+      ItemType.music => const Color(0xFF0288D1),
+      _ => const Color(0xFF607D8B),
+    };
+  }
 
   static String _langCode(String lang) {
     final l = lang.toLowerCase();
@@ -1431,24 +1258,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     if (l.contains('-'))
       return l.split('-').map((p) => p.toUpperCase()).join('-');
     return l.length > 3 ? l.substring(0, 3).toUpperCase() : l.toUpperCase();
-  }
-
-  static Color _langColor(String lang) {
-    const colors = <String, Color>{
-      'en': Color(0xFF1565C0),
-      'fr': Color(0xFFC62828),
-      'ja': Color(0xFFAD1457),
-      'zh': Color(0xFFB71C1C),
-      'ko': Color(0xFF283593),
-      'es': Color(0xFFF57F17),
-      'pt': Color(0xFF2E7D32),
-      'de': Color(0xFF37474F),
-      'it': Color(0xFF558B2F),
-      'ru': Color(0xFF4527A0),
-      'ar': Color(0xFF00695C),
-      'tr': Color(0xFFBF360C),
-    };
-    return colors[lang.toLowerCase()] ?? const Color(0xFF546E7A);
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────────
@@ -1496,6 +1305,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       );
     }
 
+    // Only the plugins section reaches this point: every other section is
+    // rendered by the Play Store catalogue above. The plugin surface is a
+    // single column, so it does not need the old tab controller.
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -1509,25 +1321,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               children: [
                 _buildLogoRow(cs, theme),
                 _buildPersistentSearch(cs, theme),
-                if (widget.initialSection != MarketplaceSection.plugins)
-                  _buildTabBarRow(cs, theme),
-                Expanded(
-                  child: widget.initialSection == MarketplaceSection.plugins
-                      ? const _BinaryTab()
-                      : TabBarView(
-                          controller: _tabCtrl,
-                          children: [
-                            _HomeTab(state: this), // 0 Tout
-                            _TypeTab(state: this, tab: _kTabAnime), // 1 Watch
-                            _TypeTab(state: this, tab: _kTabManga), // 2 Manga
-                            _TypeTab(state: this, tab: _kTabNovel), // 3 Novel
-                            _TypeTab(state: this, tab: _kTabGames), // 4 Game
-                            _TypeTab(state: this, tab: _kTabMusic), // 5 Music
-                            const _NativeToolsTab(), // 6 Outils
-                            const _BinaryTab(), // 7 Plugins
-                          ],
-                        ),
-                ),
+                const Expanded(child: _BinaryTab()),
               ],
             ),
           if (_refreshing)
@@ -1542,39 +1336,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ),
             ),
         ],
-      ),
-    );
-  }
-
-  // ── Mass install ─────────────────────────────────────────────────────────────
-
-  Future<void> _massInstall({
-    required String lang,
-    SourceCodeLanguage? compat,
-  }) async {
-    var toInstall = _all
-        .where((e) => e.lang == lang && !_installed.contains(e.id))
-        .toList();
-    if (compat != null) {
-      toInstall = toInstall.where((e) => e.compat == compat).toList();
-    }
-    for (final entry in toInstall) {
-      await _install(entry);
-    }
-  }
-
-  void _showMassInstallSheet() {
-    final langs = _all.map((e) => e.lang).toSet().toList()..sort();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => _MassInstallSheet(
-        state: this,
-        langs: langs,
-        installedIds: _installed,
       ),
     );
   }
@@ -1664,150 +1425,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     );
   }
 
-  void _toggleAccountDropdown() {
-    if (_accountOpen) {
-      _closeAccountDropdown();
-    } else {
-      _openAccountDropdown();
-    }
-  }
-
-  void _openAccountDropdown() {
-    if (mounted) setState(() => _accountOpen = true);
-    // Safe cast — findRenderObject() can return any RenderObject;
-    // use `is` check instead of `as RenderBox?` to avoid a cast exception
-    // when the widget is being rebuilt or has been unmounted.
-    final ro = _accountKey.currentContext?.findRenderObject();
-    final renderBox = ro is RenderBox ? ro : null;
-    if (renderBox == null) return;
-    final offset = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-
-    _accountOverlay = OverlayEntry(
-      builder: (_) => _AccountDropdownOverlay(
-        position: Offset(offset.dx + size.width, offset.dy + size.height + 6),
-        onDismiss: _closeAccountDropdown,
-        onSettings: () {
-          _closeAccountDropdown();
-          _showMarketplaceSettings();
-        },
-        onRepos: () {
-          _closeAccountDropdown();
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const ExtensionRepositoriesScreen(),
-            ),
-          );
-        },
-      ),
-    );
-    Overlay.of(context).insert(_accountOverlay!);
-  }
-
-  void _closeAccountDropdown() {
-    _accountOverlay?.remove();
-    _accountOverlay = null;
-    if (mounted) setState(() => _accountOpen = false);
-  }
-
   // ── Tab bar row (pinned — inside NestedScrollView body) ───────────────────────
-
-  // ── Tab bar — single-row horizontal scroll with pill chips ──────────────────
-  Widget _buildTabBarRow(ColorScheme cs, ThemeData theme) {
-    const labels = [
-      'Tout',
-      'Watch',
-      'Manga',
-      'Novel',
-      'Game',
-      'Music',
-      'Outils',
-      'Plugins',
-    ];
-    const icons = <IconData>[
-      Broken.category,
-      Broken.video,
-      Broken.bookmark,
-      Broken.book_1,
-      Broken.game,
-      Broken.musicnote,
-      Broken.box,
-      Broken.code,
-    ];
-    return Container(
-      color: theme.scaffoldBackgroundColor,
-      // Fixed height avoids layout jitter during tab animations.
-      height: 52,
-      child: AnimatedBuilder(
-        animation: _tabCtrl,
-        builder: (_, _) => ListView.builder(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          itemCount: labels.length,
-          itemBuilder: (_, i) {
-            final sel = _tabCtrl.index == i;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () {
-                  _tabCtrl.animateTo(i);
-                  if (mounted) {
-                    setState(() {
-                      _globalLangFilter = null;
-                      _globalRepoFilter = null;
-                      _globalProgLangFilter = null;
-                    });
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: sel ? cs.primaryContainer : cs.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: sel
-                          ? cs.primary
-                          : cs.outlineVariant.withValues(alpha: 0.5),
-                      width: sel ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        icons[i],
-                        size: 14,
-                        color: sel
-                            ? cs.onPrimaryContainer
-                            : cs.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        labels[i],
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                          color: sel
-                              ? cs.onPrimaryContainer
-                              : cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
 
   // ── Persistent search bar — theme-aware, taller, more spacious ──────────────
   Widget _buildPersistentSearch(ColorScheme cs, ThemeData theme) {
@@ -1842,7 +1460,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                   onTap: () => setState(() => _searchOpen = true),
                   style: TextStyle(fontSize: 14, color: cs.onSurface),
                   decoration: InputDecoration(
-                    hintText: 'Rechercher une extension…',
+                    hintText: context.l10n.marketplace_search_extension_hint,
                     hintStyle: TextStyle(
                       fontSize: 14,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.55),
@@ -1886,7 +1504,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   void _showMarketplaceFilterOverlay() {
     final cs = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
-    final tab = _visualToTabConst(_tabCtrl.index);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1907,7 +1524,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     Icon(Broken.filter, color: cs.primary, size: 18),
                     const SizedBox(width: 8),
                     Text(
-                      'Filtrer les extensions',
+                      context.l10n.marketplace_filter_extensions,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -1993,7 +1610,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           DropdownMenuItem<String?>(
                             value: null,
                             child: Text(
-                              'Dépôt',
+                              context.l10n.marketplace_repository,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: cs.onSurfaceVariant,
@@ -2185,7 +1802,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                             child: Text(
                               _globalLangFilter != null
                                   ? '${_MarketplaceScreenState._langFlag(_globalLangFilter!)} ${_MarketplaceScreenState._langDisplayName(_globalLangFilter!)}'
-                                  : 'Langue',
+                                  : context.l10n.language,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: _globalLangFilter != null
@@ -2346,20 +1963,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Loading / Error ────────────────────────────────────────────────────────────
 
-  Widget _buildLoading(ColorScheme cs) => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        CircularProgressIndicator(color: cs.primary),
-        const SizedBox(height: 14),
-        Text(
-          'Chargement des extensions…',
-          style: TextStyle(color: cs.onSurfaceVariant),
-        ),
-      ],
-    ),
-  );
-
   Widget _buildError(ColorScheme cs) => Center(
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -2371,138 +1974,19 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         ),
         const SizedBox(height: 12),
         Text(
-          'Erreur de chargement',
+          context.l10n.marketplace_load_error,
           style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface),
         ),
         const SizedBox(height: 6),
         FilledButton.tonal(
           onPressed: () => _loadAll(bypassCache: true),
-          child: const Text('Réessayer'),
+          child: Text(context.l10n.retry),
         ),
       ],
     ),
   );
 
   // ── Section title ──────────────────────────────────────────────────────────────
-
-  Widget sectionTitle(
-    ColorScheme cs,
-    String title,
-    IconData icon, {
-    Color? color,
-    String? subtitle,
-    VoidCallback? onSeeAll,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 12, 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color ?? cs.primary),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurface,
-                  ),
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (onSeeAll != null)
-            TextButton(
-              onPressed: onSeeAll,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 28),
-              ),
-              child: Text(
-                'Voir tout',
-                style: TextStyle(fontSize: 11.5, color: color ?? cs.primary),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ── Banner (featured auto-scroll) ─────────────────────────────────────────────
-
-  Widget buildBanner(List<_ExtEntry> entries, ColorScheme cs) {
-    if (entries.isEmpty) return const SizedBox.shrink();
-    final show = entries.take(8).toList();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _startBannerTimer(show.length),
-    );
-    return SizedBox(
-      height: 170,
-      child: PageView.builder(
-        controller: _bannerCtrl,
-        itemCount: show.length,
-        onPageChanged: (p) => _bannerPage = p,
-        itemBuilder: (ctx, i) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          child: _BannerCard(
-            entry: show[i],
-            installed: _installed.contains(show[i].id),
-            hasUpdate: _hasUpdate(
-              show[i].id,
-              show[i].version,
-              show[i].uiLayoutVersion,
-            ),
-            busy: _busy[show[i].id] == true,
-            onInstall: () => _install(show[i]),
-            onSettings: _installed.contains(show[i].id)
-                ? () => _openSettings(show[i].id)
-                : null,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Horizontal mini-carousel ───────────────────────────────────────────────────
-
-  Widget buildHorizontal(List<_ExtEntry> entries, ColorScheme cs) {
-    final show = entries.take(20).toList();
-    return SizedBox(
-      height: 192,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-        itemCount: show.length,
-        itemBuilder: (ctx, i) => _MiniCard(
-          entry: show[i],
-          installed: _installed.contains(show[i].id),
-          hasUpdate: _hasUpdate(
-            show[i].id,
-            show[i].version,
-            show[i].uiLayoutVersion,
-          ),
-          busy: _busy[show[i].id] == true,
-          onInstall: () => _install(show[i]),
-          onSettings: _installed.contains(show[i].id)
-              ? () => _openSettings(show[i].id)
-              : null,
-        ),
-      ),
-    );
-  }
-
-  // ── Search overlay (Play Store style) ────────────────────────────────────────
 
   void _closeSearch() {
     if (widget.initialSection == MarketplaceSection.search) {
@@ -2563,7 +2047,8 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                                 color: cs.onSurface,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Rechercher des applis et des je…',
+                                hintText:
+                                    context.l10n.marketplace_search_apps_hint,
                                 hintStyle: TextStyle(
                                   fontSize: 15,
                                   color: cs.onSurfaceVariant.withValues(
@@ -2623,7 +2108,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Aucune extension trouvée',
+                            context.l10n.marketplace_empty_search_title,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: cs.onSurfaceVariant,
@@ -2631,7 +2116,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Essaye un autre nom ou une langue',
+                            context.l10n.marketplace_empty_search_hint,
                             style: TextStyle(
                               fontSize: 12,
                               color: cs.onSurfaceVariant.withValues(alpha: 0.6),
@@ -2668,20 +2153,36 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   Widget _buildSearchBrowse(ColorScheme cs) {
     // Content type categories grid (Play Store style)
+    final l10n = context.l10n;
     final categories = [
-      (_kTabAnime, Icons.live_tv_rounded, 'Anime', const Color(0xFF9C27B0)),
+      (
+        _kTabAnime,
+        Icons.live_tv_rounded,
+        l10n.catalog_tab_watch,
+        const Color(0xFF9C27B0),
+      ),
       (
         _kTabManga,
         Icons.auto_stories_rounded,
-        'Manga',
+        l10n.catalog_tab_manga,
         const Color(0xFFE91E63),
       ),
-      (_kTabNovel, Icons.menu_book_rounded, 'Novel', const Color(0xFF009688)),
-      (_kTabMusic, Icons.music_note_rounded, 'Music', const Color(0xFF0288D1)),
+      (
+        _kTabNovel,
+        Icons.menu_book_rounded,
+        l10n.catalog_tab_novels,
+        const Color(0xFF009688),
+      ),
+      (
+        _kTabMusic,
+        Icons.music_note_rounded,
+        l10n.catalog_tab_music,
+        const Color(0xFF0288D1),
+      ),
       (
         _kTabGames,
         Icons.sports_esports_rounded,
-        'Jeux',
+        l10n.catalog_tab_games,
         const Color(0xFF607D8B),
       ),
     ];
@@ -2694,7 +2195,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Text(
-              'Parcourir les extensions',
+              context.l10n.marketplace_browse_extensions,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -2816,14 +2317,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
   }
 
-  int get _updatableCount => _all
-      .where(
-        (e) =>
-            _installed.contains(e.id) &&
-            _hasUpdate(e.id, e.version, e.uiLayoutVersion),
-      )
-      .length;
-
   void _openSettings(int id) {
     // First: try Isar sources (JS/Dart/APK extensions)
     final source = _installedSources[id];
@@ -2894,11 +2387,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         : Icons.radio_button_unchecked,
                     color: isDefaultMetadata ? cs.primary : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Provider par défaut (métadonnées)'),
+                  title: Text(
+                    context.l10n.marketplace_default_metadata_provider,
+                  ),
                   subtitle: Text(
                     isDefaultMetadata
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme provider par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_provider,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultMetadata
@@ -2922,11 +2417,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                         ? cs.primary
                         : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Source audio par défaut'),
+                  title: Text(context.l10n.marketplace_default_audio_source),
                   subtitle: Text(
                     isDefaultAudioSource
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme source audio par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_audio_source,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultAudioSource
@@ -2943,7 +2438,10 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.delete_outline, color: cs.error),
-                title: Text('Désinstaller', style: TextStyle(color: cs.error)),
+                title: Text(
+                  context.l10n.uninstall,
+                  style: TextStyle(color: cs.error),
+                ),
                 onTap: () async {
                   await notifier.removePlugin(config);
                   await _refreshInstalled();
@@ -2958,49 +2456,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   // ── Compat filter strip ────────────────────────────────────────────────────────
-
-  Widget buildCompatFilter(ColorScheme cs, int tab) {
-    final items = [
-      (_CompatF.all, Icons.apps_rounded, 'Tout'),
-
-      (_CompatF.js, Icons.code_rounded, 'JS / Dart'),
-    ];
-    final cf = _compatF[tab] ?? _CompatF.all;
-    return SizedBox(
-      height: 42,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        itemCount: items.length,
-        itemBuilder: (_, i) {
-          final (f, icon, label) = items[i];
-          final active = cf == f;
-          return _IconChip(
-            icon: icon,
-            label: label,
-            active: active,
-            onTap: () =>
-                setState(() => _compatF[tab] = active ? _CompatF.all : f),
-          );
-        },
-      ),
-    );
-  }
-
-  // ── Play Store filter strip (3 dropdowns + funnel) ───────────────────────────
-
-  static String _repoLabel(String url) {
-    if (url.contains('ferelking') || url.contains('watchtower-extensions')) {
-      if (url.contains('/manga/')) return 'Watchtower Manga';
-      if (url.contains('/watch/')) return 'Watchtower Watch';
-      if (url.contains('/novel/')) return 'Watchtower Novel';
-      if (url.contains('/music/')) return 'Watchtower Music';
-      if (url.contains('/game/')) return 'Watchtower Jeux';
-      return 'Watchtower';
-    }
-    final parts = url.split('/');
-    return parts.length >= 5 ? parts[4] : url;
-  }
 
   static String _repoShortLabel(String url) {
     if (url.contains('ferelking') || url.contains('watchtower-extensions')) {
@@ -3026,192 +2481,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     return n;
   }
 
-  Widget buildFilterStrip(int tab) {
-    final cs = Theme.of(context).colorScheme;
-    final raw = _forTabRaw(tab);
-    final repos = raw.map((e) => e.repoUrl).toSet().toList()..sort();
-    final langs = raw.map((e) => e.lang).toSet().toList()..sort();
-    final progLangs = raw.map((e) => e.compat).toSet().toList();
-
-    final nActive = _activeFilterCount(tab);
-
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  // Dépôt
-                  _FilterChipButton(
-                    label: _repoFilter[tab] != null
-                        ? _repoShortLabel(_repoFilter[tab]!)
-                        : 'Dépôt',
-                    active: _repoFilter[tab] != null,
-                    icon: Broken.folder,
-                    onTap: () => _showRepoMenu(tab, repos),
-                  ),
-                  const SizedBox(width: 7),
-                  // Langue
-                  _FilterChipButton(
-                    label: _langFilter[tab] != null
-                        ? _langCode(_langFilter[tab]!)
-                        : 'Langue',
-                    active: _langFilter[tab] != null,
-                    icon: Broken.global,
-                    onTap: () => _showLangMenu(tab, langs),
-                  ),
-                  const SizedBox(width: 7),
-                  // Langage de prog
-                  _FilterChipButton(
-                    label: _progLangFilter[tab] != null
-                        ? _compatLabel(_progLangFilter[tab]!)
-                        : 'Langage',
-                    active: _progLangFilter[tab] != null,
-                    icon: Broken.code,
-                    onTap: () => _showProgLangMenu(tab, progLangs),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          // Funnel icon — advanced
-          GestureDetector(
-            onTap: () => _showAdvancedFilterSheet(tab),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 38,
-              height: 34,
-              decoration: BoxDecoration(
-                color: nActive > 0 ? cs.primary : cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    Broken.filter,
-                    size: 18,
-                    color: nActive > 0 ? cs.onPrimary : cs.onSurfaceVariant,
-                  ),
-                  if (nActive > 0)
-                    Positioned(
-                      top: 3,
-                      right: 3,
-                      child: Container(
-                        width: 13,
-                        height: 13,
-                        decoration: BoxDecoration(
-                          color: cs.error,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$nActive',
-                            style: TextStyle(
-                              fontSize: 7.5,
-                              color: cs.onError,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showRepoMenu(int tab, List<String> repos) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _SimplePickerSheet(
-        title: 'Dépôt',
-        allLabel: 'Tous les dépôts',
-        items: repos.map((r) => (r, _repoLabel(r))).toList(),
-        selected: _repoFilter[tab],
-        onPick: (v) {
-          setState(() => _repoFilter[tab] = v);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _showLangMenu(int tab, List<String> langs) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _SimplePickerSheet(
-        title: 'Langue',
-        allLabel: 'Toutes les langues',
-        items: langs.map((l) => (l, '${_langCode(l)} — $l')).toList(),
-        selected: _langFilter[tab],
-        onPick: (v) {
-          setState(() => _langFilter[tab] = v);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _showProgLangMenu(int tab, List<SourceCodeLanguage> progLangs) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _SimplePickerSheet(
-        title: 'Langage de programmation',
-        allLabel: 'Tous les langages',
-        items: progLangs
-            .map((p) => (p.index.toString(), _compatLabel(p)))
-            .toList(),
-        selected: _progLangFilter[tab]?.index.toString(),
-        onPick: (v) {
-          setState(
-            () => _progLangFilter[tab] = v == null
-                ? null
-                : SourceCodeLanguage.values[int.parse(v)],
-          );
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _showAdvancedFilterSheet(int tab) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _AdvancedFilterSheet(
-        state: this,
-        tab: tab,
-        onChanged: () => setState(() {}),
-      ),
-    );
-  }
-
   void _clearFilters(int tab) {
     setState(() {
       _repoFilter.remove(tab);
@@ -3223,1196 +2492,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _sortBy = 'alpha';
     });
   }
-
-  void markDirty() => setState(() {});
 }
-
-// ─── Home tab ──────────────────────────────────────────────────────────────────
-
-class _HomeTab extends StatelessWidget {
-  final _MarketplaceScreenState state;
-  const _HomeTab({required this.state});
-
-  static const _manhuaLangs = {'zh', 'ko', 'zh-hk', 'zh-tw', 'zh-cn'};
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    if (state._loading) return _MarketplaceSkeleton(cs: cs);
-    final all = state._all;
-    final featured = state._featured;
-
-    // Content-type sections — order: Watch, Manga, Light Novel, Music, Game
-    final watchExt = all.where((e) => e.contentType == ItemType.anime).toList();
-    final mangaExt = all.where((e) => e.contentType == ItemType.manga).toList();
-    final novelExt = all.where((e) => e.contentType == ItemType.novel).toList();
-    final musicExt = all.where((e) => e.contentType == ItemType.music).toList();
-    final gameExt = all.where((e) => e.contentType == ItemType.game).toList();
-
-    return RefreshIndicator(
-      onRefresh: () => state._loadAll(bypassCache: true),
-      child: CustomScrollView(
-        slivers: [
-          // ── Dépôts ───────────────────────────────────────────────────────
-          SliverToBoxAdapter(child: _RepoCarousel(state: state)),
-          // Install all repo card
-          SliverToBoxAdapter(child: _MassInstallCard(state: state)),
-          // Updates available banner
-          if (state._updatableCount > 0)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade700.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(
-                      color: Colors.orange.shade700.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Broken.refresh_2,
-                        color: Colors.orange.shade700,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '${state._updatableCount} mise${state._updatableCount > 1 ? "s" : ""} à jour disponible${state._updatableCount > 1 ? "s" : ""}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.orange.shade800,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        'Appuie sur "Màj ↑"',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Colors.orange.shade700.withValues(alpha: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          // Watch (Anime · Films · Séries)
-          if (watchExt.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: state.sectionTitle(
-                cs,
-                'Watch',
-                Icons.live_tv_rounded,
-                color: const Color(0xFF7B2FBE),
-                subtitle: '${watchExt.length} extensions · Watchtower',
-                onSeeAll: () => state._tabCtrl.animateTo(
-                  state._tabConstToVisual(_kTabAnime),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(child: state.buildHorizontal(watchExt, cs)),
-          ],
-          // Manga
-          if (mangaExt.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: state.sectionTitle(
-                cs,
-                'Manga · ${mangaExt.length}',
-                Icons.auto_stories_rounded,
-                color: const Color(0xFFE91E63),
-                subtitle: 'Japonais, anglais et plus',
-                onSeeAll: () => state._tabCtrl.animateTo(
-                  state._tabConstToVisual(_kTabManga),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(child: state.buildHorizontal(mangaExt, cs)),
-          ],
-          // Light Novels
-          if (novelExt.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: state.sectionTitle(
-                cs,
-                'Light Novels · ${novelExt.length}',
-                Icons.menu_book_rounded,
-                color: const Color(0xFF009688),
-                subtitle: 'Romans & Web novels',
-                onSeeAll: () => state._tabCtrl.animateTo(
-                  state._tabConstToVisual(_kTabNovel),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(child: state.buildHorizontal(novelExt, cs)),
-          ],
-          // Music
-          if (musicExt.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: state.sectionTitle(
-                cs,
-                'Music · ${musicExt.length}',
-                Icons.music_note_rounded,
-                color: const Color(0xFF0288D1),
-                subtitle: 'Extensions musicales',
-                onSeeAll: () => state._tabCtrl.animateTo(
-                  state._tabConstToVisual(_kTabMusic),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(child: state.buildHorizontal(musicExt, cs)),
-          ],
-          // Game
-          if (gameExt.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: state.sectionTitle(
-                cs,
-                'Game · ${gameExt.length}',
-                Icons.sports_esports_rounded,
-                color: const Color(0xFF607D8B),
-                subtitle: 'ROMs & émulateurs',
-                onSeeAll: () => state._tabCtrl.animateTo(
-                  state._tabConstToVisual(_kTabGames),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(child: state.buildHorizontal(gameExt, cs)),
-          ],
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Mass install card ─────────────────────────────────────────────────────────
-
-class _MassOption {
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final VoidCallback onTap;
-  final Color color;
-  const _MassOption({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.onTap,
-    required this.color,
-  });
-}
-
-class _MassInstallCard extends StatefulWidget {
-  final _MarketplaceScreenState state;
-  const _MassInstallCard({required this.state});
-
-  @override
-  State<_MassInstallCard> createState() => _MassInstallCardState();
-}
-
-class _MassInstallCardState extends State<_MassInstallCard> {
-  bool _expanded = false;
-
-  String get _userLang {
-    final locale = WidgetsBinding.instance.platformDispatcher.locale;
-    return locale.languageCode;
-  }
-
-  void _doInstall(String lang) {
-    widget.state._massInstall(lang: lang);
-    setState(() => _expanded = false);
-  }
-
-  void _doInstallAll() {
-    for (final entry in widget.state._all) {
-      if (!widget.state._installed.contains(entry.id)) {
-        widget.state._install(entry);
-      }
-    }
-    setState(() => _expanded = false);
-  }
-
-  void _doSelectLang() {
-    widget.state._showMassInstallSheet();
-    setState(() => _expanded = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    final options = [
-      _MassOption(
-        icon: Icons.language_rounded,
-        label: 'Pour ma langue',
-        subtitle: 'Extensions en ${_userLang.toUpperCase()}',
-        onTap: () => _doInstall(_userLang),
-        color: cs.primary,
-      ),
-      _MassOption(
-        icon: Icons.public_rounded,
-        label: 'All language',
-        subtitle: 'Toutes les langues disponibles',
-        onTap: () => _doInstall('all'),
-        color: const Color(0xFF0288D1),
-      ),
-      _MassOption(
-        icon: Icons.translate_rounded,
-        label: 'Sélect langue',
-        subtitle: 'Choisir une langue spécifique',
-        onTap: _doSelectLang,
-        color: const Color(0xFF009688),
-      ),
-      _MassOption(
-        icon: Icons.download_for_offline_rounded,
-        label: 'Tout complet',
-        subtitle: 'Installe absolutement tout',
-        onTap: _doInstallAll,
-        color: Colors.deepOrange,
-      ),
-    ];
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            cs.primary.withValues(alpha: 0.12),
-            cs.secondary.withValues(alpha: 0.08),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.25), width: 1),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: cs.primary.withValues(alpha: 0.15),
-                    ),
-                    child: Icon(
-                      Icons.download_for_offline_rounded,
-                      color: cs.primary,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Install all repo',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        Text(
-                          'Installe tout les extensions d\'un repo',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 22,
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox(height: 0, width: double.infinity),
-            secondChild: Column(
-              children: [
-                Divider(height: 1, color: cs.primary.withValues(alpha: 0.15)),
-                ...options.map(
-                  (opt) => InkWell(
-                    onTap: opt.onTap,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 11,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: opt.color.withValues(alpha: 0.12),
-                            ),
-                            child: Icon(opt.icon, color: opt.color, size: 17),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  opt.label,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                    color: cs.onSurface,
-                                  ),
-                                ),
-                                Text(
-                                  opt.subtitle,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            size: 18,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-              ],
-            ),
-            crossFadeState: _expanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 220),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Type tab (Manga / Anime / Novel / Jeux) ───────────────────────────────────
-
-class _TypeTab extends StatefulWidget {
-  final _MarketplaceScreenState state;
-  final int tab;
-  const _TypeTab({required this.state, required this.tab});
-
-  @override
-  State<_TypeTab> createState() => _TypeTabState();
-}
-
-class _TypeTabState extends State<_TypeTab> {
-  bool _updatesExpanded = true;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final state = widget.state;
-    final tab = widget.tab;
-    final entries = state._forTab(tab);
-    if (state._loading) return _MarketplaceSkeleton(cs: cs);
-    final updatableEntries = entries
-        .where(
-          (e) =>
-              state._installed.contains(e.id) &&
-              state._hasUpdate(e.id, e.version, e.uiLayoutVersion),
-        )
-        .toList();
-    return RefreshIndicator(
-      onRefresh: () => state._loadAll(bypassCache: true),
-      child: CustomScrollView(
-        slivers: [
-          if (entries.isEmpty && tab != _kTabMusic)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'ε=ε=(ノ≧∇≦)ノ',
-                      style: TextStyle(
-                        fontSize: 44,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Aucune extension',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Réessayez plus tard ou vérifiez la connexion',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => state._loadAll(bypassCache: true),
-                          icon: const Icon(Broken.refresh_2),
-                          label: const Text('Actualiser'),
-                        ),
-                        const SizedBox(width: 10),
-                        TextButton.icon(
-                          onPressed: () => state._clearFilters(tab),
-                          icon: const Icon(Icons.filter_alt_off_rounded),
-                          label: const Text('Effacer filtres'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                child: Row(
-                  children: [
-                    Text(
-                      '${entries.length} extension${entries.length == 1 ? "" : "s"}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () async {
-                        await state._refreshInstalled();
-                        final upd = state._updatableCount;
-                        if (context.mounted) {
-                          state._showToast(
-                            context,
-                            upd == 0
-                                ? 'Tout est à jour ✓'
-                                : '$upd mise${upd == 1 ? "" : "s"} à jour disponible${upd == 1 ? "" : "s"}',
-                            icon: upd == 0
-                                ? Broken.tick_circle
-                                : Broken.refresh_2,
-                          );
-                        }
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Broken.refresh_2, size: 13, color: cs.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Vérifier màj',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: cs.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Updates-first collapsible banner ──────────────────────────────
-            if (updatableEntries.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _UpdatesSection(
-                  entries: updatableEntries,
-                  state: state,
-                  expanded: _updatesExpanded,
-                  onToggle: () =>
-                      setState(() => _updatesExpanded = !_updatesExpanded),
-                  cs: cs,
-                ),
-              ),
-
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (ctx, i) => _PlayStoreCard(
-                  entry: entries[i],
-                  installed: state._installed.contains(entries[i].id),
-                  hasUpdate: state._hasUpdate(
-                    entries[i].id,
-                    entries[i].version,
-                    entries[i].uiLayoutVersion,
-                  ),
-                  busy: state._busy[entries[i].id] == true,
-                  onInstall: () => state._install(entries[i]),
-                  onSettings: state._installed.contains(entries[i].id)
-                      ? () => state._openSettings(entries[i].id)
-                      : null,
-                  onUninstall: state._installed.contains(entries[i].id)
-                      ? () => state._uninstall(entries[i])
-                      : null,
-                ),
-                childCount: entries.length.clamp(0, 500),
-              ),
-            ),
-          ],
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Collapsible updates section ───────────────────────────────────────────────
-
-class _UpdatesSection extends StatelessWidget {
-  final List<_ExtEntry> entries;
-  final _MarketplaceScreenState state;
-  final bool expanded;
-  final VoidCallback onToggle;
-  final ColorScheme cs;
-
-  const _UpdatesSection({
-    required this.entries,
-    required this.state,
-    required this.expanded,
-    required this.onToggle,
-    required this.cs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final anyBusy = entries.any((e) => state._busy[e.id] == true);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 4, 14, 8),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF7C3AED).withValues(alpha: 0.14),
-            const Color(0xFF4F46E5).withValues(alpha: 0.08),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF7C3AED).withValues(alpha: 0.30),
-        ),
-      ),
-      child: Column(
-        children: [
-          // ── Header row ────────────────────────────────────────────────────
-          InkWell(
-            onTap: onToggle,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
-                    ),
-                    child: const Icon(
-                      Broken.refresh_2,
-                      color: Color(0xFFA78BFA),
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Mises à jour',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFFE4E4E7),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF7C3AED),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${entries.length}',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '${entries.length} extension${entries.length == 1 ? "" : "s"} à mettre à jour',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF71717A),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!anyBusy)
-                    GestureDetector(
-                      onTap: () async {
-                        for (final e in entries) {
-                          await state._install(e);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Tout màj',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Color(0xFFA78BFA),
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: Color(0xFF71717A),
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // ── Expanded list ─────────────────────────────────────────────────
-          AnimatedCrossFade(
-            firstChild: const SizedBox(height: 0, width: double.infinity),
-            secondChild: Column(
-              children: [
-                Divider(
-                  height: 1,
-                  color: const Color(0xFF7C3AED).withValues(alpha: 0.20),
-                ),
-                ...entries.map(
-                  (e) => _UpdateRow(entry: e, state: state, cs: cs),
-                ),
-                const SizedBox(height: 4),
-              ],
-            ),
-            crossFadeState: expanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 220),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Single update row inside the banner ───────────────────────────────────────
-
-class _UpdateRow extends StatelessWidget {
-  final _ExtEntry entry;
-  final _MarketplaceScreenState state;
-  final ColorScheme cs;
-  const _UpdateRow({
-    required this.entry,
-    required this.state,
-    required this.cs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final busy = state._busy[entry.id] == true;
-    final installedV = state._installedVersions[entry.id] ?? '?';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: entry.iconUrl != null
-                ? Image.network(
-                    entry.iconUrl!,
-                    width: 38,
-                    height: 38,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: _MarketplaceScreenState._typeColor(
-                          entry.contentType,
-                        ).withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        _MarketplaceScreenState._typeIcon(entry.contentType),
-                        color: _MarketplaceScreenState._typeColor(
-                          entry.contentType,
-                        ),
-                        size: 18,
-                      ),
-                    ),
-                  )
-                : Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: _MarketplaceScreenState._typeColor(
-                        entry.contentType,
-                      ).withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      _MarketplaceScreenState._typeIcon(entry.contentType),
-                      color: _MarketplaceScreenState._typeColor(
-                        entry.contentType,
-                      ),
-                      size: 18,
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.name,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFE4E4E7),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Text(
-                      installedV,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF71717A),
-                      ),
-                    ),
-                    const Text(
-                      ' → ',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF71717A)),
-                    ),
-                    Text(
-                      entry.version,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFA78BFA),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          busy
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Color(0xFFA78BFA),
-                  ),
-                )
-              : GestureDetector(
-                  onTap: () => state._install(entry),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFF7C3AED).withValues(alpha: 0.40),
-                      ),
-                    ),
-                    child: const Text(
-                      'Màj',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFA78BFA),
-                      ),
-                    ),
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Mass install sheet ────────────────────────────────────────────────────────
-
-class _MassInstallSheet extends StatefulWidget {
-  final _MarketplaceScreenState state;
-  final List<String> langs;
-  final Set<int> installedIds;
-  const _MassInstallSheet({
-    required this.state,
-    required this.langs,
-    required this.installedIds,
-  });
-
-  @override
-  State<_MassInstallSheet> createState() => _MassInstallSheetState();
-}
-
-class _MassInstallSheetState extends State<_MassInstallSheet> {
-  String? _selectedLang;
-  SourceCodeLanguage? _selectedCompat;
-  bool _running = false;
-  int _done = 0;
-  int _failed = 0;
-  int _total = 0;
-
-  List<_ExtEntry> get _toInstall {
-    if (_selectedLang == null) return [];
-    var list = widget.state._all
-        .where(
-          (e) => e.lang == _selectedLang && !widget.installedIds.contains(e.id),
-        )
-        .toList();
-    if (_selectedCompat != null) {
-      list = list.where((e) => e.compat == _selectedCompat).toList();
-    }
-    return list;
-  }
-
-  Future<void> _doInstall() async {
-    final list = _toInstall;
-    if (list.isEmpty) return;
-    setState(() {
-      _running = true;
-      _done = 0;
-      _failed = 0;
-      _total = list.length;
-    });
-    for (final entry in list) {
-      final installed = await widget.state._install(entry);
-      if (mounted) {
-        setState(() {
-          _done++;
-          if (!installed) _failed++;
-        });
-      }
-    }
-    if (mounted) setState(() => _running = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final toInstall = _toInstall;
-
-    final compatItems = [
-      (null, Icons.apps_rounded, 'Tous types'),
-      (SourceCodeLanguage.javascript, Icons.code_rounded, 'JS/Web'),
-      (SourceCodeLanguage.dart, Icons.flutter_dash, 'Dart'),
-      (SourceCodeLanguage.javascript, Icons.code_rounded, 'JS'),
-    ];
-
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.55,
-      maxChildSize: 0.85,
-      builder: (_, ctrl) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        decoration: BoxDecoration(
-          color: cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: ListView(
-          controller: ctrl,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: cs.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              'Installer en masse',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Installe toutes les extensions d\'une langue ou d\'un dépôt.',
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 20),
-
-            // Language dropdown
-            Text(
-              'Langue',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_selectedLang),
-              initialValue: _selectedLang,
-              isExpanded: true,
-              hint: const Text('Sélectionner une langue'),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-              ),
-              items: widget.langs.map((l) {
-                final count = widget.state._all
-                    .where(
-                      (e) => e.lang == l && !widget.installedIds.contains(e.id),
-                    )
-                    .length;
-                final code = _MarketplaceScreenState._langCode(l);
-                return DropdownMenuItem(
-                  value: l,
-                  child: Text('$code — $count non installées'),
-                );
-              }).toList(),
-              onChanged: _running
-                  ? null
-                  : (v) => setState(() => _selectedLang = v),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Compat filter
-            Text(
-              'Type (optionnel)',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: compatItems.map<Widget>((
-                (SourceCodeLanguage?, IconData, String) item,
-              ) {
-                final (compat, icon, label) = item;
-                final sel = _selectedCompat == compat;
-                return GestureDetector(
-                  onTap: _running
-                      ? null
-                      : () => setState(() => _selectedCompat = compat),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? cs.primaryContainer
-                          : cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: sel ? cs.primary : cs.outlineVariant,
-                        width: sel ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          icon,
-                          size: 13,
-                          color: sel ? cs.primary : cs.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: sel ? cs.primary : cs.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Progress
-            if (_running) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _total > 0 ? _done / _total : null,
-                  minHeight: 6,
-                  backgroundColor: cs.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation(cs.primary),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '$_done / $_total traitées'
-                '${_failed == 0 ? '' : ' · $_failed échec(s)'}',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Summary + install button
-            if (_selectedLang != null && !_running) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${toInstall.length} extension(s) à installer pour '
-                  '${_MarketplaceScreenState._langCode(_selectedLang!)}',
-                  style: TextStyle(fontSize: 13, color: cs.onSurface),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                icon: _running
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Broken.document_download),
-                label: Text(
-                  _running
-                      ? 'Installation en cours…'
-                      : toInstall.isEmpty
-                      ? 'Aucune extension à installer'
-                      : 'Installer ${toInstall.length} extension(s)',
-                ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: (_running || toInstall.isEmpty) ? null : _doInstall,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Play Store-style card ─────────────────────────────────────────────────────
 
 class _PlayStoreCard extends StatelessWidget {
   final _ExtEntry entry;
@@ -4437,16 +2517,17 @@ class _PlayStoreCard extends StatelessWidget {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
 
-  String _description(ItemType t, String lang, bool isNsfw) {
+  String _description(BuildContext context, ItemType t, String lang) {
+    final l10n = context.l10n;
     final typeName = switch (t) {
-      ItemType.anime => 'anime et séries',
-      ItemType.manga => 'manga et comics',
-      ItemType.novel => 'romans et light novels',
-      ItemType.music => 'musique',
-      _ => 'jeux',
+      ItemType.anime => l10n.marketplace_kind_anime,
+      ItemType.manga => l10n.marketplace_kind_manga,
+      ItemType.novel => l10n.marketplace_kind_novel,
+      ItemType.music => l10n.marketplace_kind_music,
+      _ => l10n.marketplace_kind_default,
     };
     final langCode = _MarketplaceScreenState._langCode(lang);
-    return 'Parcourez du $typeName en $langCode${isNsfw ? " (contenu adulte)" : ""}.';
+    return l10n.marketplace_source_blurb(langCode, typeName);
   }
 
   String get _codeUrl {
@@ -4464,7 +2545,7 @@ class _PlayStoreCard extends StatelessWidget {
     final slug = _slugify(entry.name);
     final desc = entry.description.isNotEmpty
         ? entry.description
-        : _description(entry.contentType, entry.lang, entry.isNsfw);
+        : _description(context, entry.contentType, entry.lang);
 
     return GestureDetector(
       onLongPress: (installed && onUninstall != null) ? onUninstall : null,
@@ -4501,7 +2582,7 @@ class _PlayStoreCard extends StatelessWidget {
               children: [
                 _ExtIcon(
                   iconUrl: entry.iconUrl,
-                  type: entry.contentType,
+                  itemType: entry.itemType,
                   size: 48,
                 ),
                 const SizedBox(width: 12),
@@ -4618,7 +2699,7 @@ class _PlayStoreCard extends StatelessWidget {
                 ),
                 _MetaDot(color: cs.onSurfaceVariant),
                 Text(
-                  _formatMktSize(entry.sizeBytes),
+                  _formatMktSize(context.l10n, entry.sizeBytes),
                   style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 ),
                 _MetaDot(color: cs.onSurfaceVariant),
@@ -4666,7 +2747,11 @@ class _PlayStoreCard extends StatelessWidget {
                     color: Colors.amber.shade600,
                   ),
                 if (entry.isAggregator)
-                  _TagChip(label: 'Agrégateur', cs: cs, color: cs.secondary),
+                  _TagChip(
+                    label: context.l10n.marketplace_aggregator,
+                    cs: cs,
+                    color: cs.secondary,
+                  ),
               ],
             ),
           ],
@@ -5003,20 +3088,22 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                           final allowed = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('Installer ce plugin ?'),
+                              title: Text(
+                                context.l10n.plugins_third_party_confirm_title,
+                              ),
                               content: Text(
-                                'Plugin tiers de ${_repo.owner}.\n\n'
-                                'Il accèdera aux APIs déclarées dans son manifest.\n\n'
-                                'Long-press sur la carte pour désinstaller.',
+                                context.l10n.plugins_third_party_confirm_body(
+                                  _repo.owner,
+                                ),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(ctx, false),
-                                  child: const Text('Annuler'),
+                                  child: Text(context.l10n.cancel),
                                 ),
                                 FilledButton(
                                   onPressed: () => Navigator.pop(ctx, true),
-                                  child: const Text('Installer'),
+                                  child: Text(context.l10n.install),
                                 ),
                               ],
                             ),
@@ -5201,10 +3288,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Ce plugin nécessite une authentification.\n'
-                              'Ouvrez le Hub Musique → Paramètres → Sources, '
-                              'sélectionnez ce plugin comme source par défaut, '
-                              'puis appuyez sur « Se connecter ».',
+                              context.l10n.plugins_auth_required_body,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 13,
@@ -5293,11 +3377,13 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                         : Icons.radio_button_unchecked,
                     color: isDefaultMetadata ? cs.primary : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Provider par défaut (métadonnées)'),
+                  title: Text(
+                    context.l10n.marketplace_default_metadata_provider,
+                  ),
                   subtitle: Text(
                     isDefaultMetadata
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme provider par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_provider,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultMetadata
@@ -5319,11 +3405,11 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                         ? cs.primary
                         : cs.onSurfaceVariant,
                   ),
-                  title: const Text('Source audio par défaut'),
+                  title: Text(context.l10n.marketplace_default_audio_source),
                   subtitle: Text(
                     isDefaultAudioSource
-                        ? 'Actuellement par défaut'
-                        : 'Définir comme source audio par défaut',
+                        ? context.l10n.marketplace_currently_default
+                        : context.l10n.marketplace_set_default_audio_source,
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                   onTap: isDefaultAudioSource
@@ -5338,7 +3424,10 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(Icons.delete_outline, color: cs.error),
-                title: Text('Désinstaller', style: TextStyle(color: cs.error)),
+                title: Text(
+                  context.l10n.uninstall,
+                  style: TextStyle(color: cs.error),
+                ),
                 onTap: () async {
                   await notifier.removePlugin(config);
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -5445,7 +3534,7 @@ class _BannerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final typeColor = _MarketplaceScreenState._typeColor(entry.contentType);
+    final typeColor = _MarketplaceScreenState._typeColor(entry.itemType);
     final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
     final hasIcon = entry.iconUrl != null && entry.iconUrl!.isNotEmpty;
 
@@ -5519,7 +3608,7 @@ class _BannerCard extends StatelessWidget {
                 children: [
                   _ExtIcon(
                     iconUrl: entry.iconUrl,
-                    type: entry.contentType,
+                    itemType: entry.itemType,
                     size: 60,
                   ),
                   const SizedBox(width: 14),
@@ -5641,7 +3730,7 @@ class _BannerCard extends StatelessWidget {
                                                                   Colors.white,
                                                             ),
                                                       )
-                                                    : const Row(
+                                                    : Row(
                                                         mainAxisAlignment:
                                                             MainAxisAlignment
                                                                 .center,
@@ -5654,7 +3743,9 @@ class _BannerCard extends StatelessWidget {
                                                           ),
                                                           SizedBox(width: 5),
                                                           Text(
-                                                            'Màj dispo',
+                                                            context
+                                                                .l10n
+                                                                .marketplace_update_available_short,
                                                             style: TextStyle(
                                                               fontSize: 11,
                                                               color:
@@ -5677,7 +3768,7 @@ class _BannerCard extends StatelessWidget {
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                               ),
-                                              child: const Row(
+                                              child: Row(
                                                 mainAxisAlignment:
                                                     MainAxisAlignment.center,
                                                 children: [
@@ -5688,7 +3779,7 @@ class _BannerCard extends StatelessWidget {
                                                   ),
                                                   SizedBox(width: 5),
                                                   Text(
-                                                    'Installée',
+                                                    context.l10n.installed,
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       color: Colors.white,
@@ -5724,8 +3815,8 @@ class _BannerCard extends StatelessWidget {
                                             color: Colors.white,
                                           ),
                                         )
-                                      : const Text(
-                                          'Installer',
+                                      : Text(
+                                          context.l10n.install,
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
@@ -5765,14 +3856,6 @@ class _MiniCard extends StatelessWidget {
     this.onHistory,
   });
 
-  String get _codeUrl {
-    final url = entry.repoUrl;
-    if (url.contains('ferelking242') || url.contains('watchtower-extensions')) {
-      return 'https://github.com/ferelking242/watchtower-extensions';
-    }
-    return url;
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -5805,7 +3888,7 @@ class _MiniCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _ExtIcon(iconUrl: entry.iconUrl, type: entry.contentType, size: 54),
+          _ExtIcon(iconUrl: entry.iconUrl, itemType: entry.itemType, size: 54),
           const SizedBox(height: 8),
           Text(
             entry.name,
@@ -5872,8 +3955,8 @@ class _MiniCard extends StatelessWidget {
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text(
-                                        'Màj',
+                                    : Text(
+                                        context.l10n.update,
                                         style: TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w800,
@@ -5934,84 +4017,13 @@ class _MiniCard extends StatelessWidget {
 
 // ─── Stats bar ─────────────────────────────────────────────────────────────────
 
-class _StatsBar extends StatelessWidget {
-  final int wt, ln, installed;
-  final ColorScheme cs;
-  const _StatsBar({
-    required this.wt,
-    required this.ln,
-    required this.installed,
-    required this.cs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outline.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _Pill('$wt', 'Watchtower', const Color(0xFF7C3AED)),
-          Container(
-            width: 1,
-            height: 32,
-            color: cs.outline.withValues(alpha: 0.25),
-          ),
-          _Pill('$ln', 'Light Novel', const Color(0xFF009688)),
-          Container(
-            width: 1,
-            height: 32,
-            color: cs.outline.withValues(alpha: 0.25),
-          ),
-          _Pill('$installed', 'Installées', const Color(0xFF43A047)),
-        ],
-      ),
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  final String count, label;
-  final Color color;
-  const _Pill(this.count, this.label, this.color);
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        count,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w900,
-          color: color,
-        ),
-      ),
-      Text(
-        label,
-        style: TextStyle(
-          fontSize: 9.5,
-          color: Theme.of(
-            context,
-          ).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-        ),
-      ),
-    ],
-  );
-}
-
 // ─── Extension icon ─────────────────────────────────────────────────────────────
 
 class _ExtIcon extends StatelessWidget {
   final String? iconUrl;
-  final ItemType type;
+  final int itemType;
   final double size;
-  const _ExtIcon({this.iconUrl, required this.type, required this.size});
+  const _ExtIcon({this.iconUrl, required this.itemType, required this.size});
 
   bool get _isSvg {
     final url = iconUrl ?? '';
@@ -6024,7 +4036,7 @@ class _ExtIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final color = _MarketplaceScreenState._typeColor(type);
+    final color = _MarketplaceScreenState._typeColor(itemType);
     return Container(
       width: size,
       height: size,
@@ -6069,7 +4081,7 @@ class _ExtIcon extends StatelessWidget {
 
   Widget _fallback(ColorScheme cs, Color color) => Center(
     child: Icon(
-      _MarketplaceScreenState._typeIcon(type),
+      _MarketplaceScreenState._typeIcon(itemType),
       size: size * 0.48,
       color: color,
     ),
@@ -6188,317 +4200,6 @@ class _IconChip extends StatelessWidget {
 
 // ─── Repo Carousel ─────────────────────────────────────────────────────────────
 
-class _RepoCarousel extends StatefulWidget {
-  final _MarketplaceScreenState state;
-  const _RepoCarousel({required this.state});
-
-  @override
-  State<_RepoCarousel> createState() => _RepoCarouselState();
-}
-
-class _RepoCarouselState extends State<_RepoCarousel> {
-  final _ctrl = PageController();
-  int _page = 0;
-
-  static const _repos = [
-    _RepoInfo(
-      name: 'Watchtower',
-      description:
-          'Extensions officielles Watchtower — anime, manga, novels, musique et jeux',
-      icon: Icons.whatshot_rounded,
-      color: Color(0xFF6C63FF),
-      tag: 'Officiel',
-      githubUrl: 'https://github.com/ferelking242/watchtower-extensions',
-    ),
-  ];
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final allCount = widget.state._all.length;
-    final installedCount = widget.state._installed.length;
-    final totalPages = 1 + _repos.length;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: 162,
-            child: PageView.builder(
-              controller: _ctrl,
-              itemCount: totalPages,
-              onPageChanged: (p) => setState(() => _page = p),
-              itemBuilder: (ctx, i) {
-                if (i == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _buildStatsCard(cs, allCount, installedCount),
-                  );
-                }
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildRepoCard(cs, _repos[i - 1]),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              totalPages,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: _page == i ? 20 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: _page == i
-                      ? cs.primary
-                      : cs.outline.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsCard(ColorScheme cs, int total, int installed) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF6C63FF), Color(0xFF9C27B0)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6C63FF).withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.whatshot_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Watchtower Marketplace',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Officiel',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$total',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                  const Text(
-                    'disponibles',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                ],
-              ),
-              Container(
-                width: 1,
-                height: 40,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$installed',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
-                  ),
-                  const Text(
-                    'installées',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRepoCard(ColorScheme cs, _RepoInfo r) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [r.color, r.color.withValues(alpha: 0.72)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: r.color.withValues(alpha: 0.30),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(r.icon, color: Colors.white, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  r.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  r.tag,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Text(
-            r.description,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              height: 1.4,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          SizedBox(
-            height: 34,
-            child: OutlinedButton.icon(
-              icon: const Icon(
-                Icons.open_in_new_rounded,
-                size: 14,
-                color: Colors.white,
-              ),
-              label: const Text(
-                'Voir le dépôt',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                side: const BorderSide(color: Colors.white54),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () async {
-                await launchUrl(
-                  Uri.parse(r.githubUrl),
-                  mode: LaunchMode.externalApplication,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RepoInfo {
-  final String name;
-  final String description;
-  final IconData icon;
-  final Color color;
-  final String tag;
-  final String githubUrl;
-  const _RepoInfo({
-    required this.name,
-    required this.description,
-    required this.icon,
-    required this.color,
-    required this.tag,
-    required this.githubUrl,
-  });
-}
-
-// ─── Marketplace Settings Sheet ───────────────────────────────────────────────
-
 class _MarketplaceSettingsSheet extends ConsumerWidget {
   final _MarketplaceScreenState state;
   const _MarketplaceSettingsSheet({required this.state});
@@ -6538,7 +4239,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Text(
-                'Paramètres',
+                context.l10n.settings,
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
@@ -6561,7 +4262,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
                     child: Text(
-                      'Comportement',
+                      context.l10n.marketplace_settings_section_behavior,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -6572,8 +4273,8 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightSettingsTile(
                     icon: Icons.update_rounded,
-                    title: 'Vérifier les mises à jour',
-                    subtitle: 'Au démarrage de l\'app',
+                    title: context.l10n.check_for_extension_updates,
+                    subtitle: context.l10n.marketplace_check_updates_subtitle,
                     value: checkUpdates,
                     onChanged: (v) => ref
                         .read(checkForExtensionsUpdateStateProvider.notifier)
@@ -6581,8 +4282,8 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightSettingsTile(
                     icon: Broken.refresh_2,
-                    title: 'Mise à jour automatique',
-                    subtitle: 'Sans confirmation',
+                    title: context.l10n.auto_extensions_updates,
+                    subtitle: context.l10n.marketplace_auto_update_subtitle,
                     value: autoUpdate,
                     onChanged: (v) => ref
                         .read(autoUpdateExtensionsStateProvider.notifier)
@@ -6590,8 +4291,8 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightSettingsTile(
                     icon: Icons.explicit_rounded,
-                    title: 'Contenu 18+',
-                    subtitle: 'Afficher les extensions NSFW',
+                    title: context.l10n.marketplace_adult_content_title,
+                    subtitle: context.l10n.marketplace_adult_content_subtitle,
                     value: showNsfw,
                     onChanged: (v) =>
                         ref.read(showNSFWStateProvider.notifier).set(v),
@@ -6606,7 +4307,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
                     child: Text(
-                      'Dépôts',
+                      context.l10n.marketplace_settings_section_repositories,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -6617,7 +4318,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightActionTile(
                     icon: Icons.folder_special_rounded,
-                    title: 'Gérer les dépôts',
+                    title: context.l10n.marketplace_manage_repositories,
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -6638,7 +4339,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
                     child: Text(
-                      'Cache',
+                      context.l10n.marketplace_settings_section_cache,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -6649,7 +4350,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightActionTile(
                     icon: Broken.refresh_2,
-                    title: 'Recharger le catalogue',
+                    title: context.l10n.marketplace_reload_catalogue,
                     onTap: () {
                       Navigator.pop(context);
                       state._loadAll(bypassCache: true);
@@ -6657,7 +4358,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   ),
                   _LightActionTile(
                     icon: Icons.cloud_sync_rounded,
-                    title: 'Forcer rechargement (bypass cache)',
+                    title: context.l10n.marketplace_force_reload,
                     onTap: () {
                       Navigator.pop(context);
                       state._loadAll(bypassCache: true);
@@ -6673,7 +4374,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
                     child: Text(
-                      'Actions',
+                      context.l10n.marketplace_settings_section_actions,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -6689,7 +4390,7 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
                         Icons.download_for_offline_rounded,
                         size: 18,
                       ),
-                      label: const Text('Installer en masse…'),
+                      label: Text(context.l10n.marketplace_bulk_install),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(double.infinity, 48),
                         shape: RoundedRectangleBorder(
@@ -6715,41 +4416,6 @@ class _MarketplaceSettingsSheet extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SettingsTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final ColorScheme cs;
-  const _SettingsTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-    required this.cs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SwitchListTile.adaptive(
-      secondary: Icon(icon, size: 22, color: cs.primary),
-      title: Text(
-        title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-      ),
-      value: value,
-      onChanged: onChanged,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
   }
 }
@@ -6834,233 +4500,6 @@ class _LightActionTile extends StatelessWidget {
 
 // ─── Account dropdown overlay ─────────────────────────────────────────────────
 
-class _AccountDropdownOverlay extends StatefulWidget {
-  final Offset position;
-  final VoidCallback onDismiss;
-  final VoidCallback onSettings;
-  final VoidCallback onRepos;
-  const _AccountDropdownOverlay({
-    required this.position,
-    required this.onDismiss,
-    required this.onSettings,
-    required this.onRepos,
-  });
-
-  @override
-  State<_AccountDropdownOverlay> createState() =>
-      _AccountDropdownOverlayState();
-}
-
-class _AccountDropdownOverlayState extends State<_AccountDropdownOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _fade;
-  late final Animation<Offset> _slide;
-
-  static const _kMenuWidth = 210.0;
-  static const _kRadius = 16.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    );
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(
-      begin: const Offset(0, -0.08),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    _ctrl.forward();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Guard against narrow screens where screenWidth - _kMenuWidth - 8 < 8,
-    // which would make clamp's upper bound smaller than its lower bound and
-    // throw (same class of bug fixed in main_screen.dart's dock pill width).
-    final maxLeft = math.max(8.0, screenWidth - _kMenuWidth - 8.0);
-    final left = (widget.position.dx - _kMenuWidth).clamp(8.0, maxLeft);
-    final top = widget.position.dy;
-
-    return Stack(
-      children: [
-        // Barrier to dismiss
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: widget.onDismiss,
-            behavior: HitTestBehavior.translucent,
-            child: const SizedBox.expand(),
-          ),
-        ),
-        // Dropdown menu
-        Positioned(
-          left: left,
-          top: top,
-          width: _kMenuWidth,
-          child: FadeTransition(
-            opacity: _fade,
-            child: SlideTransition(
-              position: _slide,
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF12163A),
-                    borderRadius: BorderRadius.circular(_kRadius),
-                    border: Border.all(
-                      color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(_kRadius),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Header
-                        Container(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF7C3AED), Color(0xFF06B6D4)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white.withValues(alpha: 0.22),
-                                ),
-                                child: const Icon(
-                                  Icons.person_rounded,
-                                  size: 20,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Watchtower',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Marketplace',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 10.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        _DropItem(
-                          icon: Icons.tune_rounded,
-                          label: 'Paramètres marketplace',
-                          onTap: widget.onSettings,
-                        ),
-                        _DropDivider(),
-                        _DropItem(
-                          icon: Icons.folder_special_rounded,
-                          label: 'Gérer les dépôts',
-                          onTap: widget.onRepos,
-                        ),
-                        _DropDivider(),
-                        _DropItem(
-                          icon: Icons.info_outline_rounded,
-                          label: 'À propos',
-                          onTap: widget.onDismiss,
-                        ),
-                        const SizedBox(height: 4),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DropItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _DropItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        child: Row(
-          children: [
-            Icon(icon, size: 17, color: const Color(0xFF06B6D4)),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DropDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
-    );
-  }
-}
-
-// ─── Search category tile ─────────────────────────────────────────────────────
-
 class _SearchCategoryTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -7123,7 +4562,7 @@ class _MarketplaceFilterButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return IconButton(
-      tooltip: 'Filtrer',
+      tooltip: context.l10n.filter,
       onPressed: onTap,
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
@@ -7375,7 +4814,7 @@ class _LangGridPickerSheetState extends State<_LangGridPickerSheet> {
                 Icon(Icons.language_rounded, size: 18, color: cs.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Langue',
+                  context.l10n.language,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -7425,7 +4864,7 @@ class _LangGridPickerSheetState extends State<_LangGridPickerSheet> {
                       onChanged: (v) => setState(() => _query = v),
                       style: TextStyle(fontSize: 13, color: cs.onSurface),
                       decoration: InputDecoration(
-                        hintText: 'Rechercher une langue...',
+                        hintText: context.l10n.marketplace_search_language_hint,
                         hintStyle: TextStyle(
                           fontSize: 13,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.55),
@@ -7659,7 +5098,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Filtres avancés',
+                    context.l10n.marketplace_advanced_filters,
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -7683,8 +5122,8 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Effacer tout',
+                      child: Text(
+                        context.l10n.marketplace_clear_all_filters,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -7718,7 +5157,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                           },
                         ),
                         _SortChip(
-                          label: 'Installées',
+                          label: context.l10n.marketplace_sort_installed,
                           icon: Icons.download_done_rounded,
                           active: _sortBy == 'installed',
                           onTap: () {
@@ -7733,13 +5172,13 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
 
                   // Show section
                   _section(
-                    'AFFICHER',
+                    context.l10n.marketplace_section_show,
                     Column(
                       children: [
                         _FilterToggleTile(
                           icon: Icons.download_done_rounded,
-                          label: 'Installées uniquement',
-                          sub: 'Masquer les extensions non installées',
+                          label: context.l10n.marketplace_installed_only,
+                          sub: context.l10n.marketplace_installed_only_sub,
                           value: _installedOnly,
                           onChanged: (v) {
                             setState(() {
@@ -7753,8 +5192,8 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                         const SizedBox(height: 6),
                         _FilterToggleTile(
                           icon: Broken.refresh_2,
-                          label: 'Mises à jour disponibles',
-                          sub: 'Extensions avec une nouvelle version',
+                          label: context.l10n.marketplace_updates_available,
+                          sub: context.l10n.marketplace_updates_available_sub,
                           value: _withUpdatesOnly,
                           onChanged: (v) {
                             setState(() {
@@ -7773,7 +5212,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
                   // Active filters
                   if (nActive > 0) ...[
                     _section(
-                      'FILTRES ACTIFS',
+                      context.l10n.marketplace_section_active_filters,
                       _ActiveFiltersSummary(
                         state: widget.state,
                         tab: widget.tab,
@@ -8035,7 +5474,7 @@ class _ActiveFiltersSummary extends StatelessWidget {
       ));
     if (state._installedOnly)
       chips.add((
-        'Installées',
+        context.l10n.marketplace_sort_installed,
         () {
           state._installedOnly = false;
           onClear();
@@ -8043,7 +5482,7 @@ class _ActiveFiltersSummary extends StatelessWidget {
       ));
     if (state._withUpdatesOnly)
       chips.add((
-        'Avec Màj',
+        context.l10n.marketplace_with_updates_short,
         () {
           state._withUpdatesOnly = false;
           onClear();
@@ -8100,130 +5539,6 @@ class _ActiveFiltersSummary extends StatelessWidget {
 
 // ─── Marketplace skeleton loading ──────────────────────────────────────────────
 
-class _MarketplaceSkeleton extends StatefulWidget {
-  final ColorScheme cs;
-  const _MarketplaceSkeleton({required this.cs});
-
-  @override
-  State<_MarketplaceSkeleton> createState() => _MarketplaceSkeletonState();
-}
-
-class _MarketplaceSkeletonState extends State<_MarketplaceSkeleton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  Widget _bone({
-    double width = double.infinity,
-    double height = 14,
-    double radius = 8,
-  }) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, _) => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          color: Color.lerp(
-            widget.cs.surfaceContainerHigh,
-            widget.cs.surfaceContainerHighest,
-            _anim.value,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _skeletonCard() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: widget.cs.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: widget.cs.outlineVariant.withValues(alpha: 0.25),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _bone(width: 48, height: 48, radius: 12),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _bone(height: 14, radius: 7),
-                const SizedBox(height: 6),
-                _bone(width: 140, height: 11, radius: 6),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _bone(width: 48, height: 20, radius: 6),
-                    const SizedBox(width: 8),
-                    _bone(width: 64, height: 20, radius: 6),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          _bone(width: 36, height: 36, radius: 10),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(top: 14, bottom: 100),
-      itemCount: 8,
-      itemBuilder: (_, i) {
-        if (i == 0)
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-                child: Row(
-                  children: [
-                    _bone(width: 80, height: 12, radius: 6),
-                    const Spacer(),
-                    _bone(width: 90, height: 12, radius: 6),
-                  ],
-                ),
-              ),
-              _skeletonCard(),
-            ],
-          );
-        return _skeletonCard();
-      },
-    );
-  }
-}
-
-// ─── Extension version entry ────────────────────────────────────────────────────
-
 class _ExtVersionEntry {
   final String version;
   final String? date;
@@ -8238,306 +5553,6 @@ class _ExtVersionEntry {
 }
 
 // ─── Version history bottom sheet ──────────────────────────────────────────────
-
-class _VersionHistorySheet extends StatelessWidget {
-  final _ExtEntry entry;
-  final _MarketplaceScreenState state;
-  const _VersionHistorySheet({required this.entry, required this.state});
-
-  static Color _tagColor(String tag, ColorScheme cs) {
-    switch (tag) {
-      case 'stable':
-        return const Color(0xFF43A047);
-      case 'broken':
-        return const Color(0xFFE53935);
-      case 'unstable':
-        return const Color(0xFFFB8C00);
-      case 'major-fix':
-        return const Color(0xFF1E88E5);
-      case 'deprecated':
-        return const Color(0xFF757575);
-      default:
-        return cs.primary;
-    }
-  }
-
-  static IconData _tagIcon(String tag) {
-    switch (tag) {
-      case 'stable':
-        return Icons.verified_rounded;
-      case 'broken':
-        return Icons.broken_image_rounded;
-      case 'unstable':
-        return Icons.warning_amber_rounded;
-      case 'major-fix':
-        return Icons.build_circle_rounded;
-      case 'deprecated':
-        return Icons.archive_rounded;
-      default:
-        return Icons.label_rounded;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final versions = entry.versions;
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.35,
-      maxChildSize: 0.92,
-      expand: false,
-      builder: (_, ctrl) => Column(
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: cs.outline.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                _ExtIcon(
-                  iconUrl: entry.iconUrl,
-                  type: entry.contentType,
-                  size: 36,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.name,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                      Text(
-                        'Historique des versions',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
-          Expanded(
-            child: versions.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.history_rounded,
-                          size: 48,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Version actuelle : v${entry.version}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "L'historique détaillé sera disponible\nquand l'extension supporte les versions.",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurfaceVariant,
-                            height: 1.5,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    controller: ctrl,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: cs.outline.withValues(alpha: 0.10),
-                    ),
-                    itemCount: versions.length,
-                    itemBuilder: (ctx, i) {
-                      final v = versions[i];
-                      final isCurrent = v.version == entry.version;
-                      return ListTile(
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isCurrent
-                                ? cs.primaryContainer
-                                : cs.surfaceContainerHigh,
-                          ),
-                          child: Icon(
-                            isCurrent
-                                ? Broken.tick_circle
-                                : Icons.history_rounded,
-                            size: 20,
-                            color: isCurrent ? cs.primary : cs.onSurfaceVariant,
-                          ),
-                        ),
-                        title: Row(
-                          children: [
-                            Text(
-                              'v${v.version}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                            if (isCurrent) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cs.primaryContainer,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'installée',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: cs.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            ...v.tags.map(
-                              (tag) => Padding(
-                                padding: const EdgeInsets.only(left: 4),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _tagColor(
-                                      tag,
-                                      cs,
-                                    ).withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(
-                                      color: _tagColor(
-                                        tag,
-                                        cs,
-                                      ).withValues(alpha: 0.4),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _tagIcon(tag),
-                                        size: 9,
-                                        color: _tagColor(tag, cs),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        tag,
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w700,
-                                          color: _tagColor(tag, cs),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (v.date != null)
-                              Text(
-                                v.date!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            if (v.changelog != null && v.changelog!.isNotEmpty)
-                              Text(
-                                v.changelog!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: cs.onSurfaceVariant,
-                                  height: 1.4,
-                                ),
-                              ),
-                          ],
-                        ),
-                        trailing: isCurrent
-                            ? null
-                            : TextButton(
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  // Trigger install of this specific version
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      behavior: SnackBarBehavior.floating,
-                                      content: Text(
-                                        'Retour à v${v.version} en cours…',
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                  state._install(entry);
-                                },
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  minimumSize: const Size(0, 28),
-                                ),
-                                child: Text(
-                                  'Wayback',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: cs.primary,
-                                  ),
-                                ),
-                              ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─── Glass toast notification ─────────────────────────────────────────────────
 
@@ -8679,7 +5694,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
                 children: [
                   Text(
-                    'Catégories',
+                    context.l10n.categories,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -8746,7 +5761,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                   Row(
                     children: [
                       Text(
-                        'Langue',
+                        context.l10n.language,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -8756,8 +5771,8 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                       const SizedBox(width: 8),
                       Text(
                         _selLangs.isEmpty
-                            ? '(toutes)'
-                            : '(${_selLangs.length} sélectionnées)',
+                            ? context.l10n.marketplace_all_option
+                            : '(${context.l10n.marketplace_selected_count(_selLangs.length)})',
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurfaceVariant,
@@ -8837,7 +5852,9 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${toInstall.length} extension${toInstall.length > 1 ? "s" : ""} à installer',
+                            context.l10n.marketplace_bulk_install_count(
+                              toInstall.length,
+                            ),
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -8862,8 +5879,10 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        '$_done / $_total traitées'
-                        '${_failed == 0 ? '' : ' · $_failed échec(s)'}',
+                        context.l10n.marketplace_progress('$_done', '$_total') +
+                            (_failed == 0
+                                ? ''
+                                : ' · ${context.l10n.marketplace_failed_count(_failed)}'),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -8898,7 +5917,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                             ),
                             label: Text(
                               toInstall.isEmpty
-                                  ? 'Rien à installer'
+                                  ? context.l10n.marketplace_nothing_to_install
                                   : 'Installer ${toInstall.length} extension${toInstall.length > 1 ? "s" : ""}',
                             ),
                             style: FilledButton.styleFrom(
@@ -9052,222 +6071,6 @@ class _WTToastState extends State<_WTToast>
 // ─── Engine card (binary engines: Aria2) ──────────────────────────────────────
 // Shown at the top of the Plugin tab in the marketplace.
 
-class _EngineCard extends ConsumerWidget {
-  final String id;
-  final String name;
-  final String desc;
-  final String version;
-  final IconData icon;
-  final Color clr;
-  final ColorScheme cs;
-  const _EngineCard({
-    required this.id,
-    required this.name,
-    required this.desc,
-    required this.version,
-    required this.icon,
-    required this.clr,
-    required this.cs,
-  });
-
-  void _showBinarySheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (ctx, sc) {
-          final cs = Theme.of(ctx).colorScheme;
-          return Container(
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerLow,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(20),
-              ),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Row(
-                    children: [
-                      Icon(Icons.memory_rounded, size: 16, color: clr),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Moteurs binaires',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: clr,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Expanded(
-                  child: SingleChildScrollView(
-                    controller: sc,
-                    padding: const EdgeInsets.only(top: 12, bottom: 24),
-                    child: const BinariesSection(),
-                  ),
-                ),
-              ],
-            ),
-          ); // closes return Container(...)
-        }, // closes builder: (ctx, sc) { ... }
-      ), // closes DraggableScrollableSheet
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
-      child: Builder(
-        builder: (ctx) {
-          final cs = Theme.of(ctx).colorScheme;
-          return Material(
-            color: cs.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: () => _showBinarySheet(ctx),
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: clr.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: clr.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: clr.withValues(alpha: 0.3)),
-                      ),
-                      child: Icon(icon, color: clr, size: 22),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                name,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: cs.onSurface,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: clr.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'v$version',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: clr,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: cs.surfaceContainerHigh,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'Moteur',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            desc,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: cs.onSurfaceVariant,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    OutlinedButton(
-                      onPressed: () => _showBinarySheet(context),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: clr,
-                        side: BorderSide(color: clr.withValues(alpha: 0.5)),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        minimumSize: const Size(0, 32),
-                        textStyle: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Installer'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ); // closes return Material(...)
-        },
-      ), // closes child: Builder(builder: (ctx) { ... })
-    );
-  }
-}
-
 // ─── Binary tab ────────────────────────────────────────────────────────────────
 // Marketplace plugins and downloadable runtime engines.
 
@@ -9358,12 +6161,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         widget.installedSources[entry.id]?.uiLayoutVersion != layoutVersion;
   }
 
-  static const _green = Color(0xFF8ED081);
-
   /// Colours for the current theme. Replaces the hard-coded dark constants the
   /// Marketplace used to paint itself with, so the light theme is actually
   /// light instead of a black page with white text.
   MarketplacePalette get _palette => MarketplacePalette.of(context);
+  Color get _green => _palette.accent;
   Color get _surface => _palette.surface;
   Color get _surfaceHigh => _palette.surfaceHigh;
   Color get _muted => _palette.muted;
@@ -9462,17 +6264,21 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   bool _tabMatches(_ExtEntry entry) {
+    // Routed on the raw `itemType`, not [ItemType]: subtitle providers publish
+    // itemType 7, which the enum cannot represent and which would otherwise
+    // fall through to the wrong tab. Legacy entries default their itemType to
+    // `contentType.index`, so the mapping below is unchanged for them.
     switch (_tab) {
       case 1:
-        return entry.contentType == ItemType.anime;
+        return entry.itemType == 1 || entry.itemType == 7;
       case 2:
-        return entry.contentType == ItemType.manga;
+        return entry.itemType == 0;
       case 3:
-        return entry.contentType == ItemType.music;
+        return entry.itemType == 3;
       case 4:
-        return entry.contentType == ItemType.game;
+        return entry.itemType == 4;
       case 5:
-        return entry.contentType == ItemType.novel;
+        return entry.itemType == 2;
     }
     return true;
   }
@@ -9575,6 +6381,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
 
   /// One card, wired to the install state the screen already tracks.
   Widget _buildCatalogCard(_ExtEntry entry) {
+    final l10n = context.l10n;
     final installed = widget.installed.contains(entry.id);
     return CatalogCard(
       entry: entry,
@@ -9587,7 +6394,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           : CatalogCardStatus.installed,
       isNew: _shelfBuilder.isNew(entry),
       busy: widget.busy[entry.id] == true,
-      description: _playDescription(entry),
+      description: _playDescription(l10n, entry),
       onOpenSite: entry.siteUrl == null
           ? null
           : () => launchUrl(
@@ -9711,12 +6518,13 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   List<String> get _popularSearches {
+    final l10n = context.l10n;
     final types = <ItemType, String>{
-      ItemType.anime: 'Watch',
-      ItemType.manga: 'Manga',
-      ItemType.novel: 'Romans',
-      ItemType.music: 'Musique',
-      ItemType.game: 'Jeux',
+      ItemType.anime: l10n.catalog_tab_watch,
+      ItemType.manga: l10n.catalog_tab_manga,
+      ItemType.novel: l10n.catalog_tab_novels,
+      ItemType.music: l10n.catalog_tab_music,
+      ItemType.game: l10n.catalog_tab_games,
     };
     return types.entries
         .where(
@@ -9752,15 +6560,6 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   void _clearRecentSearches() {
     setState(_recentSearches.clear);
     _persistRecentSearches();
-  }
-
-  void _openSearch() {
-    setState(() {
-      _searching = true;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _searchFocus.requestFocus();
-    });
   }
 
   void _closeSearch() {
@@ -9839,7 +6638,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             else ...[
               ..._buildSearchSuggestions(),
               SliverToBoxAdapter(
-                child: _buildSectionTitle('Résultats de recherche'),
+                child: _buildSectionTitle(l10n.marketplace_search_results),
               ),
               _buildRows(_visible),
             ],
@@ -9853,12 +6652,13 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   Widget _buildEmptyCatalog() {
     final searchHasQuery =
         _searching && _searchController.text.trim().isNotEmpty;
+    final l10n = context.l10n;
     final title = searchHasQuery
-        ? 'Aucune extension trouvée'
-        : 'Aucune extension disponible';
+        ? l10n.marketplace_empty_search_title
+        : l10n.marketplace_empty_catalog_title;
     final subtitle = searchHasQuery
-        ? 'Essaie un autre nom ou actualise le catalogue.'
-        : 'Le catalogue est vide pour le moment. Réessaie plus tard.';
+        ? l10n.marketplace_empty_search_hint
+        : l10n.marketplace_empty_catalog_hint;
 
     return Center(
       child: Padding(
@@ -9867,7 +6667,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Semantics(
-              label: 'Catalogue vide',
+              label: l10n.marketplace_empty_semantics,
               child: Lottie.asset(
                 'assets/animations/empty_box_partho.json',
                 width: 190,
@@ -9896,7 +6696,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             TextButton.icon(
               onPressed: widget.onRefresh,
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Actualiser'),
+              label: Text(l10n.refresh),
             ),
           ],
         ),
@@ -9929,7 +6729,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           ),
           const SizedBox(width: 8),
           Tooltip(
-            message: 'Paramètres du Marketplace',
+            message: context.l10n.marketplace_settings_tooltip,
             child: GestureDetector(
               onTap: widget.onOpenSettings,
               child: CircleAvatar(
@@ -9962,7 +6762,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 border: Border.all(
                   color: _searchFocused || _searchController.text.isNotEmpty
                       ? _green.withValues(alpha: 0.8)
-                      : const Color(0xFF353539),
+                      : _palette.border,
                   width: _searchFocused ? 1.4 : 1,
                 ),
               ),
@@ -10002,7 +6802,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                     minWidth: 44,
                     minHeight: 48,
                   ),
-                  hintText: 'Rechercher des extensions',
+                  hintText: context.l10n.marketplace_search_hint,
                   hintStyle: TextStyle(color: _muted, fontSize: 14),
                 ),
               ),
@@ -10012,7 +6812,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             const SizedBox(width: 8),
             TextButton(
               onPressed: _closeSearch,
-              child: const Text('Annuler', style: TextStyle(color: _green)),
+              child: Text(context.l10n.cancel, style: TextStyle(color: _green)),
             ),
           ],
         ],
@@ -10077,6 +6877,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildHeroFor(List<_ExtEntry> sourceEntries, String label) {
+    final l10n = context.l10n;
     final entries = sourceEntries.take(6).toList();
     if (entries.isEmpty) return const SizedBox(height: 8);
     return SizedBox(
@@ -10088,9 +6889,10 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (_, index) {
           final entry = entries[index];
+          final hero = MarketplacePalette.of(context);
           final colors = index.isEven
-              ? const [Color(0xFF254D44), Color(0xFF121C29)]
-              : const [Color(0xFF39456B), Color(0xFF201D35)];
+              ? [hero.heroStart, hero.heroEnd]
+              : [hero.heroAlt.$1, hero.heroAlt.$2];
           return SizedBox(
             width: (MediaQuery.sizeOf(context).width - 32)
                 .clamp(280.0, 540.0)
@@ -10121,8 +6923,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                         children: [
                           Text(
                             label,
-                            style: const TextStyle(
-                              color: Color(0xFFD8EEDB),
+                            style: TextStyle(
+                              color: hero.heroLabel,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -10132,19 +6934,19 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                             entry.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: hero.heroTitle,
                               fontSize: 21,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            _playDescription(entry),
+                            _playDescription(l10n, entry),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFFE0E6E4),
+                            style: TextStyle(
+                              color: hero.heroSubtitle,
                               fontSize: 12,
                               height: 1.3,
                             ),
@@ -10235,7 +7037,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               decoration: BoxDecoration(
                 color: _surface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF353539)),
+                border: Border.all(color: _palette.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -10257,7 +7059,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                     ),
                   ),
                   Text(
-                    '$count source${count == 1 ? '' : 's'}',
+                    context.l10n.marketplace_source_count(count),
                     style: TextStyle(color: _muted, fontSize: 10),
                   ),
                 ],
@@ -10291,7 +7093,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           if (_recentSearches.isNotEmpty) ...[
             Row(
               children: [
-                Expanded(child: _searchDiscoveryTitle('Recherches récentes')),
+                Expanded(
+                  child: _searchDiscoveryTitle(
+                    context.l10n.marketplace_recent_searches,
+                  ),
+                ),
                 TextButton(
                   onPressed: _clearRecentSearches,
                   style: TextButton.styleFrom(
@@ -10332,7 +7138,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             ),
             const SizedBox(height: 18),
           ],
-          _searchDiscoveryTitle('Parcourir par catégorie'),
+          _searchDiscoveryTitle(context.l10n.marketplace_browse_by_category),
           _buildCategories(compact: true),
         ],
       ),
@@ -10341,6 +7147,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
 
   /// Inline name suggestions shown above the results while typing.
   List<Widget> _buildSearchSuggestions() {
+    final l10n = context.l10n;
     final suggestions = _suggestionEntries;
     if (suggestions.isEmpty) return const [];
     return [
@@ -10357,7 +7164,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                   icon: Icons.north_west_rounded,
                   label: entry.name,
                   trailing:
-                      '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
+                      '${_playTypeLabel(l10n, entry)} · ${entry.lang.toUpperCase()}',
                   onTap: () => _applySearch(entry.name),
                 ),
               ),
@@ -10445,26 +7252,27 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildNsfwGate() {
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 34),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF1C1C1E),
+          color: _palette.surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFF3A3A3E)),
+          border: Border.all(color: _palette.border),
         ),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              const Icon(
+              Icon(
                 Icons.visibility_off_rounded,
-                color: Color(0xFFB7F4F0),
+                color: _palette.accentCyan,
                 size: 32,
               ),
               const SizedBox(height: 10),
               Text(
-                'Contenu adulte masqué',
+                l10n.marketplace_nsfw_gate_title,
                 style: TextStyle(
                   color: MarketplacePalette.of(context).text,
                   fontSize: 16,
@@ -10472,11 +7280,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Active le contenu adulte dans les préférences pour afficher ces extensions.',
+              Text(
+                l10n.marketplace_nsfw_gate_body,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFFB9B8BE),
+                  color: _palette.muted,
                   fontSize: 12,
                   height: 1.35,
                 ),
@@ -10485,10 +7293,10 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               FilledButton.tonal(
                 onPressed: widget.onEnableNsfw,
                 style: FilledButton.styleFrom(
-                  foregroundColor: const Color(0xFF123437),
-                  backgroundColor: const Color(0xFFB7F4F0),
+                  foregroundColor: _palette.onAccent,
+                  backgroundColor: _palette.accentCyan,
                 ),
-                child: const Text('Afficher le contenu adulte'),
+                child: Text(l10n.marketplace_nsfw_gate_show),
               ),
             ],
           ),
@@ -10498,12 +7306,14 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildCategories({bool compact = false}) {
+    final l10n = context.l10n;
+    final accents = _palette.typeAccents;
     final categories = [
-      (Icons.live_tv_rounded, 'Watch', const Color(0xFF65C58A), 1),
-      (Icons.auto_stories_rounded, 'Manga', const Color(0xFFEF6C92), 2),
-      (Icons.music_note_rounded, 'Musique', const Color(0xFFE6B65C), 3),
-      (Icons.sports_esports_rounded, 'Jeux', const Color(0xFFC388EF), 4),
-      (Icons.menu_book_rounded, 'Romans', const Color(0xFF63B8DA), 5),
+      (Icons.live_tv_rounded, l10n.catalog_tab_watch, accents[0], 1),
+      (Icons.auto_stories_rounded, l10n.catalog_tab_manga, accents[1], 2),
+      (Icons.music_note_rounded, l10n.catalog_tab_music, accents[2], 3),
+      (Icons.sports_esports_rounded, l10n.catalog_tab_games, accents[3], 4),
+      (Icons.menu_book_rounded, l10n.catalog_tab_novels, accents[4], 5),
     ];
     return Padding(
       padding: EdgeInsets.fromLTRB(16, compact ? 4 : 14, 16, 8),
@@ -10550,6 +7360,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildAccount() {
+    final l10n = context.l10n;
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
@@ -10587,7 +7398,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             children: [
               CircleAvatar(
                 radius: 42,
-                backgroundColor: Color(0xFF3B4D58),
+                backgroundColor: _palette.avatar,
                 child: Icon(
                   Icons.person_rounded,
                   color: MarketplacePalette.of(context).text,
@@ -10596,7 +7407,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Compte Watchtower',
+                l10n.marketplace_account_title,
                 style: TextStyle(
                   color: MarketplacePalette.of(context).text,
                   fontSize: 18,
@@ -10605,7 +7416,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               ),
               const SizedBox(height: 4),
               Text(
-                '${widget.installed.length} extension${widget.installed.length == 1 ? '' : 's'} installée${widget.installed.length == 1 ? '' : 's'}',
+                l10n.marketplace_installed_count(widget.installed.length),
                 style: TextStyle(color: _muted, fontSize: 13),
               ),
             ],
@@ -10618,7 +7429,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               children: [
                 _AccountOption(
                   icon: Icons.download_done_rounded,
-                  label: 'Gérer les extensions installées',
+                  label: l10n.marketplace_manage_installed,
                   onTap: () => setState(() {
                     _accountOpen = false;
                     _tab = 1;
@@ -10627,13 +7438,13 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                 const _NtfyToggleTile(),
                 _AccountOption(
                   icon: Broken.setting_2,
-                  label: 'Préférences du Marketplace',
+                  label: l10n.marketplace_preferences,
                   onTap: widget.onOpenSettings,
                 ),
                 _AccountOption(
                   icon: Icons.help_outline_rounded,
-                  label: 'Aide et commentaires',
-                  onTap: () => _showComingSoon('Aide'),
+                  label: l10n.marketplace_help_feedback,
+                  onTap: () => _showComingSoon(l10n.help),
                 ),
               ],
             ),
@@ -10644,6 +7455,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   Widget _buildError() {
+    final l10n = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -10653,7 +7465,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             Icon(Icons.cloud_off_rounded, color: _muted, size: 48),
             const SizedBox(height: 14),
             Text(
-              'Le catalogue est indisponible',
+              l10n.marketplace_catalog_unavailable,
               style: TextStyle(
                 color: MarketplacePalette.of(context).text,
                 fontSize: 18,
@@ -10662,7 +7474,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Vérifie ta connexion puis réessaie.',
+              l10n.marketplace_check_connection,
               textAlign: TextAlign.center,
               style: TextStyle(color: _muted, fontSize: 13),
             ),
@@ -10671,9 +7483,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               onPressed: widget.onRefresh,
               style: FilledButton.styleFrom(
                 backgroundColor: _green,
-                foregroundColor: Colors.black,
+                foregroundColor: _palette.onAccent,
               ),
-              child: const Text('Réessayer'),
+              child: Text(l10n.retry),
             ),
           ],
         ),
@@ -10690,7 +7502,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           appBar: AppBar(
             backgroundColor: _surface,
             foregroundColor: MarketplacePalette.of(context).text,
-            title: const Text('Détails'),
+            title: Text(context.l10n.marketplace_details_title),
           ),
           body: _PlayStoreDetails(
             entry: entry,
@@ -10721,57 +7533,63 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   void _showComingSoon(String label) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$label sera disponible prochainement.'),
+        content: Text(context.l10n.marketplace_coming_soon(label)),
         behavior: SnackBarBehavior.floating,
       ),
     );
   }
 }
 
-String _playDescription(_ExtEntry entry) {
+String _playDescription(AppLocalizations l10n, _ExtEntry entry) {
   if (entry.description.trim().isNotEmpty) return entry.description.trim();
   final language = entry.lang == 'fr'
-      ? 'français'
+      ? l10n.marketplace_lang_french
       : entry.lang == 'en'
-      ? 'anglais'
+      ? l10n.marketplace_lang_english
       : entry.lang == 'multi' || entry.lang == 'all'
-      ? 'multilingue'
+      ? l10n.marketplace_lang_multilingual
       : entry.lang.toUpperCase();
-  final kind = switch (entry.contentType) {
-    ItemType.anime => 'anime et séries',
-    ItemType.manga => 'mangas et bandes dessinées',
-    ItemType.novel => 'romans et light novels',
-    ItemType.music => 'musique et audio',
-    _ => 'contenus',
+  final kind = switch (entry.itemType) {
+    1 => l10n.marketplace_kind_anime,
+    0 => l10n.marketplace_kind_manga,
+    2 => l10n.marketplace_kind_novel,
+    3 => l10n.marketplace_kind_music,
+    7 => l10n.marketplace_kind_subtitles,
+    _ => l10n.marketplace_kind_default,
   };
-  return 'Source $language pour découvrir $kind dans Watchtower.';
+  return l10n.marketplace_source_blurb(language, kind);
 }
 
-String _playTypeLabel(_ExtEntry entry) => switch (entry.contentType) {
-  ItemType.anime => 'Watch',
-  ItemType.manga => 'Manga',
-  ItemType.novel => 'Romans',
-  ItemType.music => 'Musique',
-  _ => 'Jeux',
-};
+/// Content-type caption. Reuses the tab captions so a card, its detail page and
+/// the tab it came from cannot disagree.
+String _playTypeLabel(AppLocalizations l10n, _ExtEntry entry) =>
+    switch (entry.itemType) {
+      1 => l10n.catalog_tab_watch,
+      0 => l10n.catalog_tab_manga,
+      2 => l10n.catalog_tab_novels,
+      3 => l10n.catalog_tab_music,
+      7 => l10n.marketplace_type_subtitles,
+      _ => l10n.catalog_tab_games,
+    };
 
 double _playRating(_ExtEntry entry) => entry.rating.clamp(0.0, 5.0);
 
 int _playReviewCount(_ExtEntry entry) => entry.reviewCount;
 
-String _playSize(_ExtEntry entry) {
+String _playSize(AppLocalizations l10n, _ExtEntry entry) {
   if (entry.sizeBytes != null && entry.sizeBytes! > 0) {
-    return _formatMktSize(entry.sizeBytes);
+    return _formatMktSize(l10n, entry.sizeBytes);
   }
-  return 'Taille inconnue';
+  return l10n.marketplace_unknown_size;
 }
 
 String _playRatingLabel(_ExtEntry entry) =>
     _playRating(entry) > 0 ? _playRating(entry).toStringAsFixed(1) : '—';
 
-String _playReviewLabel(_ExtEntry entry) => _playReviewCount(entry) > 0
-    ? '${_playReviewCount(entry)} avis'
-    : 'Avis non disponibles';
+String _playReviewLabel(AppLocalizations l10n, _ExtEntry entry) =>
+    _playReviewCount(entry) > 0
+    ? l10n.marketplace_reviews_count(_playReviewCount(entry))
+    : l10n.marketplace_reviews_unavailable;
 
 class _SearchDiscoveryRow extends StatelessWidget {
   final IconData icon;
@@ -10846,7 +7664,7 @@ class _SearchChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: MarketplacePalette.of(context).surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF353539)),
+          border: Border.all(color: MarketplacePalette.of(context).border),
         ),
         child: Text(
           label,
@@ -10886,9 +7704,7 @@ class _MarketplaceTabHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final palette = MarketplacePalette.of(context);
-    final selectedColor = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFB7F4F0)
-        : Theme.of(context).colorScheme.primary;
+    final selectedColor = palette.accentCyan;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: palette.background,
@@ -10975,6 +7791,7 @@ class _PlayStoreDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
@@ -11000,7 +7817,7 @@ class _PlayStoreDetails extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        '${_playTypeLabel(entry)} · ${entry.lang.toUpperCase()}',
+                        '${_playTypeLabel(l10n, entry)} · ${entry.lang.toUpperCase()}',
                         style: TextStyle(
                           color: MarketplacePalette.of(context).muted,
                           fontSize: 12,
@@ -11010,11 +7827,13 @@ class _PlayStoreDetails extends StatelessWidget {
                         const SizedBox(height: 5),
                         Text(
                           hasUpdate
-                              ? 'Mise à jour disponible · v${entry.version}'
-                              : 'Installée v$installedVersion',
+                              ? l10n.marketplace_update_available(entry.version)
+                              : l10n.marketplace_installed_version_label(
+                                  installedVersion!,
+                                ),
                           style: TextStyle(
                             color: hasUpdate
-                                ? _PlayStoreMarketplaceViewState._green
+                                ? MarketplacePalette.of(context).accent
                                 : MarketplacePalette.of(context).muted,
                             fontSize: 11,
                             fontWeight: hasUpdate
@@ -11034,14 +7853,14 @@ class _PlayStoreDetails extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(
+                          Icon(
                             Icons.star_rounded,
-                            color: Color(0xFFFFC107),
+                            color: MarketplacePalette.of(context).star,
                             size: 17,
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            _playReviewLabel(entry),
+                            _playReviewLabel(l10n, entry),
                             style: TextStyle(
                               color: MarketplacePalette.of(context).muted,
                               fontSize: 12,
@@ -11065,10 +7884,16 @@ class _PlayStoreDetails extends StatelessWidget {
                           ? null
                           : onInstall,
                       style: FilledButton.styleFrom(
-                        backgroundColor: _PlayStoreMarketplaceViewState._green,
-                        foregroundColor: Colors.black,
-                        disabledBackgroundColor: const Color(0xFF3B3B3D),
-                        disabledForegroundColor: const Color(0xFFB0B0B3),
+                        backgroundColor: MarketplacePalette.of(context).accent,
+                        foregroundColor: MarketplacePalette.of(
+                          context,
+                        ).onAccent,
+                        disabledBackgroundColor: MarketplacePalette.of(
+                          context,
+                        ).disabledSurface,
+                        disabledForegroundColor: MarketplacePalette.of(
+                          context,
+                        ).disabledText,
                       ),
                       child: busy
                           ? const SizedBox(
@@ -11078,10 +7903,10 @@ class _PlayStoreDetails extends StatelessWidget {
                             )
                           : Text(
                               hasUpdate
-                                  ? 'Mettre à jour'
+                                  ? l10n.marketplace_update
                                   : installed
-                                  ? 'Extension installée'
-                                  : 'Installer',
+                                  ? l10n.marketplace_extension_installed
+                                  : l10n.install,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -11093,9 +7918,11 @@ class _PlayStoreDetails extends StatelessWidget {
                   const SizedBox(width: 10),
                   IconButton(
                     onPressed: onSettings,
-                    tooltip: 'Paramètres',
+                    tooltip: context.l10n.settings,
                     style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFF343438),
+                      backgroundColor: MarketplacePalette.of(
+                        context,
+                      ).surfaceHighest,
                     ),
                     icon: Icon(
                       Broken.setting_2,
@@ -11107,7 +7934,7 @@ class _PlayStoreDetails extends StatelessWidget {
             ),
             const SizedBox(height: 25),
             Text(
-              'À propos de cette extension',
+              l10n.marketplace_about_extension,
               style: TextStyle(
                 color: MarketplacePalette.of(context).text,
                 fontSize: 16,
@@ -11115,10 +7942,10 @@ class _PlayStoreDetails extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _ExpandableDescription(text: _playDescription(entry)),
+            _ExpandableDescription(text: _playDescription(l10n, entry)),
             const SizedBox(height: 20),
             Text(
-              'Informations',
+              l10n.marketplace_info_information,
               style: TextStyle(
                 color: MarketplacePalette.of(context).text,
                 fontSize: 16,
@@ -11129,36 +7956,49 @@ class _PlayStoreDetails extends StatelessWidget {
             Column(
               children: [
                 _DetailInfoRow(
-                  label: 'Version',
+                  label: l10n.version,
                   value: installed && installedVersion != null
-                      ? 'v$installedVersion · disponible v${entry.version}'
+                      ? 'v$installedVersion · '
+                            '${l10n.marketplace_available_version(entry.version)}'
                       : 'v${entry.version}',
                 ),
-                _DetailInfoRow(label: 'Taille', value: _playSize(entry)),
                 _DetailInfoRow(
-                  label: 'Langue',
+                  label: l10n.marketplace_info_size,
+                  value: _playSize(l10n, entry),
+                ),
+                _DetailInfoRow(
+                  label: l10n.language,
                   value: entry.lang.toUpperCase(),
                 ),
                 _DetailInfoRow(
-                  label: 'Technologie',
+                  label: l10n.marketplace_info_technology,
                   value: entry.compat == SourceCodeLanguage.javascript
                       ? 'JavaScript'
                       : 'Watchtower',
                 ),
                 if (entry.requiresAccount)
-                  const _DetailInfoRow(label: 'Accès', value: 'Compte requis'),
+                  _DetailInfoRow(
+                    label: l10n.marketplace_info_access,
+                    value: l10n.marketplace_access_required,
+                  ),
                 if (entry.hasDRM)
-                  const _DetailInfoRow(label: 'Lecture', value: 'DRM'),
+                  _DetailInfoRow(
+                    label: l10n.marketplace_info_reading,
+                    value: 'DRM',
+                  ),
                 if (entry.isAggregator)
-                  const _DetailInfoRow(label: 'Catalogue', value: 'Agrégateur'),
+                  _DetailInfoRow(
+                    label: l10n.marketplace_info_catalog,
+                    value: l10n.marketplace_aggregator,
+                  ),
                 if (entry.supportsComments)
-                  const _DetailInfoRow(
-                    label: 'Communauté',
-                    value: 'Commentaires',
+                  _DetailInfoRow(
+                    label: l10n.marketplace_info_community,
+                    value: l10n.marketplace_comments,
                   ),
                 if (entry.subCategories.isNotEmpty)
                   _DetailInfoRow(
-                    label: 'Contenu',
+                    label: l10n.marketplace_info_content,
                     value: entry.subCategories.join(' · '),
                   ),
               ],
@@ -11166,7 +8006,7 @@ class _PlayStoreDetails extends StatelessWidget {
             const SizedBox(height: 22),
             if (entry.upstream.isNotEmpty) ...[
               Text(
-                'Dépôt et provenance',
+                l10n.marketplace_info_repo,
                 style: TextStyle(
                   color: MarketplacePalette.of(context).text,
                   fontSize: 16,
@@ -11176,8 +8016,8 @@ class _PlayStoreDetails extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 entry.upstream,
-                style: const TextStyle(
-                  color: Color(0xFFD5D4D9),
+                style: TextStyle(
+                  color: MarketplacePalette.of(context).muted,
                   fontSize: 12,
                   height: 1.35,
                 ),
@@ -11185,7 +8025,7 @@ class _PlayStoreDetails extends StatelessWidget {
               const SizedBox(height: 18),
             ],
             Text(
-              'Mise à jour via le dépôt officiel Watchtower Extensions.',
+              l10n.marketplace_official_repo_note,
               style: TextStyle(
                 color: MarketplacePalette.of(
                   context,
@@ -11225,8 +8065,8 @@ class _DetailInfoRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Color(0xFFE4E3E8),
+              style: TextStyle(
+                color: MarketplacePalette.of(context).text,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -11289,14 +8129,14 @@ class _NtfyToggleTileState extends State<_NtfyToggleTile> {
         color: MarketplacePalette.of(context).muted,
       ),
       title: Text(
-        'Signaux ntfy',
+        context.l10n.marketplace_ntfy_signals,
         style: TextStyle(
           color: MarketplacePalette.of(context).text,
           fontSize: 14,
         ),
       ),
       subtitle: Text(
-        'Pousser une alerte en cas d\'erreur',
+        context.l10n.marketplace_ntfy_error_subtitle,
         style: TextStyle(
           color: MarketplacePalette.of(context).muted,
           fontSize: 12,
@@ -11340,13 +8180,13 @@ class _HeaderIcon extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFB4AB),
+                color: MarketplacePalette.of(context).alertSurface,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 badge!,
-                style: const TextStyle(
-                  color: Color(0xFF4A0806),
+                style: TextStyle(
+                  color: MarketplacePalette.of(context).onAlertSurface,
                   fontSize: 8,
                   fontWeight: FontWeight.w800,
                 ),
@@ -11376,26 +8216,26 @@ class _PlayStoreIcon extends StatelessWidget {
         width: size,
         height: size,
         child: url == null || url.isEmpty
-            ? _fallback()
+            ? _fallback(context)
             : isSvg
             ? SvgPicture.network(
                 url,
                 fit: BoxFit.contain,
-                placeholderBuilder: (_) => _fallback(),
-                errorBuilder: (_, _, _) => _fallback(),
+                placeholderBuilder: (_) => _fallback(context),
+                errorBuilder: (_, _, _) => _fallback(context),
               )
             : Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _fallback(),
+                errorBuilder: (_, _, _) => _fallback(context),
                 loadingBuilder: (_, child, progress) =>
-                    progress == null ? child : _fallback(),
+                    progress == null ? child : _fallback(context),
               ),
       ),
     );
   }
 
-  Widget _fallback() {
+  Widget _fallback(BuildContext context) {
     final words = entry.name.trim().split(RegExp(r'\s+'));
     final initials = words
         .where((word) => word.isNotEmpty)
@@ -11406,8 +8246,8 @@ class _PlayStoreIcon extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            _MarketplaceScreenState._typeColor(entry.contentType),
-            const Color(0xFF252527),
+            MarketplacePalette.of(context).typeColor(entry.contentType),
+            MarketplacePalette.of(context).surfaceHigh,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -11418,7 +8258,7 @@ class _PlayStoreIcon extends StatelessWidget {
           initials.isEmpty ? '?' : initials,
           maxLines: 1,
           style: TextStyle(
-            color: Colors.white,
+            color: MarketplacePalette.of(context).onAccent,
             fontSize: size * 0.25,
             fontWeight: FontWeight.w900,
             letterSpacing: -0.5,
@@ -11564,9 +8404,9 @@ class _LoadingRows extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShimmerSkeleton(
-      effect: const ShimmerEffect(
-        baseColor: Color(0xFF252527),
-        highlightColor: Color(0xFF3A3A3E),
+      effect: ShimmerEffect(
+        baseColor: MarketplacePalette.of(context).skeletonBase,
+        highlightColor: MarketplacePalette.of(context).skeletonHighlight,
       ),
       child: Column(
         children: [
@@ -11601,11 +8441,3 @@ class _EyeLogo extends StatelessWidget {
     );
   }
 }
-
-String _typeLabel(ItemType type) => switch (type) {
-  ItemType.anime => 'Anime',
-  ItemType.manga => 'Manga',
-  ItemType.novel => 'Romans',
-  ItemType.music => 'Musique',
-  _ => 'Jeux',
-};

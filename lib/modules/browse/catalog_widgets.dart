@@ -243,7 +243,9 @@ class _Footer extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: _Badge(
           label: featured ? l10n.catalog_tag_featured : l10n.catalog_tag_new,
-          color: featured ? const Color(0xFFB7F4F0) : const Color(0xFF8ED081),
+          color: featured
+              ? MarketplacePalette.of(context).accentCyan
+              : MarketplacePalette.of(context).accent,
         ),
       );
     }
@@ -443,20 +445,21 @@ class _StatusAction extends StatelessWidget {
         ),
       );
     }
+    final palette = MarketplacePalette.of(context);
     final (icon, color, tooltip) = switch (status) {
       CatalogCardStatus.installed => (
         Broken.tick_circle,
-        const Color(0xFF8ED081),
+        palette.accent,
         l10n.installed,
       ),
       CatalogCardStatus.update => (
         Icons.refresh_rounded,
-        const Color(0xFF8ED081),
+        palette.accent,
         l10n.updates,
       ),
       CatalogCardStatus.available => (
         Broken.add_circle,
-        const Color(0xFFB7F4F0),
+        palette.accentCyan,
         l10n.install,
       ),
     };
@@ -536,7 +539,7 @@ class CatalogIcon extends StatelessWidget {
           initials.isEmpty ? '?' : initials,
           maxLines: 1,
           style: TextStyle(
-            color: Colors.white,
+            color: MarketplacePalette.of(context).onAccent,
             fontSize: size * 0.3,
             fontWeight: FontWeight.w900,
             letterSpacing: -0.5,
