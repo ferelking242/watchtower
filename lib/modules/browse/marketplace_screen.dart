@@ -231,7 +231,12 @@ bool _isMusicPluginEntry(_ExtEntry entry) {
 
 // ─── Top-level parse helpers ───────────────────────────────────────────────────
 
-List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
+/// Parses one catalogue index body into the maps [_mapsToEntries] consumes.
+///
+/// Public (rather than private) so the de-duplication rule below can be
+/// exercised directly in tests; the Marketplace screen is its only caller.
+@visibleForTesting
+List<Map<String, dynamic>> parseMarketplaceIndex(Map<String, String> args) {
   final String body = args['body']!;
   final String url = args['url']!;
   dynamic decoded;
@@ -334,11 +339,14 @@ List<Map<String, dynamic>> _parseIndexIsolate(Map<String, String> args) {
       continue;
     }
   }
-  final seen = <String>{};
-  return results.where((r) {
-    final k = '${r["name"]}|${r["contentType"]}|${r["lang"]}';
-    return seen.add(k);
-  }).toList();
+  // Two extensions may legitimately share a display name — `SpankBang` ships a
+  // `spankbang.js` and a newer `spankbang_new.js`, `AnimeSongLyrics` has an old
+  // and a rewritten source, and so on. Keying the de-duplication on the name
+  // hid one of each pair from the whole Marketplace, so the key is the id the
+  // catalogue guarantees to be unique. Entries without a usable id were
+  // already skipped above, so this never merges two distinct sources.
+  final seen = <int>{};
+  return results.where((r) => seen.add(r['id'] as int)).toList();
 }
 
 List<_ExtEntry> _mapsToEntries(List<Map<String, dynamic>> maps) => maps.map((
@@ -627,8 +635,11 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     }
     final decodedBody = utf8.decode(r.bodyBytes, allowMalformed: true);
     final maps = r.bodyBytes.length > 80000
-        ? await compute(_parseIndexIsolate, {'body': decodedBody, 'url': url})
-        : _parseIndexIsolate({'body': decodedBody, 'url': url});
+        ? await compute(parseMarketplaceIndex, {
+            'body': decodedBody,
+            'url': url,
+          })
+        : parseMarketplaceIndex({'body': decodedBody, 'url': url});
     return _mapsToEntries(maps);
   }
 
