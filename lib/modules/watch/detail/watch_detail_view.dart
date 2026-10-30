@@ -25,11 +25,10 @@ import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
-import 'package:watchtower/modules/widgets/progress_center.dart';
+import 'package:watchtower/modules/widgets/zoomable_image_viewer.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/utils/log/logger.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
 import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -2818,8 +2817,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   ///
   /// The hero only allocates a 96x140 slot, so a cover whose details are worth
   /// inspecting (a pornstar portrait, a scene still) is unreadable there.
-  /// `PhotoView` gives continuous zoom up to 5x and a tap-outside dismiss,
-  /// matching the gallery viewer used on the reading side.
+  /// [showZoomableImage] gives continuous zoom (8x), a double-tap cycle that
+  /// reaches the native 1:1 rendition, and a tap-outside dismiss — matching the
+  /// gallery viewer used on the reading side.
   void _openCover(BuildContext ctx, String url) {
     if (url.trim().isEmpty) return;
     final headers = ref.read(
@@ -2829,29 +2829,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         sourceId: widget.manga.sourceId,
       ),
     );
-    showDialog<void>(
-      context: ctx,
-      barrierColor: Colors.black,
-      barrierDismissible: true,
-      useSafeArea: false,
-      builder: (dialogContext) => GestureDetector(
-        onTap: () => Navigator.of(dialogContext).pop(),
-        child: PhotoView(
-          imageProvider: ExtendedNetworkImageProvider(url, headers: headers),
-          backgroundDecoration: const BoxDecoration(color: Colors.black),
-          minScale: PhotoViewComputedScale.contained,
-          maxScale: PhotoViewComputedScale.covered * 5,
-          initialScale: PhotoViewComputedScale.contained,
-          loadingBuilder: (context, event) => const ProgressCenter(),
-          errorBuilder: (context, error, stackTrace) => const Center(
-            child: Icon(Icons.image_not_supported_outlined,
-                color: Colors.white38, size: 48),
-          ),
-        ),
-      ),
+    showZoomableImage(
+      ctx,
+      imageProvider: ExtendedNetworkImageProvider(url, headers: headers),
+      title: widget.manga.name,
     );
   }
-
 }
 
 class _ResourceMenuItem extends StatelessWidget {
@@ -3823,26 +3806,9 @@ class _CommentMediaThumb extends StatelessWidget {
     }
     // Same continuous zoom as the page artwork: `InteractiveViewer` capped the
     // scale at 5x with no double-tap shortcut, which felt stiff on a still.
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black,
-      barrierDismissible: true,
-      useSafeArea: false,
-      builder: (dialogContext) => GestureDetector(
-        onTap: () => Navigator.of(dialogContext).pop(),
-        child: PhotoView(
-          imageProvider: ExtendedNetworkImageProvider(media.url),
-          backgroundDecoration: const BoxDecoration(color: Colors.black),
-          minScale: PhotoViewComputedScale.contained,
-          maxScale: PhotoViewComputedScale.covered * 5,
-          initialScale: PhotoViewComputedScale.contained,
-          loadingBuilder: (context, event) => const ProgressCenter(),
-          errorBuilder: (context, error, stackTrace) => const Center(
-            child: Icon(Icons.image_not_supported_outlined,
-                color: Colors.white38, size: 48),
-          ),
-        ),
-      ),
+    showZoomableImage(
+      context,
+      imageProvider: ExtendedNetworkImageProvider(media.url),
     );
   }
 }
