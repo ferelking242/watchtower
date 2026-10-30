@@ -448,9 +448,18 @@ class _BrowserSession {
   Future<bool> _start() async {
     try {
       // Reuse a clearance the app already holds, so the first navigation lands
-      // on the real page instead of an interstitial.
+      // on the real page instead of an interstitial — but never the
+      // `cf_clearance` cookie itself. This session keeps the engine's native
+      // User-Agent (see below), while any stored clearance was minted under the
+      // extension's own UA; Cloudflare binds the two, and a mismatch makes it
+      // re-serve the interstitial until the solve deadline expires. The other
+      // cookies are UA-independent and are still restored.
       try {
-        await MClient.restoreCookiesToWebView(firstUrl, sourceId: sourceId);
+        await MClient.restoreCookiesToWebView(
+          firstUrl,
+          sourceId: sourceId,
+          skipCfClearance: true,
+        );
       } catch (_) {}
 
       final headless = HeadlessInAppWebView(

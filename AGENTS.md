@@ -134,6 +134,12 @@ Consequences that must not regress:
 extension session. `cf_clearance` is bound to that UA; an empty UA gets a 403
 before any challenge, and a UA that differs from the WebView invalidates the
 cookie.
+* The hidden capture session never restores a stored `cf_clearance`
+(`skipCfClearance: true`). It keeps the engine's native UA, so a clearance
+minted under the extension's UA is guaranteed to mismatch; Cloudflare then
+re-serves the interstitial until the solve deadline and the section comes back
+empty (`_parseList: items=0`) while the workers time out. Every other cookie is
+still restored, and the session solves the challenge itself in ~2s.
 * The notification names the blocked *extension* (never a request count), and
 its action opens that extension's page, where the panel is inline. There is no
 full-screen challenge route any more.
