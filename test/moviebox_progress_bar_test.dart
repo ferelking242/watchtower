@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 
 double _widthFactor(WidgetTester tester) {
@@ -9,9 +10,12 @@ double _widthFactor(WidgetTester tester) {
   return box.widthFactor!;
 }
 
-Widget _host(double? value, {bool paused = false}) => MaterialApp(
-  home: Scaffold(body: MbGradientProgressBar(value: value, paused: paused)),
-);
+Widget _host(double? value, {bool paused = false, double height = 4}) =>
+    MaterialApp(
+      home: Scaffold(
+        body: MbGradientProgressBar(value: value, paused: paused, height: height),
+      ),
+    );
 
 void main() {
   testWidgets('eases towards the new target instead of snapping', (
@@ -69,5 +73,44 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.byType(FractionallySizedBox), findsNothing);
+  });
+
+  testWidgets('supports a thin MovieBox-style queue bar', (tester) async {
+    await tester.pumpWidget(_host(0.4, height: 2));
+    final bar = tester.widget<SizedBox>(
+      find.descendant(
+        of: find.byType(MbGradientProgressBar),
+        matching: find.byType(SizedBox),
+      ),
+    );
+
+    expect(bar.height, 2);
+  });
+
+  testWidgets('queue thumbnail uses MovieBox landscape proportions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MbThumb(
+            imageUrl: null,
+            customBytes: null,
+            itemType: ItemType.anime,
+            badge: 'TV',
+            isVideo: true,
+          ),
+        ),
+      ),
+    );
+    final thumbnail = tester.widget<SizedBox>(
+      find.descendant(
+        of: find.byType(MbThumb),
+        matching: find.byType(SizedBox),
+      ),
+    );
+
+    expect(thumbnail.width, 106);
+    expect(thumbnail.height, 60);
   });
 }

@@ -32,10 +32,9 @@ class MbThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    // A poster ratio keeps the queue recognizable at a glance while leaving
-    // the center column wide enough for exact byte progress and actions.
-    const w = 76.0;
-    const h = 108.0;
+    // MovieBox uses a landscape preview so each queue row stays compact.
+    const w = 106.0;
+    const h = 60.0;
     final placeholder = Container(
       width: w,
       height: h,

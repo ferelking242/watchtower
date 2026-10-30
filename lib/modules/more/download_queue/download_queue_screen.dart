@@ -2497,6 +2497,8 @@ class _DownloadCard extends ConsumerWidget {
                 ? 2
                 : layout == DownloadCardLayout.compact
                 ? 4
+                : layout == DownloadCardLayout.standard
+                ? 2
                 : 6,
             compressing: true,
           )
@@ -2511,6 +2513,8 @@ class _DownloadCard extends ConsumerWidget {
                 ? 2
                 : layout == DownloadCardLayout.compact
                 ? 4
+                : layout == DownloadCardLayout.standard
+                ? 2
                 : 6,
             paused: isPaused,
             failed: hasFailed,
@@ -3025,21 +3029,30 @@ class _DownloadCard extends ConsumerWidget {
     }
 
     // ── Standard layout (default) ───────────────────────────────────────────
-    // MovieBox scheme requested for video queues:
-    //   • title line, three-dot menu pinned at its right end;
-    //   • progress bar, pause/play button pinned at its right end;
-    //   • under the bar, the file's real (final) size on the left and the live
-    //     transfer speed on the right. Nothing else — no "already received"
-    //     counter, no engine badge.
+    // MovieBox-style queue row:
+    //   • landscape thumbnail and a one-line title with the menu at right;
+    //   • a thin progress line across the available width;
+    //   • received / total bytes on the left, speed or status and action on
+    //     the right.
     final finalSizeBytes = trustedDownloadByteCount(
       download.totalBytes ?? live?.totalBytes,
     );
-    final sizeLabel = finalSizeBytes != null && finalSizeBytes > 0
-        ? _formatBytes(finalSizeBytes)
-        : '';
+    final String transferSizeLabel;
+    if (exactDownloadedBytes != null && exactTotalBytes != null) {
+      transferSizeLabel =
+          '${_formatBytes(exactDownloadedBytes)} / ${_formatBytes(exactTotalBytes)}';
+    } else if (exactDownloadedBytes != null && exactDownloadedBytes > 0) {
+      transferSizeLabel = '${_formatBytes(exactDownloadedBytes)} reçus';
+    } else if (finalSizeBytes != null && finalSizeBytes > 0) {
+      transferSizeLabel = _formatBytes(finalSizeBytes);
+    } else {
+      transferSizeLabel = '';
+    }
     final speedLabel = !isComplete && !hasFailed && !isPaused && speedMbs > 0.05
         ? '${_formatSpeed(speedMbs)}/s'
         : null;
+    final detailRightLabel = speedLabel ?? statusText;
+    final detailRightColor = speedLabel != null ? scheme.primary : statusColor;
     final bottomColor = hasFailed
         ? mbRed
         : isCancelled
@@ -3049,7 +3062,7 @@ class _DownloadCard extends ConsumerWidget {
         : scheme.onSurfaceVariant;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3098,40 +3111,25 @@ class _DownloadCard extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                // ── Barre de progression … pause/play à droite ──
-                Row(
-                  children: [
-                    Expanded(
-                      child: MbGradientProgressBar(
-                        value: isProgressIndeterminate
-                            ? null
-                            : progress > 0
-                            ? progress
-                            : 0,
-                        height: 6,
-                        paused: isPaused,
-                        failed: hasFailed,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    MbPlayPauseButton(
-                      isComplete: isComplete,
-                      hasFailed: hasFailed,
-                      isPaused: isPaused,
-                      onPauseResume: onPauseResume,
-                      onRetry: onRetry,
-                      onOpen: onOpen,
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 6),
-                // ── Poids réel du fichier (gauche) … vitesse (droite) ──
+                // ── Thin progress line; actions and transfer details below ──
+                MbGradientProgressBar(
+                  value: isProgressIndeterminate
+                      ? null
+                      : progress > 0
+                      ? progress
+                      : 0,
+                  height: 2,
+                  paused: isPaused,
+                  failed: hasFailed,
+                ),
+                const SizedBox(height: 5),
+                // ── Octets reçus / total à gauche, vitesse à droite ──
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        sizeLabel,
+                        transferSizeLabel,
                         style: TextStyle(
                           color: bottomColor,
                           fontSize: 11,
@@ -3141,18 +3139,32 @@ class _DownloadCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (speedLabel != null) ...[
+                    if (detailRightLabel.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Text(
-                        speedLabel,
-                        style: TextStyle(
-                          color: scheme.primary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          detailRightLabel,
+                          style: TextStyle(
+                            color: detailRightColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
                         ),
-                        maxLines: 1,
                       ),
                     ],
+                    const SizedBox(width: 8),
+                    MbPlayPauseButton(
+                      isComplete: isComplete,
+                      hasFailed: hasFailed,
+                      isPaused: isPaused,
+                      onPauseResume: onPauseResume,
+                      onRetry: onRetry,
+                      onOpen: onOpen,
+                      size: 22,
+                    ),
                   ],
                 ),
               ],
