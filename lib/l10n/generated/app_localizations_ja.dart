@@ -3303,4 +3303,146 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get marketplace_sort_alpha => 'A → Z';
+
+  @override
+  String get notifications_title => 'Notifications';
+
+  @override
+  String get notifications_refresh_tooltip => 'Refresh';
+
+  @override
+  String get notifications_load_error => 'Could not load the notifications.';
+
+  @override
+  String get notifications_checking_updates => 'Checking for updates…';
+
+  @override
+  String get notifications_updates_subtitle =>
+      'Your installed extensions have a new version.';
+
+  @override
+  String notifications_update_single(Object name) {
+    return '$name extension update';
+  }
+
+  @override
+  String notifications_update_message(Object name) {
+    return '$name extension update';
+  }
+
+  @override
+  String notifications_updates_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extension updates',
+      one: '$count extension update',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notifications_install_all => 'Install all';
+
+  @override
+  String get notifications_install => 'Install';
+
+  @override
+  String get notifications_dismiss_update => 'Hide this update';
+
+  @override
+  String notifications_updated_toast(Object name) {
+    return '$name updated';
+  }
+
+  @override
+  String notifications_install_failed(Object error) {
+    return 'Install failed: $error';
+  }
+
+  @override
+  String notifications_new_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new extensions published',
+      one: '$count new extension published',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notifications_new_subtitle =>
+      'Discover the latest extensions in the catalogue.';
+
+  @override
+  String get notifications_browse_marketplace => 'Browse the Marketplace';
+
+  @override
+  String get notifications_hide => 'Hide this notification';
+
+  @override
+  String notifications_library_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count library updates',
+      one: '$count library update',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notifications_library_subtitle => 'New chapters are available.';
+
+  @override
+  String get notifications_view_updates => 'View updates';
+
+  @override
+  String get notifications_none => 'No new notification';
+
+  @override
+  String get marketplace_search_categories_title => 'Browse by category';
+
+  @override
+  String get marketplace_search_recommended => 'Recommended';
+
+  @override
+  String get marketplace_search_all_results => 'All results';
+
+  @override
+  String get marketplace_search_sort => 'Sort';
+
+  @override
+  String get marketplace_search_filters => 'Filters';
+
+  @override
+  String get marketplace_search_no_results_title => 'No result';
+
+  @override
+  String get marketplace_search_no_results_body =>
+      'Nothing matches your search.';
+
+  @override
+  String get marketplace_sort_recent => 'Recently added';
+
+  @override
+  String get marketplace_search_sort_title => 'Sort by';
+
+  @override
+  String get marketplace_search_suggestions => 'Suggestions';
+
+  @override
+  String get marketplace_search_clear => 'Clear';
+
+  @override
+  String marketplace_search_results_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '$count result',
+    );
+    return '$_temp0';
+  }
 }

@@ -6022,6 +6022,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A → Z'**
   String get marketplace_sort_alpha;
+
+  /// No description provided for @notifications_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications_title;
+
+  /// No description provided for @notifications_refresh_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get notifications_refresh_tooltip;
+
+  /// No description provided for @notifications_load_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the notifications.'**
+  String get notifications_load_error;
+
+  /// No description provided for @notifications_checking_updates.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for updates…'**
+  String get notifications_checking_updates;
+
+  /// No description provided for @notifications_updates_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your installed extensions have a new version.'**
+  String get notifications_updates_subtitle;
+
+  /// No description provided for @notifications_update_single.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} extension update'**
+  String notifications_update_single(Object name);
+
+  /// No description provided for @notifications_update_message.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} extension update'**
+  String notifications_update_message(Object name);
+
+  /// No description provided for @notifications_updates_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension update} other{{count} extension updates}}'**
+  String notifications_updates_count(num count);
+
+  /// No description provided for @notifications_install_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Install all'**
+  String get notifications_install_all;
+
+  /// No description provided for @notifications_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get notifications_install;
+
+  /// No description provided for @notifications_dismiss_update.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide this update'**
+  String get notifications_dismiss_update;
+
+  /// No description provided for @notifications_updated_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} updated'**
+  String notifications_updated_toast(Object name);
+
+  /// No description provided for @notifications_install_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Install failed: {error}'**
+  String notifications_install_failed(Object error);
+
+  /// No description provided for @notifications_new_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} new extension published} other{{count} new extensions published}}'**
+  String notifications_new_count(num count);
+
+  /// No description provided for @notifications_new_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover the latest extensions in the catalogue.'**
+  String get notifications_new_subtitle;
+
+  /// No description provided for @notifications_browse_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse the Marketplace'**
+  String get notifications_browse_marketplace;
+
+  /// No description provided for @notifications_hide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide this notification'**
+  String get notifications_hide;
+
+  /// No description provided for @notifications_library_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} library update} other{{count} library updates}}'**
+  String notifications_library_count(num count);
+
+  /// No description provided for @notifications_library_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New chapters are available.'**
+  String get notifications_library_subtitle;
+
+  /// No description provided for @notifications_view_updates.
+  ///
+  /// In en, this message translates to:
+  /// **'View updates'**
+  String get notifications_view_updates;
+
+  /// No description provided for @notifications_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No new notification'**
+  String get notifications_none;
+
+  /// No description provided for @marketplace_search_categories_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse by category'**
+  String get marketplace_search_categories_title;
+
+  /// No description provided for @marketplace_search_recommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get marketplace_search_recommended;
+
+  /// No description provided for @marketplace_search_all_results.
+  ///
+  /// In en, this message translates to:
+  /// **'All results'**
+  String get marketplace_search_all_results;
+
+  /// No description provided for @marketplace_search_sort.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get marketplace_search_sort;
+
+  /// No description provided for @marketplace_search_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get marketplace_search_filters;
+
+  /// No description provided for @marketplace_search_no_results_title.
+  ///
+  /// In en, this message translates to:
+  /// **'No result'**
+  String get marketplace_search_no_results_title;
+
+  /// No description provided for @marketplace_search_no_results_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches your search.'**
+  String get marketplace_search_no_results_body;
+
+  /// No description provided for @marketplace_sort_recent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get marketplace_sort_recent;
+
+  /// No description provided for @marketplace_search_sort_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort by'**
+  String get marketplace_search_sort_title;
+
+  /// No description provided for @marketplace_search_suggestions.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestions'**
+  String get marketplace_search_suggestions;
+
+  /// No description provided for @marketplace_search_clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get marketplace_search_clear;
+
+  /// No description provided for @marketplace_search_results_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} result} other{{count} results}}'**
+  String marketplace_search_results_count(num count);
 }
 
 class _AppLocalizationsDelegate

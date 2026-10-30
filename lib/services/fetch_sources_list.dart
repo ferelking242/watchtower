@@ -562,6 +562,19 @@ String extensionUpdateLabel(Source source) {
   return 'mise à jour';
 }
 
+/// Stable identity of the update currently offered for [source].
+///
+/// Combines the target code version and the pending layout version, so the
+/// Notifications screen can tell "the update the user already acknowledged"
+/// apart from "a newer update for the same extension". Used as the key of the
+/// acknowledged-updates ledger in [ExtensionCatalogNotifications].
+String extensionUpdateSignature(Source source) {
+  source.hydrateExtendedMetadata();
+  final code = source.versionLast?.trim() ?? '';
+  final layout = source.pendingUiLayoutVersion?.trim() ?? '';
+  return '${source.itemType.index}:${source.id ?? -1}:$code|$layout';
+}
+
 Future<void> _updateSource(
   Source source,
   Repo? repo,

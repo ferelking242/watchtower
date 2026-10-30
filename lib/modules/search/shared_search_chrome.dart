@@ -35,6 +35,15 @@ class SharedSearchHeader extends StatelessWidget {
   /// Replaces the default "‹" back button (e.g. to host a badge).
   final Widget? leading;
 
+  /// Foreground colour of the text field. Defaults to the white used by the
+  /// dark extension surfaces; a theme-aware caller (the Marketplace) passes its
+  /// own so the field stays readable on a light background.
+  final Color? foregroundColor;
+
+  /// Hairline colour of the field's border. Same rationale as
+  /// [foregroundColor].
+  final Color? outlineColor;
+
   const SharedSearchHeader({
     required this.controller,
     required this.onBack,
@@ -44,13 +53,16 @@ class SharedSearchHeader extends StatelessWidget {
     this.hint = 'Rechercher…',
     this.onMic,
     this.leading,
+    this.foregroundColor,
+    this.outlineColor,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    final outline = Colors.white.withValues(alpha: .18);
+    final foreground = foregroundColor ?? Colors.white;
+    final outline = outlineColor ?? Colors.white.withValues(alpha: .18);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 12, 10),
@@ -58,7 +70,7 @@ class SharedSearchHeader extends StatelessWidget {
         children: [
           leading ??
               IconButton(
-                tooltip: 'Retour',
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 onPressed: onBack,
                 icon: const Icon(Broken.arrow_left_2, size: 22),
               ),
@@ -72,20 +84,20 @@ class SharedSearchHeader extends StatelessWidget {
                 textInputAction: TextInputAction.search,
                 onSubmitted: onSubmit,
                 onChanged: onChanged,
-                style: const TextStyle(color: Colors.white, fontSize: 14.5),
+                style: TextStyle(color: foreground, fontSize: 14.5),
                 cursorColor: accent,
                 decoration: InputDecoration(
                   hintText: hint,
-                  hintStyle: const TextStyle(
-                    color: Colors.white38,
+                  hintStyle: TextStyle(
+                    color: foreground.withValues(alpha: 0.55),
                     fontSize: 13.5,
                   ),
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(left: 4, right: 2),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 2),
                     child: Icon(
                       Broken.search_normal,
                       size: 18,
-                      color: Colors.white54,
+                      color: foreground.withValues(alpha: 0.65),
                     ),
                   ),
                   prefixIconConstraints: const BoxConstraints(
@@ -95,14 +107,16 @@ class SharedSearchHeader extends StatelessWidget {
                   suffixIcon: onMic == null
                       ? null
                       : IconButton(
-                          tooltip: 'Recherche vocale',
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).searchFieldLabel,
                           splashRadius: 20,
                           iconSize: 19,
                           visualDensity: VisualDensity.compact,
                           onPressed: onMic,
-                          icon: const Icon(
+                          icon: Icon(
                             Broken.microphone,
-                            color: Colors.white60,
+                            color: foreground.withValues(alpha: 0.7),
                           ),
                         ),
                   suffixIconConstraints: const BoxConstraints(
@@ -427,8 +441,12 @@ class SharedSearchShimmerList extends StatelessWidget {
     // Squelettes de cartes réelles (même grille que les résultats) au lieu
     // de rectangles génériques.
     return GridView.builder(
-      padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 14,
-          AppUI.pagePadding(context), 40),
+      padding: EdgeInsets.fromLTRB(
+        AppUI.pagePadding(context),
+        14,
+        AppUI.pagePadding(context),
+        40,
+      ),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: AppUI.mediaGridColumns(context),
         childAspectRatio: AppUI.mediaGridChildAspectRatio(context),

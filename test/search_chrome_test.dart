@@ -84,4 +84,59 @@ void main() {
     expect(find.text('naruto'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('header defaults to the white used by dark surfaces', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      _wrap(
+        SharedSearchHeader(
+          controller: controller,
+          hint: 'Rechercher…',
+          onBack: () {},
+          onSubmit: (_) {},
+          onChanged: (_) {},
+        ),
+      ),
+    );
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.style?.color, Colors.white);
+    expect(find.byIcon(Broken.microphone), findsNothing);
+  });
+
+  testWidgets('header honours the caller colours and a custom leading', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.light(),
+        home: Scaffold(
+          body: SharedSearchHeader(
+            controller: controller,
+            hint: 'Rechercher…',
+            onBack: () {},
+            onSubmit: (_) {},
+            onChanged: (_) {},
+            foregroundColor: const Color(0xFF123456),
+            outlineColor: const Color(0xFFABCDEF),
+            leading: const Icon(Icons.arrow_back_rounded),
+          ),
+        ),
+      ),
+    );
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.style?.color, const Color(0xFF123456));
+    // The custom leading replaces the default chevron.
+    expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+    expect(find.byIcon(Broken.arrow_left_2), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

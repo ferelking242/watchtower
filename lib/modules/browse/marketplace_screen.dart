@@ -14,6 +14,8 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/models/catalog_entry.dart';
 import 'package:watchtower/modules/browse/marketplace_palette.dart';
+import 'package:watchtower/modules/browse/marketplace_search_filter.dart';
+import 'package:watchtower/modules/browse/marketplace_skeleton.dart';
 import 'package:watchtower/models/catalog_shelf.dart';
 import 'package:watchtower/models/catalog_taxonomy.dart';
 import 'package:watchtower/models/manga.dart';
@@ -31,6 +33,7 @@ import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/browse/plugins_section.dart';
+import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/more/settings/browse/extension_repositories_screen.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -2295,7 +2298,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
               child: Row(
                 children: [
                   Text(
-                    'Recommandations',
+                    context.l10n.marketplace_search_recommended,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -6198,6 +6201,12 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   bool _accountOpen = false;
   final List<String> _recentSearches = [];
 
+  /// Result ordering and visibility, mirroring the catalogue tabs' filter menu.
+  /// Applies to the search view only.
+  MarketplaceSearchSort _sort = MarketplaceSearchSort.relevance;
+  bool _installedOnly = false;
+  bool _withUpdatesOnly = false;
+
   bool _hasUpdate(_ExtEntry entry) {
     final installed = widget.installedVersions[entry.id];
     if (installed == null) return false;
@@ -6298,6 +6307,28 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
     return list;
+  }
+
+  /// Results of the search view: [_visible] narrowed by the search filter menu
+  /// and re-ordered by the chosen sort. Kept separate from [_visible] so the
+  /// catalogue tabs keep their own deterministic ordering.
+  List<_ExtEntry> get _searchResults {
+    if (!_installedOnly &&
+        !_withUpdatesOnly &&
+        _sort == MarketplaceSearchSort.relevance) {
+      return _visible;
+    }
+    return applyMarketplaceSearchFilters<_ExtEntry>(
+      entries: _visible,
+      sort: _sort,
+      installedOnly: _installedOnly,
+      withUpdatesOnly: _withUpdatesOnly,
+      isInstalled: (entry) => widget.installed.contains(entry.id),
+      hasUpdate: _hasUpdate,
+      nameOf: (entry) => entry.name,
+      addedAtMillis: (entry) => entry.addedAt?.millisecondsSinceEpoch ?? 0,
+      ratingOf: _playRating,
+    );
   }
 
   /// True when the current tab would only surface adult entries and the user
@@ -6652,10 +6683,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           if (widget.error != null && widget.entries.isEmpty)
             SliverFillRemaining(hasScrollBody: false, child: _buildError())
           else if (widget.loading && widget.entries.isEmpty)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: _LoadingRows(),
-            )
+            const SliverToBoxAdapter(child: MarketplaceSkeleton())
           else if (!_searching && _needsNsfwGate) ...[
             SliverToBoxAdapter(child: _buildHero()),
             SliverToBoxAdapter(child: _buildNsfwGate()),
@@ -6681,7 +6709,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             SliverToBoxAdapter(child: _buildSearchBar()),
             if (_searchController.text.isEmpty)
               SliverToBoxAdapter(child: _buildSearchDiscovery())
-            else if (_visible.isEmpty)
+            else if (_searchResults.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _buildEmptyCatalog(),
@@ -6689,9 +6717,14 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             else ...[
               ..._buildSearchSuggestions(),
               SliverToBoxAdapter(
-                child: _buildSectionTitle(l10n.marketplace_search_results),
+                child: _buildSectionTitle(
+                  l10n.marketplace_search_results,
+                  trailing: l10n.marketplace_search_results_count(
+                    _searchResults.length,
+                  ),
+                ),
               ),
-              _buildRows(_visible),
+              _buildRows(_searchResults),
             ],
           ],
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
@@ -6799,74 +6832,150 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     );
   }
 
+  /// Search chrome shared with the extension home: a "‹" chevron, a rounded
+  /// field with the microphone inside, then the filter and sort menus *outside*
+  /// the field. Colours come from [MarketplacePalette] so the bar reads
+  /// correctly in both themes.
   Widget _buildSearchBar() {
+    final palette = _palette;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      padding: const EdgeInsets.fromLTRB(6, 6, 8, 6),
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: _surfaceHigh,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: _searchFocused || _searchController.text.isNotEmpty
-                      ? _green.withValues(alpha: 0.8)
-                      : _palette.border,
-                  width: _searchFocused ? 1.4 : 1,
-                ),
-              ),
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocus,
-                onTap: () {
-                  if (!_searching) setState(() => _searching = true);
-                },
-                onChanged: _setSearch,
-                onSubmitted: (_) => _recordSearch(),
-                style: TextStyle(
-                  color: MarketplacePalette.of(context).text,
-                  fontSize: 14,
-                ),
-                textAlignVertical: TextAlignVertical.center,
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                  prefixIcon: Icon(Icons.search_rounded, color: _muted),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
-                  ),
-                  suffixIcon: _searching && _searchController.text.isNotEmpty
-                      ? IconButton(
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {});
-                          },
-                          icon: Icon(Icons.close_rounded, color: _muted),
-                        )
-                      : Icon(Icons.mic_none_rounded, color: _muted),
-                  suffixIconConstraints: const BoxConstraints(
-                    minWidth: 44,
-                    minHeight: 48,
-                  ),
-                  hintText: context.l10n.marketplace_search_hint,
-                  hintStyle: TextStyle(color: _muted, fontSize: 14),
-                ),
-              ),
+            child: SharedSearchHeader(
+              controller: _searchController,
+              focusNode: _searchFocus,
+              hint: context.l10n.marketplace_search_hint,
+              onBack: _closeSearch,
+              onSubmit: (_) => _recordSearch(),
+              onChanged: _setSearch,
+              onMic: _startSearchDictation,
+              foregroundColor: palette.text,
+              outlineColor: _searchFocused || _searchController.text.isNotEmpty
+                  ? _green.withValues(alpha: 0.8)
+                  : palette.border,
             ),
           ),
-          if (_searching) ...[
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: _closeSearch,
-              child: Text(context.l10n.cancel, style: TextStyle(color: _green)),
-            ),
-          ],
+          _MarketplaceFilterButton(
+            active:
+                _sort != MarketplaceSearchSort.relevance ||
+                _installedOnly ||
+                _withUpdatesOnly,
+            onTap: _showSearchFilterMenu,
+          ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _startSearchDictation() async {
+    await startVoiceSearch(
+      onResult: (words) {
+        if (!mounted) return;
+        _searchController
+          ..text = words
+          ..selection = TextSelection.collapsed(offset: words.length);
+        _recordSearch(words);
+        setState(() {});
+      },
+    );
+  }
+
+  /// Sort and visibility menu for the search results, matching the sort chips
+  /// the catalogue tabs already offer.
+  void _showSearchFilterMenu() {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: cs.surfaceContainerLow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Row(
+                children: [
+                  Icon(Broken.filter, size: 18, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    context.l10n.marketplace_search_sort,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            RadioGroup<MarketplaceSearchSort>(
+              groupValue: _sort,
+              onChanged: (value) {
+                Navigator.pop(ctx);
+                if (value != null) setState(() => _sort = value);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final option
+                      in <(MarketplaceSearchSort, String, IconData)>[
+                        (
+                          MarketplaceSearchSort.relevance,
+                          context.l10n.marketplace_search_recommended,
+                          Icons.recommend_rounded,
+                        ),
+                        (
+                          MarketplaceSearchSort.recent,
+                          context.l10n.marketplace_sort_recent,
+                          Icons.new_releases_rounded,
+                        ),
+                        (
+                          MarketplaceSearchSort.installed,
+                          context.l10n.marketplace_sort_installed,
+                          Icons.download_done_rounded,
+                        ),
+                      ])
+                    RadioListTile<MarketplaceSearchSort>(
+                      value: option.$1,
+                      title: Text(option.$2),
+                      secondary: Icon(option.$3, color: cs.onSurfaceVariant),
+                    ),
+                ],
+              ),
+            ),
+            SwitchListTile(
+              value: _installedOnly,
+              onChanged: (value) {
+                Navigator.pop(ctx);
+                setState(() {
+                  _installedOnly = value;
+                  if (value) _withUpdatesOnly = false;
+                });
+              },
+              title: Text(context.l10n.marketplace_installed_only),
+              secondary: Icon(Broken.bookmark, color: cs.onSurfaceVariant),
+            ),
+            SwitchListTile(
+              value: _withUpdatesOnly,
+              onChanged: (value) {
+                Navigator.pop(ctx);
+                setState(() {
+                  _withUpdatesOnly = value;
+                  if (value) _installedOnly = false;
+                });
+              },
+              title: Text(context.l10n.marketplace_updates_available),
+              secondary: Icon(Broken.refresh_2, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
@@ -7156,9 +7265,12 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: const Size(0, 30),
                   ),
-                  child: const Text(
-                    'Effacer',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  child: Text(
+                    context.l10n.marketplace_search_clear,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -7173,7 +7285,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             const SizedBox(height: 18),
           ],
           if (popular.isNotEmpty) ...[
-            _searchDiscoveryTitle('Recherches populaires'),
+            _searchDiscoveryTitle(context.l10n.marketplace_popular_searches),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -7208,7 +7320,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _searchDiscoveryTitle('Suggestions'),
+              _searchDiscoveryTitle(
+                context.l10n.marketplace_search_suggestions,
+              ),
               const SizedBox(height: 2),
               ...suggestions.map(
                 (entry) => _SearchDiscoveryRow(
@@ -7240,7 +7354,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     );
   }
 
-  Widget _buildSectionTitle(String title, {bool showArrow = false}) {
+  Widget _buildSectionTitle(
+    String title, {
+    bool showArrow = false,
+    String? trailing,
+  }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 14, 10),
       child: Row(
@@ -7255,6 +7373,14 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               ),
             ),
           ),
+          if (trailing != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(
+                trailing,
+                style: TextStyle(color: _muted, fontSize: 12.5),
+              ),
+            ),
           if (showArrow)
             IconButton(
               onPressed: () => setState(() => _tab = 1),
@@ -8389,93 +8515,6 @@ class _ExpandableDescriptionState extends State<_ExpandableDescription> {
           ],
         );
       },
-    );
-  }
-}
-
-class _LoadingRows extends StatelessWidget {
-  const _LoadingRows();
-
-  Widget _bone(
-    BuildContext context, {
-    required double width,
-    required double height,
-    double radius = 7,
-  }) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: MarketplacePalette.of(context).surfaceHigh,
-        borderRadius: BorderRadius.circular(radius),
-      ),
-    );
-  }
-
-  Widget _card(BuildContext context, int index) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 9, 16, 9),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _bone(context, width: 54, height: 54, radius: 14),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _bone(context, width: 130 + (index % 3) * 25.0, height: 14),
-                const SizedBox(height: 6),
-                _bone(context, width: 92, height: 10, radius: 5),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    _bone(context, width: 28, height: 11, radius: 5),
-                    const SizedBox(width: 6),
-                    _bone(context, width: 13, height: 13, radius: 7),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _bone(
-                        context,
-                        width: double.infinity,
-                        height: 10,
-                        radius: 5,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          _bone(context, width: 54, height: 34, radius: 17),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ShimmerSkeleton(
-      effect: ShimmerEffect(
-        baseColor: MarketplacePalette.of(context).skeletonBase,
-        highlightColor: MarketplacePalette.of(context).skeletonHighlight,
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
-            child: Row(
-              children: [
-                _bone(context, width: 94, height: 13),
-                const Spacer(),
-                _bone(context, width: 78, height: 30, radius: 15),
-              ],
-            ),
-          ),
-          ...List.generate(7, (index) => _card(context, index)),
-        ],
-      ),
     );
   }
 }

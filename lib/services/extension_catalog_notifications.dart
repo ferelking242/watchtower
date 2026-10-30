@@ -61,7 +61,13 @@ class ExtensionCatalogNotifications {
   static const _seenPrefix = 'watchtower_extension_catalog_seen_v1:';
   static const _pendingKey = 'watchtower_extension_catalog_pending_v1';
   static const _pendingUpdatesKey = 'watchtower_extension_updates_pending_v1';
+  static const _dismissedUpdatesKey =
+      'watchtower_extension_updates_dismissed_v1';
   static const _maxPending = 100;
+
+  /// Upper bound on the dismissed-update ledger. One signature per extension
+  /// version, so this covers far more history than a user will ever generate.
+  static const _maxDismissed = 400;
   static Future<void> _writeQueue = Future<void>.value();
 
   static Future<T> _serialize<T>(Future<T> Function() action) {
@@ -98,10 +104,17 @@ class ExtensionCatalogNotifications {
 
       // Record the first successful fetch as the baseline instead of
       // notifying users about every extension that already exists.
-      await prefs.setStringList(seenKey, currentIds);
+      //
+      // The ledger is a *union* of every id ever seen, never a replacement: a
+      // transient partial fetch (a repo momentarily returning fewer entries)
+      // used to shrink the set, so the next full fetch looked like a burst of
+      // brand-new extensions and re-announced sources the user had already
+      // seen. Accumulating keeps an id announced exactly once.
+      final previous = previousIds?.toSet() ?? const <String>{};
+      final union = <String>{...previous, ...currentIds}.toList()..sort();
+      await prefs.setStringList(seenKey, union);
       if (previousIds == null) return const [];
 
-      final previous = previousIds.toSet();
       final newlyPublished = catalogEntries.values
           .where((entry) => !previous.contains(entry.key))
           .map(
@@ -196,6 +209,7 @@ class ExtensionCatalogNotifications {
   static Future<void> dismissPendingUpdate({
     required int id,
     required ItemType itemType,
+    String? signature,
   }) {
     return _serialize(() async {
       final prefs = await SharedPreferences.getInstance();
@@ -207,7 +221,57 @@ class ExtensionCatalogNotifications {
         _pendingUpdatesKey,
         remaining.map((entry) => jsonEncode(entry.toJson())).toList(),
       );
+      if (signature != null && signature.isNotEmpty) {
+        await _rememberDismissedUpdate(prefs, signature);
+      }
     });
+  }
+
+  /// Signatures of the extension updates the user has already acknowledged.
+  ///
+  /// The update itself is derived from live Isar state (`versionLast` vs
+  /// `version`), so removing a notice from the pending list is not enough: the
+  /// source still reports a pending update and the notice would reappear on the
+  /// next load. Recording the acknowledged `version + layout` signature lets the
+  /// Notifications screen hide exactly what was seen, while a genuinely newer
+  /// version produces a different signature and shows up again.
+  static Future<Set<String>> dismissedUpdateSignatures() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_dismissedUpdatesKey) ?? const <String>[])
+        .toSet();
+  }
+
+  /// Forgets the acknowledged signatures of one extension.
+  ///
+  /// Called after a successful install/update so the next version is announced
+  /// again; the ledger is keyed by the source, not by the version, so it is
+  /// pruned by prefix.
+  static Future<void> clearDismissedUpdates({
+    required int id,
+    required ItemType itemType,
+  }) {
+    return _serialize(() async {
+      final prefs = await SharedPreferences.getInstance();
+      final prefix = '${itemType.index}:$id:';
+      final kept = (prefs.getStringList(_dismissedUpdatesKey) ?? const <String>[])
+          .where((signature) => !signature.startsWith(prefix))
+          .toList(growable: false);
+      await prefs.setStringList(_dismissedUpdatesKey, kept);
+    });
+  }
+
+  static Future<void> _rememberDismissedUpdate(
+    SharedPreferences prefs,
+    String signature,
+  ) async {
+    final current = prefs.getStringList(_dismissedUpdatesKey) ?? <String>[];
+    if (current.contains(signature)) return;
+    final next = <String>[...current, signature];
+    // Keep the most recent signatures; the ledger is append-only otherwise.
+    final trimmed = next.length > _maxDismissed
+        ? next.sublist(next.length - _maxDismissed)
+        : next;
+    await prefs.setStringList(_dismissedUpdatesKey, trimmed);
   }
 
   static Future<List<ExtensionPublicationNotice>> _readPending(

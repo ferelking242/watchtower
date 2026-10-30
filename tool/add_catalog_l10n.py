@@ -409,6 +409,74 @@ BROWSE = [
 PLURAL_KEY = "catalog_shelf_count"
 PLURAL_VALUE = "{count, plural, =1{{count} extension} other{{count} extensions}}"
 
+# Notification centre. Messages are phrased as sentences ("Pornhub extension
+# update") rather than card titles, because the screen groups several updates
+# into one message and each child must read as a line of text.
+NOTIFICATIONS = [
+    ("notifications_title", "Notifications", "Notifications"),
+    ("notifications_refresh_tooltip", "Refresh", "Actualiser"),
+    ("notifications_load_error", "Could not load the notifications.",
+     "Impossible de charger les notifications."),
+    ("notifications_checking_updates", "Checking for updates…",
+     "Vérification des mises à jour…"),
+    ("notifications_updates_subtitle",
+     "Your installed extensions have a new version.",
+     "Tes extensions installées ont une nouvelle version."),
+    ("notifications_update_single", "{name} extension update",
+     "Mise à jour de l’extension {name}"),
+    ("notifications_update_message", "{name} extension update",
+     "Mise à jour de l’extension {name}"),
+    ("notifications_updates_count",
+     "{count, plural, =1{{count} extension update} other{{count} extension updates}}",
+     "{count, plural, =1{{count} mise à jour d’extension} other{{count} mises à jour d’extensions}}"),
+    ("notifications_install_all", "Install all", "Tout installer"),
+    ("notifications_install", "Install", "Installer"),
+    ("notifications_dismiss_update", "Hide this update",
+     "Masquer cette mise à jour"),
+    ("notifications_updated_toast", "{name} updated", "{name} mise à jour"),
+    ("notifications_install_failed", "Install failed: {error}",
+     "Installation impossible : {error}"),
+    ("notifications_new_count",
+     "{count, plural, =1{{count} new extension published} other{{count} new extensions published}}",
+     "{count, plural, =1{{count} nouvelle extension publiée} other{{count} nouvelles extensions publiées}}"),
+    ("notifications_new_subtitle",
+     "Discover the latest extensions in the catalogue.",
+     "Découvre les dernières extensions du catalogue."),
+    ("notifications_browse_marketplace", "Browse the Marketplace",
+     "Parcourir le Marketplace"),
+    ("notifications_hide", "Hide this notification",
+     "Masquer cette notification"),
+    ("notifications_library_count",
+     "{count, plural, =1{{count} library update} other{{count} library updates}}",
+     "{count, plural, =1{{count} mise à jour de bibliothèque} other{{count} mises à jour de bibliothèque}}"),
+    ("notifications_library_subtitle", "New chapters are available.",
+     "De nouveaux chapitres sont disponibles."),
+    ("notifications_view_updates", "View updates", "Voir les mises à jour"),
+    ("notifications_none", "No new notification", "Aucune nouvelle notification"),
+]
+
+# Marketplace search page: category boxes, filter and sort menus.
+SEARCH_PAGE = [
+    ("marketplace_search_categories_title", "Browse by category",
+     "Parcourir par catégorie"),
+    ("marketplace_search_recommended", "Recommended", "Recommandations"),
+    ("marketplace_search_all_results", "All results", "Tous les résultats"),
+    ("marketplace_search_sort", "Sort", "Trier"),
+    ("marketplace_search_sort_title", "Sort by", "Trier par"),
+    ("marketplace_search_filters", "Filters", "Filtres"),
+    ("marketplace_search_no_results_title", "No result", "Aucun résultat"),
+    ("marketplace_search_no_results_body",
+     "Nothing matches your search.", "Rien ne correspond à ta recherche."),
+    ("marketplace_search_suggestions", "Suggestions", "Suggestions"),
+    ("marketplace_search_clear", "Clear", "Effacer"),
+    ("marketplace_search_results_count",
+     "{count, plural, =1{{count} result} other{{count} results}}",
+     "{count, plural, =1{{count} résultat} other{{count} résultats}}"),
+    ("marketplace_sort_alpha", "A → Z", "A → Z"),
+    ("marketplace_sort_recent", "Recently added", "Récemment ajoutées"),
+    ("marketplace_sort_installed", "Installed first", "Installées d’abord"),
+]
+
 
 def quote(value):
     """JSON string literal for an ARB value.
@@ -452,6 +520,10 @@ en_entries += [(key, en) for key, en, _ in MARKETPLACE]
 fr_entries += [(key, fr) for key, _, fr in MARKETPLACE]
 en_entries += [(key, en) for key, en, _ in BROWSE]
 fr_entries += [(key, fr) for key, _, fr in BROWSE]
+en_entries += [(key, en) for key, en, _ in NOTIFICATIONS]
+fr_entries += [(key, fr) for key, _, fr in NOTIFICATIONS]
+en_entries += [(key, en) for key, en, _ in SEARCH_PAGE]
+fr_entries += [(key, fr) for key, _, fr in SEARCH_PAGE]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 
