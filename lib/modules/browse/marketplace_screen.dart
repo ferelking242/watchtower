@@ -2580,7 +2580,9 @@ class _PlayStoreCard extends StatelessWidget {
     final compatLabel = _MarketplaceScreenState._compatLabel(entry.compat);
     final langCode = _MarketplaceScreenState._langCode(entry.lang);
     final slug = _slugify(entry.name);
-    final localizedDesc = entry.localizedDescription(l10n.localeName);
+    final localizedDesc = entry.localizedDescription(
+      Localizations.localeOf(context).toLanguageTag(),
+    );
     final desc = localizedDesc.isNotEmpty
         ? localizedDesc
         : entry.description.isNotEmpty
