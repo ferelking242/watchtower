@@ -75,8 +75,8 @@ void main() {
     expect(find.byType(FractionallySizedBox), findsNothing);
   });
 
-  testWidgets('supports a thin MovieBox-style queue bar', (tester) async {
-    await tester.pumpWidget(_host(0.4, height: 2));
+  testWidgets('supports a visible MovieBox-style queue bar', (tester) async {
+    await tester.pumpWidget(_host(0.4, height: 3));
     final bar = tester.widget<SizedBox>(
       find.descendant(
         of: find.byType(MbGradientProgressBar),
@@ -84,7 +84,7 @@ void main() {
       ),
     );
 
-    expect(bar.height, 2);
+    expect(bar.height, 3);
   });
 
   testWidgets('queue thumbnail uses MovieBox landscape proportions', (
