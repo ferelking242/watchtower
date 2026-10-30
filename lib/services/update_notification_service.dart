@@ -83,7 +83,17 @@ const String _kMediaDownloadActiveCategory = 'media_download_active';
 const String _kMediaDownloadPausedCategory = 'media_download_paused';
 const String _kMediaDownloadFailedCategory = 'media_download_failed';
 
+const String _kActionQueuePause = 'action_queue_pause';
+const String _kActionQueueResume = 'action_queue_resume';
+const String _kActionQueueCancel = 'action_queue_cancel';
+const int _kQueueNotificationId = 880041;
+const String _kQueueNotificationCategory = 'download_queue';
+
 enum MediaDownloadNotificationAction { pause, resume, cancel, retry }
+
+/// Actions available on the single notification that mirrors the whole
+/// download queue (shown when the enqueue box is sent to the background).
+enum DownloadQueueNotificationAction { pause, resume, cancel }
 
 class WatchtowerNotificationService {
   WatchtowerNotificationService._();
@@ -99,6 +109,8 @@ class WatchtowerNotificationService {
   Future<String?> Function()? _extensionUpdateInstaller;
   Future<void> Function(int chapterId, MediaDownloadNotificationAction action)?
   _mediaDownloadActionHandler;
+  Future<void> Function(DownloadQueueNotificationAction action)?
+  _downloadQueueActionHandler;
   String? _pendingDownloadUrl;
   String? _pendingReleaseUrl;
   String? _pendingInstallPath;
@@ -117,6 +129,14 @@ class WatchtowerNotificationService {
     handler,
   ) {
     _mediaDownloadActionHandler = handler;
+  }
+
+  /// Registers the handler backing the bulk-queue notification's pause /
+  /// resume / cancel buttons.
+  void registerDownloadQueueActionHandler(
+    Future<void> Function(DownloadQueueNotificationAction action) handler,
+  ) {
+    _downloadQueueActionHandler = handler;
   }
 
   Future<void> init() async {
@@ -164,6 +184,33 @@ class WatchtowerNotificationService {
               ),
               DarwinNotificationAction.plain(
                 _kActionMediaCancel,
+                'Annuler',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                  DarwinNotificationActionOption.destructive,
+                },
+              ),
+            ],
+          ),
+          DarwinNotificationCategory(
+            _kQueueNotificationCategory,
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                _kActionQueuePause,
+                'Pause',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                _kActionQueueResume,
+                'Reprendre',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+              DarwinNotificationAction.plain(
+                _kActionQueueCancel,
                 'Annuler',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.foreground,
@@ -274,6 +321,7 @@ class WatchtowerNotificationService {
   }
 
   void _handleAction(NotificationResponse response) {
+    if (_dispatchQueueAction(response)) return;
     if (_dispatchMediaDownloadAction(response)) return;
     final actionId = response.actionId;
     final isExtensionUpdate =
@@ -1334,6 +1382,126 @@ class WatchtowerNotificationService {
       filePath: notice.filePath,
       isFailed: true,
     );
+  }
+
+  bool _dispatchQueueAction(NotificationResponse response) {
+    final action = switch (response.actionId) {
+      _kActionQueuePause => DownloadQueueNotificationAction.pause,
+      _kActionQueueResume => DownloadQueueNotificationAction.resume,
+      _kActionQueueCancel => DownloadQueueNotificationAction.cancel,
+      _ => null,
+    };
+    if (action == null) return false;
+    final payload = response.payload;
+    if (payload == null || !payload.contains('"type":"download_queue"')) {
+      return false;
+    }
+    final handler = _downloadQueueActionHandler;
+    if (handler == null) return true;
+    unawaited(
+      handler(action).catchError((Object error, StackTrace stack) {
+        AppLogger.log(
+          'Download queue notification action failed: $error',
+          logLevel: LogLevel.error,
+          tag: LogTag.network,
+        );
+      }),
+    );
+    return true;
+  }
+
+  /// Mirrors the bulk-enqueue box as a notification so the user can send the
+  /// dialog to the background and still pause/resume or cancel the run.
+  Future<void> showDownloadQueueProgress({
+    required int done,
+    required int total,
+    required bool paused,
+    required bool finished,
+    int queued = 0,
+    int failed = 0,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    try {
+      if (finished) {
+        await _plugin.cancel(_kQueueNotificationId);
+        return;
+      }
+      final progress = total > 0 ? done / total : 0.0;
+      final androidDetails = AndroidNotificationDetails(
+        _kDownloadChannelId,
+        _kDownloadChannelName,
+        channelDescription: 'Progression de chaque téléchargement Watchtower',
+        importance: Importance.low,
+        priority: Priority.low,
+        onlyAlertOnce: true,
+        showProgress: true,
+        maxProgress: 100,
+        progress: (progress * 100).round(),
+        ongoing: !paused,
+        autoCancel: false,
+        playSound: false,
+        enableVibration: false,
+        actions: paused
+            ? const [
+                AndroidNotificationAction(
+                  _kActionQueueResume,
+                  'Reprendre',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+                AndroidNotificationAction(
+                  _kActionQueueCancel,
+                  'Annuler',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+              ]
+            : const [
+                AndroidNotificationAction(
+                  _kActionQueuePause,
+                  'Pause',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+                AndroidNotificationAction(
+                  _kActionQueueCancel,
+                  'Annuler',
+                  showsUserInterface: true,
+                  cancelNotification: false,
+                ),
+              ],
+      );
+      final iosDetails = DarwinNotificationDetails(
+        threadIdentifier: _kQueueNotificationCategory,
+        categoryIdentifier: _kQueueNotificationCategory,
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: false,
+      );
+      await _plugin.show(
+        _kQueueNotificationId,
+        paused ? 'Mise en file en pause' : 'Mise en file des téléchargements',
+        '$done/$total éléments'
+            '${queued > 0 ? ' · $queued vidéo(s)' : ''}'
+            '${failed > 0 ? ' · $failed échec(s)' : ''}',
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+        payload: jsonEncode(const <String, dynamic>{'type': 'download_queue'}),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showDownloadQueueProgress failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
+  }
+
+  Future<void> cancelDownloadQueueNotification() async {
+    if (!_supported) return;
+    try {
+      await _plugin.cancel(_kQueueNotificationId);
+    } catch (_) {}
   }
 
   Future<void> cancelMediaDownloadNotification(int chapterId) async {

@@ -38,6 +38,7 @@ import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/widgets/kaomoji_empty.dart';
@@ -1740,6 +1741,22 @@ class _ExtensionLayoutSectionState
       seeAllPage: widget.section.seeAllPage,
     );
     final sectionAction = widget.section.seeAll ? onSeeAll : null;
+    // Three-dot overflow: same bulk-download entries as the "voir tout" page
+    // (Télécharger, Tout télécharger, Télécharger 5/10/25…), so a section can
+    // be queued straight from the home feed.
+    final trailing = AdaptiveOverlayMenu<CatalogBulkDownloadAction>(
+      tooltip: 'Options',
+      icon: const Icon(Broken.more_2, size: 22),
+      menuWidth: 240,
+      onSelected: (action) => CatalogBulkDownload.handleMenu(
+        context,
+        ref,
+        widget.source,
+        items,
+        action,
+      ),
+      itemBuilder: (_) => CatalogBulkDownload.menuItems(),
+    );
 
     return ExtensionLayoutPreview(
       title: _title,
@@ -1757,6 +1774,7 @@ class _ExtensionLayoutSectionState
       gridOrder: widget.section.gridOrder,
       scrollDirection: widget.section.scrollDirection,
       params: widget.section.params,
+      trailing: trailing,
     );
   }
 }
@@ -1785,6 +1803,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
     this.gridOrder,
     this.scrollDirection,
     this.params = const {},
+    this.trailing,
     super.key,
   });
 
@@ -1803,6 +1822,9 @@ class ExtensionLayoutPreview extends StatelessWidget {
   final String? gridOrder;
   final String? scrollDirection;
   final Map<String, dynamic> params;
+
+  /// Three-dot overflow control shown at the right end of the section header.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -2001,6 +2023,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
         },
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
+        trailing: trailing,
       );
       return Padding(
         padding: const EdgeInsets.only(bottom: 6),
@@ -2018,6 +2041,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
+        trailing: trailing,
       ),
       LayoutComponentRenderer.ranked => MediaRankedRail(
         title: title,
@@ -2030,10 +2054,12 @@ class ExtensionLayoutPreview extends StatelessWidget {
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
+        trailing: trailing,
       ),
       LayoutComponentRenderer.grid => MediaGridSection(
         title: title,
         items: gridItems,
+        trailing: trailing,
         onOpen: (index) {
           if (episodeCardComponent != null) {
             onOpen(episodeCards[index].series);
@@ -2063,6 +2089,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
         items: contentItems,
         onOpen: (index) => onOpen(items[index]),
         onSeeAll: onSeeAll,
+        trailing: trailing,
       ),
       LayoutComponentRenderer.mangaFeaturedCard => MediaPosterRail(
         title: title,

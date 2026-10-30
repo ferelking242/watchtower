@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
+import 'package:watchtower/utils/mosaic_cover.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +21,7 @@ import 'package:watchtower/services/download_manager/download_settings_service.d
 import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/cover_url.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
@@ -2087,13 +2090,17 @@ class _GroupedDownloadTabListState
   /// thumbnail instead of all falling back to the same series poster.
   String? _resolveCover(Download download) {
     final direct = download.posterUrl?.trim();
-    if (direct != null && direct.isNotEmpty) return direct;
+    if (direct != null && direct.isNotEmpty) return normalizeCoverUrl(direct);
     final chapter = download.chapter.value;
     final chapterThumb = chapter?.thumbnailUrl?.trim();
-    if (chapterThumb != null && chapterThumb.isNotEmpty) return chapterThumb;
+    if (chapterThumb != null && chapterThumb.isNotEmpty) {
+      return normalizeCoverUrl(chapterThumb);
+    }
     final manga = chapter?.manga.value;
     final mangaImage = manga?.imageUrl?.trim();
-    if (mangaImage != null && mangaImage.isNotEmpty) return mangaImage;
+    if (mangaImage != null && mangaImage.isNotEmpty) {
+      return normalizeCoverUrl(mangaImage);
+    }
     return null;
   }
 
@@ -2474,11 +2481,6 @@ class _DownloadCard extends ConsumerWidget {
 
     final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
 
-    final epMatch = RegExp(
-      r'S\s?\d{1,3}\s?[ExXÉ]\s?\d{1,3}',
-      caseSensitive: false,
-    ).firstMatch(chapter?.name ?? '');
-    final epTag = epMatch?.group(0)?.replaceAll(RegExp(r'\s'), '');
     var srcBadge = (manga?.source ?? '')
         .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
         .toUpperCase();
@@ -3023,9 +3025,33 @@ class _DownloadCard extends ConsumerWidget {
     }
 
     // ── Standard layout (default) ───────────────────────────────────────────
+    // MovieBox scheme requested for video queues:
+    //   • title line, three-dot menu pinned at its right end;
+    //   • progress bar, pause/play button pinned at its right end;
+    //   • under the bar, the file's real (final) size on the left and the live
+    //     transfer speed on the right. Nothing else — no "already received"
+    //     counter, no engine badge.
+    final finalSizeBytes = trustedDownloadByteCount(
+      download.totalBytes ?? live?.totalBytes,
+    );
+    final sizeLabel = finalSizeBytes != null && finalSizeBytes > 0
+        ? _formatBytes(finalSizeBytes)
+        : '';
+    final speedLabel = !isComplete && !hasFailed && !isPaused && speedMbs > 0.05
+        ? '${_formatSpeed(speedMbs)}/s'
+        : null;
+    final bottomColor = hasFailed
+        ? mbRed
+        : isCancelled
+        ? mbRed
+        : isPaused
+        ? mbAmber
+        : scheme.onSurfaceVariant;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           MbThumb(
             imageUrl: _itemCover(download),
@@ -3038,9 +3064,11 @@ class _DownloadCard extends ConsumerWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // ── Titre … 3 points à l'extrémité droite ──
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (priority > 0) ...[
                       const Icon(Icons.bolt_rounded, size: 13, color: mbAmber),
@@ -3048,7 +3076,7 @@ class _DownloadCard extends ConsumerWidget {
                     ],
                     Expanded(
                       child: Text(
-                        manga?.name ?? 'Inconnu',
+                        _cardTitle(chapter, manga),
                         style: TextStyle(
                           color: scheme.onSurface,
                           fontSize: 13.5,
@@ -3058,77 +3086,105 @@ class _DownloadCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (epTag != null) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        epTag,
-                        style: TextStyle(
-                          color: scheme.onSurfaceVariant,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                    MbCardMenu(
+                      isComplete: isComplete,
+                      hasFailed: hasFailed,
+                      isPaused: isPaused,
+                      onPauseResume: onPauseResume,
+                      onCancel: onCancel,
+                      onDelete: onDelete,
+                      onRetry: onRetry,
+                      onOpen: onOpen,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 7),
-                MbGradientProgressBar(
-                  value: isProgressIndeterminate
-                      ? null
-                      : progress > 0
-                      ? progress
-                      : 0,
-                  height: 6,
-                  paused: isPaused,
-                  failed: hasFailed,
+                const SizedBox(height: 8),
+                // ── Barre de progression … pause/play à droite ──
+                Row(
+                  children: [
+                    Expanded(
+                      child: MbGradientProgressBar(
+                        value: isProgressIndeterminate
+                            ? null
+                            : progress > 0
+                            ? progress
+                            : 0,
+                        height: 6,
+                        paused: isPaused,
+                        failed: hasFailed,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    MbPlayPauseButton(
+                      isComplete: isComplete,
+                      hasFailed: hasFailed,
+                      isPaused: isPaused,
+                      onPauseResume: onPauseResume,
+                      onRetry: onRetry,
+                      onOpen: onOpen,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 7),
+                const SizedBox(height: 6),
+                // ── Poids réel du fichier (gauche) … vitesse (droite) ──
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        hasFailed
-                            ? 'Échec'
-                            : isCancelled
-                            ? 'Annulé'
-                            : isPaused
-                            ? 'En pause'
-                            : isComplete
-                            ? 'Terminé'
-                            : progressLabel,
+                        sizeLabel,
                         style: TextStyle(
-                          color: hasFailed
-                              ? mbRed
-                              : isCancelled
-                              ? mbRed
-                              : isPaused
-                              ? mbAmber
-                              : scheme.onSurfaceVariant,
+                          color: bottomColor,
                           fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (speedLabel != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        speedLabel,
+                        style: TextStyle(
+                          color: scheme.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          MbRowActions(
-            isComplete: isComplete,
-            hasFailed: hasFailed,
-            isPaused: isPaused,
-            onPauseResume: onPauseResume,
-            onCancel: onCancel,
-            onDelete: onDelete,
-            onRetry: onRetry,
-            onOpen: onOpen,
-          ),
         ],
       ),
     );
+  }
+
+  /// MovieBox card title: `Series [lang]… S01 E02`. Falls back to the series
+  /// name for films (no episode marker in the chapter name).
+  static String _cardTitle(Chapter? chapter, Manga? manga) {
+    final series = (manga?.name ?? 'Inconnu').trim();
+    final raw = (chapter?.name ?? '').trim();
+    if (raw.isEmpty) return series;
+    final em = RegExp(
+      r'(?:S\s?(\d{1,3})\s?)?[ExXÉ]\s?(\d{1,3})',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (em == null) return series;
+    final season = (em.group(1) ?? '1').padLeft(2, '0');
+    final episode = (em.group(2) ?? '1').padLeft(2, '0');
+    return '$series S$season E$episode';
+  }
+
+  /// `1.2 MB` / `688 KB` — decimal, matching the MovieBox speed readout.
+  static String _formatSpeed(double mbs) {
+    if (mbs >= 1) return '${mbs.toStringAsFixed(1)} MB';
+    final kbs = mbs * 1024;
+    if (kbs >= 1) return '${kbs.round()} KB';
+    return '${(mbs * 1024 * 1024).round()} B';
   }
 
   /// This download's own artwork when the extension provides one, otherwise
@@ -3136,13 +3192,17 @@ class _DownloadCard extends ConsumerWidget {
   /// thumbnail instead of every card falling back to the same series poster.
   String? _itemCover(Download download) {
     final direct = download.posterUrl?.trim();
-    if (direct != null && direct.isNotEmpty) return direct;
+    if (direct != null && direct.isNotEmpty) return normalizeCoverUrl(direct);
     final chapter = download.chapter.value;
     final chapterThumb = chapter?.thumbnailUrl?.trim();
-    if (chapterThumb != null && chapterThumb.isNotEmpty) return chapterThumb;
+    if (chapterThumb != null && chapterThumb.isNotEmpty) {
+      return normalizeCoverUrl(chapterThumb);
+    }
     final manga = chapter?.manga.value;
     final mangaImage = manga?.imageUrl?.trim();
-    if (mangaImage != null && mangaImage.isNotEmpty) return mangaImage;
+    if (mangaImage != null && mangaImage.isNotEmpty) {
+      return normalizeCoverUrl(mangaImage);
+    }
     return null;
   }
 
@@ -3285,12 +3345,17 @@ class _CoverThumbnail extends StatelessWidget {
     if (imageUrl != null && imageUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: cachedNetworkImage(
-          imageUrl: imageUrl!,
+        child: MosaicAwareCover(
+          url: imageUrl,
           width: w,
           height: h,
-          fit: BoxFit.cover,
-          errorWidget: placeholder,
+          child: cachedNetworkImage(
+            imageUrl: imageUrl!,
+            width: w,
+            height: h,
+            fit: BoxFit.cover,
+            errorWidget: placeholder,
+          ),
         ),
       );
     }

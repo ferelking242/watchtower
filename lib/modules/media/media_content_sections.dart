@@ -123,6 +123,7 @@ class MediaPosterRail extends StatelessWidget {
     required this.items,
     required this.onOpen,
     this.onSeeAll,
+    this.trailing,
     super.key,
   });
 
@@ -130,6 +131,9 @@ class MediaPosterRail extends StatelessWidget {
   final List<ContentItem> items;
   final ValueChanged<int> onOpen;
   final VoidCallback? onSeeAll;
+
+  /// Extra control pinned at the right end of the header (three-dot menu).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +145,7 @@ class MediaPosterRail extends StatelessWidget {
           title: title,
           actionLabel: onSeeAll == null ? null : 'All >',
           onAction: onSeeAll,
+          trailing: trailing,
         ),
         SizedBox(
           width: double.infinity,
@@ -177,6 +182,7 @@ class MediaLandscapeRail extends StatelessWidget {
     required this.items,
     required this.onOpen,
     this.onSeeAll,
+    this.trailing,
     this.width = 238,
     this.height = 184,
     super.key,
@@ -186,6 +192,9 @@ class MediaLandscapeRail extends StatelessWidget {
   final List<ContentItem> items;
   final ValueChanged<int> onOpen;
   final VoidCallback? onSeeAll;
+
+  /// Extra control pinned at the right end of the header (three-dot menu).
+  final Widget? trailing;
   final double width;
   final double height;
 
@@ -209,6 +218,7 @@ class MediaLandscapeRail extends StatelessWidget {
           title: title,
           actionLabel: onSeeAll == null ? null : 'All >',
           onAction: onSeeAll,
+          trailing: trailing,
         ),
         SizedBox(
           height: effectiveHeight,
@@ -238,6 +248,7 @@ class MediaRankedRail extends StatelessWidget {
     required this.items,
     required this.onOpen,
     this.onSeeAll,
+    this.trailing,
     super.key,
   });
 
@@ -245,6 +256,9 @@ class MediaRankedRail extends StatelessWidget {
   final List<ContentItem> items;
   final ValueChanged<int> onOpen;
   final VoidCallback? onSeeAll;
+
+  /// Extra control pinned at the right end of the header (three-dot menu).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +270,7 @@ class MediaRankedRail extends StatelessWidget {
           title: title,
           actionLabel: onSeeAll == null ? null : 'All >',
           onAction: onSeeAll,
+          trailing: trailing,
         ),
         SizedBox(
           height: 208,
@@ -288,6 +303,7 @@ class MediaBannerRail extends StatefulWidget {
     required this.items,
     required this.onOpen,
     this.onSeeAll,
+    this.trailing,
     super.key,
   });
 
@@ -295,6 +311,9 @@ class MediaBannerRail extends StatefulWidget {
   final List<ContentItem> items;
   final ValueChanged<int> onOpen;
   final VoidCallback? onSeeAll;
+
+  /// Extra control pinned at the right end of the header (three-dot menu).
+  final Widget? trailing;
 
   @override
   State<MediaBannerRail> createState() => _MediaBannerRailState();
@@ -328,6 +347,7 @@ class _MediaBannerRailState extends State<MediaBannerRail> {
           title: widget.title,
           actionLabel: widget.onSeeAll == null ? null : 'All >',
           onAction: widget.onSeeAll,
+          trailing: widget.trailing,
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(
@@ -453,6 +473,7 @@ class MediaGridSection extends StatelessWidget {
     required this.items,
     required this.onOpen,
     this.onSeeAll,
+    this.trailing,
     this.columns,
     this.rows,
     this.scrollDirection,
@@ -465,6 +486,9 @@ class MediaGridSection extends StatelessWidget {
   final List<ContentItem> items;
   final ValueChanged<int> onOpen;
   final VoidCallback? onSeeAll;
+
+  /// Extra control pinned at the right end of the header (three-dot menu).
+  final Widget? trailing;
   final int? columns;
   final int? rows;
   final String? scrollDirection;
@@ -504,6 +528,7 @@ class MediaGridSection extends StatelessWidget {
           title: title,
           actionLabel: onSeeAll == null ? null : 'All >',
           onAction: onSeeAll,
+          trailing: trailing,
         ),
         SizedBox(
           height: horizontal

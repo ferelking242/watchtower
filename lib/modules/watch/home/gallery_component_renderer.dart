@@ -35,6 +35,7 @@ class GalleryComponentContext {
     this.accent,
     this.params = const {},
     this.onSeeAll,
+    this.trailing,
   });
 
   final String componentId;
@@ -44,6 +45,11 @@ class GalleryComponentContext {
   final Color? accent;
   final Map<String, dynamic> params;
   final VoidCallback? onSeeAll;
+
+  /// Extra control pinned at the right end of the section header, after the
+  /// "Tout voir" action. The home screen passes the three-dot bulk-download
+  /// menu here so every section that opts in exposes the same entries.
+  final Widget? trailing;
 
   GalleryComponentFamily? get family =>
       GalleryComponentCatalog.resolve(componentId)?.renderer;
@@ -183,6 +189,7 @@ class GalleryComponentRenderer {
           title: title,
           actionLabel: ctx.onSeeAll == null ? null : 'Tout voir',
           onAction: ctx.onSeeAll,
+          trailing: ctx.trailing,
         ),
         child,
       ],
@@ -1042,6 +1049,7 @@ class GalleryComponentRenderer {
           title: title,
           actionLabel: ctx.onSeeAll == null ? null : 'Tout voir',
           onAction: ctx.onSeeAll,
+          trailing: ctx.trailing,
         ),
         child,
       ],

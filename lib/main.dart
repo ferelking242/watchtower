@@ -67,6 +67,7 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
+import 'package:watchtower/modules/media/widgets/bulk_enqueue_controller.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/device_capabilities.dart';
 import 'cli/watchtower_cli.dart'
@@ -588,6 +589,9 @@ class _MyAppState extends ConsumerState<MyApp>
     WatchtowerNotificationService.instance.registerMediaDownloadActionHandler(
       (chapterId, action) =>
           handleMediaDownloadNotificationAction(ref, chapterId, action),
+    );
+    WatchtowerNotificationService.instance.registerDownloadQueueActionHandler(
+      BulkEnqueueController.handleNotificationAction,
     );
     WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {

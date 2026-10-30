@@ -379,12 +379,16 @@ class AppSectionHeader extends StatelessWidget {
     required this.title,
     this.actionLabel,
     this.onAction,
+    this.trailing,
     super.key,
   });
 
   final String title;
   final String? actionLabel;
   final VoidCallback? onAction;
+
+  /// Extra control pinned after the action label, e.g. a three-dot menu.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -416,6 +420,7 @@ class AppSectionHeader extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
               ),
             ),
+          if (trailing != null) trailing!,
         ],
       ),
     );

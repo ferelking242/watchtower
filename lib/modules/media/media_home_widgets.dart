@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +18,7 @@ import 'package:watchtower/modules/watch/home/extension_person_route.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:isar_community/isar.dart';
 
@@ -31,12 +34,14 @@ import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/extension_worker_count.dart';
-import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
 import 'app_ui_components.dart';
 import 'content_cards.dart';
 import 'tmdb_genres_screen.dart';
+import 'widgets/bulk_enqueue_controller.dart';
+import 'widgets/bulk_enqueue_dialog.dart';
+import 'widgets/catalog_bulk_download_sheet.dart';
 
 /// One feed composition for both Hub destinations. Only the selected data
 /// lists and the catalogue paths change between films and series.
@@ -1864,9 +1869,25 @@ abstract final class CatalogBulkDownload {
       return;
     }
 
-    final progress = ValueNotifier<_BulkDownloadProgress>(
-      _BulkDownloadProgress(total: targets.length),
+    // Configuration avant mise en file : formats par vidéo, qualité/langue en
+    // masse (avec repli supérieure/inférieure), langues et saisons.
+    final plan = await showCatalogBulkDownloadSheet(
+      context: context,
+      ref: ref,
+      source: source,
+      items: targets,
     );
+    if (plan == null || plan.items.isEmpty) return;
+    if (!context.mounted) return;
+
+    final controller = BulkEnqueueController(total: plan.items.length);
+    BulkEnqueueController.active = controller;
+    final titles = [
+      for (final entry in plan.items)
+        entry.item.name?.trim().isNotEmpty == true
+            ? entry.item.name!.trim()
+            : 'Vidéo',
+    ];
     BuildContext? dialogContext;
     void closeDialog() {
       final ctx = dialogContext;
@@ -1878,26 +1899,47 @@ abstract final class CatalogBulkDownload {
       barrierDismissible: false,
       builder: (ctx) {
         dialogContext = ctx;
-        return _BulkDownloadProgressDialog(
-          progress: progress,
-          onCancel: () => progress.value = progress.value.cancel(),
+        return BulkEnqueueDialog(
+          controller: controller,
+          titles: titles,
+          onBackground: () {
+            controller.setBackgrounded(true);
+            unawaited(
+              WatchtowerNotificationService.instance
+                  .showDownloadQueueProgress(
+                    done: controller.done,
+                    total: controller.total,
+                    paused: controller.paused,
+                    finished: false,
+                    queued: controller.queued,
+                    failed: controller.failed,
+                  ),
+            );
+            closeDialog();
+          },
         );
       },
     );
 
     // Pool de travailleurs : récupère les détails de plusieurs items en
-    // parallèle, arrête de prendre de nouveaux items dès l'annulation.
+    // parallèle. Pause et annulation sont pilotées par le contrôleur partagé
+    // (box ou notification) : un travailleur ne prend un nouvel item que si le
+    // tour est libre.
     final concurrency = getRecommendedExtensionWorkerCount();
     var nextIndex = 0;
     Future<void> worker() async {
-      while (true) {
-        if (progress.value.cancelled || nextIndex >= targets.length) return;
+      while (await controller.waitTurn()) {
+        if (nextIndex >= plan.items.length) return;
         final index = nextIndex++;
         try {
-          final chapters = await _enqueueItemDownloads(ref, source, targets[index]);
-          progress.value = progress.value.withResult(queued: chapters, done: 1);
+          final chapters = await _enqueueItemDownloads(
+            ref,
+            source,
+            plan.items[index],
+          );
+          controller.report(queued: chapters);
         } catch (_) {
-          progress.value = progress.value.withResult(failed: 1, done: 1);
+          controller.report(failed: 1);
         }
       }
     }
@@ -1908,22 +1950,23 @@ abstract final class CatalogBulkDownload {
       ]);
       ref.read(processDownloadsProvider());
     } finally {
-      final finalProgress = progress.value;
-      final remaining = targets.length - finalProgress.done;
+      final cancelled = controller.cancelled;
+      final queued = controller.queued;
+      final failed = controller.failed;
+      final remaining = controller.remaining;
       closeDialog();
-      progress.dispose();
+      controller.complete();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              finalProgress.cancelled
-                  ? 'Annulé · ${finalProgress.queued} ajouté(s), '
-                      '${finalProgress.failed} échec(s), $remaining restant(s).'
-                  : finalProgress.failed == 0
-                  ? 'Téléchargements ajoutés à la file : '
-                      '${finalProgress.queued}.'
-                  : '${finalProgress.queued} téléchargement(s) mis en file, '
-                      '${finalProgress.failed} échec(s).',
+              cancelled
+                  ? 'Annulé · $queued ajouté(s), '
+                      '$failed échec(s), $remaining restant(s).'
+                  : failed == 0
+                  ? 'Téléchargements ajoutés à la file : $queued.'
+                  : '$queued téléchargement(s) mis en file, '
+                      '$failed échec(s).',
             ),
           ),
         );
@@ -1933,15 +1976,19 @@ abstract final class CatalogBulkDownload {
 
   /// Récupère les vidéos d'un item (getDetail), crée l'entrée Isar
   /// (même chemin que la route « personnes ») et met chaque chapitre en file.
+  ///
+  /// [plan] porte la qualité/langue choisies dans le sheet et le sous-ensemble
+  /// d'épisodes retenus ; une qualité sélectionnée est mémorisée via
+  /// [chapterPreferredQuality] pour que le moteur télécharge réellement la
+  /// bonne résolution (avec repli supérieure/inférieure si demandé).
   static Future<int> _enqueueItemDownloads(
     WidgetRef ref,
     Source source,
-    MManga item,
+    BulkDownloadItem plan,
   ) async {
+    final item = plan.item;
     final url = item.link!.trim();
-    final detail = await ref.read(
-      getDetailProvider(url: url, source: source).future,
-    );
+    final detail = plan.detail;
     // Point lookup instead of scanning every manga of the source: a bulk run
     // can enqueue hundreds of items back to back.
     Manga? existing;
@@ -1985,12 +2032,19 @@ abstract final class CatalogBulkDownload {
         if (chapter.url?.trim().isNotEmpty == true)
           chapter.url!.trim(): chapter,
     };
+    final selectedUrls = {
+      for (final video in plan.chapters)
+        if (video.url?.trim().isNotEmpty == true) video.url!.trim(),
+    };
     final queue = <Chapter>[];
     isar.writeTxnSync(() {
       loaded.id = isar.mangas.putSync(loaded);
       for (final video in detail.chapters ?? const <MChapter>[]) {
         final videoUrl = video.url?.trim();
         if (videoUrl == null || videoUrl.isEmpty) continue;
+        if (selectedUrls.isNotEmpty && !selectedUrls.contains(videoUrl)) {
+          continue;
+        }
         final chapter =
             chaptersByUrl[videoUrl] ??
             Chapter(
@@ -2009,7 +2063,19 @@ abstract final class CatalogBulkDownload {
       }
     });
     if (queue.isEmpty) return 0;
+    final quality = plan.quality;
+    final language = plan.language;
+    final fallback = plan.fallback;
     for (final chapter in queue) {
+      if (chapter.id != null) {
+        if (quality != null) {
+          chapterPreferredQuality[chapter.id!] = quality;
+          chapterPreferredQualityFallback[chapter.id!] = fallback;
+        }
+        if (language != null) {
+          chapterPreferredLang[chapter.id!] = language;
+        }
+      }
       await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
       if (chapter.id != null) {
         ref
@@ -2365,16 +2431,6 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       action,
     );
   }
-
-  /// Récupère les vidéos du lot en parallèle (pool de créateurs), avec une
-  /// boîte de progression annulable ; chaque chapitre est mis en file.
-  Future<void> _bulkDownload({int? count}) => CatalogBulkDownload.run(
-    context,
-    ref,
-    widget.extensionSource,
-    _extensionItems,
-    count: count,
-  );
 
   // ── Filtres appliqués aux items affichés ─────────────────────────────────
 
@@ -2973,113 +3029,6 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       orElse: () => null,
     );
     if (first != null) _openExtensionItem(first);
-  }
-}
-
-/// État du téléchargement en masse de la page « voir tout » (immuable,
-/// chaque étape émet une copie dans le ValueNotifier).
-class _BulkDownloadProgress {
-  const _BulkDownloadProgress({
-    required this.total,
-    this.done = 0,
-    this.queued = 0,
-    this.failed = 0,
-    this.cancelled = false,
-  });
-
-  final int total;
-  final int done;
-  final int queued;
-  final int failed;
-  final bool cancelled;
-
-  _BulkDownloadProgress cancel() => _BulkDownloadProgress(
-    total: total,
-    done: done,
-    queued: queued,
-    failed: failed,
-    cancelled: true,
-  );
-
-  _BulkDownloadProgress withResult({int queued = 0, int failed = 0, int done = 0}) =>
-      _BulkDownloadProgress(
-        total: total,
-        done: this.done + done,
-        queued: this.queued + queued,
-        failed: this.failed + failed,
-        cancelled: cancelled,
-      );
-}
-
-/// Boîte de progression du téléchargement en masse : barre déterminée,
-/// compteurs, et bouton Annuler (les travailleurs s'arrêtent en douceur).
-class _BulkDownloadProgressDialog extends StatelessWidget {
-  const _BulkDownloadProgressDialog({
-    required this.progress,
-    required this.onCancel,
-  });
-
-  final ValueNotifier<_BulkDownloadProgress> progress;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AlertDialog(
-      backgroundColor: cs.surfaceContainerHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: Text(
-        'Mise en file des téléchargements',
-        style: TextStyle(
-          color: cs.onSurface,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      content: ValueListenableBuilder<_BulkDownloadProgress>(
-        valueListenable: progress,
-        builder: (context, p, _) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: p.cancelled || p.total == 0
-                    ? null
-                    : (p.done / p.total).clamp(0.0, 1.0),
-                backgroundColor: cs.surfaceContainerHighest,
-                color: Colors.orange,
-                minHeight: 6,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              p.cancelled ? 'Annulation…' : '${p.done}/${p.total} éléments',
-              style: TextStyle(
-                color: cs.onSurface,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (p.queued > 0 || p.failed > 0) ...[
-              const SizedBox(height: 2),
-              Text(
-                '${p.queued} vidéo(s) ajoutée(s)'
-                '${p.failed > 0 ? ' · ${p.failed} échec(s)' : ''}',
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: onCancel,
-          child: Text('Annuler', style: TextStyle(color: cs.onSurfaceVariant)),
-        ),
-      ],
-    );
   }
 }
 

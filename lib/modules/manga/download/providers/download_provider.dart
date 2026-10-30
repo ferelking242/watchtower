@@ -453,6 +453,38 @@ String _qualityDigits(String raw) {
   return raw.trim().toLowerCase();
 }
 
+/// Picks the video whose resolution is the closest to [targetDigits] in the
+/// direction asked by [fallback] (higher → smallest resolution above the
+/// target, lower → largest below it). Returns null for [QualityFallback.exact]
+/// or when nothing matches in the requested direction.
+Video? _nearestQualityVideo(
+  List<Video> videos,
+  int targetDigits,
+  QualityFallback fallback,
+) {
+  if (fallback == QualityFallback.exact || targetDigits <= 0) return null;
+  Video? best;
+  int? bestDigits;
+  for (final video in videos) {
+    final digits = int.tryParse(_qualityDigits(video.quality));
+    if (digits == null) continue;
+    final fits = fallback == QualityFallback.higher
+        ? digits > targetDigits
+        : digits < targetDigits;
+    if (!fits) continue;
+    final closer = bestDigits == null
+        ? true
+        : fallback == QualityFallback.higher
+        ? digits < bestDigits
+        : digits > bestDigits;
+    if (closer) {
+      best = video;
+      bestDigits = digits;
+    }
+  }
+  return best;
+}
+
 /// Persist one download row per selected resolution while keeping every
 /// resolution attached to the same series and episode identity.
 Chapter prepareVideoQualityDownloadChapter(
@@ -657,6 +689,16 @@ void ensureChapterLinksLoaded(Chapter chapter) {
 /// set of video URLs — so a URL from episode 1 would never match episode 5's
 /// list. Matching by normalized quality label instead works across episodes.
 final Map<int, String> chapterPreferredQuality = {};
+
+/// How a missing [chapterPreferredQuality] resolution must be replaced, keyed
+/// by chapter.id. Set by the batch sheet header ("prendre la supérieure" /
+/// "prendre l'inférieure"); absent means the strict behaviour (fail the
+/// download rather than silently grab another resolution).
+final Map<int, QualityFallback> chapterPreferredQualityFallback = {};
+
+/// Resolution-selection strategy when the requested quality is not published
+/// by an episode's video list.
+enum QualityFallback { exact, higher, lower }
 
 /// User-chosen language label (e.g. 'VF', 'VOSTFR', 'EN'), keyed by
 /// chapter.id. Applied by [downloadChapter] BEFORE quality matching so the
@@ -2363,10 +2405,11 @@ Future<void> downloadChapter(
         }
         // Batch download sheet: quality chosen by label (see chapterPreferredQuality
         // doc) since it applies across many episodes that each have their own URLs.
-        // STRICT match: when the requested resolution exists in this episode's
-        // list we download ONLY it — previously a missing match silently fell
-        // back to the first entry (often 1080p/auto), so a user asking for
-        // 360p could end up with a 1 GB file.
+        // STRICT match by default: when the requested resolution exists in this
+        // episode's list we download ONLY it — previously a missing match
+        // silently fell back to the first entry (often 1080p/auto), so a user
+        // asking for 360p could end up with a 1 GB file. The batch header can
+        // opt into "prendre la supérieure/inférieure" instead.
         final preferredQuality = chapter.id != null
             ? chapterPreferredQuality[chapter.id!] ??
                   isar.downloads.getSync(chapter.id!)?.quality
@@ -2381,14 +2424,29 @@ Future<void> downloadChapter(
               )
               .toList();
           if (exactMatches.isEmpty) {
-            throw StateError(
-              'La résolution ${preferredQuality} n’est pas disponible pour '
-              'cet épisode.',
+            final fallback = chapter.id == null
+                ? QualityFallback.exact
+                : chapterPreferredQualityFallback[chapter.id!] ??
+                      QualityFallback.exact;
+            final targetDigits = int.tryParse(preferredQualityDigits ?? '') ?? 0;
+            final substitute = _nearestQualityVideo(
+              videosUrls,
+              targetDigits,
+              fallback,
             );
+            if (substitute == null) {
+              throw StateError(
+                'La résolution ${preferredQuality} n’est pas disponible pour '
+                'cet épisode.',
+              );
+            }
+            videosUrls = [substitute];
+          } else {
+            videosUrls = exactMatches;
           }
-          videosUrls = exactMatches;
           // One-shot: clear so a future re-download asks again.
           chapterPreferredQuality.remove(chapter.id!);
+          chapterPreferredQualityFallback.remove(chapter.id!);
         }
         if (videosUrls.isNotEmpty) {
           subtitles = videosUrls.first.subtitles;
