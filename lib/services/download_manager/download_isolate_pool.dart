@@ -2134,8 +2134,12 @@ Future<void> _downloadSegment(
         );
       }
       final index = int.parse(ts.name.substringAfter("TS_"));
+      // HLS: when #EXT-X-KEY carries no IV, the IV is the segment's media
+      // sequence number, and the default media sequence is 0 — not 1. Using 1
+      // shifted every derived IV by one segment, so encrypted playlists that
+      // omit an explicit IV decrypted to garbage (blocky/artefact playback).
       final decrypted = _aesDecrypt(
-        (params.mediaSequence ?? 1) + (index - 1),
+        (params.mediaSequence ?? 0) + (index - 1),
         bytes,
         params.key!,
         iv: params.iv,

@@ -34,8 +34,10 @@ class OnboardingDependencyService {
     OnboardingDependencyInfo(
       id: OnboardingDependencyId.ffmpeg,
       name: 'FFmpeg runtime',
-      purpose: 'Fusionner les fragments TS en fichiers MP4 lisibles.',
-      alternative: 'La concaténation directe des fragments reste disponible sans exécutable FFmpeg.',
+      purpose: 'Assembler les fragments HLS en fichiers MP4 lisibles.',
+      alternative:
+          'Indispensable pour l’assemblage HLS : sans exécutable FFmpeg '
+          'vérifié, les téléchargements HLS échouent avec un message explicite.',
       required: false,
       bundled: false,
     ),

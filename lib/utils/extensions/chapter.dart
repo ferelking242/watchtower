@@ -87,6 +87,8 @@ extension ChapterExtension on Chapter {
         mp4Path,
         '$mp4Path.part',
         '$mp4Path.part.meta',
+        // Intermediate files left by an interrupted HLS assembly.
+        '$mp4Path.part.joined',
       ]) {
         final file = File(candidate);
         if (file.existsSync()) file.deleteSync();

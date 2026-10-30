@@ -10,7 +10,6 @@ import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
 import 'package:watchtower/services/download_manager/m3u8/ffmpeg_merge_service.dart';
-import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
@@ -422,8 +421,8 @@ class M3u8Downloader {
         );
       }
 
-      // Merge atomically: FFmpeg writes to <name>.mp4.part, then the result is
-      // checked before it replaces the final file. A crash or a failed mux can
+      // Assemble atomically: FFmpeg writes to <name>.mp4.part, the result is
+      // validated, then it replaces the final file. A crash or a failed mux can
       // no longer leave a truncated file masquerading as a finished download.
       final partFile = File('$fileName.part');
       if (await partFile.exists()) await partFile.delete();
@@ -432,8 +431,11 @@ class M3u8Downloader {
       final runner = mergeRunner ?? _runFfmpegMerge;
       await runner(partFile.path, segmentPaths);
 
+      // A successful mux always leaves a non-empty file; FFmpeg exits non-zero
+      // (and the runner throws) when the joined stream carries no muxable
+      // streams, so a zero-byte output can only mean a broken runner.
       if (!await partFile.exists() || await partFile.length() <= 0) {
-        throw M3u8DownloaderException('Merged output is empty ($fileName)');
+        throw M3u8DownloaderException('Assembled output is empty ($fileName)');
       }
 
       final out = File(fileName);
@@ -455,17 +457,7 @@ class M3u8Downloader {
     String outputFile,
     List<String> segmentPaths,
   ) async {
-    final executable =
-        await FfmpegBinaryManager.instance.resolveExecutable();
-    if (executable == null) {
-      _log('FFmpeg unavailable; concatenating HLS fragments directly');
-      await FfmpegMergeService.concatenateFragments(
-        outputFile: outputFile,
-        segmentPaths: segmentPaths,
-      );
-      return;
-    }
-    await FfmpegMergeService.mergeTsToMp4(
+    await FfmpegMergeService.assembleToMp4(
       outputFile: outputFile,
       segmentPaths: segmentPaths,
     );

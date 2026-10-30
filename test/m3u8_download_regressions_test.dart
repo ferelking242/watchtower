@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/download_manager/m3u8/ffmpeg_merge_service.dart';
 import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
@@ -177,6 +178,36 @@ segments/0002.m4s
     expect(completed, 1);
     expect(bytes, 4);
     expect(pending.map((segment) => segment.name), ['TS_1', 'TS_2']);
+  });
+
+  group('FFmpeg mux arguments', () {
+    // Regression: the mux output is written to `<name>.mp4.part` for
+    // atomicity, and FFmpeg infers the muxer from the extension. `.part` is
+    // not a known extension, so without an explicit `-f mp4` every mux died
+    // with "Unable to choose an output format" (exit 234). The download
+    // appeared to finish at 100% but produced no playable file.
+    test('forces the mp4 muxer for a .part output file', () {
+      final args = FfmpegMergeService.buildMuxArguments(
+        inputFile: '/tmp/video.joined',
+        outputFile: '/tmp/video.mp4.part',
+      );
+
+      final formatFlag = args.indexOf('-f', args.indexOf('-i') + 1);
+      expect(formatFlag, isNot(-1), reason: 'an output -f flag is required');
+      expect(args[formatFlag + 1], 'mp4');
+      expect(args.last, '/tmp/video.mp4.part');
+    });
+
+    test('stream-copies without re-encoding', () {
+      final args = FfmpegMergeService.buildMuxArguments(
+        inputFile: '/tmp/video.joined',
+        outputFile: '/tmp/video.mp4.part',
+      );
+
+      expect(args, containsAllInOrder(['-c', 'copy']));
+      expect(args, containsAllInOrder(['-movflags', '+faststart']));
+      expect(args, containsAllInOrder(['-i', '/tmp/video.joined']));
+    });
   });
 
   group('HLS merge cleanup', () {
