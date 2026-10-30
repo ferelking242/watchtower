@@ -116,6 +116,18 @@ an image never clears the challenge, and the base64 payload is written to a
 **sibling global** so the poll loop re-reads a small status object instead of
 re-serializing the whole image on every tick.
 
+The navigation target is chosen by **host**, not by the declared page. When the
+cover lives on a CDN host distinct from the site (`img.1porn.tv` covers while
+the extension declares a `www.1porn.tv` Referer), the in-page `fetch()` is
+cross-origin and the CDN sends no `Access-Control-Allow-Origin`, so the browser
+rejects the served bytes (`TypeError: Failed to fetch`) even though the image
+was returned. The request must be issued from the image's own origin, which is
+same-origin with itself; `_loadCoverViaBrowser` therefore keeps the declared
+page only when `declaredHost == imageHost`, and otherwise navigates to
+`scheme://imageHost/`. That root page is frequently a plain nginx `403
+Forbidden` with no Cloudflare markers, which the probe classifies as `normal`
+(never `blocked`), so the session is kept and the fetch succeeds.
+
 Consequences that must not regress:
 
 * The HTTP client always sends a User-Agent, and it is the one stored for the
