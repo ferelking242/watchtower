@@ -2458,16 +2458,10 @@ class _DownloadCard extends ConsumerWidget {
       statusText = 'Annulé';
     } else if (isPaused) {
       statusText = 'En pause';
-    } else if (isRetrievingMetadata) {
-      statusText = 'En attente';
-    } else if (isPreparingDownload) {
-      statusText = 'En attente';
-    } else if (isMangaTransferIndeterminate) {
-      statusText = 'Téléchargement';
-    } else if (isIndeterminateTransfer) {
-      statusText = 'Téléchargement';
     } else {
-      statusText = progress > 0 ? 'Téléchargement' : 'En attente';
+      // Keep the queue quiet while idle or transferring. The bar, speed, and
+      // byte counters already communicate progress without a repeated label.
+      statusText = '';
     }
     final Color statusColor = isCompressing
         ? const Color(0xFFE0A800)
@@ -2497,8 +2491,9 @@ class _DownloadCard extends ConsumerWidget {
                 ? 2
                 : layout == DownloadCardLayout.compact
                 ? 4
-                : layout == DownloadCardLayout.standard
-                ? 3
+                : layout == DownloadCardLayout.standard ||
+                      layout == DownloadCardLayout.media
+                ? 5
                 : 6,
             compressing: true,
           )
@@ -2513,8 +2508,9 @@ class _DownloadCard extends ConsumerWidget {
                 ? 2
                 : layout == DownloadCardLayout.compact
                 ? 4
-                : layout == DownloadCardLayout.standard
-                ? 3
+                : layout == DownloadCardLayout.standard ||
+                      layout == DownloadCardLayout.media
+                ? 5
                 : 6,
             paused: isPaused,
             failed: hasFailed,
@@ -2554,7 +2550,9 @@ class _DownloadCard extends ConsumerWidget {
       ),
     );
 
-    if (isSeriesChild) {
+    // Child rows normally use a compact tree-row style, but the explicit
+    // Médias layout must apply to every download, including grouped children.
+    if (isSeriesChild && layout != DownloadCardLayout.media) {
       final chapterLabel = chapter?.name?.trim();
       final childTitle = chapterLabel == null || chapterLabel.isEmpty
           ? 'Chapitre'
@@ -2626,8 +2624,6 @@ class _DownloadCard extends ConsumerWidget {
               hasFailed: hasFailed,
               isPaused: isPaused,
               onPauseResume: onPauseResume,
-              onCancel: onCancel,
-              onDelete: onDelete,
               onRetry: onRetry,
               onOpen: onOpen,
             ),
@@ -2815,120 +2811,6 @@ class _DownloadCard extends ConsumerWidget {
       );
     }
 
-    // ── Media layout ────────────────────────────────────────────────────────
-    // Large card with a prominent cover — designed for anime / video queues.
-    if (layout == DownloadCardLayout.media) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _CoverThumbnail(
-              imageUrl: _itemCover(download),
-              customBytes: manga?.customCoverImage?.cast<int>(),
-              itemType: itemType,
-              width: 70,
-              height: 100,
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      manga?.name ?? 'Inconnu',
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      chapter?.name ?? '',
-                      style: TextStyle(
-                        color: scheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            priority > 0 ? '⚡ $engine' : engine,
-                            style: TextStyle(
-                              color: scheme.primary,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            statusText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: statusColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const Spacer(),
-                        if ((progress > 0 ||
-                                isIndeterminateTransfer ||
-                                hasKnownUnitProgress) &&
-                            !isComplete)
-                          Text(
-                            progressLabel,
-                            style: TextStyle(
-                              color: scheme.onSurfaceVariant.withValues(
-                                alpha: 0.7,
-                              ),
-                              fontSize: 10,
-                            ),
-                          ),
-                      ],
-                    ),
-                    if (progressBar != null) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Expanded(child: progressBar!),
-                          const SizedBox(width: 8),
-                          actionBtn,
-                        ],
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 4),
-                      Align(alignment: Alignment.centerRight, child: actionBtn),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     // ── Full / Étendu layout ────────────────────────────────────────────────
     if (layout == DownloadCardLayout.full) {
       return Container(
@@ -3028,11 +2910,9 @@ class _DownloadCard extends ConsumerWidget {
       );
     }
 
-    // ── Standard layout (default) ───────────────────────────────────────────
-    // MovieBox-style queue row:
-    //   • landscape thumbnail and a one-line title with the menu at right;
-    //   • the pause/play control sits at the exact end of the progress line;
-    //   • received / total bytes on the left, speed or status aligned right.
+    // ── MovieBox landscape layouts ──────────────────────────────────────────
+    // Both modes keep title, progress, and transfer details inside the cover's
+    // height. Médias uses a larger preview; Standard stays compact.
     final finalSizeBytes = trustedDownloadByteCount(
       download.totalBytes ?? live?.totalBytes,
     );
@@ -3050,8 +2930,6 @@ class _DownloadCard extends ConsumerWidget {
     final speedLabel = !isComplete && !hasFailed && !isPaused && speedMbs > 0.05
         ? '${_formatSpeed(speedMbs)}/s'
         : null;
-    final detailRightLabel = speedLabel ?? statusText;
-    final detailRightColor = speedLabel != null ? scheme.primary : statusColor;
     final bottomColor = hasFailed
         ? mbRed
         : isCancelled
@@ -3060,10 +2938,29 @@ class _DownloadCard extends ConsumerWidget {
         ? mbAmber
         : scheme.onSurfaceVariant;
 
+    final isMediaLayout = layout == DownloadCardLayout.media;
+    final thumbnailWidth = isMediaLayout ? 120.0 : 106.0;
+    final thumbnailHeight = isMediaLayout ? 68.0 : 64.0;
+    final hasTransferDetails = transferSizeLabel.isNotEmpty || speedLabel != null;
+    final queueProgressBar = isCompressing
+        ? progressBar!
+        : MbGradientProgressBar(
+            value: isComplete
+                ? 1
+                : isProgressIndeterminate
+                ? null
+                : progress > 0
+                ? progress
+                : 0,
+            height: 5,
+            paused: isPaused,
+            failed: hasFailed,
+          );
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           MbThumb(
             imageUrl: _itemCover(download),
@@ -3071,114 +2968,89 @@ class _DownloadCard extends ConsumerWidget {
             itemType: itemType,
             badge: srcBadge,
             isVideo: itemType == ItemType.anime,
+            width: thumbnailWidth,
+            height: thumbnailHeight,
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── Titre … 3 points à l'extrémité droite ──
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (priority > 0) ...[
-                      const Icon(Icons.bolt_rounded, size: 13, color: mbAmber),
-                      const SizedBox(width: 2),
+            child: SizedBox(
+              height: thumbnailHeight,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (priority > 0) ...[
+                        const Icon(Icons.bolt_rounded, size: 13, color: mbAmber),
+                        const SizedBox(width: 2),
+                      ],
+                      Expanded(
+                        child: Text(
+                          _cardTitle(chapter, manga),
+                          style: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 13.5,
+                            height: 1.1,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
-                    Expanded(
-                      child: Text(
-                        _cardTitle(chapter, manga),
-                        style: TextStyle(
-                          color: scheme.onSurface,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    MbCardMenu(
-                      isComplete: isComplete,
-                      hasFailed: hasFailed,
-                      isPaused: isPaused,
-                      onPauseResume: onPauseResume,
-                      onCancel: onCancel,
-                      onDelete: onDelete,
-                      onRetry: onRetry,
-                      onOpen: onOpen,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // ── Progress ends at the pause/play control ──
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: isCompressing
-                          ? progressBar!
-                          : MbGradientProgressBar(
-                              value: isProgressIndeterminate
-                                  ? null
-                                  : progress > 0
-                                  ? progress
-                                  : 0,
-                              height: 3,
-                              paused: isPaused,
-                              failed: hasFailed,
-                            ),
-                    ),
-                    const SizedBox(width: 8),
-                    MbPlayPauseButton(
-                      isComplete: isComplete,
-                      hasFailed: hasFailed,
-                      isPaused: isPaused,
-                      onPauseResume: onPauseResume,
-                      onRetry: onRetry,
-                      onOpen: onOpen,
-                      size: 22,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                // ── Octets reçus / total à gauche, vitesse à droite ──
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        transferSizeLabel,
-                        style: TextStyle(
-                          color: bottomColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (detailRightLabel.isNotEmpty) ...[
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(child: queueProgressBar),
                       const SizedBox(width: 8),
-                      Flexible(
-                        child: Align(
-                          alignment: Alignment.centerRight,
+                      MbPlayPauseButton(
+                        isComplete: isComplete,
+                        hasFailed: hasFailed,
+                        isPaused: isPaused,
+                        onPauseResume: onPauseResume,
+                        onRetry: onRetry,
+                        onOpen: onOpen,
+                        size: 30,
+                      ),
+                    ],
+                  ),
+                  if (hasTransferDetails)
+                    Row(
+                      children: [
+                        Expanded(
                           child: Text(
-                            detailRightLabel,
+                            transferSizeLabel,
                             style: TextStyle(
-                              color: detailRightColor,
-                              fontSize: 11,
+                              color: bottomColor,
+                              fontSize: 10.5,
+                              height: 1,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (speedLabel != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            speedLabel,
+                            style: TextStyle(
+                              color: scheme.primary,
+                              fontSize: 10.5,
+                              height: 1,
                               fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.right,
                           ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
+                        ],
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
         ],

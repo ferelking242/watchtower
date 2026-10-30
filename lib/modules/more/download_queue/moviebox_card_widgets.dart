@@ -19,6 +19,8 @@ class MbThumb extends StatelessWidget {
   final ItemType itemType;
   final String badge;
   final bool isVideo;
+  final double width;
+  final double height;
 
   const MbThumb({
     super.key,
@@ -27,14 +29,16 @@ class MbThumb extends StatelessWidget {
     required this.itemType,
     required this.badge,
     required this.isVideo,
+    this.width = 106,
+    this.height = 64,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     // MovieBox uses a landscape preview so each queue row stays compact.
-    const w = 106.0;
-    const h = 60.0;
+    final w = width;
+    final h = height;
     final placeholder = Container(
       width: w,
       height: h,
@@ -338,16 +342,12 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
   }
 }
 
-/// Right rail: compact 3-dot overflow menu (pause/resume, retry, open,
-/// cancel, delete) above the gradient circular action button — MovieBox style.
-/// All handlers are the screen's existing callbacks; no logic lives here.
+/// Compact circular pause/resume, retry, or open action for grouped rows.
 class MbRowActions extends StatelessWidget {
   final bool isComplete;
   final bool hasFailed;
   final bool isPaused;
   final VoidCallback onPauseResume;
-  final VoidCallback onCancel;
-  final VoidCallback onDelete;
   final VoidCallback onRetry;
   final VoidCallback onOpen;
 
@@ -357,15 +357,12 @@ class MbRowActions extends StatelessWidget {
     required this.hasFailed,
     required this.isPaused,
     required this.onPauseResume,
-    required this.onCancel,
-    required this.onDelete,
     required this.onRetry,
     required this.onOpen,
   });
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final gradient = hasFailed
         ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
         : isComplete
@@ -384,276 +381,14 @@ class MbRowActions extends StatelessWidget {
         ? onOpen
         : onPauseResume;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        PopupMenuButton<String>(
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          icon: Icon(
-            Icons.more_vert_rounded,
-            size: 18,
-            color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-          ),
-          onSelected: (v) {
-            switch (v) {
-              case 'pause':
-                onPauseResume();
-                break;
-              case 'cancel':
-                onCancel();
-                break;
-              case 'retry':
-                onRetry();
-                break;
-              case 'delete':
-                onDelete();
-                break;
-              case 'open':
-                onOpen();
-                break;
-            }
-          },
-          itemBuilder: (_) => [
-            if (!isComplete)
-              PopupMenuItem(
-                value: 'pause',
-                height: 40,
-                child: Row(
-                  children: [
-                    Icon(
-                      isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                      size: 17,
-                      color: mbAmber,
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      isPaused ? 'Reprendre' : 'Pause',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            if (hasFailed)
-              PopupMenuItem(
-                value: 'retry',
-                height: 40,
-                child: Row(
-                  children: [
-                    const Icon(Icons.refresh_rounded, size: 17, color: mbRed),
-                    const SizedBox(width: 10),
-                    const Text('Réessayer', style: TextStyle(fontSize: 13)),
-                  ],
-                ),
-              ),
-            if (isComplete)
-              PopupMenuItem(
-                value: 'open',
-                height: 40,
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.folder_open_rounded,
-                      size: 17,
-                      color: mbTeal,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text('Ouvrir', style: TextStyle(fontSize: 13)),
-                  ],
-                ),
-              ),
-            PopupMenuItem(
-              value: 'cancel',
-              height: 40,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.close_rounded,
-                    size: 17,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 10),
-                  const Text('Annuler', style: TextStyle(fontSize: 13)),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'delete',
-              height: 40,
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.delete_outline_rounded,
-                    size: 17,
-                    color: Colors.redAccent,
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Supprimer',
-                    style: TextStyle(fontSize: 13, color: Colors.redAccent),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 4),
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: gradient,
-            ),
-            child: Icon(icon, color: Colors.white, size: 15),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Title-row overflow: the three-dot button alone, placed at the far right of
-/// the card's title line. Same entries and callbacks as [MbRowActions], split
-/// out so the progress bar can carry its own pause/play button.
-class MbCardMenu extends StatelessWidget {
-  final bool isComplete;
-  final bool hasFailed;
-  final bool isPaused;
-  final VoidCallback onPauseResume;
-  final VoidCallback onCancel;
-  final VoidCallback onDelete;
-  final VoidCallback onRetry;
-  final VoidCallback onOpen;
-
-  const MbCardMenu({
-    super.key,
-    required this.isComplete,
-    required this.hasFailed,
-    required this.isPaused,
-    required this.onPauseResume,
-    required this.onCancel,
-    required this.onDelete,
-    required this.onRetry,
-    required this.onOpen,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return PopupMenuButton<String>(
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(),
-      tooltip: 'Options',
-      icon: Icon(
-        Icons.more_vert_rounded,
-        size: 18,
-        color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(shape: BoxShape.circle, gradient: gradient),
+        child: Icon(icon, color: Colors.white, size: 17),
       ),
-      onSelected: (v) {
-        switch (v) {
-          case 'pause':
-            onPauseResume();
-            break;
-          case 'cancel':
-            onCancel();
-            break;
-          case 'retry':
-            onRetry();
-            break;
-          case 'delete':
-            onDelete();
-            break;
-          case 'open':
-            onOpen();
-            break;
-        }
-      },
-      itemBuilder: (_) => [
-        if (!isComplete)
-          PopupMenuItem(
-            value: 'pause',
-            height: 40,
-            child: Row(
-              children: [
-                Icon(
-                  isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                  size: 17,
-                  color: mbAmber,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  isPaused ? 'Reprendre' : 'Pause',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-        if (hasFailed)
-          PopupMenuItem(
-            value: 'retry',
-            height: 40,
-            child: Row(
-              children: [
-                const Icon(Icons.refresh_rounded, size: 17, color: mbRed),
-                const SizedBox(width: 10),
-                const Text('Réessayer', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-        if (isComplete)
-          PopupMenuItem(
-            value: 'open',
-            height: 40,
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.folder_open_rounded,
-                  size: 17,
-                  color: mbTeal,
-                ),
-                const SizedBox(width: 10),
-                const Text('Ouvrir', style: TextStyle(fontSize: 13)),
-              ],
-            ),
-          ),
-        PopupMenuItem(
-          value: 'cancel',
-          height: 40,
-          child: Row(
-            children: [
-              Icon(
-                Icons.close_rounded,
-                size: 17,
-                color: scheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 10),
-              const Text('Annuler', style: TextStyle(fontSize: 13)),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          height: 40,
-          child: Row(
-            children: [
-              const Icon(
-                Icons.delete_outline_rounded,
-                size: 17,
-                color: Colors.redAccent,
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Supprimer',
-                style: TextStyle(fontSize: 13, color: Colors.redAccent),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

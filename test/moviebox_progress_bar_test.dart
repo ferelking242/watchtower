@@ -75,8 +75,8 @@ void main() {
     expect(find.byType(FractionallySizedBox), findsNothing);
   });
 
-  testWidgets('supports a visible MovieBox-style queue bar', (tester) async {
-    await tester.pumpWidget(_host(0.4, height: 3));
+  testWidgets('supports the thicker MovieBox-style queue bar', (tester) async {
+    await tester.pumpWidget(_host(0.4, height: 5));
     final bar = tester.widget<SizedBox>(
       find.descendant(
         of: find.byType(MbGradientProgressBar),
@@ -84,7 +84,7 @@ void main() {
       ),
     );
 
-    expect(bar.height, 3);
+    expect(bar.height, 5);
   });
 
   testWidgets('queue thumbnail uses MovieBox landscape proportions', (
@@ -111,6 +111,64 @@ void main() {
     );
 
     expect(thumbnail.width, 106);
-    expect(thumbnail.height, 60);
+    expect(thumbnail.height, 64);
+  });
+
+  testWidgets('media thumbnail can use its larger landscape size', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MbThumb(
+            imageUrl: null,
+            customBytes: null,
+            itemType: ItemType.anime,
+            badge: 'TV',
+            isVideo: true,
+            width: 120,
+            height: 68,
+          ),
+        ),
+      ),
+    );
+    final thumbnail = tester.widget<SizedBox>(
+      find.descendant(
+        of: find.byType(MbThumb),
+        matching: find.byType(SizedBox),
+      ),
+    );
+
+    expect(thumbnail.width, 120);
+    expect(thumbnail.height, 68);
+  });
+
+  testWidgets('grouped row action is larger and has no overflow menu', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MbRowActions(
+            isComplete: false,
+            hasFailed: false,
+            isPaused: false,
+            onPauseResume: () {},
+            onRetry: () {},
+            onOpen: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(PopupMenuButton), findsNothing);
+    final button = tester.widget<Container>(
+      find.descendant(
+        of: find.byType(MbRowActions),
+        matching: find.byType(Container),
+      ),
+    );
+    expect(button.width, 30);
+    expect(button.height, 30);
   });
 }
