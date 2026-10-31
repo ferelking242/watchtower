@@ -283,6 +283,23 @@ segments/0002.m4s
       expect(progress.single.totalBytes, 4);
     });
 
+    test(
+      'removes an empty temp folder when the final video already exists',
+      () async {
+        final tempDir = Directory('${sandbox.path}/temp')..createSync();
+        final outputFile = File('${sandbox.path}/video.mp4')
+          ..writeAsBytesSync([1, 2, 3]);
+
+        await downloader.removeEmptyTempDirectoryWhenOutputExistsForTesting(
+          outputFile.path,
+          tempDir.path,
+        );
+
+        expect(await tempDir.exists(), isFalse);
+        expect(await outputFile.exists(), isTrue);
+      },
+    );
+
     test('keeps fragments after a failed merge so it can be resumed', () async {
       final tempDir = Directory('${sandbox.path}/temp')..createSync();
       final fragment = File('${tempDir.path}/TS_1.ts');

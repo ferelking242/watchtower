@@ -231,9 +231,32 @@ class M3u8Downloader {
       AppLogger.log(e.toString(), logLevel: LogLevel.error);
       throw M3u8DownloaderException('Download failed', e);
     } finally {
+      await _removeEmptyTempDirectoryWhenOutputExists(fileName, tempDir);
       close();
     }
   }
+
+  Future<void> _removeEmptyTempDirectoryWhenOutputExists(
+    String outputFile,
+    String tempDir,
+  ) async {
+    try {
+      if (!await File(outputFile).exists()) return;
+      final directory = Directory(tempDir);
+      if (!await directory.exists()) return;
+      if (await directory.list(followLinks: false).isEmpty) {
+        await directory.delete();
+      }
+    } catch (error) {
+      _log('Warning: failed to clean empty temporary directory: $error');
+    }
+  }
+
+  @visibleForTesting
+  Future<void> removeEmptyTempDirectoryWhenOutputExistsForTesting(
+    String outputFile,
+    String tempDir,
+  ) => _removeEmptyTempDirectoryWhenOutputExists(outputFile, tempDir);
 
   /// Returns the pending segments plus the durable progress already present
   /// on disk. A resumed HLS task must keep the original playlist denominator;

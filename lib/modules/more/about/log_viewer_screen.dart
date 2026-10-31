@@ -70,11 +70,17 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       final storage = StorageProvider();
       final dir = await storage.getDefaultDirectory();
 
-      // 1. Prefer per-session files written by AppLogger (logs_sessions/).
+      // 1. Prefer current logs, then check legacy session folders from older
+      // app versions so existing log history remains visible after migration.
       if (dir != null) {
-        final sessionsDir =
-            Directory(path.join(dir.path, 'log'));
-        if (await sessionsDir.exists()) {
+        final sessionDirectories = [
+          Directory(path.join(dir.path, 'logs')),
+          Directory(path.join(dir.path, 'log')),
+          Directory(path.join(dir.path, '.dev')),
+          Directory(path.join(dir.path, 'logs_sessions')),
+        ];
+        for (final sessionsDir in sessionDirectories) {
+          if (!await sessionsDir.exists()) continue;
           final files = await sessionsDir
               .list()
               .where((e) => e is File && e.path.endsWith('.log'))
@@ -368,12 +374,36 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     });
   }
 
+  Future<File?> _findLogFile() async {
+    final currentPath = AppLogger.currentSessionPath;
+    if (currentPath != null) {
+      final current = File(currentPath);
+      if (await current.exists()) return current;
+    }
+
+    final dir = await StorageProvider().getDefaultDirectory();
+    if (dir == null) return null;
+    for (final name in ['logs', 'log', '.dev', 'logs_sessions']) {
+      final sessionsDir = Directory(path.join(dir.path, name));
+      if (!await sessionsDir.exists()) continue;
+      final files = await sessionsDir
+          .list()
+          .where((entry) => entry is File && entry.path.endsWith('.log'))
+          .cast<File>()
+          .toList();
+      if (files.isEmpty) continue;
+      files.sort((a, b) => b.path.compareTo(a.path));
+      return files.first;
+    }
+
+    final legacy = File(path.join(dir.path, 'logs.txt'));
+    return await legacy.exists() ? legacy : null;
+  }
+
   Future<void> _downloadAs(String ext) async {
     try {
-      final storage = StorageProvider();
-      final dir = await storage.getDefaultDirectory();
-      final src = File(path.join(dir!.path, 'logs.txt'));
-      if (!await src.exists()) {
+      final src = await _findLogFile();
+      if (src == null) {
         botToast('Aucun fichier log trouvé');
         return;
       }
@@ -431,15 +461,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Future<void> _share() async {
-    final storage = StorageProvider();
-    final dir = await storage.getDefaultDirectory();
-    final file = File(path.join(dir!.path, 'logs.txt'));
-    if (await file.exists() && context.mounted) {
+    final file = await _findLogFile();
+    if (file != null && context.mounted) {
       final box = context.findRenderObject() as RenderBox?;
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path)],
-          text: 'logs.txt',
+          text: path.basename(file.path),
           sharePositionOrigin:
               box != null ? box.localToGlobal(Offset.zero) & box.size : null,
         ),

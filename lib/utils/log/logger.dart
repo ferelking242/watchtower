@@ -9,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:permission_handler/permission_handler.dart';
 
 // ─── Log Settings Keys (Hive box: advanced_settings) ──────────────────────────
 const _kLogBox = 'advanced_settings';
@@ -272,20 +271,20 @@ class AppLogger {
     });
   }
 
-  /// Absolute path of today's log file (`<storage>/Watchtower/.dev/YYYY-MM-DD.log`).
+  /// Absolute path of today's log file (`<storage>/Watchtower/logs/YYYY-MM-DD.log`).
   /// Multiple sessions on the same calendar day append to the same file.
   /// Exposed so the in-app log viewer can offer a "share log" action.
   static String? _currentSessionPath;
   static String? get currentSessionPath => _currentSessionPath;
 
-  /// Folder where daily log files live (`<storage>/Watchtower/.dev/`).
+  /// Folder where daily log files live (`<storage>/Watchtower/logs/`).
   static String? _sessionsDirPath;
   static String? get sessionsDirPath => _sessionsDirPath;
 
   static Future<void> init() async {
     // File logging is always enabled — regardless of the enableLogs setting.
     // One daily file per calendar day, appended across sessions (never reset).
-    // Location: <storage>/Watchtower/.dev/YYYY-MM-DD.log
+    // Location: <storage>/Watchtower/logs/YYYY-MM-DD.log
     // The enableLogs setting now only controls the in-app log-viewer filters.
     await _bootstrapVerboseDownloadDiagnostics();
     await _loadSettings();
@@ -295,24 +294,12 @@ class AppLogger {
     );
 
     final storage = StorageProvider();
-    if (!kIsWeb && Platform.isAndroid) {
-      try {
-        final status = await Permission.storage.status;
-        if (!status.isGranted) {
-          final result = await Permission.storage.request();
-          if (!result.isGranted) return;
-        }
-      } catch (_) {
-        // Activity not yet attached (cold start race); skip file logging.
-        return;
-      }
-    }
     final directory = await storage.getDefaultDirectory();
 
-    // Daily log file in `<storage>/Watchtower/.dev/YYYY-MM-DD.log`.
+    // Daily log file in `<storage>/Watchtower/logs/YYYY-MM-DD.log`.
     // A new file is created for each calendar day; sessions within the same
     // day append to the same file so nothing is lost between app launches.
-    final sessionsDir = Directory(path.join(directory!.path, '.dev'));
+    final sessionsDir = Directory(path.join(directory!.path, 'logs'));
     if (!await sessionsDir.exists()) {
       await sessionsDir.create(recursive: true);
     }
@@ -344,19 +331,45 @@ class AppLogger {
     _initialized = true;
 
     _logQueue.stream.listen((entry) {
-      // Guard against writes to a closed sink.
-      // IOSink has no public `isClosed` getter; catch the StateError
-      // that is thrown if the underlying file has been closed (e.g. on
-      // hot-restart or explicit dispose()), rather than letting the
-      // exception propagate into the stream and kill the listener.
-      try {
-        _sink.writeln(entry);
-      } catch (_) {
-        // Sink is closed — entries are still available in _ring and _liveCtrl.
-      }
+      _fileWriteQueue = _fileWriteQueue
+          .then((_) => _writeLogEntry(entry))
+          .catchError((Object _) {});
     });
 
     await _writeSessionHeader();
+  }
+
+  static Future<void> _fileWriteQueue = Future<void>.value();
+
+  /// Recreates the logs folder and file if they were removed while the app
+  /// was running, then writes the queued entry to the current daily log.
+  static Future<void> _writeLogEntry(String entry) async {
+    try {
+      await _logFile.parent.create(recursive: true);
+      if (!await _logFile.exists()) {
+        try {
+          await _sink.flush();
+          await _sink.close();
+        } catch (_) {
+          // A deleted or already-closed sink is replaced below.
+        }
+        await _logFile.create(recursive: true);
+        _sink = _logFile.openWrite(mode: FileMode.append);
+      }
+      try {
+        _sink.writeln(entry);
+      } catch (_) {
+        // Also recover if a hot restart or external action closed the sink.
+        await _logFile.parent.create(recursive: true);
+        if (!await _logFile.exists()) {
+          await _logFile.create(recursive: true);
+        }
+        _sink = _logFile.openWrite(mode: FileMode.append);
+        _sink.writeln(entry);
+      }
+    } catch (_) {
+      // Entries remain available in the in-memory ring and live stream.
+    }
   }
 
   // Call this after changing settings in the UI to update in-memory filters

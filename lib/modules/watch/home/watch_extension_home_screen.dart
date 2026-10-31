@@ -594,6 +594,10 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
 
   @override
   Widget build(BuildContext context) {
+    // The local Smart Library is not an installed extension and has no
+    // extension request headers to load.
+    if (widget.isLocalLibrary) return _buildBody(context);
+
     final headers = ref.watch(
       headersProvider(source: source.name ?? '', lang: source.lang ?? '', sourceId: source.id),
     );

@@ -179,6 +179,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return SettingsSubpageScaffold(
       title: l10n.settings,
+      leading: IconButton(
+        icon: const Icon(Broken.arrow_left_2),
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+        onPressed: () => context.go('/WatchtowerHome'),
+      ),
       slivers: [
         SliverList(
           delegate: SliverChildBuilderDelegate(

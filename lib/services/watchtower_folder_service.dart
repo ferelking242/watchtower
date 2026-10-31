@@ -98,15 +98,28 @@ import 'package:watchtower/providers/storage_provider.dart';
 
     Future<String?> getDownloadDir(String mediaType) async {
       if (!_initialized) await initialize();
-      // Keep the old API compatible while all media now share one folder.
-      return _downloadDirs['download'];
+      if (!_initialized) return null;
+      try {
+        // Re-resolve the root and recreate folders that may have been removed
+        // since startup or made inaccessible by a permission change.
+        final baseDirectory = await StorageProvider().getDefaultDirectory();
+        if (baseDirectory == null) return null;
+        _baseDir = baseDirectory.path;
+        final dlPath = path.join(baseDirectory.path, 'download');
+        await Directory(dlPath).create(recursive: true);
+        _downloadDirs['download'] = dlPath;
+        return dlPath;
+      } catch (error) {
+        _lastError = error.toString();
+        return null;
+      }
     }
 
     Future<List<WatchtowerFolderInfo>> getFolderInfoList() async {
       if (!_initialized) await initialize();
       final result = <WatchtowerFolderInfo>[];
       for (final media in mediaFolders) {
-        final dlPath = _downloadDirs[media];
+        final dlPath = await getDownloadDir(media);
         if (dlPath == null) continue;
         final dir = Directory(dlPath);
         int fileCount = 0;

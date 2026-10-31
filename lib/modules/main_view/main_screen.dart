@@ -221,6 +221,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.listen<double>(navIconSizeProvider, (_, _) => _clearCache());
     ref.listen<double>(navItemSpacingProvider, (_, _) => _clearCache());
     ref.listen<String>(navDockStyleProvider, (_, _) => _clearCache());
+    ref.listen<bool>(mergeLibraryOnDockProvider, (_, merged) {
+      if (!merged && isLibrarySwitch && mounted) {
+        setState(() => isLibrarySwitch = false);
+      }
+    });
     // Reset dock visibility whenever the route changes so pages with little
     // content (e.g. /plugins) never get stuck with a hidden dock.
     ref.listen<String?>(routerCurrentLocationStateProvider, (prev, next) {
@@ -328,12 +333,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         // Otherwise, if /Library is in dest, replace it with
         // _enableLibrarySwitch so tapping opens the sub-dock instead of
         // navigating directly to the library page.
-        if (isLibrarySwitch) {
+        if (mergeLibraryDock && isLibrarySwitch) {
           dest = [
             '_disableLibrarySwitch',
             '/Library',
           ].where((nav) => !hideItems.contains(nav)).toList();
-        } else if (dest.contains('/Library') && !isLibSwitch) {
+        } else if (mergeLibraryDock &&
+            dest.contains('/Library') &&
+            !isLibSwitch) {
           dest = dest
               .map((nav) => nav == '/Library' ? '_enableLibrarySwitch' : nav)
               .toList();

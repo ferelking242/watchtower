@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
@@ -291,8 +293,13 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         row.qualities = _qualitiesFor(row);
       }
       row.languages = languages.toList()..sort();
-      if (_bulkQuality != null) {
-        row.quality = _resolveQuality(_qualitiesFor(row), _bulkQuality, _bulkFallback);
+      final bulkQuality = _bulkQuality;
+      if (bulkQuality != null) {
+        row.quality = _resolveQuality(
+          _qualitiesFor(row),
+          bulkQuality,
+          _bulkFallback,
+        );
       }
       if (_bulkLanguage != null &&
           row.languages.any((language) => language.toLowerCase() == _bulkLanguage!.toLowerCase())) {

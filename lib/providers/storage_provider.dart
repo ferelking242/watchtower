@@ -24,6 +24,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/services/watchtower_storage_layout.dart';
 
 class StorageProvider {
   static final StorageProvider _instance = StorageProvider._internal();
@@ -204,10 +205,28 @@ class StorageProvider {
       // The documents dir in iOS is already named "Watchtower".
       // Appending "Watchtower" to the documents dir would create
       // unnecessarily nested Watchtower/Watchtower/ folder.
-      if (!kIsWeb && Platform.isIOS) return dir;
-      directory = Directory(path.join(dir.path, 'Watchtower'));
+      if (!kIsWeb && Platform.isIOS) {
+        directory = dir;
+      } else {
+        directory = Directory(path.join(dir.path, 'Watchtower'));
+      }
+    }
+    if (directory != null && !kIsWeb) {
+      await _ensureAppStorageLayout(directory);
     }
     return directory;
+  }
+
+  Future<void> _ensureAppStorageLayout(Directory directory) async {
+    await WatchtowerStorageLayout.ensureManagedDirectories(directory);
+    try {
+      await WatchtowerStorageLayout.consolidateLegacyDownloads(directory);
+    } catch (error) {
+      // Keep any files that could not be moved; the next storage access retries.
+      debugPrint(
+        '[StorageProvider] Could not migrate legacy downloads folder: $error',
+      );
+    }
   }
 
   Future<Directory?> getMpvDirectory() async {
@@ -302,8 +321,21 @@ class StorageProvider {
       // The documents dir in iOS is already named "Watchtower".
       // Appending "Watchtower" to the documents dir would create
       // unnecessarily nested Watchtower/Watchtower/ folder.
-      if (!kIsWeb && Platform.isIOS) return Directory(p);
-      directory = Directory(path.join(p, 'Watchtower'));
+      if (!kIsWeb && Platform.isIOS) {
+        directory = Directory(p);
+      } else {
+        directory = Directory(path.join(p, 'Watchtower'));
+      }
+    }
+    if (directory != null && !kIsWeb) {
+      if (dPath.isEmpty) {
+        await _ensureAppStorageLayout(directory);
+      } else {
+        await directory.create(recursive: true);
+        await Directory(path.join(directory.path, 'download')).create(
+          recursive: true,
+        );
+      }
     }
     return directory;
   }
