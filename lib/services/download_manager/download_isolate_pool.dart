@@ -2085,6 +2085,13 @@ Future<void> _processM3u8Download(
   }
 }
 
+/// `scheme://host/` of [url], or `null` when it cannot be parsed.
+String? _mediaOriginOf(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.host.isEmpty) return null;
+  return '${uri.scheme}://${uri.host}/';
+}
+
 /// Replays one segment inside the browser session of its host.
 ///
 /// Cloudflare answers this app's native client (Rust TLS stack, non-browser
@@ -2108,6 +2115,10 @@ Future<bool> _segmentViaBrowser(
         url: ts.url,
         sourceId: params.sourceId,
         headers: headers,
+        // The session must land on an HTML page to clear the challenge: a
+        // WebView opened straight on a segment never resolves it. The media
+        // host's own origin keeps the later fetch same-origin.
+        pageUrl: _mediaOriginOf(ts.url),
         binary: true,
         timeout: const Duration(seconds: 60),
         solveTimeout: const Duration(seconds: 20),

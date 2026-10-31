@@ -516,14 +516,16 @@ class M3u8Downloader {
     Map<String, String> headers,
   ) async {
     if (!BrowserFetchService.isSupported) return null;
-    // No explicit page: the media host is not the HTML page, and the session
-    // navigates to the target itself — the same path the extension's own media
-    // fetch already takes.
+    // The session must land on an HTML page to clear the challenge: a WebView
+    // navigated straight to a playlist never resolves it. The media host's own
+    // origin keeps the later fetch same-origin, so the browser does not need
+    // CORS to hand the body back.
     try {
       final response = await BrowserFetchService.fetch(
         url,
         sourceId: sourceId,
         headers: headers,
+        pageUrl: _originOf(url),
       );
       if (response.outcome != BrowserFetchOutcome.resolved) return null;
       final result = response.result!;
@@ -533,6 +535,12 @@ class M3u8Downloader {
     } catch (_) {
       return null;
     }
+  }
+
+  static String? _originOf(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) return null;
+    return '${uri.scheme}://${uri.host}/';
   }
 
   /// Parse a master playlist and return the absolute URL of the variant
