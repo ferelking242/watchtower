@@ -316,44 +316,18 @@ class MClient {
   static Future<void> restoreCookiesToWebView(
     String url, {
     int? sourceId,
-    bool skipCfClearance = false,
   }) async {
     if (url.isEmpty || kIsWeb) return;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.host.isEmpty) return;
-    final manager = flutter_inappwebview.CookieManager.instance(
-      webViewEnvironment: webViewEnvironment,
-    );
-    // `cf_clearance` is bound to the exact User-Agent (and IP) that solved the
-    // challenge. The hidden capture session deliberately keeps the engine's own
-    // User-Agent, so a clearance minted under a different one is not merely
-    // useless: Cloudflare re-serves the interstitial forever and the navigation
-    // never lands. Dropping it lets the session solve the challenge itself,
-    // which takes about two seconds.
-    if (skipCfClearance) {
-      try {
-        final existing = await manager.getCookies(
-          url: flutter_inappwebview.WebUri(url),
-        );
-        for (final cookie in existing) {
-          if (cookie.name != 'cf_clearance') continue;
-          await manager.deleteCookie(
-            url: flutter_inappwebview.WebUri(url),
-            name: cookie.name,
-            domain: cookie.domain,
-            path: cookie.path ?? '/',
-          );
-        }
-      } catch (_) {
-        // Without a native cookie store the session solves the challenge from
-        // scratch anyway.
-      }
-    }
     final settings = await isar.settings.get(kSettingsId);
     final matching = (settings?.cookiesList ?? [])
         .where((cookie) => _cookieAppliesToHost(cookie, uri.host))
         .toList()
       ..sort(_compareCookieScopes);
+    final manager = flutter_inappwebview.CookieManager.instance(
+      webViewEnvironment: webViewEnvironment,
+    );
     for (final entry in matching) {
       final storedHost = entry.host?.trim() ?? '';
       final domain = storedHost.startsWith('.') ? storedHost : uri.host;
@@ -363,7 +337,6 @@ class MClient {
         final name = raw.substring(0, separator).trim();
         final value = raw.substring(separator + 1).trim();
         if (name.isEmpty) continue;
-        if (skipCfClearance && name == 'cf_clearance') continue;
         try {
           await manager.setCookie(
             url: flutter_inappwebview.WebUri(url),
@@ -385,8 +358,6 @@ class MClient {
       extensionId: sourceId,
       url: url,
       setCookie: (cookie) async {
-        final cookieName = cookie['name']?.toString() ?? '';
-        if (skipCfClearance && cookieName == 'cf_clearance') return;
         final cookieDomain = cookie['domain']?.toString() ?? uri.host;
         final sameSiteName = cookie['sameSite']?.toString().toLowerCase();
         flutter_inappwebview.HTTPCookieSameSitePolicy? sameSite;
@@ -400,7 +371,7 @@ class MClient {
         }
         await manager.setCookie(
           url: flutter_inappwebview.WebUri(url),
-          name: cookieName,
+          name: cookie['name']?.toString() ?? '',
           value: cookie['value']?.toString() ?? '',
           domain: cookie['hostOnly'] == true ? null : '.$cookieDomain',
           path: cookie['path']?.toString() ?? '/',
