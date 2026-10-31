@@ -15,7 +15,9 @@ bool isExtensionPersonItem(MManga item) {
   return RegExp(
     // `actress` / `actresses` is what a JAV catalogue (MissAV) uses for the
     // very same profile page as `pornstar`: name, portrait, filmography.
-    r'/(pornstar|pornstars|actors?|actress|actresses|studio|studios|channel|channels)/',
+    // `profiles` is XVideos' member directory, whose cards carry the same
+    // shape as its pornstars.
+    r'/(pornstar|pornstars|actors?|actress|actresses|studio|studios|channel|channels|profiles)/',
   ).hasMatch('$path/');
 }
 
