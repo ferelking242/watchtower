@@ -630,6 +630,30 @@ must not leak into watch code paths or logs:
   instead (see `_fetchTextOrNull` / `_fetchRangeOrNull`).
 
 
+## HLS download assembly (do not regress)
+- Assembly has exactly **one** method: join the completed fragments in playlist
+  order, then a single FFmpeg stream-copy mux into MP4 (`FfmpegMergeService`).
+  There is no second "raw concatenation" fallback; a silent fallback is what
+  once published a corrupt file as a finished download.
+- Concatenate *before* FFmpeg, never with the `concat` demuxer. The demuxer
+  re-probes every input as its own container, so a bare fMP4 media segment
+  (`moof`/`mdat` without a `moov`) is rejected: the mux then exits 0 and writes
+  a streamless ~260-byte file. Byte-joining `init.mp4` + media segments is the
+  only method correct for both MPEG-TS and fMP4/CMAF.
+- The mux must pass `-f mp4`. Output goes to `<name>.mp4.part` for an atomic
+  write, and FFmpeg infers the muxer from the output extension; `.part` matches
+  nothing, so without `-f mp4` every mux aborts with "Unable to choose an output
+  format" (exit 234).
+- FFmpeg is a **bundled** native library (`ffmpeg_kit_flutter_new`), not an
+  installable runtime. `android/build.gradle` substitutes the plugin's
+  full-GPL artifact with `min-gpl`; `android/app/build.gradle` keeps
+  `minSdkVersion 24` because the AAR requires it. Linux desktop builds need
+  `libjson-glib-dev`, which the two Linux workflows install. See
+  `docs/FFMPEG_MANAGEMENT.md`.
+- The `temp/` segment directory is deleted only **after** a successful merge, so
+  a failed merge keeps its resumable fragments.
+
+
 ## Settings navigation (Mihon/Aniyomi parity)
 - Every settings subpage uses `SettingsSubpageScaffold`
   (`lib/modules/more/settings/widgets/settings_subpage_scaffold.dart`): the

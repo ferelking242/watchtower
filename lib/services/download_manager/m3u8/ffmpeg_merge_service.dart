@@ -2,15 +2,15 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
+import 'package:watchtower/services/download_manager/m3u8/ffmpeg_runner.dart';
 
 /// The only application-facing boundary for HLS assembly.
 ///
 /// Assembly is a single, deterministic method: join the downloaded fragments
 /// in playlist order, then hand the joined stream to FFmpeg for one
 /// stream-copy mux into MP4. There is deliberately no second "raw
-/// concatenation" path — a silent fallback is what let a corrupt file reach
-/// the user in the first place.
+/// concatenation" path and no fallback — a silent fallback is what let a
+/// corrupt file reach the user in the first place.
 class FfmpegMergeService {
   FfmpegMergeService._();
 
@@ -31,18 +31,13 @@ class FfmpegMergeService {
   /// from the output extension. `.part` matches no format, so without an
   /// explicit `-f mp4` every mux aborts with "Unable to choose an output
   /// format" (exit 234).
+  ///
+  /// FFmpeg runs from the native library bundled in the app, so this works on a
+  /// device that has no standalone `ffmpeg` executable.
   static Future<void> assembleToMp4({
     required String outputFile,
     required List<String> segmentPaths,
   }) async {
-    final executable = await FfmpegBinaryManager.instance.resolveExecutable();
-    if (executable == null) {
-      throw const FfmpegMergeException(
-        'FFmpeg n’est pas installé. Installez le runtime FFmpeg vérifié '
-        'avant d’assembler une vidéo HLS.',
-      );
-    }
-
     final workFile = File('$outputFile.joined');
     try {
       await _concatenate(
@@ -50,18 +45,16 @@ class FfmpegMergeService {
         segmentPaths: segmentPaths,
       );
 
-      final result = await Process.run(
-        executable,
+      final result = await runFfmpeg(
         buildMuxArguments(
           inputFile: workFile.path,
           outputFile: outputFile,
         ),
-      ).timeout(const Duration(minutes: 10));
-      if (result.exitCode != 0) {
-        final output = '${result.stdout}\n${result.stderr}'.trim();
+      );
+      if (!result.isSuccess) {
         throw FfmpegMergeException(
           'FFmpeg mux failed (exit code ${result.exitCode})'
-          '${output.isEmpty ? '' : ': $output'}',
+          '${result.output.isEmpty ? '' : ': ${result.output}'}',
         );
       }
     } finally {

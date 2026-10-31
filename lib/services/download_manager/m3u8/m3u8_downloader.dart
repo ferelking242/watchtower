@@ -552,13 +552,13 @@ class M3u8Downloader {
         r'URI="([^"]+)"',
         caseSensitive: false,
       ).firstMatch(line)?.group(1);
-      if (initRef != null && initRef!.isNotEmpty) break;
+      if (initRef != null && initRef.isNotEmpty) break;
     }
-    if (initRef != null && initRef!.isNotEmpty) {
+    if (initRef != null && initRef.isNotEmpty) {
       tsList.add(
         TsInfo(
           'TS_0',
-          Uri.parse(baseUrl).resolve(initRef!).toString(),
+          Uri.parse(baseUrl).resolve(initRef).toString(),
           isInitialization: true,
         ),
       );

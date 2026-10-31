@@ -4,7 +4,6 @@ import 'package:watchtower/modules/browse/marketplace_palette.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/providers/storage_provider.dart';
-import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/services/onboarding_dependency_service.dart';
 
@@ -21,7 +20,6 @@ class PluginsSection extends StatefulWidget {
 }
 
 class _PluginsSectionState extends State<PluginsSection> {
-  bool? _ffmpegInstalled;
   bool? _mpvInstalled;
   bool _mpvBusy = false;
   String? _mpvError;
@@ -34,13 +32,11 @@ class _PluginsSectionState extends State<PluginsSection> {
 
   Future<void> _refresh() async {
     try {
-      final ffmpeg = await FfmpegBinaryManager.instance.isInstalled();
       final mpv = await OnboardingDependencyService.isInstalled(
         OnboardingDependencyId.mpv,
       );
       if (mounted) {
         setState(() {
-          _ffmpegInstalled = ffmpeg;
           _mpvInstalled = mpv;
         });
       }
@@ -239,13 +235,10 @@ class _PluginsSectionState extends State<PluginsSection> {
           _card(
             icon: Icons.movie_filter_rounded,
             title: l10n.plugins_ffmpeg_title,
-            description: _ffmpegInstalled == true
-                ? l10n.plugins_ffmpeg_ready
-                : l10n.plugins_ffmpeg_optional,
-            trailing: _statusButton(
-              installed: _ffmpegInstalled,
-              action: l10n.plugins_action_info,
+            description: l10n.plugins_ffmpeg_bundled,
+            trailing: OutlinedButton(
               onPressed: _showFfmpegInfo,
+              child: Text(l10n.plugins_action_info),
             ),
             color: Colors.deepOrange,
           ),

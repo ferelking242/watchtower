@@ -21,6 +21,18 @@ subprojects {
             if (details.requested.group == "com.github.teamnewpipe" && details.requested.name == "NewPipeExtractor") {
                 details.useTarget("com.github.teamnewpipe:NewPipeExtractor:${details.requested.version}")
             }
+            // ffmpeg_kit_flutter_new declares the full-GPL artifact, whose
+            // external codecs nearly double the ARM64 payload. Watchtower only
+            // stream-copies MPEG-TS/fMP4 into MP4, so the min-GPL build — which
+            // still contains the mpegts/mov demuxers, the mp4 muxer, the concat
+            // protocol and aac_adtstoasc — is the correct runtime.
+            if (details.requested.group == "com.antonkarpenko" &&
+                details.requested.name == "ffmpeg-kit-full-gpl") {
+                details.useTarget(
+                    "com.antonkarpenko:ffmpeg-kit-min-gpl:${details.requested.version}"
+                )
+                details.because("Watchtower only uses stream-copy TS-to-MP4 muxing")
+            }
         }
     }
     afterEvaluate { project ->

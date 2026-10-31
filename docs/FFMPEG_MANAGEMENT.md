@@ -1,23 +1,24 @@
 # FFmpeg management
 
 Watchtower uses FFmpeg only for the final stream-copy mux of downloaded HLS
-fragments (`MPEG-TS` to `MP4`). FFmpeg is not bundled in the Android APK.
-The old FFmpeg AAR added a large native payload and made the release depend on
-an abandoned packaging path.
+fragments (`MPEG-TS` or `fMP4` to `MP4`). FFmpeg is **bundled** in the app as a
+native library (`ffmpeg_kit_flutter_new`), so assembly works offline on Android,
+iOS, macOS, Linux and Windows. There is no runtime download and no dependency on
+a standalone `ffmpeg` executable.
 
-## Runtime policy
+## Bundled native FFmpeg
 
 - `FfmpegMergeService` is the only application-facing FFmpeg boundary.
-- `FfmpegBinaryManager` checks an app-private executable on Android.
-- Desktop builds may use the `ffmpeg` executable from the system PATH.
-- Runtime downloads must use HTTPS and an immutable release URL.
-- The downloaded file must match its published SHA-256 digest before activation.
-- Downloads are written to a temporary file and renamed only after verification.
+- `runFfmpeg` (in `ffmpeg_runner_io.dart`, selected through
+  `ffmpeg_runner.dart`) is the only place that calls the native library.
+- The Android artifact is `com.antonkarpenko:ffmpeg-kit-min-gpl`. `android/build.gradle`
+  substitutes the `full-gpl` artifact requested by the plugin with `min-gpl`,
+  which still contains every demuxer, muxer and filter the mux needs while
+  keeping the APK small. Do not remove that substitution.
+- The plugin's Android AAR requires `minSdkVersion 24`, so
+  `android/app/build.gradle` keeps the application minimum at 24.
 
-The Android app fails with an actionable message when no verified runtime is
-present; it never executes an arbitrary or partially downloaded file.
-
-The runtime binary must support the current command:
+The bundled build must support the current command:
 
 ```text
 -i <joined file> -map 0 -c copy -f mp4 -movflags +faststart <output>
@@ -31,6 +32,7 @@ Assembly is a single method with no fallback:
    fragment first) joins into a valid fragmented MP4 stream.
 2. FFmpeg stream-copies the joined file into `<name>.mp4.part`, which is then
    renamed to the final file.
+3. The temporary segment directory is deleted once the final MP4 exists.
 
 Concatenating before FFmpeg is what makes one mux pass correct for both
 containers. FFmpeg's `concat` *demuxer* re-probes each input as its own
@@ -46,30 +48,29 @@ output format` (exit 234) — the mux fails and the download ends at 100% with n
 playable file.
 
 No transcoding codec is intentionally used. If the mux command changes, verify
-that the selected runtime still contains every required demuxer and muxer.
+that the bundled runtime still contains every required demuxer and muxer.
 
-There is deliberately no fallback path. When no verified FFmpeg runtime is
-available, assembly fails with an actionable error instead of silently writing
+There is deliberately no fallback path. A silent fallback is what let a corrupt
+file reach the user: assembly fails with an actionable error instead of writing
 a raw concatenation that may not be a valid MP4.
 
-## Runtime release procedure
+## Upgrading the bundled FFmpeg
 
 1. Review the upstream source, release, license, Android ABI, and minimum API.
-2. Publish an immutable ARM64 Android executable and its SHA-256 digest.
-3. Pass the URL and digest to `installFromUrl`; never activate a URL without a
-   digest.
-4. Run the HLS regression tests and an Android build for the relevant variant.
-5. Confirm that a real TS-to-MP4 stream-copy mux succeeds.
-6. Keep the executable license and source-offer notices with the release.
+2. Bump `ffmpeg_kit_flutter_new` in `pubspec.yaml` and run `flutter pub get`.
+3. Confirm the `android/build.gradle` substitution still maps the plugin's
+   requested artifact to `ffmpeg-kit-min-gpl`.
+4. Confirm the AAR still contains the `mpegts`, `mov`/`mp4`, `concat`, `hls` and
+   `aac_adtstoasc` components.
+5. Run the HLS regression tests and an Android build for the relevant variant.
+6. Confirm that a real TS-to-MP4 stream-copy mux succeeds, and check the release
+   APK size stays within the CI budget.
 
 ## Licensing and distribution
 
-Every FFmpeg runtime remains subject to its own license. Keep the corresponding
-notices and source-offer obligations with every distributed build. Do not
-silently switch between GPL and LGPL artifacts: the selected runtime,
-documentation, and release notices must agree.
+The bundled FFmpeg build is licensed under the GPL (it is built from the GPL
+variant). Keep the corresponding notices and source-offer obligations with every
+distributed build. Do not silently switch between GPL and LGPL artifacts: the
+selected build, documentation, and release notices must agree.
 
 The `BinariesSection` is for the separately managed `aria2c` download only.
-Any FFmpeg runtime release must provide a verified source, reproducible build or
-immutable release asset, SHA-256 verification, architecture coverage, and
-complete license information before it is used.

@@ -2443,6 +2443,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get catalog_tag_documentary => 'Documentaires';
+
   @override
   String get catalog_tag_jav => 'JAV';
 
@@ -2735,12 +2736,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Analyse et organise les vidéos et mangas déjà présents sur l’appareil.';
 
   @override
-  String get plugins_ffmpeg_ready =>
-      'Exécutable vérifié disponible pour les fichiers HLS.';
-
-  @override
-  String get plugins_ffmpeg_optional =>
-      'Optionnel : la concaténation directe reste utilisée automatiquement.';
+  String get plugins_ffmpeg_bundled =>
+      'Fourni avec l’application — aucune installation requise.';
 
   @override
   String get plugins_mpv_description =>
@@ -2763,11 +2760,11 @@ class AppLocalizationsFr extends AppLocalizations {
       'Le dossier de configuration MPV est indisponible.';
 
   @override
-  String get plugins_ffmpeg_title => 'Runtime FFmpeg';
+  String get plugins_ffmpeg_title => 'FFmpeg';
 
   @override
   String get plugins_ffmpeg_info =>
-      'FFmpeg sert uniquement à muxer les fragments HLS TS/fMP4 en fichier lisible. Il ne télécharge ni le lecteur ni MPV.\n\nSi aucun exécutable vérifié n’est installé, Watchtower utilise automatiquement la concaténation directe des fragments. La lecture en ligne ne dépend donc pas de ce plugin.';
+      'FFmpeg est fourni avec Watchtower. Il réalise un unique muxage en copie de flux des fragments HLS téléchargés (MPEG-TS ou fMP4) vers le fichier MP4 final.\n\nAucun téléchargement, aucun runtime séparé : l’assemblage fonctionne hors ligne et ne dépend d’aucun exécutable externe.';
 
   @override
   String get plugins_smart_library_title => 'Smart Library';

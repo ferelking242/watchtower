@@ -4,7 +4,6 @@ import 'dart:io'
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
-import 'package:watchtower/services/download_manager/m3u8/ffmpeg_binary_manager.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
 
 enum OnboardingDependencyId { ffmpeg, mpv, aria2 }
@@ -33,13 +32,11 @@ class OnboardingDependencyService {
   static const catalog = <OnboardingDependencyInfo>[
     OnboardingDependencyInfo(
       id: OnboardingDependencyId.ffmpeg,
-      name: 'FFmpeg runtime',
-      purpose: 'Assembler les fragments HLS en fichiers MP4 lisibles.',
-      alternative:
-          'Indispensable pour l’assemblage HLS : sans exécutable FFmpeg '
-          'vérifié, les téléchargements HLS échouent avec un message explicite.',
+      name: 'FFmpeg',
+      purpose: 'Assemble les fragments HLS en fichiers MP4 lisibles.',
+      alternative: 'Le moteur FFmpeg est fourni avec l’application.',
       required: false,
-      bundled: false,
+      bundled: true,
     ),
     OnboardingDependencyInfo(
       id: OnboardingDependencyId.mpv,
@@ -61,8 +58,9 @@ class OnboardingDependencyService {
 
   static Future<bool> isInstalled(OnboardingDependencyId id) async {
     switch (id) {
+      // FFmpeg ships inside the application, so it is always available.
       case OnboardingDependencyId.ffmpeg:
-        return await FfmpegBinaryManager.instance.isInstalled();
+        return true;
       case OnboardingDependencyId.mpv:
         if (kIsWeb) return true;
         final directory = await StorageProvider().getMpvDirectory();
@@ -76,13 +74,8 @@ class OnboardingDependencyService {
 
   static Future<void> install(OnboardingDependencyId id) async {
     switch (id) {
+      // Bundled with the application: nothing to install.
       case OnboardingDependencyId.ffmpeg:
-        if (await FfmpegBinaryManager.instance.resolveExecutable() == null) {
-          throw const OnboardingDependencyException(
-            'FFmpeg runtime absent. Installez un binaire vérifié dans le '
-            'stockage privé de Watchtower avant une fusion HLS.',
-          );
-        }
         return;
       case OnboardingDependencyId.mpv:
         final directory = await StorageProvider().getMpvDirectory();

@@ -389,6 +389,7 @@ jobs:
             libnotify-dev \
             libayatana-appindicator3-dev \
             libsecret-1-dev libjsoncpp-dev \
+            libjson-glib-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libgstreamer-plugins-bad1.0-dev \
             gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \

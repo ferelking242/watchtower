@@ -5039,17 +5039,11 @@ abstract class AppLocalizations {
   /// **'Scans and organises the videos and mangas already on the device.'**
   String get plugins_smart_library_description;
 
-  /// No description provided for @plugins_ffmpeg_ready.
+  /// No description provided for @plugins_ffmpeg_bundled.
   ///
   /// In en, this message translates to:
-  /// **'Verified binary available for HLS files.'**
-  String get plugins_ffmpeg_ready;
-
-  /// No description provided for @plugins_ffmpeg_optional.
-  ///
-  /// In en, this message translates to:
-  /// **'Optional: direct concatenation is used automatically.'**
-  String get plugins_ffmpeg_optional;
+  /// **'Bundled with the app — no installation required.'**
+  String get plugins_ffmpeg_bundled;
 
   /// No description provided for @plugins_mpv_description.
   ///
@@ -5090,13 +5084,13 @@ abstract class AppLocalizations {
   /// No description provided for @plugins_ffmpeg_title.
   ///
   /// In en, this message translates to:
-  /// **'FFmpeg runtime'**
+  /// **'FFmpeg'**
   String get plugins_ffmpeg_title;
 
   /// No description provided for @plugins_ffmpeg_info.
   ///
   /// In en, this message translates to:
-  /// **'FFmpeg only muxes HLS TS/fMP4 fragments into a readable file. It downloads neither the player nor MPV.\n\nWhen no verified binary is installed, Watchtower falls back to direct fragment concatenation, so online playback does not depend on this plugin.'**
+  /// **'FFmpeg is bundled with Watchtower. It performs a single stream-copy mux of the downloaded HLS fragments (MPEG-TS or fMP4) into the final MP4.\n\nNo download, no separate runtime: assembly works offline and does not depend on an external executable.'**
   String get plugins_ffmpeg_info;
 
   /// No description provided for @plugins_smart_library_title.
