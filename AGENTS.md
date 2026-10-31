@@ -147,6 +147,34 @@ full-screen challenge route any more.
 * A headless capture that fails is the only thing that alerts the user;
 challenges cleared silently must stay silent.
 
+### Downloads from a browser-only host
+
+The same verdict applies to **media**, not just to the extension's own fetches.
+A source can hand the extension the CDN URL and its headers while Cloudflare
+refuses that URL to the app's native client — `surrit.com` (MissAV's HLS host)
+does: the same UA and Referer that mpv plays the stream with get a `403` from
+`HttpClient`, because the verdict is on the client fingerprint, not the
+request. So the HLS path replays the refused request in the browser session
+too:
+
+* `M3u8Downloader._getM3u8Body` (`lib/services/download_manager/m3u8/`) falls
+  back to `BrowserFetchService.fetch` when the playlist stays non-200 after the
+  header retry — without it the download dies at "Failed to get TS list".
+* `_segmentViaBrowser` in `lib/services/download_manager/download_isolate_pool.dart`
+  does the same for a segment, using `binary: true` so the in-page
+  `arrayBuffer()` returns the raw TS bytes. The download workers reach the
+  engine through `BrowserBridge.connect`; `_WorkerInit` carries the browser
+  server port (NOT the task port, whose listener only knows the handshake).
+* Both are best-effort: a failure keeps the native error. Only `403/429/5xx`
+  triggers the replay (a `404` will not be fixed by the browser), it is tried
+  once per segment, and a host that needed it once is remembered in
+  `_browserRequiredHosts` so later segments skip the doomed native attempt.
+  `_browserSegmentGate` caps browser-replayed segments at 3 in flight, because
+  each payload crosses the bridge as base64.
+
+`sourceId` threads from the download provider through `M3u8Downloader` and
+`M3u8DownloadParams` so the session can restore the right cookies.
+
 Covered by `test/extension_home_empty_state_test.dart`,
 `test/cloudflare_detection_test.dart`, `test/cloudflare_challenge_url_test.dart`,
 `test/bypass_notification_content_test.dart`.

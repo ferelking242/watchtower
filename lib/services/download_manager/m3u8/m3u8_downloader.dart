@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
@@ -35,6 +36,10 @@ class M3u8Downloader {
   /// Source page URL — used as Referer header (anti-403 fix)
   final String? refererUrl;
 
+  /// Extension (source) id, forwarded so a blocked CDN request can be replayed
+  /// inside the browser session that already holds the clearance for it.
+  final int? sourceId;
+
   static var httpClient = MClient.httpClient(
     settings: const ClientSettings(
       throwOnStatusCode: false,
@@ -51,6 +56,7 @@ class M3u8Downloader {
     this.concurrentDownloads = 1,
     required this.subtitles,
     this.refererUrl,
+    this.sourceId,
     this.mergeRunner,
   });
 
@@ -301,6 +307,7 @@ class M3u8Downloader {
       concurrentDownloads: concurrentDownloads,
       headers: _buildEffectiveHeaders(),
       itemType: chapter.manga.value!.itemType,
+      sourceId: sourceId,
       writeMode: DownloadSettingsService.instance.downloadWriteMode,
       speedLimitKBs: DownloadSettingsService.instance.speedLimitKBs,
       onProgress: (progress) {
@@ -479,20 +486,53 @@ class M3u8Downloader {
         Uri.parse(url),
         headers: retryHeaders,
       );
-      if (retryResponse.statusCode != 200) {
-        throw M3u8DownloaderException(
-          'Failed to load m3u8 body (status ${retryResponse.statusCode} after retry)',
-        );
-      }
-      return retryResponse.body;
+      if (retryResponse.statusCode == 200) return retryResponse.body;
+      // The host refuses this client's fingerprint, not the request: the same
+      // URL loads in the WebView. Replay the playlist in the browser session
+      // that already holds the clearance before giving up.
+      final viaBrowser = await _m3u8BodyViaBrowser(url, effectiveHeaders);
+      if (viaBrowser != null) return viaBrowser;
+      throw M3u8DownloaderException(
+        'Failed to load m3u8 body (status ${retryResponse.statusCode} after retry)',
+      );
     }
 
     if (response.statusCode != 200) {
+      final viaBrowser = await _m3u8BodyViaBrowser(url, effectiveHeaders);
+      if (viaBrowser != null) return viaBrowser;
       throw M3u8DownloaderException(
         'Failed to load m3u8 body (status ${response.statusCode})',
       );
     }
     return response.body;
+  }
+
+  /// Replays the playlist request inside the browser session of its host.
+  ///
+  /// Returns `null` when no session can serve the host, so the native error
+  /// stands and the caller keeps its original message.
+  Future<String?> _m3u8BodyViaBrowser(
+    String url,
+    Map<String, String> headers,
+  ) async {
+    if (!BrowserFetchService.isSupported) return null;
+    // No explicit page: the media host is not the HTML page, and the session
+    // navigates to the target itself — the same path the extension's own media
+    // fetch already takes.
+    try {
+      final response = await BrowserFetchService.fetch(
+        url,
+        sourceId: sourceId,
+        headers: headers,
+      );
+      if (response.outcome != BrowserFetchOutcome.resolved) return null;
+      final result = response.result!;
+      if (result.statusCode != 200 || result.body.isEmpty) return null;
+      _log('m3u8 body served by the browser session (${result.statusCode})');
+      return result.body;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Parse a master playlist and return the absolute URL of the variant

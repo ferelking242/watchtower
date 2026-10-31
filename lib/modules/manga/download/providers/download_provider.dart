@@ -2469,6 +2469,7 @@ Future<void> downloadChapter(
               fileName: p.join(mangaMainDirectory!.path, "$chapterName.mp4"),
               chapter: chapter,
               refererUrl: referer,
+              sourceId: manga.sourceId,
               concurrentDownloads: animeConnections,
             );
           } else {

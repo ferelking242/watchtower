@@ -10,6 +10,8 @@ import 'package:http/http.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
+import 'package:watchtower/services/anti_bot/browser_bridge.dart';
+import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
@@ -259,6 +261,7 @@ class DownloadIsolatePool {
     required int concurrentDownloads,
     required Map<String, String>? headers,
     required ItemType itemType,
+    int? sourceId,
     int writeMode = 0,
     int speedLimitKBs = 0,
     required void Function(DownloadProgress) onProgress,
@@ -295,6 +298,7 @@ class DownloadIsolatePool {
         concurrentDownloads: concurrentDownloads,
         headers: headers,
         itemType: itemType,
+        sourceId: sourceId,
         writeMode: writeMode,
         speedLimitKBs: speedLimitKBs,
       ),
@@ -536,6 +540,10 @@ class M3u8DownloadParams {
   final Map<String, String>? headers;
   final ItemType itemType;
 
+  /// Extension (source) id — used when a blocked segment must be replayed in
+  /// the browser session of its host.
+  final int? sourceId;
+
   /// Voir [FileDownloadParams.writeMode] — appliqué au fichier fusionné final.
   final int writeMode;
 
@@ -554,6 +562,7 @@ class M3u8DownloadParams {
     required this.concurrentDownloads,
     required this.headers,
     required this.itemType,
+    this.sourceId,
     this.writeMode = 0,
     this.speedLimitKBs = 0,
   });
@@ -619,7 +628,7 @@ class _PoolWorker {
     try {
       _isolate = await Isolate.spawn(
         _workerEntryPoint,
-        _WorkerInit(id, _receivePort.sendPort),
+        _WorkerInit(id, _receivePort.sendPort, BrowserBridge.startServer()),
       );
 
       // The worker first sends back its task SendPort, then its cancel
@@ -723,7 +732,10 @@ class _PoolWorker {
 class _WorkerInit {
   final int workerId;
   final SendPort mainPort;
-  _WorkerInit(this.workerId, this.mainPort);
+
+  /// Root-isolate port that serves browser requests for blocked hosts.
+  final SendPort? browserPort;
+  _WorkerInit(this.workerId, this.mainPort, [this.browserPort]);
 }
 
 /// Sent from the worker back to the main isolate once both SendPorts
@@ -756,6 +768,45 @@ class _WorkerTask {
   });
 }
 
+/// Bounds how many segments are fetched through the browser at once.
+///
+/// The whole point of the browser path is that one WebView session serves a
+/// host, and every payload crosses the bridge as base64. Letting 32 slots
+/// stream through it at once would hold tens of megabytes in the engine for no
+/// extra speed, so the browser path runs at most this many segments in flight.
+const int _kBrowserSegmentConcurrency = 3;
+
+/// Counting semaphore for the browser segment path.
+class _BrowserSegmentGate {
+  int _available = _kBrowserSegmentConcurrency;
+  final List<Completer<void>> _waiters = [];
+
+  Future<void> acquire() async {
+    if (_available > 0) {
+      _available--;
+      return;
+    }
+    final waiter = Completer<void>();
+    _waiters.add(waiter);
+    await waiter.future;
+  }
+
+  void release() {
+    if (_waiters.isNotEmpty) {
+      _waiters.removeAt(0).complete();
+      return;
+    }
+    _available++;
+  }
+}
+
+final _BrowserSegmentGate _browserSegmentGate = _BrowserSegmentGate();
+
+/// Hosts whose CDN refuses this app's native client: once the browser has
+/// served one segment of a host, later segments go straight to the browser
+/// instead of paying a doomed native request first.
+final Set<String> _browserRequiredHosts = <String>{};
+
 /// Per-isolate set of cancelled task IDs. Updated by the cancellation
 /// listener (non-blocking) and consulted by the download loops between
 /// segments/files so they can short-circuit cleanly.
@@ -774,6 +825,14 @@ Exception _toSendable(Object e) => Exception(e.toString());
 void _workerEntryPoint(_WorkerInit init) async {
   // Initialize dependencies in the Isolate
   await RustLib.init();
+
+  // Let this worker replay a CDN request that Cloudflare refuses to the native
+  // client inside the root isolate's browser session (same mechanism the
+  // extension workers use). `browserPort` is the browser server port — NOT the
+  // task port, whose listener only knows the startup handshake. A `null` port
+  // simply means no browser is available and the native path stands alone.
+  final browserPort = init.browserPort;
+  if (browserPort != null) BrowserBridge.connect(browserPort);
 
   final httpClient = MClient.httpClient(
     settings: const ClientSettings(
@@ -2026,6 +2085,53 @@ Future<void> _processM3u8Download(
   }
 }
 
+/// Replays one segment inside the browser session of its host.
+///
+/// Cloudflare answers this app's native client (Rust TLS stack, non-browser
+/// header order) with a 403 on hosts where the very same URL loads in the
+/// WebView — the managed challenge is plain JavaScript. The session owns the
+/// clearance, so the segment is fetched from inside the accepted page and the
+/// raw bytes are returned. Best-effort: any failure returns `false` and the
+/// native error stands.
+Future<bool> _segmentViaBrowser(
+  TsInfo ts,
+  M3u8DownloadParams params,
+  File partFile,
+  void Function(int bytes)? onChunk,
+) async {
+  if (!BrowserBridge.isConnected) return false;
+  final headers = params.headers ?? const <String, String>{};
+  await _browserSegmentGate.acquire();
+  try {
+    final result = await BrowserBridge.request(
+      BrowserCaptureRequest(
+        url: ts.url,
+        sourceId: params.sourceId,
+        headers: headers,
+        binary: true,
+        timeout: const Duration(seconds: 60),
+        solveTimeout: const Duration(seconds: 20),
+      ),
+    );
+    final bytes = result?.bytes;
+    if (result == null ||
+        result.statusCode != 200 ||
+        bytes == null ||
+        bytes.isEmpty) {
+      return false;
+    }
+    await partFile.writeAsBytes(bytes, flush: true);
+    onChunk?.call(bytes.length);
+    final host = Uri.tryParse(ts.url)?.host.toLowerCase() ?? '';
+    if (host.isNotEmpty) _browserRequiredHosts.add(host);
+    return true;
+  } catch (_) {
+    return false;
+  } finally {
+    _browserSegmentGate.release();
+  }
+}
+
 /// Download a TS segment.
 ///
 /// The retry wrapper is placed *around the whole operation* (connection +
@@ -2052,6 +2158,12 @@ Future<void> _downloadSegment(
   final partFile = File('${file.path}.part');
   final doneFile = File('${file.path}.done');
   final decryptFile = File('${file.path}.decrypt.part');
+  var browserTried = false;
+  // A host that already needed the browser this session: skip the native
+  // attempt, which would only burn a round-trip on another 403.
+  final host = Uri.tryParse(ts.url)?.host.toLowerCase() ?? '';
+  final browserFirst =
+      host.isNotEmpty && _browserRequiredHosts.contains(host);
 
   try {
     await _withRetry(() async {
@@ -2066,6 +2178,14 @@ Future<void> _downloadSegment(
           try {
             await stale.delete();
           } catch (_) {}
+        }
+      }
+
+      if (browserFirst && !browserTried) {
+        browserTried = true;
+        if (await _segmentViaBrowser(ts, params, partFile, onChunk)) {
+          await partFile.rename(file.path);
+          return;
         }
       }
 
@@ -2087,6 +2207,19 @@ Future<void> _downloadSegment(
           );
 
       if (response.statusCode != 200) {
+        // 403/429/5xx is how Cloudflare refuses a client it does not trust;
+        // a 404 will not be fixed by the browser. Replay the segment in the
+        // browser session once before the retry loop gives up.
+        final refused = response.statusCode == 403 ||
+            response.statusCode == 429 ||
+            response.statusCode >= 500;
+        if (refused && !browserTried) {
+          browserTried = true;
+          if (await _segmentViaBrowser(ts, params, partFile, onChunk)) {
+            await partFile.rename(file.path);
+            return;
+          }
+        }
         throw DownloadPoolException(
           'Failed to download segment: ${ts.name} (HTTP ${response.statusCode})',
         );
