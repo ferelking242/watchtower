@@ -123,12 +123,30 @@ cross-origin and the CDN sends no `Access-Control-Allow-Origin`, so the browser
 rejects the served bytes (`TypeError: Failed to fetch`) even though the image
 was returned. The request must be issued from the image's own origin, which is
 same-origin with itself; `_loadCoverViaBrowser` therefore keeps the declared
-page only when `declaredHost == imageHost`, and otherwise navigates to
-`scheme://imageHost/`. That root page is frequently a plain nginx `403
-Forbidden` with no Cloudflare markers, which the probe classifies as `normal`
-(never `blocked`), so the session is kept and the fetch succeeds.
+page only when `declaredHost == imageHost`, and otherwise navigates to the
+image URL itself.
+
+Navigating to the *image URL* (not the host root) is the load-bearing part.
+Some image CDNs answer their root with a hard error page — `https://img.1porn.tv/`
+returns `403 Forbidden` + `nginx` as `text/html` — and such a root can also sit
+behind a fresh managed challenge, so a session parked there either never becomes
+ready or burns the whole solve budget. The image URL is the exact resource: it
+loads as an image document (`200`, `content-type: image/jpeg`, title `1.jpg
+(744×420)`), so the probe sees `normal`, and a `fetch()` of that same URL is
+same-origin and returns the bytes. Verified that a session on one image can
+`fetch()` *other* images of the same host (200, ~35–82 KB each), so one session
+still serves a whole shelf.
 
 Consequences that must not regress:
+
+* A challenge solved in the hidden session is watched **in the background** and
+  the session is **kept** when the solve budget runs out (it is only dropped
+  when the page is a human-only block). Tearing the session down on the
+  per-request deadline restarted the solve from zero for each of a layout's
+  shelves, so a slow source returned `items=0` on every one.
+* A source that declares `hasCloudflare` gets its hidden session **pre-warmed**
+  when it is opened (`BrowserCapture.prewarm`), so the challenge solves while
+  the extension compiles instead of stalling the first shelf.
 
 * The HTTP client always sends a User-Agent, and it is the one stored for the
 extension session. `cf_clearance` is bound to that UA; an empty UA gets a 403

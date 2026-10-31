@@ -88,7 +88,7 @@ class BrowserCaptureRequest {
     this.sourceId,
     this.headers = const <String, String>{},
     this.timeout = const Duration(seconds: 12),
-    this.solveTimeout = const Duration(seconds: 15),
+    this.solveTimeout = const Duration(seconds: 30),
     this.pageUrl,
     this.binary = false,
   });
@@ -137,7 +137,7 @@ class BrowserCaptureRequest {
         milliseconds: map['timeoutMs'] as int? ?? 12000,
       ),
       solveTimeout: Duration(
-        milliseconds: map['solveTimeoutMs'] as int? ?? 15000,
+        milliseconds: map['solveTimeoutMs'] as int? ?? 30000,
       ),
       pageUrl: map['pageUrl'] as String?,
       binary: map['binary'] as bool? ?? false,
@@ -213,6 +213,10 @@ class BrowserCapture {
   /// Two hidden engines at most: a phone cannot host more.
   static const int _maxSessions = 2;
 
+  /// How long a cold session may spend clearing the managed challenge before a
+  /// request gives up on it. Shared with [prewarm] so both paths use one value.
+  static const Duration _defaultSolveTimeout = Duration(seconds: 30);
+
   static final Map<String, _BrowserSession> _sessions = {};
 
   static BrowserCaptureSupport get support => browserCaptureSupportFor(
@@ -260,19 +264,62 @@ class BrowserCapture {
     }
   }
 
+  /// Starts the hidden session for [url]'s host without performing a request.
+  ///
+  /// The managed challenge now needs several seconds on a phone, so opening a
+  /// source pre-warms its session: the WebView boots and starts solving while
+  /// the extension is still being compiled, and the first shelf no longer pays
+  /// for the whole solve. Best-effort — a failure is only logged.
+  static Future<void> prewarm({
+    required String url,
+    int? sourceId,
+  }) async {
+    if (!isAvailable) return;
+    final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+    if (host.isEmpty) return;
+    final existing = _sessions[host];
+    if (existing != null && !existing.isDisposed) {
+      if (existing.blocked) {
+        _sessions.remove(host);
+        unawaited(existing.dispose());
+      } else {
+        unawaited(existing.ensureReady());
+        return;
+      }
+    }
+    final session = _BrowserSession(
+      host: host,
+      sourceId: sourceId,
+      firstUrl: url,
+      solveTimeout: _defaultSolveTimeout,
+    );
+    _sessions[host] = session;
+    unawaited(session.ensureReady());
+    _scheduleIdle(session);
+    AppLogger.log(
+      '[BrowserCapture] prewarm ${redactUrl(url)}',
+      logLevel: LogLevel.debug,
+      tag: LogTag.extension_,
+    );
+  }
+
   static Future<_BrowserSession?> _sessionFor(
     String host,
     BrowserCaptureRequest request,
   ) async {
     final existing = _sessions[host];
     if (existing != null && !existing.isDisposed) {
-      if (await existing.ensureReady()) return existing;
-      // The challenge this session faced needs a human (Turnstile, WAF
-      // block): dispose it and let the caller fall back to the panel instead
-      // of opening a second engine that would fail the same way.
-      _sessions.remove(host);
-      await existing.dispose();
-      return null;
+      // A blocked session can never serve anything: drop it so the caller can
+      // fall back to the visible panel.
+      if (existing.blocked) {
+        _sessions.remove(host);
+        await existing.dispose();
+        return null;
+      }
+      // Ready or still solving — reuse it either way and let [fetch] wait.
+      // Disposing a session that is mid-challenge restarted the solve from
+      // zero for the next shelf, so none ever finished (the `items=0` bug).
+      return existing;
     }
 
     if (_sessions.length >= _maxSessions) {
@@ -292,12 +339,15 @@ class BrowserCapture {
       solveTimeout: request.solveTimeout,
     );
     _sessions[host] = session;
-    if (!await session.ensureReady()) {
+    // A brand-new session is handed back even when its challenge is still
+    // running: [fetch] waits for it. Disposing it here restarted the solve for
+    // every shelf of the layout, which is why a slow source showed `items=0`.
+    if (session.blocked) {
       _sessions.remove(host);
       await session.dispose();
       AppLogger.log(
         '[BrowserCapture] ${redactUrl(request.url)} — the browser session '
-        'could not clear the challenge',
+        'hit a block page',
         logLevel: LogLevel.debug,
         tag: LogTag.extension_,
       );
@@ -343,17 +393,66 @@ class _BrowserSession {
   InAppWebViewController? _controller;
   Future<bool>? _ready;
   bool _isReady = false;
+  bool _blocked = false;
   int _busy = 0;
   int _ticket = 0;
+  DateTime _startedAt = DateTime.now();
 
-  bool get isBusy => _busy > 0;
+  bool get isBusy => _busy > 0 || _solving;
 
-  Future<bool> ensureReady() {
-    if (isDisposed) return Future.value(false);
-    return _ready ??= _start();
+  /// Hard wall-clock budget for the session's first solve.
+  ///
+  /// Shared by every request that reuses the session: a per-request deadline
+  /// would let a layout with a dozen shelves each wait the full timeout, so the
+  /// user would wait minutes on a source whose challenge never clears. The
+  /// first request waits; the rest only wait out whatever is left.
+  DateTime get _solveDeadline => _startedAt.add(solveTimeout);
+
+  /// True while the first navigation may still be working the challenge.
+  ///
+  /// Bounded by a wall-clock window rather than a terminal flag: the WebView
+  /// keeps solving on its own, so a later request can still find it cleared.
+  /// Once the window passes the session becomes reclaimable by the idle timer.
+  bool get _solving =>
+      !isDisposed &&
+      !_isReady &&
+      !_blocked &&
+      DateTime.now().isBefore(_solveDeadline);
+
+  /// True once the challenge was assessed as a human-only block (Turnstile,
+  /// WAF): the session can never serve a request and must be dropped.
+  bool get blocked => _blocked;
+
+  /// Waits for the session's first navigation to clear the challenge.
+  ///
+  /// A slow device can need longer than [solveTimeout] to run the managed
+  /// challenge; when the deadline passes the session is deliberately **kept
+  /// alive** (see [_start] and [_sessionFor]). Tearing it down here is what
+  /// made a slow source return `items=0`: every one of the layout's shelves
+  /// reopened a fresh WebView and restarted the challenge from zero, so none
+  /// ever finished.
+  Future<bool> ensureReady() async {
+    if (isDisposed) return false;
+    _ready ??= _start();
+    if (!await _ready) return false;
+    while (true) {
+      if (isDisposed) return false;
+      if (_isReady) return true;
+      if (_blocked) return false;
+      if (!DateTime.now().isBefore(_solveDeadline)) return false;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
   }
 
   Future<BrowserCaptureResult?> fetch(BrowserCaptureRequest request) async {
+    if (isDisposed) return null;
+    // The challenge may still be running (slow device, shared session): wait
+    // for it instead of injecting the request into an interstitial, which
+    // returned an empty body and made every shelf look empty.
+    if (!_isReady) {
+      final ok = await ensureReady();
+      if (!ok) return null;
+    }
     if (isDisposed) return null;
     final controller = _controller;
     if (controller == null) return null;
@@ -474,8 +573,15 @@ class _BrowserSession {
       );
       _headless = headless;
       await headless.run();
-      _isReady = await _waitForChallengeToClear();
-      return _isReady;
+      // The challenge budget starts when the page is up, not when the session
+      // was built: booting the engine takes a second or two on a phone and
+      // must not be billed to the solve.
+      _startedAt = DateTime.now();
+      // The challenge is watched in the background so a slow solve keeps
+      // running after the caller's deadline: [ensureReady] polls [_isReady]
+      // instead of tearing the engine down and losing the progress.
+      unawaited(_watchChallenge());
+      return true;
     } catch (error, stackTrace) {
       AppLogger.log(
         '[BrowserCapture] session for $host failed: $error',
@@ -488,18 +594,29 @@ class _BrowserSession {
     }
   }
 
-  /// Waits for the managed challenge to finish on the first navigation.
-  Future<bool> _waitForChallengeToClear() async {
-    final deadline = DateTime.now().add(solveTimeout);
-    while (DateTime.now().isBefore(deadline)) {
+  /// Watches the first navigation until the managed challenge clears.
+  ///
+  /// Runs in the background: it keeps probing well past [solveTimeout] so a
+  /// slow device can finish the challenge, and only marks the session blocked
+  /// when the page is a human-only interstitial (Turnstile, WAF).
+  Future<void> _watchChallenge() async {
+    final deadline = DateTime.now().add(solveTimeout * 4);
+    while (!isDisposed && !_isReady) {
       await Future<void>.delayed(BrowserCapture._probeInterval);
       final controller = _controller;
-      if (controller == null || isDisposed) continue;
+      if (controller == null) continue;
       final assessment = parsePageProbe(await _evaluate(controller, kCfPageProbeJs));
-      if (assessment.blocked) return false;
-      if (assessment.pageType == AntiBotPageType.normal) return true;
+      if (assessment.blocked) {
+        _blocked = true;
+        return;
+      }
+      if (assessment.pageType == AntiBotPageType.normal) {
+        _isReady = true;
+        lastUsed = DateTime.now();
+        return;
+      }
+      if (!DateTime.now().isBefore(deadline)) return;
     }
-    return false;
   }
 
   Future<void> dispose() async {

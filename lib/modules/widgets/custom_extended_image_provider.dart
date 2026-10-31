@@ -585,10 +585,15 @@ class CustomExtendedNetworkImageProvider
       // request issued from that page is cross-origin, and a CDN that happily
       // serves the image to a plain page sends no
       // `Access-Control-Allow-Origin`, so the browser rejects the response
-      // (`TypeError: Failed to fetch`) even though the bytes were served. The
-      // image's own origin is same-origin with the request, so the body stays
-      // readable; it also clears the challenge on its own, since navigating to
-      // the host root returns a managed challenge rather than a hard block.
+      // (`TypeError: Failed to fetch`) even though the bytes were served.
+      //
+      // Navigating to the host *root* is not a safe fallback either: some
+      // image CDNs answer their root with a 403 error page (`img.1porn.tv`
+      // returns `403 Forbidden` + nginx), so the session would never reach a
+      // loadable page and every cover stayed a placeholder. Navigating to the
+      // image URL itself does reach it — an image document counts as a loaded
+      // page — and a `fetch()` of that same URL is then same-origin and reads
+      // the bytes.
       final referer = headers?['Referer'] ?? headers?['referer'];
       final declaredPage = key.pageUrl ??
           ((referer != null && referer.trim().isNotEmpty)
@@ -598,7 +603,7 @@ class CustomExtendedNetworkImageProvider
       final declaredHost = Uri.tryParse(declaredPage ?? '')?.host.toLowerCase();
       final page = (declaredPage != null && declaredHost == imageHost)
           ? declaredPage
-          : '${resolved.scheme}://${resolved.host}/';
+          : resolved.toString();
       final response = await BrowserFetchService.fetch(
         resolved.toString(),
         sourceId: key.sourceId,

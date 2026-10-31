@@ -555,9 +555,14 @@ class GetIsolateService {
     // 40 s while the call had not even begun, which reported healthy shelves as
     // timeouts and restarted the worker under them. The worker now reports when
     // it starts, and a longer watchdog still catches a wedged one.
+    //
+    // The budget also has to cover a browser-fallback request: clearing a
+    // managed challenge (up to 30 s on a cold session) plus the in-page fetch
+    // (up to 12 s) can approach the old 40 s ceiling, which killed the call
+    // mid-solve and restarted the worker under it.
     final executionBudget = _fastFailService(serviceType)
         ? const Duration(seconds: 20)
-        : const Duration(seconds: 40);
+        : const Duration(seconds: 60);
     Timer? timer;
     void armTimeout(Duration budget, String phase) {
       timer?.cancel();

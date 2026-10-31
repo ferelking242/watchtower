@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/item_type_localization.dart';
@@ -54,6 +56,17 @@ class SourceListTile extends StatelessWidget {
             '· type=${source.itemType.name} · id=${source.id}',
             tag: LogTag.extension_,
           );
+          // Boot the hidden browser session now: the managed challenge can take
+          // a while on a phone, so it solves while the extension loads instead
+          // of stalling the first shelf. Only for sources that declare
+          // Cloudflare, so no WebView is created for the rest of the catalogue.
+          final base = source.baseUrl?.trim() ?? '';
+          if ((source.hasCloudflare ?? false) && base.isNotEmpty) {
+            unawaited(
+              BrowserCapture.prewarm(url: base, sourceId: source.id)
+                  .catchError((_) {}),
+            );
+          }
           if (isLocal) {
             context.push('/localSources', extra: itemType);
           } else if (source.additionalParams?.contains('type=reel') ?? false) {
