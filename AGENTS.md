@@ -171,6 +171,11 @@ too:
   `_browserRequiredHosts` so later segments skip the doomed native attempt.
   `_browserSegmentGate` caps browser-replayed segments at 3 in flight, because
   each payload crosses the bridge as base64.
+* The replay passes `pageUrl` = the media host's own `scheme://host/`. The
+  session must land on an HTML page to clear the challenge (a WebView opened
+  straight on a playlist or a `.ts` never resolves it — the same rule the image
+  path follows), and staying on the media origin keeps the later fetch
+  same-origin so the browser does not need CORS to hand the bytes back.
 
 `sourceId` threads from the download provider through `M3u8Downloader` and
 `M3u8DownloadParams` so the session can restore the right cookies.
