@@ -24,8 +24,7 @@ import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
-import 'package:watchtower/services/anti_bot/anti_bot_detection.dart'
-    show isCloudflareError;
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart' show isCloudflareError;
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
     show extensionFailedUrl, extensionErrorTitle;
 import 'package:watchtower/services/layout_registry.dart';
@@ -34,7 +33,7 @@ import 'package:watchtower/ui/widgets/see_all_button.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // Accent colours for the novel module
 // ─────────────────────────────────────────────────────────────────────────────
-const _kNovelGold  = Color(0xFFD4A843); // warm amber-gold accent
+const _kNovelGold = Color(0xFFD4A843); // warm amber-gold accent
 const _kNovelBrown = Color(0xFF8B5E3C); // warm brown secondary
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -54,36 +53,35 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   Source get source => widget.source;
   bool get isLocal => source.name == 'local' && source.lang == '';
 
-  static const _kHomeIdx    = 0;
+  static const _kHomeIdx = 0;
   static const _kPopularIdx = 1;
-  static const _kLatestIdx  = 2;
-  static const _kFilterIdx  = 3;
+  static const _kLatestIdx = 2;
+  static const _kFilterIdx = 3;
 
   // Start on Popular when the source has no custom home layout.
   late int _selectedIdx = widget.isLatest
       ? _kLatestIdx
       : (widget.source.providesHome ? _kHomeIdx : _kPopularIdx);
 
-  bool   _isSearching = false;
-  String _query       = '';
-  final _searchCtrl   = TextEditingController();
-  final _scrollCtrl   = ScrollController();
+  bool _isSearching = false;
+  String _query = '';
+  final _searchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
 
-  final _homeScrollCtrl  = ScrollController();
+  final _homeScrollCtrl = ScrollController();
   final List<MManga> _catalogueItems = [];
-  int  _cataloguePage    = 1;
+  int _cataloguePage = 1;
   bool _catalogueHasNext = true;
   bool _catalogueLoading = false;
 
   List<Map<String, dynamic>> _customLists = const [];
-  late final List<dynamic> filterList =
-      isLocal ? [] : getFilterList(source: source);
+  late final List<dynamic> filterList = isLocal ? [] : getFilterList(source: source);
   late List<dynamic> filters = List.from(filterList);
 
-  bool _isFiltering   = false;
+  bool _isFiltering = false;
   bool _isLoadingMore = false;
-  bool _hasNextPage   = true;
-  int  _page          = 1;
+  bool _hasNextPage = true;
+  int _page = 1;
   final List<MManga> _mangaList = [];
   AsyncValue<MPages?>? _getManga;
 
@@ -119,8 +117,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     });
   }
 
-  bool get supportsLatest =>
-      isLocal ? true : ref.watch(supportsLatestProvider(source: source));
+  bool get supportsLatest => isLocal ? true : ref.watch(supportsLatestProvider(source: source));
 
   // ── filter sheet ───────────────────────────────────────────────────────────
 
@@ -130,27 +127,84 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => FilterWidget(
-        filterList: filters,
-        onChanged: (applied) {
-          if (mounted) setState(() {
-            filters      = applied;
-            _isFiltering = true;
-            _selectedIdx = _kHomeIdx;
-            _mangaList.clear();
-            _page        = 1;
-            _hasNextPage = true;
-          });
-        },
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.82),
+          child: Material(
+            color: Theme.of(sheetContext).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    textInputAction: TextInputAction.search,
+                    onChanged: (value) {
+                      setState(() {
+                        _query = value.trim();
+                        _isSearching = _query.isNotEmpty;
+                        _mangaList.clear();
+                        _page = 1;
+                        _hasNextPage = true;
+                      });
+                    },
+                    onSubmitted: (value) {
+                      setState(() {
+                        _query = value.trim();
+                        _isSearching = _query.isNotEmpty;
+                        _mangaList.clear();
+                        _page = 1;
+                        _hasNextPage = true;
+                      });
+                      FocusScope.of(sheetContext).unfocus();
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher dans ${source.name ?? 'la source'}…',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Theme.of(sheetContext).colorScheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: FilterWidget(
+                    filterList: filters,
+                    onChanged: (applied) {
+                      if (mounted) {
+                        setState(() {
+                          filters = applied;
+                          _isFiltering = true;
+                          _selectedIdx = _kHomeIdx;
+                          _mangaList.clear();
+                          _page = 1;
+                          _hasNextPage = true;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
   void _resetFilters() => setState(() {
-    filters      = List.from(filterList);
+    filters = List.from(filterList);
     _isFiltering = false;
     _mangaList.clear();
-    _page        = 1;
+    _page = 1;
     _hasNextPage = true;
   });
 
@@ -175,12 +229,20 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
       } else if (_selectedIdx == _kPopularIdx && !_isSearching) {
         result = await ref.read(getPopularProvider(source: source, page: next).future);
       } else if (_isSearching && _query.isNotEmpty) {
-        result = await ref.read(searchProvider(source: source, query: _query, page: next, filterList: filters).future);
+        result = await ref.read(
+          searchProvider(source: source, query: _query, page: next, filterList: filters).future,
+        );
       } else if (_isFiltering) {
-        result = await ref.read(searchProvider(source: source, query: '', page: next, filterList: filters).future);
+        result = await ref.read(
+          searchProvider(source: source, query: '', page: next, filterList: filters).future,
+        );
       }
       if (mounted && result != null && result.list.isNotEmpty) {
-        setState(() { _page = next; _hasNextPage = result!.hasNextPage; _mangaList.addAll(result.list); });
+        setState(() {
+          _page = next;
+          _hasNextPage = result!.hasNextPage;
+          _mangaList.addAll(result.list);
+        });
       } else if (mounted) {
         setState(() => _hasNextPage = false);
       }
@@ -203,9 +265,15 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     if (_catalogueLoading || !_catalogueHasNext) return;
     setState(() => _catalogueLoading = true);
     try {
-      final result = await ref.read(getPopularProvider(source: source, page: _cataloguePage).future);
+      final result = await ref.read(
+        getPopularProvider(source: source, page: _cataloguePage).future,
+      );
       if (mounted && result != null && result.list.isNotEmpty) {
-        setState(() { _cataloguePage++; _catalogueHasNext = result.hasNextPage; _catalogueItems.addAll(result.list); });
+        setState(() {
+          _cataloguePage++;
+          _catalogueHasNext = result.hasNextPage;
+          _catalogueItems.addAll(result.list);
+        });
       } else if (mounted) {
         setState(() => _catalogueHasNext = false);
       }
@@ -219,9 +287,13 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isSearching && _query.isNotEmpty) {
-      _getManga = ref.watch(searchProvider(source: source, query: _query, page: 1, filterList: filters));
+      _getManga = ref.watch(
+        searchProvider(source: source, query: _query, page: 1, filterList: filters),
+      );
     } else if (_isFiltering) {
-      _getManga = ref.watch(searchProvider(source: source, query: '', page: 1, filterList: filters));
+      _getManga = ref.watch(
+        searchProvider(source: source, query: '', page: 1, filterList: filters),
+      );
     } else if (_selectedIdx == _kLatestIdx) {
       _getManga = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
     } else {
@@ -262,27 +334,48 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
         behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.only(left: 4),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.chevron_left_rounded, size: 28, color: _kNovelGold),
-            const Text('Browse', style: TextStyle(fontSize: 17, color: _kNovelGold, fontWeight: FontWeight.w400)),
-          ]),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.chevron_left_rounded, size: 28, color: _kNovelGold),
+              const Text(
+                'Browse',
+                style: TextStyle(fontSize: 17, color: _kNovelGold, fontWeight: FontWeight.w400),
+              ),
+            ],
+          ),
         ),
       ),
-      title: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: Image.network(source.iconUrl!, width: 20, height: 20, fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox.shrink()),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isLocal && (source.iconUrl?.isNotEmpty ?? false)) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: Image.network(
+                source.iconUrl!,
+                width: 20,
+                height: 20,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Text(
+              name,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const SizedBox(width: 8),
         ],
-        Flexible(
-          child: Text(name,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, letterSpacing: -0.3),
-              maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-      ]),
+      ),
       centerTitle: true,
       actions: [
         IconButton(
@@ -292,20 +385,28 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
         ),
         const SizedBox(width: 4),
       ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(40),
-        child: _buildTabBar(ctx),
-      ),
-      flexibleSpace: LayoutBuilder(builder: (c, _) => Stack(fit: StackFit.expand, children: [
-        ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-            child: Container(color: Theme.of(c).scaffoldBackgroundColor.withValues(alpha: 0.92)),
-          ),
+      bottom: PreferredSize(preferredSize: const Size.fromHeight(40), child: _buildTabBar(ctx)),
+      flexibleSpace: LayoutBuilder(
+        builder: (c, _) => Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                child: Container(
+                  color: Theme.of(c).scaffoldBackgroundColor.withValues(alpha: 0.92),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(height: 0.5, color: _kNovelGold.withValues(alpha: 0.22)),
+            ),
+          ],
         ),
-        Positioned(bottom: 0, left: 0, right: 0,
-            child: Container(height: 0.5, color: _kNovelGold.withValues(alpha: 0.22))),
-      ])),
+      ),
     );
   }
 
@@ -316,13 +417,10 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     // or the layout has already been loaded and contains custom sections.
     final _hasHomeTab = source.providesHome || _customLists.isNotEmpty;
     final tabs = <({IconData icon, String label, int idx})>[
-      if (_hasHomeTab)
-        (icon: Icons.menu_book_rounded,              label: 'Accueil',    idx: _kHomeIdx),
-      (icon: Icons.local_fire_department_rounded,  label: 'Populaires', idx: _kPopularIdx),
-      if (supportsLatest)
-        (icon: Icons.fiber_new_rounded,            label: 'Récents',    idx: _kLatestIdx),
-      if (filterList.isNotEmpty)
-        (icon: Icons.tune_rounded,                 label: 'Filtres',    idx: _kFilterIdx),
+      if (_hasHomeTab) (icon: Icons.menu_book_rounded, label: 'Accueil', idx: _kHomeIdx),
+      (icon: Icons.local_fire_department_rounded, label: 'Populaires', idx: _kPopularIdx),
+      if (supportsLatest) (icon: Icons.fiber_new_rounded, label: 'Récents', idx: _kLatestIdx),
+      if (filterList.isNotEmpty) (icon: Icons.tune_rounded, label: 'Filtres', idx: _kFilterIdx),
     ];
 
     return SizedBox(
@@ -332,9 +430,9 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         itemCount: tabs.length,
         itemBuilder: (_, i) {
-          final tab        = tabs[i];
-          final isFilter   = tab.idx == _kFilterIdx;
-          final isActive   = isFilter ? _isFiltering : (_selectedIdx == tab.idx && !_isFiltering);
+          final tab = tabs[i];
+          final isFilter = tab.idx == _kFilterIdx;
+          final isActive = isFilter ? _isFiltering : (_selectedIdx == tab.idx && !_isFiltering);
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
@@ -346,7 +444,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                     _selectedIdx = tab.idx;
                     _isFiltering = false;
                     _mangaList.clear();
-                    _page        = 1;
+                    _page = 1;
                     _hasNextPage = true;
                   });
                 }
@@ -362,14 +460,25 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                     width: 0.8,
                   ),
                 ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(tab.icon, size: 13,
-                      color: isActive ? Colors.white : Theme.of(ctx).textTheme.bodyMedium?.color),
-                  const SizedBox(width: 5),
-                  Text(tab.label,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: isActive ? Colors.white : Theme.of(ctx).textTheme.bodyMedium?.color)),
-                ]),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      tab.icon,
+                      size: 13,
+                      color: isActive ? Colors.white : Theme.of(ctx).textTheme.bodyMedium?.color,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      tab.label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isActive ? Colors.white : Theme.of(ctx).textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -404,7 +513,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     }
     setState(() {
       _catalogueItems.clear();
-      _cataloguePage  = 1;
+      _cataloguePage = 1;
       _catalogueHasNext = true;
     });
     // Let the providers settle
@@ -419,164 +528,222 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
       // so it doesn't fire while scrolling inside sections.
       notificationPredicate: (n) => n.depth == 0,
       child: CustomScrollView(
-      controller: _homeScrollCtrl,
-      slivers: [
-        // ── 3-card peeking book carousel ──────────────────────────────────
-        SliverToBoxAdapter(
-          child: Consumer(builder: (c, ref, _) {
-            final pop = ref.watch(getPopularProvider(source: source, page: 1));
-            return pop.when(
-              data: (d) {
-                final items = d?.list ?? [];
-                if (items.isEmpty) return const SizedBox(height: 8);
-                return _NovelBookCarousel(novels: items.take(10).toList(), source: source);
+        controller: _homeScrollCtrl,
+        slivers: [
+          // ── 3-card peeking book carousel ──────────────────────────────────
+          SliverToBoxAdapter(
+            child: Consumer(
+              builder: (c, ref, _) {
+                final pop = ref.watch(getPopularProvider(source: source, page: 1));
+                return pop.when(
+                  data: (d) {
+                    final items = d?.list ?? [];
+                    if (items.isEmpty) return const SizedBox(height: 8);
+                    return _NovelBookCarousel(novels: items.take(10).toList(), source: source);
+                  },
+                  loading: () => _buildCarouselSkeleton(ctx),
+                  error: (_, _) => const SizedBox(height: 8),
+                );
               },
-              loading: () => _buildCarouselSkeleton(ctx),
-              error:   (_, _) => const SizedBox(height: 8),
+            ),
+          ),
+
+          // ── Custom list sections ───────────────────────────────────────────
+          ..._customLists.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final cl = entry.value;
+            final listId = cl['id'] as String;
+            final listName = cl['name'] as String? ?? listId;
+            final isDerniers = idx == 0;
+            final isTop = idx == 1;
+
+            return SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader(
+                    ctx,
+                    title: listName,
+                    accent: _sectionAccent(idx),
+                    icon: _sectionIcon(idx),
+                    onSeeAll: isTop
+                        ? null
+                        : () {
+                            if (isDerniers) {
+                              setState(() {
+                                _selectedIdx = _kLatestIdx;
+                                _mangaList.clear();
+                                _page = 1;
+                                _hasNextPage = true;
+                              });
+                            } else {
+                              Navigator.of(ctx).push(
+                                MaterialPageRoute(
+                                  builder: (_) => _NovelSectionPage(
+                                    source: source,
+                                    title: listName,
+                                    customListId: listId,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                  ),
+                  Consumer(
+                    builder: (c, ref, _) {
+                      final data = ref.watch(
+                        getCustomListProvider(source: source, listId: listId, page: 1),
+                      );
+                      return data.when(
+                        data: (d) {
+                          final items = d?.list ?? [];
+                          return isTop ? _buildRankedRow(ctx, items) : _buildBookRow(ctx, items);
+                        },
+                        loading: () =>
+                            isTop ? _buildRankedRowSkeleton(ctx) : _buildBookRowSkeleton(ctx),
+                        error: (_, _) => const SizedBox(height: 8),
+                      );
+                    },
+                  ),
+                ],
+              ),
             );
           }),
-        ),
 
-        // ── Custom list sections ───────────────────────────────────────────
-        ..._customLists.asMap().entries.map((entry) {
-          final idx      = entry.key;
-          final cl       = entry.value;
-          final listId   = cl['id'] as String;
-          final listName = cl['name'] as String? ?? listId;
-          final isDerniers = idx == 0;
-          final isTop      = idx == 1;
-
-          return SliverToBoxAdapter(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _buildSectionHeader(ctx,
-                title:    listName,
-                accent:   _sectionAccent(idx),
-                icon:     _sectionIcon(idx),
-                onSeeAll: isTop ? null : () {
-                  if (isDerniers) {
-                    setState(() { _selectedIdx = _kLatestIdx; _mangaList.clear(); _page = 1; _hasNextPage = true; });
-                  } else {
-                    Navigator.of(ctx).push(MaterialPageRoute(
-                      builder: (_) => _NovelSectionPage(source: source, title: listName, customListId: listId),
-                    ));
-                  }
-                },
+          // ── Fallback: show latest row when no custom lists ─────────────────
+          if (_customLists.isEmpty && supportsLatest)
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader(
+                    ctx,
+                    title: 'Derniers chapitres',
+                    accent: const Color(0xFF00BCD4),
+                    icon: Icons.fiber_new_rounded,
+                    onSeeAll: () => setState(() {
+                      _selectedIdx = _kLatestIdx;
+                      _mangaList.clear();
+                      _page = 1;
+                      _hasNextPage = true;
+                    }),
+                  ),
+                  Consumer(
+                    builder: (c, ref, _) {
+                      final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
+                      return latest.when(
+                        data: (d) => _buildBookRow(ctx, d?.list ?? []),
+                        loading: () => _buildBookRowSkeleton(ctx),
+                        error: (_, _) => const SizedBox(height: 8),
+                      );
+                    },
+                  ),
+                ],
               ),
-              Consumer(builder: (c, ref, _) {
-                final data = ref.watch(getCustomListProvider(source: source, listId: listId, page: 1));
-                return data.when(
-                  data:    (d) { final items = d?.list ?? []; return isTop ? _buildRankedRow(ctx, items) : _buildBookRow(ctx, items); },
-                  loading: () => isTop ? _buildRankedRowSkeleton(ctx) : _buildBookRowSkeleton(ctx),
-                  error:   (_, _) => const SizedBox(height: 8),
-                );
-              }),
-            ]),
-          );
-        }),
+            ),
 
-        // ── Fallback: show latest row when no custom lists ─────────────────
-        if (_customLists.isEmpty && supportsLatest)
+          // ── Catalogue header ───────────────────────────────────────────────
           SliverToBoxAdapter(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _buildSectionHeader(ctx, title: 'Derniers chapitres',
-                  accent: const Color(0xFF00BCD4), icon: Icons.fiber_new_rounded,
-                  onSeeAll: () => setState(() {
-                    _selectedIdx = _kLatestIdx; _mangaList.clear(); _page = 1; _hasNextPage = true;
-                  })),
-              Consumer(builder: (c, ref, _) {
-                final latest = ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-                return latest.when(
-                  data:    (d) => _buildBookRow(ctx, d?.list ?? []),
-                  loading: () => _buildBookRowSkeleton(ctx),
-                  error:   (_, _) => const SizedBox(height: 8),
-                );
-              }),
-            ]),
+            child: _buildSectionHeader(
+              ctx,
+              title: 'Explorer le catalogue',
+              accent: _kNovelBrown,
+              icon: Icons.collections_bookmark_rounded,
+            ),
           ),
 
-        // ── Catalogue header ───────────────────────────────────────────────
-        SliverToBoxAdapter(
-          child: _buildSectionHeader(ctx,
-            title:  'Explorer le catalogue',
-            accent: _kNovelBrown,
-            icon:   Icons.collections_bookmark_rounded,
-          ),
-        ),
-
-        // ── Catalogue grid (portrait 2:3) ──────────────────────────────────
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-          sliver: Consumer(builder: (c, ref, _) {
-            final pop = ref.watch(getPopularProvider(source: source, page: 1));
-            pop.whenData((d) {
-              if (d != null && _catalogueItems.isEmpty && d.list.isNotEmpty) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && _catalogueItems.isEmpty) {
-                    setState(() { _catalogueItems.addAll(d.list); _cataloguePage = 2; _catalogueHasNext = d.hasNextPage; });
+          // ── Catalogue grid (portrait 2:3) ──────────────────────────────────
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+            sliver: Consumer(
+              builder: (c, ref, _) {
+                final pop = ref.watch(getPopularProvider(source: source, page: 1));
+                pop.whenData((d) {
+                  if (d != null && _catalogueItems.isEmpty && d.list.isNotEmpty) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && _catalogueItems.isEmpty) {
+                        setState(() {
+                          _catalogueItems.addAll(d.list);
+                          _cataloguePage = 2;
+                          _catalogueHasNext = d.hasNextPage;
+                        });
+                      }
+                    });
                   }
                 });
-              }
-            });
 
-            final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
+                final base = Theme.of(
+                  ctx,
+                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6);
 
-            if (_catalogueItems.isEmpty) {
-              return SliverToBoxAdapter(
-                child: ShimmerSkeleton(
-                  enabled: true,
-                  effect: ShimmerEffect(
-                      baseColor: base,
-                      highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-                      duration: const Duration(milliseconds: 1200)),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
-                    itemCount: 12,
-                    itemBuilder: (_, _) => Container(
-                      decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            Widget _shimmerCell() => Container(
-              decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
-            );
-
-            return SliverGrid(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
-              delegate: SliverChildBuilderDelegate(
-                (c2, i) {
-                  if (i >= _catalogueItems.length) {
-                    return ShimmerSkeleton(
+                if (_catalogueItems.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: ShimmerSkeleton(
                       enabled: true,
                       effect: ShimmerEffect(
+                        baseColor: base,
+                        highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+                        duration: const Duration(milliseconds: 1200),
+                      ),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 120,
+                          childAspectRatio: 0.62,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                        itemCount: 12,
+                        itemBuilder: (_, _) => Container(
+                          decoration: BoxDecoration(
+                            color: base,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                Widget _shimmerCell() => Container(
+                  decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
+                );
+
+                return SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 120,
+                    childAspectRatio: 0.62,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                  ),
+                  delegate: SliverChildBuilderDelegate((c2, i) {
+                    if (i >= _catalogueItems.length) {
+                      return ShimmerSkeleton(
+                        enabled: true,
+                        effect: ShimmerEffect(
                           baseColor: base,
                           highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-                          duration: const Duration(milliseconds: 1200)),
-                      child: _shimmerCell(),
+                          duration: const Duration(milliseconds: 1200),
+                        ),
+                        child: _shimmerCell(),
+                      );
+                    }
+                    return MangaImageCardWidget(
+                      getMangaDetail: _catalogueItems[i],
+                      source: source,
+                      itemType: source.itemType,
+                      isComfortableGrid: false,
                     );
-                  }
-                  return MangaImageCardWidget(
-                    getMangaDetail: _catalogueItems[i],
-                    source: source,
-                    itemType: source.itemType,
-                    isComfortableGrid: false,
-                  );
-                },
-                childCount: _catalogueItems.length + (_catalogueLoading ? 3 : 0),
-              ),
-            );
-          }),
-        ),
+                  }, childCount: _catalogueItems.length + (_catalogueLoading ? 3 : 0)),
+                );
+              },
+            ),
+          ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 120)),
-      ],
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
       ),
     );
   }
@@ -595,22 +762,42 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   // ── section header ─────────────────────────────────────────────────────────
 
-  Widget _buildSectionHeader(BuildContext ctx, {
-    required String title, Color? accent, IconData? icon, VoidCallback? onSeeAll,
+  Widget _buildSectionHeader(
+    BuildContext ctx, {
+    required String title,
+    Color? accent,
+    IconData? icon,
+    VoidCallback? onSeeAll,
   }) {
     final c = accent ?? _kNovelGold;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 18, 12, 8),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 3, height: 18, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 8),
-          if (icon != null) ...[Icon(icon, size: 15, color: c), const SizedBox(width: 5)],
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
-        ]),
-        if (onSeeAll != null)
-          SeeAllButton(onTap: onSeeAll, color: c),
-      ]),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 3,
+                height: 18,
+                decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 8),
+              if (icon != null) ...[Icon(icon, size: 15, color: c), const SizedBox(width: 5)],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
+          if (onSeeAll != null) SeeAllButton(onTap: onSeeAll, color: c),
+        ],
+      ),
     );
   }
 
@@ -633,9 +820,11 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
     return ShimmerSkeleton(
       enabled: true,
-      effect: ShimmerEffect(baseColor: base,
-          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-          duration: const Duration(milliseconds: 1200)),
+      effect: ShimmerEffect(
+        baseColor: base,
+        highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+        duration: const Duration(milliseconds: 1200),
+      ),
       child: SizedBox(
         height: 185,
         child: ListView.builder(
@@ -644,12 +833,18 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           itemCount: 6,
           itemBuilder: (_, _) => Padding(
             padding: const EdgeInsets.only(right: 9),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(width: 108, height: 152,
-                  decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8))),
-              const SizedBox(height: 5),
-              Container(width: 90, height: 10, color: base.withValues(alpha: 0.5)),
-            ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 108,
+                  height: 152,
+                  decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
+                ),
+                const SizedBox(height: 5),
+                Container(width: 90, height: 10, color: base.withValues(alpha: 0.5)),
+              ],
+            ),
           ),
         ),
       ),
@@ -676,9 +871,11 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
     return ShimmerSkeleton(
       enabled: true,
-      effect: ShimmerEffect(baseColor: base,
-          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-          duration: const Duration(milliseconds: 1200)),
+      effect: ShimmerEffect(
+        baseColor: base,
+        highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+        duration: const Duration(milliseconds: 1200),
+      ),
       child: SizedBox(
         height: 205,
         child: ListView.builder(
@@ -687,12 +884,25 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           itemCount: 6,
           itemBuilder: (_, _) => Padding(
             padding: const EdgeInsets.only(right: 4),
-            child: SizedBox(width: 115, child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Container(width: 36, height: 52, color: base.withValues(alpha: 0.4)),
-              const SizedBox(width: 3),
-              Expanded(child: Container(height: 170,
-                  decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)))),
-            ])),
+            child: SizedBox(
+              width: 115,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(width: 36, height: 52, color: base.withValues(alpha: 0.4)),
+                  const SizedBox(width: 3),
+                  Expanded(
+                    child: Container(
+                      height: 170,
+                      decoration: BoxDecoration(
+                        color: base,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -705,21 +915,43 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     final base = Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
     return ShimmerSkeleton(
       enabled: true,
-      effect: ShimmerEffect(baseColor: base,
-          highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-          duration: const Duration(milliseconds: 1400)),
+      effect: ShimmerEffect(
+        baseColor: base,
+        highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+        duration: const Duration(milliseconds: 1400),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: SizedBox(
           height: 340,
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(width: 110, height: 270, margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(color: base.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(14))),
-            Container(width: 210, height: 310,
-                decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(16))),
-            Container(width: 110, height: 270, margin: const EdgeInsets.only(left: 8),
-                decoration: BoxDecoration(color: base.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(14))),
-          ]),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 110,
+                height: 270,
+                margin: const EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: base.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              Container(
+                width: 210,
+                height: 310,
+                decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(16)),
+              ),
+              Container(
+                width: 110,
+                height: 270,
+                margin: const EdgeInsets.only(left: 8),
+                decoration: BoxDecoration(
+                  color: base.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -731,26 +963,39 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
 
   Widget _buildListView(BuildContext ctx) {
     return NotificationListener<ScrollNotification>(
-      onNotification: (n) { if (n is ScrollUpdateNotification) _onScroll(); return false; },
-      child: _getManga?.when(
-        data: (data) {
-          if (data != null && _mangaList.isEmpty && data.list.isNotEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && _mangaList.isEmpty) {
-                setState(() { _mangaList.addAll(data.list); _hasNextPage = data.hasNextPage; });
+      onNotification: (n) {
+        if (n is ScrollUpdateNotification) _onScroll();
+        return false;
+      },
+      child:
+          _getManga?.when(
+            data: (data) {
+              if (data != null && _mangaList.isEmpty && data.list.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _mangaList.isEmpty) {
+                    setState(() {
+                      _mangaList.addAll(data.list);
+                      _hasNextPage = data.hasNextPage;
+                    });
+                  }
+                });
               }
-            });
-          }
-          if (_mangaList.isEmpty) {
-            return (data?.list.isEmpty ?? true)
-                ? Center(child: Text(ctx.l10n.no_result, style: TextStyle(color: Theme.of(ctx).hintColor)))
-                : _buildSkeletonGrid();
-          }
-          return _buildGrid(ctx);
-        },
-        loading: () => _mangaList.isEmpty ? _buildSkeletonGrid() : _buildGrid(ctx),
-        error:   (e, _) => _buildError(ctx, e),
-      ) ?? _buildSkeletonGrid(),
+              if (_mangaList.isEmpty) {
+                return (data?.list.isEmpty ?? true)
+                    ? Center(
+                        child: Text(
+                          ctx.l10n.no_result,
+                          style: TextStyle(color: Theme.of(ctx).hintColor),
+                        ),
+                      )
+                    : _buildSkeletonGrid();
+              }
+              return _buildGrid(ctx);
+            },
+            loading: () => _mangaList.isEmpty ? _buildSkeletonGrid() : _buildGrid(ctx),
+            error: (e, _) => _buildError(ctx, e),
+          ) ??
+          _buildSkeletonGrid(),
     );
   }
 
@@ -760,16 +1005,21 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
       controller: _scrollCtrl,
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
+        maxCrossAxisExtent: 120,
+        childAspectRatio: 0.62,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+      ),
       itemCount: _mangaList.length + (_isLoadingMore ? 3 : 0),
       itemBuilder: (c, i) {
         if (i >= _mangaList.length) {
           return ShimmerSkeleton(
             enabled: true,
             effect: ShimmerEffect(
-                baseColor: base,
-                highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
-                duration: const Duration(milliseconds: 1200)),
+              baseColor: base,
+              highlightColor: Theme.of(ctx).colorScheme.surface.withValues(alpha: 0.9),
+              duration: const Duration(milliseconds: 1200),
+            ),
             child: Container(
               decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
             ),
@@ -789,13 +1039,19 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     final base = Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7);
     return ShimmerSkeleton(
       enabled: true,
-      effect: ShimmerEffect(baseColor: base,
-          highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-          duration: const Duration(milliseconds: 1200)),
+      effect: ShimmerEffect(
+        baseColor: base,
+        highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+        duration: const Duration(milliseconds: 1200),
+      ),
       child: GridView.builder(
         padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
+          maxCrossAxisExtent: 120,
+          childAspectRatio: 0.62,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+        ),
         itemCount: 12,
         itemBuilder: (_, _) => Container(
           decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
@@ -809,56 +1065,87 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
   Widget _buildSearchScreen(BuildContext ctx) {
     return Scaffold(
       backgroundColor: Theme.of(ctx).scaffoldBackgroundColor,
-      body: SafeArea(child: Column(children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(children: [
-            Expanded(
-              child: Container(
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _kNovelGold.withValues(alpha: 0.25), width: 0.8),
-                ),
-                child: Row(children: [
-                  const SizedBox(width: 10),
-                  const Icon(Icons.search, size: 20, color: _kNovelGold),
-                  const SizedBox(width: 6),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
                   Expanded(
-                    child: TextField(
-                      autofocus: true,
-                      controller: _searchCtrl,
-                      style: const TextStyle(fontSize: 16),
-                      decoration: InputDecoration(
-                        hintText: 'Chercher un roman…',
-                        hintStyle: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 16),
-                        border: InputBorder.none, isDense: true,
+                    child: Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          ctx,
+                        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _kNovelGold.withValues(alpha: 0.25), width: 0.8),
                       ),
-                      onChanged: (v) => setState(() { _query = v; _mangaList.clear(); _page = 1; _hasNextPage = true; }),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 10),
+                          const Icon(Icons.search, size: 20, color: _kNovelGold),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: TextField(
+                              autofocus: true,
+                              controller: _searchCtrl,
+                              style: const TextStyle(fontSize: 16),
+                              decoration: InputDecoration(
+                                hintText: 'Chercher un roman…',
+                                hintStyle: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 16),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              onChanged: (v) => setState(() {
+                                _query = v;
+                                _mangaList.clear();
+                                _page = 1;
+                                _hasNextPage = true;
+                              }),
+                            ),
+                          ),
+                          if (_searchCtrl.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                _mangaList.clear();
+                                setState(() => _query = '');
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Icon(Icons.cancel, size: 18, color: Theme.of(ctx).hintColor),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  if (_searchCtrl.text.isNotEmpty)
-                    GestureDetector(
-                      onTap: () { _searchCtrl.clear(); _mangaList.clear(); setState(() => _query = ''); },
-                      child: Padding(padding: const EdgeInsets.only(right: 8),
-                          child: Icon(Icons.cancel, size: 18, color: Theme.of(ctx).hintColor)),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() {
+                        _isSearching = false;
+                        _query = '';
+                        _mangaList.clear();
+                        _page = 1;
+                        _hasNextPage = true;
+                      });
+                    },
+                    child: const Text(
+                      'Annuler',
+                      style: TextStyle(color: _kNovelGold, fontSize: 16),
                     ),
-                ]),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: () {
-                _searchCtrl.clear();
-                setState(() { _isSearching = false; _query = ''; _mangaList.clear(); _page = 1; _hasNextPage = true; });
-              },
-              child: const Text('Annuler', style: TextStyle(color: _kNovelGold, fontSize: 16)),
-            ),
-          ]),
+            Expanded(child: _buildListView(ctx)),
+          ],
         ),
-        Expanded(child: _buildListView(ctx)),
-      ])),
+      ),
     );
   }
 
@@ -868,22 +1155,13 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     Future<void> retry() async {
       extensionPageCache.invalidateSource(source);
       if (_selectedIdx == _kLatestIdx) {
-        await ref.refresh(
-          getLatestUpdatesProvider(source: source, page: 1).future,
-        );
+        await ref.refresh(getLatestUpdatesProvider(source: source, page: 1).future);
       } else if (_isSearching && _query.isNotEmpty) {
         await ref.refresh(
-          searchProvider(
-            source: source,
-            query: _query,
-            page: 1,
-            filterList: filters,
-          ).future,
+          searchProvider(source: source, query: _query, page: 1, filterList: filters).future,
         );
       } else {
-        await ref.refresh(
-          getPopularProvider(source: source, page: 1).future,
-        );
+        await ref.refresh(getPopularProvider(source: source, page: 1).future);
       }
     }
 
@@ -891,42 +1169,63 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     // means the site uses Cloudflare, not that this request hit a challenge.
     if (isCloudflareError(error.toString())) {
       return SingleChildScrollView(
-        child: Padding(padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(
-              extensionErrorTitle(error),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 14),
-            CloudflareBypassPanel(
-              // Prefer the exact failing URL so the WebView shows the
-              // challenge instead of the site root.
-              url: extensionFailedUrl(error) ??
-                  ref.read(sourceBaseUrlProvider(source: source)),
-              sourceId: source.id,
-              // No auto-retry: the panel shows “Accès rétabli” and the user
-              // retries with the in-box icon, so the screen never refreshes
-              // in a loop.
-              onRetry: retry,
-            ),
-          ]),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                extensionErrorTitle(error),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 14),
+              CloudflareBypassPanel(
+                // Prefer the exact failing URL so the WebView shows the
+                // challenge instead of the site root.
+                url: extensionFailedUrl(error) ?? ref.read(sourceBaseUrlProvider(source: source)),
+                sourceId: source.id,
+                // No auto-retry: the panel shows “Accès rétabli” and the user
+                // retries with the in-box icon, so the screen never refreshes
+                // in a loop.
+                onRetry: retry,
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.menu_book_outlined, size: 52, color: _kNovelGold),
-      const SizedBox(height: 12),
-      Text(error.toString(), textAlign: TextAlign.center,
-          style: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 14)),
-      const SizedBox(height: 20),
-      ElevatedButton(
-        onPressed: retry,
-        style: ElevatedButton.styleFrom(backgroundColor: _kNovelGold, foregroundColor: Colors.white),
-        child: const Text('Réessayer'),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.menu_book_outlined, size: 52, color: _kNovelGold),
+            const SizedBox(height: 12),
+            Text(
+              error.toString(),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: retry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _kNovelGold,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Réessayer'),
+            ),
+          ],
+        ),
       ),
-    ])));
+    );
   }
 }
 
@@ -952,13 +1251,19 @@ class _NovelBookCarouselState extends ConsumerState<_NovelBookCarousel> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) { _prefetch(0); _prefetch(1); });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _prefetch(0);
+      _prefetch(1);
+    });
     if (widget.novels.length > 1) {
       _timer = Timer.periodic(const Duration(seconds: 4), (_) {
         if (!mounted || !_ctrl.hasClients) return;
         _page = (_page + 1) % widget.novels.length;
-        _ctrl.animateToPage(_page,
-            duration: const Duration(milliseconds: 560), curve: Curves.easeInOutCubic);
+        _ctrl.animateToPage(
+          _page,
+          duration: const Duration(milliseconds: 560),
+          curve: Curves.easeInOutCubic,
+        );
       });
     }
   }
@@ -967,72 +1272,85 @@ class _NovelBookCarouselState extends ConsumerState<_NovelBookCarousel> {
     if (i < 0 || i >= widget.novels.length) return;
     final n = widget.novels[i];
     if (n.link == null || _detailCache.containsKey(i)) return;
-    ref.read(getDetailProvider(url: n.link!, source: widget.source).future)
-        .then((d) { if (mounted) setState(() => _detailCache[i] = d); })
+    ref
+        .read(getDetailProvider(url: n.link!, source: widget.source).future)
+        .then((d) {
+          if (mounted) setState(() => _detailCache[i] = d);
+        })
         .catchError((_) {});
   }
 
   @override
-  void dispose() { _timer?.cancel(); _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _timer?.cancel();
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      const SizedBox(height: 16),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 16),
 
-      // ── PageView with peeking side cards ──────────────────────────────────
-      SizedBox(
-        height: 340,
-        child: PageView.builder(
-          controller: _ctrl,
-          itemCount: widget.novels.length,
-          onPageChanged: (p) { setState(() => _page = p); _prefetch(p + 1); },
-          itemBuilder: (_, i) {
-            return AnimatedBuilder(
-              animation: _ctrl,
-              builder: (ctx, child) {
-                double scale = 0.88;
-                if (_ctrl.position.haveDimensions) {
-                  final diff = (_ctrl.page ?? _page.toDouble()) - i;
-                  scale = (1.0 - diff.abs() * 0.12).clamp(0.85, 1.0);
-                }
-                return Transform.scale(
-                  scale: scale,
-                  child: _NovelCarouselCard(
-                    novel: widget.novels[i],
-                    detail: _detailCache[i],
-                    source: widget.source,
-                    isActive: _page == i,
-                  ),
-                );
-              },
-            );
-          },
+        // ── PageView with peeking side cards ──────────────────────────────────
+        SizedBox(
+          height: 340,
+          child: PageView.builder(
+            controller: _ctrl,
+            itemCount: widget.novels.length,
+            onPageChanged: (p) {
+              setState(() => _page = p);
+              _prefetch(p + 1);
+            },
+            itemBuilder: (_, i) {
+              return AnimatedBuilder(
+                animation: _ctrl,
+                builder: (ctx, child) {
+                  double scale = 0.88;
+                  if (_ctrl.position.haveDimensions) {
+                    final diff = (_ctrl.page ?? _page.toDouble()) - i;
+                    scale = (1.0 - diff.abs() * 0.12).clamp(0.85, 1.0);
+                  }
+                  return Transform.scale(
+                    scale: scale,
+                    child: _NovelCarouselCard(
+                      novel: widget.novels[i],
+                      detail: _detailCache[i],
+                      source: widget.source,
+                      isActive: _page == i,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
-      ),
 
-      const SizedBox(height: 14),
+        const SizedBox(height: 14),
 
-      // ── Animated dots ─────────────────────────────────────────────────────
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(widget.novels.length, (i) {
-          final active = _page == i;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 260),
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width:  active ? 20 : 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: active ? _kNovelGold : _kNovelGold.withValues(alpha: 0.28),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          );
-        }),
-      ),
+        // ── Animated dots ─────────────────────────────────────────────────────
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.novels.length, (i) {
+            final active = _page == i;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 20 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active ? _kNovelGold : _kNovelGold.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            );
+          }),
+        ),
 
-      const SizedBox(height: 8),
-    ]);
+        const SizedBox(height: 8),
+      ],
+    );
   }
 }
 
@@ -1041,105 +1359,188 @@ class _NovelBookCarouselState extends ConsumerState<_NovelBookCarousel> {
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _NovelCarouselCard extends ConsumerWidget {
-  final MManga  novel;
+  final MManga novel;
   final MManga? detail;
-  final Source  source;
-  final bool    isActive;
-  const _NovelCarouselCard({required this.novel, this.detail, required this.source, required this.isActive});
+  final Source source;
+  final bool isActive;
+  const _NovelCarouselCard({
+    required this.novel,
+    this.detail,
+    required this.source,
+    required this.isActive,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final headers = ref.watch(headersProvider(source: source.name!, lang: source.lang!, sourceId: source.id));
-    final imgUrl  = toImgUrl(novel.imageUrl ?? '');
-    final cover   = imgUrl.isNotEmpty
+    final headers = ref.watch(
+      headersProvider(source: source.name!, lang: source.lang!, sourceId: source.id),
+    );
+    final imgUrl = toImgUrl(novel.imageUrl ?? '');
+    final cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers) as ImageProvider<Object>
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
-    final title  = detail?.name  ?? novel.name  ?? '';
+    final title = detail?.name ?? novel.name ?? '';
     final genres = detail?.genre ?? novel.genre ?? [];
 
     return GestureDetector(
       onTap: () {
         if (novel.link != null) {
-          pushToMangaReaderDetail(ref: ref, context: context, getManga: novel,
-              lang: source.lang!, source: source.name!, itemType: source.itemType, sourceId: source.id);
+          pushToMangaReaderDetail(
+            ref: ref,
+            context: context,
+            getManga: novel,
+            lang: source.lang!,
+            source: source.name!,
+            itemType: source.itemType,
+            sourceId: source.id,
+          );
         }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),
-          child: Stack(fit: StackFit.expand, children: [
-            // Cover
-            imgUrl.isNotEmpty
-                ? Image(image: cover, fit: BoxFit.cover, alignment: Alignment.topCenter,
-                    errorBuilder: (_, _, _) => _NoCover(title: title))
-                : _NoCover(title: title),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Cover
+              imgUrl.isNotEmpty
+                  ? Image(
+                      image: cover,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                      errorBuilder: (_, _, _) => _NoCover(title: title),
+                    )
+                  : _NoCover(title: title),
 
-            // Bottom gradient
-            Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.transparent,
-                    Colors.black.withValues(alpha: 0.55), Colors.black.withValues(alpha: 0.93)],
-                stops: const [0.0, 0.42, 0.66, 1.0],
-              ),
-            ))),
-
-            // Genre chips — top left
-            if (genres.isNotEmpty)
-              Positioned(top: 12, left: 12, child: Wrap(spacing: 4,
-                children: genres.take(2).map((g) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(color: _kNovelGold.withValues(alpha: 0.88),
-                      borderRadius: BorderRadius.circular(5)),
-                  child: Text(g.toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontSize: 8,
-                          fontWeight: FontWeight.w800, letterSpacing: 0.8)),
-                )).toList(),
-              )),
-
-            // Bottom info
-            Positioned(bottom: 0, left: 0, right: 0,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
-                          color: Colors.white, height: 1.2, letterSpacing: -0.3,
-                          shadows: [Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 1))]),
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    height: 34,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        if (novel.link != null) {
-                          pushToMangaReaderDetail(ref: ref, context: context, getManga: novel,
-                              lang: source.lang!, source: source.name!, itemType: source.itemType, sourceId: source.id);
-                        }
-                      },
-                      icon: const Icon(Icons.menu_book_rounded, size: 15, color: Colors.white),
-                      label: const Text('Lire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _kNovelGold,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        elevation: 0,
-                      ),
+              // Bottom gradient
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.black.withValues(alpha: 0.93),
+                      ],
+                      stops: const [0.0, 0.42, 0.66, 1.0],
                     ),
                   ),
-                ]),
+                ),
               ),
-            ),
 
-            // Active amber glow border
-            if (isActive)
-              Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: _kNovelGold.withValues(alpha: 0.65), width: 2),
-              ))),
-          ]),
+              // Genre chips — top left
+              if (genres.isNotEmpty)
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: Wrap(
+                    spacing: 4,
+                    children: genres
+                        .take(2)
+                        .map(
+                          (g) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _kNovelGold.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              g.toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+
+              // Bottom info
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          height: 1.2,
+                          letterSpacing: -0.3,
+                          shadows: [
+                            Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 1)),
+                          ],
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 34,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            if (novel.link != null) {
+                              pushToMangaReaderDetail(
+                                ref: ref,
+                                context: context,
+                                getManga: novel,
+                                lang: source.lang!,
+                                source: source.name!,
+                                itemType: source.itemType,
+                                sourceId: source.id,
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.menu_book_rounded, size: 15, color: Colors.white),
+                          label: const Text(
+                            'Lire',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _kNovelGold,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Active amber glow border
+              if (isActive)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _kNovelGold.withValues(alpha: 0.65), width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1156,17 +1557,36 @@ class _NoCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(gradient: LinearGradient(
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
-        colors: [_kNovelBrown.withValues(alpha: 0.8), _kNovelGold.withValues(alpha: 0.6)],
-      )),
-      child: Stack(alignment: Alignment.center, children: [
-        const Icon(Icons.menu_book_rounded, size: 64, color: Colors.white24),
-        Positioned(bottom: 70, left: 12, right: 12,
-            child: Text(title, textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
-                maxLines: 3, overflow: TextOverflow.ellipsis)),
-      ]),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_kNovelBrown.withValues(alpha: 0.8), _kNovelGold.withValues(alpha: 0.6)],
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const Icon(Icons.menu_book_rounded, size: 64, color: Colors.white24),
+          Positioned(
+            bottom: 70,
+            left: 12,
+            right: 12,
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1182,50 +1602,90 @@ class _NovelBookCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final headers = ref.watch(headersProvider(source: source.name!, lang: source.lang!, sourceId: source.id));
-    final imgUrl  = toImgUrl(novel.imageUrl ?? '');
-    final cover   = imgUrl.isNotEmpty
+    final headers = ref.watch(
+      headersProvider(source: source.name!, lang: source.lang!, sourceId: source.id),
+    );
+    final imgUrl = toImgUrl(novel.imageUrl ?? '');
+    final cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers) as ImageProvider<Object>
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
     return GestureDetector(
       onTap: () {
         if (novel.link != null) {
-          pushToMangaReaderDetail(ref: ref, context: context, getManga: novel,
-              lang: source.lang!, source: source.name!, itemType: source.itemType, sourceId: source.id);
+          pushToMangaReaderDetail(
+            ref: ref,
+            context: context,
+            getManga: novel,
+            lang: source.lang!,
+            source: source.name!,
+            itemType: source.itemType,
+            sourceId: source.id,
+          );
         }
       },
       child: Padding(
         padding: const EdgeInsets.only(right: 9),
-        child: SizedBox(width: 108, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(9),
-            child: Stack(fit: StackFit.expand, children: [
-              imgUrl.isNotEmpty
-                  ? Image(image: cover, fit: BoxFit.cover, alignment: Alignment.topCenter,
-                      errorBuilder: (_, _, _) => _coverFallback())
-                  : _coverFallback(),
-              Positioned(bottom: 0, left: 0, right: 0,
-                child: Container(height: 28,
-                  decoration: BoxDecoration(gradient: LinearGradient(
-                    begin: Alignment.bottomCenter, end: Alignment.topCenter,
-                    colors: [Colors.black.withValues(alpha: 0.42), Colors.transparent],
-                  )))),
-            ]),
-          )),
-          const SizedBox(height: 5),
-          Text(novel.name ?? '',
-              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, height: 1.3),
-              maxLines: 2, overflow: TextOverflow.ellipsis),
-        ])),
+        child: SizedBox(
+          width: 108,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(9),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      imgUrl.isNotEmpty
+                          ? Image(
+                              image: cover,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.topCenter,
+                              errorBuilder: (_, _, _) => _coverFallback(),
+                            )
+                          : _coverFallback(),
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 28,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black.withValues(alpha: 0.42), Colors.transparent],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                novel.name ?? '',
+                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, height: 1.3),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _coverFallback() => Container(
-    decoration: BoxDecoration(gradient: LinearGradient(
-      begin: Alignment.topLeft, end: Alignment.bottomRight,
-      colors: [_kNovelBrown.withValues(alpha: 0.7), _kNovelGold.withValues(alpha: 0.5)],
-    )),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [_kNovelBrown.withValues(alpha: 0.7), _kNovelGold.withValues(alpha: 0.5)],
+      ),
+    ),
     child: const Center(child: Icon(Icons.menu_book_rounded, size: 32, color: Colors.white38)),
   );
 }
@@ -1237,65 +1697,115 @@ class _NovelBookCard extends ConsumerWidget {
 class _RankedBookCard extends ConsumerWidget {
   final MManga novel;
   final Source source;
-  final int    rank;
+  final int rank;
   const _RankedBookCard({required this.novel, required this.source, required this.rank});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final headers = ref.watch(headersProvider(source: source.name!, lang: source.lang!, sourceId: source.id));
-    final imgUrl  = toImgUrl(novel.imageUrl ?? '');
-    final cover   = imgUrl.isNotEmpty
+    final headers = ref.watch(
+      headersProvider(source: source.name!, lang: source.lang!, sourceId: source.id),
+    );
+    final imgUrl = toImgUrl(novel.imageUrl ?? '');
+    final cover = imgUrl.isNotEmpty
         ? CustomExtendedNetworkImageProvider(imgUrl, headers: headers) as ImageProvider<Object>
         : const AssetImage('assets/placeholder.png') as ImageProvider<Object>;
 
     final rankColor = rank == 1
         ? const Color(0xFFFFD700)
         : rank == 2
-            ? const Color(0xFFC0C0C0)
-            : rank == 3
-                ? const Color(0xFFCD7F32)
-                : Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.35) ?? Colors.grey.shade500;
+        ? const Color(0xFFC0C0C0)
+        : rank == 3
+        ? const Color(0xFFCD7F32)
+        : Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.35) ??
+              Colors.grey.shade500;
 
     return GestureDetector(
       onTap: () {
         if (novel.link != null) {
-          pushToMangaReaderDetail(ref: ref, context: context, getManga: novel,
-              lang: source.lang!, source: source.name!, itemType: source.itemType, sourceId: source.id);
+          pushToMangaReaderDetail(
+            ref: ref,
+            context: context,
+            getManga: novel,
+            lang: source.lang!,
+            source: source.name!,
+            itemType: source.itemType,
+            sourceId: source.id,
+          );
         }
       },
       child: Padding(
         padding: const EdgeInsets.only(right: 4),
-        child: SizedBox(width: 115, child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          SizedBox(width: 36,
-            child: Text('$rank', textAlign: TextAlign.center,
-              style: TextStyle(fontSize: rank < 10 ? 48 : 38, fontWeight: FontWeight.w900,
-                  color: rankColor, height: 1.0, letterSpacing: -2,
-                  shadows: [Shadow(color: rankColor.withValues(alpha: 0.30),
-                      blurRadius: 8, offset: const Offset(1, 2))]),
-            ),
+        child: SizedBox(
+          width: 115,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              SizedBox(
+                width: 36,
+                child: Text(
+                  '$rank',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: rank < 10 ? 48 : 38,
+                    fontWeight: FontWeight.w900,
+                    color: rankColor,
+                    height: 1.0,
+                    letterSpacing: -2,
+                    shadows: [
+                      Shadow(
+                        color: rankColor.withValues(alpha: 0.30),
+                        blurRadius: 8,
+                        offset: const Offset(1, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: imgUrl.isNotEmpty
+                            ? Image(
+                                image: cover,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder: (_, _, _) => _rankFallback(),
+                              )
+                            : _rankFallback(),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      novel.name ?? '',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 3),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(8),
-              child: imgUrl.isNotEmpty
-                  ? Image(image: cover, fit: BoxFit.cover, width: double.infinity,
-                      errorBuilder: (_, _, _) => _rankFallback())
-                  : _rankFallback(),
-            )),
-            const SizedBox(height: 4),
-            Text(novel.name ?? '',
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, height: 1.25),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-          ])),
-        ])),
+        ),
       ),
     );
   }
 
   Widget _rankFallback() => Container(
-    decoration: BoxDecoration(gradient: LinearGradient(
-      colors: [_kNovelBrown.withValues(alpha: 0.7), _kNovelGold.withValues(alpha: 0.5)],
-    )),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [_kNovelBrown.withValues(alpha: 0.7), _kNovelGold.withValues(alpha: 0.5)],
+      ),
+    ),
     child: const Center(child: Icon(Icons.menu_book_rounded, size: 28, color: Colors.white38)),
   );
 }
@@ -1317,15 +1827,21 @@ class _NovelSectionPage extends ConsumerStatefulWidget {
 class _NovelSectionPageState extends ConsumerState<_NovelSectionPage> {
   final _scrollCtrl = ScrollController();
   final List<MManga> _items = [];
-  int  _page    = 1;
+  int _page = 1;
   bool _hasNext = true;
   bool _loading = false;
 
   @override
-  void initState() { super.initState(); _scrollCtrl.addListener(_onScroll); }
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+  }
 
   @override
-  void dispose() { _scrollCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
 
   void _onScroll() {
     if (!_scrollCtrl.hasClients) return;
@@ -1337,11 +1853,20 @@ class _NovelSectionPageState extends ConsumerState<_NovelSectionPage> {
     if (_loading || !_hasNext) return;
     setState(() => _loading = true);
     try {
-      final next   = _page + 1;
+      final next = _page + 1;
       final result = await ref.read(
-          getCustomListProvider(source: widget.source, listId: widget.customListId, page: next).future);
+        getCustomListProvider(
+          source: widget.source,
+          listId: widget.customListId,
+          page: next,
+        ).future,
+      );
       if (mounted && result != null && result.list.isNotEmpty) {
-        setState(() { _page = next; _hasNext = result.hasNextPage; _items.addAll(result.list); });
+        setState(() {
+          _page = next;
+          _hasNext = result.hasNextPage;
+          _items.addAll(result.list);
+        });
       } else if (mounted) {
         setState(() => _hasNext = false);
       }
@@ -1352,7 +1877,9 @@ class _NovelSectionPageState extends ConsumerState<_NovelSectionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final data = ref.watch(getCustomListProvider(source: widget.source, listId: widget.customListId, page: 1));
+    final data = ref.watch(
+      getCustomListProvider(source: widget.source, listId: widget.customListId, page: 1),
+    );
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -1364,12 +1891,20 @@ class _NovelSectionPageState extends ConsumerState<_NovelSectionPage> {
         data: (d) {
           if (d != null && _items.isEmpty && d.list.isNotEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && _items.isEmpty) setState(() { _items.addAll(d.list); _hasNext = d.hasNextPage; });
+              if (mounted && _items.isEmpty)
+                setState(() {
+                  _items.addAll(d.list);
+                  _hasNext = d.hasNextPage;
+                });
             });
           }
           if (_items.isEmpty) {
-            return Center(child: Text(context.l10n.no_result,
-                style: TextStyle(color: Theme.of(context).hintColor)));
+            return Center(
+              child: Text(
+                context.l10n.no_result,
+                style: TextStyle(color: Theme.of(context).hintColor),
+              ),
+            );
           }
           return _SectionPageGrid(
             items: _items,
@@ -1379,7 +1914,7 @@ class _NovelSectionPageState extends ConsumerState<_NovelSectionPage> {
           );
         },
         loading: () => _SectionPageSkeleton(),
-        error:   (e, _) => Center(child: Text(e.toString())),
+        error: (e, _) => Center(child: Text(e.toString())),
       ),
     );
   }
@@ -1394,7 +1929,12 @@ class _SectionPageGrid extends StatelessWidget {
   final bool loading;
   final ScrollController scrollCtrl;
   final Source source;
-  const _SectionPageGrid({required this.items, required this.loading, required this.scrollCtrl, required this.source});
+  const _SectionPageGrid({
+    required this.items,
+    required this.loading,
+    required this.scrollCtrl,
+    required this.source,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1403,16 +1943,21 @@ class _SectionPageGrid extends StatelessWidget {
       controller: scrollCtrl,
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 100),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
+        maxCrossAxisExtent: 120,
+        childAspectRatio: 0.62,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+      ),
       itemCount: items.length + (loading ? 3 : 0),
       itemBuilder: (c, i) {
         if (i >= items.length) {
           return ShimmerSkeleton(
             enabled: true,
             effect: ShimmerEffect(
-                baseColor: base,
-                highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-                duration: const Duration(milliseconds: 1200)),
+              baseColor: base,
+              highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+              duration: const Duration(milliseconds: 1200),
+            ),
             child: Container(
               decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),
             ),
@@ -1438,13 +1983,18 @@ class _SectionPageSkeleton extends StatelessWidget {
     return ShimmerSkeleton(
       enabled: true,
       effect: ShimmerEffect(
-          baseColor: base,
-          highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-          duration: const Duration(milliseconds: 1200)),
+        baseColor: base,
+        highlightColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+        duration: const Duration(milliseconds: 1200),
+      ),
       child: GridView.builder(
         padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 120, childAspectRatio: 0.62, mainAxisSpacing: 8, crossAxisSpacing: 8),
+          maxCrossAxisExtent: 120,
+          childAspectRatio: 0.62,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+        ),
         itemCount: 12,
         itemBuilder: (_, _) => Container(
           decoration: BoxDecoration(color: base, borderRadius: BorderRadius.circular(8)),

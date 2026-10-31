@@ -75,10 +75,7 @@ class _TmdbCastCrewScreenState extends State<TmdbCastCrewScreen> {
                       IconButton(
                         tooltip: 'Retour',
                         onPressed: () => context.pop(),
-                        icon: const Icon(
-                          Broken.arrow_left,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Broken.arrow_left, color: Colors.white),
                       ),
                       const SizedBox(width: 8),
                       const Text(
@@ -183,11 +180,7 @@ class _CastCrewTab extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 18,
-                color: selected ? const Color(0xFF101714) : Colors.white70,
-              ),
+              Icon(icon, size: 18, color: selected ? const Color(0xFF101714) : Colors.white70),
               const SizedBox(width: 8),
               Text(
                 label,
@@ -234,15 +227,11 @@ class _CastCrewPeopleList extends StatelessWidget {
         final personName = crewPerson?.name ?? castPerson!.name;
         final personImage = crewPerson?.profileUrl ?? castPerson!.profileUrl;
         final personId = crewPerson?.id ?? castPerson!.id;
-        final personProfilePath =
-            crewPerson?.profilePath ?? castPerson!.profilePath;
+        final personProfilePath = crewPerson?.profilePath ?? castPerson!.profilePath;
         final subtitle = crew
             ? 'Job : ${crewPerson!.job.isNotEmpty ? crewPerson.job : 'N/A'}'
             : 'As : ${castPerson!.character.isNotEmpty ? castPerson.character : 'N/A'}';
-        final episodeLabel =
-            !crew &&
-                media.mediaType == 'tv' &&
-                (details.numberOfEpisodes ?? 0) > 0
+        final episodeLabel = !crew && media.mediaType == 'tv' && (details.numberOfEpisodes ?? 0) > 0
             ? '${details.numberOfEpisodes} épisodes'
             : null;
         return _CastCrewPersonCard(
@@ -252,11 +241,7 @@ class _CastCrewPeopleList extends StatelessWidget {
           meta: episodeLabel,
           onTap: () => context.push(
             '/flixPerson',
-            extra: TmdbPersonRef(
-              id: personId,
-              name: personName,
-              profilePath: personProfilePath,
-            ),
+            extra: TmdbPersonRef(id: personId, name: personName, profilePath: personProfilePath),
           ),
         );
       },
@@ -295,10 +280,7 @@ class _CastCrewPersonCard extends StatelessWidget {
                 width: 68,
                 height: 68,
                 padding: const EdgeInsets.all(5),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                 child: ClipOval(
                   child: imageUrl == null
                       ? const ColoredBox(
@@ -310,8 +292,7 @@ class _CastCrewPersonCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           cache: true,
                           loadStateChanged: (state) =>
-                              state.extendedImageLoadState ==
-                                  LoadState.completed
+                              state.extendedImageLoadState == LoadState.completed
                               ? null
                               : const AppShimmerBlock(radius: 40),
                         ),
@@ -337,20 +318,11 @@ class _CastCrewPersonCard extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ),
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                     if (meta != null) ...[
                       const SizedBox(height: 3),
-                      Text(
-                        meta!,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 10,
-                        ),
-                      ),
+                      Text(meta!, style: const TextStyle(color: Colors.white54, fontSize: 10)),
                     ],
                   ],
                 ),
@@ -387,16 +359,13 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
   late Future<TmdbPersonDetails> _details;
   Future<MManga>? _extensionDetails;
 
-  bool get _isExtensionProfile =>
-      widget.extensionSource != null && widget.extensionPerson != null;
+  bool get _isExtensionProfile => widget.extensionSource != null && widget.extensionPerson != null;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: _isExtensionProfile ? 2 : 3,
-      vsync: this,
-    )..addListener(_onTabChanged);
+    _tabController = TabController(length: _isExtensionProfile ? 2 : 3, vsync: this)
+      ..addListener(_onTabChanged);
     if (_isExtensionProfile) {
       final source = widget.extensionSource!;
       final profile = widget.extensionPerson!;
@@ -430,8 +399,7 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
           backgroundColor: _tmdbBackground,
           body: FutureBuilder<MManga>(
             future: _extensionDetails,
-            builder: (context, snapshot) =>
-                _buildExtensionProfile(context, snapshot.data),
+            builder: (context, snapshot) => _buildExtensionProfile(context, snapshot.data),
           ),
         ),
       );
@@ -468,18 +436,14 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
                 leading: Padding(
                   padding: const EdgeInsetsDirectional.only(start: 12),
                   child: _PersonHeroButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).backButtonTooltip,
+                    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                     onPressed: () => context.pop(),
                   ),
                 ),
                 title: AnimatedBuilder(
                   animation: _scrollController,
                   builder: (context, _) {
-                    final visible =
-                        _scrollController.hasClients &&
-                        _scrollController.offset > 250;
+                    final visible = _scrollController.hasClients && _scrollController.offset > 250;
                     return AnimatedOpacity(
                       opacity: visible ? 1 : 0,
                       duration: const Duration(milliseconds: 160),
@@ -487,10 +451,7 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
                         person.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
                       ),
                     );
                   },
@@ -547,9 +508,7 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
     final profile = widget.extensionPerson!;
     final title = details?.name?.trim().isNotEmpty == true
         ? details!.name!.trim()
-        : (profile.name?.trim().isNotEmpty == true
-              ? profile.name!.trim()
-              : 'Profil');
+        : (profile.name?.trim().isNotEmpty == true ? profile.name!.trim() : 'Profil');
     final image = details?.imageUrl?.trim().isNotEmpty == true
         ? details!.imageUrl!.trim()
         : profile.imageUrl?.trim();
@@ -575,9 +534,7 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
           title: AnimatedBuilder(
             animation: _scrollController,
             builder: (context, _) {
-              final visible =
-                  _scrollController.hasClients &&
-                  _scrollController.offset > 250;
+              final visible = _scrollController.hasClients && _scrollController.offset > 250;
               return AnimatedOpacity(
                 opacity: visible ? 1 : 0,
                 duration: const Duration(milliseconds: 160),
@@ -585,10 +542,7 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
                 ),
               );
             },
@@ -684,8 +638,7 @@ class _ExtensionPersonHero extends StatelessWidget {
               image,
               fit: BoxFit.cover,
               cache: true,
-              loadStateChanged: (state) =>
-                  state.extendedImageLoadState == LoadState.completed
+              loadStateChanged: (state) => state.extendedImageLoadState == LoadState.completed
                   ? null
                   : const AppShimmerBlock(radius: 0),
             ),
@@ -753,17 +706,13 @@ class _ExtensionPersonAbout extends StatelessWidget {
         const _PeopleSectionTitle(title: 'About'),
         const SizedBox(height: 10),
         Text(
-          description?.isNotEmpty == true
-              ? description!
-              : 'Aucune description disponible.',
+          description?.isNotEmpty == true ? description! : 'Aucune description disponible.',
           style: const TextStyle(color: Colors.white70, height: 1.55),
         ),
         if ((author?.isNotEmpty == true) || (artist?.isNotEmpty == true)) ...[
           const SizedBox(height: 20),
-          if (author?.isNotEmpty == true)
-            _ExtensionInfoLine(label: 'Author', value: author!),
-          if (artist?.isNotEmpty == true)
-            _ExtensionInfoLine(label: 'Artist', value: artist!),
+          if (author?.isNotEmpty == true) _ExtensionInfoLine(label: 'Author', value: author!),
+          if (artist?.isNotEmpty == true) _ExtensionInfoLine(label: 'Artist', value: artist!),
         ],
         if (genres.isNotEmpty) ...[
           const SizedBox(height: 20),
@@ -803,16 +752,10 @@ class _ExtensionInfoLine extends StatelessWidget {
       children: [
         SizedBox(
           width: 88,
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
+          child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ),
         Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
+          child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 12)),
         ),
       ],
     ),
@@ -839,12 +782,12 @@ class _ExtensionPersonVideos extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ExtensionPersonVideos> createState() =>
-      _ExtensionPersonVideosState();
+  ConsumerState<_ExtensionPersonVideos> createState() => _ExtensionPersonVideosState();
 }
 
 class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> {
   CatalogFilterState _filter = CatalogFilterState();
+  String _searchQuery = '';
   final List<MChapter> _extra = [];
   int _page = 1;
   bool _loadingMore = false;
@@ -904,11 +847,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
     try {
       final nextPage = _page + 1;
       final pages = await ref.read(
-        getCustomListProvider(
-          source: source,
-          listId: listId,
-          page: nextPage,
-        ).future,
+        getCustomListProvider(source: source, listId: listId, page: nextPage).future,
       );
       if (!mounted) return;
       final known = _videos.map((video) => video.url).toSet();
@@ -947,12 +886,20 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
   /// be parsed is kept: hiding it would look like a missing video rather than
   /// a filtered one.
   List<MChapter> _visible(List<MChapter> videos) {
+    final query = _searchQuery.trim().toLowerCase();
+    final matching = query.isEmpty
+        ? videos
+        : videos
+              .where((video) => (video.name ?? '').toLowerCase().contains(query))
+              .toList(growable: false);
     final minimumMinutes = int.tryParse(_filter.type);
-    if (minimumMinutes == null) return videos;
-    return videos.where((video) {
-      final duration = _parseDuration(video.duration);
-      return duration == null || duration.inMinutes >= minimumMinutes;
-    }).toList(growable: false);
+    if (minimumMinutes == null) return matching;
+    return matching
+        .where((video) {
+          final duration = _parseDuration(video.duration);
+          return duration == null || duration.inMinutes >= minimumMinutes;
+        })
+        .toList(growable: false);
   }
 
   static Duration? _parseDuration(String? raw) {
@@ -980,10 +927,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
       menuWidth: 300,
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Icon(
-          Broken.filter,
-          color: _filter.isDefault ? null : Colors.orange,
-        ),
+        child: Icon(Broken.filter, color: _filter.isDefault ? null : Colors.orange),
       ),
       contentBuilder: (close) => CatalogFilterOverlay(
         initial: _filter,
@@ -996,6 +940,8 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
         showSortSection: false,
         close: close,
         onChanged: (value) => setState(() => _filter = value),
+        searchValue: _searchQuery,
+        onSearchChanged: (value) => setState(() => _searchQuery = value),
       ),
     );
   }
@@ -1054,9 +1000,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
               _loadMore();
             },
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: Text(
-              isFrench ? 'Chargement échoué · Réessayer' : 'Load failed · Retry',
-            ),
+            label: Text(isFrench ? 'Chargement échoué · Réessayer' : 'Load failed · Retry'),
           ),
         ),
       );
@@ -1095,10 +1039,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
                     child: SizedBox(
                       width: 72,
                       height: 46,
-                      child: ContentImage(
-                        url: _thumbnail(video),
-                        radius: 8,
-                      ),
+                      child: ContentImage(url: _thumbnail(video), radius: 8),
                     ),
                   ),
                   title: Text(
@@ -1113,10 +1054,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
                   ),
                   subtitle: _duration(video) == null
                       ? null
-                      : Text(
-                          _duration(video)!,
-                          style: const TextStyle(color: Colors.white54),
-                        ),
+                      : Text(_duration(video)!, style: const TextStyle(color: Colors.white54)),
                 ),
               ),
             ),
@@ -1168,18 +1106,13 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
   );
 
   String? _thumbnail(MChapter video) {
-    for (final candidate in [
-      video.thumbnailUrl,
-      _details.imageUrl,
-      widget.profile.imageUrl,
-    ]) {
+    for (final candidate in [video.thumbnailUrl, _details.imageUrl, widget.profile.imageUrl]) {
       final value = candidate?.trim();
       if (value?.isNotEmpty == true) return value;
     }
     return null;
   }
 }
-
 
 class _PersonHero extends StatelessWidget {
   final TmdbPersonDetails person;
@@ -1201,8 +1134,7 @@ class _PersonHero extends StatelessWidget {
               image,
               fit: BoxFit.cover,
               cache: true,
-              loadStateChanged: (state) =>
-                  state.extendedImageLoadState == LoadState.completed
+              loadStateChanged: (state) => state.extendedImageLoadState == LoadState.completed
                   ? null
                   : const AppShimmerBlock(radius: 0),
             ),
@@ -1247,16 +1179,10 @@ class _PersonHero extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                         child: Text(
                           person.knownForDepartment!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 11),
                         ),
                       ),
                     ),
@@ -1311,11 +1237,7 @@ class _PersonTabsDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => 58;
 
   @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Material(
       color: Colors.black,
       elevation: overlapsContent ? 2 : 0,
@@ -1345,11 +1267,7 @@ class _PersonTab extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _PersonTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _PersonTab({required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1457,11 +1375,7 @@ class _ExpandableBiographyState extends State<_ExpandableBiography> {
           text,
           maxLines: expanded ? null : 5,
           overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-            height: 1.42,
-          ),
+          style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.42),
         ),
         if (canExpand)
           GestureDetector(
@@ -1496,17 +1410,11 @@ class _PersonInfoGrid extends StatelessWidget {
         label: 'Age',
         value: _age(person.birthday, person.deathday),
       ),
-      _PersonInfoData(
-        icon: Broken.calendar,
-        label: 'Born on',
-        value: _formatDate(person.birthday),
-      ),
+      _PersonInfoData(icon: Broken.calendar, label: 'Born on', value: _formatDate(person.birthday)),
       _PersonInfoData(
         icon: Broken.location,
         label: 'From',
-        value: person.placeOfBirth?.trim().isNotEmpty == true
-            ? person.placeOfBirth!
-            : '—',
+        value: person.placeOfBirth?.trim().isNotEmpty == true ? person.placeOfBirth! : '—',
       ),
     ];
     return LayoutBuilder(
@@ -1532,18 +1440,11 @@ class _PersonInfoGrid extends StatelessWidget {
                       children: [
                         Row(
                           children: [
-                            Icon(
-                              card.icon,
-                              color: const Color(0xFFFF8A00),
-                              size: 16,
-                            ),
+                            Icon(card.icon, color: const Color(0xFFFF8A00), size: 16),
                             const SizedBox(width: 8),
                             Text(
                               card.label,
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 11,
-                              ),
+                              style: const TextStyle(color: Colors.white60, fontSize: 11),
                             ),
                           ],
                         ),
@@ -1576,11 +1477,7 @@ class _PersonInfoData {
   final String label;
   final String value;
 
-  const _PersonInfoData({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _PersonInfoData({required this.icon, required this.label, required this.value});
 }
 
 class _ActorAvatar extends StatelessWidget {
@@ -1595,10 +1492,7 @@ class _ActorAvatar extends StatelessWidget {
       height: 112,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: .85),
-          width: 3,
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: .85), width: 3),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .35),
@@ -1617,8 +1511,7 @@ class _ActorAvatar extends StatelessWidget {
                 url!,
                 fit: BoxFit.cover,
                 cache: true,
-                loadStateChanged: (state) =>
-                    state.extendedImageLoadState == LoadState.completed
+                loadStateChanged: (state) => state.extendedImageLoadState == LoadState.completed
                     ? null
                     : const AppShimmerBlock(radius: 60),
               ),
@@ -1642,8 +1535,7 @@ class _PersonImage extends StatelessWidget {
           'https://image.tmdb.org/t/p/w300$path',
           fit: BoxFit.cover,
           cache: true,
-          loadStateChanged: (state) =>
-              state.extendedImageLoadState == LoadState.completed
+          loadStateChanged: (state) => state.extendedImageLoadState == LoadState.completed
               ? null
               : const AppShimmerBlock(radius: 0),
         ),
@@ -1685,17 +1577,10 @@ class _PersonSocialLinks extends StatelessWidget {
           url: 'https://www.imdb.com/name/${person.imdbId}',
         ),
       if (person.homepage?.isNotEmpty == true)
-        _PersonSocialLink(
-          label: 'Website',
-          icon: Broken.link,
-          url: person.homepage!,
-        ),
+        _PersonSocialLink(label: 'Website', icon: Broken.link, url: person.homepage!),
     ];
     if (links.isEmpty) {
-      return const Text(
-        'Aucun lien disponible.',
-        style: TextStyle(color: Colors.white54),
-      );
+      return const Text('Aucun lien disponible.', style: TextStyle(color: Colors.white54));
     }
     return Wrap(
       spacing: 9,
@@ -1703,28 +1588,17 @@ class _PersonSocialLinks extends StatelessWidget {
       children: links
           .map(
             (link) => OutlinedButton.icon(
-              onPressed: () => launchUrl(
-                Uri.parse(link.url),
-                mode: LaunchMode.externalApplication,
-              ),
+              onPressed: () => launchUrl(Uri.parse(link.url), mode: LaunchMode.externalApplication),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFFF8A00),
                 side: const BorderSide(color: Color(0xFFFF8A00)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 15,
-                  vertical: 11,
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
               ),
               icon: Icon(link.icon, size: 16),
               label: Text(
                 link.label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ),
           )
@@ -1738,11 +1612,7 @@ class _PersonSocialLink {
   final IconData icon;
   final String url;
 
-  const _PersonSocialLink({
-    required this.label,
-    required this.icon,
-    required this.url,
-  });
+  const _PersonSocialLink({required this.label, required this.icon, required this.url});
 }
 
 class _PersonCreditsGrid extends StatelessWidget {
@@ -1750,11 +1620,7 @@ class _PersonCreditsGrid extends StatelessWidget {
   final List<TmdbMedia> credits;
   final ValueChanged<TmdbMedia> onTap;
 
-  const _PersonCreditsGrid({
-    required this.title,
-    required this.credits,
-    required this.onTap,
-  });
+  const _PersonCreditsGrid({required this.title, required this.credits, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1766,11 +1632,7 @@ class _PersonCreditsGrid extends StatelessWidget {
       children: [
         Text(
           '${credits.length} $title',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 14),
         GridView.builder(
@@ -1783,10 +1645,8 @@ class _PersonCreditsGrid extends StatelessWidget {
             crossAxisSpacing: 12,
             mainAxisSpacing: 18,
           ),
-          itemBuilder: (_, index) => _PersonCreditCard(
-            media: credits[index],
-            onTap: () => onTap(credits[index]),
-          ),
+          itemBuilder: (_, index) =>
+              _PersonCreditCard(media: credits[index], onTap: () => onTap(credits[index])),
         ),
       ],
     );
@@ -1837,10 +1697,7 @@ class _PersonCreditCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(99),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                           child: Text(
                             media.voteAverage!.toStringAsFixed(1),
                             style: const TextStyle(
@@ -1897,12 +1754,9 @@ String _formatDate(String? raw) {
 String _age(String? birthday, String? deathday) {
   final born = birthday == null ? null : DateTime.tryParse(birthday);
   if (born == null) return '—';
-  final end = deathday == null
-      ? DateTime.now()
-      : DateTime.tryParse(deathday) ?? DateTime.now();
+  final end = deathday == null ? DateTime.now() : DateTime.tryParse(deathday) ?? DateTime.now();
   var age = end.year - born.year;
-  if (end.month < born.month ||
-      (end.month == born.month && end.day < born.day)) {
+  if (end.month < born.month || (end.month == born.month && end.day < born.day)) {
     age--;
   }
   return age < 0 ? '—' : '$age';
@@ -1929,10 +1783,7 @@ class _CastCrewRow extends StatelessWidget {
       leading: _PersonAvatar(url: imageUrl),
       title: Text(
         name,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-        ),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
         subtitle.isEmpty ? '—' : subtitle,
@@ -1990,10 +1841,7 @@ class _PersonMeta extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 7),
-      child: Text(
-        '$label • $value',
-        style: const TextStyle(color: Colors.white60, fontSize: 12),
-      ),
+      child: Text('$label • $value', style: const TextStyle(color: Colors.white60, fontSize: 12)),
     );
   }
 }
@@ -2031,10 +1879,7 @@ class _PersonTextCard extends StatelessWidget {
         color: Colors.white.withValues(alpha: .05),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white70, height: 1.55),
-      ),
+      child: Text(text, style: const TextStyle(color: Colors.white70, height: 1.55)),
     );
   }
 }
@@ -2052,15 +1897,10 @@ class _PeopleSectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
           ),
         ),
-        if (count != null)
-          Text('$count', style: const TextStyle(color: Colors.white54)),
+        if (count != null) Text('$count', style: const TextStyle(color: Colors.white54)),
       ],
     );
   }
@@ -2071,10 +1911,7 @@ class _PeopleEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'Aucune information disponible.',
-      style: TextStyle(color: Colors.white54),
-    );
+    return const Text('Aucune information disponible.', style: TextStyle(color: Colors.white54));
   }
 }
 

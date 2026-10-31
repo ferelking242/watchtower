@@ -25,6 +25,35 @@ class BulkEnqueueDialog extends StatefulWidget {
 }
 
 class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
+  bool _dismissScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_dismissWhenFinished);
+    if (widget.controller.finished) _scheduleDismiss();
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_dismissWhenFinished);
+    super.dispose();
+  }
+
+  void _dismissWhenFinished() {
+    if (widget.controller.finished) _scheduleDismiss();
+  }
+
+  void _scheduleDismiss() {
+    if (_dismissScheduled) return;
+    _dismissScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.of(context, rootNavigator: true);
+      if (navigator.canPop()) navigator.pop();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -85,11 +114,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
                     : c.paused
                     ? 'Mise en file en pause'
                     : 'Mise en file d’attente',
-                style: TextStyle(
-                  color: cs.onSurface,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 2),
               Text(
@@ -110,9 +135,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
   Widget _itemCard(ColorScheme cs, BulkEnqueueController c, int index) {
     final isProcessing = index == c.done;
     final isDone = index < c.done;
-    final title = index < widget.titles.length
-        ? widget.titles[index]
-        : 'Élément ${index + 1}';
+    final title = index < widget.titles.length ? widget.titles[index] : 'Élément ${index + 1}';
     return AnimatedOpacity(
       opacity: index <= c.done ? 1 : 0.45,
       duration: const Duration(milliseconds: 220),
@@ -122,9 +145,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(10),
-          border: isProcessing
-              ? Border.all(color: cs.primary.withValues(alpha: 0.6))
-              : null,
+          border: isProcessing ? Border.all(color: cs.primary.withValues(alpha: 0.6)) : null,
         ),
         child: Row(
           children: [
@@ -135,11 +156,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
                   ? const Icon(Icons.check_circle_rounded, size: 16, color: mbGreen)
                   : isProcessing
                   ? const CircularProgressIndicator(strokeWidth: 2)
-                  : Icon(
-                      Icons.schedule_rounded,
-                      size: 16,
-                      color: cs.onSurfaceVariant,
-                    ),
+                  : Icon(Icons.schedule_rounded, size: 16, color: cs.onSurfaceVariant),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -163,10 +180,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
         Expanded(
           child: TextButton.icon(
             onPressed: c.cancelled || c.finished ? null : c.togglePause,
-            icon: Icon(
-              isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-              size: 18,
-            ),
+            icon: Icon(isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded, size: 18),
             label: Text(isPaused ? 'Reprendre' : 'Pause'),
           ),
         ),
@@ -175,10 +189,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
           child: TextButton.icon(
             onPressed: c.cancelled || c.finished ? null : widget.onBackground,
             icon: const Icon(Icons.notifications_active_outlined, size: 18),
-            label: const Text(
-              'Arrière-plan',
-              overflow: TextOverflow.ellipsis,
-            ),
+            label: const Text('Arrière-plan', overflow: TextOverflow.ellipsis),
           ),
         ),
         const SizedBox(width: 6),

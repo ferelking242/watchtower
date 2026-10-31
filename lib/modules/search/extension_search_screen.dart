@@ -44,8 +44,7 @@ class ExtensionSearchScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ExtensionSearchScreen> createState() =>
-      _ExtensionSearchScreenState();
+  ConsumerState<ExtensionSearchScreen> createState() => _ExtensionSearchScreenState();
 }
 
 class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
@@ -56,6 +55,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   List<String> _recent = [];
   String _query = '';
   bool _submitted = false;
+  Timer? _filterSearchDebounce;
 
   List<MManga>? _results;
   bool _loading = false;
@@ -71,8 +71,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   List<dynamic> _filterList = [];
   List<dynamic> _activeFilters = [];
-  final ValueNotifier<List<dynamic>> _filterNotifier =
-      ValueNotifier<List<dynamic>>(const []);
+  final ValueNotifier<List<dynamic>> _filterNotifier = ValueNotifier<List<dynamic>>(const []);
 
   @override
   void initState() {
@@ -139,6 +138,20 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     if (_submitted) _runSearch(_query);
   }
 
+  void _onFilterSearchChanged(String value) {
+    _controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    _onTextChanged(value);
+    _filterSearchDebounce?.cancel();
+    if (value.trim().isNotEmpty) {
+      _filterSearchDebounce = Timer(const Duration(milliseconds: 350), () {
+        if (mounted) unawaited(_runSearch(value));
+      });
+    }
+  }
+
   Future<void> _loadLayout() async {
     await LayoutRegistry.instance.load(widget.source);
     if (mounted) setState(() {});
@@ -146,6 +159,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   @override
   void dispose() {
+    _filterSearchDebounce?.cancel();
     _controller.dispose();
     _focus.dispose();
     _tabs.dispose();
@@ -248,12 +262,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   void _retrySearch() {
     if (_query.isEmpty) return;
     ref.invalidate(
-      searchProvider(
-        source: widget.source,
-        query: _query,
-        page: 1,
-        filterList: _activeFilters,
-      ),
+      searchProvider(source: widget.source, query: _query, page: 1, filterList: _activeFilters),
     );
     _runSearch(_query);
   }
@@ -276,9 +285,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   bool _matchesTab(MManga item, String tab) {
     if (tab == 'Tout') return true;
-    return (item.genre ?? const <String>[]).any(
-      (g) => g.trim().toLowerCase() == tab.toLowerCase(),
-    );
+    return (item.genre ?? const <String>[]).any((g) => g.trim().toLowerCase() == tab.toLowerCase());
   }
 
   String? get _searchCardComponent {
@@ -289,10 +296,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         ?.results
         ?.cardComponent;
     return component != null &&
-            LayoutComponentRegistry.supports(
-              component,
-              LayoutComponentContext.search,
-            )
+            LayoutComponentRegistry.supports(component, LayoutComponentContext.search)
         ? component
         : null;
   }
@@ -313,9 +317,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       );
       if (!mounted || requestVersion != _searchRequestVersion) return;
       final fresh = (next?.list ?? const <MManga>[])
-          .where(
-            (item) => _seen.add(item.link ?? item.name ?? '${item.hashCode}'),
-          )
+          .where((item) => _seen.add(item.link ?? item.name ?? '${item.hashCode}'))
           .toList(growable: false);
       setState(() {
         _results = [...?_results, ...fresh];
@@ -351,11 +353,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   }
 
   void _onBack() {
-    handleSearchBack(
-      controller: _controller,
-      onClearQuery: _clearAll,
-      onExit: widget.onClose,
-    );
+    handleSearchBack(controller: _controller, onClearQuery: _clearAll, onExit: widget.onClose);
   }
 
   void _startVoiceSearch() {
@@ -364,9 +362,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         onResult: (words) {
           if (!mounted) return;
           _controller.text = words;
-          _controller.selection = TextSelection.collapsed(
-            offset: words.length,
-          );
+          _controller.selection = TextSelection.collapsed(offset: words.length);
           _runSearch(words);
         },
       ),
@@ -386,17 +382,15 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
             isLabelVisible: activeCount > 0,
             label: Text('$activeCount'),
             backgroundColor: accent,
-            child: Icon(
-              Broken.filter,
-              size: 20,
-              color: activeCount > 0 ? accent : Colors.white70,
-            ),
+            child: Icon(Broken.filter, size: 20, color: activeCount > 0 ? accent : Colors.white70),
           ),
         ),
         contentBuilder: (close) => ExtensionFilterOverlay(
           filterList: _activeFilters,
           onChanged: _onFiltersChanged,
           close: close,
+          searchValue: _query,
+          onSearchChanged: _onFilterSearchChanged,
         ),
       ),
     );
@@ -411,10 +405,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         sourceId: widget.source.id,
       ),
     );
-    return ExtensionImageHeaders(
-      headers: headers,
-      child: _buildBody(context),
-    );
+    return ExtensionImageHeaders(headers: headers, child: _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {
@@ -437,8 +428,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                     child: SharedSearchHeader(
                       controller: _controller,
                       focusNode: _focus,
-                      hint:
-                          'Rechercher dans ${widget.source.name ?? 'l’extension'}',
+                      hint: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
                       onBack: _onBack,
                       onMic: _startVoiceSearch,
                       onSubmit: _runSearch,
@@ -453,10 +443,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                   if (_results != null && _results!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: AdaptiveOverlayMenu<CatalogBulkDownloadAction>(
-                        tooltip: 'Options',
-                        icon: const Icon(Broken.more_2, size: 22),
-                        menuWidth: 240,
+                      child: CatalogDownloadMenuButton(
                         onSelected: (action) => CatalogBulkDownload.handleMenu(
                           context,
                           ref,
@@ -464,16 +451,12 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                           _results!,
                           action,
                         ),
-                        itemBuilder: (_) => CatalogBulkDownload.menuItems(),
                       ),
                     ),
                 ],
               ),
               // Séparateur léger sous la barre de recherche.
-              Container(
-                height: 1,
-                color: Colors.white.withValues(alpha: 0.06),
-              ),
+              Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
               Expanded(child: _submitted ? _resultsArea() : _emptyArea()),
             ],
           ),
@@ -505,9 +488,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     if (_error != null) {
       final statusCode = extensionHttpStatusCode(_error);
       return _ExtensionSearchMessage(
-        title: statusCode == null
-            ? 'Recherche indisponible'
-            : 'Erreur HTTP $statusCode',
+        title: statusCode == null ? 'Recherche indisponible' : 'Erreur HTTP $statusCode',
         message:
             extensionRequestFailureMessage(_error) ??
             'La source est momentanément indisponible. Réessaie dans quelques instants.',
@@ -531,10 +512,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
             indicatorColor: Theme.of(context).colorScheme.primary,
             labelColor: Theme.of(context).colorScheme.primary,
             unselectedLabelColor: Colors.white54,
-            labelStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
+            labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             tabs: [for (final label in _tabLabels) Tab(text: label)],
           ),
@@ -611,11 +589,7 @@ class _ExtensionResultsGrid extends StatelessWidget {
                   onTap: onTap,
                 );
           if (configuredCard != null) return configuredCard;
-          return PosterCard(
-            item: contentItem,
-            width: double.infinity,
-            onTap: onTap,
-          );
+          return PosterCard(item: contentItem, width: double.infinity, onTap: onTap);
         },
       ),
     );
@@ -627,11 +601,7 @@ class _ExtensionSearchMessage extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
 
-  const _ExtensionSearchMessage({
-    required this.title,
-    required this.message,
-    this.onRetry,
-  });
+  const _ExtensionSearchMessage({required this.title, required this.message, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -642,11 +612,7 @@ class _ExtensionSearchMessage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Broken.search_status,
-              size: 54,
-              color: accent.withValues(alpha: .8),
-            ),
+            Icon(Broken.search_status, size: 54, color: accent.withValues(alpha: .8)),
             const SizedBox(height: 14),
             Text(
               title,

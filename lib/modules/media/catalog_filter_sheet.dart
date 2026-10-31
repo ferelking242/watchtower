@@ -1,5 +1,5 @@
 /// Denseur d'affichage choisi dans la section « Affichage » de la feuille.
-enum CatalogLayout { grid, comfortable, list }
+enum CatalogLayout { grid, comfortable, list, compact }
 
 /// Un choix de la section « Type » (ex. Film, Série, Animation…).
 class CatalogTypeOption {
@@ -37,6 +37,9 @@ class CatalogFilterState {
   /// Densité d'affichage de la grille.
   CatalogLayout layout;
 
+  /// Nombre de colonnes explicite. `0` laisse la page choisir selon l’écran.
+  int columns;
+
   CatalogFilterState({
     this.type = 'all',
     this.minYear,
@@ -45,17 +48,18 @@ class CatalogFilterState {
     Set<String>? genres,
     this.sortMode = 'popular',
     this.layout = CatalogLayout.grid,
+    this.columns = 0,
   }) : genres = {...?genres};
 
-  CatalogFilterState copy() =>
-      CatalogFilterState()
-        ..type = type
-        ..minYear = minYear
-        ..maxYear = maxYear
-        ..minRating = minRating
-        ..genres.addAll(genres)
-        ..sortMode = sortMode
-        ..layout = layout;
+  CatalogFilterState copy() => CatalogFilterState()
+    ..type = type
+    ..minYear = minYear
+    ..maxYear = maxYear
+    ..minRating = minRating
+    ..genres.addAll(genres)
+    ..sortMode = sortMode
+    ..layout = layout
+    ..columns = columns;
 
   void reset() {
     type = 'all';
@@ -65,6 +69,7 @@ class CatalogFilterState {
     genres.clear();
     sortMode = 'popular';
     layout = CatalogLayout.grid;
+    columns = 0;
   }
 
   bool get isDefault =>
@@ -74,7 +79,8 @@ class CatalogFilterState {
       minRating <= 0 &&
       genres.isEmpty &&
       sortMode == 'popular' &&
-      layout == CatalogLayout.grid;
+      layout == CatalogLayout.grid &&
+      columns == 0;
 
   /// Une année donnée passe-t-elle le filtre d'années ? Un item sans année
   /// n'est masqué que si l'utilisateur a explicitement borné les années.

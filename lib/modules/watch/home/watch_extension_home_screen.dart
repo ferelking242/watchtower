@@ -72,11 +72,7 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
        localItemType = null;
 
   WatchExtensionHomeScreen.localLibrary({required ItemType itemType, super.key})
-    : source = Source(
-        name: 'local_smart_library',
-        lang: '',
-        itemType: itemType,
-      ),
+    : source = Source(name: 'local_smart_library', lang: '', itemType: itemType),
       isLocalLibrary = true,
       localItemType = itemType,
       initialSearchQuery = null,
@@ -85,12 +81,10 @@ class WatchExtensionHomeScreen extends ConsumerStatefulWidget {
       defaultSections = const [];
 
   @override
-  ConsumerState<WatchExtensionHomeScreen> createState() =>
-      _WatchExtensionHomeScreenState();
+  ConsumerState<WatchExtensionHomeScreen> createState() => _WatchExtensionHomeScreenState();
 }
 
-class _WatchExtensionHomeScreenState
-    extends ConsumerState<WatchExtensionHomeScreen> {
+class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScreen> {
   final _feedController = ScrollController();
   bool _showCompactHeader = false;
   late bool _isSearching = widget.initialSearchQuery?.trim().isNotEmpty == true;
@@ -159,24 +153,15 @@ class _WatchExtensionHomeScreenState
           final sections = home['sections'];
           if (sections is! List || sections.isEmpty) {
             home['sections'] = [
-              <String, dynamic>{
-                'id': 'popular',
-                'title': 'Popular',
-                'component': 'grid',
-              },
-              <String, dynamic>{
-                'id': 'latest',
-                'title': 'Latest',
-                'component': 'grid',
-              },
+              <String, dynamic>{'id': 'popular', 'title': 'Popular', 'component': 'grid'},
+              <String, dynamic>{'id': 'latest', 'title': 'Latest', 'component': 'grid'},
             ];
             decodedLayout['home'] = home;
             loadedLayout = UiLayout.fromJson(decodedLayout);
           }
         }
       }
-      if (loadedLayout.home.sections.isEmpty &&
-          widget.defaultSections.isNotEmpty) {
+      if (loadedLayout.home.sections.isEmpty && widget.defaultSections.isNotEmpty) {
         loadedLayout = UiLayout(
           schemaVersion: loadedLayout.schemaVersion,
           home: HomeLayout(sections: widget.defaultSections),
@@ -212,9 +197,7 @@ class _WatchExtensionHomeScreenState
   void _logRequestFailure(String request, Object? error) {
     if (error == null) return;
     final detail = error.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
-    final summary = detail.length > 240
-        ? '${detail.substring(0, 240)}…'
-        : detail;
+    final summary = detail.length > 240 ? '${detail.substring(0, 240)}…' : detail;
     final key = '$request:${error.runtimeType}:$summary';
     if (!_loggedRequestErrors.add(key)) return;
     debugPrint(
@@ -242,9 +225,7 @@ class _WatchExtensionHomeScreenState
     }
 
     final updated = Map<String, dynamic>.from(original);
-    final home = Map<String, dynamic>.from(
-      updated['home'] as Map<String, dynamic>,
-    );
+    final home = Map<String, dynamic>.from(updated['home'] as Map<String, dynamic>);
     home['sections'] = sections
         .map((section) => Map<String, dynamic>.from(section))
         .toList(growable: false);
@@ -347,22 +328,17 @@ class _WatchExtensionHomeScreenState
   Future<void> _applyLayoutComponent(String component) async {
     final sectionId = _pendingReplacementSectionId;
     if (sectionId == null) {
-      _showEditorMessage(
-        'Maintiens d’abord une section, puis choisis « Remplacer ».',
-      );
+      _showEditorMessage('Maintiens d’abord une section, puis choisis « Remplacer ».');
       return;
     }
     final sections = _copyLayoutSections();
-    final index = sections.indexWhere(
-      (section) => section['id']?.toString() == sectionId,
-    );
+    final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
       _showEditorMessage('Cette section n’existe plus dans le layout.');
       return;
     }
     sections[index]['component'] = component;
-    if (LayoutComponentRegistry.resolve(component)?.renderer !=
-        LayoutComponentRenderer.grid) {
+    if (LayoutComponentRegistry.resolve(component)?.renderer != LayoutComponentRenderer.grid) {
       sections[index].remove('cardComponent');
       sections[index].remove('episodeComponent');
       sections[index].remove('chapterComponent');
@@ -379,20 +355,13 @@ class _WatchExtensionHomeScreenState
     final sectionId = _pendingEpisodeCardSectionId;
     if (sectionId == null) return;
     if (source.itemType != ItemType.anime ||
-        !LayoutComponentRegistry.supports(
-          component,
-          LayoutComponentContext.homeEpisodeCard,
-        )) {
-      _showEditorMessage(
-        'Cette carte épisode n’est pas compatible avec cette sélection.',
-      );
+        !LayoutComponentRegistry.supports(component, LayoutComponentContext.homeEpisodeCard)) {
+      _showEditorMessage('Cette carte épisode n’est pas compatible avec cette sélection.');
       return;
     }
 
     final sections = _copyLayoutSections();
-    final index = sections.indexWhere(
-      (section) => section['id']?.toString() == sectionId,
-    );
+    final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
       _showEditorMessage('Cette section n’existe plus dans le layout.');
       return;
@@ -421,20 +390,13 @@ class _WatchExtensionHomeScreenState
     final sectionId = _pendingChapterCardSectionId;
     if (sectionId == null) return;
     if (source.itemType != ItemType.manga ||
-        !LayoutComponentRegistry.supports(
-          component,
-          LayoutComponentContext.chapter,
-        )) {
-      _showEditorMessage(
-        'Cette carte de chapitre n’est pas compatible avec cette sélection.',
-      );
+        !LayoutComponentRegistry.supports(component, LayoutComponentContext.chapter)) {
+      _showEditorMessage('Cette carte de chapitre n’est pas compatible avec cette sélection.');
       return;
     }
 
     final sections = _copyLayoutSections();
-    final index = sections.indexWhere(
-      (section) => section['id']?.toString() == sectionId,
-    );
+    final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
       _showEditorMessage('Cette section n’existe plus dans le layout.');
       return;
@@ -463,20 +425,13 @@ class _WatchExtensionHomeScreenState
     final sectionId = _pendingMangaCardSectionId;
     if (sectionId == null) return;
     if (source.itemType != ItemType.manga ||
-        !LayoutComponentRegistry.supports(
-          component,
-          LayoutComponentContext.homeMangaCard,
-        )) {
-      _showEditorMessage(
-        'Cette carte Manga n’est pas compatible avec cette sélection.',
-      );
+        !LayoutComponentRegistry.supports(component, LayoutComponentContext.homeMangaCard)) {
+      _showEditorMessage('Cette carte Manga n’est pas compatible avec cette sélection.');
       return;
     }
 
     final sections = _copyLayoutSections();
-    final index = sections.indexWhere(
-      (section) => section['id']?.toString() == sectionId,
-    );
+    final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
       _showEditorMessage('Cette section n’existe plus dans le layout.');
       return;
@@ -510,18 +465,13 @@ class _WatchExtensionHomeScreenState
         _layout = LayoutRegistry.instance.get(source);
       });
     } catch (error) {
-      _showEditorMessage(
-        'Layout enregistré, mais aperçu impossible à actualiser : $error',
-      );
+      _showEditorMessage('Layout enregistré, mais aperçu impossible à actualiser : $error');
     }
   }
 
   void _updateCompactHeader() {
     if (!_feedController.hasClients) return;
-    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
-      480.0,
-      590.0,
-    );
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0);
     // Hero is drawn heroHeight + 36 tall (notch overhang) — match it.
     final shouldShow = _feedController.offset >= heroHeight + 36;
     if (shouldShow != _showCompactHeader && mounted) {
@@ -552,24 +502,14 @@ class _WatchExtensionHomeScreenState
     if (sections.isEmpty) {
       futures
         ..add(ref.refresh(getPopularProvider(source: source, page: 1).future))
-        ..add(
-          ref.refresh(getLatestUpdatesProvider(source: source, page: 1).future),
-        );
+        ..add(ref.refresh(getLatestUpdatesProvider(source: source, page: 1).future));
     } else {
       for (final section in sections) {
         final future = switch (section.id) {
-          'popular' => ref.refresh(
-            getPopularProvider(source: source, page: 1).future,
-          ),
-          'latest' => ref.refresh(
-            getLatestUpdatesProvider(source: source, page: 1).future,
-          ),
+          'popular' => ref.refresh(getPopularProvider(source: source, page: 1).future),
+          'latest' => ref.refresh(getLatestUpdatesProvider(source: source, page: 1).future),
           _ => ref.refresh(
-            getCustomListProvider(
-              source: source,
-              listId: section.id,
-              page: 1,
-            ).future,
+            getCustomListProvider(source: source, listId: section.id, page: 1).future,
           ),
         };
         futures.add(future);
@@ -599,9 +539,7 @@ class _WatchExtensionHomeScreenState
                 ? item.name!.trim()
                 : source.name ?? 'Collection',
             initialExtensionItems: const [],
-            cardStyle: collection.listId.startsWith('search_')
-                ? 'landscape'
-                : null,
+            cardStyle: collection.listId.startsWith('search_') ? 'landscape' : null,
           ),
         ),
       );
@@ -633,18 +571,16 @@ class _WatchExtensionHomeScreenState
       if (!mounted) return;
       if (first == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Aucune vidéo disponible dans cette playlist.'),
-          ),
+          const SnackBar(content: Text('Aucune vidéo disponible dans cette playlist.')),
         );
         return;
       }
       _openItem(first);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Impossible de charger la playlist : $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Impossible de charger la playlist : $error')));
     }
   }
 
@@ -659,16 +595,9 @@ class _WatchExtensionHomeScreenState
   @override
   Widget build(BuildContext context) {
     final headers = ref.watch(
-      headersProvider(
-        source: source.name ?? '',
-        lang: source.lang ?? '',
-        sourceId: source.id,
-      ),
+      headersProvider(source: source.name ?? '', lang: source.lang ?? '', sourceId: source.id),
     );
-    return ExtensionImageHeaders(
-      headers: headers,
-      child: _buildBody(context),
-    );
+    return ExtensionImageHeaders(headers: headers, child: _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {
@@ -700,11 +629,7 @@ class _WatchExtensionHomeScreenState
     if (!_layoutReady && source.providesHome) {
       final layoutError = _layoutError;
       if (layoutError != null) {
-        return _ExtensionEmpty(
-          source: source,
-          onRefresh: _retryLayout,
-          error: layoutError,
-        );
+        return _ExtensionEmpty(source: source, onRefresh: _retryLayout, error: layoutError);
       }
       return _ExtensionHomeLoading(
         source: source,
@@ -722,12 +647,8 @@ class _WatchExtensionHomeScreenState
       for (final section in sections)
         switch (section.params['dataSource'] ?? section.id) {
           'popular' => ref.watch(getPopularProvider(source: source, page: 1)),
-          'latest' => ref.watch(
-            getLatestUpdatesProvider(source: source, page: 1),
-          ),
-          _ => ref.watch(
-            getCustomListProvider(source: source, listId: section.id, page: 1),
-          ),
+          'latest' => ref.watch(getLatestUpdatesProvider(source: source, page: 1)),
+          _ => ref.watch(getCustomListProvider(source: source, listId: section.id, page: 1)),
         },
     ];
     Object? sectionError;
@@ -741,9 +662,7 @@ class _WatchExtensionHomeScreenState
     final hasSectionContent = sectionAsyncValues.any(
       (value) => value.value?.list.isNotEmpty == true,
     );
-    final isLoadingSections = sectionAsyncValues.any(
-      (value) => value.isLoading,
-    );
+    final isLoadingSections = sectionAsyncValues.any((value) => value.isLoading);
     // Keep the previous failure across the retry that clears the AsyncError,
     // so the build returns the same empty state instead of bouncing to the
     // full-screen shimmer. Every bounce remounted the inline challenge WebView
@@ -782,19 +701,13 @@ class _WatchExtensionHomeScreenState
     final latestAsync = hasDeclaredSections
         ? null
         : ref.watch(getLatestUpdatesProvider(source: source, page: 1));
-    final popular =
-        popularAsync?.whenOrNull(data: (pages) => pages)?.list ??
-        const <MManga>[];
-    final latest =
-        latestAsync?.whenOrNull(data: (pages) => pages)?.list ??
-        const <MManga>[];
+    final popular = popularAsync?.whenOrNull(data: (pages) => pages)?.list ?? const <MManga>[];
+    final latest = latestAsync?.whenOrNull(data: (pages) => pages)?.list ?? const <MManga>[];
     final isLoading =
-        !hasDeclaredSections &&
-        (popularAsync?.isLoading == true || latestAsync?.isLoading == true);
+        !hasDeclaredSections && (popularAsync?.isLoading == true || latestAsync?.isLoading == true);
 
     final error = popularAsync?.error ?? latestAsync?.error;
-    final hasError =
-        popularAsync?.hasError == true || latestAsync?.hasError == true;
+    final hasError = popularAsync?.hasError == true || latestAsync?.hasError == true;
 
     // Mirror the retained-error behaviour above for sources without a declared
     // layout: while a retry runs, Riverpod clears the error and reports
@@ -814,11 +727,7 @@ class _WatchExtensionHomeScreenState
     // while a retry is in flight: swapping to the full-screen loading shimmer
     // on every attempt remounted the whole surface — header, feed and WebView —
     // which read as the page reloading over and over.
-    if (isLoading &&
-        popular.isEmpty &&
-        latest.isEmpty &&
-        retainedError == null &&
-        !hasError) {
+    if (isLoading && popular.isEmpty && latest.isEmpty && retainedError == null && !hasError) {
       return _ExtensionHomeLoading(
         source: source,
         onSearch: () => setState(() => _isSearching = true),
@@ -826,18 +735,9 @@ class _WatchExtensionHomeScreenState
       );
     }
 
-    if ((hasError || retainedError != null) &&
-        popular.isEmpty &&
-        latest.isEmpty) {
-      _logRequestFailure(
-        popularAsync?.hasError == true ? 'popular' : 'latest',
-        error,
-      );
-      return _ExtensionEmpty(
-        source: source,
-        onRefresh: _refresh,
-        error: error ?? retainedError,
-      );
+    if ((hasError || retainedError != null) && popular.isEmpty && latest.isEmpty) {
+      _logRequestFailure(popularAsync?.hasError == true ? 'popular' : 'latest', error);
+      return _ExtensionEmpty(source: source, onRefresh: _refresh, error: error ?? retainedError);
     }
 
     return _ExtensionFeed(
@@ -864,8 +764,7 @@ class _WatchExtensionHomeScreenState
         _editorDestination = destination;
         _editorDockExpanded = false;
       }),
-      onToggleEditorDock: () =>
-          setState(() => _editorDockExpanded = !_editorDockExpanded),
+      onToggleEditorDock: () => setState(() => _editorDockExpanded = !_editorDockExpanded),
       onMoveSection: _moveEditorSection,
       onDeleteSection: _deleteEditorSection,
       onReplaceSection: _startSectionReplacement,
@@ -969,51 +868,28 @@ class _ExtensionFeed extends StatelessWidget {
     return result;
   }
 
-  void _showSectionActions(
-    BuildContext context,
-    int index,
-    UiSection section,
-    int sectionCount,
-  ) {
-    final title = section.title?.trim().isNotEmpty == true
-        ? section.title!.trim()
-        : section.id;
-    final sectionDefinition = LayoutComponentRegistry.resolve(
-      section.component,
-    );
+  void _showSectionActions(BuildContext context, int index, UiSection section, int sectionCount) {
+    final title = section.title?.trim().isNotEmpty == true ? section.title!.trim() : section.id;
+    final sectionDefinition = LayoutComponentRegistry.resolve(section.component);
     final canCustomizeMangaCards =
         source.itemType == ItemType.manga &&
-        sectionDefinition?.supportedContexts.contains(
-              LayoutComponentContext.home,
-            ) ==
-            true &&
+        sectionDefinition?.supportedContexts.contains(LayoutComponentContext.home) == true &&
         sectionDefinition?.renderer == LayoutComponentRenderer.grid;
     final canCustomizeEpisodeCards =
         source.itemType == ItemType.anime &&
-        sectionDefinition?.supportedContexts.contains(
-              LayoutComponentContext.home,
-            ) ==
-            true &&
+        sectionDefinition?.supportedContexts.contains(LayoutComponentContext.home) == true &&
         sectionDefinition?.renderer == LayoutComponentRenderer.grid;
     final canCustomizeChapterCards =
         source.itemType == ItemType.manga &&
-        sectionDefinition?.supportedContexts.contains(
-              LayoutComponentContext.home,
-            ) ==
-            true &&
+        sectionDefinition?.supportedContexts.contains(LayoutComponentContext.home) == true &&
         sectionDefinition?.renderer == LayoutComponentRenderer.grid;
     final selectedCardLabel =
-        LayoutComponentRegistry.resolve(section.cardComponent ?? '')?.label ??
-        'Affiche standard';
+        LayoutComponentRegistry.resolve(section.cardComponent ?? '')?.label ?? 'Affiche standard';
     final selectedEpisodeCardLabel =
-        LayoutComponentRegistry.resolve(
-          section.episodeComponent ?? '',
-        )?.label ??
+        LayoutComponentRegistry.resolve(section.episodeComponent ?? '')?.label ??
         'Carte par défaut';
     final selectedChapterCardLabel =
-        LayoutComponentRegistry.resolve(
-          section.chapterComponent ?? '',
-        )?.label ??
+        LayoutComponentRegistry.resolve(section.chapterComponent ?? '')?.label ??
         'Carte par défaut';
     showModalBottomSheet<void>(
       context: context,
@@ -1149,9 +1025,7 @@ class _ExtensionFeed extends StatelessWidget {
                           items: (popular.isNotEmpty ? popular : latest)
                               .map(ContentItem.fromManga)
                               .toList(growable: false),
-                          onOpen: (index) => onOpen(
-                            (popular.isNotEmpty ? popular : latest)[index],
-                          ),
+                          onOpen: (index) => onOpen((popular.isNotEmpty ? popular : latest)[index]),
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -1162,9 +1036,7 @@ class _ExtensionFeed extends StatelessWidget {
                     child: Text(
                       'Aucune section. Utilise l’éditeur JSON pour en créer une.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                   ),
                 ),
@@ -1182,12 +1054,8 @@ class _ExtensionFeed extends StatelessWidget {
                           if (!layoutEditorMode) return rendered;
                           return GestureDetector(
                             behavior: HitTestBehavior.opaque,
-                            onLongPress: () => _showSectionActions(
-                              context,
-                              index,
-                              section,
-                              sections.length,
-                            ),
+                            onLongPress: () =>
+                                _showSectionActions(context, index, section, sections.length),
                             child: Stack(
                               children: [
                                 rendered,
@@ -1212,9 +1080,7 @@ class _ExtensionFeed extends StatelessWidget {
                       : [
                           MediaPosterRail(
                             title: 'Popular',
-                            items: popular
-                                .map(ContentItem.fromManga)
-                                .toList(growable: false),
+                            items: popular.map(ContentItem.fromManga).toList(growable: false),
                             onOpen: (index) => onOpen(popular[index]),
                             onSeeAll: () => _openSection(
                               context,
@@ -1227,9 +1093,7 @@ class _ExtensionFeed extends StatelessWidget {
                           if (latest.isNotEmpty)
                             MediaPosterRail(
                               title: 'Latest',
-                              items: latest
-                                  .map(ContentItem.fromManga)
-                                  .toList(growable: false),
+                              items: latest.map(ContentItem.fromManga).toList(growable: false),
                               onOpen: (index) => onOpen(latest[index]),
                               onSeeAll: () => _openSection(
                                 context,
@@ -1260,8 +1124,7 @@ class _ExtensionFeed extends StatelessWidget {
                   source: source,
                   onSearch: onSearch,
                   onLibrary: () => context.push('/Library'),
-                  onSettings: () =>
-                      context.push('/extension_detail', extra: source),
+                  onSettings: () => context.push('/extension_detail', extra: source),
                   transparent: true,
                 ),
               ),
@@ -1285,8 +1148,7 @@ class _ExtensionFeed extends StatelessWidget {
                     source: source,
                     onSearch: onSearch,
                     onLibrary: () => context.push('/Library'),
-                    onSettings: () =>
-                        context.push('/extension_detail', extra: source),
+                    onSettings: () => context.push('/extension_detail', extra: source),
                   ),
                 ),
               ),
@@ -1302,11 +1164,8 @@ class _ExtensionFeed extends StatelessWidget {
           embedded: true,
           selectionMode: isSelectingComponent,
           selectionContext: selectionContext,
-          onSelectLayoutComponent: isSelectingComponent
-              ? onSelectLayoutComponent
-              : null,
-          onClose: () =>
-              onEditorDestinationChanged(_LayoutEditorDestination.home),
+          onSelectLayoutComponent: isSelectingComponent ? onSelectLayoutComponent : null,
+          onClose: () => onEditorDestinationChanged(_LayoutEditorDestination.home),
         ),
         LayoutJsonEditorScreen(
           key: ValueKey(layoutEditorRevision),
@@ -1391,14 +1250,10 @@ class _LayoutEditorDock extends StatelessWidget {
           const SizedBox(height: 8),
           FloatingActionButton.small(
             heroTag: 'layout-editor-dock-toggle',
-            tooltip: expanded
-                ? 'Fermer le dock d\'édition'
-                : 'Ouvrir le dock d\'édition',
+            tooltip: expanded ? 'Fermer le dock d\'édition' : 'Ouvrir le dock d\'édition',
             onPressed: onToggle,
             // Bouton flottant « < » qui déplie le dock de navigation.
-            child: Icon(
-              expanded ? Icons.close_rounded : Icons.expand_more_rounded,
-            ),
+            child: Icon(expanded ? Icons.close_rounded : Icons.expand_more_rounded),
           ),
         ],
       ),
@@ -1429,9 +1284,7 @@ class _DockDestinationButton extends StatelessWidget {
         style: TextButton.styleFrom(
           alignment: Alignment.centerLeft,
           foregroundColor: selected ? colors.primary : colors.onSurface,
-          backgroundColor: selected
-              ? colors.primary.withValues(alpha: .12)
-              : null,
+          backgroundColor: selected ? colors.primary.withValues(alpha: .12) : null,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
         icon: Icon(icon, size: 19),
@@ -1478,12 +1331,10 @@ class _ExtensionLayoutSection extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_ExtensionLayoutSection> createState() =>
-      _ExtensionLayoutSectionState();
+  ConsumerState<_ExtensionLayoutSection> createState() => _ExtensionLayoutSectionState();
 }
 
-class _ExtensionLayoutSectionState
-    extends ConsumerState<_ExtensionLayoutSection> {
+class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection> {
   String? _selectedMonth;
 
   @override
@@ -1501,8 +1352,7 @@ class _ExtensionLayoutSectionState
     }
   }
 
-  String _monthKey(DateTime month) =>
-      '${month.year}-${month.month.toString().padLeft(2, '0')}';
+  String _monthKey(DateTime month) => '${month.year}-${month.month.toString().padLeft(2, '0')}';
 
   DateTime _latestCompletedMonth() {
     final now = DateTime.now();
@@ -1512,9 +1362,7 @@ class _ExtensionLayoutSectionState
   String _initialMonth() {
     final configured = widget.section.monthSelector?.initialMonth;
     final latest = _latestCompletedMonth();
-    final parsed = configured == null
-        ? null
-        : DateTime.tryParse('$configured-01');
+    final parsed = configured == null ? null : DateTime.tryParse('$configured-01');
     if (parsed != null && !parsed.isAfter(latest)) return _monthKey(parsed);
     return _monthKey(latest);
   }
@@ -1562,10 +1410,7 @@ class _ExtensionLayoutSectionState
     final base = widget.section.title?.trim().isNotEmpty == true
         ? widget.section.title!.trim()
         : widget.section.id;
-    return base.replaceAll(
-      '{month}',
-      _monthLabel(_selectedMonth ?? _initialMonth()),
-    );
+    return base.replaceAll('{month}', _monthLabel(_selectedMonth ?? _initialMonth()));
   }
 
   Widget _withMonthSelector(BuildContext context, Widget child) {
@@ -1591,19 +1436,13 @@ class _ExtensionLayoutSectionState
               color: isDark ? const Color(0xFF171820) : cs.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: .10)
-                    : cs.outlineVariant,
+                color: isDark ? Colors.white.withValues(alpha: .10) : cs.outlineVariant,
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.calendar_month_rounded,
-                  color: cs.onSurfaceVariant,
-                  size: 18,
-                ),
+                Icon(Icons.calendar_month_rounded, color: cs.onSurfaceVariant, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   'Choisir un mois',
@@ -1617,9 +1456,7 @@ class _ExtensionLayoutSectionState
                 DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: selected,
-                    dropdownColor: isDark
-                        ? const Color(0xFF20212A)
-                        : cs.surfaceContainerHigh,
+                    dropdownColor: isDark ? const Color(0xFF20212A) : cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(12),
                     style: TextStyle(
                       color: cs.onSurface,
@@ -1628,10 +1465,7 @@ class _ExtensionLayoutSectionState
                     ),
                     items: [
                       for (final month in _monthOptions())
-                        DropdownMenuItem(
-                          value: month,
-                          child: Text(_monthLabel(month)),
-                        ),
+                        DropdownMenuItem(value: month, child: Text(_monthLabel(month))),
                     ],
                     onChanged: (month) {
                       if (month == null || month == _selectedMonth) return;
@@ -1666,17 +1500,10 @@ class _ExtensionLayoutSectionState
 
   @override
   Widget build(BuildContext context) {
-    final content = switch (widget.section.params['dataSource'] ??
-        widget.section.id) {
-      'popular' => ref.watch(
-        getPopularProvider(source: widget.source, page: 1),
-      ),
-      'latest' => ref.watch(
-        getLatestUpdatesProvider(source: widget.source, page: 1),
-      ),
-      _ => ref.watch(
-        getCustomListProvider(source: widget.source, listId: _listId, page: 1),
-      ),
+    final content = switch (widget.section.params['dataSource'] ?? widget.section.id) {
+      'popular' => ref.watch(getPopularProvider(source: widget.source, page: 1)),
+      'latest' => ref.watch(getLatestUpdatesProvider(source: widget.source, page: 1)),
+      _ => ref.watch(getCustomListProvider(source: widget.source, listId: _listId, page: 1)),
     };
 
     // Riverpod can expose a loading/error state while retaining the previous
@@ -1688,15 +1515,10 @@ class _ExtensionLayoutSectionState
     }
 
     final sectionContent = content.when(
-      loading: () => _ExtensionLayoutSectionLoading(
-        title: _title,
-        component: widget.section.component,
-      ),
-      error: (error, _) => _ExtensionLayoutSectionError(
-        title: _title,
-        error: error,
-        onRetry: _retry,
-      ),
+      loading: () =>
+          _ExtensionLayoutSectionLoading(title: _title, component: widget.section.component),
+      error: (error, _) =>
+          _ExtensionLayoutSectionError(title: _title, error: error, onRetry: _retry),
       data: (pages) {
         final items = pages?.list ?? const <MManga>[];
         if (items.isEmpty) {
@@ -1715,18 +1537,10 @@ class _ExtensionLayoutSectionState
         ref.invalidate(getPopularProvider(source: widget.source, page: 1));
         break;
       case 'latest':
-        ref.invalidate(
-          getLatestUpdatesProvider(source: widget.source, page: 1),
-        );
+        ref.invalidate(getLatestUpdatesProvider(source: widget.source, page: 1));
         break;
       default:
-        ref.invalidate(
-          getCustomListProvider(
-            source: widget.source,
-            listId: _listId,
-            page: 1,
-          ),
-        );
+        ref.invalidate(getCustomListProvider(source: widget.source, listId: _listId, page: 1));
     }
   }
 
@@ -1744,18 +1558,9 @@ class _ExtensionLayoutSectionState
     // Three-dot overflow: same bulk-download entries as the "voir tout" page
     // (Télécharger, Tout télécharger, Télécharger 5/10/25…), so a section can
     // be queued straight from the home feed.
-    final trailing = AdaptiveOverlayMenu<CatalogBulkDownloadAction>(
-      tooltip: 'Options',
-      icon: const Icon(Broken.more_2, size: 22),
-      menuWidth: 240,
-      onSelected: (action) => CatalogBulkDownload.handleMenu(
-        context,
-        ref,
-        widget.source,
-        items,
-        action,
-      ),
-      itemBuilder: (_) => CatalogBulkDownload.menuItems(),
+    final trailing = CatalogDownloadMenuButton(
+      onSelected: (action) =>
+          CatalogBulkDownload.handleMenu(context, ref, widget.source, items, action),
     );
 
     return ExtensionLayoutPreview(
@@ -1828,12 +1633,9 @@ class ExtensionLayoutPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final contentItems = items
-        .map(ContentItem.fromManga)
-        .toList(growable: false);
+    final contentItems = items.map(ContentItem.fromManga).toList(growable: false);
     final definition = LayoutComponentRegistry.resolve(component);
-    if (definition == null ||
-        !definition.supportedContexts.contains(LayoutComponentContext.home)) {
+    if (definition == null || !definition.supportedContexts.contains(LayoutComponentContext.home)) {
       if (_warnedUnsupportedComponentIds.add(component)) {
         debugPrint(
           '[ExtensionLayoutPreview] Unsupported component "$component"; '
@@ -1913,13 +1715,9 @@ class ExtensionLayoutPreview extends StatelessWidget {
     };
     late final List<ContentItem> gridItems;
     if (episodeCardComponent != null) {
-      gridItems = episodeCards
-          .map((episode) => episode.contentItem)
-          .toList(growable: false);
+      gridItems = episodeCards.map((episode) => episode.contentItem).toList(growable: false);
     } else if (chapterCardComponent != null) {
-      gridItems = chapterCards
-          .map((chapter) => chapter.contentItem)
-          .toList(growable: false);
+      gridItems = chapterCards.map((chapter) => chapter.contentItem).toList(growable: false);
     } else {
       gridItems = contentItems;
     }
@@ -1932,9 +1730,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
         children: [
           AppSectionHeader(title: title),
           Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppUI.pagePadding(context),
-            ),
+            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
             child: Text(
               'Aucun épisode numéroté avec une URL valide n’a été fourni par cette source.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1954,9 +1750,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
         children: [
           AppSectionHeader(title: title),
           Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppUI.pagePadding(context),
-            ),
+            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
             child: Text(
               'Aucun chapitre avec un titre et une URL valides n’a été fourni par cette source.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1968,8 +1762,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
       );
     }
 
-    Widget Function(BuildContext, ContentItem, double, VoidCallback)?
-    gridCardBuilder;
+    Widget Function(BuildContext, ContentItem, double, VoidCallback)? gridCardBuilder;
     if (episodeCardComponent != null) {
       gridCardBuilder = (context, item, width, onTap) {
         final episode = episodeCardsByKey[item.key];
@@ -2073,9 +1866,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
         rows: rows,
         scrollDirection: scrollDirection,
         cardStyle: cardStyle,
-        onSeeAll: episodeCardComponent == null && chapterCardComponent == null
-            ? onSeeAll
-            : null,
+        onSeeAll: episodeCardComponent == null && chapterCardComponent == null ? onSeeAll : null,
         itemCardBuilder: gridCardBuilder,
       ),
       LayoutComponentRenderer.collections => _ExtensionCollectionCardRail(
@@ -2123,19 +1914,14 @@ class ExtensionLayoutPreview extends StatelessWidget {
     for (final series in items) {
       final seriesName = series.name?.trim();
       final seriesLink = series.link?.trim();
-      if (seriesName == null ||
-          seriesName.isEmpty ||
-          seriesLink == null ||
-          seriesLink.isEmpty) {
+      if (seriesName == null || seriesName.isEmpty || seriesLink == null || seriesLink.isEmpty) {
         continue;
       }
 
       for (final chapter in series.chapters ?? const <MChapter>[]) {
         final episodeName = chapter.name?.trim();
         final episodeUrl = chapter.url?.trim();
-        final episodeNumber = ExtensionEpisodeCardAdapter.parseEpisodeNumber(
-          episodeName,
-        );
+        final episodeNumber = ExtensionEpisodeCardAdapter.parseEpisodeNumber(episodeName);
         if (episodeName == null ||
             episodeName.isEmpty ||
             episodeUrl == null ||
@@ -2169,10 +1955,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
     for (final manga in items) {
       final mangaName = manga.name?.trim();
       final mangaLink = manga.link?.trim();
-      if (mangaName == null ||
-          mangaName.isEmpty ||
-          mangaLink == null ||
-          mangaLink.isEmpty) {
+      if (mangaName == null || mangaName.isEmpty || mangaLink == null || mangaLink.isEmpty) {
         continue;
       }
 
@@ -2194,11 +1977,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
           description: chapter.description,
         );
         result.add(
-          _ExtensionChapterCardItem(
-            manga: manga,
-            chapter: chapter,
-            contentItem: contentItem,
-          ),
+          _ExtensionChapterCardItem(manga: manga, chapter: chapter, contentItem: contentItem),
         );
       }
     }
@@ -2236,10 +2015,7 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
   final String title;
   final String component;
 
-  const _ExtensionLayoutSectionLoading({
-    required this.title,
-    required this.component,
-  });
+  const _ExtensionLayoutSectionLoading({required this.title, required this.component});
 
   @override
   Widget build(BuildContext context) {
@@ -2278,17 +2054,12 @@ class _ExtensionLayoutSectionLoading extends StatelessWidget {
           SizedBox(
             height: 58,
             child: ListView.separated(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppUI.pagePadding(context),
-              ),
+              padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
               scrollDirection: Axis.horizontal,
               itemCount: 7,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (_, _) => const SizedBox(
-                width: 84,
-                height: 32,
-                child: AppShimmerBlock(radius: 18),
-              ),
+              itemBuilder: (_, _) =>
+                  const SizedBox(width: 84, height: 32, child: AppShimmerBlock(radius: 18)),
             ),
           ),
         ],
@@ -2320,12 +2091,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppUI.pagePadding(context),
-        4,
-        AppUI.pagePadding(context),
-        10,
-      ),
+      padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 4, AppUI.pagePadding(context), 10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
@@ -2363,11 +2129,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                         'La source est momentanément indisponible.',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: cs.onSurfaceVariant,
-                      fontSize: 11.5,
-                      height: 1.3,
-                    ),
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11.5, height: 1.3),
                   ),
                 ],
               ),
@@ -2390,10 +2152,7 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
   final String title;
   final VoidCallback onRetry;
 
-  const _ExtensionLayoutSectionEmpty({
-    required this.title,
-    required this.onRetry,
-  });
+  const _ExtensionLayoutSectionEmpty({required this.title, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -2417,11 +2176,7 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const KaomojiEmpty(
-                  kaomoji: '(´・ω・`)',
-                  size: 22,
-                  message: 'Aucun contenu',
-                ),
+                const KaomojiEmpty(kaomoji: '(´・ω・`)', size: 22, message: 'Aucun contenu'),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: onRetry,
@@ -2429,14 +2184,8 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
                   label: const Text('Réessayer'),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -2477,18 +2226,14 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
         child: SizedBox(
           height: 64,
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppUI.pagePadding(context),
-            ),
+            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
             child: Row(
               children: [
                 _ExtensionSourceIcon(source: source, size: 30),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    source.name?.trim().isNotEmpty == true
-                        ? source.name!.trim()
-                        : 'Extension',
+                    source.name?.trim().isNotEmpty == true ? source.name!.trim() : 'Extension',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -2549,18 +2294,14 @@ class _ExtensionFeedOverlayHeader extends StatelessWidget {
         child: SizedBox(
           height: 58,
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppUI.pagePadding(context),
-            ),
+            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
             child: Row(
               children: [
                 _ExtensionSourceIcon(source: source, size: 28),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    source.name?.trim().isNotEmpty == true
-                        ? source.name!.trim()
-                        : 'Extension',
+                    source.name?.trim().isNotEmpty == true ? source.name!.trim() : 'Extension',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -2613,25 +2354,17 @@ class _ExtensionCollectionCardRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(
-          title: title,
-          actionLabel: 'All >',
-          onAction: onSeeAll,
-        ),
+        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
         SizedBox(
           height: 112,
           child: ListView.separated(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppUI.pagePadding(context),
-            ),
+            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             itemCount: items.length,
             separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (_, index) => _ExtensionCollectionCard(
-              item: items[index],
-              onTap: () => onOpen(items[index]),
-            ),
+            itemBuilder: (_, index) =>
+                _ExtensionCollectionCard(item: items[index], onTap: () => onOpen(items[index])),
           ),
         ),
       ],
@@ -2649,10 +2382,7 @@ class _ExtensionCollectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPlaylist =
         item.collectionId?.startsWith('playlist_') == true ||
-        ExtensionCollectionRoute.fromItem(
-              item,
-            )?.listId.startsWith('playlist_') ==
-            true;
+        ExtensionCollectionRoute.fromItem(item)?.listId.startsWith('playlist_') == true;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2674,11 +2404,7 @@ class _ExtensionCollectionCard extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: SizedBox(
                   width: 84,
-                  child: _ExtensionImage(
-                    url: item.imageUrl,
-                    fit: BoxFit.cover,
-                    radius: 0,
-                  ),
+                  child: _ExtensionImage(url: item.imageUrl, fit: BoxFit.cover, radius: 0),
                 ),
               ),
             Align(
@@ -2690,10 +2416,9 @@ class _ExtensionCollectionCard extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      (isPlaylist
-                              ? const Color(0xFF5964C8)
-                              : const Color(0xFF237F78))
-                          .withValues(alpha: .98),
+                      (isPlaylist ? const Color(0xFF5964C8) : const Color(0xFF237F78)).withValues(
+                        alpha: .98,
+                      ),
                     ],
                   ),
                 ),
@@ -2702,17 +2427,13 @@ class _ExtensionCollectionCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      isPlaylist
-                          ? Icons.playlist_play_rounded
-                          : Icons.local_offer_rounded,
+                      isPlaylist ? Icons.playlist_play_rounded : Icons.local_offer_rounded,
                       color: Colors.white70,
                       size: 19,
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      item.name?.trim().isNotEmpty == true
-                          ? item.name!.trim()
-                          : 'Collection',
+                      item.name?.trim().isNotEmpty == true ? item.name!.trim() : 'Collection',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -2744,8 +2465,7 @@ class _ExtensionImage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) =>
-      ContentImage(url: url, fit: fit, radius: radius);
+  Widget build(BuildContext context) => ContentImage(url: url, fit: fit, radius: radius);
 }
 
 class _ExtensionSourceIcon extends StatelessWidget {
@@ -2787,11 +2507,7 @@ class _ExtensionIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String? tooltip;
 
-  const _ExtensionIconButton({
-    required this.icon,
-    required this.onPressed,
-    this.tooltip,
-  });
+  const _ExtensionIconButton({required this.icon, required this.onPressed, this.tooltip});
 
   @override
   Widget build(BuildContext context) {
@@ -2825,9 +2541,7 @@ class _ExtensionHomeLoading extends StatelessWidget {
       body: ExtensionAppleRefreshable(
         onRefresh: onRefresh,
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
+          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2835,23 +2549,14 @@ class _ExtensionHomeLoading extends StatelessWidget {
                 source: source,
                 onSearch: onSearch,
                 onLibrary: () => context.push('/Library'),
-                onSettings: () =>
-                    context.push('/extension_detail', extra: source),
+                onSettings: () => context.push('/extension_detail', extra: source),
               ),
-              AppHeroShimmer(
-                height: (MediaQuery.sizeOf(context).height * .56).clamp(
-                  480.0,
-                  590.0,
-                ),
-              ),
+              AppHeroShimmer(height: (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0)),
               _ExtensionSkeletonSection(
                 titleWidth: 154,
                 child: const _ExtensionRankedWideShimmer(),
               ),
-              _ExtensionSkeletonSection(
-                titleWidth: 112,
-                child: const _ExtensionShowcaseShimmer(),
-              ),
+              _ExtensionSkeletonSection(titleWidth: 112, child: const _ExtensionShowcaseShimmer()),
               _ExtensionSkeletonSection(
                 titleWidth: 126,
                 child: const ExtensionCollectionCardShimmer(),
@@ -2888,24 +2593,11 @@ class _ExtensionRankedWideShimmer extends StatelessWidget {
               height: 88,
               child: Row(
                 children: [
-                  const SizedBox(
-                    width: 156,
-                    height: 88,
-                    child: AppShimmerBlock(radius: 12),
-                  ),
+                  const SizedBox(width: 156, height: 88, child: AppShimmerBlock(radius: 12)),
                   const SizedBox(width: 14),
-                  const Expanded(
-                    child: SizedBox(
-                      height: 38,
-                      child: AppShimmerBlock(radius: 6),
-                    ),
-                  ),
+                  const Expanded(child: SizedBox(height: 38, child: AppShimmerBlock(radius: 6))),
                   const SizedBox(width: 12),
-                  SizedBox(
-                    width: 32,
-                    height: 38,
-                    child: AppShimmerBlock(radius: 6),
-                  ),
+                  SizedBox(width: 32, height: 38, child: AppShimmerBlock(radius: 6)),
                 ],
               ),
             ),
@@ -2945,18 +2637,9 @@ class _ExtensionShowcaseShimmer extends StatelessWidget {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Expanded(
-                      child: SizedBox(
-                        height: 18,
-                        child: AppShimmerBlock(radius: 5),
-                      ),
-                    ),
+                    const Expanded(child: SizedBox(height: 18, child: AppShimmerBlock(radius: 5))),
                     const SizedBox(width: 12),
-                    SizedBox(
-                      width: 84,
-                      height: 38,
-                      child: AppShimmerBlock(radius: 10),
-                    ),
+                    SizedBox(width: 84, height: 38, child: AppShimmerBlock(radius: 10)),
                   ],
                 ),
               ],
@@ -2980,11 +2663,8 @@ class ExtensionCollectionCardShimmer extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         itemCount: 4,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (_, _) => const SizedBox(
-          width: 190,
-          height: 112,
-          child: AppShimmerBlock(radius: 15),
-        ),
+        itemBuilder: (_, _) =>
+            const SizedBox(width: 190, height: 112, child: AppShimmerBlock(radius: 15)),
       ),
     );
   }
@@ -2994,10 +2674,7 @@ class _ExtensionSkeletonSection extends StatelessWidget {
   final double titleWidth;
   final Widget child;
 
-  const _ExtensionSkeletonSection({
-    required this.titleWidth,
-    required this.child,
-  });
+  const _ExtensionSkeletonSection({required this.titleWidth, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -3008,11 +2685,7 @@ class _ExtensionSkeletonSection extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-            child: SizedBox(
-              width: titleWidth,
-              height: 16,
-              child: const AppShimmerBlock(radius: 5),
-            ),
+            child: SizedBox(width: titleWidth, height: 16, child: const AppShimmerBlock(radius: 5)),
           ),
           child,
         ],
@@ -3026,11 +2699,7 @@ class _ExtensionEmpty extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Object? error;
 
-  const _ExtensionEmpty({
-    required this.source,
-    required this.onRefresh,
-    this.error,
-  });
+  const _ExtensionEmpty({required this.source, required this.onRefresh, this.error});
 
   @override
   Widget build(BuildContext context) => ExtensionHomeEmptyState(
@@ -3054,15 +2723,10 @@ class _ExtensionSearchView extends ConsumerStatefulWidget {
   final VoidCallback onClose;
   final ValueChanged<MManga> onOpen;
 
-  const _ExtensionSearchView({
-    required this.source,
-    required this.onClose,
-    required this.onOpen,
-  });
+  const _ExtensionSearchView({required this.source, required this.onClose, required this.onOpen});
 
   @override
-  ConsumerState<_ExtensionSearchView> createState() =>
-      _ExtensionSearchViewState();
+  ConsumerState<_ExtensionSearchView> createState() => _ExtensionSearchViewState();
 }
 
 class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
@@ -3139,28 +2803,18 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.cloud_off_rounded,
-                        color: cs.onSurfaceVariant,
-                        size: 44,
-                      ),
+                      Icon(Icons.cloud_off_rounded, color: cs.onSurfaceVariant, size: 44),
                       const SizedBox(height: 14),
                       Text(
                         extensionErrorTitle(error),
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: cs.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         extensionRequestFailureMessage(error) ?? '',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: cs.onSurfaceVariant,
-                          height: 1.4,
-                        ),
+                        style: TextStyle(color: cs.onSurfaceVariant, height: 1.4),
                       ),
                       const SizedBox(height: 14),
                       OutlinedButton.icon(
@@ -3185,10 +2839,7 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                 final items = pages?.list ?? const <MManga>[];
                 if (items.isEmpty) {
                   return Center(
-                    child: Text(
-                      'Aucun résultat',
-                      style: TextStyle(color: cs.onSurfaceVariant),
-                    ),
+                    child: Text('Aucun résultat', style: TextStyle(color: cs.onSurfaceVariant)),
                   );
                 }
                 return GridView.builder(

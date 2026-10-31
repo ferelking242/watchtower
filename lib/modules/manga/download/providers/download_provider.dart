@@ -1,6 +1,5 @@
 import 'dart:async';
-import 'dart:io'
-    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -41,8 +40,7 @@ import 'package:watchtower/services/download_manager/m3u8/m3u8_downloader.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/engine_selector.dart';
 import 'package:watchtower/services/video_duration_probe_stub.dart'
-    if (dart.library.ffi)
-        'package:watchtower/services/video_duration_probe_io.dart';
+    if (dart.library.ffi) 'package:watchtower/services/video_duration_probe_io.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
@@ -64,9 +62,7 @@ part 'download_provider.g.dart';
 void log(String message, {Object? error, StackTrace? stackTrace}) {
   AppLogger.log(
     message,
-    logLevel: error != null || stackTrace != null
-        ? LogLevel.warning
-        : LogLevel.info,
+    logLevel: error != null || stackTrace != null ? LogLevel.warning : LogLevel.info,
     tag: LogTag.download,
     error: error,
     stackTrace: stackTrace,
@@ -79,9 +75,7 @@ Future<MangaDownloadManifest?> _readMangaDownloadManifest(File file) async {
   for (final candidate in [file, File('${file.path}.tmp')]) {
     try {
       if (await candidate.exists()) {
-        final manifest = MangaDownloadManifest.decode(
-          await candidate.readAsString(),
-        );
+        final manifest = MangaDownloadManifest.decode(await candidate.readAsString());
         if (manifest != null) return manifest;
       }
     } catch (_) {
@@ -91,10 +85,7 @@ Future<MangaDownloadManifest?> _readMangaDownloadManifest(File file) async {
   return null;
 }
 
-Future<void> _writeMangaDownloadManifest(
-  File file,
-  MangaDownloadManifest manifest,
-) async {
+Future<void> _writeMangaDownloadManifest(File file, MangaDownloadManifest manifest) async {
   await file.parent.create(recursive: true);
   final temporary = File('${file.path}.tmp');
   await temporary.writeAsString(manifest.encode(), flush: true);
@@ -106,9 +97,9 @@ bool _isRefreshablePageUrlError(Object error) =>
     RegExp(r'\b(?:401|403)\b').hasMatch(error.toString());
 
 String _safeManifestFailure(Object error) {
-  final status = RegExp(r'\b(?:401|403|404|408|429|5\d\d)\b')
-      .firstMatch(error.toString())
-      ?.group(0);
+  final status = RegExp(
+    r'\b(?:401|403|404|408|429|5\d\d)\b',
+  ).firstMatch(error.toString())?.group(0);
   return status == null ? error.runtimeType.toString() : 'HTTP $status';
 }
 
@@ -180,9 +171,7 @@ void _setDownloadStatus(int? id, String status) {
   if (id == null) return;
   try {
     final download = isar.downloads.getSync(id);
-    if (download == null ||
-        download.isDownload == true ||
-        download.status == status) {
+    if (download == null || download.isDownload == true || download.status == status) {
       return;
     }
     isar.writeTxnSync(() {
@@ -204,10 +193,8 @@ Future<void> deleteMediaDownload(WidgetRef ref, int chapterId) =>
 
 /// Headless variant of [deleteMediaDownload] for the CLI, where there is no
 /// widget tree and therefore no [WidgetRef].
-Future<void> deleteMediaDownloadFromContainer(
-  ProviderContainer ref,
-  int chapterId,
-) => _deleteMediaDownload(ref.read, chapterId);
+Future<void> deleteMediaDownloadFromContainer(ProviderContainer ref, int chapterId) =>
+    _deleteMediaDownload(ref.read, chapterId);
 
 Future<void> _deleteMediaDownload(ProviderRead ref, int chapterId) async {
   final notifier = ref(downloadQueueStateProvider.notifier);
@@ -238,11 +225,7 @@ Future<void> _deleteMediaDownload(ProviderRead ref, int chapterId) async {
   } else {
     final savedPath = download.filePath;
     if (savedPath != null) {
-      for (final candidate in [
-        savedPath,
-        '$savedPath.part',
-        '$savedPath.part.meta',
-      ]) {
+      for (final candidate in [savedPath, '$savedPath.part', '$savedPath.part.meta']) {
         try {
           final file = File(candidate);
           if (file.existsSync()) file.deleteSync();
@@ -254,9 +237,7 @@ Future<void> _deleteMediaDownload(ProviderRead ref, int chapterId) async {
 
   notifier.setPaused(chapterId, false, updateEngine: false);
   notifier.clearLiveProgress(chapterId);
-  await WatchtowerNotificationService.instance.cancelMediaDownloadNotification(
-    chapterId,
-  );
+  await WatchtowerNotificationService.instance.cancelMediaDownloadNotification(chapterId);
 }
 
 Future<void> handleMediaDownloadNotificationAction(
@@ -285,8 +266,7 @@ Future<void> _handleMediaDownloadNotificationAction(
     return;
   }
   final isPaused =
-      ref(downloadQueueStateProvider).pausedIds.contains(chapterId) ||
-      download.status == 'paused';
+      ref(downloadQueueStateProvider).pausedIds.contains(chapterId) || download.status == 'paused';
 
   switch (action) {
     case MediaDownloadNotificationAction.pause:
@@ -407,8 +387,7 @@ String _normalizeQuality(String raw) {
 
   // Common keyword mapping
   if (s.contains('4k') || s.contains('2160')) return '2160p (4K)';
-  if (s.contains('1080') || s.contains('fhd') || s.contains('full hd'))
-    return '1080p';
+  if (s.contains('1080') || s.contains('fhd') || s.contains('full hd')) return '1080p';
   if (s.contains('720') || s.contains('hd')) return '720p';
   if (s.contains('480') || s.contains('sd')) return '480p';
   if (s.contains('360')) return '360p';
@@ -457,20 +436,14 @@ String _qualityDigits(String raw) {
 /// direction asked by [fallback] (higher → smallest resolution above the
 /// target, lower → largest below it). Returns null for [QualityFallback.exact]
 /// or when nothing matches in the requested direction.
-Video? _nearestQualityVideo(
-  List<Video> videos,
-  int targetDigits,
-  QualityFallback fallback,
-) {
+Video? _nearestQualityVideo(List<Video> videos, int targetDigits, QualityFallback fallback) {
   if (fallback == QualityFallback.exact || targetDigits <= 0) return null;
   Video? best;
   int? bestDigits;
   for (final video in videos) {
     final digits = int.tryParse(_qualityDigits(video.quality));
     if (digits == null) continue;
-    final fits = fallback == QualityFallback.higher
-        ? digits > targetDigits
-        : digits < targetDigits;
+    final fits = fallback == QualityFallback.higher ? digits > targetDigits : digits < targetDigits;
     if (!fits) continue;
     final closer = bestDigits == null
         ? true
@@ -509,8 +482,7 @@ Chapter prepareVideoQualityDownloadChapter(
     }
     final existing = isar.downloads.getSync(candidate.id!);
     final existingQuality = existing?.quality;
-    if (existingQuality != null &&
-        _qualityDigits(existingQuality) == requestedKey) {
+    if (existingQuality != null && _qualityDigits(existingQuality) == requestedKey) {
       chapterPreferredQuality[candidate.id!] = quality;
       if (language != null && language.isNotEmpty) {
         chapterPreferredLang[candidate.id!] = language;
@@ -552,11 +524,7 @@ Future<bool> queueVideoQualityDownload({
   String? originalUrl,
   String? language,
 }) async {
-  final variant = prepareVideoQualityDownloadChapter(
-    chapter,
-    quality: quality,
-    language: language,
-  );
+  final variant = prepareVideoQualityDownloadChapter(chapter, quality: quality, language: language);
   final id = variant.id!;
   final existing = isar.downloads.getSync(id);
   if (existing?.isDownload == true) {
@@ -726,9 +694,7 @@ Future<bool> showAnimeQualityPickerAndQueue({
   List<Video> videos = [];
   String? errorMsg;
   try {
-    final result = await ref.read(
-      getVideoListProvider(episode: chapter).future,
-    );
+    final result = await ref.read(getVideoListProvider(episode: chapter).future);
     videos = result.$1;
   } catch (e) {
     errorMsg = friendlyErrorMessage(e);
@@ -755,12 +721,8 @@ Future<bool> showAnimeQualityPickerAndQueue({
   }
 
   // Split into direct (mp4/webm) and extracted (m3u8/mpd) links.
-  final directVideos = uniqueVideos
-      .where((v) => _isDirectLink(v.originalUrl))
-      .toList();
-  final extractedVideos = uniqueVideos
-      .where((v) => !_isDirectLink(v.originalUrl))
-      .toList();
+  final directVideos = uniqueVideos.where((v) => _isDirectLink(v.originalUrl)).toList();
+  final extractedVideos = uniqueVideos.where((v) => !_isDirectLink(v.originalUrl)).toList();
 
   if (!context.mounted) return false;
 
@@ -776,15 +738,12 @@ Future<bool> showAnimeQualityPickerAndQueue({
         initialIndex: initialTab,
         length: 2,
         child: Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: _QualityPickerDialog(
             directVideos: directVideos,
             extractedVideos: extractedVideos,
             preferredExternalDownloader:
-                DownloadSettingsService.instance.preferredExternalDownloader ??
-                '',
+                DownloadSettingsService.instance.preferredExternalDownloader ?? '',
             onSelect: (v, external) {
               selected = v;
               sendToExternal = external;
@@ -800,17 +759,14 @@ Future<bool> showAnimeQualityPickerAndQueue({
   if (selected == null) return false;
 
   if (sendToExternal) {
-    final appId =
-        DownloadSettingsService.instance.preferredExternalDownloader ?? '';
+    final appId = DownloadSettingsService.instance.preferredExternalDownloader ?? '';
     final launched = await ExternalDownloaderLauncher.launch(
       url: selected!.originalUrl,
       appId: appId.isEmpty ? 'adm' : appId,
       headers: selected!.headers,
     );
     if (!launched && context.mounted) {
-      botToast(
-        'Impossible d\'ouvrir le gestionnaire externe. Vérifiez qu\'il est installé.',
-      );
+      botToast('Impossible d\'ouvrir le gestionnaire externe. Vérifiez qu\'il est installé.');
     }
     return launched;
   }
@@ -860,11 +816,7 @@ class _QualityPickerDialog extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text(
                   'Choisir la qualité',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 17,
-                    color: cs.onSurface,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: cs.onSurface),
                 ),
               ],
             ),
@@ -907,9 +859,7 @@ class _QualityPickerDialog extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(onPressed: onCancel, child: const Text('Annuler')),
-              ],
+              children: [TextButton(onPressed: onCancel, child: const Text('Annuler'))],
             ),
           ),
         ],
@@ -963,8 +913,7 @@ class _VideoList extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       shrinkWrap: true,
       itemCount: videos.length,
-      separatorBuilder: (_, _) =>
-          Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
+      separatorBuilder: (_, _) => Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
       itemBuilder: (_, i) {
         final v = videos[i];
         final label = _normalizeQuality(v.quality);
@@ -1066,9 +1015,7 @@ class _VideoListTileState extends State<_VideoListTile> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: widget.isM3u8
-                        ? Colors.purple.shade300
-                        : cs.onTertiaryContainer,
+                    color: widget.isM3u8 ? Colors.purple.shade300 : cs.onTertiaryContainer,
                   ),
                 ),
               ),
@@ -1081,11 +1028,7 @@ class _VideoListTileState extends State<_VideoListTile> {
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      Icons.copy_rounded,
-                      size: 16,
-                      color: cs.onSurfaceVariant,
-                    ),
+                    child: Icon(Icons.copy_rounded, size: 16, color: cs.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -1098,9 +1041,7 @@ class _VideoListTileState extends State<_VideoListTile> {
                   child: Padding(
                     padding: const EdgeInsets.all(6),
                     child: Icon(
-                      _urlExpanded
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
+                      _urlExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                       size: 16,
                       color: cs.onSurfaceVariant,
                     ),
@@ -1115,11 +1056,7 @@ class _VideoListTileState extends State<_VideoListTile> {
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Icon(
-                      Icons.download_rounded,
-                      color: cs.primary,
-                      size: 22,
-                    ),
+                    child: Icon(Icons.download_rounded, color: cs.primary, size: 22),
                   ),
                 ),
               ),
@@ -1132,11 +1069,7 @@ class _VideoListTileState extends State<_VideoListTile> {
                     borderRadius: BorderRadius.circular(20),
                     child: Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.open_in_new_rounded,
-                        color: cs.secondary,
-                        size: 20,
-                      ),
+                      child: Icon(Icons.open_in_new_rounded, color: cs.secondary, size: 20),
                     ),
                   ),
                 ),
@@ -1164,9 +1097,7 @@ class _VideoListTileState extends State<_VideoListTile> {
                 ),
               ),
             ),
-            crossFadeState: _urlExpanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
+            crossFadeState: _urlExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
             duration: const Duration(milliseconds: 200),
           ),
         ],
@@ -1181,27 +1112,15 @@ void _putDownloadForChapter(Download download, Chapter chapter) {
   isar.downloads.putSync(download);
 }
 
-const _pendingDownloadStatuses = {
-  'queued',
-  'waiting_wifi',
-  'fetching_metadata',
-  'initializing',
-};
+const _pendingDownloadStatuses = {'queued', 'waiting_wifi', 'fetching_metadata', 'initializing'};
 
-const _terminalDownloadStatuses = {
-  'paused',
-  'failed',
-  'cancelled',
-  'completed',
-};
+const _terminalDownloadStatuses = {'paused', 'failed', 'cancelled', 'completed'};
 
 bool _isPendingDownload(Download download) {
-  if (download.isDownload == true ||
-      _terminalDownloadStatuses.contains(download.status)) {
+  if (download.isDownload == true || _terminalDownloadStatuses.contains(download.status)) {
     return false;
   }
-  return download.isStartDownload == true ||
-      _pendingDownloadStatuses.contains(download.status);
+  return download.isStartDownload == true || _pendingDownloadStatuses.contains(download.status);
 }
 
 @riverpod
@@ -1217,9 +1136,7 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
     // clear an unloaded link during put and the scheduler will skip the orphan.
     ensureChapterLinksLoaded(chapter);
     if (id == null) {
-      throw StateError(
-        'Impossible de mettre en file un chapitre sans identifiant.',
-      );
+      throw StateError('Impossible de mettre en file un chapitre sans identifiant.');
     }
 
     Download? existing;
@@ -1231,8 +1148,7 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       corruptRecord = true;
     }
 
-    if ((existing?.isDownload ?? false) ||
-        ActiveDownloadRegistry.isActive(id)) {
+    if ((existing?.isDownload ?? false) || ActiveDownloadRegistry.isActive(id)) {
       AppLogger.log(
         '[ch:$id] queue request ignored: already completed or active',
         logLevel: LogLevel.debug,
@@ -1355,9 +1271,7 @@ Future<void> downloadChapter(
       }
     }
 
-    final http = MClient.init(
-      reqcopyWith: {'useDartHttpClient': true, 'followRedirects': false},
-    );
+    final http = MClient.init(reqcopyWith: {'useDartHttpClient': true, 'followRedirects': false});
 
     // ── Per-type connection settings ────────────────────────────────────────
     final mangaConnections = ref.read(mangaConnectionsStateProvider);
@@ -1406,24 +1320,17 @@ Future<void> downloadChapter(
     }
     // Do NOT call requestPermission() here — permission is granted during
     // onboarding. Calling it at download time shows a system dialog mid-session.
-    final mangaMainDirectory = await storageProvider.getMangaMainDirectory(
-      chapter,
-    );
+    final mangaMainDirectory = await storageProvider.getMangaMainDirectory(chapter);
     List<Track>? subtitles;
     final itemType = manga.itemType;
     final storedQuality = chapterId == null
         ? null
-        : chapterPreferredQuality[chapterId] ??
-              isar.downloads.getSync(chapterId)?.quality;
-    final resolution =
-        storedQuality == null ? '' : _qualityDigits(storedQuality);
-    final qualitySuffix =
-        itemType == ItemType.anime &&
-            RegExp(r'^\d{3,4}$').hasMatch(resolution)
+        : chapterPreferredQuality[chapterId] ?? isar.downloads.getSync(chapterId)?.quality;
+    final resolution = storedQuality == null ? '' : _qualityDigits(storedQuality);
+    final qualitySuffix = itemType == ItemType.anime && RegExp(r'^\d{3,4}$').hasMatch(resolution)
         ? ' [${resolution}p]'
         : '';
-    final chapterName =
-        '${chapter.name!.replaceForbiddenCharacters(' ')}$qualitySuffix';
+    final chapterName = '${chapter.name!.replaceForbiddenCharacters(' ')}$qualitySuffix';
     final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
       chapter,
       mangaMainDirectory: mangaMainDirectory,
@@ -1459,14 +1366,8 @@ Future<void> downloadChapter(
       final settings = DownloadSettingsService.instance;
       final archiveFormat = settings.mangaArchiveFormat;
       if (archiveFormat == MangaArchiveFormat.folder) return;
-      for (final extension in {
-        archiveFormat.extension,
-        '.cbz',
-        '.zip',
-      }) {
-        if (await File(
-          p.join(mangaMainDirectory!.path, '${chapter.name}$extension'),
-        ).exists()) {
+      for (final extension in {archiveFormat.extension, '.cbz', '.zip'}) {
+        if (await File(p.join(mangaMainDirectory!.path, '${chapter.name}$extension')).exists()) {
           return;
         }
       }
@@ -1501,10 +1402,7 @@ Future<void> downloadChapter(
           chapterName: chapter.name!,
           pageList: List.generate(
             pageUrls.length,
-            (index) => p.join(
-              chapterDirectory.path,
-              '${padIndex(index)}.jpg',
-            ),
+            (index) => p.join(chapterDirectory.path, '${padIndex(index)}.jpg'),
           ),
           formatExtension: archiveFormat.extension,
           comicInfo: comicInfo,
@@ -1512,11 +1410,7 @@ Future<void> downloadChapter(
           onProgress: chapterIdForProgress == null
               ? null
               : (done, total, _) {
-                  ArchiveProgressStore.instance.set(
-                    chapterIdForProgress,
-                    done: done,
-                    total: total,
-                  );
+                  ArchiveProgressStore.instance.set(chapterIdForProgress, done: done, total: total);
                 },
         );
       } catch (error) {
@@ -1550,29 +1444,23 @@ Future<void> downloadChapter(
     var lastLoggedProgressBucket = -1;
 
     Future<void> setProgress(DownloadProgress progress) async {
-      final currentDownload = chapterId == null
-          ? null
-          : isar.downloads.getSync(chapterId);
-      if (currentDownload?.status == 'paused' ||
-          currentDownload?.status == 'cancelled') {
+      final currentDownload = chapterId == null ? null : isar.downloads.getSync(chapterId);
+      if (currentDownload?.status == 'paused' || currentDownload?.status == 'cancelled') {
         return;
       }
       final previousLiveProgress = chapterId == null
           ? null
           : ref.read(downloadQueueStateProvider).liveProgress[chapterId!];
       final isMangaByteProgress =
-          progress.itemType == ItemType.manga &&
-          progress.downloadedBytes != null;
+          progress.itemType == ItemType.manga && progress.downloadedBytes != null;
       var skipFrequentMangaByteEffects = false;
       if (isMangaByteProgress) {
         final now = DateTime.now();
-        final pageCountAdvanced =
-            progress.completed != lastMangaBytesCompletedUnits;
+        final pageCountAdvanced = progress.completed != lastMangaBytesCompletedUnits;
         skipFrequentMangaByteEffects =
             !progress.isCompleted &&
             !pageCountAdvanced &&
-            now.difference(lastMangaBytesUpdateAt) <
-                const Duration(milliseconds: 180);
+            now.difference(lastMangaBytesUpdateAt) < const Duration(milliseconds: 180);
         if (!skipFrequentMangaByteEffects) {
           lastMangaBytesUpdateAt = now;
           lastMangaBytesCompletedUnits = progress.completed;
@@ -1581,14 +1469,11 @@ Future<void> downloadChapter(
         lastMangaBytesCompletedUnits = progress.completed;
       }
       if (progress.total > 0) {
-        final percent = (progress.completed / progress.total * 100)
-            .clamp(0, 100)
-            .toInt();
+        final percent = (progress.completed / progress.total * 100).clamp(0, 100).toInt();
         final bucket = (percent ~/ 10) * 10;
         if (bucket >= 10 && bucket > lastLoggedProgressBucket) {
           lastLoggedProgressBucket = bucket;
-          final downloadedText =
-              progress.downloadedBytes?.toString() ?? 'inconnu';
+          final downloadedText = progress.downloadedBytes?.toString() ?? 'inconnu';
           final totalBytesText = progress.totalBytes?.toString() ?? 'inconnu';
           final speedText = _speedEmaMbs > 0.05
               ? '${_speedEmaMbs.toStringAsFixed(1)} MB/s'
@@ -1605,9 +1490,7 @@ Future<void> downloadChapter(
       if (progress.total > 0 && AppLogger.isExtremeMode) {
         final pct =
             (progress.total > 0
-                    ? (progress.completed /
-                          progress.total.clamp(1, double.infinity) *
-                          100)
+                    ? (progress.completed / progress.total.clamp(1, double.infinity) * 100)
                     : 0)
                 .toInt();
         AppLogger.log(
@@ -1622,8 +1505,7 @@ Future<void> downloadChapter(
       }
       if (chapterId != null) {
         final latestDownload = isar.downloads.getSync(chapterId);
-        if (latestDownload?.status == 'paused' ||
-            latestDownload?.status == 'cancelled') {
+        if (latestDownload?.status == 'paused' || latestDownload?.status == 'cancelled') {
           return;
         }
       }
@@ -1678,9 +1560,7 @@ Future<void> downloadChapter(
           ? reportedTotalBytes ?? persistedTotalBytes
           : trustedDownloadByteCount(progress.totalBytes);
       final isPerFileByteProgress = isMangaByteProgress;
-      if (isPerFileByteProgress &&
-          !transferStatusMarked &&
-          chapter.id != null) {
+      if (isPerFileByteProgress && !transferStatusMarked && chapter.id != null) {
         _setDownloadStatus(chapter.id, 'downloading');
         transferStatusMarked = true;
       }
@@ -1768,8 +1648,7 @@ Future<void> downloadChapter(
             _speedLastKb = -1;
             notifier.setSpeed(chapter.id!, 0);
           }
-        } else if (progress.itemType == ItemType.anime &&
-            !progress.isCompleted) {
+        } else if (progress.itemType == ItemType.anime && !progress.isCompleted) {
           final nowMs = DateTime.now().millisecondsSinceEpoch;
           final kbNow = progress.downloadedBytes != null
               ? (progress.downloadedBytes! / 1024).ceil()
@@ -1783,9 +1662,7 @@ Future<void> downloadChapter(
             if (dtSec >= 0.5) {
               final instMbs = ((kbNow - _speedLastKb) / 1024.0) / dtSec;
               if (instMbs >= 0) {
-                _speedEmaMbs = _speedEmaMbs <= 0
-                    ? instMbs
-                    : (_speedEmaMbs * 0.7 + instMbs * 0.3);
+                _speedEmaMbs = _speedEmaMbs <= 0 ? instMbs : (_speedEmaMbs * 0.7 + instMbs * 0.3);
                 notifier.setSpeed(chapter.id!, _speedEmaMbs);
               }
               // Negative delta = a resume reset happened mid-session: re-seed.
@@ -1807,8 +1684,7 @@ Future<void> downloadChapter(
           final threshold = progress.itemType == ItemType.anime ? 500 : 1;
           _resumeSucceededKbOffset =
               stored > threshold &&
-                      (progress.itemType != ItemType.anime ||
-                          stored <= maxTrustedDownloadBytes ~/ 1024)
+                  (progress.itemType != ItemType.anime || stored <= maxTrustedDownloadBytes ~/ 1024)
               ? stored
               : 0;
         }
@@ -1848,8 +1724,7 @@ Future<void> downloadChapter(
         // the persistent .part file. Only add the old Isar offset for engines
         // that report units/percentages instead of cumulative bytes.
         final hasCumulativeVideoBytes =
-            progress.itemType == ItemType.anime &&
-            reportedDownloadedBytes != null;
+            progress.itemType == ItemType.anime && reportedDownloadedBytes != null;
         if (_resumeSucceededKbOffset > 0 && !hasCumulativeVideoBytes) {
           isarSucceeded += _resumeSucceededKbOffset;
           if (isarSucceeded > isarTotal) isarSucceeded = isarTotal;
@@ -1861,17 +1736,13 @@ Future<void> downloadChapter(
       // (pages/KB already on disk from a previous session), write isarSucceeded
       // (= offset alone, so the bar stays at the pre-pause position instead of
       // jumping backwards to 0 on the very first tick after resume).
-      final writtenSucceeded =
-          (progress.completed == 0 && _resumeSucceededKbOffset <= 0)
+      final writtenSucceeded = (progress.completed == 0 && _resumeSucceededKbOffset <= 0)
           ? 0
           : isarSucceeded;
       final exactDownloadedBytes = progress.itemType == ItemType.anime
           ? reportedDownloadedBytes ??
                 (progress.isCompleted
-                    ? trustedDownloadByteCount(
-                        download?.downloadedBytes,
-                        allowZero: true,
-                      )
+                    ? trustedDownloadByteCount(download?.downloadedBytes, allowZero: true)
                     : null)
           : null;
       final exactTotalBytes = progress.itemType == ItemType.anime
@@ -1912,9 +1783,7 @@ Future<void> downloadChapter(
               completedUnits: progress.itemType == ItemType.manga
                   ? writtenSucceeded
                   : progress.completed,
-              totalUnits: progress.itemType == ItemType.manga
-                  ? isarTotal
-                  : progress.total,
+              totalUnits: progress.itemType == ItemType.manga ? isarTotal : progress.total,
               isIndeterminate: progress.isIndeterminate,
             ),
           );
@@ -1925,9 +1794,7 @@ Future<void> downloadChapter(
         // Pas d'ID → on ne peut rien écrire en base. On met juste à jour le
         // state Riverpod live (déjà fait plus haut) et on quitte.
       } else if (download == null) {
-        if (!isPerFileByteProgress ||
-            progress.total > 0 ||
-            progress.isCompleted) {
+        if (!isPerFileByteProgress || progress.total > 0 || progress.isCompleted) {
           try {
             final newDl = Download(
               id: chapter.id,
@@ -1939,8 +1806,7 @@ Future<void> downloadChapter(
               downloadedBytes: exactDownloadedBytes,
               totalBytes: exactTotalBytes,
               title: chapter.name,
-              quality:
-                  chapterPreferredQuality[chapter.id] ?? download?.quality,
+              quality: chapterPreferredQuality[chapter.id] ?? download?.quality,
               posterUrl: chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl,
               status: progressStatus,
             );
@@ -1955,8 +1821,7 @@ Future<void> downloadChapter(
         }
       } else {
         final downloadNonNull = download;
-        if (shouldPersistProgress &&
-            (progress.total != 0 || progress.downloadedBytes != null)) {
+        if (shouldPersistProgress && (progress.total != 0 || progress.downloadedBytes != null)) {
           try {
             isar.writeTxnSync(() {
               isar.downloads.putSync(
@@ -1968,11 +1833,8 @@ Future<void> downloadChapter(
                   ..downloadedBytes = exactDownloadedBytes
                   ..totalBytes = exactTotalBytes
                   ..title = chapter.name
-                  ..quality =
-                      chapterPreferredQuality[chapter.id] ??
-                      downloadNonNull.quality
-                  ..posterUrl =
-                      chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
+                  ..quality = chapterPreferredQuality[chapter.id] ?? downloadNonNull.quality
+                  ..posterUrl = chapter.thumbnailUrl ?? chapter.manga.value?.imageUrl
                   ..status = progressStatus,
               );
             });
@@ -1985,9 +1847,7 @@ Future<void> downloadChapter(
       // add it automatically so the user can find their downloads in Library.
       if (progress.isCompleted) {
         final parentManga = chapter.manga.value;
-        if (parentManga != null &&
-            parentManga.id != null &&
-            parentManga.favorite != true) {
+        if (parentManga != null && parentManga.id != null && parentManga.favorite != true) {
           try {
             final mangaRecord = isar.mangas.getSync(parentManga.id!);
             if (mangaRecord != null && mangaRecord.favorite != true) {
@@ -2003,21 +1863,15 @@ Future<void> downloadChapter(
         }
       }
 
-      if (!progress.isCompleted &&
-          chapter.id != null &&
-          !skipFrequentMangaByteEffects) {
+      if (!progress.isCompleted && chapter.id != null && !skipFrequentMangaByteEffects) {
         unawaited(
           WatchtowerNotificationService.instance.showMediaDownloadProgress(
             chapterId: chapter.id!,
             seriesTitle: chapter.manga.value?.name ?? chapter.name ?? '',
             chapterTitle: chapter.name ?? 'Téléchargement',
             itemType: progress.itemType.name,
-            completed: progress.itemType == ItemType.manga
-                ? writtenSucceeded
-                : progress.completed,
-            total: progress.itemType == ItemType.manga
-                ? isarTotal
-                : progress.total,
+            completed: progress.itemType == ItemType.manga ? writtenSucceeded : progress.completed,
+            total: progress.itemType == ItemType.manga ? isarTotal : progress.total,
             downloadedBytes: liveDownloadedBytes,
             totalBytes: liveTotalBytes,
             speedMbs: _speedEmaMbs,
@@ -2035,47 +1889,33 @@ Future<void> downloadChapter(
           ? chapter.manga.value!.name!.trim()
           : chapterTitle;
       final notificationTitle = seriesTitle;
-      if (!skipFrequentMangaByteEffects &&
-          progress.itemType == ItemType.anime) {
+      if (!skipFrequentMangaByteEffects && progress.itemType == ItemType.anime) {
         final downloadedBytes =
-            reportedDownloadedBytes ??
-            trustedDownloadBytesFromKilobytes(isarSucceeded) ??
-            0;
+            reportedDownloadedBytes ?? trustedDownloadBytesFromKilobytes(isarSucceeded) ?? 0;
         final notificationTotalBytes =
             reportedTotalBytes ??
-            trustedDownloadBytesFromKilobytes(
-              isarTotal > 500 ? isarTotal : null,
-              allowZero: false,
-            );
-        final hasKnownSize =
-            notificationTotalBytes != null && notificationTotalBytes > 0;
+            trustedDownloadBytesFromKilobytes(isarTotal > 500 ? isarTotal : null, allowZero: false);
+        final hasKnownSize = notificationTotalBytes != null && notificationTotalBytes > 0;
         final progressFraction = progress.progressFraction;
         final pct = progressFraction == null
             ? -1
             : (progressFraction * 100).round().clamp(0, 100).toInt();
         final remaining = hasKnownSize
-            ? (notificationTotalBytes! - downloadedBytes)
-                  .clamp(0, double.infinity)
-                  .toInt()
+            ? (notificationTotalBytes! - downloadedBytes).clamp(0, double.infinity).toInt()
             : 0;
-        final activeCount = ActiveDownloadRegistry.activeCountForType(
-          ItemType.anime,
-        );
+        final activeCount = ActiveDownloadRegistry.activeCountForType(ItemType.anime);
         final chapterTitle = chapter.name?.trim();
         final baseSubtitle = chapterTitle?.isNotEmpty == true
             ? chapterTitle!
             : 'Vidéo en cours de téléchargement';
-        final segmentProgress =
-            !hasKnownSize && progress.totalBytes == null && progress.total > 1
+        final segmentProgress = !hasKnownSize && progress.totalBytes == null && progress.total > 1
             ? '${progress.completed}/${progress.total} segments'
             : null;
         final notifSub = segmentProgress == null
             ? baseSubtitle
             : '$baseSubtitle · $segmentProgress';
         final etaSeconds = _speedEmaMbs >= 0.05 && hasKnownSize
-            ? ((remaining / (_speedEmaMbs * 1024 * 1024))
-                  .clamp(0, double.infinity)
-                  .ceil())
+            ? ((remaining / (_speedEmaMbs * 1024 * 1024)).clamp(0, double.infinity).ceil())
             : null;
         unawaited(
           BackgroundKeepAlive.update(
@@ -2095,62 +1935,42 @@ Future<void> downloadChapter(
         final completedUnits = progress.itemType == ItemType.manga
             ? writtenSucceeded
             : progress.completed;
-        final totalUnits = progress.itemType == ItemType.manga
-            ? isarTotal
-            : progress.total;
+        final totalUnits = progress.itemType == ItemType.manga ? isarTotal : progress.total;
         final pct = totalUnits > 0
-            ? ((completedUnits / totalUnits) * 100)
-                  .round()
-                  .clamp(0, 100)
-                  .toInt()
+            ? ((completedUnits / totalUnits) * 100).round().clamp(0, 100).toInt()
             : -1;
-        final activeCount = ActiveDownloadRegistry.activeCountForType(
-          progress.itemType,
-        );
-        final pageProgress = progress.itemType == ItemType.manga &&
-                totalUnits > 1
+        final activeCount = ActiveDownloadRegistry.activeCountForType(progress.itemType);
+        final pageProgress = progress.itemType == ItemType.manga && totalUnits > 1
             ? '$completedUnits/$totalUnits pages'
             : null;
-        final baseSubtitle = activeCount == 1
-            ? chapterTitle
-            : '$seriesTitle · $chapterTitle';
+        final baseSubtitle = activeCount == 1 ? chapterTitle : '$seriesTitle · $chapterTitle';
         unawaited(
           BackgroundKeepAlive.update(
             count: activeCount,
             title: notificationTitle,
             progress: pct,
-            subtitle: pageProgress == null
-                ? baseSubtitle
-                : '$baseSubtitle · $pageProgress',
+            subtitle: pageProgress == null ? baseSubtitle : '$baseSubtitle · $pageProgress',
             force: progress.isCompleted,
           ),
         );
       }
 
-      if (progress.isCompleted &&
-          !mediaCompletionNotified &&
-          chapter.id != null) {
+      if (progress.isCompleted && !mediaCompletionNotified && chapter.id != null) {
         mediaCompletionNotified = true;
         String? candidatePath;
         final directory = mangaMainDirectory;
         if (directory != null) {
           if (progress.itemType == ItemType.anime) {
-            candidatePath =
-                m3u8Downloader?.fileName ??
-                p.join(directory.path, '$chapterName.mp4');
+            candidatePath = m3u8Downloader?.fileName ?? p.join(directory.path, '$chapterName.mp4');
           } else if (progress.itemType == ItemType.manga) {
-            final archiveFormat =
-                DownloadSettingsService.instance.mangaArchiveFormat;
-            final extension = archiveFormat.isArchive
-                ? archiveFormat.extension
-                : '.cbz';
+            final archiveFormat = DownloadSettingsService.instance.mangaArchiveFormat;
+            final extension = archiveFormat.isArchive ? archiveFormat.extension : '.cbz';
             candidatePath = p.join(directory.path, '${chapter.name}$extension');
           } else if (progress.itemType == ItemType.novel) {
             candidatePath = p.join(directory.path, '$chapterName.html');
           }
         }
-        final completedPath =
-            candidatePath != null && await File(candidatePath).exists()
+        final completedPath = candidatePath != null && await File(candidatePath).exists()
             ? candidatePath
             : null;
         if (completedPath != null) {
@@ -2174,14 +1994,11 @@ Future<void> downloadChapter(
             }
             if (progress.itemType == ItemType.anime) {
               try {
-                final completedChapter =
-                    isar.chapters.getSync(chapter.id!) ?? chapter;
+                final completedChapter = isar.chapters.getSync(chapter.id!) ?? chapter;
                 ensureChapterLinksLoaded(completedChapter);
                 completedChapter
                   ..downloadSize = '$actualFileBytes B'
-                  ..duration = actualDuration == null
-                      ? null
-                      : _actualDurationLabel(actualDuration);
+                  ..duration = actualDuration == null ? null : _actualDurationLabel(actualDuration);
                 isar.writeTxnSync(() {
                   isar.chapters.putSync(completedChapter);
                 });
@@ -2202,12 +2019,8 @@ Future<void> downloadChapter(
             itemType: progress.itemType.name,
             filePath: completedPath,
             chapterId: chapter.id!,
-            completed: progress.itemType == ItemType.manga
-                ? isarSucceeded
-                : progress.completed,
-            total: progress.itemType == ItemType.manga
-                ? isarTotal
-                : progress.total,
+            completed: progress.itemType == ItemType.manga ? isarSucceeded : progress.completed,
+            total: progress.itemType == ItemType.manga ? isarTotal : progress.total,
             downloadedBytes: exactDownloadedBytes,
             totalBytes: exactTotalBytes,
             speedMbs: _speedEmaMbs,
@@ -2220,9 +2033,7 @@ Future<void> downloadChapter(
 
     void savePageUrls() {
       if (ref.read(incognitoModeStateProvider)) return;
-      final pageUrlsToCache = pageUrlsForCache.isNotEmpty
-          ? pageUrlsForCache
-          : pageUrls;
+      final pageUrlsToCache = pageUrlsForCache.isNotEmpty ? pageUrlsForCache : pageUrls;
       if (pageUrlsToCache.isEmpty) return;
       try {
         final settings = readSettingsSafely(isar: isar);
@@ -2242,10 +2053,7 @@ Future<void> downloadChapter(
         final protectedChapterIds = isar.downloads
             .where()
             .findAllSync()
-            .where(
-              (download) =>
-                  download.id != null && download.isDownload != true,
-            )
+            .where((download) => download.id != null && download.isDownload != true)
             .map((download) => download.id!)
             .toSet();
         final chapterPageUrls = mergeChapterPageurls(
@@ -2310,9 +2118,7 @@ Future<void> downloadChapter(
                 (chapter.id?.toString() ?? '?') +
                 '] ${pageUrls.length} pages fetched'
                     ' • origin[0]=' +
-                (pageUrls.isNotEmpty
-                    ? safeUrlOriginForLog(pageUrls.first.url)
-                    : 'none'),
+                (pageUrls.isNotEmpty ? safeUrlOriginForLog(pageUrls.first.url) : 'none'),
             logLevel: LogLevel.info,
             tag: LogTag.download,
           );
@@ -2324,11 +2130,7 @@ Future<void> downloadChapter(
         log('[downloadChapter] timeout after 90s for chapterId=${chapter.id}');
       } catch (e, st) {
         fetchError = friendlyErrorMessage(e);
-        log(
-          '[downloadChapter][manga] getChapterPages error: $e',
-          error: e,
-          stackTrace: st,
-        );
+        log('[downloadChapter][manga] getChapterPages error: $e', error: e, stackTrace: st);
       }
     } else if (itemType == ItemType.anime) {
       try {
@@ -2360,10 +2162,7 @@ Future<void> downloadChapter(
 
         final m3u8Urls = value.$1.where(looksLikeHls).toList();
         final nonM3u8Urls = value.$1
-            .where(
-              (element) =>
-                  !looksLikeHls(element) && element.originalUrl.isMediaVideo(),
-            )
+            .where((element) => !looksLikeHls(element) && element.originalUrl.isMediaVideo())
             .toList();
         nonM3U8File = nonM3u8Urls.isNotEmpty;
         hasM3U8File = nonM3U8File ? false : m3u8Urls.isNotEmpty;
@@ -2375,9 +2174,7 @@ Future<void> downloadChapter(
             ? chapterPreferredOriginalUrl[chapter.id!]
             : null;
         if (preferredOriginal != null && videosUrls.isNotEmpty) {
-          final idx = videosUrls.indexWhere(
-            (v) => v.originalUrl == preferredOriginal,
-          );
+          final idx = videosUrls.indexWhere((v) => v.originalUrl == preferredOriginal);
           if (idx > 0) {
             final picked = videosUrls.removeAt(idx);
             videosUrls = [picked, ...videosUrls];
@@ -2388,15 +2185,16 @@ Future<void> downloadChapter(
         // Batch download sheet: language chosen by label (see
         // [chapterPreferredLang]). Filter FIRST so a multi-lang source never
         // silently downloads the wrong audio track.
-        final preferredLang = chapter.id != null
-            ? chapterPreferredLang[chapter.id!]
-            : null;
+        final preferredLang = chapter.id != null ? chapterPreferredLang[chapter.id!] : null;
         if (preferredLang != null && videosUrls.length > 1) {
           final langMatches = videosUrls
               .where(
-                (v) => v.quality.toUpperCase().contains(
-                  preferredLang.toUpperCase(),
-                ),
+                (v) =>
+                    v.quality.toUpperCase().contains(preferredLang.toUpperCase()) ||
+                    (v.audios ?? const []).any(
+                      (track) =>
+                          (track.label ?? '').toUpperCase().contains(preferredLang.toUpperCase()),
+                    ),
               )
               .toList();
           if (langMatches.isNotEmpty) videosUrls = langMatches;
@@ -2411,29 +2209,21 @@ Future<void> downloadChapter(
         // asking for 360p could end up with a 1 GB file. The batch header can
         // opt into "prendre la supérieure/inférieure" instead.
         final preferredQuality = chapter.id != null
-            ? chapterPreferredQuality[chapter.id!] ??
-                  isar.downloads.getSync(chapter.id!)?.quality
+            ? chapterPreferredQuality[chapter.id!] ?? isar.downloads.getSync(chapter.id!)?.quality
             : null;
         final preferredQualityDigits = preferredQuality == null
             ? null
             : _qualityDigits(preferredQuality);
         if (preferredQuality != null && videosUrls.isNotEmpty) {
           final exactMatches = videosUrls
-              .where(
-                (v) => _qualityDigits(v.quality) == preferredQualityDigits,
-              )
+              .where((v) => _qualityDigits(v.quality) == preferredQualityDigits)
               .toList();
           if (exactMatches.isEmpty) {
             final fallback = chapter.id == null
                 ? QualityFallback.exact
-                : chapterPreferredQualityFallback[chapter.id!] ??
-                      QualityFallback.exact;
+                : chapterPreferredQualityFallback[chapter.id!] ?? QualityFallback.exact;
             final targetDigits = int.tryParse(preferredQualityDigits ?? '') ?? 0;
-            final substitute = _nearestQualityVideo(
-              videosUrls,
-              targetDigits,
-              fallback,
-            );
+            final substitute = _nearestQualityVideo(videosUrls, targetDigits, fallback);
             if (substitute == null) {
               throw StateError(
                 'La résolution ${preferredQuality} n’est pas disponible pour '
@@ -2451,16 +2241,9 @@ Future<void> downloadChapter(
         if (videosUrls.isNotEmpty) {
           subtitles = videosUrls.first.subtitles;
           final videoUri = Uri.tryParse(videosUrls.first.originalUrl);
-          final referer = videoUri != null
-              ? '${videoUri.scheme}://${videoUri.host}'
-              : null;
+          final referer = videoUri != null ? '${videoUri.scheme}://${videoUri.host}' : null;
           if (hasM3U8File) {
-            pageUrlsForCache = [
-              PageUrl(
-                videosUrls.first.url,
-                headers: videosUrls.first.headers,
-              ),
-            ];
+            pageUrlsForCache = [PageUrl(videosUrls.first.url, headers: videosUrls.first.headers)];
             m3u8Downloader = M3u8Downloader(
               m3u8Url: videosUrls.first.url,
               downloadDir: chapterDirectory.path,
@@ -2474,12 +2257,7 @@ Future<void> downloadChapter(
             );
           } else {
             pageUrls = [PageUrl(videosUrls.first.url)];
-            pageUrlsForCache = [
-              PageUrl(
-                videosUrls.first.url,
-                headers: videosUrls.first.headers,
-              ),
-            ];
+            pageUrlsForCache = [PageUrl(videosUrls.first.url, headers: videosUrls.first.headers)];
           }
           videoHeader.addAll(videosUrls.first.headers ?? {});
         } else {
@@ -2490,11 +2268,7 @@ Future<void> downloadChapter(
         log('[downloadChapter] timeout after 90s for chapterId=${chapter.id}');
       } catch (e, st) {
         fetchError = friendlyErrorMessage(e);
-        log(
-          '[downloadChapter][anime] getVideoList error: $e',
-          error: e,
-          stackTrace: st,
-        );
+        log('[downloadChapter][anime] getVideoList error: $e', error: e, stackTrace: st);
       }
     } else if (itemType == ItemType.novel && chapter.url != null) {
       final manga = chapter.manga.value!;
@@ -2601,8 +2375,7 @@ Future<void> downloadChapter(
 
     // Metadata has resolved successfully. Show preparation/transfer setup
     // from this point rather than leaving a queued item labelled as metadata.
-    if (chapterId != null &&
-        (pageUrls.isNotEmpty || novelPage != null || m3u8Downloader != null)) {
+    if (chapterId != null && (pageUrls.isNotEmpty || novelPage != null || m3u8Downloader != null)) {
       _setDownloadStatus(chapterId, 'initializing');
     }
 
@@ -2615,26 +2388,17 @@ Future<void> downloadChapter(
 
     if (pageUrls.isNotEmpty) {
       await DownloadSettingsService.instance.load();
-      final archiveFormat =
-          DownloadSettingsService.instance.mangaArchiveFormat;
+      final archiveFormat = DownloadSettingsService.instance.mangaArchiveFormat;
       var archiveFileExist = false;
       if (archiveFormat != MangaArchiveFormat.folder) {
-        for (final extension in {
-          archiveFormat.extension,
-          '.cbz',
-          '.zip',
-        }) {
-          if (await File(
-            p.join(mangaMainDirectory!.path, '${chapter.name}$extension'),
-          ).exists()) {
+        for (final extension in {archiveFormat.extension, '.cbz', '.zip'}) {
+          if (await File(p.join(mangaMainDirectory!.path, '${chapter.name}$extension')).exists()) {
             archiveFileExist = true;
             break;
           }
         }
       }
-      bool mp4FileExist = await File(
-        p.join(mangaMainDirectory!.path, "$chapterName.mp4"),
-      ).exists();
+      bool mp4FileExist = await File(p.join(mangaMainDirectory!.path, "$chapterName.mp4")).exists();
       bool htmlFileExist = await File(
         p.join(mangaMainDirectory!.path, "$chapterName.html"),
       ).exists();
@@ -2662,10 +2426,7 @@ Future<void> downloadChapter(
         pendingMangaPaths.clear();
         for (var index = 0; index < pageUrls.length; index++) {
           final page = pageUrls[index];
-          final cookies = MClient.getCookiesPref(
-            page.url,
-            sourceId: manga.sourceId,
-          );
+          final cookies = MClient.getCookiesPref(page.url, sourceId: manga.sourceId);
           final baseHeaders = itemType == ItemType.manga
               ? ref.read(
                   headersProvider(
@@ -2690,13 +2451,8 @@ Future<void> downloadChapter(
 
           final baseCookie = headerValue(pageHeaders, HttpHeaders.cookieHeader);
           final storedCookie = cookies[HttpHeaders.cookieHeader];
-          pageHeaders.removeWhere(
-            (key, _) => key.toLowerCase() == HttpHeaders.cookieHeader,
-          );
-          final mergedCookie = MClient.mergeCookieHeaders(
-            baseCookie,
-            storedCookie,
-          );
+          pageHeaders.removeWhere((key, _) => key.toLowerCase() == HttpHeaders.cookieHeader);
+          final mergedCookie = MClient.mergeCookieHeaders(baseCookie, storedCookie);
           if (mergedCookie != null) {
             pageHeaders[HttpHeaders.cookieHeader] = mergedCookie;
           }
@@ -2705,15 +2461,12 @@ Future<void> downloadChapter(
             sourceId: manga.sourceId,
           );
           if (extensionUserAgent?.isNotEmpty == true &&
-              !pageHeaders.keys.any(
-                (key) => key.toLowerCase() == HttpHeaders.userAgentHeader,
-              )) {
+              !pageHeaders.keys.any((key) => key.toLowerCase() == HttpHeaders.userAgentHeader)) {
             pageHeaders[HttpHeaders.userAgentHeader] = extensionUserAgent!;
           }
 
           String? pageCookie;
-          for (final entry in page.headers?.entries ??
-              const <MapEntry<String, String>>[]) {
+          for (final entry in page.headers?.entries ?? const <MapEntry<String, String>>[]) {
             if (entry.key.toLowerCase() == HttpHeaders.cookieHeader) {
               pageCookie = entry.value;
             } else {
@@ -2724,53 +2477,35 @@ Future<void> downloadChapter(
             headerValue(pageHeaders, HttpHeaders.cookieHeader),
             pageCookie,
           );
-          pageHeaders.removeWhere(
-            (key, _) => key.toLowerCase() == HttpHeaders.cookieHeader,
-          );
+          pageHeaders.removeWhere((key, _) => key.toLowerCase() == HttpHeaders.cookieHeader);
           if (finalCookie != null) {
             pageHeaders[HttpHeaders.cookieHeader] = finalCookie;
           }
 
           if (itemType == ItemType.manga) {
-            final filePath = p.join(
-              chapterDirectory.path,
-              '${padIndex(index)}.jpg',
-            );
+            final filePath = p.join(chapterDirectory.path, '${padIndex(index)}.jpg');
             final complete = await isReusableDownloadedImage(File(filePath));
             manifestPages.add(PageUrl(page.url.trim(), headers: pageHeaders));
             manifestFilePaths.add(filePath);
             manifestCompleted.add(complete);
             if (!complete) {
               pendingMangaPaths.add(filePath);
-              pages.add(
-                PageUrl(
-                  page.url.trim(),
-                  headers: pageHeaders,
-                  fileName: filePath,
-                ),
-              );
+              pages.add(PageUrl(page.url.trim(), headers: pageHeaders, fileName: filePath));
             }
           } else if (itemType == ItemType.anime) {
-            final file = File(
-              p.join(mangaMainDirectory!.path, '$chapterName.mp4'),
-            );
+            final file = File(p.join(mangaMainDirectory!.path, '$chapterName.mp4'));
             if (!file.existsSync()) {
               pages.add(
                 PageUrl(
                   page.url.trim(),
                   headers: pageHeaders,
-                  fileName: p.join(
-                    mangaMainDirectory!.path,
-                    '$chapterName.mp4',
-                  ),
+                  fileName: p.join(mangaMainDirectory!.path, '$chapterName.mp4'),
                 ),
               );
             }
           }
         }
-        mangaCompletedPagesOnDisk = manifestCompleted
-            .where((isComplete) => isComplete)
-            .length;
+        mangaCompletedPagesOnDisk = manifestCompleted.where((isComplete) => isComplete).length;
       }
 
       Future<void> reconcileAndPersistMangaManifest({
@@ -2802,9 +2537,7 @@ Future<void> downloadChapter(
         final updatedPages = <MangaDownloadPage>[];
         final now = DateTime.now().millisecondsSinceEpoch;
         for (final page in current.pages) {
-          final complete = await isReusableDownloadedImage(
-            File(page.filePath),
-          );
+          final complete = await isReusableDownloadedImage(File(page.filePath));
           final pending = pendingMangaPaths.contains(page.filePath);
           final failed = markFailed && pending && !complete;
           final starting = markDownloading && pending && !complete;
@@ -2819,9 +2552,7 @@ Future<void> downloadChapter(
             page.copyWith(
               state: state,
               attempts: page.attempts + (starting ? 1 : 0),
-              lastError: failed && failure != null
-                  ? _safeManifestFailure(failure)
-                  : null,
+              lastError: failed && failure != null ? _safeManifestFailure(failure) : null,
               clearLastError: complete || starting,
               updatedAt: now,
             ),
@@ -2851,9 +2582,7 @@ Future<void> downloadChapter(
             logLevel: LogLevel.error,
             tag: LogTag.download,
           );
-          throw StateError(
-            'getDirectory() returned null for chapterId=${chapter.id}',
-          );
+          throw StateError('getDirectory() returned null for chapterId=${chapter.id}');
         }
         final mainDirectory = mainDirectoryRaw;
         AppLogger.log(
@@ -2886,17 +2615,9 @@ Future<void> downloadChapter(
       } else if (itemType == ItemType.manga && pageUrls.isNotEmpty) {
         // Restore the full denominator and verified on-disk page count before
         // downloading only the missing subset.
-        await setProgress(
-          DownloadProgress(
-            mangaCompletedPagesOnDisk,
-            pageUrls.length,
-            itemType,
-          ),
-        );
+        await setProgress(DownloadProgress(mangaCompletedPagesOnDisk, pageUrls.length, itemType));
       }
-      if (!pausedDuringPreparation &&
-          pages.isEmpty &&
-          pageUrls.isNotEmpty) {
+      if (!pausedDuringPreparation && pages.isEmpty && pageUrls.isNotEmpty) {
         AppLogger.log(
           '[ch:${chapter.id}] all pages already on disk → marking complete',
           logLevel: LogLevel.info,
@@ -2908,9 +2629,7 @@ Future<void> downloadChapter(
         await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
       } else if (!pausedDuringPreparation) {
         if (chapter.id != null) {
-          ref
-              .read(downloadQueueStateProvider.notifier)
-              .setEngine(chapter.id!, 'ATLAS');
+          ref.read(downloadQueueStateProvider.notifier).setEngine(chapter.id!, 'ATLAS');
         }
         AppLogger.log(
           '[ch:' +
@@ -2920,45 +2639,41 @@ Future<void> downloadChapter(
           logLevel: LogLevel.info,
           tag: LogTag.download,
         );
-        log(
-          '[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}',
-        );
+        log('[downloadChapter][manga] starting ${pages.length} pages chapterId=${chapter.id}');
         try {
           if (itemType == ItemType.manga) {
             _setDownloadStatus(chapterId, 'downloading');
             await reconcileAndPersistMangaManifest(markDownloading: true);
           }
-          Future<void> runPageTransfer() => MDownloader(
-            chapter: chapter,
-            pageUrls: pages,
-            subtitles: subtitles,
-            subDownloadDir: chapterDirectory.path,
-            concurrentDownloads: mangaConnections,
-            shouldCancel: isQueueActionPending,
-          ).download((progress) {
-            final visibleProgress =
-                itemType == ItemType.manga &&
-                    !progress.isCompleted &&
-                    progress.total > 0
-                ? DownloadProgress(
-                    (mangaCompletedPagesOnDisk + progress.completed)
-                        .clamp(0, pageUrls.length)
-                        .toInt(),
-                    pageUrls.length,
-                    progress.itemType,
-                    pageUrl: progress.pageUrl,
-                    isIndeterminate: progress.isIndeterminate,
-                    downloadedBytes: progress.downloadedBytes,
-                    totalBytes: progress.totalBytes,
-                  )
-                : progress;
-            setProgress(visibleProgress);
-          });
+          Future<void> runPageTransfer() =>
+              MDownloader(
+                chapter: chapter,
+                pageUrls: pages,
+                subtitles: subtitles,
+                subDownloadDir: chapterDirectory.path,
+                concurrentDownloads: mangaConnections,
+                shouldCancel: isQueueActionPending,
+              ).download((progress) {
+                final visibleProgress =
+                    itemType == ItemType.manga && !progress.isCompleted && progress.total > 0
+                    ? DownloadProgress(
+                        (mangaCompletedPagesOnDisk + progress.completed)
+                            .clamp(0, pageUrls.length)
+                            .toInt(),
+                        pageUrls.length,
+                        progress.itemType,
+                        pageUrl: progress.pageUrl,
+                        isIndeterminate: progress.isIndeterminate,
+                        downloadedBytes: progress.downloadedBytes,
+                        totalBytes: progress.totalBytes,
+                      )
+                    : progress;
+                setProgress(visibleProgress);
+              });
           try {
             await runPageTransfer();
           } catch (transferError) {
-            if (itemType != ItemType.manga ||
-                !_isRefreshablePageUrlError(transferError)) {
+            if (itemType != ItemType.manga || !_isRefreshablePageUrlError(transferError)) {
               rethrow;
             }
 
@@ -2966,13 +2681,10 @@ Future<void> downloadChapter(
             // the cached list so getPageList can supply fresh URLs/headers,
             // then retry only pages that are still missing.
             final latestSettings = readSettingsSafely(isar: isar);
-            latestSettings.chapterPageUrlsList =
-                (latestSettings.chapterPageUrlsList ?? [])
-                    .where((entry) => entry.chapterId != chapter.id)
-                    .toList();
-            isar.writeTxnSync(
-              () => isar.settings.putSync(latestSettings),
-            );
+            latestSettings.chapterPageUrlsList = (latestSettings.chapterPageUrlsList ?? [])
+                .where((entry) => entry.chapterId != chapter.id)
+                .toList();
+            isar.writeTxnSync(() => isar.settings.putSync(latestSettings));
             ref.invalidate(getChapterPagesProvider(chapter: chapter));
             final refreshed = await ref
                 .read(getChapterPagesProvider(chapter: chapter).future)
@@ -2992,8 +2704,7 @@ Future<void> downloadChapter(
             await reconcileAndPersistMangaManifest();
           }
           final interruptedByQueueAction =
-              chapter.id != null &&
-              ActiveDownloadRegistry.wasInterrupted(chapter.id!);
+              chapter.id != null && ActiveDownloadRegistry.wasInterrupted(chapter.id!);
           // CRITICAL: MDownloader's onComplete fires onProgress(isCompleted=true)
           // inside a void callback that is NOT awaited.  setProgress is async
           // (it calls processConvert / CBZ conversion before the Isar write),
@@ -3005,9 +2716,7 @@ Future<void> downloadChapter(
           // before callback?.call() unblocks processDownloads.  The double-call
           // is idempotent (processConvert skips if the archive already exists).
           if (!interruptedByQueueAction) {
-            await setProgress(
-              DownloadProgress(1, 1, itemType, isCompleted: true),
-            );
+            await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
             AppLogger.log(
               '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',
               logLevel: LogLevel.info,
@@ -3017,10 +2726,7 @@ Future<void> downloadChapter(
           }
         } catch (e) {
           if (itemType == ItemType.manga) {
-            await reconcileAndPersistMangaManifest(
-              markFailed: true,
-              failure: e,
-            );
+            await reconcileAndPersistMangaManifest(markFailed: true, failure: e);
           }
           log(
             '[downloadChapter][manga] FAILED chapterId=${chapter.id} '
@@ -3045,20 +2751,13 @@ Future<void> downloadChapter(
         try {
           final html = await withExtensionService(
             source,
-            (service) => service.getHtmlContent(
-              chapter.manga.value!.name!,
-              chapter.url!,
-            ),
+            (service) => service.getHtmlContent(chapter.manga.value!.name!, chapter.url!),
           );
-          log(
-            '[downloadChapter][novel] getHtmlContent returned ${html.length} chars',
-          );
+          log('[downloadChapter][novel] getHtmlContent returned ${html.length} chars');
           if (html.isNotEmpty) {
             await file.writeAsString(html);
             log('[downloadChapter][novel] HTML saved');
-            await setProgress(
-              DownloadProgress(1, 1, itemType, isCompleted: true),
-            );
+            await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
           } else {
             log(
               '[downloadChapter][novel] ERROR: getHtmlContent returned empty '
@@ -3123,20 +2822,14 @@ Future<void> downloadChapter(
       final downloadMode = DownloadSettingsService.instance.animeDownloadMode;
       final videoUrl = m3u8Downloader!.m3u8Url;
 
-      final engine = EngineSelector.select(
-        url: videoUrl,
-        itemType: itemType,
-        mode: downloadMode,
-      );
+      final engine = EngineSelector.select(url: videoUrl, itemType: itemType, mode: downloadMode);
 
       log(
         '[downloadChapter][anime] engine=${engine.badgeLabel} '
         'origin=${safeUrlOriginForLog(videoUrl)}',
       );
       if (chapter.id != null) {
-        ref
-            .read(downloadQueueStateProvider.notifier)
-            .setEngine(chapter.id!, engine.badgeLabel);
+        ref.read(downloadQueueStateProvider.notifier).setEngine(chapter.id!, engine.badgeLabel);
       }
 
       if (engine == SelectedEngine.aria2) {
@@ -3160,14 +2853,10 @@ Future<void> downloadChapter(
         bool aria2Failed = false;
         try {
           await aria2Engine.start((progress) => setProgress(progress));
-          log(
-            '[downloadChapter][anime/Aria2] completed chapterId=${chapter.id}',
-          );
+          log('[downloadChapter][anime/Aria2] completed chapterId=${chapter.id}');
         } catch (e) {
           aria2Failed = true;
-          log(
-            '[downloadChapter][anime/Aria2] FAILED chapterId=${chapter.id} error=$e',
-          );
+          log('[downloadChapter][anime/Aria2] FAILED chapterId=${chapter.id} error=$e');
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
@@ -3179,9 +2868,7 @@ Future<void> downloadChapter(
             '[downloadChapter][anime/Aria2→HLS] falling back to internal HLS chapterId=${chapter.id}',
           );
           if (chapter.id != null) {
-            ref
-                .read(downloadQueueStateProvider.notifier)
-                .setEngine(chapter.id!, 'HLS');
+            ref.read(downloadQueueStateProvider.notifier).setEngine(chapter.id!, 'HLS');
           }
           final taskId = 'm3u8_${chapter.id}';
           if (chapter.id != null) {
@@ -3259,11 +2946,7 @@ Future<void> downloadChapter(
     // its slot counter and exit cleanly instead of looping forever.
     log('[downloadChapter] UNCAUGHT ERROR chapterId=${chapter.id}: $e\n$st');
     _notifyDownloadFailure(friendlyErrorMessage(e));
-    AppLogger.log(
-      '[ch:${chapter.id}] CRASH: $e',
-      logLevel: LogLevel.error,
-      tag: LogTag.download,
-    );
+    AppLogger.log('[ch:${chapter.id}] CRASH: $e', logLevel: LogLevel.error, tag: LogTag.download);
     // Mark as failed so processDownloads does NOT re-queue endlessly.
     // Without this, any uncaught exception leaves the chapter as
     // isDownload=false + isStartDownload=true in Isar → infinite retry loop.
@@ -3331,12 +3014,9 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       try {
         return await body();
       } catch (e, st) {
-        log(
-          '[processDownloads] tick error (ignored, next tick retries): $e\n$st',
-        );
+        log('[processDownloads] tick error (ignored, next tick retries): $e\n$st');
         try {
-          final ids = (await isar.downloads.where().idProperty().findAll())
-              .whereType<int>();
+          final ids = (await isar.downloads.where().idProperty().findAll()).whereType<int>();
           for (final id in ids) {
             try {
               isar.downloads.getSync(id);
@@ -3366,11 +3046,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         // isar_community rejects filters on these nullable bool properties at
         // runtime ("Property does not support this filter"). Read the
         // collection and apply the same predicate in Dart.
-        final ongoingRaw = isar.downloads
-            .where()
-            .findAllSync()
-            .where(_isPendingDownload)
-            .toList();
+        final ongoingRaw = isar.downloads.where().findAllSync().where(_isPendingDownload).toList();
 
         final stalePendingRows = <Download>[];
         for (final dl in ongoingRaw) {
@@ -3494,21 +3170,16 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         final toStart = ongoingRaw.where((d) {
           final chId = d.chapter.value?.id;
           if (chId == null) return false; // orphaned record — skip
-          return !pausedIds.contains(chId) &&
-              !ActiveDownloadRegistry.isActive(chId);
+          return !pausedIds.contains(chId) && !ActiveDownloadRegistry.isActive(chId);
         }).toList();
         if (ongoingRaw.isNotEmpty && toStart.isEmpty) {
           final pausedCount = ongoingRaw
               .where((d) => pausedIds.contains(d.chapter.value?.id))
               .length;
           final activeCount = ongoingRaw
-              .where(
-                (d) =>
-                    ActiveDownloadRegistry.isActive(d.chapter.value?.id ?? -1),
-              )
+              .where((d) => ActiveDownloadRegistry.isActive(d.chapter.value?.id ?? -1))
               .length;
-          final waitState =
-              'pending=${ongoingRaw.length} paused=$pausedCount active=$activeCount';
+          final waitState = 'pending=${ongoingRaw.length} paused=$pausedCount active=$activeCount';
           if (waitState != lastQueueWaitState) {
             log('[processDownloads] no eligible item: $waitState');
             lastQueueWaitState = waitState;
@@ -3535,9 +3206,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         if (onlyOnWifi && toStart.isNotEmpty) {
           bool isOnWifi = false;
           try {
-            isOnWifi = hasWifiOrEthernet(
-              await Connectivity().checkConnectivity(),
-            );
+            isOnWifi = hasWifiOrEthernet(await Connectivity().checkConnectivity());
           } catch (e) {
             log('[processDownloads] connectivity check failed: $e');
           }
@@ -3545,9 +3214,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
             for (final download in toStart) {
               _setDownloadStatus(download.id, 'waiting_wifi');
             }
-            log(
-              '[processDownloads] ${toStart.length} item(s) waiting for Wi-Fi',
-            );
+            log('[processDownloads] ${toStart.length} item(s) waiting for Wi-Fi');
             // Keep the persisted queue alive, but do not launch and immediately
             // re-launch a worker on every short scheduler tick.
             await Future.delayed(const Duration(seconds: 5));
@@ -3578,12 +3245,9 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           ItemType.novel: DownloadSettingsService.instance.novelSimultaneous,
         };
         final typePerSrcMax = <ItemType, int>{
-          ItemType.manga:
-              DownloadSettingsService.instance.mangaSimultaneousPerSource,
-          ItemType.anime:
-              DownloadSettingsService.instance.watchSimultaneousPerSource,
-          ItemType.novel:
-              DownloadSettingsService.instance.novelSimultaneousPerSource,
+          ItemType.manga: DownloadSettingsService.instance.mangaSimultaneousPerSource,
+          ItemType.anime: DownloadSettingsService.instance.watchSimultaneousPerSource,
+          ItemType.novel: DownloadSettingsService.instance.novelSimultaneousPerSource,
         };
 
         // ── Start downloads that fit within the limits ─────────────────────────
@@ -3618,10 +3282,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           // Check live counts from the registry (not local counters — those go
           // stale after pause/resume because isolates exit without a callback).
           final curType = ActiveDownloadRegistry.activeCountForType(type);
-          final curSrc = ActiveDownloadRegistry.activeCountForSource(
-            type,
-            chSrc,
-          );
+          final curSrc = ActiveDownloadRegistry.activeCountForSource(type, chSrc);
           // Fallback of 2 instead of 1: an unknown ItemType should not
           // single-thread the queue; 2 is a sane conservative default.
           final tLimit = typeMax[type] ?? 2;
@@ -3661,12 +3322,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
 
           // Start the download. Its worker claims the registry slot before its
           // first await, so another scheduler cannot launch the same chapter.
-          ref.read(
-            downloadChapterProvider(
-              chapter: chapter,
-              useWifi: effectiveUseWifi,
-            ),
-          );
+          ref.read(downloadChapterProvider(chapter: chapter, useWifi: effectiveUseWifi));
         }
 
         return true; // keep polling

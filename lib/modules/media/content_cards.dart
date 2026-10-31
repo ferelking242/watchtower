@@ -66,9 +66,7 @@ class ContentItem {
 
   factory ContentItem.fromManga(MManga item) => ContentItem(
     key: 'extension-${item.link ?? item.name ?? item.hashCode}',
-    title: item.name?.trim().isNotEmpty == true
-        ? item.name!.trim()
-        : 'Sans titre',
+    title: item.name?.trim().isNotEmpty == true ? item.name!.trim() : 'Sans titre',
     posterUrl: _nonEmptyImageUrl(item.imageUrl),
     backdropUrl: _nonEmptyImageUrl(item.imageUrl),
     description: item.description,
@@ -101,18 +99,15 @@ class ContentItem {
   );
 
   /// A genre tile backed by a real artwork taken from the catalogue.
-  factory ContentItem.genreTile({
-    required String label,
-    required String? imageUrl,
-    String? key,
-  }) => ContentItem(
-    key: key ?? 'genre-${label.toLowerCase()}',
-    title: label,
-    posterUrl: imageUrl,
-    backdropUrl: imageUrl,
-    imageUrl: imageUrl,
-    badge: label,
-  );
+  factory ContentItem.genreTile({required String label, required String? imageUrl, String? key}) =>
+      ContentItem(
+        key: key ?? 'genre-${label.toLowerCase()}',
+        title: label,
+        posterUrl: imageUrl,
+        backdropUrl: imageUrl,
+        imageUrl: imageUrl,
+        badge: label,
+      );
 
   factory ContentItem.fromObject(Object item) {
     if (item is ContentItem) return item;
@@ -140,6 +135,7 @@ class PosterCard extends StatelessWidget {
     this.heroTag,
     this.compact = false,
     this.showMediaMetadata = true,
+    this.titleOnCover = false,
   });
 
   final ContentItem item;
@@ -148,6 +144,7 @@ class PosterCard extends StatelessWidget {
   final String? heroTag;
   final bool compact;
   final bool showMediaMetadata;
+  final bool titleOnCover;
 
   @override
   Widget build(BuildContext context) {
@@ -180,30 +177,18 @@ class PosterCard extends StatelessWidget {
                       child: ContentImage(url: item.posterUrl, radius: radius),
                     ),
                     if (rating != null && rating > 0)
-                      Positioned(
-                        top: 7,
-                        right: 7,
-                        child: _RatingPill(rating: rating),
-                      ),
-                    if (showMediaMetadata &&
-                        countryFlag(item.countryCode).isNotEmpty)
+                      Positioned(top: 7, right: 7, child: _RatingPill(rating: rating)),
+                    if (showMediaMetadata && countryFlag(item.countryCode).isNotEmpty)
                       Positioned(
                         top: 7,
                         left: 7,
-                        child: _MediaBadge(
-                          label: countryFlag(item.countryCode),
-                          fontSize: 14,
-                        ),
+                        child: _MediaBadge(label: countryFlag(item.countryCode), fontSize: 14),
                       ),
-                    if (showMediaMetadata &&
-                        item.badge?.trim().isNotEmpty == true)
+                    if (showMediaMetadata && item.badge?.trim().isNotEmpty == true)
                       Positioned(
                         bottom: 7,
                         left: 7,
-                        child: _MediaBadge(
-                          label: _formatLabel(item.badge!),
-                          fontSize: 8,
-                        ),
+                        child: _MediaBadge(label: _formatLabel(item.badge!), fontSize: 8),
                       ),
                     if (item.badges.isNotEmpty)
                       Positioned(
@@ -217,19 +202,51 @@ class PosterCard extends StatelessWidget {
                           axis: Axis.vertical,
                         ),
                       ),
+                    if (titleOnCover)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Color(0xD9000000)],
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 22, 8, 8),
+                            child: Text(
+                              item.title,
+                              maxLines: compact ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                                shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
-            SizedBox(height: compact ? 5 : 6),
-            Text(
-              item.title,
-              // Sous 140 px de carte, deux lignes de titre ne tiennent plus
-              // dans la cellule de grille : on les limite à une ligne.
-              maxLines: compact || width < 140 ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-              style: titleStyle,
-            ),
+            if (!titleOnCover) ...[
+              SizedBox(height: compact ? 5 : 6),
+              Text(
+                item.title,
+                // Sous 140 px de carte, deux lignes de titre ne tiennent plus
+                // dans la cellule de grille : on les limite à une ligne.
+                maxLines: compact || width < 140 ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: titleStyle,
+              ),
+            ],
           ],
         ),
       ),
@@ -245,9 +262,7 @@ String countryFlag(String? code) {
       normalized.codeUnits.any((unit) => unit < 65 || unit > 90)) {
     return '';
   }
-  return String.fromCharCodes(
-    normalized.codeUnits.map((unit) => 0x1F1E6 + unit - 65),
-  );
+  return String.fromCharCodes(normalized.codeUnits.map((unit) => 0x1F1E6 + unit - 65));
 }
 
 String _formatLabel(String value) => switch (value.toUpperCase()) {
@@ -280,11 +295,7 @@ class _MediaBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w800,
-        ),
+        style: TextStyle(color: Colors.white, fontSize: fontSize, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -324,10 +335,7 @@ class LandscapeCard extends StatelessWidget {
                   children: [
                     Hero(
                       tag: heroTag ?? 'content-${item.key}',
-                      child: ContentImage(
-                        url: item.backdropUrl ?? item.posterUrl,
-                        radius: 16,
-                      ),
+                      child: ContentImage(url: item.backdropUrl ?? item.posterUrl, radius: 16),
                     ),
                   ],
                 ),
@@ -351,9 +359,7 @@ class LandscapeCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withValues(alpha: 0.60),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.60),
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
@@ -369,9 +375,7 @@ class LandscapeCard extends StatelessWidget {
                   Text(
                     item.rating!.toStringAsFixed(1),
                     style: TextStyle(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.70),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.70),
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -403,11 +407,7 @@ class RankedCard extends StatelessWidget {
   final double width;
   final String? heroTag;
 
-  static const _rankColors = [
-    Color(0xFFFFD700),
-    Color(0xFFC0C0C0),
-    Color(0xFFCD7F32),
-  ];
+  static const _rankColors = [Color(0xFFFFD700), Color(0xFFC0C0C0), Color(0xFFCD7F32)];
 
   @override
   Widget build(BuildContext context) {
@@ -438,11 +438,7 @@ class RankedCard extends StatelessWidget {
                   Positioned(
                     bottom: -4,
                     left: 4,
-                    child: _RankLabel(
-                      rank: rank,
-                      color: rankColor,
-                      outline: true,
-                    ),
+                    child: _RankLabel(rank: rank, color: rankColor, outline: true),
                   ),
                   Positioned(
                     bottom: -4,
@@ -544,9 +540,7 @@ class TagCard extends StatelessWidget {
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
                               fontSize: 11,
-                              shadows: [
-                                Shadow(color: Colors.black87, blurRadius: 5),
-                              ],
+                              shadows: [Shadow(color: Colors.black87, blurRadius: 5)],
                             ),
                           ),
                         ),
@@ -565,9 +559,7 @@ class TagCard extends StatelessWidget {
                             color: Colors.white70,
                             fontWeight: FontWeight.w600,
                             fontSize: 10.5,
-                            shadows: [
-                              Shadow(color: Colors.black87, blurRadius: 5),
-                            ],
+                            shadows: [Shadow(color: Colors.black87, blurRadius: 5)],
                           ),
                         ),
                       ),
@@ -670,11 +662,7 @@ class _RatingPill extends StatelessWidget {
           const SizedBox(width: 2),
           Text(
             rating.toStringAsFixed(1),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -683,11 +671,7 @@ class _RatingPill extends StatelessWidget {
 }
 
 class _RankLabel extends StatelessWidget {
-  const _RankLabel({
-    required this.rank,
-    required this.color,
-    this.outline = false,
-  });
+  const _RankLabel({required this.rank, required this.color, this.outline = false});
 
   final int rank;
   final Color color;
@@ -753,9 +737,7 @@ class _ContentImagePlaceholder extends StatelessWidget {
               decoration: BoxDecoration(
                 color: colors.surface.withValues(alpha: .55),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: colors.onSurface.withValues(alpha: .10),
-                ),
+                border: Border.all(color: colors.onSurface.withValues(alpha: .10)),
               ),
               child: Icon(
                 Icons.image_not_supported_outlined,

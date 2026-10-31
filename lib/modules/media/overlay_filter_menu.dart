@@ -30,11 +30,15 @@ class ExtensionFilterOverlay extends StatefulWidget {
     required this.filterList,
     required this.onChanged,
     required this.close,
+    this.searchValue = '',
+    this.onSearchChanged,
   });
 
   final List<dynamic> filterList;
   final ValueChanged<List<dynamic>> onChanged;
   final VoidCallback close;
+  final String searchValue;
+  final ValueChanged<String>? onSearchChanged;
 
   @override
   State<ExtensionFilterOverlay> createState() => _ExtensionFilterOverlayState();
@@ -118,11 +122,23 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
   @override
   Widget build(BuildContext context) {
     final drill = _drillIndex;
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: drill == null ? _buildRoot() : _buildDrill(_filters[drill]),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.onSearchChanged != null)
+          _OverlaySearchField(
+            key: const ValueKey('extension-filter-search'),
+            value: widget.searchValue,
+            hint: 'Rechercher…',
+            onChanged: widget.onSearchChanged!,
+          ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: drill == null ? _buildRoot() : _buildDrill(_filters[drill]),
+        ),
+      ],
     );
   }
 
@@ -140,10 +156,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -213,9 +226,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
     }
 
     if (f is SelectFilter) {
-      final selected = f.state >= 0 && f.state < f.values.length
-          ? f.values[f.state]
-          : null;
+      final selected = f.state >= 0 && f.state < f.values.length ? f.values[f.state] : null;
       return AdaptiveOverlayItem(
         label: f.name,
         trailing: Row(
@@ -267,8 +278,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
     if (f is SortFilter) {
       final ascending = f.state.ascending;
       final selectedIndex = _safeIndex(f.state.index, f.values.length);
-      final selected =
-          selectedIndex >= 0 ? f.values[selectedIndex].name.toString() : '—';
+      final selected = selectedIndex >= 0 ? f.values[selectedIndex].name.toString() : '—';
       return AdaptiveOverlayItem(
         label: f.name,
         trailing: Row(
@@ -282,10 +292,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Icon(
-              ascending ? Broken.arrow_up_3 : Broken.arrow_down,
-              size: 14,
-            ),
+            Icon(ascending ? Broken.arrow_up_3 : Broken.arrow_down, size: 14),
           ],
         ),
         onTap: () => setState(() => _drillIndex = index),
@@ -297,9 +304,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
 
   Widget _buildDrill(dynamic filter) {
     if (filter is SelectFilter) {
-      final options = filter.values
-          .map((e) => e.name?.toString() ?? '')
-          .toList(growable: false);
+      final options = filter.values.map((e) => e.name?.toString() ?? '').toList(growable: false);
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -322,8 +327,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
     }
 
     if (filter is GroupFilter) {
-      final isTagGroup = filter.state.isNotEmpty &&
-          filter.state.every((e) => e is TriStateFilter);
+      final isTagGroup = filter.state.isNotEmpty && filter.state.every((e) => e is TriStateFilter);
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -377,12 +381,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
               label: filter.values[i].name.toString(),
               selected: i == selectedIndex,
               trailing: i == selectedIndex
-                  ? Icon(
-                      filter.state.ascending
-                          ? Broken.arrow_up_3
-                          : Broken.arrow_down,
-                      size: 14,
-                    )
+                  ? Icon(filter.state.ascending ? Broken.arrow_up_3 : Broken.arrow_down, size: 14)
                   : null,
               onTap: () {
                 setState(() {
@@ -426,11 +425,7 @@ int _safeIndex(int index, int length) {
 }
 
 class _TextFilterRow extends StatefulWidget {
-  const _TextFilterRow({
-    super.key,
-    required this.filter,
-    required this.onChanged,
-  });
+  const _TextFilterRow({super.key, required this.filter, required this.onChanged});
 
   final TextFilter filter;
   final ValueChanged<String> onChanged;
@@ -440,8 +435,7 @@ class _TextFilterRow extends StatefulWidget {
 }
 
 class _TextFilterRowState extends State<_TextFilterRow> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.filter.state);
+  late final TextEditingController _controller = TextEditingController(text: widget.filter.state);
 
   @override
   void dispose() {
@@ -467,8 +461,68 @@ class _TextFilterRowState extends State<_TextFilterRow> {
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor:
-              Theme.of(context).colorScheme.surfaceContainerHighest,
+          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        ),
+      ),
+    );
+  }
+}
+
+class _OverlaySearchField extends StatefulWidget {
+  const _OverlaySearchField({
+    required this.value,
+    required this.hint,
+    required this.onChanged,
+    super.key,
+  });
+
+  final String value;
+  final String hint;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_OverlaySearchField> createState() => _OverlaySearchFieldState();
+}
+
+class _OverlaySearchFieldState extends State<_OverlaySearchField> {
+  late final TextEditingController _controller = TextEditingController(text: widget.value);
+
+  @override
+  void didUpdateWidget(covariant _OverlaySearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: TextField(
+        controller: _controller,
+        onChanged: widget.onChanged,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(fontSize: 13.5),
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Broken.search_normal, size: 17),
+          hintText: widget.hint,
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         ),
       ),
     );
@@ -491,6 +545,8 @@ class CatalogFilterOverlay extends StatefulWidget {
     required this.genreOptions,
     required this.close,
     required this.onChanged,
+    this.searchValue = '',
+    this.onSearchChanged,
     this.showTypeSection = true,
     this.showYearsSection = true,
     this.showRatingSection = true,
@@ -505,6 +561,8 @@ class CatalogFilterOverlay extends StatefulWidget {
   final List<String> genreOptions;
   final VoidCallback close;
   final ValueChanged<CatalogFilterState> onChanged;
+  final String searchValue;
+  final ValueChanged<String>? onSearchChanged;
   final bool showTypeSection;
   final bool showYearsSection;
   final bool showRatingSection;
@@ -516,7 +574,7 @@ class CatalogFilterOverlay extends StatefulWidget {
   State<CatalogFilterOverlay> createState() => _CatalogFilterOverlayState();
 }
 
-enum _CatalogLevel { root, layout, type, years, genres, rating, sort }
+enum _CatalogLevel { root, layout, columns, type, years, genres, rating, sort }
 
 class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
   late final CatalogFilterState _draft = widget.initial.copy();
@@ -534,19 +592,32 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: switch (_level) {
-        _CatalogLevel.root => _buildRoot(),
-        _CatalogLevel.layout => _buildLayout(),
-        _CatalogLevel.type => _buildType(),
-        _CatalogLevel.years => _buildYears(),
-        _CatalogLevel.genres => _buildGenres(),
-        _CatalogLevel.rating => _buildRating(),
-        _CatalogLevel.sort => _buildSort(),
-      },
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.onSearchChanged != null)
+          _OverlaySearchField(
+            key: const ValueKey('catalog-filter-search'),
+            value: widget.searchValue,
+            hint: 'Rechercher dans cette page…',
+            onChanged: widget.onSearchChanged!,
+          ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: switch (_level) {
+            _CatalogLevel.root => _buildRoot(),
+            _CatalogLevel.layout => _buildLayout(),
+            _CatalogLevel.columns => _buildColumns(),
+            _CatalogLevel.type => _buildType(),
+            _CatalogLevel.years => _buildYears(),
+            _CatalogLevel.genres => _buildGenres(),
+            _CatalogLevel.rating => _buildRating(),
+            _CatalogLevel.sort => _buildSort(),
+          },
+        ),
+      ],
     );
   }
 
@@ -564,10 +635,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -578,8 +646,9 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
 
   String _layoutLabel(CatalogLayout layout) => switch (layout) {
     CatalogLayout.grid => 'Grille',
-    CatalogLayout.comfortable => 'Confortable',
+    CatalogLayout.comfortable => 'Grille confortable',
     CatalogLayout.list => 'Liste',
+    CatalogLayout.compact => 'Grille compacte',
   };
 
   Widget _buildRoot() {
@@ -595,60 +664,51 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
     final yearsLabel = d.minYear == null && d.maxYear == null
         ? 'Toutes'
         : d.minYear == d.maxYear
-            ? '${d.minYear}'
-            : '${d.minYear ?? '…'} — ${d.maxYear ?? '…'}';
+        ? '${d.minYear}'
+        : '${d.minYear ?? '…'} — ${d.maxYear ?? '…'}';
 
-    Widget row(String label, String value, _CatalogLevel level) =>
-        AdaptiveOverlayItem(
-          label: label,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Icon(Broken.arrow_right_3, size: 14),
-            ],
+    Widget row(String label, String value, _CatalogLevel level) => AdaptiveOverlayItem(
+      label: label,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          onTap: () => setState(() => _level = level),
-        );
+          const Icon(Broken.arrow_right_3, size: 14),
+        ],
+      ),
+      onTap: () => setState(() => _level = level),
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const AdaptiveOverlaySection(title: 'Filtres'),
-        if (widget.showLayoutSection)
+        if (widget.showLayoutSection) ...[
           row('Affichage', _layoutLabel(d.layout), _CatalogLevel.layout),
+          row(
+            'Nombre de colonnes',
+            d.columns == 0 ? 'Auto' : '${d.columns}',
+            _CatalogLevel.columns,
+          ),
+        ],
         if (widget.showTypeSection && widget.typeOptions.isNotEmpty)
           row('Type', typeLabel ?? d.type, _CatalogLevel.type),
-        if (widget.showYearsSection)
-          row('Années', yearsLabel, _CatalogLevel.years),
+        if (widget.showYearsSection) row('Années', yearsLabel, _CatalogLevel.years),
         if (widget.showGenreSection && widget.genreOptions.isNotEmpty)
-          row(
-            'Genres',
-            d.genres.isEmpty ? 'Tous' : '${d.genres.length}',
-            _CatalogLevel.genres,
-          ),
+          row('Genres', d.genres.isEmpty ? 'Tous' : '${d.genres.length}', _CatalogLevel.genres),
         if (widget.showRatingSection)
-          row(
-            'Note',
-            d.minRating > 0 ? '${d.minRating.toInt()}+' : 'Toutes',
-            _CatalogLevel.rating,
-          ),
-        if (widget.showSortSection)
-          row('Ordre', sortLabel ?? d.sortMode, _CatalogLevel.sort),
+          row('Note', d.minRating > 0 ? '${d.minRating.toInt()}+' : 'Toutes', _CatalogLevel.rating),
+        if (widget.showSortSection) row('Ordre', sortLabel ?? d.sortMode, _CatalogLevel.sort),
         const AdaptiveOverlayDivider(),
-        AdaptiveOverlayItem(
-          icon: Broken.tick_circle,
-          label: 'Appliquer',
-          onTap: _apply,
-        ),
+        AdaptiveOverlayItem(icon: Broken.tick_circle, label: 'Appliquer', onTap: _apply),
         AdaptiveOverlayItem(
           icon: Broken.close_circle,
           label: 'Retirer les filtres',
@@ -684,6 +744,25 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
     );
   }
 
+  Widget _buildColumns() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _backHeader('Nombre de colonnes'),
+        for (final columns in const [0, 2, 3, 4, 5, 6])
+          AdaptiveOverlayItem(
+            label: columns == 0 ? 'Automatique' : '$columns colonnes',
+            selected: _draft.columns == columns,
+            onTap: () {
+              _update(() => _draft.columns = columns);
+              setState(() => _level = _CatalogLevel.root);
+            },
+          ),
+      ],
+    );
+  }
+
   Widget _buildType() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -705,8 +784,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
 
   Widget _buildYears() {
     final now = DateTime.now().year;
-    final decadeSelected = (int start) =>
-        _draft.minYear == start && _draft.maxYear == start + 9;
+    final decadeSelected = (int start) => _draft.minYear == start && _draft.maxYear == start + 9;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
