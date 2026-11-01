@@ -686,21 +686,21 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
     }
     _lastSectionError = retainedSectionError;
     if (hasDeclaredSections && !widget.layoutEditorMode && !hasSectionContent) {
-      if (sectionError != null || retainedSectionError != null) {
-        return _ExtensionEmpty(
-          source: source,
-          onRefresh: _refresh,
-          error: sectionError ?? retainedSectionError,
-        );
-      }
-      if (isLoadingSections) {
+      if (sectionError == null &&
+          retainedSectionError == null &&
+          isLoadingSections) {
         return _ExtensionHomeLoading(
           source: source,
           onSearch: () => setState(() => _isSearching = true),
           onRefresh: _refresh,
         );
       }
-      return _ExtensionEmpty(source: source, onRefresh: _refresh);
+      if (sectionError == null && retainedSectionError == null) {
+        return _ExtensionEmpty(source: source, onRefresh: _refresh);
+      }
+      // Keep the declared feed mounted when a section fails. Each section
+      // renders its own error and retry, so healthy and failed rails retain
+      // their place instead of replacing the entire home screen.
     }
 
     final popularAsync = hasDeclaredSections
@@ -1344,6 +1344,7 @@ class _ExtensionLayoutSection extends ConsumerStatefulWidget {
 
 class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection> {
   String? _selectedMonth;
+  Object? _lastError;
 
   @override
   void initState() {
@@ -1513,6 +1514,11 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
       'latest' => ref.watch(getLatestUpdatesProvider(source: widget.source, page: 1)),
       _ => ref.watch(getCustomListProvider(source: widget.source, listId: _listId, page: 1)),
     };
+    if (content.hasError) {
+      _lastError = content.error;
+    } else if (!content.isLoading) {
+      _lastError = null;
+    }
 
     // Riverpod can expose a loading/error state while retaining the previous
     // value during refresh. Always render that value first so a carousel or
@@ -1522,20 +1528,56 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
       return _withMonthSelector(context, _buildSection(context, cachedItems));
     }
 
-    final sectionContent = content.when(
-      loading: () =>
-          _ExtensionLayoutSectionLoading(title: _title, component: widget.section.component),
-      error: (error, _) =>
-          _ExtensionLayoutSectionError(title: _title, error: error, onRetry: _retry),
-      data: (pages) {
-        final items = pages?.list ?? const <MManga>[];
-        if (items.isEmpty) {
-          return _ExtensionLayoutSectionEmpty(title: _title, onRetry: _retry);
-        }
-        return _buildSection(context, items);
-      },
-    );
+    final error = content.hasError
+        ? content.error
+        : content.isLoading
+        ? _lastError
+        : null;
+    final onSeeAll = _sectionSeeAll(context);
+    final sectionContent = error != null
+        ? _ExtensionLayoutSectionError(
+            title: _title,
+            error: error,
+            onRetry: _retry,
+            spotlight: widget.section.component.toLowerCase() == 'spotlight',
+            onSeeAll: onSeeAll,
+          )
+        : content.when(
+            loading: () => _ExtensionLayoutSectionLoading(
+              title: _title,
+              component: widget.section.component,
+            ),
+            error: (error, _) => _ExtensionLayoutSectionError(
+              title: _title,
+              error: error,
+              onRetry: _retry,
+              spotlight: widget.section.component.toLowerCase() == 'spotlight',
+              onSeeAll: onSeeAll,
+            ),
+            data: (pages) {
+              final items = pages?.list ?? const <MManga>[];
+              if (items.isEmpty) {
+                return _ExtensionLayoutSectionEmpty(
+                  title: _title,
+                  onRetry: _retry,
+                );
+              }
+              return _buildSection(context, items);
+            },
+          );
     return _withMonthSelector(context, sectionContent);
+  }
+
+  VoidCallback? _sectionSeeAll(BuildContext context) {
+    if (!widget.section.seeAll) return null;
+    return () => _openSection(
+      context,
+      source: widget.source,
+      id: _listId,
+      title: _title,
+      cardStyle: widget.section.cardStyle,
+      seeAllPage: widget.section.seeAllPage,
+    );
   }
 
   void _retry() {
@@ -2087,16 +2129,86 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
   final String title;
   final Object error;
   final VoidCallback onRetry;
+  final bool spotlight;
+  final VoidCallback? onSeeAll;
 
   const _ExtensionLayoutSectionError({
     required this.title,
     required this.error,
     required this.onRetry,
+    required this.spotlight,
+    required this.onSeeAll,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    if (!spotlight) {
+      final message = extensionRequestFailureMessage(error) ??
+          'La source est momentanément indisponible.';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AppSectionHeader(
+            title: title,
+            actionLabel: onSeeAll == null ? null : 'All >',
+            onAction: onSeeAll,
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppUI.pagePadding(context),
+              2,
+              AppUI.pagePadding(context),
+              18,
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  KaomojiEmpty(
+                    kaomoji: '(╥﹏╥)',
+                    size: 24,
+                    color: cs.error,
+                    message: extensionErrorTitle(error),
+                    messageStyle: TextStyle(
+                      color: cs.onSurface,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: cs.onSurfaceVariant,
+                      fontSize: 11.5,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('Réessayer'),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 4, AppUI.pagePadding(context), 10),

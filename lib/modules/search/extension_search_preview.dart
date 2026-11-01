@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/widgets/kaomoji_empty.dart';
 
 /// Generic suggestion panel for extensions that opt into search previews.
 class ExtensionSearchPreview extends StatelessWidget {
@@ -11,6 +12,8 @@ class ExtensionSearchPreview extends StatelessWidget {
     required this.query,
     required this.loading,
     required this.items,
+    required this.errorMessage,
+    required this.onRetry,
     required this.onOpen,
     super.key,
   });
@@ -19,6 +22,8 @@ class ExtensionSearchPreview extends StatelessWidget {
   final String query;
   final bool loading;
   final List<MManga> items;
+  final String? errorMessage;
+  final VoidCallback onRetry;
   final ValueChanged<MManga> onOpen;
 
   String _groupFor(MManga item) {
@@ -32,7 +37,9 @@ class ExtensionSearchPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visible =
-        enabled && query.trim().length >= 2 && (loading || items.isNotEmpty);
+        enabled &&
+        query.trim().length >= 2 &&
+        (loading || items.isNotEmpty || errorMessage != null);
     final groups = <String, List<MManga>>{
       'CHAÎNES': [],
       'ACTRICES': [],
@@ -64,6 +71,48 @@ class ExtensionSearchPreview extends StatelessWidget {
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      : errorMessage != null && items.isEmpty
+                      ? SizedBox(
+                          height: 142,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const KaomojiEmpty(
+                                  kaomoji: '(╥﹏╥)',
+                                  size: 21,
+                                  message: 'Aperçu indisponible',
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  errorMessage!,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: onRetry,
+                                  icon: const Icon(
+                                    Icons.refresh_rounded,
+                                    size: 15,
+                                  ),
+                                  label: const Text('Réessayer'),
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         )

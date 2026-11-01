@@ -650,6 +650,7 @@ class CatalogFilterOverlay extends StatefulWidget {
     this.showGenreSection = true,
     this.showSortSection = true,
     this.showLayoutSection = true,
+    this.typeSectionLabel = 'Type',
   });
 
   final CatalogFilterState initial;
@@ -666,6 +667,7 @@ class CatalogFilterOverlay extends StatefulWidget {
   final bool showGenreSection;
   final bool showSortSection;
   final bool showLayoutSection;
+  final String typeSectionLabel;
 
   @override
   State<CatalogFilterOverlay> createState() => _CatalogFilterOverlayState();
@@ -801,7 +803,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
           ),
         ],
         if (widget.showTypeSection && widget.typeOptions.isNotEmpty)
-          row('Type', typeLabel ?? d.type, _CatalogLevel.type),
+          row(widget.typeSectionLabel, typeLabel ?? d.type, _CatalogLevel.type),
         if (widget.showYearsSection)
           row('Années', yearsLabel, _CatalogLevel.years),
         if (widget.showGenreSection && widget.genreOptions.isNotEmpty)
@@ -883,7 +885,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Type'),
+        _backHeader(widget.typeSectionLabel),
         for (final option in widget.typeOptions)
           AdaptiveOverlayItem(
             label: option.label,

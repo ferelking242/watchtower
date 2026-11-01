@@ -63,6 +63,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   bool _searchPreviewEnabled = false;
   bool _previewLoading = false;
   List<MManga> _previewResults = const [];
+  Object? _previewError;
   int _previewRequestVersion = 0;
 
   List<MManga>? _results;
@@ -207,6 +208,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _results = null;
         _error = null;
         _loading = false;
+        _previewError = null;
         _loadingMore = false;
         _page = 1;
         _hasNext = true;
@@ -238,10 +240,13 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     final requestVersion = ++_previewRequestVersion;
     final query = raw.trim();
     if (!_searchPreviewEnabled || query.length < 2 || _submitted) {
-      if (_previewLoading || _previewResults.isNotEmpty) {
+      if (_previewLoading ||
+          _previewResults.isNotEmpty ||
+          _previewError != null) {
         setState(() {
           _previewLoading = false;
           _previewResults = const [];
+          _previewError = null;
         });
       }
       return;
@@ -256,6 +261,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     setState(() {
       _previewLoading = true;
       _previewResults = const [];
+      _previewError = null;
     });
     try {
       final page = await ref.read(
@@ -269,14 +275,31 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       setState(() {
         _previewLoading = false;
         _previewResults = page?.list ?? const <MManga>[];
+        _previewError = null;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted || requestVersion != _previewRequestVersion) return;
       setState(() {
         _previewLoading = false;
         _previewResults = const [];
+        _previewError = error;
       });
     }
+  }
+
+  void _retrySearchPreview() {
+    final query = _controller.text.trim();
+    if (query.length < 2 || _submitted) return;
+    _previewDebounce?.cancel();
+    ref.invalidate(
+      getCustomListProvider(
+        source: widget.source,
+        listId: 'search_preview:${Uri.encodeComponent(query)}',
+        page: 1,
+      ),
+    );
+    final requestVersion = ++_previewRequestVersion;
+    unawaited(_loadSearchPreview(query, requestVersion));
   }
 
   void _setTabLabels(List<String> labels) {
@@ -299,6 +322,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     setState(() {
       _previewLoading = false;
       _previewResults = const [];
+      _previewError = null;
     });
     final requestVersion = ++_searchRequestVersion;
     _controller
@@ -583,6 +607,11 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                             query: _controller.text,
                             loading: _previewLoading,
                             items: _previewResults,
+                            errorMessage: _previewError == null
+                                ? null
+                                : extensionRequestFailureMessage(_previewError) ??
+                                      'La recherche d’aperçu est momentanément indisponible.',
+                            onRetry: _retrySearchPreview,
                             onOpen: widget.onOpen,
                           ),
                           Expanded(child: _emptyArea()),

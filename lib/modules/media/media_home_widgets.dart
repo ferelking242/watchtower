@@ -2176,9 +2176,22 @@ abstract final class CatalogBulkDownload {
 /// Three-dot menu used by catalogue pages. Download sizes stay grouped behind
 /// one drill-down row, matching the shared filter overlay interaction.
 class CatalogDownloadMenuButton extends StatelessWidget {
-  const CatalogDownloadMenuButton({required this.onSelected, super.key});
+  const CatalogDownloadMenuButton({
+    required this.onSelected,
+    this.onRefresh,
+    this.onSelectMultiple,
+    this.selectionActive = false,
+    this.selectedCount = 0,
+    this.onDownloadSelection,
+    super.key,
+  });
 
   final ValueChanged<CatalogBulkDownloadAction> onSelected;
+  final VoidCallback? onRefresh;
+  final VoidCallback? onSelectMultiple;
+  final bool selectionActive;
+  final int selectedCount;
+  final VoidCallback? onDownloadSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -2189,7 +2202,15 @@ class CatalogDownloadMenuButton extends StatelessWidget {
         child: Icon(Broken.more_2, size: 22),
       ),
       contentBuilder: (close) =>
-          _CatalogDownloadMenuOverlay(close: close, onSelected: onSelected),
+          _CatalogDownloadMenuOverlay(
+            close: close,
+            onSelected: onSelected,
+            onRefresh: onRefresh,
+            onSelectMultiple: onSelectMultiple,
+            selectionActive: selectionActive,
+            selectedCount: selectedCount,
+            onDownloadSelection: onDownloadSelection,
+          ),
     );
   }
 }
@@ -2198,10 +2219,20 @@ class _CatalogDownloadMenuOverlay extends StatefulWidget {
   const _CatalogDownloadMenuOverlay({
     required this.close,
     required this.onSelected,
+    required this.onRefresh,
+    required this.onSelectMultiple,
+    required this.selectionActive,
+    required this.selectedCount,
+    required this.onDownloadSelection,
   });
 
   final VoidCallback close;
   final ValueChanged<CatalogBulkDownloadAction> onSelected;
+  final VoidCallback? onRefresh;
+  final VoidCallback? onSelectMultiple;
+  final bool selectionActive;
+  final int selectedCount;
+  final VoidCallback? onDownloadSelection;
 
   @override
   State<_CatalogDownloadMenuOverlay> createState() =>
@@ -2211,6 +2242,11 @@ class _CatalogDownloadMenuOverlay extends StatefulWidget {
 class _CatalogDownloadMenuOverlayState
     extends State<_CatalogDownloadMenuOverlay> {
   bool _showDownloadOptions = false;
+
+  void _runAction(VoidCallback action) {
+    widget.close();
+    action();
+  }
 
   Widget _backHeader() => InkWell(
     onTap: () => setState(() => _showDownloadOptions = false),
@@ -2237,6 +2273,33 @@ class _CatalogDownloadMenuOverlayState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const AdaptiveOverlaySection(title: 'Options'),
+          if (widget.onRefresh != null)
+            AdaptiveOverlayItem(
+              icon: Icons.refresh_rounded,
+              label: 'Actualiser',
+              onTap: () => _runAction(widget.onRefresh!),
+            ),
+          if (widget.onSelectMultiple != null)
+            AdaptiveOverlayItem(
+              icon: widget.selectionActive
+                  ? Broken.close_circle
+                  : Broken.tick_circle,
+              label: widget.selectionActive
+                  ? 'Terminer la sélection'
+                  : 'Sélection multiple',
+              onTap: () => _runAction(widget.onSelectMultiple!),
+            ),
+          if (widget.onDownloadSelection != null &&
+              widget.selectedCount > 0)
+            AdaptiveOverlayItem(
+              icon: Broken.document_download,
+              label: 'Télécharger la sélection (${widget.selectedCount})',
+              onTap: () => _runAction(widget.onDownloadSelection!),
+            ),
+          if (widget.onRefresh != null ||
+              widget.onSelectMultiple != null ||
+              widget.onDownloadSelection != null)
+            const AdaptiveOverlayDivider(),
           AdaptiveOverlayItem(
             icon: Broken.document_download,
             label: 'Télécharger',

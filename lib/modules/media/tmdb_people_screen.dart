@@ -364,7 +364,11 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _isExtensionProfile ? 2 : 3, vsync: this)
+    _tabController = TabController(
+      length: _isExtensionProfile ? 2 : 3,
+      vsync: this,
+      initialIndex: _isExtensionProfile ? 1 : 0,
+    )
       ..addListener(_onTabChanged);
     if (_isExtensionProfile) {
       final source = widget.extensionSource!;
@@ -790,12 +794,17 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
   CatalogFilterState _filter = CatalogFilterState();
   String _searchQuery = '';
   final List<MChapter> _extra = [];
+  final Set<String> _selectedVideoUrls = {};
+  MManga? _refreshedDetails;
   int _page = 1;
   bool _loadingMore = false;
+  bool _refreshing = false;
+  bool _refreshFailed = false;
+  bool _selecting = false;
   bool _hasMore = true;
   Object? _loadMoreError;
 
-  MManga get _details => widget.details ?? widget.profile;
+  MManga get _details => _refreshedDetails ?? widget.details ?? widget.profile;
 
   List<MChapter> get _videos => [
     ...(_details.chapters ?? const <MChapter>[]),
@@ -844,6 +853,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
     setState(() {
       _loadingMore = true;
       _loadMoreError = null;
+      _refreshFailed = false;
     });
     try {
       final nextPage = _page + 1;
@@ -860,7 +870,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
               name: item.name,
               url: item.link,
               thumbnailUrl: item.imageUrl,
-              duration: item.description?.replaceFirst('Duration: ', ''),
+              duration: _durationFromDescription(item.description),
             ),
           )
           .toList(growable: false);
@@ -877,6 +887,18 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
         _loadMoreError = error;
       });
     }
+  }
+
+  String? _durationFromDescription(String? raw) {
+    final text = raw?.trim();
+    if (text == null || text.isEmpty) return null;
+    final withoutLabel = text.replaceFirst(
+      RegExp(r'^(?:duration|length|durée)\s*[:：]\s*', caseSensitive: false),
+      '',
+    );
+    final clock = RegExp(r'\d{1,3}:\d{2}(?::\d{2})?').firstMatch(withoutLabel);
+    if (clock != null) return clock.group(0);
+    return withoutLabel;
   }
 
   /// Videos matching the length preset chosen in the filter sheet.
@@ -898,26 +920,56 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
     return matching
         .where((video) {
           final duration = _parseDuration(video.duration);
-          return duration == null || duration.inMinutes >= minimumMinutes;
+          return duration != null &&
+              duration.inSeconds >= minimumMinutes * 60;
         })
         .toList(growable: false);
   }
 
   static Duration? _parseDuration(String? raw) {
-    final text = raw?.trim();
+    final text = raw
+        ?.trim()
+        .replaceFirst(
+          RegExp(
+            r'^(?:duration|length|durée)\s*[:：]\s*',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .toLowerCase();
     if (text == null || text.isEmpty) return null;
-    final parts = text.split(':');
-    if (parts.length != 2) return null;
-    final minutes = int.tryParse(parts[0]);
-    final seconds = int.tryParse(parts[1]);
-    if (minutes == null || seconds == null) return null;
-    return Duration(minutes: minutes, seconds: seconds);
+    final clock = RegExp(
+      r'(?<!\d)(\d{1,3}(?::\d{1,2}){1,2})(?!\d)',
+    ).firstMatch(text);
+    if (clock != null) {
+      final parts = clock.group(1)!.split(':').map(int.tryParse).toList();
+      if (parts.any((part) => part == null)) return null;
+      if (parts.length == 2) {
+        final minutes = parts[0]!;
+        final seconds = parts[1]!;
+        if (seconds > 59) return null;
+        return Duration(minutes: minutes, seconds: seconds);
+      }
+      final hours = parts[0]!;
+      final minutes = parts[1]!;
+      final seconds = parts[2]!;
+      if (minutes > 59 || seconds > 59) return null;
+      return Duration(hours: hours, minutes: minutes, seconds: seconds);
+    }
+
+    int unit(String pattern) =>
+        int.tryParse(RegExp(pattern).firstMatch(text)?.group(1) ?? '') ?? 0;
+    final hours = unit(r'(\d+)\s*(?:h|hr|hrs|hours?)');
+    final minutes = unit(r'(\d+)\s*(?:m|min|mins|minutes?)');
+    final seconds = unit(r'(\d+)\s*(?:s|sec|secs|seconds?)');
+    if (hours + minutes + seconds == 0) return null;
+    return Duration(hours: hours, minutes: minutes, seconds: seconds);
   }
 
   /// Length presets carried by the sheet's "type" section: the values are the
   /// minimum minutes a video must run for, and `all` clears the filter.
   List<CatalogTypeOption> get _typeOptions => const [
-    CatalogTypeOption('Toutes', 'all'),
+    CatalogTypeOption('Toutes les durées', 'all'),
     CatalogTypeOption('10 min +', '10'),
     CatalogTypeOption('20 min +', '20'),
     CatalogTypeOption('40 min +', '40'),
@@ -939,11 +991,98 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
         showRatingSection: false,
         showGenreSection: false,
         showSortSection: false,
+        typeSectionLabel: 'Durée',
         close: close,
         onChanged: (value) => setState(() => _filter = value),
         searchValue: _searchQuery,
         onSearchChanged: (value) => setState(() => _searchQuery = value),
       ),
+    );
+  }
+
+  Future<void> _refreshVideos() async {
+    final source = widget.source;
+    final url = widget.profile.link?.trim();
+    if (source == null || url == null || url.isEmpty || _refreshing) return;
+    setState(() {
+      _refreshing = true;
+      _loadMoreError = null;
+      _refreshFailed = false;
+    });
+    try {
+      final details = await ref.refresh(
+        getDetailProvider(url: url, source: source).future,
+      );
+      if (!mounted) return;
+      setState(() {
+        _refreshedDetails = details;
+        _extra.clear();
+        _page = 1;
+        _hasMore = true;
+        _loadingMore = false;
+        _selectedVideoUrls.clear();
+        _refreshing = false;
+        _refreshFailed = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _refreshing = false;
+        _refreshFailed = true;
+        _loadMoreError = error;
+      });
+    }
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selecting = !_selecting;
+      if (!_selecting) _selectedVideoUrls.clear();
+    });
+  }
+
+  void _toggleVideoSelection(MChapter video) {
+    final url = video.url?.trim();
+    if (url == null || url.isEmpty) return;
+    setState(() {
+      if (!_selectedVideoUrls.add(url)) _selectedVideoUrls.remove(url);
+    });
+  }
+
+  void _onVideoTap(MChapter video) {
+    if (_selecting) {
+      _toggleVideoSelection(video);
+    } else {
+      widget.onOpen(video);
+    }
+  }
+
+  MManga _downloadItem(MChapter video) => MManga(
+    name: _title(video),
+    link: video.url,
+    imageUrl: _thumbnail(video),
+    description: video.duration,
+    status: Status.unknown,
+  );
+
+  List<MManga> get _allDownloadItems =>
+      _videos.map(_downloadItem).toList(growable: false);
+
+  List<MManga> get _selectedDownloadItems => _videos
+      .where((video) => _selectedVideoUrls.contains(video.url?.trim()))
+      .map(_downloadItem)
+      .toList(growable: false);
+
+  void _downloadSelected() {
+    final source = widget.source;
+    final items = _selectedDownloadItems;
+    if (source == null || items.isEmpty) return;
+    CatalogBulkDownload.handleMenu(
+      context,
+      ref,
+      source,
+      items,
+      CatalogBulkDownloadAction.downloadAll,
     );
   }
 
@@ -970,16 +1109,23 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
                 ),
               ),
             ),
-            _buildFilterButton(),
-            // Same three-dot menu as the "see all" catalogue, minus the
-            // download entries.
-            AdaptiveOverlayMenu<CatalogBulkDownloadAction>(
-              tooltip: isFrench ? 'Options' : 'Options',
-              icon: const Icon(Broken.more_2),
-              menuWidth: 240,
-              onSelected: (_) {},
-              itemBuilder: (_) => CatalogBulkDownload.selectionMenuItems(),
+            CatalogDownloadMenuButton(
+              onSelected: (action) => CatalogBulkDownload.handleMenu(
+                context,
+                ref,
+                widget.source,
+                _selectedDownloadItems.isNotEmpty
+                    ? _selectedDownloadItems
+                    : _allDownloadItems,
+                action,
+              ),
+              onRefresh: () => _refreshVideos(),
+              onSelectMultiple: _toggleSelectionMode,
+              selectionActive: _selecting,
+              selectedCount: _selectedDownloadItems.length,
+              onDownloadSelection: _downloadSelected,
             ),
+            _buildFilterButton(),
           ],
         ),
         const SizedBox(height: 14),
@@ -998,7 +1144,11 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
           child: TextButton.icon(
             onPressed: () {
               setState(() => _loadMoreError = null);
-              _loadMore();
+              if (_refreshFailed) {
+                _refreshVideos();
+              } else {
+                _loadMore();
+              }
             },
             icon: const Icon(Icons.refresh_rounded, size: 18),
             label: Text(isFrench ? 'Chargement échoué · Réessayer' : 'Load failed · Retry'),
@@ -1030,48 +1180,81 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
           for (final video in visible)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: const Color(0xFF171820),
-                borderRadius: BorderRadius.circular(14),
-                child: ListTile(
-                  onTap: () => widget.onOpen(video),
-                  leading: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: SizedBox(
-                      width: 72,
-                      height: 46,
-                      child: ContentImage(url: _thumbnail(video), radius: 8),
-                    ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _onVideoTap(video),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: SizedBox(
+                          width: 116,
+                          height: 66,
+                          child: ContentImage(
+                            url: _thumbnail(video),
+                            radius: 9,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _title(video),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_duration(video) != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _duration(video)!,
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (_selecting) ...[
+                        const SizedBox(width: 8),
+                        _selectionBadge(video),
+                      ],
+                    ],
                   ),
-                  title: Text(
-                    _title(video),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: _duration(video) == null
-                      ? null
-                      : Text(_duration(video)!, style: const TextStyle(color: Colors.white54)),
                 ),
               ),
             ),
         ],
       );
     }
-    final columns = AppUI.mediaGridColumns(context);
-    final count = _filter.layout == CatalogLayout.comfortable
-        ? (columns - 1).clamp(1, columns)
-        : columns;
+    final deviceColumns = AppUI.mediaGridColumns(context);
+    final automaticColumns = switch (_filter.layout) {
+      CatalogLayout.comfortable =>
+        (deviceColumns - 1).clamp(1, deviceColumns).toInt(),
+      CatalogLayout.compact =>
+        (deviceColumns + 1).clamp(1, 6).toInt(),
+      _ => deviceColumns,
+    };
+    final columns = _filter.columns == 0
+        ? automaticColumns
+        : _filter.columns.clamp(1, 6).toInt();
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: count,
+        crossAxisCount: columns,
         childAspectRatio: 1.25,
         crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
         mainAxisSpacing: 14,
@@ -1079,12 +1262,44 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
       itemCount: visible.length,
       itemBuilder: (context, index) {
         final video = visible[index];
-        return LandscapeCard(
-          item: _item(video),
-          width: double.infinity,
-          onTap: () => widget.onOpen(video),
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: LandscapeCard(
+                item: _item(video),
+                width: double.infinity,
+                onTap: () => _onVideoTap(video),
+              ),
+            ),
+            if (_selecting)
+              Positioned(
+                top: 5,
+                right: 5,
+                child: IgnorePointer(child: _selectionBadge(video)),
+              ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _selectionBadge(MChapter video) {
+    final selected = _selectedVideoUrls.contains(video.url?.trim());
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: selected
+            ? Theme.of(context).colorScheme.primary
+            : Colors.black.withValues(alpha: .66),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white70, width: 1),
+      ),
+      child: Icon(
+        selected ? Icons.check_rounded : Icons.add_rounded,
+        size: 18,
+        color: Colors.white,
+      ),
     );
   }
 
