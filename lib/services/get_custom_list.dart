@@ -17,9 +17,12 @@ Future<MPages?> getCustomList(
   required String listId,
   required int page,
 }) async {
-  final keepAlive = ref.keepAlive();
-  final cacheTimer = Timer(const Duration(minutes: 2), keepAlive.close);
-  ref.onDispose(cacheTimer.cancel);
+  final isSearchPreview = listId.startsWith('search_preview:');
+  final keepAlive = isSearchPreview ? null : ref.keepAlive();
+  final cacheTimer = isSearchPreview
+      ? null
+      : Timer(const Duration(minutes: 2), keepAlive!.close);
+  if (cacheTimer != null) ref.onDispose(cacheTimer.cancel);
 
   Future<MPages?> load() async {
     if (kIsWeb && RemoteClient.instance.isConfigured && source.id != null) {
@@ -90,7 +93,9 @@ Future<MPages?> getCustomList(
 
   // Resume-history descriptions are derived from live progress and should not
   // be cached. Other extension lists are stable for the short cache window.
-  if (listId == 'history' && source.touchToPreview) return load();
+  if (isSearchPreview || (listId == 'history' && source.touchToPreview)) {
+    return load();
+  }
   return extensionPageCache.getOrLoad(
     ExtensionPageCacheKey.forSource(
       source: source,
@@ -118,7 +123,8 @@ String _formatProgressTime(DateTime dateTime) {
     'déc.',
   ];
   final year = dateTime.year == DateTime.now().year ? '' : ' ${dateTime.year}';
-  final date = '${dateTime.day.toString().padLeft(2, '0')} '
+  final date =
+      '${dateTime.day.toString().padLeft(2, '0')} '
       '${monthNames[dateTime.month - 1]}$year';
   final time =
       '${dateTime.hour.toString().padLeft(2, '0')}:'

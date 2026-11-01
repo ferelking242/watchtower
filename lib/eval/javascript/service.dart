@@ -38,9 +38,9 @@ import '../interface.dart';
 void _extLog(String level, String msg) {
   final lvl = switch (level) {
     'ERROR' => LogLevel.error,
-    'WARN'  => LogLevel.warning,
-    'INFO'  => LogLevel.info,
-    _       => LogLevel.debug,
+    'WARN' => LogLevel.warning,
+    'INFO' => LogLevel.info,
+    _ => LogLevel.debug,
   };
   AppLogger.log(msg, logLevel: lvl, tag: LogTag.extension_);
   // Extension code runs in a worker isolate, where AppLogger has no sink:
@@ -52,8 +52,8 @@ void _extLog(String level, String msg) {
 }
 
 void _extDebug(String msg) => _extLog('DEBUG', msg);
-void _extInfo(String msg)  => _extLog('INFO',  msg);
-void _extWarn(String msg)  => _extLog('WARN',  msg);
+void _extInfo(String msg) => _extLog('INFO', msg);
+void _extWarn(String msg) => _extLog('WARN', msg);
 void _extError(String msg) => _extLog('ERROR', msg);
 
 /// Truncate long strings for log readability.
@@ -265,7 +265,10 @@ function extLog(level, msg) {
     // Bridge: JS extLog(level, msg) → Dart _extLog → AppLogger
     runtime.onMessage('ext_log', (dynamic args) {
       if (args is List && args.length >= 2) {
-        _extLog((args[0] as String?)?.toUpperCase() ?? 'DEBUG', args[1]?.toString() ?? '');
+        _extLog(
+          (args[0] as String?)?.toUpperCase() ?? 'DEBUG',
+          args[1]?.toString() ?? '',
+        );
       }
       return null;
     });
@@ -326,7 +329,10 @@ function extLog(level, msg) {
           } else if (ch == '/' && !regexInClass) {
             inRegex = false;
             buf.write(ch);
-          } else if (ch == '\n' || ch == '\r' || ch.codeUnitAt(0) == 0x2028 || ch.codeUnitAt(0) == 0x2029) {
+          } else if (ch == '\n' ||
+              ch == '\r' ||
+              ch.codeUnitAt(0) == 0x2028 ||
+              ch.codeUnitAt(0) == 0x2029) {
             buf.write('\\n');
           } else {
             buf.write(ch);
@@ -350,8 +356,28 @@ function extLog(level, msg) {
           } else if (ch == '/') {
             final p = prev ?? '';
             const continuators = {
-              '', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}',
-              ';', '+', '-', '*', '%', '<', '>', '^', '~', '\n',
+              '',
+              '(',
+              ',',
+              '=',
+              ':',
+              '[',
+              '!',
+              '&',
+              '|',
+              '?',
+              '{',
+              '}',
+              ';',
+              '+',
+              '-',
+              '*',
+              '%',
+              '<',
+              '>',
+              '^',
+              '~',
+              '\n',
             };
             if (continuators.contains(p)) {
               inRegex = true;
@@ -366,6 +392,7 @@ function extLog(level, msg) {
       }
       return buf.toString();
     }
+
     final extensionScript =
         '${_normalizeJsExtensionCode(source.sourceCode ?? '')}\n'
         'var extention = new DefaultExtension();';
@@ -405,7 +432,9 @@ function extLog(level, msg) {
         _storeBytecode(cacheKey, bytecode);
         _extDebug('$_id · bytecode compiled (${bytecode.length} bytes)');
       } catch (error) {
-        _extWarn('$_id · bytecode compile unavailable; using source evaluation: $error');
+        _extWarn(
+          '$_id · bytecode compile unavailable; using source evaluation: $error',
+        );
         return runtime.evaluate(script);
       }
     }
@@ -415,7 +444,9 @@ function extLog(level, msg) {
       result = js_bytecode.evalBytecode(runtime, bytecode);
     } catch (error) {
       _removeCachedBytecode(cacheKey);
-      _extWarn('$_id · bytecode evaluation unavailable; retrying source evaluation: $error');
+      _extWarn(
+        '$_id · bytecode evaluation unavailable; retrying source evaluation: $error',
+      );
       return runtime.evaluate(script);
     }
     if (result.isError) {
@@ -462,9 +493,13 @@ function extLog(level, msg) {
     );
     final popCount = result.list?.length ?? 0;
     if (popCount == 0) {
-      _extWarn('$_id · getPopular page=$page → 0 items ← extension returned empty list');
+      _extWarn(
+        '$_id · getPopular page=$page → 0 items ← extension returned empty list',
+      );
     } else {
-      _extInfo('$_id · getPopular page=$page → $popCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}');
+      _extInfo(
+        '$_id · getPopular page=$page → $popCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}',
+      );
     }
     return result;
   }
@@ -477,16 +512,22 @@ function extLog(level, msg) {
     );
     final latCount = result.list?.length ?? 0;
     if (latCount == 0) {
-      _extWarn('$_id · getLatestUpdates page=$page → 0 items ← extension returned empty list');
+      _extWarn(
+        '$_id · getLatestUpdates page=$page → 0 items ← extension returned empty list',
+      );
     } else {
-      _extInfo('$_id · getLatestUpdates page=$page → $latCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}');
+      _extInfo(
+        '$_id · getLatestUpdates page=$page → $latCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}',
+      );
     }
     return result;
   }
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
-    _extInfo('$_id · search q="${_t(query, 60)}" page=$page filters=${filters.length}');
+    _extInfo(
+      '$_id · search q="${_t(query, 60)}" page=$page filters=${filters.length}',
+    );
     final result = MPages.fromJson(
       await _extensionCallAsync(
         'search(${jsonEncode(query)},$page,${jsonEncode(filterValuesListToJson(filters))})',
@@ -494,9 +535,13 @@ function extLog(level, msg) {
     );
     final srchCount = result.list?.length ?? 0;
     if (srchCount == 0) {
-      _extWarn('$_id · search q="${_t(query, 60)}" → 0 items ← extension returned empty list');
+      _extWarn(
+        '$_id · search q="${_t(query, 60)}" → 0 items ← extension returned empty list',
+      );
     } else {
-      _extInfo('$_id · search q="${_t(query, 60)}" → $srchCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}');
+      _extInfo(
+        '$_id · search q="${_t(query, 60)}" → $srchCount items  hasNext=${result.hasNextPage}  ${_coverSummary(result.list)}',
+      );
     }
     return result;
   }
@@ -511,7 +556,9 @@ function extLog(level, msg) {
     );
     final chapCount = result.chapters?.length ?? 0;
     if (chapCount == 0) {
-      _extWarn('$_id · getDetail → name="${result.name}"  chapters=0 ← no chapters returned; check JS getDetail()');
+      _extWarn(
+        '$_id · getDetail → name="${result.name}"  chapters=0 ← no chapters returned; check JS getDetail()',
+      );
     } else {
       _extInfo('$_id · getDetail → name="${result.name}"  chapters=$chapCount');
     }
@@ -593,8 +640,10 @@ function extLog(level, msg) {
         'check JS getVideoList() or the episode URL — this causes infinite-loading',
       );
     } else {
-      _extInfo('$_id · getVideoList → ${result.length} video(s)'
-          '${_vidSkipped > 0 ? "  ($_vidSkipped skipped — null url)" : ""}');
+      _extInfo(
+        '$_id · getVideoList → ${result.length} video(s)'
+        '${_vidSkipped > 0 ? "  ($_vidSkipped skipped — null url)" : ""}',
+      );
       for (var i = 0; i < result.length; i++) {
         _extDebug(
           '$_id · getVideoList  [${i + 1}] quality="${result[i].quality}"  '
@@ -638,10 +687,13 @@ function extLog(level, msg) {
   // ── Filter / preference / custom-list operations ─────────────────────────
 
   @override
-  FilterList getFilterList() {
+  FilterList getFilterList([String? context]) {
     List<dynamic> list;
     try {
-      list = fromJsonFilterValuesToList(_extensionCall('getFilterList()', []));
+      final call = context == null
+          ? 'getFilterList()'
+          : 'getFilterList(${jsonEncode(context)})';
+      list = fromJsonFilterValuesToList(_extensionCall(call, []));
     } catch (e) {
       _extWarn('$_id · getFilterList FAILED ← $e');
       list = [];
@@ -665,20 +717,28 @@ function extLog(level, msg) {
   @override
   Future<List<String>> getSuggestions(String query) async {
     try {
-      final result = await _extensionCallAsync<List>('getSuggestions(' + jsonEncode(query) + ')');
+      final result = await _extensionCallAsync<List>(
+        'getSuggestions(' + jsonEncode(query) + ')',
+      );
       return result.map((e) => e.toString()).toList();
     } catch (_) {
       return [];
     }
   }
+
   @override
   Future<List<Map<String, dynamic>>> getRecommendations(String url) async {
     _extInfo(
       '\$_id \u00b7 getRecommendations origin=${safeUrlOriginForLog(url)}',
     );
     try {
-      final raw = await _extensionCallAsync<List>('getRecommendations(' + jsonEncode(url) + ')');
-      return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+      final raw = await _extensionCallAsync<List>(
+        'getRecommendations(' + jsonEncode(url) + ')',
+      );
+      return raw
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
     } catch (e) {
       _extWarn('\$_id \u00b7 getRecommendations FAILED <- \$e');
       return [];
@@ -689,8 +749,13 @@ function extLog(level, msg) {
   Future<List<Map<String, dynamic>>> getComments(String url) async {
     _extInfo('\$_id \u00b7 getComments origin=${safeUrlOriginForLog(url)}');
     try {
-      final raw = await _extensionCallAsync<List>('getComments(' + jsonEncode(url) + ')');
-      return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+      final raw = await _extensionCallAsync<List>(
+        'getComments(' + jsonEncode(url) + ')',
+      );
+      return raw
+          .whereType<Map>()
+          .map((e) => e.cast<String, dynamic>())
+          .toList();
     } catch (e) {
       _extWarn('\$_id \u00b7 getComments FAILED <- \$e');
       return [];
@@ -702,7 +767,9 @@ function extLog(level, msg) {
     final raw = await _extensionCallAsync<dynamic>('getAccount()');
     if (raw == null) return null;
     if (raw is! Map) {
-      throw FormatException('Extension getAccount() must return an object or null');
+      throw FormatException(
+        'Extension getAccount() must return an object or null',
+      );
     }
     return ExtensionAccount.fromJson(Map<String, dynamic>.from(raw));
   }
@@ -740,7 +807,6 @@ function extLog(level, msg) {
     return raw;
   }
 
-
   @override
   Future<MPages> getCustomList(String id, int page) async {
     _extInfo('$_id · getCustomList id="$id" page=$page');
@@ -749,9 +815,13 @@ function extLog(level, msg) {
     );
     final clCount = result.list?.length ?? 0;
     if (clCount == 0) {
-      _extWarn('$_id · getCustomList id="$id" → 0 items ← extension returned empty list');
+      _extWarn(
+        '$_id · getCustomList id="$id" → 0 items ← extension returned empty list',
+      );
     } else {
-      _extInfo('$_id · getCustomList id="$id" → $clCount items  ${_coverSummary(result.list)}');
+      _extInfo(
+        '$_id · getCustomList id="$id" → $clCount items  ${_coverSummary(result.list)}',
+      );
     }
     return result;
   }
@@ -781,7 +851,9 @@ function extLog(level, msg) {
   Future<T> _extensionCallAsync<T>(String call) async {
     _init();
     final sw = Stopwatch()..start();
-    final method = call.contains('(') ? call.substring(0, call.indexOf('(')) : call;
+    final method = call.contains('(')
+        ? call.substring(0, call.indexOf('('))
+        : call;
 
     final promised = await runtime.handlePromise(
       await runtime.evaluateAsync('jsonStringify(() => extention.$call)'),

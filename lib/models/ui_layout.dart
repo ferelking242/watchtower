@@ -101,14 +101,16 @@ class SectionPresentation {
 class SearchLayout {
   final SectionPresentation? results;
   final String? filters;
+  final bool searchPreview;
 
-  const SearchLayout({this.results, this.filters});
+  const SearchLayout({this.results, this.filters, this.searchPreview = false});
 
   factory SearchLayout.fromJson(Map<String, dynamic> json) => SearchLayout(
     results: json['results'] != null
         ? SectionPresentation.fromJson(json['results'] as Map<String, dynamic>)
         : null,
     filters: json['filters'] as String?,
+    searchPreview: json['searchPreview'] == true,
   );
 }
 

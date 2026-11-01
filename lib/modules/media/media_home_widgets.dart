@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
+import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
@@ -17,7 +18,9 @@ import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/watch/home/extension_person_route.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/services/get_custom_list.dart';
+import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
+import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:isar_community/isar.dart';
@@ -69,7 +72,8 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
 
   List<TmdbMedia> get _trending =>
       widget.isTv ? widget.home.trendingTv : widget.home.trendingMovies;
-  List<TmdbMedia> get _popular => widget.isTv ? widget.home.popularTv : widget.home.popularMovies;
+  List<TmdbMedia> get _popular =>
+      widget.isTv ? widget.home.popularTv : widget.home.popularMovies;
   List<TmdbMedia> get _topRated =>
       widget.isTv ? widget.home.topRatedTv : widget.home.topRatedMovies;
   List<TmdbMedia> get _firstLatest =>
@@ -85,9 +89,14 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
 
   void _updateCompactHeader() {
     if (!_feedController.hasClients || !mounted) return;
-    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0);
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
+    );
     // Hero is drawn heroHeight tall — match it.
-    final shouldShow = _feedController.offset >= heroHeight - MediaQuery.paddingOf(context).top;
+    final shouldShow =
+        _feedController.offset >=
+        heroHeight - MediaQuery.paddingOf(context).top;
     if (shouldShow != _showCompactHeader) {
       setState(() => _showCompactHeader = shouldShow);
     }
@@ -121,7 +130,9 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
           onRefresh: () async {},
           child: CustomScrollView(
             controller: _feedController,
-            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             slivers: [
               SliverToBoxAdapter(
                 child: DiscoverMovies(
@@ -129,7 +140,8 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                   onSearchPressed: search,
                   onLiveTVPressed: liveTv,
                   onLibraryPressed: library,
-                  onMoviePressed: (media) => context.push('/flixMediaDetail', extra: media),
+                  onMoviePressed: (media) =>
+                      context.push('/flixMediaDetail', extra: media),
                 ),
               ),
               SliverList(
@@ -137,19 +149,25 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                   ScrollingMovies(
                     title: 'Popular',
                     items: _popular,
-                    discoverPath: widget.isTv ? '/tv/popular' : '/movie/popular',
+                    discoverPath: widget.isTv
+                        ? '/tv/popular'
+                        : '/movie/popular',
                     isTv: widget.isTv,
                   ),
                   ScrollingMovies(
                     title: 'Trending this week',
                     items: _trending,
-                    discoverPath: widget.isTv ? '/trending/tv/week' : '/trending/movie/week',
+                    discoverPath: widget.isTv
+                        ? '/trending/tv/week'
+                        : '/trending/movie/week',
                     isTv: widget.isTv,
                   ),
                   ScrollingMovies(
                     title: 'Top rated',
                     items: _topRated,
-                    discoverPath: widget.isTv ? '/tv/top_rated' : '/movie/top_rated',
+                    discoverPath: widget.isTv
+                        ? '/tv/top_rated'
+                        : '/movie/top_rated',
                     isTv: widget.isTv,
                   ),
                   RankedMovies(
@@ -168,7 +186,10 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     discoverPath: upcomingPath,
                     isTv: widget.isTv,
                   ),
-                  FeaturedMovieRail(title: 'À découvrir', items: [..._popular, ..._trending]),
+                  FeaturedMovieRail(
+                    title: 'À découvrir',
+                    items: [..._popular, ..._trending],
+                  ),
                   TmdbFeaturedStack(
                     title: 'À voir cette semaine',
                     icon: Icons.event_available_rounded,
@@ -178,7 +199,8 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                       ..._firstLatest,
                       ..._secondLatest,
                     ].take(8).toList(growable: false),
-                    onTap: (media) => context.push('/flixMediaDetail', extra: media),
+                    onTap: (media) =>
+                        context.push('/flixMediaDetail', extra: media),
                   ),
                   DocumentarySections(isTv: widget.isTv),
                   const RealityAndTalkSections(),
@@ -191,7 +213,11 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     tags: tmdbCategoryTags,
                     isTv: widget.isTv,
                   ),
-                  TmdbTagListSection(title: 'Histoires', tags: tmdbPlotKeywords, isTv: widget.isTv),
+                  TmdbTagListSection(
+                    title: 'Histoires',
+                    tags: tmdbPlotKeywords,
+                    isTv: widget.isTv,
+                  ),
                   MoviesFromWatchProviders(isTv: widget.isTv),
                   const SizedBox(height: 112),
                 ]),
@@ -249,8 +275,10 @@ class MainMoviesDisplay extends StatefulWidget {
 }
 
 class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
-  void _openSearch(BuildContext context) =>
-      context.push('/flixSearch', extra: const FlixSearchPayload(hub: FlixSearchContext.movies));
+  void _openSearch(BuildContext context) => context.push(
+    '/flixSearch',
+    extra: const FlixSearchPayload(hub: FlixSearchContext.movies),
+  );
   final ScrollController _feedController = ScrollController();
   bool _showCompactHeader = false;
 
@@ -262,7 +290,10 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
 
   void _updateCompactHeader() {
     if (!mounted) return;
-    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0);
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
+    );
     final threshold = heroHeight - MediaQuery.paddingOf(context).top;
     final shouldShow = _feedController.offset >= threshold;
     if (shouldShow != _showCompactHeader) {
@@ -298,7 +329,9 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
           onRefresh: () async {},
           child: CustomScrollView(
             controller: _feedController,
-            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             slivers: [
               SliverToBoxAdapter(
                 child: DiscoverMovies(
@@ -328,7 +361,9 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                   ),
                   RankedMovies(
                     title: 'Top 10 cette semaine',
-                    items: widget.home.trendingMovies.take(10).toList(growable: false),
+                    items: widget.home.trendingMovies
+                        .take(10)
+                        .toList(growable: false),
                   ),
                   ScrollingLandscapeMovies(
                     title: 'Now playing',
@@ -342,7 +377,10 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                   ),
                   FeaturedMovieRail(
                     title: 'À découvrir',
-                    items: [...widget.home.popularMovies, ...widget.home.trendingMovies],
+                    items: [
+                      ...widget.home.popularMovies,
+                      ...widget.home.trendingMovies,
+                    ],
                   ),
                   TmdbFeaturedStack(
                     title: 'À voir cette semaine',
@@ -419,8 +457,10 @@ class MainSeriesDisplay extends StatefulWidget {
 }
 
 class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
-  void _openSearch(BuildContext context) =>
-      context.push('/flixSearch', extra: const FlixSearchPayload(hub: FlixSearchContext.series));
+  void _openSearch(BuildContext context) => context.push(
+    '/flixSearch',
+    extra: const FlixSearchPayload(hub: FlixSearchContext.series),
+  );
   final ScrollController _feedController = ScrollController();
   bool _showCompactHeader = false;
 
@@ -432,14 +472,20 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
 
   void _updateCompactHeader() {
     if (!mounted) return;
-    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0);
-    final shouldShow = _feedController.offset >= heroHeight - MediaQuery.paddingOf(context).top;
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
+    );
+    final shouldShow =
+        _feedController.offset >=
+        heroHeight - MediaQuery.paddingOf(context).top;
     if (shouldShow != _showCompactHeader) {
       setState(() => _showCompactHeader = shouldShow);
     }
   }
 
-  void _openMedia(TmdbMedia media) => context.push('/flixMediaDetail', extra: media);
+  void _openMedia(TmdbMedia media) =>
+      context.push('/flixMediaDetail', extra: media);
 
   void _openLibrary() {
     context.push('/Library');
@@ -463,7 +509,9 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
       children: [
         CustomScrollView(
           controller: _feedController,
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
           slivers: [
             SliverToBoxAdapter(
               child: DiscoverMovies(
@@ -525,8 +573,16 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                     ...widget.home.topRatedTv,
                   ],
                 ),
-                TmdbTagListSection(title: 'Catégories', tags: tmdbCategoryTags, isTv: true),
-                TmdbTagListSection(title: 'Histoires', tags: tmdbPlotKeywords, isTv: true),
+                TmdbTagListSection(
+                  title: 'Catégories',
+                  tags: tmdbCategoryTags,
+                  isTv: true,
+                ),
+                TmdbTagListSection(
+                  title: 'Histoires',
+                  tags: tmdbPlotKeywords,
+                  isTv: true,
+                ),
                 const MoviesFromWatchProviders(isTv: true),
                 const SizedBox(height: 112),
               ]),
@@ -585,7 +641,10 @@ class DiscoverMovies extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(480.0, 590.0);
+    final heroHeight = (MediaQuery.sizeOf(context).height * .56).clamp(
+      480.0,
+      590.0,
+    );
     final heroMovies = movies.take(10).toList(growable: false);
     // Hero fills its box fully; the action column sits low but inside it.
     return SizedBox(
@@ -618,7 +677,11 @@ class DiscoverMovies extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           stops: [0, .42, 1],
-                          colors: [Color(0x52000000), Color(0x15000000), Color(0xE6000000)],
+                          colors: [
+                            Color(0x52000000),
+                            Color(0x15000000),
+                            Color(0xE6000000),
+                          ],
                         ),
                       ),
                     ),
@@ -669,9 +732,15 @@ class DiscoverMovies extends StatelessWidget {
                             spacing: 7,
                             runSpacing: 6,
                             children: [
-                              if ((movie.releaseDate ?? movie.firstAirDate ?? '').length >= 4)
+                              if ((movie.releaseDate ??
+                                          movie.firstAirDate ??
+                                          '')
+                                      .length >=
+                                  4)
                                 _HeroMetaChip(
-                                  label: (movie.releaseDate ?? movie.firstAirDate!).substring(0, 4),
+                                  label:
+                                      (movie.releaseDate ?? movie.firstAirDate!)
+                                          .substring(0, 4),
                                 ),
                               if (movie.voteAverage != null)
                                 _HeroMetaChip(
@@ -721,7 +790,11 @@ class DiscoverMovies extends StatelessWidget {
 }
 
 class _HeroIconButton extends StatelessWidget {
-  const _HeroIconButton({required this.icon, required this.onPressed, this.tooltip});
+  const _HeroIconButton({
+    required this.icon,
+    required this.onPressed,
+    this.tooltip,
+  });
 
   final IconData icon;
   final VoidCallback? onPressed;
@@ -801,7 +874,10 @@ class _HeroLiveButton extends StatelessWidget {
               SizedBox(width: 7),
               Text(
                 'Live TV',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -868,7 +944,8 @@ class ScrollingMovies extends StatelessWidget {
                     item: ContentItem.fromTmdb(media),
                     heroTag: tmdbHeroTag(media, source),
                     width: cardWidth,
-                    onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                    onTap: () =>
+                        pushTmdbMediaDetail(context, media, source: source),
                   ),
                 ),
               );
@@ -920,7 +997,9 @@ class ScrollingLandscapeMovies extends StatelessWidget {
         SizedBox(
           height: 184,
           child: ListView.separated(
-            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
@@ -932,7 +1011,8 @@ class ScrollingLandscapeMovies extends StatelessWidget {
                 item: ContentItem.fromTmdb(media),
                 heroTag: tmdbHeroTag(media, source),
                 width: AppUI.landscapeCardWidth(context),
-                onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                onTap: () =>
+                    pushTmdbMediaDetail(context, media, source: source),
               );
             },
           ),
@@ -961,7 +1041,9 @@ class RankedMovies extends StatelessWidget {
         SizedBox(
           height: AppUI.rankedRailHeight(context),
           child: ListView.separated(
-            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
@@ -974,7 +1056,8 @@ class RankedMovies extends StatelessWidget {
                 heroTag: tmdbHeroTag(media, source),
                 width: AppUI.rankedCardWidth(context),
                 rank: index + 1,
-                onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                onTap: () =>
+                    pushTmdbMediaDetail(context, media, source: source),
               );
             },
           ),
@@ -987,7 +1070,11 @@ class RankedMovies extends StatelessWidget {
 /// A second landscape treatment with larger cards is useful for films whose
 /// backdrop is more informative than their poster.
 class FeaturedMovieRail extends StatelessWidget {
-  const FeaturedMovieRail({required this.title, required this.items, super.key});
+  const FeaturedMovieRail({
+    required this.title,
+    required this.items,
+    super.key,
+  });
 
   final String title;
   final List<TmdbMedia> items;
@@ -1005,7 +1092,9 @@ class FeaturedMovieRail extends StatelessWidget {
         SizedBox(
           height: 204,
           child: ListView.separated(
-            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: uniqueItems.take(10).length,
@@ -1017,7 +1106,8 @@ class FeaturedMovieRail extends StatelessWidget {
                 item: ContentItem.fromTmdb(media),
                 width: 280,
                 heroTag: tmdbHeroTag(media, source),
-                onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                onTap: () =>
+                    pushTmdbMediaDetail(context, media, source: source),
               );
             },
           ),
@@ -1028,7 +1118,11 @@ class FeaturedMovieRail extends StatelessWidget {
 }
 
 class GenreListGrid extends StatelessWidget {
-  const GenreListGrid({this.imageSource = const [], this.isTv = false, super.key});
+  const GenreListGrid({
+    this.imageSource = const [],
+    this.isTv = false,
+    super.key,
+  });
 
   final List<TmdbMedia> imageSource;
   final bool isTv;
@@ -1040,7 +1134,8 @@ class GenreListGrid extends StatelessWidget {
       future: isTv ? fetchTmdbTvGenres() : fetchTmdbMovieGenres(),
       builder: (context, snapshot) {
         final genres = snapshot.data ?? const <TmdbGenre>[];
-        if (snapshot.connectionState == ConnectionState.waiting && genres.isEmpty) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            genres.isEmpty) {
           return AppGenreGridShimmer(isTv: isTv);
         }
         if (genres.isEmpty) return const SizedBox.shrink();
@@ -1065,7 +1160,9 @@ class GenreListGrid extends StatelessWidget {
             SizedBox(
               height: 186,
               child: GridView.builder(
-                padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppUI.pagePadding(context),
+                ),
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -1090,10 +1187,15 @@ class GenreListGrid extends StatelessWidget {
                   } else if (imageSource.isNotEmpty) {
                     final used = usedCovers.toSet();
                     final candidate = imageSource
-                        .where((movie) => !used.contains(movie.bannerImage ?? movie.bestCover))
+                        .where(
+                          (movie) => !used.contains(
+                            movie.bannerImage ?? movie.bestCover,
+                          ),
+                        )
                         .toList(growable: false);
                     final pool = candidate.isNotEmpty ? candidate : imageSource;
-                    final picked = pool[(genre.id.abs() + index * 7) % pool.length];
+                    final picked =
+                        pool[(genre.id.abs() + index * 7) % pool.length];
                     image = picked.bannerImage ?? picked.bestCover;
                   }
                   if (image != null) usedCovers.add(image);
@@ -1105,7 +1207,8 @@ class GenreListGrid extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => TmdbMoviesListScreen(
                           title: genre.name,
-                          path: '/discover/${isTv ? 'tv' : 'movie'}?with_genres=${genre.id}',
+                          path:
+                              '/discover/${isTv ? 'tv' : 'movie'}?with_genres=${genre.id}',
                           isTv: isTv,
                         ),
                       ),
@@ -1132,7 +1235,8 @@ class MoviesFromWatchProviders extends StatelessWidget {
       future: fetchTmdbWatchProviders(),
       builder: (context, snapshot) {
         final services = snapshot.data ?? const <TmdbWatchProvider>[];
-        if (snapshot.connectionState == ConnectionState.waiting && services.isEmpty) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            services.isEmpty) {
           return const AppStreamingServicesShimmer();
         }
         if (services.isEmpty) return const SizedBox.shrink();
@@ -1143,7 +1247,10 @@ class MoviesFromWatchProviders extends StatelessWidget {
             SizedBox(
               height: 132,
               child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context), vertical: 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppUI.pagePadding(context),
+                  vertical: 2,
+                ),
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 itemCount: services.length,
@@ -1197,11 +1304,17 @@ class _StreamingServiceCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF111216),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: colors.outlineVariant.withValues(alpha: .4)),
+                border: Border.all(
+                  color: colors.outlineVariant.withValues(alpha: .4),
+                ),
               ),
               child: service.logoUrl == null
                   ? const Icon(Broken.video, color: Colors.white54)
-                  : ExtendedImage.network(service.logoUrl!, fit: BoxFit.contain, cache: true),
+                  : ExtendedImage.network(
+                      service.logoUrl!,
+                      fit: BoxFit.contain,
+                      cache: true,
+                    ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1209,7 +1322,9 @@ class _StreamingServiceCard extends StatelessWidget {
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -1258,15 +1373,21 @@ class _AppDiscoverRailState extends State<AppDiscoverRail> {
       builder: (context, snapshot) {
         final items = snapshot.data ?? const <TmdbMedia>[];
         if (items.isEmpty) {
-          if (snapshot.connectionState != ConnectionState.done && !snapshot.hasError) {
-            return _DiscoverRailSkeleton(title: widget.title, landscape: widget.landscape);
+          if (snapshot.connectionState != ConnectionState.done &&
+              !snapshot.hasError) {
+            return _DiscoverRailSkeleton(
+              title: widget.title,
+              landscape: widget.landscape,
+            );
           }
           return const SizedBox.shrink();
         }
         final deduped = <int, TmdbMedia>{
           for (final media in items) media.id: media,
         }.values.toList(growable: false);
-        final railHeight = widget.landscape ? 184.0 : AppUI.horizontalCardWidth(context) * 1.5 + 62;
+        final railHeight = widget.landscape
+            ? 184.0
+            : AppUI.horizontalCardWidth(context) * 1.5 + 62;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1274,7 +1395,9 @@ class _AppDiscoverRailState extends State<AppDiscoverRail> {
             SizedBox(
               height: railHeight,
               child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppUI.pagePadding(context),
+                ),
                 physics: const BouncingScrollPhysics(),
                 scrollDirection: Axis.horizontal,
                 itemCount: deduped.length,
@@ -1287,16 +1410,26 @@ class _AppDiscoverRailState extends State<AppDiscoverRail> {
                           item: ContentItem.fromTmdb(media),
                           heroTag: tmdbHeroTag(media, source),
                           width: 238,
-                          onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                          onTap: () => pushTmdbMediaDetail(
+                            context,
+                            media,
+                            source: source,
+                          ),
                         )
                       : PosterCard(
                           item: ContentItem.fromTmdb(media),
                           heroTag: tmdbHeroTag(media, source),
                           width: AppUI.horizontalCardWidth(context),
-                          onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                          onTap: () => pushTmdbMediaDetail(
+                            context,
+                            media,
+                            source: source,
+                          ),
                         );
                   return SizedBox(
-                    width: widget.landscape ? 238 : AppUI.horizontalCardWidth(context),
+                    width: widget.landscape
+                        ? 238
+                        : AppUI.horizontalCardWidth(context),
                     child: card,
                   );
                 },
@@ -1324,7 +1457,9 @@ class _DiscoverRailSkeleton extends StatelessWidget {
         SizedBox(
           height: landscape ? 184 : 210,
           child: ListView.separated(
-            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
             physics: const NeverScrollableScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: 5,
@@ -1361,7 +1496,8 @@ class DocumentarySections extends StatelessWidget {
           AppDiscoverRail(
             title: 'Docu · ${keyword.name}',
             isTv: isTv,
-            query: 'with_genres=99&with_keywords=${keyword.id}&sort_by=popularity.desc',
+            query:
+                'with_genres=99&with_keywords=${keyword.id}&sort_by=popularity.desc',
           ),
       ],
     );
@@ -1380,9 +1516,21 @@ class RealityAndTalkSections extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppDiscoverRail(title: 'Téléréalité', isTv: isTv, query: tmdbRealityTvQuery),
-        AppDiscoverRail(title: "Shows d'amour", isTv: isTv, query: tmdbLoveRealityTvQuery),
-        AppDiscoverRail(title: 'Talk-shows', isTv: isTv, query: tmdbTalkShowQuery),
+        AppDiscoverRail(
+          title: 'Téléréalité',
+          isTv: isTv,
+          query: tmdbRealityTvQuery,
+        ),
+        AppDiscoverRail(
+          title: "Shows d'amour",
+          isTv: isTv,
+          query: tmdbLoveRealityTvQuery,
+        ),
+        AppDiscoverRail(
+          title: 'Talk-shows',
+          isTv: isTv,
+          query: tmdbTalkShowQuery,
+        ),
       ],
     );
   }
@@ -1444,7 +1592,9 @@ class _TmdbTagListSectionState extends State<TmdbTagListSection> {
         SizedBox(
           height: 168,
           child: ListView.separated(
-            padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppUI.pagePadding(context),
+            ),
             physics: const BouncingScrollPhysics(),
             scrollDirection: Axis.horizontal,
             itemCount: widget.tags.length,
@@ -1512,7 +1662,11 @@ class TmdbTagTile extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => TmdbMoviesListScreen(title: tag.name, path: path, isTv: isTv),
+                builder: (_) => TmdbMoviesListScreen(
+                  title: tag.name,
+                  path: path,
+                  isTv: isTv,
+                ),
               ),
             );
           },
@@ -1527,7 +1681,10 @@ class TmdbTagTile extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [accent.withValues(alpha: .55), const Color(0xFF0B0D10)],
+                      colors: [
+                        accent.withValues(alpha: .55),
+                        const Color(0xFF0B0D10),
+                      ],
                     ),
                   ),
                 ),
@@ -1558,7 +1715,11 @@ class TmdbTagTile extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Icon(Broken.arrow_right_3, color: Colors.white70, size: 16),
+                    const Icon(
+                      Broken.arrow_right_3,
+                      color: Colors.white70,
+                      size: 16,
+                    ),
                   ],
                 ),
               ),
@@ -1643,7 +1804,10 @@ abstract final class CatalogBulkDownload {
       value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
       child: Padding(
         padding: EdgeInsets.only(left: 26),
-        child: Text('Télécharger nb', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        child: Text(
+          'Télécharger nb',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
       ),
     ),
     for (final (action, count) in const [
@@ -1665,17 +1829,19 @@ abstract final class CatalogBulkDownload {
 
   /// Same menu as [menuItems] without the download entries, for surfaces that
   /// show a three-dot button but queue nothing (extension person pages).
-  static List<PopupMenuEntry<CatalogBulkDownloadAction>> selectionMenuItems() => [
-    PopupMenuItem(
-      value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
-      enabled: false,
-      child: _menuRow(Broken.folder_add, 'Sélection'),
-    ),
-  ];
+  static List<PopupMenuEntry<CatalogBulkDownloadAction>> selectionMenuItems() =>
+      [
+        PopupMenuItem(
+          value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
+          enabled: false,
+          child: _menuRow(Broken.folder_add, 'Sélection'),
+        ),
+      ];
 
   static List<MManga> _downloadTargets(List<MManga> items) => [
     for (final item in items)
-      if (item.link?.trim().isNotEmpty == true && ExtensionCollectionRoute.fromItem(item) == null)
+      if (item.link?.trim().isNotEmpty == true &&
+          ExtensionCollectionRoute.fromItem(item) == null)
         item,
   ];
 
@@ -1687,9 +1853,9 @@ abstract final class CatalogBulkDownload {
   ) async {
     final available = _downloadTargets(items).length;
     if (available == 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Aucun élément téléchargeable.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun élément téléchargeable.')),
+      );
       return;
     }
 
@@ -1725,9 +1891,12 @@ abstract final class CatalogBulkDownload {
                 },
                 onFieldSubmitted: (_) {
                   if (!formKey.currentState!.validate()) return;
-                  Navigator.of(
-                    dialogContext,
-                  ).pop(clampCatalogDownloadCount(int.parse(controller.text.trim()), available));
+                  Navigator.of(dialogContext).pop(
+                    clampCatalogDownloadCount(
+                      int.parse(controller.text.trim()),
+                      available,
+                    ),
+                  );
                 },
               ),
             ],
@@ -1741,9 +1910,12 @@ abstract final class CatalogBulkDownload {
           FilledButton(
             onPressed: () {
               if (!formKey.currentState!.validate()) return;
-              Navigator.of(
-                dialogContext,
-              ).pop(clampCatalogDownloadCount(int.parse(controller.text.trim()), available));
+              Navigator.of(dialogContext).pop(
+                clampCatalogDownloadCount(
+                  int.parse(controller.text.trim()),
+                  available,
+                ),
+              );
             },
             child: const Text('Continuer'),
           ),
@@ -1755,8 +1927,9 @@ abstract final class CatalogBulkDownload {
     await run(context, ref, source, items, count: requested);
   }
 
-  static Widget _menuRow(IconData icon, String label) =>
-      Row(children: [Icon(icon, size: 18), const SizedBox(width: 10), Text(label)]);
+  static Widget _menuRow(IconData icon, String label) => Row(
+    children: [Icon(icon, size: 18), const SizedBox(width: 10), Text(label)],
+  );
 
   /// Récupère les vidéos du lot en parallèle (pool de créateurs), avec une
   /// boîte de progression annulable ; chaque chapitre est mis en file.
@@ -1770,7 +1943,9 @@ abstract final class CatalogBulkDownload {
     if (source == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Téléchargement disponible uniquement pour les catalogues d’extension.'),
+          content: Text(
+            'Téléchargement disponible uniquement pour les catalogues d’extension.',
+          ),
         ),
       );
       return;
@@ -1778,9 +1953,9 @@ abstract final class CatalogBulkDownload {
     final available = _downloadTargets(catalogueItems);
     final targets = count == null ? available : available.take(count).toList();
     if (targets.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Aucun élément téléchargeable.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun élément téléchargeable.')),
+      );
       return;
     }
 
@@ -1799,7 +1974,9 @@ abstract final class CatalogBulkDownload {
     BulkEnqueueController.active = controller;
     final titles = [
       for (final entry in plan.items)
-        entry.item.name?.trim().isNotEmpty == true ? entry.item.name!.trim() : 'Vidéo',
+        entry.item.name?.trim().isNotEmpty == true
+            ? entry.item.name!.trim()
+            : 'Vidéo',
     ];
     BuildContext? dialogContext;
     void closeDialog() {
@@ -1844,7 +2021,11 @@ abstract final class CatalogBulkDownload {
         if (nextIndex >= plan.items.length) return;
         final index = nextIndex++;
         try {
-          final chapters = await _enqueueItemDownloads(ref, source, plan.items[index]);
+          final chapters = await _enqueueItemDownloads(
+            ref,
+            source,
+            plan.items[index],
+          );
           controller.report(queued: chapters);
         } catch (_) {
           controller.report(failed: 1);
@@ -1909,7 +2090,9 @@ abstract final class CatalogBulkDownload {
       // A corrupt row must not abort the whole batch.
       existing = null;
     }
-    final name = item.name?.trim().isNotEmpty == true ? item.name!.trim() : (detail.name ?? url);
+    final name = item.name?.trim().isNotEmpty == true
+        ? item.name!.trim()
+        : (detail.name ?? url);
     final loaded =
         existing ??
         Manga(
@@ -1932,7 +2115,8 @@ abstract final class CatalogBulkDownload {
         : isar.chapters.filter().mangaIdEqualTo(loaded.id).findAllSync();
     final chaptersByUrl = <String, Chapter>{
       for (final chapter in existingChapters)
-        if (chapter.url?.trim().isNotEmpty == true) chapter.url!.trim(): chapter,
+        if (chapter.url?.trim().isNotEmpty == true)
+          chapter.url!.trim(): chapter,
     };
     final selectedUrls = {
       for (final video in plan.chapters)
@@ -1951,7 +2135,9 @@ abstract final class CatalogBulkDownload {
             chaptersByUrl[videoUrl] ??
             Chapter(
               mangaId: loaded.id,
-              name: video.name?.trim().isNotEmpty == true ? video.name!.trim() : videoUrl,
+              name: video.name?.trim().isNotEmpty == true
+                  ? video.name!.trim()
+                  : videoUrl,
               url: videoUrl,
               thumbnailUrl: video.thumbnailUrl ?? loaded.imageUrl,
               dateUpload: video.dateUpload,
@@ -1978,7 +2164,9 @@ abstract final class CatalogBulkDownload {
       }
       await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
       if (chapter.id != null) {
-        ref.read(downloadQueueStateProvider.notifier).setPaused(chapter.id!, false);
+        ref
+            .read(downloadQueueStateProvider.notifier)
+            .setPaused(chapter.id!, false);
       }
     }
     return queue.length;
@@ -2000,22 +2188,28 @@ class CatalogDownloadMenuButton extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(Broken.more_2, size: 22),
       ),
-      contentBuilder: (close) => _CatalogDownloadMenuOverlay(close: close, onSelected: onSelected),
+      contentBuilder: (close) =>
+          _CatalogDownloadMenuOverlay(close: close, onSelected: onSelected),
     );
   }
 }
 
 class _CatalogDownloadMenuOverlay extends StatefulWidget {
-  const _CatalogDownloadMenuOverlay({required this.close, required this.onSelected});
+  const _CatalogDownloadMenuOverlay({
+    required this.close,
+    required this.onSelected,
+  });
 
   final VoidCallback close;
   final ValueChanged<CatalogBulkDownloadAction> onSelected;
 
   @override
-  State<_CatalogDownloadMenuOverlay> createState() => _CatalogDownloadMenuOverlayState();
+  State<_CatalogDownloadMenuOverlay> createState() =>
+      _CatalogDownloadMenuOverlayState();
 }
 
-class _CatalogDownloadMenuOverlayState extends State<_CatalogDownloadMenuOverlay> {
+class _CatalogDownloadMenuOverlayState
+    extends State<_CatalogDownloadMenuOverlay> {
   bool _showDownloadOptions = false;
 
   Widget _backHeader() => InkWell(
@@ -2026,7 +2220,10 @@ class _CatalogDownloadMenuOverlayState extends State<_CatalogDownloadMenuOverlay
         children: [
           Icon(Broken.arrow_left_2, size: 16),
           SizedBox(width: 6),
-          Text('Télécharger', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          Text(
+            'Télécharger',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
         ],
       ),
     ),
@@ -2074,7 +2271,10 @@ class _CatalogDownloadMenuOverlayState extends State<_CatalogDownloadMenuOverlay
           (CatalogBulkDownloadAction.download100, 100),
           (CatalogBulkDownloadAction.download250, 250),
         ])
-          AdaptiveOverlayItem(label: '$count éléments', onTap: () => select(action)),
+          AdaptiveOverlayItem(
+            label: '$count éléments',
+            onTap: () => select(action),
+          ),
         AdaptiveOverlayItem(
           icon: Broken.edit_2,
           label: 'Personnaliser…',
@@ -2160,7 +2360,8 @@ class TmdbMoviesListScreen extends ConsumerStatefulWidget {
   final ValueChanged<AnilistMedia>? onOpenAnilist;
 
   @override
-  ConsumerState<TmdbMoviesListScreen> createState() => _TmdbMoviesListScreenState();
+  ConsumerState<TmdbMoviesListScreen> createState() =>
+      _TmdbMoviesListScreenState();
 }
 
 class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
@@ -2173,6 +2374,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   int _page = 1;
   late CatalogFilterState _filter;
   String _searchQuery = '';
+  List<dynamic> _extensionFilters = [];
+  int _extensionRequestVersion = 0;
+  Timer? _extensionSearchDebounce;
   Object? _error;
 
   @override
@@ -2191,6 +2395,16 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     _movies = [...widget.initialItems];
     _extensionItems = [...widget.initialExtensionItems];
     _anilistItems = [...widget.initialAnilistItems];
+    if (_isExtension) {
+      try {
+        _extensionFilters = getFilterList(
+          source: widget.extensionSource!,
+          context: widget.extensionSectionId,
+        );
+      } catch (_) {
+        _extensionFilters = [];
+      }
+    }
     _scrollController.addListener(_onScroll);
     if (_isAnilist) {
       if (_anilistItems.isNotEmpty) {
@@ -2199,9 +2413,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         _loadPage();
       }
     } else if (_isExtension) {
-      if (_extensionItems.isNotEmpty) {
+      if (_extensionItems.isNotEmpty && _extensionFilters.isEmpty) {
         _page = 2;
       } else {
+        _extensionItems.clear();
         _loadPage();
       }
     } else if (_movies.isEmpty) {
@@ -2211,7 +2426,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     }
   }
 
-  bool get _isExtension => widget.extensionSource != null && widget.extensionSectionId != null;
+  bool get _isExtension =>
+      widget.extensionSource != null && widget.extensionSectionId != null;
 
   bool get _isAnilist => widget.anilistFilter != null;
 
@@ -2224,6 +2440,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
 
   Future<void> _loadPage() async {
     if (_loading || !_hasMore) return;
+    final extensionRequestVersion = _extensionRequestVersion;
     setState(() {
       _loading = true;
       _error = null;
@@ -2237,7 +2454,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         final result = await ref.read(anilistBrowseProvider(filter).future);
         if (!mounted) return;
         final seen = {for (final item in _anilistItems) item.id};
-        final nextItems = result.items.where((item) => seen.add(item.id)).toList(growable: false);
+        final nextItems = result.items
+            .where((item) => seen.add(item.id))
+            .toList(growable: false);
         setState(() {
           _anilistItems.addAll(nextItems);
           _hasMore = result.hasNextPage;
@@ -2249,11 +2468,15 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       if (_isExtension) {
         final result = await _fetchExtensionPage(_page);
         if (!mounted) return;
+        if (extensionRequestVersion != _extensionRequestVersion) return;
         final seen = {
-          for (final item in _extensionItems) item.link ?? item.name ?? '${item.hashCode}',
+          for (final item in _extensionItems)
+            item.link ?? item.name ?? '${item.hashCode}',
         };
         final nextItems = (result?.list ?? const <MManga>[])
-            .where((item) => seen.add(item.link ?? item.name ?? '${item.hashCode}'))
+            .where(
+              (item) => seen.add(item.link ?? item.name ?? '${item.hashCode}'),
+            )
             .toList(growable: false);
         setState(() {
           _extensionItems.addAll(nextItems);
@@ -2275,6 +2498,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       });
     } catch (error) {
       if (!mounted) return;
+      if (_isExtension && extensionRequestVersion != _extensionRequestVersion)
+        return;
       setState(() {
         _loading = false;
         _error = error;
@@ -2285,11 +2510,81 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   Future<MPages?> _fetchExtensionPage(int page) {
     final source = widget.extensionSource!;
     final sectionId = widget.extensionSectionId!;
+    if (_extensionFilters.isNotEmpty) {
+      return ref.read(
+        searchProvider(
+          source: source,
+          query: _searchQuery.trim(),
+          page: page,
+          filterList: List<dynamic>.of(_extensionFilters),
+        ).future,
+      );
+    }
     return switch (sectionId) {
-      'popular' => ref.read(getPopularProvider(source: source, page: page).future),
-      'latest' => ref.read(getLatestUpdatesProvider(source: source, page: page).future),
-      _ => ref.read(getCustomListProvider(source: source, listId: sectionId, page: page).future),
+      'popular' => ref.read(
+        getPopularProvider(source: source, page: page).future,
+      ),
+      'latest' => ref.read(
+        getLatestUpdatesProvider(source: source, page: page).future,
+      ),
+      _ => ref.read(
+        getCustomListProvider(
+          source: source,
+          listId: sectionId,
+          page: page,
+        ).future,
+      ),
     };
+  }
+
+  int get _activeExtensionFilterCount {
+    var count = 0;
+    for (final filter in _extensionFilters) {
+      if ((filter is CheckBoxFilter && filter.state) ||
+          (filter is TriStateFilter && filter.state != 0) ||
+          (filter is SelectFilter && filter.state != 0)) {
+        count++;
+      } else if (filter is GroupFilter) {
+        for (final child in filter.state) {
+          if ((child is CheckBoxFilter && child.state) ||
+              (child is TriStateFilter && child.state != 0) ||
+              (child is SelectFilter && child.state != 0)) {
+            count++;
+          }
+        }
+      }
+    }
+    return count;
+  }
+
+  void _restartExtensionSearch({bool debounce = false}) {
+    _extensionSearchDebounce?.cancel();
+    _extensionRequestVersion++;
+    setState(() {
+      _extensionItems.clear();
+      _page = 1;
+      _hasMore = true;
+      _loading = false;
+      _error = null;
+    });
+    if (debounce) {
+      _extensionSearchDebounce = Timer(const Duration(milliseconds: 350), () {
+        if (mounted) unawaited(_loadPage());
+      });
+    } else {
+      unawaited(_loadPage());
+    }
+  }
+
+  void _onExtensionFiltersChanged(List<dynamic> filters) {
+    _extensionFilters = filters;
+    _restartExtensionSearch();
+  }
+
+  void _onExtensionSearchChanged(String value) {
+    if (value == _searchQuery) return;
+    _searchQuery = value;
+    _restartExtensionSearch(debounce: true);
   }
 
   String? _anilistSortFor(String sortMode) => switch (sortMode) {
@@ -2328,7 +2623,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           CatalogSortOption('A — Z', 'title'),
         ]
       : _isExtension
-      ? const [CatalogSortOption('Populaire', 'popular'), CatalogSortOption('A — Z', 'title')]
+      ? const [
+          CatalogSortOption('Populaire', 'popular'),
+          CatalogSortOption('A — Z', 'title'),
+        ]
       : const [
           CatalogSortOption('Populaire', 'popular'),
           CatalogSortOption('Mieux notés', 'rating'),
@@ -2373,17 +2671,46 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   }
 
   Widget _buildFilterButton() {
+    if (_isExtension && _extensionFilters.isNotEmpty) {
+      final activeCount = _activeExtensionFilterCount;
+      return AdaptiveOverlayMenuButton(
+        menuWidth: 340,
+        trigger: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Badge(
+            isLabelVisible: activeCount > 0,
+            label: Text('$activeCount'),
+            child: Icon(
+              Broken.filter,
+              color: activeCount > 0 ? Colors.orange : null,
+            ),
+          ),
+        ),
+        contentBuilder: (close) => ExtensionFilterOverlay(
+          filterList: _extensionFilters,
+          onChanged: _onExtensionFiltersChanged,
+          close: close,
+          searchValue: _searchQuery,
+          onSearchChanged: _onExtensionSearchChanged,
+        ),
+      );
+    }
     return AdaptiveOverlayMenuButton(
       menuWidth: 300,
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Icon(Broken.filter, color: _filter.isDefault ? null : Colors.orange),
+        child: Icon(
+          Broken.filter,
+          color: _filter.isDefault ? null : Colors.orange,
+        ),
       ),
       contentBuilder: (close) => CatalogFilterOverlay(
         initial: _filter,
         typeOptions: _typeOptions,
         sortOptions: _sortOptions,
-        genreOptions: _isExtension ? _extensionGenreOptions() : _fixedGenreOptions,
+        genreOptions: _isExtension
+            ? _extensionGenreOptions()
+            : _fixedGenreOptions,
         showTypeSection: !_isExtension,
         showYearsSection: !_isExtension,
         showRatingSection: !_isExtension,
@@ -2398,7 +2725,13 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   // ── Menu 3 points (même composant que la barre de la page Librairie) ──────
 
   void _onListMenuAction(CatalogBulkDownloadAction action) {
-    CatalogBulkDownload.handleMenu(context, ref, widget.extensionSource, _extensionItems, action);
+    CatalogBulkDownload.handleMenu(
+      context,
+      ref,
+      widget.extensionSource,
+      _extensionItems,
+      action,
+    );
   }
 
   // ── Filtres appliqués aux items affichés ─────────────────────────────────
@@ -2421,7 +2754,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           'tv' => media.mediaType == 'tv',
           'animation' => media.genreIds.contains(16),
           'documentaire' => media.genreIds.contains(99),
-          'telefilm' => media.mediaType == 'movie' && media.genreIds.contains(10770),
+          'telefilm' =>
+            media.mediaType == 'movie' && media.genreIds.contains(10770),
           _ => true,
         })) {
       return false;
@@ -2431,7 +2765,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     if (f.genres.isNotEmpty) {
       if (!f.matchesGenres([
         for (final id in media.genreIds)
-          tmdbMovieGenreName(id) != 'Autre' ? tmdbMovieGenreName(id) : tmdbTvGenreName(id),
+          tmdbMovieGenreName(id) != 'Autre'
+              ? tmdbMovieGenreName(id)
+              : tmdbTvGenreName(id),
       ])) {
         return false;
       }
@@ -2442,7 +2778,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   bool _anilistMatches(AnilistMedia media) {
     final f = _filter;
     final query = _searchQuery.trim().toLowerCase();
-    if (query.isNotEmpty && !ContentItem.fromAnilist(media).title.toLowerCase().contains(query)) {
+    if (query.isNotEmpty &&
+        !ContentItem.fromAnilist(media).title.toLowerCase().contains(query)) {
       return false;
     }
     if (f.type != 'all' && f.type != media.type.toLowerCase()) return false;
@@ -2458,10 +2795,16 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     var items = _movies.where(_tmdbMatches).toList();
     switch (_filter.sortMode) {
       case 'rating':
-        items.sort((a, b) => (b.voteAverage ?? 0).compareTo(a.voteAverage ?? 0));
+        items.sort(
+          (a, b) => (b.voteAverage ?? 0).compareTo(a.voteAverage ?? 0),
+        );
         break;
       case 'title':
-        items.sort((a, b) => a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase()));
+        items.sort(
+          (a, b) => a.displayTitle.toLowerCase().compareTo(
+            b.displayTitle.toLowerCase(),
+          ),
+        );
         break;
     }
     return items;
@@ -2477,13 +2820,18 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           (item.description ?? '').toLowerCase().contains(query);
     }).toList();
     if (f.sortMode == 'title') {
-      items.sort((a, b) => (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()));
+      items.sort(
+        (a, b) => (a.name ?? '').toLowerCase().compareTo(
+          (b.name ?? '').toLowerCase(),
+        ),
+      );
     }
     return items;
   }
 
   @override
   void dispose() {
+    _extensionSearchDebounce?.cancel();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
@@ -2507,7 +2855,11 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           widget.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: cs.onSurface, fontSize: 17, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: cs.onSurface,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         leading: IconButton(
           tooltip: isFrench ? 'Retour' : 'Back',
@@ -2541,7 +2893,11 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     // ref=NONE ua=NONE on this screen, ref=www.harimanga.co.uk ua=yes on home).
     return ExtensionImageHeaders(
       headers: ref.watch(
-        headersProvider(source: source.name ?? '', lang: source.lang ?? '', sourceId: source.id),
+        headersProvider(
+          source: source.name ?? '',
+          lang: source.lang ?? '',
+          sourceId: source.id,
+        ),
       ),
       child: screen,
     );
@@ -2579,7 +2935,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
                   posterUrl: media.bestCover,
                   title: media.displayTitle,
                   metadata: _tmdbRowMetadata(media),
-                  onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                  onTap: () =>
+                      pushTmdbMediaDetail(context, media, source: source),
                 );
               },
             ),
@@ -2615,7 +2972,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
                 heroTag: tmdbHeroTag(media, source),
                 compact: _filter.layout == CatalogLayout.compact,
                 titleOnCover: _filter.layout != CatalogLayout.comfortable,
-                onTap: () => pushTmdbMediaDetail(context, media, source: source),
+                onTap: () =>
+                    pushTmdbMediaDetail(context, media, source: source),
               );
             },
           ),
@@ -2638,7 +2996,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       CatalogLayout.compact => (columns + 1).clamp(1, 6).toInt(),
       _ => columns,
     };
-    final count = _filter.columns == 0 ? automaticCount : _filter.columns.clamp(1, 6).toInt();
+    final count = _filter.columns == 0
+        ? automaticCount
+        : _filter.columns.clamp(1, 6).toInt();
     return SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: count,
       childAspectRatio: childAspectRatio,
@@ -2650,7 +3010,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   String? _tmdbRowMetadata(TmdbMedia media) {
     final parts = <String?>[
       _tmdbYearOf(media)?.toString(),
-      media.voteAverage != null ? '★ ${media.voteAverage!.toStringAsFixed(1)}' : null,
+      media.voteAverage != null
+          ? '★ ${media.voteAverage!.toStringAsFixed(1)}'
+          : null,
     ];
     final line = parts.whereType<String>().join(' · ');
     return line.isEmpty ? null : line;
@@ -2659,7 +3021,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   String? _anilistRowMetadata(AnilistMedia media) {
     final line = [
       media.seasonYear?.toString(),
-      media.averageScore != null ? '★ ${(media.averageScore! / 10).toStringAsFixed(1)}' : null,
+      media.averageScore != null
+          ? '★ ${(media.averageScore! / 10).toStringAsFixed(1)}'
+          : null,
     ].whereType<String>().join(' · ');
     return line.isEmpty ? null : line;
   }
@@ -2674,7 +3038,11 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         Status.publishingFinished => 'Terminé',
         _ => null,
       },
-      item.genre?.where((g) => g.trim().isNotEmpty).take(3).map((g) => g.trim()).join(' · '),
+      item.genre
+          ?.where((g) => g.trim().isNotEmpty)
+          .take(3)
+          .map((g) => g.trim())
+          .join(' · '),
     ].whereType<String>().where((part) => part.isNotEmpty).join(' · ');
     return line.isEmpty ? null : line;
   }
@@ -2697,7 +3065,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     if (items.isEmpty && _loading) return const AppMediaGridShimmer();
     if (items.isEmpty) {
       return Center(
-        child: Text('Aucun résultat', style: TextStyle(color: cs.onSurfaceVariant)),
+        child: Text(
+          'Aucun résultat',
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
       );
     }
 
@@ -2784,7 +3155,11 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             return TagCard(item: item, onTap: () => onTap(media));
           }
           if (isLandscapeGrid) {
-            return LandscapeCard(item: item, width: double.infinity, onTap: () => onTap(media));
+            return LandscapeCard(
+              item: item,
+              width: double.infinity,
+              onTap: () => onTap(media),
+            );
           }
           return PosterCard(
             item: item,
@@ -2807,11 +3182,15 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     if (items.isEmpty && _loading) return const AppMediaGridShimmer();
     if (items.isEmpty) {
       return Center(
-        child: Text('Aucun résultat', style: TextStyle(color: cs.onSurfaceVariant)),
+        child: Text(
+          'Aucun résultat',
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
       );
     }
 
-    final isTagGrid = widget.cardStyle == 'tag' || widget.cardStyle == 'thumbnail';
+    final isTagGrid =
+        widget.cardStyle == 'tag' || widget.cardStyle == 'thumbnail';
     final isLandscapeGrid = widget.cardStyle == 'landscape';
 
     if (_filter.layout == CatalogLayout.list) {
@@ -2877,7 +3256,12 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
 
     return GridView.builder(
       controller: _scrollController,
-      padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 12, AppUI.pagePadding(context), 110),
+      padding: EdgeInsets.fromLTRB(
+        AppUI.pagePadding(context),
+        12,
+        AppUI.pagePadding(context),
+        110,
+      ),
       gridDelegate: _catalogGridDelegate(
         context,
         childAspectRatio: isTagGrid
@@ -2895,7 +3279,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         }
         final item = items[index];
         if (isTagGrid) {
-          return TagCard(item: ContentItem.fromManga(item), onTap: () => _openExtensionItem(item));
+          return TagCard(
+            item: ContentItem.fromManga(item),
+            onTap: () => _openExtensionItem(item),
+          );
         }
         if (isLandscapeGrid) {
           return LandscapeCard(
@@ -2918,7 +3305,11 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   void _openExtensionItem(MManga item) {
     final collection = ExtensionCollectionRoute.fromItem(item);
     if (collection == null && isExtensionPersonItem(item)) {
-      openExtensionPersonScreen(context: context, source: widget.extensionSource!, item: item);
+      openExtensionPersonScreen(
+        context: context,
+        source: widget.extensionSource!,
+        item: item,
+      );
       return;
     }
     if (collection != null) {
@@ -2929,10 +3320,14 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => TmdbMoviesListScreen.extension(
-            title: item.name?.trim().isNotEmpty == true ? item.name!.trim() : 'Collection',
+            title: item.name?.trim().isNotEmpty == true
+                ? item.name!.trim()
+                : 'Collection',
             source: widget.extensionSource!,
             sectionId: collection.listId,
-            cardStyle: collection.listId.startsWith('search_') ? 'landscape' : null,
+            cardStyle: collection.listId.startsWith('search_')
+                ? 'landscape'
+                : null,
           ),
         ),
       );
@@ -2997,7 +3392,11 @@ class _CatalogListRow extends StatelessWidget {
                       width: 62,
                       height: 92,
                       color: cs.surfaceContainerHighest,
-                      child: Icon(Broken.image, color: cs.onSurfaceVariant, size: 22),
+                      child: Icon(
+                        Broken.image,
+                        color: cs.onSurfaceVariant,
+                        size: 22,
+                      ),
                     )
                   : cachedNetworkImage(
                       imageUrl: posterUrl!,
@@ -3005,7 +3404,11 @@ class _CatalogListRow extends StatelessWidget {
                       height: 92,
                       fit: BoxFit.cover,
                       headers: ExtensionImageHeaders.of(context),
-                      errorWidget: Icon(Broken.image, color: cs.onSurfaceVariant, size: 22),
+                      errorWidget: Icon(
+                        Broken.image,
+                        color: cs.onSurfaceVariant,
+                        size: 22,
+                      ),
                     ),
             ),
             const SizedBox(width: 12),
@@ -3029,7 +3432,10 @@ class _CatalogListRow extends StatelessWidget {
                       metadata!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ],

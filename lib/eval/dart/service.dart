@@ -156,7 +156,8 @@ class DartExtensionService implements ExtensionService {
     final wordChar = RegExp(r'[A-Za-z0-9_$]');
     while (i < raw.length) {
       final remaining = raw.length - i;
-      final isClient = remaining >= 7 &&
+      final isClient =
+          remaining >= 7 &&
           raw.substring(i, i + 6) == 'Client' &&
           raw[i + 6] == '(' &&
           (i == 0 || !wordChar.hasMatch(raw[i - 1]));
@@ -181,8 +182,10 @@ class DartExtensionService implements ExtensionService {
           if (i < raw.length) i++; // consume closing quote
           continue;
         }
-        if (c == '(') depth++;
-        else if (c == ')') depth--;
+        if (c == '(')
+          depth++;
+        else if (c == ')')
+          depth--;
         i++;
       }
       out.write(')');
@@ -255,13 +258,18 @@ class DartExtensionService implements ExtensionService {
     try {
       final result = await _interpreter!.invoke('getPopular', [page]) as MPages;
       sw.stop();
-      _dLog(wl.LogLevel.info,
+      _dLog(
+        wl.LogLevel.info,
         '$_id · getPopular page=$page → ${result.list?.length ?? 0} items  '
-        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
+        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}',
+      );
       return result;
     } catch (e) {
       sw.stop();
-      _dLog(wl.LogLevel.error, '$_id · getPopular FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      _dLog(
+        wl.LogLevel.error,
+        '$_id · getPopular FAILED ${sw.elapsedMilliseconds}ms ← $e',
+      );
       rethrow;
     }
   }
@@ -271,38 +279,53 @@ class DartExtensionService implements ExtensionService {
     _dLog(wl.LogLevel.info, '$_id · getLatestUpdates page=$page');
     final sw = Stopwatch()..start();
     try {
-      final result = await _interpreter!.invoke('getLatestUpdates', [page]) as MPages;
+      final result =
+          await _interpreter!.invoke('getLatestUpdates', [page]) as MPages;
       sw.stop();
-      _dLog(wl.LogLevel.info,
+      _dLog(
+        wl.LogLevel.info,
         '$_id · getLatestUpdates page=$page → ${result.list?.length ?? 0} items  '
-        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
+        'hasNext=${result.hasNextPage}  ${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}',
+      );
       return result;
     } catch (e) {
       sw.stop();
-      _dLog(wl.LogLevel.error, '$_id · getLatestUpdates FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      _dLog(
+        wl.LogLevel.error,
+        '$_id · getLatestUpdates FAILED ${sw.elapsedMilliseconds}ms ← $e',
+      );
       rethrow;
     }
   }
 
   @override
   Future<MPages> search(String query, int page, List<dynamic> filters) async {
-    _dLog(wl.LogLevel.info,
-      '$_id · search q="${_dt(query, 60)}" page=$page filters=${filters.length}');
+    _dLog(
+      wl.LogLevel.info,
+      '$_id · search q="${_dt(query, 60)}" page=$page filters=${filters.length}',
+    );
     final sw = Stopwatch()..start();
     try {
-      final result = await _interpreter!.invoke('search', [
-            query,
-            page,
-            FilterList(filters),
-          ]) as MPages;
+      final result =
+          await _interpreter!.invoke('search', [
+                query,
+                page,
+                FilterList(filters),
+              ])
+              as MPages;
       sw.stop();
-      _dLog(wl.LogLevel.info,
+      _dLog(
+        wl.LogLevel.info,
         '$_id · search q="${_dt(query, 60)}" → ${result.list?.length ?? 0} items  '
-        '${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
+        '${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}',
+      );
       return result;
     } catch (e) {
       sw.stop();
-      _dLog(wl.LogLevel.error, '$_id · search FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      _dLog(
+        wl.LogLevel.error,
+        '$_id · search FAILED ${sw.elapsedMilliseconds}ms ← $e',
+      );
       rethrow;
     }
   }
@@ -317,13 +340,18 @@ class DartExtensionService implements ExtensionService {
     try {
       final result = await _interpreter!.invoke('getDetail', [url]) as MManga;
       sw.stop();
-      _dLog(wl.LogLevel.info,
+      _dLog(
+        wl.LogLevel.info,
         '$_id · getDetail → name="${result.name}"  '
-        'chapters=${result.chapters?.length ?? 0}  ${sw.elapsedMilliseconds}ms');
+        'chapters=${result.chapters?.length ?? 0}  ${sw.elapsedMilliseconds}ms',
+      );
       return result;
     } catch (e) {
       sw.stop();
-      _dLog(wl.LogLevel.error, '$_id · getDetail FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      _dLog(
+        wl.LogLevel.error,
+        '$_id · getDetail FAILED ${sw.elapsedMilliseconds}ms ← $e',
+      );
       rethrow;
     }
   }
@@ -343,17 +371,24 @@ class DartExtensionService implements ExtensionService {
       }).toList();
       sw.stop();
       if (pages.isEmpty) {
-        _dLog(wl.LogLevel.warning,
+        _dLog(
+          wl.LogLevel.warning,
           '$_id · getPageList → 0 pages  ${sw.elapsedMilliseconds}ms '
-          '← check getPageList() or the chapter URL');
+          '← check getPageList() or the chapter URL',
+        );
       } else {
-        _dLog(wl.LogLevel.info,
-          '$_id · getPageList → ${pages.length} pages  ${sw.elapsedMilliseconds}ms');
+        _dLog(
+          wl.LogLevel.info,
+          '$_id · getPageList → ${pages.length} pages  ${sw.elapsedMilliseconds}ms',
+        );
       }
       return pages;
     } catch (e) {
       sw.stop();
-      _dLog(wl.LogLevel.error, '$_id · getPageList FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      _dLog(
+        wl.LogLevel.error,
+        '$_id · getPageList FAILED ${sw.elapsedMilliseconds}ms ← $e',
+      );
       rethrow;
     }
   }
@@ -366,26 +401,35 @@ class DartExtensionService implements ExtensionService {
     );
     final sw = Stopwatch()..start();
     try {
-      final result =
-          (await _interpreter!.invoke('getVideoList', [url]) as List).cast<Video>();
+      final result = (await _interpreter!.invoke('getVideoList', [url]) as List)
+          .cast<Video>();
       sw.stop();
       if (result.isEmpty) {
-        _dLog(wl.LogLevel.warning,
+        _dLog(
+          wl.LogLevel.warning,
           '$_id · getVideoList → 0 videos  ${sw.elapsedMilliseconds}ms '
-          '← extension returned empty list; check getVideoList() or the episode URL');
+          '← extension returned empty list; check getVideoList() or the episode URL',
+        );
       } else {
-        _dLog(wl.LogLevel.info,
-          '$_id · getVideoList → ${result.length} video(s)  ${sw.elapsedMilliseconds}ms');
+        _dLog(
+          wl.LogLevel.info,
+          '$_id · getVideoList → ${result.length} video(s)  ${sw.elapsedMilliseconds}ms',
+        );
         for (var i = 0; i < result.length && i < 5; i++) {
-          _dLog(wl.LogLevel.debug,
+          _dLog(
+            wl.LogLevel.debug,
             '$_id · getVideoList  [${i + 1}] quality="${result[i].quality}"  '
-            'origin=${safeUrlOriginForLog(result[i].originalUrl)}');
+            'origin=${safeUrlOriginForLog(result[i].originalUrl)}',
+          );
         }
       }
       return result;
     } catch (e) {
       sw.stop();
-      _dLog(wl.LogLevel.error, '$_id · getVideoList FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      _dLog(
+        wl.LogLevel.error,
+        '$_id · getVideoList FAILED ${sw.elapsedMilliseconds}ms ← $e',
+      );
       rethrow;
     }
   }
@@ -396,21 +440,38 @@ class DartExtensionService implements ExtensionService {
       wl.LogLevel.debug,
       '$_id · getHtmlContent origin=${safeUrlOriginForLog(url)}',
     );
-    return await _interpreter!.invoke('getHtmlContent', [url, referer]) as String;
+    return await _interpreter!.invoke('getHtmlContent', [url, referer])
+        as String;
   }
 
   @override
   Future<String> cleanHtmlContent(String html) async {
-    _dLog(wl.LogLevel.debug, '$_id · cleanHtmlContent input=${html.length} chars');
+    _dLog(
+      wl.LogLevel.debug,
+      '$_id · cleanHtmlContent input=${html.length} chars',
+    );
     return await _interpreter!.invoke('cleanHtmlContent', [html]) as String;
   }
 
   @override
-  FilterList getFilterList() {
+  FilterList getFilterList([String? context]) {
     List<dynamic> list = [];
     try {
-      list = _interpreter!.invoke('getFilterList', []) as List;
-    } catch (_) {}
+      list =
+          _interpreter!.invoke(
+                'getFilterList',
+                context == null ? [] : [context],
+              )
+              as List;
+    } catch (_) {
+      // Dart extensions predate contextual filter lists; retain their original
+      // no-argument filters when a caller asks for a section-specific list.
+      if (context != null) {
+        try {
+          list = _interpreter!.invoke('getFilterList', []) as List;
+        } catch (_) {}
+      }
+    }
 
     return FilterList(_toValueList(list));
   }
@@ -453,7 +514,6 @@ class DartExtensionService implements ExtensionService {
     }
   }
 
-
   @override
   Future<List<String>> getSuggestions(String query) async => [];
 
@@ -465,21 +525,24 @@ class DartExtensionService implements ExtensionService {
       final result =
           await _interpreter!.invoke('getCustomList', [id, page]) as MPages;
       sw.stop();
-      _dLog(wl.LogLevel.info,
+      _dLog(
+        wl.LogLevel.info,
         '$_id · getCustomList id="$id" → ${result.list?.length ?? 0} items  '
-        '${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}');
+        '${sw.elapsedMilliseconds}ms  ${_coverSummary(result.list)}',
+      );
       return result;
     } catch (e) {
       sw.stop();
-      _dLog(wl.LogLevel.error,
-        '$_id · getCustomList id="$id" FAILED ${sw.elapsedMilliseconds}ms ← $e');
+      _dLog(
+        wl.LogLevel.error,
+        '$_id · getCustomList id="$id" FAILED ${sw.elapsedMilliseconds}ms ← $e',
+      );
       rethrow;
     }
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getRecommendations(String url) async =>
-      [];
+  Future<List<Map<String, dynamic>>> getRecommendations(String url) async => [];
 
   @override
   Future<List<Map<String, dynamic>>> getComments(String url) async => [];

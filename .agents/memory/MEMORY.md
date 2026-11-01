@@ -2,6 +2,7 @@
 - [Flutter and Android builds](flutter-toolchain.md) — use repository CI and preserve the case-sensitive NewPipe artifact coordinate.
 - [Push GitHub](github-push-auth.md) — clear injected Git proxy config and use the GitHub CLI helper for PAT-authenticated pushes.
 - [Browse source boundary](browse-source-boundary.md) — Browse doit lire les sources installées persistées; les fetchs réseau restent explicites.
+- [Extension-owned behavior](extension-owned-behavior.md) — le code et le layout d’une extension portent son comportement; Watchtower ne fournit que des capacités génériques.
 - [Component gallery navigation](component-gallery-navigation.md) — la galerie est une destination interne de Library, pas une URL publique GitHub Pages.
 - [GitHub Actions availability](github-actions-availability.md) — les workflows de validation peuvent être désactivés côté dépôt; le push seul ne garantit pas un run CI.
 - [Component gallery fidelity](component-gallery-fidelity.md) — gallery entries must render production widgets and production section renderers, never visual duplicates.

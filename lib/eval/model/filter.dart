@@ -15,8 +15,16 @@ class SelectFilter {
   int state;
   List<dynamic> values;
   String? typeName;
+  bool searchable;
 
-  SelectFilter(this.type, this.name, this.state, this.values, this.typeName);
+  SelectFilter(
+    this.type,
+    this.name,
+    this.state,
+    this.values,
+    this.typeName, {
+    this.searchable = false,
+  });
   factory SelectFilter.fromJson(Map<String, dynamic> json) {
     return SelectFilter(
       json['type'],
@@ -24,6 +32,7 @@ class SelectFilter {
       json['state'] ?? 0,
       fromJsonFilterValuesToList(json['values']),
       json['type_name'],
+      searchable: json['searchable'] == true,
     );
   }
   Map<String, dynamic> toJson() => {
@@ -32,6 +41,7 @@ class SelectFilter {
     'state': state,
     'values': filterValuesListToJson(values),
     'type_name': "SelectFilter",
+    if (searchable) 'searchable': true,
   };
 }
 

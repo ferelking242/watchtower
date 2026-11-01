@@ -46,10 +46,18 @@ class ExtensionFilterOverlay extends StatefulWidget {
 
 class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
   int? _drillIndex;
+  final TextEditingController _optionSearchController = TextEditingController();
+  String _optionSearchQuery = '';
 
   List<dynamic> get _filters => widget.filterList;
 
   void _notify() => widget.onChanged(List<dynamic>.of(_filters));
+
+  @override
+  void dispose() {
+    _optionSearchController.dispose();
+    super.dispose();
+  }
 
   int get _activeCount {
     var count = 0;
@@ -156,7 +164,10 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -171,7 +182,9 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AdaptiveOverlaySection(
-          title: _activeCount > 0 ? 'Filtres · $_activeCount actif(s)' : 'Filtres',
+          title: _activeCount > 0
+              ? 'Filtres · $_activeCount actif(s)'
+              : 'Filtres',
         ),
         for (var i = 0; i < _filters.length; i++) _buildFilterRow(i),
         if (_activeCount > 0) ...[
@@ -226,7 +239,9 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
     }
 
     if (f is SelectFilter) {
-      final selected = f.state >= 0 && f.state < f.values.length ? f.values[f.state] : null;
+      final selected = f.state >= 0 && f.state < f.values.length
+          ? f.values[f.state]
+          : null;
       return AdaptiveOverlayItem(
         label: f.name,
         trailing: Row(
@@ -248,7 +263,11 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
             const Icon(Broken.arrow_right_3, size: 14),
           ],
         ),
-        onTap: () => setState(() => _drillIndex = index),
+        onTap: () => setState(() {
+          _optionSearchController.clear();
+          _optionSearchQuery = '';
+          _drillIndex = index;
+        }),
       );
     }
 
@@ -278,7 +297,9 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
     if (f is SortFilter) {
       final ascending = f.state.ascending;
       final selectedIndex = _safeIndex(f.state.index, f.values.length);
-      final selected = selectedIndex >= 0 ? f.values[selectedIndex].name.toString() : '—';
+      final selected = selectedIndex >= 0
+          ? f.values[selectedIndex].name.toString()
+          : '—';
       return AdaptiveOverlayItem(
         label: f.name,
         trailing: Row(
@@ -304,30 +325,90 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
 
   Widget _buildDrill(dynamic filter) {
     if (filter is SelectFilter) {
-      final options = filter.values.map((e) => e.name?.toString() ?? '').toList(growable: false);
+      final indexes = <int>[
+        for (var i = 0; i < filter.values.length; i++)
+          if (!filter.searchable ||
+              (filter.values[i].name?.toString() ?? '').toLowerCase().contains(
+                _optionSearchQuery.trim().toLowerCase(),
+              ))
+            i,
+      ];
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _backHeader(filter.name, () => setState(() => _drillIndex = null)),
-          for (var i = 0; i < options.length; i++)
-            AdaptiveOverlayItem(
-              label: options[i],
-              selected: filter.state == i,
-              onTap: () {
-                setState(() {
-                  filter.state = i;
-                  _drillIndex = null;
-                });
-                _notify();
-              },
+          if (filter.searchable)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: TextField(
+                controller: _optionSearchController,
+                autofocus: true,
+                onChanged: (value) =>
+                    setState(() => _optionSearchQuery = value),
+                decoration: InputDecoration(
+                  hintText: 'Rechercher une option…',
+                  prefixIcon: const Icon(Icons.search, size: 18),
+                  isDense: true,
+                  filled: true,
+                  fillColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
             ),
+          if (filter.searchable)
+            SizedBox(
+              height: 300,
+              child: indexes.isEmpty
+                  ? const Center(child: Text('Aucun résultat'))
+                  : ListView.builder(
+                      itemCount: indexes.length,
+                      itemBuilder: (context, row) {
+                        final index = indexes[row];
+                        final option = filter.values[index];
+                        return AdaptiveOverlayItem(
+                          label: option.name?.toString() ?? '',
+                          selected: filter.state == index,
+                          onTap: () {
+                            setState(() {
+                              filter.state = index;
+                              _drillIndex = null;
+                              _optionSearchQuery = '';
+                              _optionSearchController.clear();
+                            });
+                            _notify();
+                          },
+                        );
+                      },
+                    ),
+            )
+          else
+            for (var i = 0; i < filter.values.length; i++)
+              AdaptiveOverlayItem(
+                label: filter.values[i].name?.toString() ?? '',
+                selected: filter.state == i,
+                onTap: () {
+                  setState(() {
+                    filter.state = i;
+                    _drillIndex = null;
+                  });
+                  _notify();
+                },
+              ),
         ],
       );
     }
 
     if (filter is GroupFilter) {
-      final isTagGroup = filter.state.isNotEmpty && filter.state.every((e) => e is TriStateFilter);
+      final isTagGroup =
+          filter.state.isNotEmpty &&
+          filter.state.every((e) => e is TriStateFilter);
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -370,7 +451,10 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
     }
 
     if (filter is SortFilter) {
-      final selectedIndex = _safeIndex(filter.state.index, filter.values.length);
+      final selectedIndex = _safeIndex(
+        filter.state.index,
+        filter.values.length,
+      );
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -381,7 +465,12 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
               label: filter.values[i].name.toString(),
               selected: i == selectedIndex,
               trailing: i == selectedIndex
-                  ? Icon(filter.state.ascending ? Broken.arrow_up_3 : Broken.arrow_down, size: 14)
+                  ? Icon(
+                      filter.state.ascending
+                          ? Broken.arrow_up_3
+                          : Broken.arrow_down,
+                      size: 14,
+                    )
                   : null,
               onTap: () {
                 setState(() {
@@ -425,7 +514,11 @@ int _safeIndex(int index, int length) {
 }
 
 class _TextFilterRow extends StatefulWidget {
-  const _TextFilterRow({super.key, required this.filter, required this.onChanged});
+  const _TextFilterRow({
+    super.key,
+    required this.filter,
+    required this.onChanged,
+  });
 
   final TextFilter filter;
   final ValueChanged<String> onChanged;
@@ -435,7 +528,9 @@ class _TextFilterRow extends StatefulWidget {
 }
 
 class _TextFilterRowState extends State<_TextFilterRow> {
-  late final TextEditingController _controller = TextEditingController(text: widget.filter.state);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.filter.state,
+  );
 
   @override
   void dispose() {
@@ -485,7 +580,9 @@ class _OverlaySearchField extends StatefulWidget {
 }
 
 class _OverlaySearchFieldState extends State<_OverlaySearchField> {
-  late final TextEditingController _controller = TextEditingController(text: widget.value);
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
 
   @override
   void didUpdateWidget(covariant _OverlaySearchField oldWidget) {
@@ -635,7 +732,10 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -667,24 +767,25 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         ? '${d.minYear}'
         : '${d.minYear ?? '…'} — ${d.maxYear ?? '…'}';
 
-    Widget row(String label, String value, _CatalogLevel level) => AdaptiveOverlayItem(
-      label: label,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
+    Widget row(String label, String value, _CatalogLevel level) =>
+        AdaptiveOverlayItem(
+          label: label,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Icon(Broken.arrow_right_3, size: 14),
+            ],
           ),
-          const Icon(Broken.arrow_right_3, size: 14),
-        ],
-      ),
-      onTap: () => setState(() => _level = level),
-    );
+          onTap: () => setState(() => _level = level),
+        );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -701,14 +802,28 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         ],
         if (widget.showTypeSection && widget.typeOptions.isNotEmpty)
           row('Type', typeLabel ?? d.type, _CatalogLevel.type),
-        if (widget.showYearsSection) row('Années', yearsLabel, _CatalogLevel.years),
+        if (widget.showYearsSection)
+          row('Années', yearsLabel, _CatalogLevel.years),
         if (widget.showGenreSection && widget.genreOptions.isNotEmpty)
-          row('Genres', d.genres.isEmpty ? 'Tous' : '${d.genres.length}', _CatalogLevel.genres),
+          row(
+            'Genres',
+            d.genres.isEmpty ? 'Tous' : '${d.genres.length}',
+            _CatalogLevel.genres,
+          ),
         if (widget.showRatingSection)
-          row('Note', d.minRating > 0 ? '${d.minRating.toInt()}+' : 'Toutes', _CatalogLevel.rating),
-        if (widget.showSortSection) row('Ordre', sortLabel ?? d.sortMode, _CatalogLevel.sort),
+          row(
+            'Note',
+            d.minRating > 0 ? '${d.minRating.toInt()}+' : 'Toutes',
+            _CatalogLevel.rating,
+          ),
+        if (widget.showSortSection)
+          row('Ordre', sortLabel ?? d.sortMode, _CatalogLevel.sort),
         const AdaptiveOverlayDivider(),
-        AdaptiveOverlayItem(icon: Broken.tick_circle, label: 'Appliquer', onTap: _apply),
+        AdaptiveOverlayItem(
+          icon: Broken.tick_circle,
+          label: 'Appliquer',
+          onTap: _apply,
+        ),
         AdaptiveOverlayItem(
           icon: Broken.close_circle,
           label: 'Retirer les filtres',
@@ -784,7 +899,8 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
 
   Widget _buildYears() {
     final now = DateTime.now().year;
-    final decadeSelected = (int start) => _draft.minYear == start && _draft.maxYear == start + 9;
+    final decadeSelected = (int start) =>
+        _draft.minYear == start && _draft.maxYear == start + 9;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
