@@ -736,12 +736,32 @@ class CustomExtendedNetworkImageProvider
   }
 
   Future<StreamedResponse> _getResponse(Uri resolved) async {
-    var response = await MClient.init(
-      showCloudFlareError: showCloudFlareError,
-      extensionSourceId: sourceId,
-    ).send(_buildImageRequest(resolved));
+    StreamedResponse response;
+    var usedDartFallback = false;
+    try {
+      response = await MClient.init(
+        showCloudFlareError: showCloudFlareError,
+        extensionSourceId: sourceId,
+      ).send(_buildImageRequest(resolved));
+    } catch (error) {
+      // Some native-client failures happen before an HTTP status exists
+      // (for example, response metadata that the Rust bridge cannot decode).
+      // Treat those like transient network failures and give the plain Dart
+      // client the same request before abandoning the cover.
+      usedDartFallback = true;
+      _imgLog(
+        'retry (dart http) ${_shortUrl(resolved.toString())} '
+        'after native transport error: $error',
+        level: LogLevel.warning,
+      );
+      response = await MClient.init(
+        reqcopyWith: {'useDartHttpClient': true},
+        showCloudFlareError: showCloudFlareError,
+        extensionSourceId: sourceId,
+      ).send(_buildImageRequest(resolved));
+    }
 
-    if (response.statusCode != 200) {
+    if (response.statusCode != 200 && !usedDartFallback) {
       // The default (anti-bot aware) client can be answered with a challenge or
       // a transient error for an image; retry once over the plain Dart client
       // before giving up. A `Request` can only be finalized once, so the retry
