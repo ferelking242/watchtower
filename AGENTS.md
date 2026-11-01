@@ -872,3 +872,26 @@ must not leak into watch code paths or logs:
 - `test/extension_revision_change_test.dart` pins both invariants. Bump
   `version` when publishing an extension anyway — the revision check is a
   safety net, not a licence to skip the bump.
+
+## Sauvegarde automatique (auto backup) — ne pas régresser
+- `AutoBackupService` (`lib/services/auto_backup_service.dart`) écrit un
+  instantané de la base Isar, des boxes Hive et des SharedPreferences dans un
+  dossier caché `.backup` **à la racine du dossier de stockage**
+  (`/storage/emulated/0/watchtower/.backup` sur Android). Ce dossier est sur le
+  stockage externe, donc il **survit à la désinstallation** ; une réinstallation
+  restaure l'instantané avant l'ouverture d'Isar, donc bibliothèque, réglages,
+  extensions, historique et téléchargements reviennent intacts.
+- L'instantané est pris au lancement, toutes les 30 min, au passage en
+  arrière-plan, et à la demande. Le dossier est déclaré dans
+  `WatchtowerStorageLayout.managedDirectories`.
+- Le point d'entrée utilisateur est **Réglages → Sauvegarde automatique**
+  (route `/autoBackup`, écran
+  `lib/modules/more/data_and_storage/auto_backup_settings_screen.dart`) : il
+  affiche le chemin exact du dossier, l'état activé/désactivé, la date de la
+  dernière sauvegarde et les boutons Sauvegarder / Restaurer.
+- La restauration manuelle ne peut pas échanger la base Isar tant qu'elle est
+  ouverte : elle restaure Hive + préférences tout de suite et pose un marqueur
+  `pending_restore.flag`, appliqué au prochain lancement avant `Isar.open`.
+- Il n'y a **qu'un seul lecteur vidéo** : la route anime rend `WatchDetailView`.
+  Le second lecteur parallèle (`anime_player_view_io.dart` et ses widgets) a
+  été supprimé — ne pas le réintroduire.
