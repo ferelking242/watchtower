@@ -10,7 +10,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/backup_compression.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/restore.dart';

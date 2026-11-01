@@ -35,6 +35,7 @@ class AutoBackupService {
   static const String _hiveSnapshotName = 'hive_boxes.json';
   static const String _prefsSnapshotName = 'shared_preferences.json';
   static const String _manifestName = 'manifest.json';
+  static const String _pendingRestoreName = 'pending_restore.flag';
 
   static const String _enabledKey = 'watchtower_auto_backup_enabled';
   static const String _lastBackupKey = 'watchtower_auto_backup_last';
@@ -166,15 +167,21 @@ class AutoBackupService {
   /// cannot be restored yet (Hive is not initialised), so call
   /// [restoreHiveBoxes] after `Hive.initFlutter`.
   ///
+  /// Runs either on a fresh install (no live database) or when a manual
+  /// restore was queued from Settings and left a pending-restore marker.
+  ///
   /// Returns true when a snapshot was found and applied.
   static Future<bool> restoreOnFreshInstall() async {
     if (kIsWeb) return false;
-    if (!await isFreshInstall()) return false;
     final dir = await _backupDirectory(create: false);
     if (dir == null) return false;
 
     final isarBackup = File(p.join(dir.path, _isarFileName));
     if (!isarBackup.existsSync()) return false;
+
+    final pendingRestore = File(p.join(dir.path, _pendingRestoreName));
+    final isPending = pendingRestore.existsSync();
+    if (!isPending && !await isFreshInstall()) return false;
 
     try {
       // 1 — Isar database file.
@@ -192,6 +199,11 @@ class AutoBackupService {
       await _restorePreferences(dir);
 
       _freshInstallRestorePending = true;
+      if (isPending) {
+        try {
+          await pendingRestore.delete();
+        } catch (_) {}
+      }
 
       AppLogger.log(
         'AutoBackup: restored database + preferences from ${dir.path}',
@@ -293,8 +305,11 @@ class AutoBackupService {
     }
   }
 
-  /// Manual restore of the snapshot over the live data. Used from the settings
-  /// screen; the app must be restarted afterwards for the database to reload.
+  /// Manual restore of the snapshot over the live data, used from the settings
+  /// screen. The Hive boxes and preferences are restored immediately; the Isar
+  /// database cannot be swapped while it is open, so a pending-restore marker
+  /// is left behind and the database is replaced on the next launch, before
+  /// Isar is opened. The app must be restarted for the library to reload.
   static Future<bool> restoreNow() async {
     if (kIsWeb) return false;
     final dir = await _backupDirectory(create: false);
@@ -303,13 +318,22 @@ class AutoBackupService {
     try {
       await _restoreHive(dir);
       await _restorePreferences(dir);
+      await File(p.join(dir.path, _pendingRestoreName)).writeAsString(
+        '${DateTime.now().millisecondsSinceEpoch}',
+      );
+      AppLogger.log(
+        'AutoBackup: restore queued, database will be swapped on restart',
+        logLevel: LogLevel.info,
+        tag: LogTag.maintenance,
+      );
       return true;
-    } catch (error) {
+    } catch (error, stack) {
       AppLogger.log(
         'AutoBackup: manual restore failed',
         logLevel: LogLevel.error,
         tag: LogTag.maintenance,
         error: error,
+        stackTrace: stack,
       );
       return false;
     }
