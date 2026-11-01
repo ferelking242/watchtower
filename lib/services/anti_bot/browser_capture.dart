@@ -546,7 +546,7 @@ class _BrowserSession {
 
   Future<bool> _start() async {
     try {
-      // Reuse a clearance the app already holds, so the first navigation lands
+      // Reuse the cookies the app already holds so the first navigation lands
       // on the real page instead of an interstitial.
       try {
         await MClient.restoreCookiesToWebView(firstUrl, sourceId: sourceId);
@@ -556,17 +556,25 @@ class _BrowserSession {
         webViewEnvironment: webViewEnvironment,
         initialSize: const Size(390, 780),
         initialUrlRequest: URLRequest(url: WebUri(firstUrl)),
-        // No `userAgent` override on purpose: this session performs the request
-        // itself, so it must look exactly like an ordinary browser of this
-        // platform. Forcing the UA the extension uses elsewhere (often a
-        // desktop Chrome string) would claim a desktop browser from a mobile
-        // engine — a mismatch Cloudflare does check, and the reason the visible
-        // panel loads while an overridden hidden one would not.
+        // Same User-Agent as the panel that minted the stored `cf_clearance`.
+        //
+        // Cloudflare binds the clearance to the exact UA that solved the
+        // challenge. The visible panel navigates with
+        // [MClient.userAgentForRequests] and saves that UA with the cookie, so
+        // this session must present the *same* one. Leaving the engine default
+        // (no override) meant a stored clearance — minted under the session UA
+        // — was replayed under the WebView's own UA; Cloudflare then re-served
+        // the interstitial until the solve deadline, every section came back
+        // `items=0` and the workers timed out. [MClient.userAgentForRequests]
+        // returns the stored session UA when there is one and the mobile app
+        // default otherwise, never a desktop string, so the engine stays
+        // coherent with what it advertises.
         initialSettings: InAppWebViewSettings(
           javaScriptEnabled: true,
           domStorageEnabled: true,
           thirdPartyCookiesEnabled: true,
           transparentBackground: true,
+          userAgent: MClient.userAgentForRequests(sourceId: sourceId),
         ),
         onWebViewCreated: (controller) => _controller = controller,
         onLoadStop: (controller, url) => _controller = controller,

@@ -153,12 +153,19 @@ extension session. `cf_clearance` is bound to that UA; an empty UA gets a 403
 before any challenge, and a UA that differs from the WebView invalidates the
 cookie.
 * The hidden capture session **restores the stored cookies as-is, including
-`cf_clearance`** (`MClient.restoreCookiesToWebView`). Deleting the cookie
+`cf_clearance`** (`MClient.restoreCookiesToWebView`) — and must navigate with
+the same User-Agent those cookies were minted under
+(`MClient.userAgentForRequests`, i.e. the stored session UA). Cloudflare binds
+the clearance to the exact UA that solved the challenge. Deleting the cookie
 (`skipCfClearance: true`) was tried and reverted: it forces the session to
 re-solve the challenge from scratch, and an offscreen Android WebView does not
 manage it — the section comes back empty (`items=0`) while the workers time
-out, on a device where the cookie was perfectly valid. `cf_clearance` is minted
-by the same engine that then reuses it, so the UA always matches.
+out, on a device where the cookie was perfectly valid. Leaving the engine
+default UA was also wrong for the same binding reason: a stored clearance
+minted under the session UA was replayed under the WebView's own UA, so
+Cloudflare re-served the interstitial until the solve deadline and **every**
+section returned `items=0` with the workers timing out (`the browser session
+could not clear the challenge`). The UA override must stay on the session.
 * The notification names the blocked *extension* (never a request count), and
 its action opens that extension's page, where the panel is inline. There is no
 full-screen challenge route any more.
