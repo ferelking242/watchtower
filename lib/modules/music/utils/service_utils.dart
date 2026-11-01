@@ -195,6 +195,15 @@ abstract class ServiceUtils {
     return DateTime.parse(album.releaseDate);
   }
 
+  /// Parses a possibly missing/invalid album release date. Items without a
+  /// usable date sort to the bottom instead of throwing mid-sort.
+  static DateTime _parseAlbumDate(String? date) {
+    if (date == null || date.isEmpty) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    return DateTime.tryParse(date) ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
   static List<T> sortTracks<T extends SpotubeTrackObject>(
       List<T> tracks, SortBy sortBy) {
     if (sortBy == SortBy.none) return tracks;
@@ -205,15 +214,14 @@ abstract class ServiceUtils {
             return a.name.compareTo(b.name);
           case SortBy.descending:
             return b.name.compareTo(a.name);
-          // TODO: We'll figure this one out later :')
-          // case SortBy.newest:
-          //   final aDate = parseSpotifyAlbumDate(a.album);
-          //   final bDate = parseSpotifyAlbumDate(b.album);
-          //   return bDate.compareTo(aDate);
-          // case SortBy.oldest:
-          //   final aDate = parseSpotifyAlbumDate(a.album);
-          //   final bDate = parseSpotifyAlbumDate(b.album);
-          // return aDate.compareTo(bDate);
+          case SortBy.newest:
+            return _parseAlbumDate(b.album.releaseDate).compareTo(
+              _parseAlbumDate(a.album.releaseDate),
+            );
+          case SortBy.oldest:
+            return _parseAlbumDate(a.album.releaseDate).compareTo(
+              _parseAlbumDate(b.album.releaseDate),
+            );
           case SortBy.duration:
             return a.durationMs.compareTo(b.durationMs);
           case SortBy.artist:

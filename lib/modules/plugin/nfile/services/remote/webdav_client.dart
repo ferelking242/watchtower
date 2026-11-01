@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:xml/xml.dart' as xml;
 import 'remote_client.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 class WebDavRemoteClient implements RemoteClient {
   final String host;
@@ -85,7 +86,7 @@ class WebDavRemoteClient implements RemoteClient {
     }
 
     final url = Uri.parse(_baseUrl + Uri.encodeFull(normalizedPath));
-    print('[WebDAV DEBUG] PROPFIND URL: $url');
+    AppLogger.log('WebDAV PROPFIND URL: $url', logLevel: LogLevel.debug, tag: LogTag.network);
     final request = await _httpClient.openUrl('PROPFIND', url);
     request.headers.set('Depth', '1');
     final auth = _authHeader();
@@ -94,14 +95,14 @@ class WebDavRemoteClient implements RemoteClient {
     }
     
     final response = await request.close();
-    print('[WebDAV DEBUG] Response status: ${response.statusCode}');
+    AppLogger.log('WebDAV response status: ${response.statusCode}', logLevel: LogLevel.debug, tag: LogTag.network);
     if (response.statusCode >= 400) {
       throw Exception('WebDAV list error: ${response.statusCode}');
     }
 
     final body = await response.transform(utf8.decoder).join();
-    print('[WebDAV DEBUG] Response body length: ${body.length}');
-    print('[WebDAV DEBUG] Response body: $body');
+    AppLogger.log('WebDAV response body length: ${body.length}', logLevel: LogLevel.debug, tag: LogTag.network);
+    AppLogger.log('WebDAV response body: $body', logLevel: LogLevel.debug, tag: LogTag.network);
     final document = xml.XmlDocument.parse(body);
     
     // Find response tags under any namespace prefix case-insensitively

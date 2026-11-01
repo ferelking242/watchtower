@@ -122,7 +122,7 @@ bool _isLocalVideoPath(String value) {
   if (value.isEmpty) return false;
   try {
     if (File(value).existsSync()) return true;
-  } catch (_) {}
+  } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
   final uri = Uri.tryParse(value);
   if (uri?.scheme == 'file') {
     try {
@@ -349,7 +349,7 @@ class WatchInlinePlayer {
       final plat = _player.platform as dynamic;
       if (ua.isNotEmpty) await plat.setProperty('user-agent', ua);
       if (referer.isNotEmpty) await plat.setProperty('referrer', referer);
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     if (_isDisposed) return;
     final isLocal = _isLocalVideoPath(targetVideo.url);
     if (!isLocal) await _tuneStartupForNetworkStreams();
@@ -392,7 +392,7 @@ class WatchInlinePlayer {
               onTimeout: () => Duration.zero,
             );
         await _player.seek(savedPos);
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     }
     onQualityChanged?.call();
   }
@@ -420,7 +420,7 @@ class WatchInlinePlayer {
         try {
           download.chapter.loadSync();
           savedChapter = download.chapter.value;
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       }
       savedChapter ??= download.id == null
           ? null
@@ -898,7 +898,7 @@ class WatchInlinePlayer {
           );
         },
       );
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     if (sw.elapsedMilliseconds < 200) return;
     AppLogger.log(
       '[PLAYER] stop() took ${sw.elapsedMilliseconds}ms ($where)',
@@ -1345,7 +1345,7 @@ class WatchInlinePlayer {
             );
         if (_isDisposed) return;
         await _player.seek(pos);
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     }());
   }
 
@@ -1913,7 +1913,7 @@ class _FullscreenControlsOverlayState
       if (!mounted) return;
       try {
         await widget.player.seek(Duration(milliseconds: resume.ms));
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       if (mounted) {
         _playerToast('Reprise à ${_fmt(Duration(milliseconds: resume.ms))}');
       }
@@ -1943,13 +1943,13 @@ class _FullscreenControlsOverlayState
   Future<void> _initMedia() async {
     try {
       _brightness = await ScreenBrightness().application;
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     try {
       // Hide the native OS volume overlay (Android/iOS) — we draw our own
       // in-app volume HUD, so the system one must not appear on top of it.
       VolumeController.instance.showSystemUI = false;
       _volume = await VolumeController.instance.getVolume();
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     _startSaveProgressTimer();
   }
 
@@ -2073,7 +2073,7 @@ class _FullscreenControlsOverlayState
     const ch = MethodChannel('com.watchtower.app.pip');
     try {
       await ch.invokeMethod('enterPiP');
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
   }
 
   // ── Double-tap seek with escalating amounts ──────────────────────────────────
@@ -2171,7 +2171,7 @@ class _FullscreenControlsOverlayState
             await File(path).writeAsBytes(bytes);
             ok = true;
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       }
     }
     if (!mounted) return;
@@ -2971,7 +2971,7 @@ class _FullscreenControlsOverlayState
       _brightness = next;
       try {
         ScreenBrightness().setApplicationScreenBrightness(next);
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       _hudTimer?.cancel();
       setState(() {
         _showBrightnessHUD = true;
@@ -2986,7 +2986,7 @@ class _FullscreenControlsOverlayState
       _volume = next;
       try {
         VolumeController.instance.setVolume(next.clamp(0.0, 1.0));
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       widget.player.setVolume(next * 100);
       _hudTimer?.cancel();
       setState(() {
@@ -3162,7 +3162,7 @@ class _FullscreenControlsOverlayState
           return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
         }
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     return null;
   }
 
@@ -4534,7 +4534,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
       } else {
         plat.setProperty('secondary-sid', 'no');
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
   }
 
   /// Apply subtitle styling via mpv properties.
@@ -4548,7 +4548,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
         _subBoldBox ? '&H80000000' : '&H00000000',
       );
       plat.setProperty('sub-shadow', '0');
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
   }
 
   Widget _subSizeBtn(IconData icon, double delta) {
@@ -4919,7 +4919,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                                     'sub-delay',
                                                     newVal.toStringAsFixed(1),
                                                   );
-                                                } catch (_) {}
+                                                } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
                                               },
                                               child: Container(
                                                 padding: const EdgeInsets.all(
@@ -4965,7 +4965,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                                     'sub-delay',
                                                     newVal.toStringAsFixed(1),
                                                   );
-                                                } catch (_) {}
+                                                } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
                                               },
                                               child: Container(
                                                 padding: const EdgeInsets.all(
@@ -5498,7 +5498,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                                                 .setApplicationScreenBrightness(
                                                   v,
                                                 );
-                                          } catch (_) {}
+                                          } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
                                         },
                                       ),
                                     ),
@@ -5662,13 +5662,13 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   Future<void> _initMedia() async {
     try {
       _brightness = await ScreenBrightness().application;
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     try {
       // Hide the native OS volume overlay (Android/iOS) — we draw our own
       // in-app volume HUD, so the system one must not appear on top of it.
       VolumeController.instance.showSystemUI = false;
       _volume = await VolumeController.instance.getVolume();
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
   }
 
   @override
@@ -5829,7 +5829,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
           return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
         }
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     return null;
   }
 
@@ -5894,7 +5894,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
       _brightness = next;
       try {
         ScreenBrightness().setApplicationScreenBrightness(next);
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       _hudTimer?.cancel();
       setState(() {
         _showBrightnessHUD = true;
@@ -5909,7 +5909,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
       _volume = next;
       try {
         VolumeController.instance.setVolume(next.clamp(0.0, 1.0));
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       widget.player.setVolume(next * 100);
       _hudTimer?.cancel();
       setState(() {
@@ -6342,7 +6342,7 @@ class _InlineControlsState extends State<_InlineControls> {
           return wt.Video(uri, widget.selectedQuality ?? 'auto', uri);
         }
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     return null;
   }
 
@@ -7858,7 +7858,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
     _current.isBookmarked = _bookmarked;
     try {
       isar.writeTxnSync(() => isar.chapters.putSync(_current));
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
   }
 
   void _share() {
@@ -8030,7 +8030,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                       children: [
                         IconButton(
                           icon: const Icon(
-                            Broken.arrow_left,
+                            Broken.arrow_left_2,
                             color: Colors.white,
                             size: 20,
                           ),
@@ -8575,10 +8575,10 @@ class _SeekThumbPreview {
           _ready = false;
           try {
             await p.setVolume(0.0);
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
           try {
             await (p.platform as dynamic).setProperty('audio', 'no');
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
           await p.open(Media(url, httpHeaders: headers), play: false);
           // Attend que le flux soit prêt (durée connue) avant de seeker.
           await p.stream.duration
@@ -8598,7 +8598,7 @@ class _SeekThumbPreview {
         if (shot != null && mySeq == _seq) {
           frame.value = shot;
         }
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     });
   }
 
@@ -8612,7 +8612,7 @@ class _SeekThumbPreview {
     _debounce?.cancel();
     try {
       _player?.dispose();
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     frame.dispose();
   }
 }

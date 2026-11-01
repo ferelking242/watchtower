@@ -24,6 +24,7 @@ import 'package:watchtower/modules/manga/detail/widgets/recommendation_screen.da
 import 'package:watchtower/modules/manga/detail/widgets/watch_order_screen.dart';
 import 'package:watchtower/modules/more/data_and_storage/create_backup.dart';
 import 'package:watchtower/modules/more/data_and_storage/data_and_storage.dart';
+import 'package:watchtower/modules/more/data_and_storage/auto_backup_settings_screen.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_screen.dart';
 import 'package:watchtower/modules/more/settings/appearance/custom_navigation_settings.dart';
 import 'package:watchtower/modules/more/settings/browse/source_repositories.dart';
@@ -467,6 +468,10 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute(name: "downloads", child: const DownloadsScreen()),
     _genericRoute(name: "dataAndStorage", child: const DataAndStorage()),
+    _genericRoute(
+      name: "autoBackup",
+      child: const AutoBackupSettingsScreen(),
+    ),
     _genericRoute(name: "security", child: const SecurityScreen()),
     _genericRoute(name: "advanced", child: const AdvancedScreen()),
     _genericRoute(name: "manageTrackers", child: const ManageTrackersScreen()),
@@ -548,7 +553,8 @@ class RouterNotifier extends ChangeNotifier {
     _genericRoute(name: "onboarding", child: const OnboardingScreen()),
     _genericRoute<ItemType>(
       name: "localSources",
-      builder: (itemType) => LocalBrowserPage(itemType: itemType),
+      allowNullExtra: true, // opened from Settings without an ItemType
+      builder: (itemType) => LocalBrowserPage(itemType: itemType ?? ItemType.manga),
     ),
     _genericRoute(name: "smartLibrary", child: const SmartLibraryScreen()),
     _genericRoute(

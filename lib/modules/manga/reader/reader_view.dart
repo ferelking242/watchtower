@@ -13,7 +13,7 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/settings.dart';
-import 'package:watchtower/modules/anime/widgets/desktop.dart';
+import 'package:watchtower/utils/window/desktop_fullscreen.dart';
 import 'package:watchtower/modules/manga/reader/mixins/reader_gestures.dart';
 import 'package:watchtower/modules/manga/reader/providers/crop_borders_provider.dart';
 import 'package:watchtower/modules/manga/reader/services/page_navigation_service.dart';

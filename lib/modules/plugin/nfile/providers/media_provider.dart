@@ -13,6 +13,7 @@ import '../services/preferences_service.dart';
 import '../models/custom_shortcut_model.dart';
 import '../models/file_item_model.dart';
 import '../core/utils.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 enum MediaSortOrder {
   newest,
@@ -53,8 +54,8 @@ class ThumbnailCache {
             }
           }
         }
-      } catch (_) {}
-    } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   static Future<Uint8List?> get(AssetEntity asset) async {
@@ -112,7 +113,7 @@ class ThumbnailCache {
     if (_cacheDir != null) {
       try {
         Directory(_cacheDir!).deleteSync(recursive: true);
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
   }
 }
@@ -455,7 +456,7 @@ class MediaProvider extends ChangeNotifier {
     if (item is FileSystemEntity) {
       try {
         return File(item.path).lastModifiedSync();
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
@@ -467,7 +468,7 @@ class MediaProvider extends ChangeNotifier {
     if (item is FileSystemEntity) {
       try {
         return File(item.path).lengthSync();
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
     return 0;
   }
@@ -775,14 +776,14 @@ class MediaProvider extends ChangeNotifier {
                   ),
                 ),
               );
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           }
           if (cached.isNotEmpty && _recentFiles.isEmpty) {
             _recentFiles = cached;
           }
         }
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   Future<void> _saveCache() async {
@@ -815,7 +816,7 @@ class MediaProvider extends ChangeNotifier {
             .toList(),
       };
       await cacheFile.writeAsString(jsonEncode(map), flush: true);
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   Future<void> refreshMediaBackground() async {
@@ -826,17 +827,17 @@ class MediaProvider extends ChangeNotifier {
       isStorageGranted =
           await Permission.storage.isGranted ||
           await Permission.manageExternalStorage.isGranted;
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
     PermissionState ps = PermissionState.denied;
     try {
       ps = await PhotoManager.requestPermissionExtend();
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
     bool hasAudioPermission = false;
     try {
       hasAudioPermission = await _audioQuery.permissionsStatus();
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
     if (ps.isAuth || isStorageGranted) {
       futures.add(_loadImagesAndVideos());
@@ -902,7 +903,7 @@ class MediaProvider extends ChangeNotifier {
       isStorageGranted =
           await Permission.storage.isGranted ||
           await Permission.manageExternalStorage.isGranted;
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
     PermissionState ps = PermissionState.denied;
     bool hasAudioPermission = false;
@@ -916,7 +917,7 @@ class MediaProvider extends ChangeNotifier {
           if (info.version.sdkInt >= 33) {
             await Permission.audio.request();
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       }
     } else {
       if (Platform.isAndroid) {
@@ -935,7 +936,7 @@ class MediaProvider extends ChangeNotifier {
           } else {
             try {
               ps = await PhotoManager.requestPermissionExtend();
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
             try {
               hasAudioPermission = await _audioQuery.permissionsStatus();
@@ -943,13 +944,13 @@ class MediaProvider extends ChangeNotifier {
                 final status = await Permission.audio.request();
                 hasAudioPermission = status.isGranted;
               }
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       } else {
         try {
           ps = await PhotoManager.requestPermissionExtend();
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         hasAudioPermission = true;
       }
     }
@@ -959,11 +960,11 @@ class MediaProvider extends ChangeNotifier {
       if (isStorageGranted && !ps.isAuth) {
         try {
           PhotoManager.setIgnorePermissionCheck(true);
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       }
       try {
         PhotoManager.clearFileCache();
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       futures.add(_loadImagesAndVideos());
     }
     if (hasAudioPermission || isStorageGranted) {
@@ -1063,7 +1064,7 @@ class MediaProvider extends ChangeNotifier {
         }
       }
       _videoAlbums = filteredVidAlbums;
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   Future<void> _loadAudios() async {
@@ -1073,7 +1074,7 @@ class MediaProvider extends ChangeNotifier {
         isStorageGranted =
             await Permission.storage.isGranted ||
             await Permission.manageExternalStorage.isGranted;
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
       if (!isStorageGranted) {
         final hasPerm = await _audioQuery.permissionsStatus();
@@ -1123,10 +1124,10 @@ class MediaProvider extends ChangeNotifier {
                 searchDirs.add(entity.path);
               }
             }
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         }
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     if (searchDirs.isEmpty) {
       searchDirs.addAll([
         '/storage/emulated/0/Download',
@@ -1162,9 +1163,9 @@ class MediaProvider extends ChangeNotifier {
                 onFound(entity);
               }
             }
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         }
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
   }
 
@@ -1235,7 +1236,7 @@ class MediaProvider extends ChangeNotifier {
               }
             }
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       }
     }
 
@@ -1336,7 +1337,7 @@ class MediaProvider extends ChangeNotifier {
             'is_music': true,
           };
           _audios.add(SongModel(songMap));
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       }
     }
 
@@ -1415,7 +1416,7 @@ class MediaProvider extends ChangeNotifier {
               customDls.add(entity);
             }
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       }
     }
     _downloads.removeWhere((entity) {
@@ -1538,13 +1539,13 @@ class MediaProvider extends ChangeNotifier {
                         list.add(s);
                       }
                     }
-                  } catch (_) {}
+                  } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
                 }
               }
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           }),
         );
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
 
     void addFromList(List<FileSystemEntity> src) {
@@ -1568,7 +1569,7 @@ class MediaProvider extends ChangeNotifier {
         try {
           final f = File(path);
           if (await f.exists()) list.add(f);
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       }
     }
 
@@ -1602,7 +1603,7 @@ class MediaProvider extends ChangeNotifier {
               modified: stat.modified,
             ),
           );
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       }),
     );
 
@@ -1700,7 +1701,7 @@ class MediaProvider extends ChangeNotifier {
         if (f.existsSync()) {
           f.deleteSync();
         }
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
 
     // Local List Optimization - instant updates without full-disk scans

@@ -217,7 +217,7 @@ Future<void> _deleteMediaDownload(ProviderRead ref, int chapterId) async {
   if (!download.chapter.isLoaded) {
     try {
       download.chapter.loadSync();
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
   }
   final chapter = download.chapter.value;
   if (chapter != null) {
@@ -229,7 +229,7 @@ Future<void> _deleteMediaDownload(ProviderRead ref, int chapterId) async {
         try {
           final file = File(candidate);
           if (file.existsSync()) file.deleteSync();
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
       }
     }
     isar.writeTxnSync(() => isar.downloads.deleteSync(chapterId));
@@ -338,7 +338,7 @@ Future<void> _handleMediaDownloadNotificationAction(
         try {
           download.chapter.loadSync();
           chapter = download.chapter.value;
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
       }
       chapter ??= isar.chapters.getSync(chapterId);
       if (chapter == null) {
@@ -1838,7 +1838,7 @@ Future<void> downloadChapter(
                   ..status = progressStatus,
               );
             });
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
         }
       }
 
@@ -2776,7 +2776,7 @@ Future<void> downloadChapter(
                   );
                 });
               }
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
           }
         } catch (e, st) {
           log('[downloadChapter][novel] EXCEPTION in getHtmlContent: $e\n$st');
@@ -2792,7 +2792,7 @@ Future<void> downloadChapter(
                 );
               });
             }
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
         }
       } else if (file.existsSync()) {
         log('[downloadChapter][novel] file already exists, marking complete');
@@ -2814,7 +2814,7 @@ Future<void> downloadChapter(
               );
             });
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
       }
     } else if (hasM3U8File && m3u8Downloader != null) {
       // ── Engine selection ────────────────────────────────────────────────
@@ -2933,7 +2933,7 @@ Future<void> downloadChapter(
                 );
               });
             }
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
           throw caughtError;
         }
       }
@@ -2974,7 +2974,7 @@ Future<void> downloadChapter(
             );
           });
         }
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
     }
     callback?.call();
     keepAlive.close();
@@ -3147,7 +3147,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           if (!ch.manga.isLoaded && ch.mangaId != null) {
             try {
               ch.manga.loadSync();
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (download_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.download, error: error); }
           }
           if (ch.manga.value == null && ch.mangaId != null) {
             try {

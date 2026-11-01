@@ -28,6 +28,7 @@ import 'package:watchtower/utils/constant.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 // ─── AdBlock domain blocklist (EasyList + EasyPrivacy + uBlock Origin – 1561 domains) ──
 
@@ -475,7 +476,7 @@ import 'package:flutter_svg/flutter_svg.dart';
       if (p.containsKey('z') && (p.containsKey('cs') || p.containsKey('pu') || p.containsKey('refid'))) {
         return true;
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     return false;
   }
 
@@ -1497,7 +1498,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                   },
                 );
               }
-              } catch (_) {}
+              } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
             }
           }
           if (widget.runWebViewMode && mounted) {
@@ -1513,7 +1514,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             );
             if (readyState == 'complete') await _finishRunWebView();
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       });
       _desktopWebview!
         ..setBrightness(Brightness.dark)
@@ -1605,7 +1606,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           if (currentUserAgent is String && currentUserAgent.isNotEmpty) {
             userAgent = currentUserAgent;
           }
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         await MClient.captureExtensionWebViewSession(
           url: finalUrl,
           userAgent: userAgent,
@@ -1679,7 +1680,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     if (!_adBlockEnabled) return;
     try {
       await _webViewController?.evaluateJavascript(source: _kAdBlockJs);
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   /// Toggles the OS status/navigation bars. The panel itself always fills the
@@ -1694,7 +1695,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   Future<void> _activatePicker() async {
     try {
       await _webViewController?.evaluateJavascript(source: _kSmartPickerJs);
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   Future<void> _toggleNightMode() async {
@@ -1866,7 +1867,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           _hiddenHistory.add({'selector': css, 'name': displayName ?? css});
         });
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   Future<void> _injectRestoreRule(String css) async {
@@ -1892,7 +1893,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 ''';
     try {
       await _webViewController?.evaluateJavascript(source: safeJs);
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   void _showRestoreDialog() {
@@ -2008,7 +2009,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         final uri = Uri.tryParse(src);
         domain = uri?.host ?? '';
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
     showDialog(
       context: context,
@@ -2154,7 +2155,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         source: "document.querySelectorAll('video')"
             ".forEach(function(v){try{v.pause();}catch(e){}});",
       );
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
     _dismissFloatingPlayer();
     if (!mounted) return;
@@ -2179,7 +2180,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           "})()",
       );
       if (result is String && result.isNotEmpty) thumbnailUrl = result;
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
     _floatingEntry = OverlayEntry(
       builder: (ctx) => _WebFloatingPlayerOverlay(
@@ -2708,7 +2709,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                               await _injectJs();
                               try {
                                 await c.evaluateJavascript(source: _kVideoInterceptJs);
-                              } catch (_) {}
+                              } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
                               if (widget.runWebViewMode &&
                                   !widget.waitForNavigation) {
                                 await _finishRunWebView();
@@ -4230,7 +4231,7 @@ class MyInAppBrowser extends InAppBrowser {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   @override
@@ -4362,7 +4363,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
     _springCtrl.dispose();
     try {
       _player.dispose();
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     super.dispose();
   }
 
@@ -4473,7 +4474,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
       } else {
         _player.play();
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   // ── Mini bubble ────────────────────────────────────────────────────────────
@@ -4668,7 +4669,7 @@ class _PipSeekBar extends StatelessWidget {
     final frac = (localX / box.size.width).clamp(0.0, 1.0);
     try {
       player.seek(Duration(milliseconds: (frac * durMs).round()));
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   @override

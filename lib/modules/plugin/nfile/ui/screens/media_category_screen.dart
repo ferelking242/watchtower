@@ -19,6 +19,7 @@ import '../../core/icon_fonts/broken_icons.dart';
 import 'package:share_plus/share_plus.dart';
 import '../widgets/file_action_dialogs.dart';
 import '../widgets/batch_rename_dialog.dart';
+import 'package:watchtower/utils/log/logger.dart';
 
 enum MediaType {
   images,
@@ -326,7 +327,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           }
           pastedCount++;
         }
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
 
     fm.clearClipboard();
@@ -573,7 +574,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                 permissionsStr =
                     '${(st.mode & 0x100) != 0 ? "R" : ""}${(st.mode & 0x80) != 0 ? "/W" : ""}';
               }
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
             if (count == 1) {
               if (match.type == AssetType.image) {
                 dimensionsOrDuration = '${match.width} x ${match.height}';
@@ -614,7 +615,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             }
           }
         }
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
 
     if (!mounted) return;
@@ -702,7 +703,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
                       ? () {
                           try {
                             HapticFeedback.mediumImpact();
-                          } catch (_) {}
+                          } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
                           Navigator.pop(ctx);
                           context.read<FileManagerProvider>().openFile(
                             context,
@@ -1467,12 +1468,12 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         if (f.existsSync()) {
           return f.statSync().modified;
         }
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
       return DateTime.fromMillisecondsSinceEpoch((item.dateAdded ?? 0) * 1000);
     } else if (item is FileSystemEntity) {
       try {
         return item.statSync().modified;
-      } catch (_) {}
+      } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     }
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
@@ -1767,7 +1768,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           } else if (item is FileSystemEntity) {
             try {
               date = File(item.path).statSync().modified;
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           }
           final dateStr = FileUtils.formatDate(date);
           return _buildImageTile(
@@ -1804,7 +1805,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         } else if (item is FileSystemEntity) {
           try {
             date = File(item.path).statSync().modified;
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         }
         final dateStr = FileUtils.formatDate(date);
         return _buildImageTile(
@@ -1998,7 +1999,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           } else if (item is FileSystemEntity) {
             try {
               date = File(item.path).statSync().modified;
-            } catch (_) {}
+            } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           }
           final dateStr = FileUtils.formatDate(date);
           return _buildVideoTile(
@@ -2035,7 +2036,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         } else if (item is FileSystemEntity) {
           try {
             date = File(item.path).statSync().modified;
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         }
         final dateStr = FileUtils.formatDate(date);
         return _buildVideoTile(
@@ -2187,7 +2188,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           DateTime? modified;
           try {
             modified = File(path).statSync().modified;
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           final dateStr = modified != null
               ? FileUtils.formatDate(modified)
               : 'Unknown Date';
@@ -2214,7 +2215,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
         DateTime? modified;
         try {
           modified = File(path).statSync().modified;
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         final dateStr = modified != null
             ? FileUtils.formatDate(modified)
             : 'Unknown Date';
@@ -2337,7 +2338,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             final st = doc.statSync();
             size = st.size;
             modified = st.modified;
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           return _buildDocumentTile(
             doc,
             theme,
@@ -2362,7 +2363,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           final st = doc.statSync();
           size = st.size;
           modified = st.modified;
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         return _buildDocumentTile(
           doc,
           theme,
@@ -2485,7 +2486,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
             final st = file.statSync();
             size = st.size;
             modified = st.modified;
-          } catch (_) {}
+          } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
           return _buildGenericFileTile(
             file,
             theme,
@@ -2510,7 +2511,7 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           final st = file.statSync();
           size = st.size;
           modified = st.modified;
-        } catch (_) {}
+        } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
         return _buildGenericFileTile(
           file,
           theme,
@@ -2995,7 +2996,7 @@ class _FolderGridItemState extends State<FolderGridItem> {
           return;
         }
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     if (mounted) {
       setState(() => _loading = false);
     }
@@ -3139,7 +3140,7 @@ class _ApkThumbnailState extends State<_ApkThumbnail> {
           _apkIcon = iconBytes;
         });
       }
-    } catch (_) {}
+    } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
   @override

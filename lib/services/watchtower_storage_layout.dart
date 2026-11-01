@@ -13,6 +13,8 @@ class WatchtowerStorageLayout {
     'torrents',
     'tmp',
     'backup',
+    // Hidden auto-backup snapshot folder (survives uninstall on Android).
+    '.backup',
   ];
 
   /// Creates the standard app folders. The obsolete plural download folder is

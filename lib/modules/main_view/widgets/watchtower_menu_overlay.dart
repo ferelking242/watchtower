@@ -47,6 +47,7 @@ const kWtRouteInfo = <String, (String, IconData)>{
   '/schedule': ('Schedule', Broken.calendar_2),
   '/marketplace': ('Market', Broken.shop),
   '/downloadQueue': ('Downloads', Broken.document_download),
+  '/statistics': ('Statistics', Broken.presention_chart),
   '/settings': ('Settings', Broken.setting_2),
   '_enableLibSwitch': ('Hub', Broken.element_3),
 };
@@ -82,6 +83,7 @@ const kWtStaticRoutes = [
   '/marketplace',
   '/schedule',
   '/updates',
+  '/statistics',
   '/history',
   '/downloadQueue',
   '/settings',
@@ -93,6 +95,7 @@ const _kFrLabels = <String, String>{
   '/browse': 'Explorer',
   '/schedule': 'Planning',
   '/updates': 'Nouveautés',
+  '/statistics': 'Statistiques',
   '/history': 'Historique',
   '/marketplace': 'Marché',
   '/downloadQueue': 'Téléchargements',

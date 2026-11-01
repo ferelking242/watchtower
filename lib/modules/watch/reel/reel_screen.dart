@@ -1754,22 +1754,6 @@ class _ReelBottomLeftState extends State<_ReelBottomLeft> {
 
         const SizedBox(height: 8),
 
-        // ── Voir la traduction (placeholder) ─────────────────────────
-        GestureDetector(
-          onTap: () {}, // TODO: translation provider
-          child: const Text(
-            'Voir la traduction',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              shadows: shadow,
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
         // ── Source row (replaces music row) ───────────────────────────
         _SourceRow(
           iconUrl: widget.sourceIconUrl,

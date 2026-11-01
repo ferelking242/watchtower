@@ -58,10 +58,11 @@ class DownloadIsolatePool {
   /// Configure the pool size (call before initialize)
   static void configure({int poolSize = 3}) {
     if (_instance != null && _instance!._initialized) {
-      if (kDebugMode) {
-        if (kDebugMode)
-          print('[DownloadPool] Cannot reconfigure after initialization');
-      }
+      AppLogger.log(
+        'Cannot reconfigure after initialization',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+      );
       return;
     }
     _instance = DownloadIsolatePool._(poolSize: poolSize);

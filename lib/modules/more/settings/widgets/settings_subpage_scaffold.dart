@@ -139,6 +139,7 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             _buildAppBar(context, cs),
+            SliverToBoxAdapter(child: _pageHeader(context, cs)),
             if (_headerSearchActive && !_usesLocalFilter)
               SliverToBoxAdapter(
                 child: _GlobalSearchResults(
@@ -156,13 +157,10 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
                   },
                 ),
               )
-            else ...[
-              SliverToBoxAdapter(child: _pageHeader(context, cs)),
-              if (widget.body != null)
-                SliverFillRemaining(hasScrollBody: true, child: widget.body!)
-              else
-                ...widget.slivers,
-            ],
+            else if (widget.body != null)
+              SliverFillRemaining(hasScrollBody: true, child: widget.body!)
+            else
+              ...widget.slivers,
           ],
         ),
       ),

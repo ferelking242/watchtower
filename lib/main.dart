@@ -15,6 +15,7 @@ import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_p
 import 'package:watchtower/modules/home/services/home_prewarm.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/services/settings_store.dart';
+import 'package:watchtower/services/auto_backup_service.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
@@ -295,6 +296,11 @@ void main(List<String> args) async {
         await syncRemoteDataToMockIsar(_mockIsar);
         isar = _mockIsar;
       } else {
+        // Fresh install (no live database) — restore the automatic snapshot
+        // left by a previous installation before opening Isar, so the library,
+        // settings, extensions and caches come back intact. See
+        // AutoBackupService for the snapshot layout.
+        await AutoBackupService.restoreOnFreshInstall();
         isar = await storage.initDB(null, inspector: false);
         // Auto-réparation du record `Settings` : un record corrompu (ex. cache
         // de pages embarqué dont les préfixes de taille dépassent les octets
@@ -328,6 +334,9 @@ void main(List<String> args) async {
       await Hive.openBox('library_settings');
       await Hive.openBox('reader_prefs');
       await Hive.openBox('player_prefs');
+      // Fresh install: put the snapshotted preference boxes back before any
+      // provider reads them. No-op on a normal launch.
+      await AutoBackupService.restoreHiveBoxes();
 
       // --- Music module init ---
       await KVStoreService.initialize();
@@ -441,6 +450,9 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   // freed background-app memory before the first Isar Rust FFI string alloc.
   if (!kIsWeb) _ensureLocalSources();
   await AppLogger.init();
+  // Start the automatic snapshot of the database, Hive boxes and preferences
+  // into <storage root>/.backup, so a reinstall can restore everything.
+  if (!kIsWeb) unawaited(AutoBackupService.startAutoBackup());
   if (!kIsWeb) {
     // Auto-tune the isolate pool size to the device's CPU count.
     // Use 2× logical-core count so IO-bound work can overlap on each core,
@@ -647,6 +659,9 @@ class _MyAppState extends ConsumerState<MyApp>
     }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
+      // Snapshot everything before the process can be killed, so the most
+      // recent state survives an uninstall/reinstall.
+      if (!kIsWeb) unawaited(AutoBackupService.backupNow());
       if (!kIsWeb && Platform.isLinux) {
         return;
       }

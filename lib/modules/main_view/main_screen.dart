@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -417,19 +418,49 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         if ((dockStyle == 'pc_sidebar' || _isTV) &&
             MediaQuery.of(context).size.width >= 700 &&
             !isReadingScreen) {
-          return _TabletLayout(
-            isLongPressed: isLongPressed,
-            location: location,
-            dest: _dockDest,
-            currentIndex: currentIndex,
-            route: route,
-            child: widget.child,
-            ref: ref,
-            buildNavigationWidgetsDesktop: _buildNavigationWidgetsDesktop,
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (didPop) return;
+              final current = ref.read(routerCurrentLocationStateProvider);
+              if (current != null && current != _defaultLocation) {
+                ref.read(menuOpenProvider.notifier).state = false;
+                route.go(_defaultLocation);
+                return;
+              }
+              SystemNavigator.pop();
+            },
+            child: _TabletLayout(
+              isLongPressed: isLongPressed,
+              location: location,
+              dest: _dockDest,
+              currentIndex: currentIndex,
+              route: route,
+              child: widget.child,
+              ref: ref,
+              buildNavigationWidgetsDesktop: _buildNavigationWidgetsDesktop,
+            ),
           );
         }
 
-        return Column(
+        return PopScope(
+          // On web, leave the browser's own back handling alone. On mobile,
+          // when the user is on a non-root tab (settings, history, …) the
+          // system back button must return to the home tab rather than
+          // letting the shell pop itself and close the app.
+          canPop: kIsWeb,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            final current = ref.read(routerCurrentLocationStateProvider);
+            if (current != null && current != _defaultLocation) {
+              ref.read(menuOpenProvider.notifier).state = false;
+              route.go(_defaultLocation);
+              return;
+            }
+            // Already on the default tab: let the platform close the app.
+            SystemNavigator.pop();
+          },
+          child: Column(
           children: [
             Flexible(
               child: Stack(
@@ -556,6 +587,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ),
             ),
           ],
+        ),
         );
       },
     );
