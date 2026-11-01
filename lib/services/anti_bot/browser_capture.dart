@@ -434,7 +434,8 @@ class _BrowserSession {
   Future<bool> ensureReady() async {
     if (isDisposed) return false;
     _ready ??= _start();
-    if (!await _ready) return false;
+    final ready = await _ready;
+    if (ready != true) return false;
     while (true) {
       if (isDisposed) return false;
       if (_isReady) return true;
