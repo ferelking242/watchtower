@@ -157,30 +157,62 @@ Future<String> _toHttpResponse(
   List args, {
   int? sourceId,
 }) async {
-  final url = args[2] as String;
-  final headers = (args[3] as Map?)?.toMapStringString;
-  final isJson = (headers?[HttpHeaders.contentTypeHeader]?.contains("application/json") ?? false) ||
-                 (headers?['content-type']?.contains("application/json") ?? false) ||
-                 (headers?['Content-Type']?.contains("application/json") ?? false);
-  final body = args.length >= 5
-      ? args[4] is List
-            ? args[4] as List
-            : args[4] is String
-            ? args[4] as String
-            : isJson
-            ? (args[4] as Map?)?.toMapStringDynamic
-            : (args[4] as Map?)?.toMapStringString
-      : null;
-
-  AppLogger.log('$method $url', logLevel: LogLevel.debug, tag: LogTag.network);
-
-  // ── Web: passe par le proxy Cloudflare pour éviter les erreurs CORS ──────
-  if (kIsWeb) {
-    return _toHttpResponseViaProxy(method, url, headers, body);
-  }
-
-  // ── Native: requête directe ───────────────────────────────────────────────
+  var url = '<invalid-url>';
+  Map<String, String>? headers;
   try {
+    if (args.length < 3) {
+      throw FormatException(
+        'HTTP bridge expected at least 3 arguments, received ${args.length}',
+      );
+    }
+    final rawUrl = args[2];
+    if (rawUrl is! String || rawUrl.isEmpty) {
+      throw FormatException(
+        'HTTP bridge URL must be a non-empty String, received '
+        '${rawUrl.runtimeType}',
+      );
+    }
+    url = rawUrl;
+
+    final rawHeaders = args.length > 3 ? args[3] : null;
+    if (rawHeaders != null && rawHeaders is! Map) {
+      throw FormatException(
+        'HTTP bridge headers must be a Map, received ${rawHeaders.runtimeType}',
+      );
+    }
+    headers = (rawHeaders as Map?)?.toMapStringString;
+    final isJson = [
+      headers?[HttpHeaders.contentTypeHeader],
+      headers?['content-type'],
+      headers?['Content-Type'],
+    ].any((contentType) => contentType?.contains('application/json') ?? false);
+    final rawBody = args.length >= 5 ? args[4] : null;
+    final dynamic body;
+    if (rawBody == null || rawBody is String || rawBody is List) {
+      body = rawBody;
+    } else if (rawBody is Map) {
+      body = isJson
+          ? rawBody.toMapStringDynamic
+          : rawBody.toMapStringString;
+    } else {
+      throw FormatException(
+        'HTTP bridge body must be a String, List, Map, or null, '
+        'received ${rawBody.runtimeType}',
+      );
+    }
+
+    AppLogger.log(
+      '$method $url',
+      logLevel: LogLevel.debug,
+      tag: LogTag.network,
+    );
+
+    // ── Web: passe par le proxy Cloudflare pour éviter les erreurs CORS ──────
+    if (kIsWeb) {
+      return await _toHttpResponseViaProxy(method, url, headers, body);
+    }
+
+    // ── Native: requête directe ───────────────────────────────────────────────
     var request = http.Request(method, Uri.parse(url));
     request.headers.addAll(headers ?? {});
     if ((request.headers[HttpHeaders.contentTypeHeader]?.contains(
@@ -265,8 +297,10 @@ Future<String> _toHttpResponse(
     }
     return jsonEncode(resp.toJson());
   } catch (e, st) {
+    final argumentTypes = args.map((argument) => argument.runtimeType).join(', ');
     AppLogger.log(
-      '$method $url → ERROR: $e',
+      '$method $url → ERROR: $e '
+      '(sourceId=${sourceId ?? "unknown"}, argumentTypes=[$argumentTypes])',
       logLevel: LogLevel.error,
       tag: LogTag.network,
       error: e,

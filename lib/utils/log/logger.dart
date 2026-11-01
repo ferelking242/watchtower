@@ -175,7 +175,6 @@ enum LogMode {
 }
 
 class AppLogger {
-  static final _logQueue = StreamController<String>();
   static late File _logFile;
   // dynamic to accept both dart:io.IOSink (native) and stub IOSink (web)
   static late dynamic _sink;
@@ -187,6 +186,14 @@ class AppLogger {
   static bool _suppressImages = true;
   static bool _ntfyEnabled = true;
   static LogMode _currentMode = LogMode.verbose;
+  static void Function(String payload)? _workerLogForwarder;
+
+  /// Routes structured worker-isolate logs to the root isolate.
+  /// The root isolate owns the persistent file sink and applies the user's
+  /// active log filters.
+  static void setWorkerLogForwarder(void Function(String payload)? forwarder) {
+    _workerLogForwarder = forwarder;
+  }
 
   /// Returns true when the active log mode is [LogMode.extreme].
   /// Callers use this to gate high-frequency per-page / per-segment logging
@@ -330,16 +337,29 @@ class AppLogger {
     _sink = _logFile.openWrite(mode: FileMode.append);
     _initialized = true;
 
-    _logQueue.stream.listen((entry) {
-      _fileWriteQueue = _fileWriteQueue
-          .then((_) => _writeLogEntry(entry))
-          .catchError((Object _) {});
-    });
-
     await _writeSessionHeader();
+    await flush();
   }
 
   static Future<void> _fileWriteQueue = Future<void>.value();
+
+  static void _queueFileWrite(String entry) {
+    _fileWriteQueue = _fileWriteQueue
+        .then((_) => _writeLogEntry(entry))
+        .catchError((Object _) {});
+  }
+
+  /// Waits for all queued entries to reach the current log file.
+  /// Call before exporting or sharing logs so the latest failures are included.
+  static Future<void> flush() async {
+    await _fileWriteQueue;
+    if (!_initialized) return;
+    try {
+      await _sink.flush();
+    } catch (_) {
+      // Keep the in-memory logs available if the file sink has been closed.
+    }
+  }
 
   /// Recreates the logs folder and file if they were removed while the app
   /// was running, then writes the queued entry to the current daily log.
@@ -447,11 +467,11 @@ class AppLogger {
     try {
       final info = await PackageInfo.fromPlatform();
       final now = _timestamp();
-      _logQueue.add(
+      _queueFileWrite(
         '\n── Session $now · v${info.version}+${info.buildNumber} ──────────────',
       );
     } catch (_) {
-      _logQueue.add('\n── Session ${_timestamp()} ──');
+      _queueFileWrite('\n── Session ${_timestamp()} ──');
     }
   }
 
@@ -480,18 +500,33 @@ class AppLogger {
 
     if (stackTrace != null) {
       final lines = sanitizeLogText(stackTrace.toString()).split('\n');
-      final limited = lines.take(12).join('\n  ');
-      entry.write('\n  Stack:\n  $limited');
-      if (lines.length > 12) {
-        entry.write('\n  ... (${lines.length - 12} more lines hidden)');
-      }
+      entry.write('\n  Stack:\n  ${lines.join('\n  ')}');
     }
 
     final formatted = entry.toString();
 
+    final workerForwarder = _workerLogForwarder;
+    if (workerForwarder != null) {
+      try {
+        workerForwarder(
+          jsonEncode({
+            'message': safeMessage,
+            'level': logLevel.index,
+            'tag': tag,
+            'error': error == null ? null : sanitizeLogText(error.toString()),
+            'stackTrace': stackTrace == null
+                ? null
+                : sanitizeLogText(stackTrace.toString()),
+          }),
+        );
+      } catch (_) {
+        // Worker logs must never interrupt the request being diagnosed.
+      }
+    }
+
     // The ntfy topic is public; send only a generic signal and keep the
     // diagnostic message and stack trace in local logs.
-    if (logLevel == LogLevel.error) {
+    if (logLevel == LogLevel.error && workerForwarder == null) {
       _pushToNtfy();
     }
 
@@ -519,7 +554,7 @@ class AppLogger {
       return;
     }
 
-    _logQueue.add(formatted);
+    _queueFileWrite(formatted);
   }
 
   static String _timestamp() {
@@ -536,9 +571,7 @@ class AppLogger {
 
   static Future<void> dispose() async {
     if (!_initialized) return;
-    await _logQueue.close();
-    await _liveCtrl.close();
-    await _sink.flush();
+    await flush();
     await _sink.close();
     _initialized = false;
   }

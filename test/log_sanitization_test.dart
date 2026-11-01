@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -40,5 +42,46 @@ void main() {
       expect(result, contains('No space left on device'));
       expect(result, isNot(contains('private title.mp4')));
     });
+  });
+
+  test('AppLogger keeps the complete stack trace in recent entries', () {
+    AppLogger.clearRing();
+    final stack = StackTrace.fromString(
+      List.generate(20, (index) => '#$index frame-$index').join('\n'),
+    );
+
+    AppLogger.log(
+      'complete trace test',
+      logLevel: LogLevel.warning,
+      stackTrace: stack,
+    );
+
+    final entry = AppLogger.recentEntries().last;
+    expect(entry, contains('#19 frame-19'));
+    expect(entry, isNot(contains('more lines hidden')));
+    AppLogger.clearRing();
+  });
+
+  test('AppLogger forwards complete worker error details', () {
+    String? forwarded;
+    AppLogger.setWorkerLogForwarder((payload) => forwarded = payload);
+    final stack = StackTrace.fromString(
+      List.generate(20, (index) => '#$index frame-$index').join('\n'),
+    );
+
+    AppLogger.log(
+      'worker request failed',
+      logLevel: LogLevel.error,
+      tag: LogTag.network,
+      error: StateError('request failed'),
+      stackTrace: stack,
+    );
+
+    final payload = jsonDecode(forwarded!) as Map<String, dynamic>;
+    expect(payload['message'], 'worker request failed');
+    expect(payload['level'], LogLevel.error.index);
+    expect(payload['tag'], LogTag.network);
+    expect(payload['stackTrace'], contains('#19 frame-19'));
+    AppLogger.setWorkerLogForwarder(null);
   });
 }

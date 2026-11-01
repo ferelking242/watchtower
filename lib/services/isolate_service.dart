@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +44,38 @@ class _ExtensionWorker {
 }
 
 void _forwardExtensionLog(String message) {
+  const workerLogPrefix = '[APPLOG]';
+  if (message.startsWith(workerLogPrefix)) {
+    try {
+      final payload = jsonDecode(message.substring(workerLogPrefix.length));
+      if (payload is! Map) {
+        throw const FormatException('Worker log payload is not a map');
+      }
+      final rawLevel = payload['level'];
+      final levelIndex = rawLevel is int
+          ? rawLevel.clamp(0, LogLevel.values.length - 1).toInt()
+          : LogLevel.info.index;
+      final rawStack = payload['stackTrace'];
+      AppLogger.log(
+        payload['message']?.toString() ?? '',
+        logLevel: LogLevel.values[levelIndex],
+        tag: payload['tag'] is String ? payload['tag'] as String : null,
+        error: payload['error'] is String ? payload['error'] as String : null,
+        stackTrace: rawStack is String && rawStack.isNotEmpty
+            ? StackTrace.fromString(rawStack)
+            : null,
+      );
+    } catch (error, stackTrace) {
+      AppLogger.log(
+        'Could not decode extension worker log: $error',
+        logLevel: LogLevel.warning,
+        tag: LogTag.extension_,
+        stackTrace: stackTrace,
+      );
+    }
+    return;
+  }
+
   LogLevel lvl = LogLevel.info;
   String body = message;
 
@@ -286,14 +319,16 @@ class GetIsolateService {
         .fork(
           specification: ZoneSpecification(
             print: (self, parent, zone, line) {
-              // Forward all print() output (including structured [EXT][LEVEL]
-              // lines from JsExtensionService) to the main isolate's listener,
-              // which routes them to AppLogger.
+              // Forward print() output and structured AppLogger records to
+              // the root isolate, which owns the session log file.
               isolateData.sendPort.send(line);
             },
           ),
         )
         .run(() async {
+          AppLogger.setWorkerLogForwarder(
+            (payload) => print('[APPLOG]$payload'),
+          );
           isolateData.sendPort.send(receivePort.sendPort);
           receivePort.listen((message) async {
             if (message is Map<String, dynamic>) {

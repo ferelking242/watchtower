@@ -67,6 +67,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   Future<void> _loadLogs() async {
     setState(() => _loading = true);
     try {
+      await AppLogger.flush();
       final storage = StorageProvider();
       final dir = await storage.getDefaultDirectory();
 
@@ -375,6 +376,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Future<File?> _findLogFile() async {
+    await AppLogger.flush();
     final currentPath = AppLogger.currentSessionPath;
     if (currentPath != null) {
       final current = File(currentPath);

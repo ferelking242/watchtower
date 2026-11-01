@@ -43,12 +43,6 @@ void _extLog(String level, String msg) {
     _ => LogLevel.debug,
   };
   AppLogger.log(msg, logLevel: lvl, tag: LogTag.extension_);
-  // Extension code runs in a worker isolate, where AppLogger has no sink:
-  // its file writer and live ring belong to the root isolate. The worker's
-  // only channel to the root is `print()`, which the isolate entry point
-  // forwards to `_forwardExtensionLog`. A debugPrint would vanish in release,
-  // so the structured line must go out through print() to be visible there.
-  print('[EXT][$level] $msg');
 }
 
 void _extDebug(String msg) => _extLog('DEBUG', msg);
