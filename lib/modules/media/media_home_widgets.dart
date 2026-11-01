@@ -3404,6 +3404,7 @@ class _CatalogListRow extends StatelessWidget {
                       height: 92,
                       fit: BoxFit.cover,
                       headers: ExtensionImageHeaders.of(context),
+                      sourceId: ExtensionImageHeaders.sourceIdOf(context),
                       errorWidget: Icon(
                         Broken.image,
                         color: cs.onSurfaceVariant,

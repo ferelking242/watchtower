@@ -636,6 +636,7 @@ class ContentImage extends StatelessWidget {
         height: null,
         fit: fit,
         headers: headers ?? ExtensionImageHeaders.of(context),
+        sourceId: ExtensionImageHeaders.sourceIdOf(context),
         errorWidget: const _ContentImagePlaceholder(),
       ),
     );

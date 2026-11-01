@@ -395,6 +395,7 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
             sourceId: widget.extensionSource?.id,
           ),
         ),
+        sourceId: widget.extensionSource?.id,
         child: Scaffold(
           backgroundColor: _tmdbBackground,
           body: FutureBuilder<MManga>(

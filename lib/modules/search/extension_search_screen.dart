@@ -516,7 +516,11 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         sourceId: widget.source.id,
       ),
     );
-    return ExtensionImageHeaders(headers: headers, child: _buildBody(context));
+    return ExtensionImageHeaders(
+      headers: headers,
+      sourceId: widget.source.id,
+      child: _buildBody(context),
+    );
   }
 
   Widget _buildBody(BuildContext context) {

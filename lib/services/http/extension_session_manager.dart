@@ -104,7 +104,15 @@ class ExtensionSessionManager {
     }
     return {
       'cookies': cookies is List
-          ? cookies.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
+          ? cookies
+                .whereType<Map>()
+                .map(_normalizeCookie)
+                .where(
+                  (cookie) =>
+                      (cookie['name'] as String).isNotEmpty &&
+                      (cookie['domain'] as String).isNotEmpty,
+                )
+                .toList()
           : <Map<String, dynamic>>[],
       'localStorage': normalizedStorage,
       'authenticationState':
@@ -122,6 +130,31 @@ class ExtensionSessionManager {
       if (raw['userAgent'] is String) 'userAgent': raw['userAgent'],
       if (raw['lastUpdated'] is int) 'lastUpdated': raw['lastUpdated'],
     };
+  }
+
+  static Map<String, dynamic> _normalizeCookie(Map raw) {
+    final cookie = Map<String, dynamic>.from(raw);
+    final name = cookie['name'];
+    final domain = cookie['domain'];
+    final path = cookie['path'];
+    final normalized = <String, dynamic>{
+      ...cookie,
+      'name': name is String ? name.trim() : '',
+      'value': cookie['value'] is String ? cookie['value'] : '',
+      'domain': domain is String ? _normalizeDomain(domain) : '',
+      // Old or malformed session snapshots can contain a list here. A
+      // default path keeps request interception from throwing and retains
+      // cookies whose path was not stored in the expected scalar format.
+      'path': path is String && path.startsWith('/') ? path : '/',
+      'hostOnly': cookie['hostOnly'] == true,
+      'secure': cookie['secure'] == true,
+      'httpOnly': cookie['httpOnly'] == true,
+    };
+    normalized.remove('expiresAt');
+    if (cookie['expiresAt'] is int) {
+      normalized['expiresAt'] = cookie['expiresAt'];
+    }
+    return normalized;
   }
 
   /// Returns a copy of the extension's session and its derived domain list.
@@ -318,8 +351,12 @@ class ExtensionSessionManager {
       if (_applies(cookie, uri, now)) cookies.add(cookie);
     }
     cookies.sort((a, b) {
-      final aPath = (a['path'] as String? ?? '/').length;
-      final bPath = (b['path'] as String? ?? '/').length;
+      final aPath = a['path'] is String
+          ? (a['path'] as String).length
+          : 1;
+      final bPath = b['path'] is String
+          ? (b['path'] as String).length
+          : 1;
       return bPath.compareTo(aPath);
     });
     final values = <String, String>{};
@@ -349,8 +386,8 @@ class ExtensionSessionManager {
     if (!domainMatches) return false;
     if (cookie['secure'] == true && uri.scheme != 'https') return false;
 
-    final expiresAt = cookie['expiresAt'] as int?;
-    if (expiresAt != null && expiresAt <= nowMillis) return false;
+    final expiresAt = cookie['expiresAt'];
+    if (expiresAt is int && expiresAt <= nowMillis) return false;
 
     final cookiePath = cookie['path']?.toString().isNotEmpty == true
         ? cookie['path']!.toString()
@@ -598,8 +635,8 @@ class ExtensionSessionManager {
     final now = DateTime.now().millisecondsSinceEpoch;
     final preserved = current
         .where((cookie) {
-          final expiresAt = cookie['expiresAt'] as int?;
-          return (expiresAt == null || expiresAt > now) &&
+          final expiresAt = cookie['expiresAt'];
+          return (expiresAt is! int || expiresAt > now) &&
               !_applies(cookie, uri, now);
         })
         .toList();

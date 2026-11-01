@@ -330,6 +330,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
     );
     return ExtensionImageHeaders(
       headers: headers,
+      sourceId: widget.source.id,
       child: _buildBody(context),
     );
   }

@@ -738,6 +738,7 @@ class CustomExtendedNetworkImageProvider
   Future<StreamedResponse> _getResponse(Uri resolved) async {
     var response = await MClient.init(
       showCloudFlareError: showCloudFlareError,
+      extensionSourceId: key.sourceId,
     ).send(_buildImageRequest(resolved));
 
     if (response.statusCode != 200) {
@@ -752,6 +753,7 @@ class CustomExtendedNetworkImageProvider
       final res = await MClient.init(
         reqcopyWith: {'useDartHttpClient': true},
         showCloudFlareError: showCloudFlareError,
+        extensionSourceId: key.sourceId,
       ).send(_buildImageRequest(resolved));
       if (res.statusCode != 200) {
         _logCoverFailure(

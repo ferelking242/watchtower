@@ -17,12 +17,17 @@ class ExtensionImageHeaders extends InheritedWidget {
   const ExtensionImageHeaders({
     super.key,
     required this.headers,
+    this.sourceId,
     required super.child,
   });
 
   /// An empty map when the extension declares none: a screen with no headers
   /// simply behaves as before.
   final Map<String, String> headers;
+
+  /// The extension owning these headers. Image requests use its cookies and
+  /// User-Agent as well as the visible Referer headers.
+  final int? sourceId;
 
   static Map<String, String>? of(BuildContext context) {
     final scope = context
@@ -32,8 +37,13 @@ class ExtensionImageHeaders extends InheritedWidget {
     return headers;
   }
 
+  static int? sourceIdOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<ExtensionImageHeaders>()
+      ?.sourceId;
+
   @override
   bool updateShouldNotify(ExtensionImageHeaders oldWidget) =>
+      oldWidget.sourceId != sourceId ||
       !_sameHeaders(oldWidget.headers, headers);
 
   static bool _sameHeaders(Map<String, String> a, Map<String, String> b) {

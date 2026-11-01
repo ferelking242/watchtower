@@ -601,7 +601,11 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
     final headers = ref.watch(
       headersProvider(source: source.name ?? '', lang: source.lang ?? '', sourceId: source.id),
     );
-    return ExtensionImageHeaders(headers: headers, child: _buildBody(context));
+    return ExtensionImageHeaders(
+      headers: headers,
+      sourceId: source.id,
+      child: _buildBody(context),
+    );
   }
 
   Widget _buildBody(BuildContext context) {

@@ -35,6 +35,7 @@ Widget cachedNetworkImage({
   required BoxFit? fit,
   AlignmentGeometry? alignment,
   bool useCustomNetworkImage = true,
+  int? sourceId,
   Widget errorWidget = const Icon(Icons.image_not_supported_outlined, size: 50, color: Colors.white38),
   /// Shown while the image downloads.
   ///
@@ -57,7 +58,11 @@ Widget cachedNetworkImage({
   }
   return ExtendedImage(
     image: useCustomNetworkImage
-        ? CustomExtendedNetworkImageProvider(imageUrl, headers: headers)
+        ? CustomExtendedNetworkImageProvider(
+            imageUrl,
+            headers: headers,
+            sourceId: sourceId,
+          )
         : ExtendedNetworkImageProvider(imageUrl, headers: headers),
     width: width,
     height: height,
@@ -86,6 +91,7 @@ Widget cachedCompressedNetworkImage({
   required BoxFit? fit,
   AlignmentGeometry? alignment,
   bool useCustomNetworkImage = true,
+  int? sourceId,
   Widget errorWidget = const Icon(Icons.image_not_supported_outlined, size: 50, color: Colors.white38),
   int maxBytes = 5 << 10,
 }) {
@@ -103,7 +109,11 @@ Widget cachedCompressedNetworkImage({
   return ExtendedImage(
     image: ExtendedResizeImage(
       useCustomNetworkImage
-          ? CustomExtendedNetworkImageProvider(imageUrl, headers: headers)
+          ? CustomExtendedNetworkImageProvider(
+              imageUrl,
+              headers: headers,
+              sourceId: sourceId,
+            )
           : ExtendedNetworkImageProvider(imageUrl, headers: headers),
       maxBytes: maxBytes,
     ),

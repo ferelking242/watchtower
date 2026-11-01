@@ -683,6 +683,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       height: 60,
       fit: BoxFit.cover,
       headers: ExtensionImageHeaders.of(context),
+      sourceId: ExtensionImageHeaders.sourceIdOf(context),
       errorWidget: const Icon(Icons.movie_outlined, size: 18),
     );
   }

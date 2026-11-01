@@ -63,4 +63,24 @@ void main() {
 
     expect(seen, isNull);
   });
+
+  testWidgets('the enclosing extension id is available to image requests', (
+    tester,
+  ) async {
+    int? seen;
+    await tester.pumpWidget(
+      ExtensionImageHeaders(
+        headers: const {'Referer': 'https://example.com/'},
+        sourceId: 42,
+        child: Builder(
+          builder: (context) {
+            seen = ExtensionImageHeaders.sourceIdOf(context);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    expect(seen, 42);
+  });
 }
