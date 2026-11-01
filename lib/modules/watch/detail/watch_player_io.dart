@@ -27,7 +27,6 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
-import 'package:watchtower/modules/more/settings/player/player_overview_screen.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/hls_adaptive_quality.dart';
@@ -167,12 +166,6 @@ void _playerToast(String message) {
   } catch (_) {
     // Ne jamais crasher si l'Overlay n'est pas disponible (ex: navigation).
   }
-}
-
-void _openPlayerSettings(BuildContext context) {
-  Navigator.of(context, rootNavigator: true).push<void>(
-    MaterialPageRoute<void>(builder: (_) => const PlayerOverviewScreen()),
-  );
 }
 
 /// Slider track with a restrained LED-like glow on the played segment.
@@ -1709,7 +1702,6 @@ class _FullscreenControlsOverlayState
   Timer? _doubleTapResetTimer;
   bool _showLeftSkipHUD = false;
   bool _showRightSkipHUD = false;
-  int _skipHudSeconds = 10;
   Timer? _skipHudTimer;
   // Debounce: accumulate delta, fire ONE seek per rapid-tap burst
   Timer? _seekDebounceTimer;
@@ -1754,6 +1746,11 @@ class _FullscreenControlsOverlayState
   // ── Rotation lock mode: 0=auto 1=portrait 2=landscape-L 3=landscape-R ─────
   int _rotationMode = 2;
   bool _showRotationPicker = false;
+
+  // ── Capture d'écran — confirmation pill en haut à gauche ──────────────────
+  bool _showScreenshotHud = false;
+  bool _screenshotSuccess = false;
+  Timer? _screenshotHudTimer;
 
   // ── Pinch to zoom ─────────────────────────────────────────────────────────
   double _pinchScale = 1.0;
@@ -1970,6 +1967,7 @@ class _FullscreenControlsOverlayState
     _bufSub?.cancel();
     _bufferingSub?.cancel();
     _completedSub?.cancel();
+    _screenshotHudTimer?.cancel();
     _bufDebounce?.cancel();
     _bufWatchdog?.cancel();
     _thumbPreview.dispose();
@@ -2097,12 +2095,11 @@ class _FullscreenControlsOverlayState
       _accumulatedSeekDelta = 0;
     }
     _doubleTapRight = isRight;
-    // Cap at 5 to prevent absurdly large jumps (max 15×16 = 240 s per tap)
-    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 5);
+    // Cap at 4 consecutive taps (chaque tap vaut _seekSeconds)
+    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 4);
 
-    final increment = _seekSeconds * (1 << (_doubleTapCount - 1).clamp(0, 4));
+    final increment = _seekSeconds;
     _accumulatedSeekDelta += isRight ? increment : -increment;
-    _skipHudSeconds = _accumulatedSeekDelta.abs();
 
     // Debounce: one real seek fires 350 ms after the last tap in a burst
     _seekDebounceTimer?.cancel();
@@ -2136,6 +2133,11 @@ class _FullscreenControlsOverlayState
 
   void _resetHideTimer() {
     _hideTimer?.cancel();
+    // Si un panneau (réglages / sous-titres / more) ou le sélecteur
+    // d'orientation est ouvert, on ne programme PAS le masquage auto :
+    // l'utilisateur doit pouvoir choisir tranquillement (sinon le picker
+    // se refermait tout seul au bout de ~1 s).
+    if (_showRotationPicker || _showSettings) return;
     _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
@@ -2146,12 +2148,59 @@ class _FullscreenControlsOverlayState
     });
   }
 
+  // ── Capture d'écran : masque les contrôles le temps du shot, sauvegarde en
+  // fichiers temporaires, puis pill de confirmation en HAUT À GAUCHE.
+  // Deux tentatives : le premier appel peut renvoyer null tant que le
+  // contexte de rendu mpv n'est chaud (accélération matérielle).
+  Future<void> _captureScreenshot() async {
+    _hideTimer?.cancel();
+    setState(() => _showControls = false);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    bool ok = false;
+    if (mounted) {
+      for (var attempt = 0; attempt < 2 && !ok; attempt++) {
+        if (attempt > 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+        try {
+          final bytes = await widget.player.screenshot();
+          if (bytes != null && bytes.isNotEmpty) {
+            final dir = await getTemporaryDirectory();
+            final path =
+                '${dir.path}/wt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+            await File(path).writeAsBytes(bytes);
+            ok = true;
+          }
+        } catch (_) {}
+      }
+    }
+    if (!mounted) return;
+    _screenshotHudTimer?.cancel();
+    setState(() {
+      _showControls = true;
+      _showScreenshotHud = true;
+      _screenshotSuccess = ok;
+    });
+    _screenshotHudTimer = Timer(const Duration(milliseconds: 2400), () {
+      if (mounted) setState(() => _showScreenshotHud = false);
+    });
+  }
+
+  void _resetScreenshotHudTimer() {
+    _screenshotHudTimer?.cancel();
+    _screenshotHudTimer = null;
+  }
+
   void _onTap() {
     if (_locked) return;
     if (_showSettings) {
       setState(() => _showSettings = false);
       _resetHideTimer();
       return;
+    }
+    if (_showScreenshotHud) {
+      _screenshotHudTimer?.cancel();
+      setState(() => _showScreenshotHud = false);
     }
     setState(() => _showControls = !_showControls);
     if (_showControls)
@@ -2429,26 +2478,21 @@ class _FullscreenControlsOverlayState
             ),
           ),
 
-          // ── Skip ripple — left half of screen ───────────────────────────────
-          if (_showLeftSkipHUD)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: size.width * 0.5,
+          // ── Skip HUD double-tap — animé au CENTRE gauche / centre droite,
+          // flèches qui s'accumulent : ‹ → ‹‹ → ‹‹‹ ────────────────────────────
+          if (_showLeftSkipHUD || _showRightSkipHUD)
+            Positioned.fill(
               child: IgnorePointer(
-                child: _buildSkipHUD(isRight: false, seconds: _skipHudSeconds),
-              ),
-            ),
-          // ── Skip ripple — right half of screen ──────────────────────────────
-          if (_showRightSkipHUD)
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: size.width * 0.5,
-              child: IgnorePointer(
-                child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
+                child: Align(
+                  alignment: _showRightSkipHUD
+                      ? const Alignment(0.5, 0)
+                      : const Alignment(-0.5, 0),
+                  child: _buildSkipHUD(
+                    isRight: _showRightSkipHUD,
+                    seconds: _seekSeconds,
+                    count: _doubleTapCount,
+                  ),
+                ),
               ),
             ),
 
@@ -2609,25 +2653,9 @@ class _FullscreenControlsOverlayState
                     _buildIconCircle(
                       icon: Broken.camera,
                       tooltip: 'Capture',
-                      onTap: () async {
-                        setState(() => _showControls = false);
-                        await Future.delayed(const Duration(milliseconds: 150));
-                        try {
-                          final bytes = await widget.player.screenshot();
-                          if (bytes != null) {
-                            final dir = await getTemporaryDirectory();
-                            final path =
-                                '${dir.path}/wt_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                            await File(path).writeAsBytes(bytes);
-                            if (mounted) {
-                              _playerToast('Capture sauvegardée');
-                            }
-                          }
-                        } catch (_) {}
-                        if (mounted) {
-                          setState(() => _showControls = true);
-                          _resetHideTimer();
-                        }
+                      onTap: () {
+                        _resetScreenshotHudTimer();
+                        _captureScreenshot();
                       },
                     ),
                     const SizedBox(height: 12),
@@ -2691,6 +2719,7 @@ class _FullscreenControlsOverlayState
                         _buildIconCircle(
                           icon: _rotationModeIcon(),
                           tooltip: 'Orientation',
+                          onTapDown: () => _hideTimer?.cancel(),
                           onTap: () {
                             _hideTimer?.cancel();
                             setState(
@@ -2705,6 +2734,62 @@ class _FullscreenControlsOverlayState
               ),
             ),
 
+          // Capture d'écran — pill de confirmation en HAUT à GAUCHE
+          if (_showScreenshotHud)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              left: 14,
+              child: IgnorePointer(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  builder: (_, t, child) => Opacity(
+                    opacity: t.clamp(0.0, 1.0),
+                    child: Transform.translate(
+                      offset: Offset(0, -8 * (1 - t)),
+                      child: child,
+                    ),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _screenshotSuccess
+                              ? Icons.check_rounded
+                              : Icons.close_rounded,
+                          color: _screenshotSuccess
+                              ? Theme.of(context).primaryColor
+                              : Colors.white70,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _screenshotSuccess
+                              ? 'Capture sauvegardée'
+                              : 'Capture impossible',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
           // Subtitles / audio side panel
           if (_showSubPanel)
             Positioned.fill(
@@ -2714,6 +2799,26 @@ class _FullscreenControlsOverlayState
                 onDownload: _startDownload,
                 onClose: () {
                   setState(() => _showSubPanel = false);
+                  _resetHideTimer();
+                },
+              ),
+            ),
+
+          // Réglages du lecteur — la même box que le panneau sous-titres
+          if (_showSettings)
+            Positioned.fill(
+              child: _PlayerSettingsPanel(
+                player: widget.player,
+                accent: Theme.of(context).primaryColor,
+                seekSeconds: _seekSeconds,
+                onSeekSeconds: (sec) => setState(() => _seekSeconds = sec),
+                fit: _fit,
+                onFit: (fit) {
+                  setState(() => _fit = fit);
+                  widget.fitNotifier?.value = fit;
+                },
+                onClose: () {
+                  setState(() => _showSettings = false);
                   _resetHideTimer();
                 },
               ),
@@ -2894,38 +2999,36 @@ class _FullscreenControlsOverlayState
     }
   }
 
-  // ── Skip HUD double-tap — "+15 ›" propre et animé (pas de demi-arc) ──────
-  Widget _buildSkipHUD({required bool isRight, required int seconds}) {
-    final label = '${isRight ? '+' : '-'}${seconds.abs()}';
+  // ── Skip HUD double-tap — flèches qui s'accumulent : ‹ → ‹‹ → ‹‹‹,
+  // placé bien au centre de sa moitié (pas collé au bord) ──────────────────
+  Widget _buildSkipHUD({
+    required bool isRight,
+    required int seconds,
+    int count = 1,
+  }) {
+    final arrows = count.clamp(1, 3);
+    final icon = isRight ? Broken.forward : Broken.backward;
     return TweenAnimationBuilder<double>(
       key: ValueKey('skip_${isRight}_$seconds'),
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       builder: (_, t, child) => Opacity(
-        opacity: t,
-        child: Transform.translate(
-          offset: Offset(isRight ? 16 * (1 - t) : -16 * (1 - t), 0),
-          child: Transform.scale(scale: 0.85 + 0.15 * t, child: child),
-        ),
+        opacity: t.clamp(0.0, 1.0),
+        child: Transform.scale(scale: 0.88 + 0.12 * t, child: child),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          for (var i = 0; i < arrows; i++)
+            Icon(icon, color: Colors.white, size: isRight ? 24 : 26),
+          const SizedBox(width: 8),
           Text(
-            label,
+            '${isRight ? '+' : '-'}${seconds.abs()}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w800,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              isRight ? Broken.forward : Broken.backward,
-              color: Colors.white,
-              size: 22,
             ),
           ),
         ],
@@ -3150,7 +3253,7 @@ class _FullscreenControlsOverlayState
           child: Column(
             children: [
               _buildTopBar(),
-              Expanded(child: _buildCenterRow()),
+              Expanded(child: SizedBox.shrink()),
               _buildBottomSection(),
             ],
           ),
@@ -3284,7 +3387,7 @@ class _FullscreenControlsOverlayState
           if (widget.showBackButton)
             IconButton(
               icon: const Icon(
-                Broken.arrow_left,
+                Broken.arrow_left_2,
                 color: Colors.white,
                 size: 22,
               ),
@@ -3312,6 +3415,7 @@ class _FullscreenControlsOverlayState
                 _showSubPanel = true;
                 _showSpeedPicker = false;
                 _showQualityPicker = false;
+                _showSettings = false;
               });
             },
             padding: const EdgeInsets.all(8),
@@ -3337,59 +3441,23 @@ class _FullscreenControlsOverlayState
               },
               padding: const EdgeInsets.all(8),
             ),
-          // More (PLAYit-style panel)
+          // Réglages (même box glissante que le panneau sous-titres,
+          // mais avec les réglages du lecteur dedans)
           IconButton(
             icon: Icon(Broken.setting_2, color: Colors.white, size: 22),
             onPressed: () {
               _hideTimer?.cancel();
-              setState(() => _showMorePanel = false);
-              _openPlayerSettings(context);
+              setState(() {
+                _showSettings = true;
+                _showSubPanel = false;
+                _showMorePanel = false;
+                _showEpPanel = false;
+                _showSpeedPicker = false;
+                _showQualityPicker = false;
+              });
             },
             padding: const EdgeInsets.all(8),
           ),
-        ],
-      ),
-    );
-  }
-
-  // Cercle ±15 façon MovieBox : arc tracé avec tête de flèche courbée et le
-  // chiffre centré À L'INTÉRIEUR — pas de fond, pas d'icône à côté.
-  Widget _buildSkipButton({required bool isForward, required int seconds}) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (_locked) return;
-        _seek(isForward ? seconds : -seconds);
-      },
-      child: SizedBox(
-        width: 58,
-        height: 58,
-        child: CustomPaint(
-          painter: _SkipCirclePainter(isForward: isForward),
-          child: Center(
-            child: Text(
-              '$seconds',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCenterRow() {
-    // Keep the two seek controls close to the centre in landscape.
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSkipButton(isForward: false, seconds: _doubleTapSeekSeconds),
-          const SizedBox(width: 48),
-          _buildSkipButton(isForward: true, seconds: _doubleTapSeekSeconds),
         ],
       ),
     );
@@ -3996,9 +4064,12 @@ class _FullscreenControlsOverlayState
     required IconData icon,
     required String tooltip,
     required VoidCallback onTap,
+    VoidCallback? onTapDown,
   }) {
     return GestureDetector(
       onTap: onTap,
+      onTapDown: onTapDown == null ? null : (_) => onTapDown(),
+      behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -4035,80 +4106,6 @@ String _audioTrackLabel(AudioTrack t, int index) {
   if (mapped != null) return mapped;
   if (lang.isNotEmpty) return lang.toUpperCase();
   return 'Piste ${index + 1}';
-}
-
-// ─── Skip circle painter (arc + arrowhead + number inside) ────────────────────
-
-class _SkipCirclePainter extends CustomPainter {
-  final bool isForward;
-  _SkipCirclePainter({required this.isForward});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = size.width / 2 - 2.5;
-    final stroke = 2.2;
-
-    final arcPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: 0.95);
-
-    // Gap en haut où vient se poser la tête de flèche.
-    const gap = 0.62; // radians
-    final double start;
-    final double sweep;
-    if (isForward) {
-      start = -math.pi / 2 + gap / 2;
-      sweep = 2 * math.pi - gap;
-    } else {
-      start = -math.pi / 2 - gap / 2;
-      sweep = -(2 * math.pi - gap);
-    }
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      start,
-      sweep,
-      false,
-      arcPaint,
-    );
-
-    _drawArrowHead(canvas, center, radius, start + sweep, stroke);
-  }
-
-  void _drawArrowHead(
-    Canvas canvas,
-    Offset c,
-    double r,
-    double angle,
-    double stroke,
-  ) {
-    final pos = Offset(c.dx + r * math.cos(angle), c.dy + r * math.sin(angle));
-    // Tangente dans le sens de l'arc.
-    final Offset tangent;
-    if (isForward) {
-      tangent = Offset(-math.sin(angle), math.cos(angle));
-    } else {
-      tangent = Offset(math.sin(angle), -math.cos(angle));
-    }
-    final tip = pos + tangent * (stroke * 4.0);
-    final back = -tangent;
-    final perp = Offset(-back.dy, back.dx);
-    final half = stroke * 3.4;
-
-    final path = Path()
-      ..moveTo(tip.dx, tip.dy)
-      ..lineTo(pos.dx + perp.dx * half, pos.dy + perp.dy * half)
-      ..lineTo(pos.dx - perp.dx * half, pos.dy - perp.dy * half)
-      ..close();
-    canvas.drawPath(path, Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SkipCirclePainter oldDelegate) =>
-      oldDelegate.isForward != isForward;
 }
 
 // ─── Toolbar chip button ───────────────────────────────────────────────────────
@@ -5188,6 +5185,347 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
   }
 }
 
+// ─── Réglages du lecteur — MÊME box que le panneau sous-titres (copie
+// identique : glisse depuis la droite, mêmes coins/couleurs). Contenu adapté
+// à Watchtower (pas de décodeur ici) : intervalle de navigation, vitesse,
+// ajustement vidéo, boucle et luminosité. ────────────────────────────────────
+
+class _PlayerSettingsPanel extends StatefulWidget {
+  final Player player;
+  final Color accent;
+  final VoidCallback onClose;
+  // Null → la section est masquée (l'overlay n'expose pas la valeur).
+  final int? seekSeconds;
+  final ValueChanged<int>? onSeekSeconds;
+  final BoxFit? fit;
+  final ValueChanged<BoxFit>? onFit;
+
+  const _PlayerSettingsPanel({
+    required this.player,
+    required this.accent,
+    required this.onClose,
+    this.seekSeconds,
+    this.onSeekSeconds,
+    this.fit,
+    this.onFit,
+  });
+
+  @override
+  State<_PlayerSettingsPanel> createState() => _PlayerSettingsPanelState();
+}
+
+class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
+  static const List<int> _kSeekChoices = [5, 10, 15, 30, 60];
+  static const List<double> _kSpeedChoices = [
+    0.25,
+    0.5,
+    0.75,
+    1.0,
+    1.25,
+    1.5,
+    1.75,
+    2.0,
+  ];
+  double _brightness = 0.5;
+
+  @override
+  void initState() {
+    super.initState();
+    // Luminosité actuelle récupérée en tâche de fond (API asynchrone).
+    ScreenBrightness()
+        .application
+        .then((v) {
+          if (mounted) {
+            setState(() => _brightness = v.clamp(0.0, 1.0));
+          }
+        })
+        .catchError((_) {});
+  }
+
+  double get _currentRate => widget.player.state.rate;
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? widget.accent.withValues(alpha: 0.2)
+              : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? widget.accent : Colors.white12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? widget.accent : Colors.white70,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
+    final screenW = MediaQuery.of(context).size.width;
+    final safeArea = MediaQuery.of(context).padding;
+    // Même box que le panneau sous-titres ; en portrait l'écran est étroit,
+    // on élargit légèrement pour que les chips tiennent.
+    final panelW = screenW * (screenW < screenH ? 0.62 : 0.52);
+    final playlistMode = widget.player.state.playlist.mode;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onClose,
+      child: Container(
+        color: Colors.transparent,
+        alignment: Alignment.topRight,
+        padding: EdgeInsets.only(
+          top: safeArea.top + 4,
+          right: safeArea.right,
+          bottom: safeArea.bottom + 4,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: TweenAnimationBuilder<Offset>(
+            tween: Tween(begin: const Offset(1.0, 0.0), end: Offset.zero),
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            builder: (_, offset, child) => Transform.translate(
+              offset: Offset(offset.dx * panelW, offset.dy * screenH),
+              child: child,
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+              ),
+              child: Container(
+                width: panelW,
+                constraints: BoxConstraints(maxHeight: screenH * 0.90),
+                decoration: const BoxDecoration(
+                  color: Color(0xD1000000),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                  ),
+                ),
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      // Header — même style que le panneau sous-titres
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Colors.white24,
+                              width: 0.8,
+                            ),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Réglages du lecteur',
+                              style: TextStyle(
+                                color: widget.accent,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView(
+                          padding: EdgeInsets.zero,
+                          children: [
+                            // ── Intervalle de navigation ────────────────
+                            if (widget.onSeekSeconds != null) ...[
+                              _sectionTitle('Intervalle de navigation'),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _kSeekChoices.map((sec) {
+                                    return _chip(
+                                      '${sec}s',
+                                      sec == widget.seekSeconds,
+                                      () => widget.onSeekSeconds!(sec),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              Container(height: 0.6, color: Colors.white12),
+                            ],
+                            // ── Vitesse de lecture ──────────────────────
+                            _sectionTitle('Vitesse de lecture'),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: _kSpeedChoices.map((speed) {
+                                  final label = speed == speed.roundToDouble()
+                                      ? '${speed.toInt()}x'
+                                      : '${speed}x';
+                                  return _chip(
+                                    label,
+                                    speed == _currentRate,
+                                    () {
+                                      setState(() {});
+                                      widget.player.setRate(speed);
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            Container(height: 0.6, color: Colors.white12),
+                            // ── Ajustement vidéo ────────────────────────
+                            if (widget.onFit != null &&
+                                widget.fit != null) ...[
+                              _sectionTitle('Ajustement vidéo'),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _kFitCycle.map((fit) {
+                                    return _chip(
+                                      _kFitNames[fit] ?? 'Ajuster',
+                                      fit == widget.fit,
+                                      () => widget.onFit!(fit),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              Container(height: 0.6, color: Colors.white12),
+                            ],
+                            // ── Boucle ──────────────────────────────────
+                            _sectionTitle('Boucle'),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                              child: Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _chip(
+                                    'Aucune',
+                                    playlistMode == PlaylistMode.none,
+                                    () => setState(() {
+                                      widget.player.setPlaylistMode(
+                                        PlaylistMode.none,
+                                      );
+                                    }),
+                                  ),
+                                  _chip(
+                                    'Une',
+                                    playlistMode == PlaylistMode.single,
+                                    () => setState(() {
+                                      widget.player.setPlaylistMode(
+                                        PlaylistMode.single,
+                                      );
+                                    }),
+                                  ),
+                                  _chip(
+                                    'Tout',
+                                    playlistMode == PlaylistMode.loop,
+                                    () => setState(() {
+                                      widget.player.setPlaylistMode(
+                                        PlaylistMode.loop,
+                                      );
+                                    }),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(height: 0.6, color: Colors.white12),
+                            // ── Luminosité ──────────────────────────────
+                            _sectionTitle('Luminosité'),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 2, 16, 14),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.brightness_low_rounded,
+                                    color: Colors.white70,
+                                    size: 16,
+                                  ),
+                                  Expanded(
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        trackHeight: 3,
+                                        thumbColor: Colors.white,
+                                        activeTrackColor: widget.accent,
+                                        inactiveTrackColor: Colors.white24,
+                                        overlayShape:
+                                            const RoundSliderOverlayShape(
+                                              overlayRadius: 12,
+                                            ),
+                                      ),
+                                      child: Slider(
+                                        value: _brightness,
+                                        onChanged: (v) {
+                                          setState(() => _brightness = v);
+                                          try {
+                                            ScreenBrightness()
+                                                .setApplicationScreenBrightness(
+                                                  v,
+                                                );
+                                          } catch (_) {}
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.brightness_high_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TrackTile extends StatelessWidget {
   final String label;
   final bool selected;
@@ -5273,6 +5611,7 @@ class _PortraitPlayerOverlay extends ConsumerStatefulWidget {
 
 class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> {
   bool _showControls = true;
+  bool _showSettingsPanel = false;
   Timer? _hideTimer;
 
   // ── Gesture / overlay preferences (mirror the fullscreen overlay) ─────────
@@ -5299,7 +5638,6 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   Timer? _skipHudTimer;
   Timer? _seekDebounceTimer;
   int _accumulatedSeekDelta = 0;
-  int _skipHudSeconds = 15;
 
   // ── Horizontal seek (swipe timeline) ─────────────────────────────────────
   double? _horizDragStartX;
@@ -5373,28 +5711,6 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
     );
   }
 
-  Widget _buildPortraitSeekButton({required bool isForward}) {
-    final seconds = isForward ? 15 : -15;
-    return IconButton(
-      tooltip: isForward ? 'Avancer de 15 secondes' : 'Reculer de 15 secondes',
-      onPressed: () {
-        _seek(seconds);
-        _resetHideTimer();
-      },
-      style: IconButton.styleFrom(
-        backgroundColor: Colors.black54,
-        foregroundColor: Colors.white,
-        shape: const CircleBorder(),
-        minimumSize: const Size(52, 52),
-        padding: EdgeInsets.zero,
-      ),
-      icon: Icon(
-        isForward ? Broken.forward_15_seconds : Broken.backward_15_seconds,
-        size: 26,
-      ),
-    );
-  }
-
   void _handleDoubleTap({required bool isRight}) {
     _doubleTapResetTimer?.cancel();
     if (!_doubleTapSeekEnabled) {
@@ -5408,10 +5724,9 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
       _accumulatedSeekDelta = 0;
     }
     _doubleTapRight = isRight;
-    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 5);
-    final increment = 15 * (1 << (_doubleTapCount - 1).clamp(0, 4));
+    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 4);
+    final increment = 15;
     _accumulatedSeekDelta += isRight ? increment : -increment;
-    _skipHudSeconds = _accumulatedSeekDelta.abs();
 
     // Debounce: one seek per tap burst, prevents mpv RAM spikes
     _seekDebounceTimer?.cancel();
@@ -5671,38 +5986,35 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
     );
   }
 
-  // Skip HUD double-tap — "+15 ›" propre et animé (pas de demi-arc)
-  Widget _buildSkipHUD({required bool isRight, required int seconds}) {
-    final label = '${isRight ? '+' : '-'}${seconds.abs()}';
+  // Skip HUD double-tap — flèches qui s'accumulent : ‹ → ‹‹ → ‹‹‹
+  Widget _buildSkipHUD({
+    required bool isRight,
+    required int seconds,
+    int count = 1,
+  }) {
+    final arrows = count.clamp(1, 3);
+    final icon = isRight ? Broken.forward : Broken.backward;
     return TweenAnimationBuilder<double>(
       key: ValueKey('fs_skip_${isRight}_$seconds'),
       tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
       builder: (_, t, child) => Opacity(
-        opacity: t,
-        child: Transform.translate(
-          offset: Offset(isRight ? 16 * (1 - t) : -16 * (1 - t), 0),
-          child: Transform.scale(scale: 0.85 + 0.15 * t, child: child),
-        ),
+        opacity: t.clamp(0.0, 1.0),
+        child: Transform.scale(scale: 0.88 + 0.12 * t, child: child),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          for (var i = 0; i < arrows; i++)
+            Icon(icon, color: Colors.white, size: isRight ? 24 : 26),
+          const SizedBox(width: 8),
           Text(
-            label,
+            '${isRight ? '+' : '-'}${seconds.abs()}',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w800,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              isRight ? Broken.forward : Broken.backward,
-              color: Colors.white,
-              size: 22,
             ),
           ),
         ],
@@ -5806,44 +6118,20 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
               onTap: _onTap,
             ),
           ),
-          if (_showControls)
+          // ── Skip HUD double-tap — flèches cumulées ‹ ‹‹ ‹‹‹, bien posées
+          // au centre-gauche / centre-droite (pas collées au bord)
+          if (_showLeftSkipHUD || _showRightSkipHUD)
             Positioned.fill(
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildPortraitSeekButton(isForward: false),
-                    const SizedBox(width: 36),
-                    _buildPortraitSeekButton(isForward: true),
-                  ],
-                ),
-              ),
-            ),
-          // ── Skip HUD double-tap — flèches latérales animées (style YouTube)
-          if (_showLeftSkipHUD)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: size.width * 0.3,
               child: IgnorePointer(
-                child: Center(
+                child: Align(
+                  alignment: _showRightSkipHUD
+                      ? const Alignment(0.4, 0)
+                      : const Alignment(-0.4, 0),
                   child: _buildSkipHUD(
-                    isRight: false,
-                    seconds: _skipHudSeconds,
+                    isRight: _showRightSkipHUD,
+                    seconds: 15,
+                    count: _doubleTapCount,
                   ),
-                ),
-              ),
-            ),
-          if (_showRightSkipHUD)
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: size.width * 0.3,
-              child: IgnorePointer(
-                child: Center(
-                  child: _buildSkipHUD(isRight: true, seconds: _skipHudSeconds),
                 ),
               ),
             ),
@@ -5911,18 +6199,29 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
                 ),
               ),
             ),
-          // ── Icône Paramètres haut-droite (portrait only) ─────────────────
-          if (_showControls)
+          // ── Icône Paramètres haut-droite (portrait only) — cercle opaque
+          // et ouvre la même box glissante que les sous-titres ───────────────
+          if (_showControls && !_showSettingsPanel)
             Positioned(
               top: safeTop + 2,
               right: 6,
-              child: IconButton(
-                tooltip: 'Paramètres du lecteur',
-                onPressed: () => _openPlayerSettings(context),
-                icon: const Icon(
-                  Broken.setting_2,
-                  color: Colors.white,
-                  size: 20,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  _hideTimer?.cancel();
+                  setState(() => _showSettingsPanel = true);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Broken.setting_2,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -5950,6 +6249,19 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
                   onEpisodeTap: widget.onEpisodeTap,
                   fallbackCoverUrl: widget.coverUrl,
                 ),
+              ),
+            ),
+          // ── Réglages du lecteur (portrait) — même box glissante que le
+          // panneau sous-titres, au-dessus de toutes les barres ──────────────
+          if (_showSettingsPanel)
+            Positioned.fill(
+              child: _PlayerSettingsPanel(
+                player: widget.player,
+                accent: widget.accent,
+                onClose: () {
+                  setState(() => _showSettingsPanel = false);
+                  _resetHideTimer();
+                },
               ),
             ),
         ],

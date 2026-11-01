@@ -341,25 +341,36 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         children: [
                           IconButton(
                             // Même style que le bouton retour du lecteur paysage
-                            icon: const Icon(Broken.arrow_left, color: Colors.white, size: 22),
+                            // — "<" aplati du pack Broken demandé
+                            icon: const Icon(Broken.arrow_left_2, color: Colors.white, size: 22),
                             onPressed: () => Navigator.of(context).pop(),
                             padding: const EdgeInsets.all(8),
                           ),
-                          Expanded(
-                            child: ValueListenableBuilder<double>(
-                              valueListenable: _headerTitleOpacity,
-                              builder: (_, opacity, _) => Opacity(
-                                opacity: opacity,
-                                child: Text(
-                                  widget.manga.name ?? '',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    shadows: [Shadow(blurRadius: 6, color: Colors.black54)],
+                          // IgnorePointer : la zone du titre laisse passer
+                          // les touches jusqu'au bouton réglages de
+                          // l'overlay (sinon il restait mort et grisé).
+                          IgnorePointer(
+                            child: Expanded(
+                              child: ValueListenableBuilder<double>(
+                                valueListenable: _headerTitleOpacity,
+                                builder: (_, opacity, _) => Opacity(
+                                  opacity: opacity,
+                                  child: Text(
+                                    widget.manga.name ?? '',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      shadows: [
+                                        Shadow(
+                                          blurRadius: 6,
+                                          color: Colors.black54,
+                                        ),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -399,8 +410,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         fontSize: 13.5, fontWeight: FontWeight.w400),
                     dividerColor: Colors.transparent,
                     tabs: const [
-                      Tab(text: 'Pour vous'),
-                      Tab(text: 'Commentaires'),
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Broken.star, size: 15),
+                            SizedBox(width: 6),
+                            Text('Pour vous'),
+                          ],
+                        ),
+                      ),
+                      Tab(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Broken.messages_2, size: 15),
+                            SizedBox(width: 6),
+                            Text('Commentaires'),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                   color: _bg,
@@ -433,7 +462,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Broken.arrow_left, color: Colors.white),
+                icon: const Icon(Broken.arrow_left_2, color: Colors.white),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -1338,7 +1367,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       fontWeight: FontWeight.w500),
                 ),
               ),
-              const SizedBox(width: 8),
             ],
             ArrowPopupMenuButton<_ResourceMenuAction>(
               tooltip: 'Options de la source',
