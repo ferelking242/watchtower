@@ -115,6 +115,13 @@ class WatchtowerBackDispatcher extends RootBackButtonDispatcher {
     final location = _currentLocation() ?? history.current;
     // Onboarding is a one-way gate: back there should leave the app.
     if (location == '/onboarding') return false;
+    // Marketplace search is a dock-level destination opened with `go()`, not
+    // a pushed page. Its back destination is the Marketplace landing page even
+    // when the app was launched directly into search and has no tab history.
+    if (Uri.tryParse(location ?? '')?.path == '/marketplace/search') {
+      _router().go('/marketplace');
+      return true;
+    }
 
     final target = history.backTarget(location, _defaultLocation());
     if (target == null) return false;

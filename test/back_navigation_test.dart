@@ -22,6 +22,14 @@ GoRouter _router({String initial = '/WatchtowerHome'}) {
         builder: (_, _) => const Scaffold(body: Text('queue')),
       ),
       GoRoute(
+        path: '/marketplace',
+        builder: (_, _) => const Scaffold(body: Text('marketplace')),
+      ),
+      GoRoute(
+        path: '/marketplace/search',
+        builder: (_, _) => const Scaffold(body: Text('marketplace search')),
+      ),
+      GoRoute(
         path: '/onboarding',
         builder: (_, _) => const Scaffold(body: Text('onboarding')),
       ),
@@ -94,6 +102,32 @@ void main() {
 
     expect(handled, isTrue);
     expect(find.text('home'), findsOneWidget);
+  });
+
+  testWidgets('back from marketplace search always returns to Marketplace', (
+    tester,
+  ) async {
+    final router = _router(initial: '/marketplace/search');
+    final dispatcher = WatchtowerBackDispatcher(
+      router: () => router,
+      defaultLocation: () => '/WatchtowerHome',
+    );
+    addTearDown(dispatcher.detach);
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        backButtonDispatcher: dispatcher,
+        routeInformationParser: router.routeInformationParser,
+        routerDelegate: router.routerDelegate,
+        routeInformationProvider: router.routeInformationProvider,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('marketplace search'), findsOneWidget);
+
+    expect(await dispatcher.didPopRoute(), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('marketplace'), findsOneWidget);
   });
 
   testWidgets('back from the default tab is left to the platform', (

@@ -208,7 +208,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   int currentIndex = 0;
   bool isLibSwitch = false;
-  bool isLibrarySwitch = false;
   @override
   Widget build(BuildContext context) {
     ref.listen<Locale>(l10nLocaleStateProvider, (previous, next) {
@@ -221,11 +220,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.listen<double>(navIconSizeProvider, (_, _) => _clearCache());
     ref.listen<double>(navItemSpacingProvider, (_, _) => _clearCache());
     ref.listen<String>(navDockStyleProvider, (_, _) => _clearCache());
-    ref.listen<bool>(mergeLibraryOnDockProvider, (_, merged) {
-      if (!merged && isLibrarySwitch && mounted) {
-        setState(() => isLibrarySwitch = false);
-      }
-    });
     // Reset dock visibility whenever the route changes so pages with little
     // content (e.g. /plugins) never get stuck with a hidden dock.
     ref.listen<String?>(routerCurrentLocationStateProvider, (prev, next) {
@@ -328,24 +322,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           }
         }
 
-        // ── Library sub-dock mode ───────────────────────────────────────
-        // When isLibrarySwitch is on, show [Back, /Library].
-        // Otherwise, if /Library is in dest, replace it with
-        // _enableLibrarySwitch so tapping opens the sub-dock instead of
-        // navigating directly to the library page.
-        if (mergeLibraryDock && isLibrarySwitch) {
-          dest = [
-            '_disableLibrarySwitch',
-            '/Library',
-          ].where((nav) => !hideItems.contains(nav)).toList();
-        } else if (mergeLibraryDock &&
-            dest.contains('/Library') &&
-            !isLibSwitch) {
-          dest = dest
-              .map((nav) => nav == '/Library' ? '_enableLibrarySwitch' : nav)
-              .toList();
-        }
-
         if (isLibSwitch &&
             (currentIndex >= dest.length ||
                 !libLocationRegex.hasMatch(location ?? ""))) {
@@ -420,9 +396,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             // this the highlighted item stayed on the previous tab (Hub was
             // left uncoloured when a library page was open).
             currentIndex = _dockDest.indexOf('_enableLibSwitch');
-          } else if (effectiveLocation == '/Library' &&
-              _dockDest.contains('_enableLibrarySwitch')) {
-            currentIndex = _dockDest.indexOf('_enableLibrarySwitch');
           }
         }
         final _cappedDest = _dockDest.take(4).toList();
@@ -492,12 +465,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               } else if (destination == "_disableLibSwitch") {
                                 setState(() => isLibSwitch = false);
                               } else if (destination ==
-                                  "_enableLibrarySwitch") {
-                                setState(() => isLibrarySwitch = true);
-                              } else if (destination ==
-                                  "_disableLibrarySwitch") {
-                                setState(() => isLibrarySwitch = false);
-                              } else if (destination ==
                                   "_disableMarketplaceSwitch") {
                                 route.go('/browse');
                               } else if (destination == "_nfileBack") {
@@ -524,12 +491,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                 setState(() => isLibSwitch = true);
                               } else if (destination == "_disableLibSwitch") {
                                 setState(() => isLibSwitch = false);
-                              } else if (destination ==
-                                  "_enableLibrarySwitch") {
-                                setState(() => isLibrarySwitch = true);
-                              } else if (destination ==
-                                  "_disableLibrarySwitch") {
-                                setState(() => isLibrarySwitch = false);
                               } else if (destination == "_watchtower_menu") {
                                 ref.read(menuOpenProvider.notifier).state = !ref
                                     .read(menuOpenProvider);
@@ -1015,21 +976,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         label: 'Discover',
       );
     }
-    if (dest.contains('_enableLibrarySwitch')) {
-      destMap['_enableLibrarySwitch'] = NavigationDestination(
-        selectedIcon: const Icon(Broken.book_square),
-        icon: const Icon(Broken.book_1),
-        label: l10n.library,
-      );
-    }
-    if (dest.contains('_disableLibrarySwitch')) {
-      destMap['_disableLibrarySwitch'] = NavigationDestination(
-        selectedIcon: const Icon(Broken.arrow_left_2),
-        icon: const Icon(Broken.arrow_left_2),
-        label: l10n.go_back,
-      );
-    }
-
     // Reconstruct in the original order, dropping any unrecognised routes
     final result = dest
         .where(destMap.containsKey)
@@ -1984,10 +1930,6 @@ class _FloatingDockState extends State<_FloatingDock> {
     if (route == '_enableLibSwitch') {
       return loc != null && libLocationRegex.hasMatch(loc);
     }
-    // Same for the unified Library entry: it stands in for /Library.
-    if (route == '_enableLibrarySwitch') {
-      return loc == '/Library';
-    }
     return loc == route;
   }
 
@@ -2182,24 +2124,6 @@ class _FloatingDockState extends State<_FloatingDock> {
               activeIcon: Broken.arrow_left_2,
             ),
           );
-        case '_enableLibrarySwitch':
-          items.add(
-            const _DockItemData(
-              route: '_enableLibrarySwitch',
-              label: 'Library',
-              icon: Broken.book_1,
-              activeIcon: Broken.book_square,
-            ),
-          );
-        case '_disableLibrarySwitch':
-          items.add(
-            _DockItemData(
-              route: '_disableLibrarySwitch',
-              label: l10n.go_back,
-              icon: Broken.arrow_left_2,
-              activeIcon: Broken.arrow_left_2,
-            ),
-          );
         case '_disableMarketplaceSwitch':
           items.add(
             _DockItemData(
@@ -2230,11 +2154,9 @@ class _FloatingDockState extends State<_FloatingDock> {
       }
     }
 
-    // In Hub or Library sub-dock mode, allow 5 content slots so that all items
-    // fit; otherwise cap at 4.
+    // Expanded Hub / Marketplace navigation docks need one extra content slot.
     final _hubMode =
         d.contains('_disableLibSwitch') ||
-        d.contains('_disableLibrarySwitch') ||
         d.contains('_disableMarketplaceSwitch') ||
         d.contains('_nfileBack');
     final _cap = _hubMode ? 5 : 4;
@@ -2331,12 +2253,11 @@ class _FloatingDockState extends State<_FloatingDock> {
     final isGlass = widget.ref.read(navDockStyleProvider) == 'immersive';
     final editMode = widget.ref.watch(navEditModeProvider);
 
-    // In sub-dock mode (Back is first item), detach Back and Menu into their
-    // own mini pills flanking the content pill for a cleaner visual.
+    // In expanded Hub / Marketplace navigation, detach Back and Menu into
+    // their own mini pills flanking the content pill.
     final inSubDock =
         items.length >= 3 &&
         (items.first.route == '_disableLibSwitch' ||
-            items.first.route == '_disableLibrarySwitch' ||
             items.first.route == '_disableMarketplaceSwitch' ||
             items.first.route == '_nfileBack');
 

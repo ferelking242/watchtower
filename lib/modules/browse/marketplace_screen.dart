@@ -1320,26 +1320,38 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     });
 
     if (widget.initialSection != MarketplaceSection.plugins) {
-      return Scaffold(
-        backgroundColor: MarketplacePalette.of(context).background,
-        body: SafeArea(
-          bottom: false,
-          child: _PlayStoreMarketplaceView(
-            entries: _all,
-            installed: _installed,
-            installedVersions: _installedVersions,
-            installedSources: _installedSources,
-            busy: _busy,
-            loading: _loading,
-            error: _error,
-            initialSearch: widget.initialSection == MarketplaceSection.search,
-            showNsfw: _showNsfw,
-            onEnableNsfw: () =>
-                ref.read(showNSFWStateProvider.notifier).set(true),
-            onOpenSettings: _showMarketplaceSettings,
-            onInstall: _install,
-            onSettings: _openSettings,
-            onRefresh: () => _loadAll(bypassCache: true),
+      final isSearchRoute =
+          widget.initialSection == MarketplaceSection.search;
+      return PopScope<void>(
+        // Search is a standalone GoRouter destination. Keep the Android/system
+        // back action inside Marketplace instead of popping the app shell.
+        canPop: !isSearchRoute,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && isSearchRoute && mounted) {
+            context.go('/marketplace');
+          }
+        },
+        child: Scaffold(
+          backgroundColor: MarketplacePalette.of(context).background,
+          body: SafeArea(
+            bottom: false,
+            child: _PlayStoreMarketplaceView(
+              entries: _all,
+              installed: _installed,
+              installedVersions: _installedVersions,
+              installedSources: _installedSources,
+              busy: _busy,
+              loading: _loading,
+              error: _error,
+              initialSearch: isSearchRoute,
+              showNsfw: _showNsfw,
+              onEnableNsfw: () =>
+                  ref.read(showNSFWStateProvider.notifier).set(true),
+              onOpenSettings: _showMarketplaceSettings,
+              onInstall: _install,
+              onSettings: _openSettings,
+              onRefresh: () => _loadAll(bypassCache: true),
+            ),
           ),
         ),
       );
