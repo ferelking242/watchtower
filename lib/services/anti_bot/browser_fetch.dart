@@ -44,6 +44,59 @@ class BrowserFetchResponse {
 class BrowserFetchService {
   BrowserFetchService._();
 
+  /// A Surrit playlist can return a plain 403 to the native client without
+  /// Cloudflare response markers. In that case, retry only the known MissAV
+  /// media host in the browser, using the source page as the browser origin.
+  static bool isMissAvHlsPlaylistRefusal(String url, int statusCode) {
+    if (statusCode != 403) return false;
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.scheme != 'https' || !_isSurritHost(uri.host)) {
+      return false;
+    }
+    return uri.path.toLowerCase().endsWith('.m3u8');
+  }
+
+  /// Selects the page that initiated a MissAV media request for browser replay.
+  ///
+  /// Other media hosts keep their existing same-origin behavior. MissAV's
+  /// Surrit CDN needs the actual MissAV page context; opening the playlist URL
+  /// itself leaves the browser session on a non-HTML media response.
+  static String? pageUrlForMissAvMediaRequest(
+    String url,
+    Map<String, String>? headers,
+  ) {
+    final mediaUri = Uri.tryParse(url);
+    if (mediaUri == null ||
+        mediaUri.scheme != 'https' ||
+        !_isSurritHost(mediaUri.host)) {
+      return null;
+    }
+
+    String? referer;
+    headers?.forEach((name, value) {
+      if (name.toLowerCase() == 'referer') referer = value.trim();
+    });
+    if (referer == null || referer!.isEmpty) return null;
+
+    final pageUri = Uri.tryParse(referer!);
+    if (pageUri == null ||
+        pageUri.scheme != 'https' ||
+        !_isMissAvHost(pageUri.host)) {
+      return null;
+    }
+    return pageUri.toString();
+  }
+
+  static bool _isSurritHost(String host) {
+    final normalized = host.toLowerCase();
+    return normalized == 'surrit.com' || normalized.endsWith('.surrit.com');
+  }
+
+  static bool _isMissAvHost(String host) {
+    final normalized = host.toLowerCase();
+    return normalized == 'missav.ws' || normalized.endsWith('.missav.ws');
+  }
+
   /// Hosts being served right now, per isolate.
   static final Set<String> _inFlightHosts = {};
 

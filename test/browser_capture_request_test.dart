@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/services/anti_bot/browser_capture.dart';
+import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 
 /// The browser performs the request itself, so the headers an extension passes
 /// are translated into a page-level `fetch()`. A forbidden header makes the
@@ -133,6 +134,80 @@ void main() {
       );
 
       expect(result.bytes, isNull);
+    });
+  });
+
+  group('MissAV media browser fallback', () {
+    test('retries only Surrit HLS playlists refused with 403', () {
+      expect(
+        BrowserFetchService.isMissAvHlsPlaylistRefusal(
+          'https://surrit.com/id/playlist.m3u8',
+          403,
+        ),
+        isTrue,
+      );
+      expect(
+        BrowserFetchService.isMissAvHlsPlaylistRefusal(
+          'https://surrit.com/id/playlist.m3u8',
+          404,
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserFetchService.isMissAvHlsPlaylistRefusal(
+          'http://surrit.com/id/playlist.m3u8',
+          403,
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserFetchService.isMissAvHlsPlaylistRefusal(
+          'https://cdn.example/video.m3u8',
+          403,
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserFetchService.isMissAvHlsPlaylistRefusal(
+          'https://surrit.com/id/segment.ts',
+          403,
+        ),
+        isFalse,
+      );
+    });
+
+    test('uses the exact MissAV page as the Surrit browser context', () {
+      expect(
+        BrowserFetchService.pageUrlForMissAvMediaRequest(
+          'https://surrit.com/id/playlist.m3u8',
+          {
+            'referer': 'https://missav.ws/en/video-id',
+            'Origin': 'https://missav.ws',
+          },
+        ),
+        'https://missav.ws/en/video-id',
+      );
+      expect(
+        BrowserFetchService.pageUrlForMissAvMediaRequest(
+          'https://cdn.example/video.m3u8',
+          {'Referer': 'https://missav.ws/en/video-id'},
+        ),
+        isNull,
+      );
+      expect(
+        BrowserFetchService.pageUrlForMissAvMediaRequest(
+          'https://surrit.com/id/playlist.m3u8',
+          {'Referer': 'https://example.test/video'},
+        ),
+        isNull,
+      );
+      expect(
+        BrowserFetchService.pageUrlForMissAvMediaRequest(
+          'https://surrit.com/id/playlist.m3u8',
+          {'Referer': 'javascript://missav.ws/video'},
+        ),
+        isNull,
+      );
     });
   });
 }

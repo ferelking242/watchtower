@@ -548,7 +548,9 @@ class M3u8Downloader {
         url,
         sourceId: sourceId,
         headers: headers,
-        pageUrl: _originOf(url),
+        pageUrl:
+            BrowserFetchService.pageUrlForMissAvMediaRequest(url, headers) ??
+            _originOf(url),
       );
       if (response.outcome != BrowserFetchOutcome.resolved) return null;
       final result = response.result!;

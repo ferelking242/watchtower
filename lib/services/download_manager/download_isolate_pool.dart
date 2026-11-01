@@ -12,6 +12,7 @@ import 'package:watchtower/models/page.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/anti_bot/browser_bridge.dart';
 import 'package:watchtower/services/anti_bot/browser_capture.dart';
+import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
@@ -2117,8 +2118,15 @@ Future<bool> _segmentViaBrowser(
         headers: headers,
         // The session must land on an HTML page to clear the challenge: a
         // WebView opened straight on a segment never resolves it. The media
-        // host's own origin keeps the later fetch same-origin.
-        pageUrl: _mediaOriginOf(ts.url),
+        // host's own origin is the default. MissAV's Surrit media uses its
+        // source page as the browser origin so the CDN receives the expected
+        // cross-site request context.
+        pageUrl:
+            BrowserFetchService.pageUrlForMissAvMediaRequest(
+              ts.url,
+              headers,
+            ) ??
+            _mediaOriginOf(ts.url),
         binary: true,
         timeout: const Duration(seconds: 60),
         solveTimeout: const Duration(seconds: 20),

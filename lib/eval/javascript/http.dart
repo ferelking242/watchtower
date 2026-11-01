@@ -224,8 +224,21 @@ Future<String> _toHttpResponse(
     // the same URL loads in the app's WebView because that engine runs the
     // challenge JavaScript. Let the browser send this request instead of
     // handing the clearance back to a client Cloudflare will refuse again.
-    if (method == "GET" && antiBotAssessmentOf(resp).challenge) {
-      final browser = await _browserResponseFor(url, headers, sourceId);
+    if (method == "GET" &&
+        (antiBotAssessmentOf(resp).challenge ||
+            BrowserFetchService.isMissAvHlsPlaylistRefusal(
+              url,
+              resp.statusCode,
+            ))) {
+      final browser = await _browserResponseFor(
+        url,
+        headers,
+        sourceId,
+        pageUrl: BrowserFetchService.pageUrlForMissAvMediaRequest(
+          url,
+          headers,
+        ),
+      );
       if (browser != null) return browser;
     }
 
@@ -406,13 +419,15 @@ Future<String> _toHttpResponseViaProxy(
 Future<String?> _browserResponseFor(
   String url,
   Map<String, String>? headers,
-  int? sourceId,
-) async {
+  int? sourceId, {
+  String? pageUrl,
+}) async {
   try {
     final response = await BrowserFetchService.fetch(
       url,
       sourceId: sourceId,
       headers: headers,
+      pageUrl: pageUrl,
     );
     switch (response.outcome) {
       case BrowserFetchOutcome.resolved:
