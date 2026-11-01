@@ -5293,7 +5293,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
     // Même box que le panneau sous-titres ; en portrait l'écran est étroit,
     // on élargit légèrement pour que les chips tiennent.
     final panelW = screenW * (screenW < screenH ? 0.62 : 0.52);
-    final playlistMode = widget.player.state.playlist.mode;
+    final playlistMode = widget.player.state.playlistMode;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

@@ -168,7 +168,7 @@ void main() {
         matching: find.byType(Container),
       ),
     );
-    expect(button.width, 30);
-    expect(button.height, 30);
+    expect(button.constraints?.maxWidth, 30);
+    expect(button.constraints?.maxHeight, 30);
   });
 }
