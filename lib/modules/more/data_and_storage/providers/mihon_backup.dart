@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 /// Tolerant reader for Mihon / Tachiyomi `.tachibk` backups.
@@ -805,7 +806,9 @@ class _ProtoReader {
     _require(length);
     final slice = _bytes.sublist(_offset, _offset + length);
     _offset += length;
-    return String.fromCharCodes(slice);
+    // Protobuf strings are UTF-8; `fromCharCodes` would mangle every non-ASCII
+    // title, author, genre or category name.
+    return utf8.decode(slice, allowMalformed: true);
   }
 
   List<int> readPackedVarints() {
