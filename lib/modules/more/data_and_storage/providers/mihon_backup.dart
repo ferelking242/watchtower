@@ -670,56 +670,82 @@ class MihonExtensionStore {
   }
 }
 
-/// `PreferenceValue` is a `sealed class`; each subtype wraps a single field 1.
+/// Decodes Mihon's polymorphic `PreferenceValue`.
+///
+/// `PreferenceValue` is a `sealed class` written *without* `@ProtoOneOf`, so
+/// kotlinx.serialization uses its generic polymorphic layout: field 1 is the
+/// concrete serial name and field 2 is the concrete message, itself holding a
+/// single field-1 value. Reading field 1 as the payload would decode every
+/// preference as the class-name string.
 (String, Object) _parsePreferenceValue(Uint8List bytes) {
   final r = _ProtoReader(bytes);
-  var type = 'string';
-  Object value = '';
+  var typeName = '';
+  var payload = Uint8List(0);
   while (!r.isAtEnd) {
     final tag = r.readVarint();
     final field = tag >> 3;
     final wire = tag & 0x7;
     if (field == 1) {
-      switch (wire) {
-        case 0:
-          value = r.readVarint();
-          type = 'long';
-          break;
-        case 1:
-          value = r.readDouble();
-          type = 'double';
-          break;
-        case 2:
-          value = r.readString();
-          type = 'string';
-          break;
-        case 5:
-          value = r.readFloat();
-          type = 'float';
-          break;
-        default:
-          r.skip(wire);
-      }
+      typeName = r.readString();
+    } else if (field == 2) {
+      payload = r.readBytes(wire);
     } else {
       r.skip(wire);
     }
   }
+  return _decodePreferencePayload(typeName, payload);
+}
 
-  // kotlinx.serialization writes `Int` and `Long` the same way (varint) and
-  // `Boolean` as varint 0/1; the type is recovered from the value's shape.
-  if (type == 'long') {
-    final int v = value as int;
-    if (v == 0 || v == 1) {
-      return ('bool', v != 0);
+(String, Object) _decodePreferencePayload(String typeName, Uint8List payload) {
+  final r = _ProtoReader(payload);
+  if (typeName.endsWith('StringSetPreferenceValue')) {
+    final values = <String>[];
+    while (!r.isAtEnd) {
+      final tag = r.readVarint();
+      final field = tag >> 3;
+      final wire = tag & 0x7;
+      if (field == 1) {
+        values.add(r.readString());
+      } else {
+        r.skip(wire);
+      }
     }
-    if (v >= -0x80000000 && v <= 0x7fffffff) {
-      return ('int', v);
-    }
-    return ('long', v);
+    return ('stringSet', values);
   }
-  if (type == 'double') return ('double', value);
-  if (type == 'float') return ('float', value);
-  return ('string', value);
+
+  if (r.isAtEnd) return ('string', '');
+  final tag = r.readVarint();
+  final field = tag >> 3;
+  final wire = tag & 0x7;
+  if (field != 1) return ('string', '');
+
+  if (typeName.endsWith('BooleanPreferenceValue')) {
+    return ('bool', r.readVarint() != 0);
+  }
+  if (typeName.endsWith('IntPreferenceValue')) {
+    return ('int', r.readVarint());
+  }
+  if (typeName.endsWith('LongPreferenceValue')) {
+    return ('long', r.readVarint());
+  }
+  if (typeName.endsWith('FloatPreferenceValue')) {
+    return ('float', r.readFloat());
+  }
+  if (typeName.endsWith('StringPreferenceValue')) {
+    return ('string', r.readString());
+  }
+  // Unknown variant: fall back on the wire type so the value is not lost.
+  switch (wire) {
+    case 0:
+      return ('long', r.readVarint());
+    case 1:
+      return ('double', r.readDouble());
+    case 2:
+      return ('string', r.readString());
+    case 5:
+      return ('float', r.readFloat());
+  }
+  return ('string', '');
 }
 
 /// Minimal protobuf wire reader.

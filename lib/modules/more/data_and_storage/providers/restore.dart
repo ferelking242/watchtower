@@ -641,9 +641,18 @@ SourcePreference? _mihonSourcePreference(int? sourceId, MihonPreference pref) {
         key: pref.key,
         editTextPreference: EditTextPreference(value: pref.value as String),
       );
+    case 'stringSet':
+      // The model has no dedicated set type; a multi-select list carries the
+      // values and `preferences.get(key)` returns them as a list.
+      final values = (pref.value as List).map((e) => '$e').toList();
+      return SourcePreference(
+        sourceId: sourceId,
+        key: pref.key,
+        multiSelectListPreference: MultiSelectListPreference(values: values),
+      );
     default:
-      // Numbers and string sets are stored as their textual form; extension
-      // code reads them back through `preferences.get(key)`.
+      // Numbers are stored as their textual form; extension code reads them
+      // back through `preferences.get(key)`.
       return SourcePreference(
         sourceId: sourceId,
         key: pref.key,
