@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:archive/archive_io.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/material.dart' hide Category;
+import 'package:flutter/material.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
@@ -17,7 +18,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
-import 'package:watchtower/modules/more/data_and_storage/providers/proto/BackupMihon.pb.dart';
+import 'package:watchtower/modules/more/data_and_storage/providers/mihon_backup.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/blend_level_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/flex_scheme_color_state_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/pure_black_dark_mode_state_provider.dart';
@@ -27,12 +28,33 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
-import 'package:protobuf/protobuf.dart';
+import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'restore.g.dart';
 
 @riverpod
 void doRestore(Ref ref, {required String path, required BuildContext context}) {
+  // `.tachibk` / `.proto.gz` backups (Mihon, Tachiyomi, Neko…) are a gzipped
+  // protobuf stream, not a zip archive: `ZipDecoder` must not touch them.
+  final lowerPath = path.toLowerCase();
+  if (lowerPath.endsWith('.tachibk') || lowerPath.endsWith('.proto.gz')) {
+    try {
+      ref.read(restoreMihonBackupProvider(path));
+      showBotToast('Backup restored!');
+    } catch (e, s) {
+      AppLogger.log(
+        'Mihon backup restore failed',
+        logLevel: LogLevel.error,
+        tag: 'Backup',
+        error: e,
+        stackTrace: s,
+      );
+      botToast('$e\n$s');
+    }
+    return;
+  }
+
   final inputStream = InputFileStream(path);
   try {
     final archive = ZipDecoder().decodeStream(inputStream);
@@ -46,9 +68,6 @@ void doRestore(Ref ref, {required String path, required BuildContext context}) {
         break;
       case BackupType.kotatsu:
         ref.read(restoreKotatsuBackupProvider(archive));
-        break;
-      case BackupType.neko:
-        ref.read(restoreNekoBackupProvider(path, backupType));
         break;
       default:
     }
@@ -66,7 +85,7 @@ void doRestore(Ref ref, {required String path, required BuildContext context}) {
 
 void showBotToast(String text) => botToast(text, second: 5);
 
-enum BackupType { unknown, watchtower, kotatsu, neko }
+enum BackupType { unknown, watchtower, kotatsu, mihon }
 
 BackupType checkBackupType(String path, Archive archive) {
   if (path.toLowerCase().contains("watchtower") &&
@@ -86,9 +105,9 @@ BackupType checkBackupType(String path, Archive archive) {
     return BackupType.kotatsu;
   } else if (path.toLowerCase().endsWith(".tachibk") ||
       path.toLowerCase().endsWith(".proto.gz")) {
-    return path.toLowerCase().contains("neko")
-        ? BackupType.neko
-        : BackupType.unknown;
+    // Every Mihon-family app (Mihon, Tachiyomi, Aniyomi, Neko, …) writes the
+    // same `BackupWriter` stream, so the file name does not change the format.
+    return BackupType.mihon;
   }
   return BackupType.unknown;
 }
@@ -334,100 +353,606 @@ void restoreKotatsuBackup(Ref ref, Archive archive) {
 }
 
 @riverpod
-void restoreNekoBackup(Ref ref, String path, BackupType bkType) {
-  if (bkType != BackupType.neko) return;
+void restoreMihonBackup(Ref ref, String path) {
   final inputStream = InputFileStream(path);
-  final content = GZipDecoder().decodeBytes(inputStream.toUint8List());
-  inputStream.close();
-  final backup = BackupMihon.create();
-  backup.mergeFromCodedBufferReader(
-    CodedBufferReader(content, sizeLimit: 250 << 20),
-  );
-  List<Category> cats = [];
+  Uint8List raw;
+  try {
+    raw = inputStream.toUint8List();
+  } finally {
+    inputStream.close();
+  }
+
+  // Mihon always gzips its backups, but an ungzipped protobuf stream is also
+  // valid: sniff the gzip magic (0x1f 0x8b) instead of assuming.
+  final bytes = (raw.length >= 2 && raw[0] == 0x1f && raw[1] == 0x8b)
+      ? Uint8List.fromList(GZipDecoder().decodeBytes(raw))
+      : raw;
+
+  final backup = MihonBackup.parse(bytes);
+  final now = DateTime.now().millisecondsSinceEpoch;
+
+  final settings = isar.settings.getSync(kSettingsId) ?? Settings();
+  // A restore replaces the whole library, so per-manga overrides start empty.
+  // Global Mihon defaults are recorded against mangaId 0 and the per-manga
+  // entries are appended below.
+  settings
+    ..sortChapterList = []
+    ..chapterFilterUnreadList = []
+    ..chapterFilterDownloadedList = []
+    ..chapterFilterBookmarkedList = []
+    ..filterScanlatorList = []
+    ..personalReaderModeList = [];
+
+  for (final preference in backup.preferences) {
+    _applyMihonPreference(settings, preference);
+  }
+
+  // Resolve extension preferences before opening the write transaction: the
+  // lookup may touch the sources collection and the extension registry.
+  final sourcePrefs = <SourcePreference>[];
+  for (final entry in backup.sourcePreferences) {
+    final source = _resolveMihonSourceByPreferenceKey(entry.sourceKey);
+    if (source == null) continue;
+    for (final preference in entry.prefs) {
+      final restored = _mihonSourcePreference(source.id, preference);
+      if (restored != null) sourcePrefs.add(restored);
+    }
+  }
+
+  // Mihon references categories by *order* in each manga, while the category
+  // record carries a separate id. Join on order, not on id.
+  final orderToCategoryId = <int, int>{};
+  final toBuild = <_MihonMangaBuild>[];
+
   isar.writeTxnSync(() {
     isar.categorys.clearSync();
     isar.mangas.clearSync();
     isar.chapters.clearSync();
     isar.historys.clearSync();
-    for (var category in backup.backupCategories) {
-      final cat = Category(
+    isar.tracks.clearSync();
+    isar.downloads.clearSync();
+    isar.updates.clearSync();
+    isar.sourcePreferences.clearSync();
+
+    for (final category in backup.categories) {
+      final local = Category(
         name: category.name,
         forItemType: ItemType.manga,
         pos: category.order,
+        updatedAt: now,
       );
-      isar.categorys.putSync(cat);
-      cats.add(cat);
+      isar.categorys.putSync(local);
+      orderToCategoryId[category.order] = local.id!;
     }
-    for (var tempManga in backup.backupManga) {
-      final manga = Manga(
-        source:
-            backup.backupSources
-                .where((src) => src.sourceId == tempManga.source).firstOrNull
-                ?.name ??
-            "Unknown",
-        author: tempManga.author,
-        artist: tempManga.artist,
-        genre: tempManga.genre,
-        imageUrl: tempManga.thumbnailUrl,
-        lang: 'en',
-        link: tempManga.url,
-        name: tempManga.title,
-        status: _convertNekoStatus(tempManga.status),
-        description: tempManga.description,
-        categories: cats
-            .where((cat) => tempManga.categories.contains(cat.pos!))
-            .map((cat) => cat.id!)
+
+    for (final manga in backup.mangas) {
+      final sourceName = backup.sources
+              .where((s) => s.sourceId == manga.source)
+              .firstOrNull
+              ?.name ??
+          '';
+      final localSource = _resolveMihonSource(sourceName);
+      final restored = Manga(
+        source: localSource?.name ??
+            (sourceName.isNotEmpty ? sourceName : 'Unknown'),
+        sourceId: localSource?.id,
+        author: manga.author,
+        artist: manga.artist,
+        genre: manga.genre,
+        imageUrl: manga.thumbnailUrl,
+        lang: localSource?.lang ?? 'en',
+        link: manga.url,
+        name: manga.title,
+        status: _convertMihonStatus(manga.status),
+        description: manga.description,
+        categories: manga.categories
+            .map((order) => orderToCategoryId[order])
+            .whereType<int>()
             .toList(),
         itemType: ItemType.manga,
-        favorite: true,
-        dateAdded: tempManga.dateAdded * 1000,
-        lastUpdate: tempManga.lastModifiedAt * 1000,
-        sourceId: null,
+        favorite: manga.favorite,
+        dateAdded: manga.dateAdded > 0 ? manga.dateAdded : now,
+        updatedAt: now,
       );
-      manga.source = "MangaDex";
-      isar.mangas.putSync(manga);
-      History? history;
-      for (var tempChapter in tempManga.chapters) {
-        final chapter = Chapter(
-          mangaId: manga.id!,
-          name: tempChapter.name,
-          dateUpload:
-              "${DateTime.now().millisecondsSinceEpoch - tempChapter.dateUpload.abs()}",
-          isBookmarked: tempChapter.bookmark,
-          isRead: tempChapter.read,
-          lastPageRead: tempChapter.lastPageRead != 0
-              ? "${tempChapter.lastPageRead}"
-              : "1",
-          scanlator: tempChapter.scanlator,
-          url: tempChapter.url,
-        );
-        isar.chapters.putSync(chapter..manga.value = manga);
-        chapter.manga.saveSync();
-        if ((history == null ||
-            int.parse(history.date ?? "0") <
-                tempChapter.lastModifiedAt * 1000)) {
-          history = History(
-            mangaId: manga.id,
-            date:
-                "${DateTime.now().millisecondsSinceEpoch - tempChapter.dateUpload.abs()}",
-            itemType: ItemType.manga,
-            chapterId: chapter.id,
-          )..chapter.value = chapter;
-        }
-      }
-      if (history != null) {
-        isar.historys.putSync(history);
-        history.chapter.saveSync();
-      }
+      isar.mangas.putSync(restored);
+      toBuild.add(_MihonMangaBuild(restored, manga));
     }
+
+    for (final entry in toBuild) {
+      _restoreMihonManga(entry, settings, now);
+    }
+
+    for (final preference in sourcePrefs) {
+      isar.sourcePreferences.putSync(preference);
+    }
+
+    settings.updatedAt = now;
+    isar.settings.putSync(settings);
   });
-  isar.writeTxnSync(() {
-    isar.downloads.clearSync();
-    isar.updates.clearSync();
-    isar.tracks.clearSync();
-    isar.trackPreferences.clearSync();
-    _invalidateCommonState(ref);
-  });
+
+  _invalidateCommonState(ref);
+}
+
+class _MihonMangaBuild {
+  _MihonMangaBuild(this.manga, this.backup);
+
+  final Manga manga;
+  final MihonManga backup;
+}
+
+void _restoreMihonManga(
+  _MihonMangaBuild entry,
+  Settings settings,
+  int now,
+) {
+  final manga = entry.manga;
+  final backup = entry.backup;
+
+  // Mihon keeps history per chapter URL; map each URL back to its chapter so a
+  // resume point is only written for a chapter that still exists.
+  final urlToChapterId = <String, int>{};
+  final chapters = <Chapter>[];
+  for (final source in backup.chapters) {
+    final chapter = Chapter(
+      mangaId: manga.id!,
+      name: source.name,
+      url: source.url,
+      // Watchtower stores dates as strings; the reader sorts them as ints.
+      dateUpload: source.dateUpload > 0 ? '${source.dateUpload}' : '',
+      isBookmarked: source.bookmark,
+      isRead: source.read,
+      lastPageRead: source.lastPageRead > 0 ? '${source.lastPageRead}' : '1',
+      scanlator: source.scanlator,
+      updatedAt: now,
+    );
+    isar.chapters.putSync(chapter);
+    chapter.manga.value = manga;
+    chapter.manga.saveSync();
+    urlToChapterId[source.url] = chapter.id!;
+    chapters.add(chapter);
+  }
+
+  // Per-manga chapter display flags travel in `chapterFlags` (bit layout from
+  // Mihon's `Manga`): the same toggles Watchtower stores as parallel lists.
+  final flags = backup.chapterFlags;
+  settings.chapterFilterUnreadList!.add(
+    ChapterFilterUnread(mangaId: manga.id, type: _mihonUnreadType(flags)),
+  );
+  settings.chapterFilterDownloadedList!.add(
+    ChapterFilterDownloaded(
+      mangaId: manga.id,
+      type: _mihonDownloadedType(flags),
+    ),
+  );
+  settings.chapterFilterBookmarkedList!.add(
+    ChapterFilterBookmarked(
+      mangaId: manga.id,
+      type: _mihonBookmarkedType(flags),
+    ),
+  );
+  settings.sortChapterList!.add(
+    SortChapter(
+      mangaId: manga.id,
+      index: _mihonChapterSortIndex(flags),
+      reverse: flags & 0x1 == 0x1,
+    ),
+  );
+
+  // Per-manga reading mode lives in `viewer_flags` (low 3 bits).
+  final viewerFlags = backup.viewerFlags ?? backup.viewer;
+  settings.personalReaderModeList!.add(
+    PersonalReaderMode(
+      mangaId: manga.id,
+      readerMode: _convertMihonReadingMode(viewerFlags),
+    ),
+  );
+
+  if (backup.excludedScanlators.isNotEmpty) {
+    settings.filterScanlatorList!.add(
+      FilterScanlator(
+        mangaId: manga.id,
+        scanlators: List<String>.from(backup.excludedScanlators),
+      ),
+    );
+  }
+
+  if (chapters.isEmpty) return;
+
+  final history = <History>[];
+  for (final read in backup.history) {
+    final chapterId = urlToChapterId[read.url];
+    if (chapterId == null) continue;
+    final chapter = chapters.firstWhere((c) => c.id == chapterId);
+    final record = History(
+      itemType: ItemType.manga,
+      mangaId: manga.id,
+      chapterId: chapterId,
+      date: read.lastRead > 0 ? '${read.lastRead}' : '$now',
+      readingTimeSeconds: read.readDuration > 0 ? read.readDuration : null,
+      updatedAt: now,
+    )..chapter.value = chapter;
+    isar.historys.putSync(record);
+    record.chapter.saveSync();
+    history.add(record);
+  }
+
+  // Older Tachiyomi backups omitted the history block; fall back to the most
+  // recent read chapter so "continue reading" still works.
+  if (history.isEmpty) {
+    final read = chapters.where((c) => c.isRead == true).toList()
+      ..sort(
+        (a, b) => (int.tryParse(a.dateUpload ?? '0') ?? 0)
+            .compareTo(int.tryParse(b.dateUpload ?? '0') ?? 0),
+      );
+    final latest = read.lastOrNull;
+    if (latest != null) {
+      final record = History(
+        itemType: ItemType.manga,
+        mangaId: manga.id,
+        chapterId: latest.id,
+        date: (latest.dateUpload ?? '').isNotEmpty
+            ? latest.dateUpload
+            : '$now',
+        updatedAt: now,
+      )..chapter.value = latest;
+      isar.historys.putSync(record);
+      record.chapter.saveSync();
+    }
+  }
+}
+
+/// `source_<id>` is Mihon's per-extension SharedPreferences name. Watchtower
+/// reuses the same id space for extensions imported from the same repository,
+/// so the id is the best available join key.
+Source? _resolveMihonSourceByPreferenceKey(String key) {
+  final id = int.tryParse(key.replaceFirst('source_', ''));
+  if (id == null) return null;
+  return isar.sources.getSync(id);
+}
+
+Source? _resolveMihonSource(String name) {
+  if (name.trim().isEmpty) return null;
+  final candidates = isar.sources
+      .where()
+      .findAllSync()
+      .where((s) => (s.name ?? '').toLowerCase() == name.toLowerCase())
+      .toList();
+  if (candidates.isEmpty) return null;
+  return candidates.firstWhere(
+    (s) => (s.isAdded ?? false) && (s.isActive ?? false),
+    orElse: () => candidates.first,
+  );
+}
+
+SourcePreference? _mihonSourcePreference(int? sourceId, MihonPreference pref) {
+  if (sourceId == null) return null;
+  switch (pref.type) {
+    case 'bool':
+      return SourcePreference(
+        sourceId: sourceId,
+        key: pref.key,
+        switchPreferenceCompat: SwitchPreferenceCompat(
+          value: pref.value as bool,
+        ),
+      );
+    case 'string':
+      return SourcePreference(
+        sourceId: sourceId,
+        key: pref.key,
+        editTextPreference: EditTextPreference(value: pref.value as String),
+      );
+    default:
+      // Numbers and string sets are stored as their textual form; extension
+      // code reads them back through `preferences.get(key)`.
+      return SourcePreference(
+        sourceId: sourceId,
+        key: pref.key,
+        editTextPreference: EditTextPreference(value: '${pref.value}'),
+      );
+  }
+}
+
+/// Applies one Mihon app preference onto [settings].
+void _applyMihonPreference(Settings settings, MihonPreference pref) {
+  final value = pref.value;
+  switch (pref.key) {
+    // ── Appearance ──────────────────────────────────────────────────────────
+    case 'pref_theme_mode_key':
+      switch (value) {
+        case 'LIGHT':
+          settings.themeIsDark = false;
+          settings.followSystemTheme = false;
+          break;
+        case 'DARK':
+          settings.themeIsDark = true;
+          settings.followSystemTheme = false;
+          break;
+        default:
+          settings.followSystemTheme = true;
+      }
+      break;
+    case 'pref_theme_dark_amoled_key':
+      if (value is bool) settings.pureBlackDarkMode = value;
+      break;
+    case 'relative_time_v2':
+      if (value is bool) settings.relativeTimesTamps = value ? 2 : 0;
+      break;
+    case 'app_date_format':
+      if (value is String && value.isNotEmpty) settings.dateFormat = value;
+      break;
+
+    // ── Library ─────────────────────────────────────────────────────────────
+    case 'pref_display_mode_library':
+      settings.displayType = _convertMihonDisplayMode(value);
+      break;
+    case 'display_category_tabs':
+      if (value is bool) settings.libraryShowCategoryTabs = value;
+      break;
+    case 'display_number_of_items':
+      if (value is bool) settings.libraryShowNumbersOfItems = value;
+      break;
+    case 'display_continue_reading_button':
+      if (value is bool) settings.libraryShowContinueReadingButton = value;
+      break;
+    case 'display_download_badge':
+      if (value is bool) settings.libraryDownloadedChapters = value;
+      break;
+    case 'display_language_badge':
+      if (value is bool) settings.libraryShowLanguage = value;
+      break;
+    case 'pref_filter_library_downloaded_v2':
+      settings.libraryFilterMangasDownloadType = _convertMihonTriState(value);
+      break;
+    case 'pref_filter_library_unread_v2':
+      settings.libraryFilterMangasUnreadType = _convertMihonTriState(value);
+      break;
+    case 'pref_filter_library_started_v2':
+      settings.libraryFilterMangasStartedType = _convertMihonTriState(value);
+      break;
+    case 'pref_filter_library_bookmarked_v2':
+      settings.libraryFilterMangasBookMarkedType = _convertMihonTriState(value);
+      break;
+    case 'library_sorting_mode':
+      settings.sortLibraryManga = _convertMihonLibrarySort(value);
+      break;
+    case 'default_chapter_filter_by_read':
+      _setGlobalChapterFilter(
+        value,
+        (type) => settings.chapterFilterUnreadList!.add(
+          ChapterFilterUnread(mangaId: 0, type: type),
+        ),
+      );
+      break;
+    case 'default_chapter_filter_by_downloaded':
+      _setGlobalChapterFilter(
+        value,
+        (type) => settings.chapterFilterDownloadedList!.add(
+          ChapterFilterDownloaded(mangaId: 0, type: type),
+        ),
+      );
+      break;
+    case 'default_chapter_filter_by_bookmarked':
+      _setGlobalChapterFilter(
+        value,
+        (type) => settings.chapterFilterBookmarkedList!.add(
+          ChapterFilterBookmarked(mangaId: 0, type: type),
+        ),
+      );
+      break;
+    case 'default_chapter_sort_by_source_or_number':
+      if (value is int) {
+        settings.sortChapterList!.add(
+          SortChapter(mangaId: 0, index: _mihonChapterSortIndex(value)),
+        );
+      }
+      break;
+    case 'default_chapter_sort_by_ascending_or_descending':
+      if (value is int) {
+        final existing = settings.sortChapterList!;
+        final index = existing
+                .where((e) => e.mangaId == 0)
+                .toList()
+                .firstOrNull
+                ?.index ??
+            1;
+        existing
+          ..removeWhere((e) => e.mangaId == 0)
+          ..add(
+            SortChapter(mangaId: 0, index: index, reverse: value == 0x1),
+          );
+      }
+      break;
+
+    // ── Downloads ───────────────────────────────────────────────────────────
+    case 'pref_download_only_over_wifi_key':
+      if (value is bool) settings.downloadOnlyOnWifi = value;
+      break;
+    case 'save_chapter_as_cbz':
+      if (value is bool) settings.saveAsCBZArchive = value;
+      break;
+    case 'remove_after_marked_as_read_key':
+      if (value is bool) settings.deleteDownloadAfterReading = value;
+      break;
+    case 'download_parallel_source_limit':
+      if (value is int) settings.concurrentDownloads = value;
+      break;
+
+    // ── Reader ──────────────────────────────────────────────────────────────
+    case 'pref_enable_transitions_key':
+      if (value is bool) settings.animatePageTransitions = value;
+      break;
+    case 'pref_show_page_number_key':
+      if (value is bool) settings.showPagesNumber = value;
+      break;
+    case 'fullscreen':
+      if (value is bool) settings.fullScreenReader = value;
+      break;
+    case 'crop_borders':
+      if (value is bool) settings.cropBorders = value;
+      break;
+    case 'webtoon_side_padding':
+      if (value is int) settings.webtoonSidePadding = value;
+      break;
+    case 'pref_keep_screen_on_key':
+      if (value is bool) settings.keepScreenOnReader = value;
+      break;
+    case 'pref_default_reading_mode_key':
+      if (value is int) {
+        settings.defaultReaderMode = _convertMihonReadingMode(value);
+      }
+      break;
+
+    // ── Network / advanced ──────────────────────────────────────────────────
+    case 'default_user_agent':
+      if (value is String && value.isNotEmpty) settings.userAgent = value;
+      break;
+    case 'doh_provider':
+      if (value is int) settings.doHProviderId = value;
+      break;
+    case 'pref_downloaded_only':
+      if (value is bool) settings.downloadedOnlyMode = value;
+      break;
+    case 'incognito_mode':
+      if (value is bool) settings.incognitoMode = value;
+      break;
+
+    // ── Security ────────────────────────────────────────────────────────────
+    case 'use_biometric_lock':
+      if (value is bool) settings.appLockEnabled = value;
+      break;
+
+    // ── Backup ──────────────────────────────────────────────────────────────
+    case 'backup_interval':
+      if (value is int) settings.backupFrequency = value;
+      break;
+  }
+}
+
+void _setGlobalChapterFilter(
+  Object? value,
+  void Function(int type) add,
+) {
+  if (value is! int) return;
+  final type = _mihonTriStateFromFlag(value);
+  if (type != null) add(type);
+}
+
+int? _mihonTriStateFromFlag(int flag) {
+  switch (flag & 0x6) {
+    case 0x2:
+      return 1;
+    case 0x4:
+      return 2;
+    default:
+      return null;
+  }
+}
+
+int _mihonUnreadType(int flags) {
+  switch (flags & 0x6) {
+    case 0x2:
+      return 1;
+    case 0x4:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+int _mihonDownloadedType(int flags) {
+  switch (flags & 0x18) {
+    case 0x8:
+      return 1;
+    case 0x10:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+int _mihonBookmarkedType(int flags) {
+  switch (flags & 0x60) {
+    case 0x20:
+      return 1;
+    case 0x40:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+/// Mihon `chapterFlags` sorting → Watchtower `SortChapter.index`.
+/// Watchtower: 1 = source order (default), 2 = upload date, 3 = name.
+int _mihonChapterSortIndex(int flags) {
+  switch (flags & 0x300) {
+    case 0x200:
+      return 2;
+    case 0x300:
+      return 3;
+    default:
+      return 1;
+  }
+}
+
+/// Mihon `TriState` (DISABLED / ENABLED_IS / ENABLED_NOT) → Watchtower 0/1/2.
+int _convertMihonTriState(Object? value) {
+  switch (value) {
+    case 'ENABLED_IS':
+      return 1;
+    case 'ENABLED_NOT':
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+DisplayType _convertMihonDisplayMode(Object? value) {
+  switch (value) {
+    case 'COMFORTABLE_GRID':
+      return DisplayType.comfortableGrid;
+    case 'LIST':
+      return DisplayType.list;
+    case 'COVER_ONLY_GRID':
+      return DisplayType.coverOnlyGrid;
+    default:
+      return DisplayType.compactGrid;
+  }
+}
+
+/// Mihon `"<TYPE>,<DIRECTION>"` → Watchtower sort index + reverse.
+SortLibraryManga _convertMihonLibrarySort(Object? value) {
+  if (value is! String || value.isEmpty) return SortLibraryManga();
+  final parts = value.split(',');
+  final index = switch (parts.first) {
+    'LAST_READ' => 1,
+    'LAST_MANGA_UPDATE' => 2,
+    'UNREAD_COUNT' => 3,
+    'TOTAL_CHAPTERS' => 4,
+    'LATEST_CHAPTER' => 5,
+    'DATE_ADDED' => 6,
+    _ => 0,
+  };
+  return SortLibraryManga(
+    index: index,
+    reverse: parts.length > 1 && parts[1] == 'DESCENDING',
+  );
+}
+
+ReaderMode _convertMihonReadingMode(int flag) {
+  switch (flag & 0x7) {
+    case 0x1:
+      return ReaderMode.ltr;
+    case 0x2:
+      return ReaderMode.rtl;
+    case 0x3:
+      return ReaderMode.vertical;
+    case 0x4:
+      return ReaderMode.webtoon;
+    case 0x5:
+      return ReaderMode.verticalContinuous;
+    default:
+      return ReaderMode.vertical;
+  }
 }
 
 void _invalidateCommonState(Ref ref) {
@@ -446,12 +971,15 @@ void _invalidateCommonState(Ref ref) {
   ref.read(routerCurrentLocationStateProvider.notifier).refresh();
 }
 
-Status _convertNekoStatus(int idx) {
+/// Mihon `SManga` status → Watchtower [Status].
+Status _convertMihonStatus(int idx) {
   switch (idx) {
     case 1:
       return Status.ongoing;
     case 2:
       return Status.completed;
+    case 3:
+      return Status.publishingFinished;
     case 4:
       return Status.publishingFinished;
     case 5:
