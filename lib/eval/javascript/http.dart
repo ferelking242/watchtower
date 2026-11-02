@@ -159,6 +159,7 @@ Future<String> _toHttpResponse(
 }) async {
   var url = '<invalid-url>';
   Map<String, String>? headers;
+  var requestStarted = false;
   try {
     if (args.length < 3) {
       throw FormatException(
@@ -242,6 +243,7 @@ Future<String> _toHttpResponse(
       resMap["body"] = await response.stream.bytesToString();
       return jsonEncode(resMap);
     }
+    requestStarted = true;
     final future = switch (method) {
       "HEAD" => client.head(Uri.parse(url), headers: headers),
       "GET" => client.get(Uri.parse(url), headers: headers),
@@ -297,6 +299,22 @@ Future<String> _toHttpResponse(
     }
     return jsonEncode(resp.toJson());
   } catch (e, st) {
+    final rawOptions = args.length > 1 && args[1] is Map
+        ? args[1] as Map
+        : const <Object?, Object?>{};
+    final browserFallbackEnabled = rawOptions['browserFetchOnError'] == true;
+    if (requestStarted &&
+        method == "GET" &&
+        browserFallbackEnabled &&
+        !kIsWeb &&
+        sourceId != null) {
+      // Some sites serve the age-verified page in the app's WebView but fail
+      // before the HTTP client can produce a response. Let only extensions
+      // that explicitly opt in replay that GET through their saved browser
+      // session; do not broaden this to every extension/network failure.
+      final browserResponse = await _browserResponseFor(url, headers, sourceId);
+      if (browserResponse != null) return browserResponse;
+    }
     final argumentTypes = args.map((argument) => argument.runtimeType).join(', ');
     AppLogger.log(
       '$method $url → ERROR: $e '
