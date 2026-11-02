@@ -895,3 +895,22 @@ must not leak into watch code paths or logs:
 - Il n'y a **qu'un seul lecteur vidéo** : la route anime rend `WatchDetailView`.
   Le second lecteur parallèle (`anime_player_view_io.dart` et ses widgets) a
   été supprimé — ne pas le réintroduire.
+
+## Import de sauvegardes Mihon / Tachiyomi (`.tachibk`)
+- L'importeur vit dans
+  `lib/modules/more/data_and_storage/providers/mihon_backup.dart` et lit
+  directement le flux protobuf (pas de zip) ; `restore.dart` route les
+  fichiers `.tachibk`/`.proto.gz` vers `restoreMihonBackupProvider`.
+- Le schéma `.proto` du dépôt est périmé : le schéma réel est en Kotlin dans
+  `app/src/main/java/eu/kanade/tachiyomi/data/backup/models/*.kt` (Mihon). S'y
+  fier pour les numéros de champ.
+- **`PreferenceValue` est une `sealed class` écrite sans `@ProtoOneOf`** :
+  kotlinx la sérialise en `{champ 1 = nom de classe (string), champ 2 = message
+  concret (bytes)}`, et le message concret contient une seule valeur au champ 1.
+  Lire le champ 1 comme la valeur décode tout en nom de classe (bug corrigé).
+- Les chaînes protobuf sont de l'**UTF-8** : décoder avec `utf8.decode`, jamais
+  `String.fromCharCodes` (sinon titres/auteurs/genres non-ASCII en mojibake).
+- Champs `BackupManga` utiles : 1 source, 2 url, 3 title, 4 artist, 5 author,
+  6 description, 7 genre, 8 status, 9 thumbnailUrl, 13 dateAdded, 14 viewer,
+  16 chapters, 17 categories, 18 tracking, 100 favorite, 101 chapterFlags,
+  103 viewer_flags, 104 history.
