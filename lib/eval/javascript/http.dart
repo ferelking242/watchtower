@@ -160,12 +160,17 @@ Future<String> _toHttpResponse(
   var url = '<invalid-url>';
   Map<String, String>? headers;
   var requestStarted = false;
+  var browserFetchOnError = false;
   try {
     if (args.length < 3) {
       throw FormatException(
         'HTTP bridge expected at least 3 arguments, received ${args.length}',
       );
     }
+    final rawOptions = args.length > 1 && args[1] is Map
+        ? args[1] as Map
+        : const <Object?, Object?>{};
+    browserFetchOnError = rawOptions['browserFetchOnError'] == true;
     final rawUrl = args[2];
     if (rawUrl is! String || rawUrl.isEmpty) {
       throw FormatException(
@@ -260,6 +265,9 @@ Future<String> _toHttpResponse(
     // handing the clearance back to a client Cloudflare will refuse again.
     if (method == "GET" &&
         (antiBotAssessmentOf(resp).challenge ||
+            (browserFetchOnError &&
+                sourceId != null &&
+                resp.statusCode == 403) ||
             BrowserFetchService.isMissAvHlsPlaylistRefusal(
               url,
               resp.statusCode,
@@ -299,13 +307,9 @@ Future<String> _toHttpResponse(
     }
     return jsonEncode(resp.toJson());
   } catch (e, st) {
-    final rawOptions = args.length > 1 && args[1] is Map
-        ? args[1] as Map
-        : const <Object?, Object?>{};
-    final browserFallbackEnabled = rawOptions['browserFetchOnError'] == true;
     if (requestStarted &&
         method == "GET" &&
-        browserFallbackEnabled &&
+        browserFetchOnError &&
         !kIsWeb &&
         sourceId != null) {
       // Some sites serve the age-verified page in the app's WebView but fail
