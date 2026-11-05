@@ -245,6 +245,111 @@ class AppLogger {
   static DateTime? _lastNtfyPush;
   static const _ntfyThrottle = Duration(seconds: 8);
 
+  // ── Flood budget (what keeps Verbose/Extreme from freezing the UI) ────────
+  // Every accepted entry costs sanitisation (3 regex passes) + formatting + a
+  // ring push and, while the overlay or the Logs page is open, one frame of
+  // rebuilding. A chatty extension or a download in Extreme mode can emit
+  // thousands of lines per second, enough to starve the UI isolate.
+  //
+  // Debug/Info lines are therefore capped per second. Warning/Error always
+  // pass: a real failure must never disappear because of the cap. Discarded
+  // lines are counted and reported, so a truncated log is never silent.
+  static const int _kFloodLimitPerSecond = 400;
+  static final Stopwatch _floodWindow = Stopwatch()..start();
+  static int _floodCount = 0;
+  static int _floodDropped = 0;
+
+  /// Number of Debug/Info entries dropped by the flood budget since the last
+  /// report. Exposed for diagnostics and the in-app log tools.
+  static int get droppedByFloodBudget => _floodDropped;
+
+  /// Returns false when this Debug/Info entry must be skipped to protect the
+  /// UI isolate. Refills the window lazily, so no periodic timer is kept alive
+  /// just for logging.
+  static bool _allowThroughFloodBudget(LogLevel level) {
+    if (level.index >= LogLevel.warning.index) return true;
+    if (_floodWindow.elapsedMilliseconds >= 1000) {
+      _floodWindow.reset();
+      _floodCount = 0;
+      if (_floodDropped > 0) {
+        final dropped = _floodDropped;
+        _floodDropped = 0;
+        final summary =
+            '[${_timestamp()}][${LogLevel.warning.label}] [LOG] '
+            '$dropped lignes supprimées (plafond '
+            '$_kFloodLimitPerSecond/s) — le mode de log est plus bavard que '
+            'ce que l\'app peut afficher sans ralentir.';
+        _emitToLive(summary);
+        if (_initialized) _queueFileWrite(summary);
+      }
+    }
+    if (_floodCount < _kFloodLimitPerSecond) {
+      _floodCount++;
+      return true;
+    }
+    _floodDropped++;
+    return false;
+  }
+
+  /// The user's active file/log-viewer filters. Shared with extension workers
+  /// so a noisy worker stops forwarding records the root isolate would discard
+  /// anyway (see [applyWorkerFilterSnapshot]).
+  static Map<String, Object?> get workerFilterSnapshot => {
+    'minLevel': _minLevel,
+    'disabledTags': _disabledTags.toList(growable: false),
+    'suppressImages': _suppressImages,
+  };
+
+  /// Applies a filter snapshot sent by the root isolate. Called from a worker
+  /// isolate's message loop; never throws on a malformed payload.
+  static void applyWorkerFilterSnapshot(Object? snapshot) {
+    if (snapshot is! Map) return;
+    final minLevel = snapshot['minLevel'];
+    if (minLevel is int) _minLevel = minLevel;
+    final disabled = snapshot['disabledTags'];
+    if (disabled is List) {
+      _disabledTags = disabled.whereType<String>().toSet();
+    }
+    final suppressImages = snapshot['suppressImages'];
+    if (suppressImages is bool) _suppressImages = suppressImages;
+  }
+
+  static void Function(Map<String, Object?> snapshot)? _logFilterBroadcaster;
+
+  /// Registers the root-isolate transport used to push filter changes to the
+  /// extension workers (see `GetIsolateService`).
+  static void setLogFilterBroadcaster(
+    void Function(Map<String, Object?> snapshot)? broadcaster,
+  ) {
+    _logFilterBroadcaster = broadcaster;
+  }
+
+  static void _broadcastLogFilters() {
+    final broadcaster = _logFilterBroadcaster;
+    if (broadcaster == null) return;
+    try {
+      broadcaster(workerFilterSnapshot);
+    } catch (_) {
+      // A worker that cannot be reached keeps its previous filters.
+    }
+  }
+
+  /// True when an entry would be written to the session file given the active
+  /// level, tag and image-suppression filters. Kept allocation-free: called on
+  /// the hot path before any formatting work.
+  static bool _passesLogFilters(LogLevel level, String? tag, String message) {
+    if (level.index < _minLevel) return false;
+    if (tag != null && _disabledTags.contains(tag) && level != LogLevel.error) {
+      return false;
+    }
+    if (_suppressImages &&
+        level == LogLevel.error &&
+        (message.contains('Failed to load') || message.contains('Bad state'))) {
+      return false;
+    }
+    return true;
+  }
+
   /// Fire-and-forget generic signal only. The topic is public, so log messages,
   /// URLs, paths, and stack traces must remain in the local log viewer.
   static void _pushToNtfy() {
@@ -341,17 +446,65 @@ class AppLogger {
     await flush();
   }
 
+  // ── Buffered file sink ────────────────────────────────────────────────────
+  // Writing used to chain one Future per entry and, worse, run
+  // `parent.create(recursive: true)` + `exists()` for **every** single line.
+  // At Verbose/Extreme rates (extension workers log every request, downloads
+  // log every segment) that is two filesystem stat calls plus a microtask per
+  // line on the same isolate that renders the UI — the exact load that makes
+  // the app stutter while a download or an extension runs.
+  //
+  // Entries are now appended to an in-memory buffer drained in batches: at once
+  // when it reaches [_kLogBatchChars], otherwise at most [_kLogFlushInterval]
+  // later. Ordering is preserved, memory stays bounded and the hot path
+  // performs no I/O at all. The recovery path (folder or file deleted while the
+  // app runs, sink closed by a hot restart) now runs only when a write
+  // actually fails instead of on every line.
+  static final List<String> _pendingLines = <String>[];
+  static int _pendingChars = 0;
+  static Timer? _logFlushTimer;
   static Future<void> _fileWriteQueue = Future<void>.value();
 
+  static const int _kLogBatchChars = 48 * 1024;
+  static const Duration _kLogFlushInterval = Duration(milliseconds: 400);
+
   static void _queueFileWrite(String entry) {
+    _pendingLines.add(entry);
+    _pendingChars += entry.length + 1;
+    if (_pendingChars >= _kLogBatchChars) {
+      // A burst (download in Extreme mode) must not sit in RAM waiting for the
+      // timer: drain now, still as a single write.
+      _logFlushTimer?.cancel();
+      _logFlushTimer = null;
+      unawaited(_drainPendingLines());
+      return;
+    }
+    _logFlushTimer ??= Timer(_kLogFlushInterval, () {
+      _logFlushTimer = null;
+      unawaited(_drainPendingLines());
+    });
+  }
+
+  /// Joins the buffered entries into one batch and appends it to the session
+  /// file. Batches are serialised through [_fileWriteQueue] so entries can
+  /// never interleave on disk.
+  static Future<void> _drainPendingLines() {
+    if (_pendingLines.isEmpty) return _fileWriteQueue;
+    final batch = '${_pendingLines.join('\n')}\n';
+    _pendingLines.clear();
+    _pendingChars = 0;
     _fileWriteQueue = _fileWriteQueue
-        .then((_) => _writeLogEntry(entry))
+        .then((_) => _appendToLogFile(batch))
         .catchError((Object _) {});
+    return _fileWriteQueue;
   }
 
   /// Waits for all queued entries to reach the current log file.
   /// Call before exporting or sharing logs so the latest failures are included.
   static Future<void> flush() async {
+    _logFlushTimer?.cancel();
+    _logFlushTimer = null;
+    await _drainPendingLines();
     await _fileWriteQueue;
     if (!_initialized) return;
     try {
@@ -361,35 +514,37 @@ class AppLogger {
     }
   }
 
-  /// Recreates the logs folder and file if they were removed while the app
-  /// was running, then writes the queued entry to the current daily log.
-  static Future<void> _writeLogEntry(String entry) async {
+  /// Appends one batch, recreating the folder, file and sink if they went away
+  /// while the app was running.
+  static Future<void> _appendToLogFile(String batch) async {
     try {
-      await _logFile.parent.create(recursive: true);
-      if (!await _logFile.exists()) {
-        try {
-          await _sink.flush();
-          await _sink.close();
-        } catch (_) {
-          // A deleted or already-closed sink is replaced below.
-        }
-        await _logFile.create(recursive: true);
-        _sink = _logFile.openWrite(mode: FileMode.append);
-      }
-      try {
-        _sink.writeln(entry);
-      } catch (_) {
-        // Also recover if a hot restart or external action closed the sink.
-        await _logFile.parent.create(recursive: true);
-        if (!await _logFile.exists()) {
-          await _logFile.create(recursive: true);
-        }
-        _sink = _logFile.openWrite(mode: FileMode.append);
-        _sink.writeln(entry);
-      }
+      _sink.write(batch);
     } catch (_) {
-      // Entries remain available in the in-memory ring and live stream.
+      try {
+        await _reopenLogSink();
+        _sink.write(batch);
+      } catch (_) {
+        // Entries remain available in the in-memory ring and live stream.
+      }
     }
+  }
+
+  static Future<void> _reopenLogSink() async {
+    try {
+      await _sink.flush();
+    } catch (_) {
+      // A deleted or already-closed sink is replaced below.
+    }
+    try {
+      await _sink.close();
+    } catch (_) {
+      // Same: the sink is unusable, a fresh one is opened below.
+    }
+    await _logFile.parent.create(recursive: true);
+    if (!await _logFile.exists()) {
+      await _logFile.create(recursive: true);
+    }
+    _sink = _logFile.openWrite(mode: FileMode.append);
   }
 
   // Call this after changing settings in the UI to update in-memory filters
@@ -460,6 +615,8 @@ class AppLogger {
         if (!enabled) disabled.add(entry.key);
       }
       _disabledTags = disabled;
+      // Workers mirror the root filters so they stop forwarding noise.
+      _broadcastLogFilters();
     } catch (_) {}
   }
 
@@ -488,6 +645,19 @@ class AppLogger {
     Object? error,
     StackTrace? stackTrace,
   }) {
+    // 1. Cheapest gate first: a Debug/Info flood is dropped before it reaches
+    //    sanitisation, formatting, the ring buffer or a widget rebuild.
+    if (!_allowThroughFloodBudget(logLevel)) return;
+
+    // 2. Inside an extension worker a record exists only to be forwarded: drop
+    //    the ones the root isolate would discard anyway, before sanitising,
+    //    encoding them as JSON and paying the isolate hop.
+    final workerForwarder = _workerLogForwarder;
+    if (workerForwarder != null &&
+        !_passesLogFilters(logLevel, tag, message)) {
+      return;
+    }
+
     final safeMessage = sanitizeLogText(message);
     final tagPart = tag != null ? '[$tag] ' : '';
     final entry = StringBuffer(
@@ -505,7 +675,6 @@ class AppLogger {
 
     final formatted = entry.toString();
 
-    final workerForwarder = _workerLogForwarder;
     if (workerForwarder != null) {
       try {
         workerForwarder(
@@ -541,18 +710,7 @@ class AppLogger {
     if (!_initialized) return;
 
     // Apply file-writing filters (level, tags, image suppression).
-    if (logLevel.index < _minLevel) return;
-    if (tag != null &&
-        _disabledTags.contains(tag) &&
-        logLevel != LogLevel.error) {
-      return;
-    }
-    if (_suppressImages &&
-        logLevel == LogLevel.error &&
-        (safeMessage.contains('Failed to load') ||
-            safeMessage.contains('Bad state'))) {
-      return;
-    }
+    if (!_passesLogFilters(logLevel, tag, safeMessage)) return;
 
     _queueFileWrite(formatted);
   }

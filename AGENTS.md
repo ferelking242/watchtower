@@ -215,6 +215,49 @@ Covered by `test/extension_home_empty_state_test.dart`,
 `test/cloudflare_detection_test.dart`, `test/cloudflare_challenge_url_test.dart`,
 `test/bypass_notification_content_test.dart`.
 
+## Logging performance budget (do not regress)
+Verbose/Extreme modes must never stall the UI isolate. Measured causes of the
+"app freezes while it logs" reports, and the guards that now prevent them:
+
+- **`AppLogger.log` filters before it formats.** The flood budget runs first:
+  Debug/Info are capped at 400 entries/second, Warning/Error always pass (a
+  real failure must never be swallowed), and the discarded count is reported as
+  a single `[LOG] N lignes supprimées` line so a truncated log is never silent.
+  Do not move `sanitizeLogText`/`StringBuffer` work above that gate.
+- **Extension workers only forward what the root will keep.** The root pushes
+  `AppLogger.workerFilterSnapshot` to every worker right after the handshake
+  (`kWorkerLogFilterKey`, see `GetIsolateService`) and again from
+  `_loadSettings()` through `setLogFilterBroadcaster`. A worker therefore drops
+  filtered records before sanitising + JSON-encoding + the isolate hop.
+- **The session file is written in batches.** `_queueFileWrite` appends to a
+  buffer drained every 400 ms or at 48 KB. The old path chained a `Future` per
+  entry and ran `parent.create(recursive: true)` + `exists()` on **every** line:
+  two syscalls per log line on the UI isolate. The recreate path now runs only
+  when a write actually throws (`_reopenLogSink`). `flush()` (log viewer, share,
+  dispose) drains the buffer first.
+- **The floating overlay coalesces frames.** Lines land in `_incoming` and are
+  folded into at most one rebuild per 120 ms; the folded tree is cached in
+  `_view` and only recomputed when `_viewDirty` is set (new lines, filter,
+  search, fold, clear). RegExp patterns are `static final` — they used to be
+  compiled **per row, per rebuild** (two per row over 250 rows) — every
+  `GoogleFonts.jetBrainsMono` result is cached per colour, and the list rows are
+  `Text` under one `SelectionArea` instead of one `SelectableText` per row.
+- **The Logs screen is bounded.** It reads at most the last 2 MB of the daily
+  file (`_readLogTail`) and parses at most 20 000 lines. Error/warning/success
+  counts and the tag list are computed once at parse time (they were three
+  full scans of `_lines` per build), `_LogLine.lower` caches each line's
+  lower-case form for search, and typing in the search field is debounced
+  (180 ms) instead of rescanning the file on every keystroke.
+
+## Automatic backup must not compete with the first frame
+`AutoBackupService` copies the whole Isar file, so it is the most expensive
+routine the app runs. It waits `_startupSnapshotDelay` (12 s) before the launch
+snapshot, and automatic snapshots (launch, 30 min timer, background) are skipped
+when the last one is younger than `_autoBackupMinInterval` (10 min) — switching
+apps used to copy the database on every single lifecycle pause. Explicit actions
+(the "Sauvegarder" button, re-enabling the feature) pass `force: true` and are
+never skipped.
+
 ## Local verification (mirrors CI)
 
 Flutter 3.47.2. Useful commands:

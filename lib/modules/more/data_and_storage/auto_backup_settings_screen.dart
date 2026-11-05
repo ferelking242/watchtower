@@ -69,7 +69,8 @@ class _AutoBackupSettingsScreenState
 
   Future<void> _backupNow() async {
     setState(() => _busy = true);
-    await AutoBackupService.backupNow();
+    // Explicit user action: never skipped by the automatic freshness guard.
+    await AutoBackupService.backupNow(force: true);
     await _load();
     if (!mounted) return;
     setState(() => _busy = false);

@@ -82,37 +82,103 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
   final ScrollController _scroll = ScrollController();
   final TextEditingController _filterCtrl = TextEditingController();
 
+  // ── Frame-coalesced streaming ─────────────────────────────────────────────
+  // Every incoming line used to call `setState`, and each build re-ran
+  // `_filtered.toList()` + `_buildTree(flat)` over the whole buffer while
+  // compiling two RegExp objects **per row**. In Verbose/Extreme mode that is
+  // hundreds of rebuilds per second over 250 rows — tens of thousands of regex
+  // compilations per second, which froze the UI while logs streamed.
+  //
+  // Lines now accumulate in [_incoming] and are folded into at most one
+  // rebuild per [_kFlushWindow]. The folded tree is cached in [_view] and only
+  // recomputed when the rows or the active filters actually change.
+  final List<String> _incoming = <String>[];
+  List<_LogRow> _view = const <_LogRow>[];
+  bool _viewDirty = true;
+  int _visibleCount = 0;
+  Timer? _flushTimer;
+  static const Duration _kFlushWindow = Duration(milliseconds: 120);
+
+  /// Compiled once. These patterns ran per row, per rebuild.
+  static final RegExp _timestampPrefixRegex = RegExp(
+    r'^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]',
+  );
+  static final RegExp _tagTokenRegex = RegExp(
+    r'^\[[^\]]+\]\[[^\]]+\]\s+\[([A-Z_]+)\]',
+  );
+  static final RegExp _levelTokenRegex = RegExp(r'^\[[^\]]+\]\[([A-Z ]+)\]');
+
+  /// One resolved text style per colour: `GoogleFonts.jetBrainsMono()` was
+  /// called per row per frame, re-resolving the font family on every rebuild.
+  static final Map<Color, TextStyle> _rowStyles = <Color, TextStyle>{};
+
+  static TextStyle _styleFor(Color color) => _rowStyles.putIfAbsent(
+    color,
+    () => GoogleFonts.jetBrainsMono(fontSize: 10, color: color),
+  );
+
+  static final TextStyle _siblingStyle = GoogleFonts.jetBrainsMono(
+    fontSize: 9,
+    fontWeight: FontWeight.w700,
+    color: Colors.cyanAccent,
+  );
+
   @override
   void initState() {
     super.initState();
     // Seed with whatever is already in the ring buffer so the user sees
-    // recent context immediately when they open the overlay.
+    // recent context immediately when they open the overlay. Assigned
+    // directly: the first build follows immediately, so no setState is needed.
     for (final entry in AppLogger.recentEntries()) {
-      _push(entry, scroll: false);
+      _rows.add(entry);
+      if (_rows.length > _maxRows) _rows.removeFirst();
     }
+    _viewDirty = true;
     _sub = AppLogger.liveStream.listen(_push);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   @override
   void dispose() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
     _sub.cancel();
     _scroll.dispose();
     _filterCtrl.dispose();
     super.dispose();
   }
 
-  void _push(String entry, {bool scroll = true}) {
-    if (!mounted) {
+  void _push(String entry) {
+    _incoming.add(entry);
+    _flushTimer ??= Timer(_kFlushWindow, _flushIncoming);
+  }
+
+  /// Folds all buffered lines into the rows once, then rebuilds once.
+  void _flushIncoming() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    if (_incoming.isEmpty && !_viewDirty) return;
+    for (final entry in _incoming) {
       _rows.add(entry);
       if (_rows.length > _maxRows) _rows.removeFirst();
-      return;
     }
-    setState(() {
-      _rows.add(entry);
-      if (_rows.length > _maxRows) _rows.removeFirst();
-    });
-    if (scroll && _autoScroll) _scrollToBottom();
+    _incoming.clear();
+    _viewDirty = true;
+    if (!mounted) return;
+    setState(_recomputeView);
+    if (_autoScroll) _scrollToBottom();
+  }
+
+  void _recomputeView() {
+    final flat = _filtered.toList();
+    _visibleCount = flat.length;
+    _view = _buildTree(flat);
+    _viewDirty = false;
+  }
+
+  List<_LogRow> _viewRows() {
+    if (_viewDirty) _recomputeView();
+    return _view;
   }
 
   void _scrollToBottom() {
@@ -140,9 +206,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
   String _displayLine(String raw) {
     if (_showDate) return raw;
     // Timestamps look like `[2026-04-21 13:42:43.142][INFO ] ...`
-    final m = RegExp(
-      r'^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\]',
-    ).firstMatch(raw);
+    final m = _timestampPrefixRegex.firstMatch(raw);
     if (m == null) return raw;
     return raw.substring(m.end);
   }
@@ -154,12 +218,10 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
     // Skip the timestamp + level prefix to find the optional `[TAG]` token.
     // Format: `[TS][LEVEL] [TAG] message…` — the first two `[..]` brackets
     // are TS and LEVEL, the optional 3rd one is the tag.
-    final tag = RegExp(
-      r'^\[[^\]]+\]\[[^\]]+\]\s+\[([A-Z_]+)\]',
-    ).firstMatch(raw);
+    final tag = _tagTokenRegex.firstMatch(raw);
     if (tag != null) return tag.group(1)!;
     // Fall back to the level so at least ERROR vs INFO groups separately.
-    final lvl = RegExp(r'^\[[^\]]+\]\[([A-Z ]+)\]').firstMatch(raw);
+    final lvl = _levelTokenRegex.firstMatch(raw);
     return lvl?.group(1)?.trim() ?? '_';
   }
 
@@ -288,8 +350,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
   }
 
   Widget _buildPanel() {
-    final flat = _filtered.toList();
-    final tree = _buildTree(flat);
+    final tree = _viewRows();
     return Material(
       color: Colors.transparent,
       child: SizedBox(
@@ -310,7 +371,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
               ),
               child: Column(
                 children: [
-                  _buildTitleBar(flat.length),
+                  _buildTitleBar(_visibleCount),
                   _buildToolbar(),
                   const Divider(
                     height: 1,
@@ -433,7 +494,10 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
           Expanded(
             child: TextField(
               controller: _filterCtrl,
-              onChanged: (v) => setState(() => _filter = v),
+              onChanged: (v) => setState(() {
+                _filter = v;
+                _viewDirty = true;
+              }),
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 11,
                 color: Colors.white,
@@ -459,7 +523,10 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
             icon: Icons.error_outline_rounded,
             tooltip: 'Erreurs / warnings uniquement',
             active: _onlyErrors,
-            onTap: () => setState(() => _onlyErrors = !_onlyErrors),
+            onTap: () => setState(() {
+              _onlyErrors = !_onlyErrors;
+              _viewDirty = true;
+            }),
           ),
           _IconBtn(
             icon: Icons.copy_rounded,
@@ -483,7 +550,11 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
             tooltip: 'Vider',
             onTap: () {
               AppLogger.clearRing();
-              setState(_rows.clear);
+              setState(() {
+                _rows.clear();
+                _incoming.clear();
+                _viewDirty = true;
+              });
             },
           ),
         ],
@@ -535,7 +606,11 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
         ),
       );
     }
-    return Scrollbar(
+    // SelectionArea keeps the text selectable with a single selection
+    // controller for the whole list, instead of one `SelectableText` (and its
+    // own registrar) per visible row.
+    return SelectionArea(
+      child: Scrollbar(
       controller: _scroll,
       thumbVisibility: true,
       child: ListView.builder(
@@ -556,6 +631,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
                   } else {
                     _expandedGroups.add(row.groupId);
                   }
+                  _viewDirty = true;
                 });
               },
               child: Padding(
@@ -574,12 +650,9 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
                       ),
                     ),
                     Expanded(
-                      child: SelectableText(
+                      child: Text(
                         display,
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 10,
-                          color: color,
-                        ),
+                        style: _styleFor(color),
                         maxLines: 6,
                       ),
                     ),
@@ -599,11 +672,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
                       ),
                       child: Text(
                         '+${row.siblings}',
-                        style: GoogleFonts.jetBrainsMono(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.cyanAccent,
-                        ),
+                        style: _siblingStyle,
                       ),
                     ),
                   ],
@@ -614,13 +683,14 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
 
           return Padding(
             padding: EdgeInsets.fromLTRB(4 + (row.depth * 16.0), 1, 4, 1),
-            child: SelectableText(
+            child: Text(
               display,
-              style: GoogleFonts.jetBrainsMono(fontSize: 10, color: color),
+              style: _styleFor(color),
               maxLines: 6,
             ),
           );
         },
+      ),
       ),
     );
   }

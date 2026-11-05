@@ -43,6 +43,13 @@ class _ExtensionWorker {
   Future<void>? restartFuture;
 }
 
+/// Key of the log-filter message pushed from the root isolate to extension
+/// workers (see `AppLogger.workerFilterSnapshot`). Workers use it to drop the
+/// records the root would discard anyway, before sanitising them and paying the
+/// isolate hop — a Verbose/Extreme worker otherwise forwards a flood of lines
+/// that only the root can decide to ignore.
+const String kWorkerLogFilterKey = '__watchtowerLogFilter';
+
 void _forwardExtensionLog(String message) {
   const workerLogPrefix = '[APPLOG]';
   if (message.startsWith(workerLogPrefix)) {
@@ -145,6 +152,17 @@ class GetIsolateService {
     _rootIsolateToken = rootToken;
     // Only this isolate can open a WebView; workers reach it through the port.
     _browserPort = BrowserBridge.startServer();
+    // Keep every worker's log filters in step with the user's settings.
+    AppLogger.setLogFilterBroadcaster((snapshot) {
+      final message = <String, Object?>{kWorkerLogFilterKey: snapshot};
+      for (final worker in _workers) {
+        try {
+          worker.sendPort?.send(message);
+        } catch (_) {
+          // A worker mid-restart picks the filters up on its next spawn.
+        }
+      }
+    });
     final workerCount = getRecommendedExtensionWorkerCount();
     try {
       for (var i = 0; i < workerCount; i++) {
@@ -187,6 +205,13 @@ class GetIsolateService {
         const Duration(seconds: 20),
         onTimeout: () =>
             throw StateError('Extension worker handshake timed out after 20 s'),
+      );
+      // Push the active log filters right after the handshake, so the worker
+      // never starts by forwarding noise the root isolate would throw away.
+      worker.sendPort?.send(
+        <String, Object?>{
+          kWorkerLogFilterKey: AppLogger.workerFilterSnapshot,
+        },
       );
       return worker;
     } catch (_) {
@@ -331,6 +356,14 @@ class GetIsolateService {
           );
           isolateData.sendPort.send(receivePort.sendPort);
           receivePort.listen((message) async {
+            // Log-filter updates from the root isolate. Checked first: the
+            // payload is a Map, and every other Map on this port is a call.
+            if (message is Map && message.containsKey(kWorkerLogFilterKey)) {
+              AppLogger.applyWorkerFilterSnapshot(
+                message[kWorkerLogFilterKey],
+              );
+              return;
+            }
             if (message is Map<String, dynamic>) {
               final responsePort = message['responsePort'] as SendPort;
               final serviceType = message['serviceType'] as String?;
@@ -713,6 +746,7 @@ class GetIsolateService {
         worker.receivePort?.close();
       }),
     );
+    AppLogger.setLogFilterBroadcaster(null);
     BrowserBridge.stopServer();
     _browserPort = null;
     await BrowserCapture.closeAll();

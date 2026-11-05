@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
@@ -32,6 +34,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   String _rawContent = '';
   List<_LogLine> _lines = [];
   List<_LogLine> _filtered = [];
+
+  // Counts and tag list used to be recomputed by scanning `_lines` on every
+  // build (three full passes plus a fourth for the tag menu). On a large log
+  // that turned each frame into thousands of iterations. They are now computed
+  // once, when the log is parsed.
+  int _errorCount = 0;
+  int _warnCount = 0;
+  int _successCount = 0;
+  Set<String> _availableTags = <String>{};
+  Timer? _searchDebounce;
   bool _loading = true;
   bool _autoScroll = true;
   int _logMode = LogMode.normal.index;
@@ -44,14 +56,14 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   final Set<_LogCategory> _categoryFilter = {};
   // Collapsed session header indexes (use original line index)
   final Set<int> _collapsedSessions = {};
-  final List<Source> _extensionSources = [];
+  final List<MapEntry<String, Source>> _extensionMatchers = [];
 
   static final _tagRegex = RegExp(r'\]\[[^\]]+\] \[([A-Z_]+)\]');
 
   @override
   void initState() {
     super.initState();
-    _search.addListener(_applyFilter);
+    _search.addListener(_onSearchChanged);
     _loadLogMode();
     _loadExtensionSources();
     _loadLogs();
@@ -59,9 +71,43 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scroll.dispose();
     _search.dispose();
     super.dispose();
+  }
+
+  /// Filters a large log on every keystroke is wasted work: typing "error"
+  /// used to rescan the whole file five times. One pass after the user stops
+  /// typing is enough.
+  void _onSearchChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 180), _applyFilter);
+  }
+
+  /// Upper bound on what the screen parses and renders.
+  /// Opening Logs used to `readAsString()` the entire daily file (hundreds of
+  /// thousands of lines in Verbose/Extreme mode) and regex-parse every line on
+  /// the UI isolate — seconds of freeze and tens of MB of RAM before anything
+  /// appeared. The newest lines are what this screen is for.
+  static const int _maxLogBytes = 2 * 1024 * 1024;
+  static const int _maxLogLines = 20000;
+
+  /// Reads at most the last [_maxLogBytes] bytes of [file].
+  Future<String> _readLogTail(File file) async {
+    final length = await file.length();
+    if (length <= _maxLogBytes) return file.readAsString();
+    final raf = await file.open();
+    try {
+      await raf.setPosition(length - _maxLogBytes);
+      final bytes = await raf.read(_maxLogBytes);
+      final text = utf8.decode(bytes, allowMalformed: true);
+      // The first line is very likely cut in the middle: drop it.
+      final firstBreak = text.indexOf('\n');
+      return firstBreak >= 0 ? text.substring(firstBreak + 1) : text;
+    } finally {
+      await raf.close();
+    }
   }
 
   Future<void> _loadLogs() async {
@@ -89,7 +135,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               .toList();
           if (files.isNotEmpty) {
             files.sort((a, b) => b.path.compareTo(a.path));
-            final content = await files.first.readAsString();
+            final content = await _readLogTail(files.first);
             _rawContent = content;
             _parseAndCollapseSessions(content);
             _applyFilter();
@@ -102,7 +148,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         // 2. Legacy fallback: old flat logs.txt file.
         final legacy = File(path.join(dir.path, 'logs.txt'));
         if (await legacy.exists()) {
-          final content = await legacy.readAsString();
+          final content = await _readLogTail(legacy);
           _rawContent = content;
           _parseAndCollapseSessions(content);
           _applyFilter();
@@ -125,8 +171,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         _filtered = [];
       }
     } catch (e) {
-      _lines = [];
-      _filtered = [];
+      _clearParsedState();
     }
     setState(() => _loading = false);
     if (_autoScroll) _scrollToBottom();
@@ -135,7 +180,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   List<_LogLine> _parse(String content) {
     final result = <_LogLine>[];
     int sessionId = -1;
-    for (final raw in content.split('\n')) {
+    var rawLines = content.split('\n');
+    if (rawLines.length > _maxLogLines) {
+      rawLines = rawLines.sublist(rawLines.length - _maxLogLines);
+    }
+    for (final raw in rawLines) {
       if (raw.isEmpty) continue;
       _LineType type;
       if (raw.startsWith('══') || raw.startsWith('  WATCHTOWER')) {
@@ -188,6 +237,26 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   void _parseAndCollapseSessions(String content) {
     _lines = _parse(content);
+    var errors = 0;
+    var warnings = 0;
+    var successes = 0;
+    final tags = <String>{};
+    for (final line in _lines) {
+      final type = line.type;
+      if (type == _LineType.error) {
+        errors++;
+      } else if (type == _LineType.warning) {
+        warnings++;
+      } else if (type == _LineType.success) {
+        successes++;
+      }
+      final tag = line.tag;
+      if (tag != null) tags.add(tag);
+    }
+    _errorCount = errors;
+    _warnCount = warnings;
+    _successCount = successes;
+    _availableTags = tags;
     _collapsedSessions
       ..clear()
       ..addAll(
@@ -211,9 +280,15 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             (a, b) => (b.name ?? '').length.compareTo((a.name ?? '').length),
           );
         setState(() {
-          _extensionSources
+          // Lower-cased once: matching used to allocate a new string per
+          // source, for every EXT line of the log.
+          _extensionMatchers
             ..clear()
-            ..addAll(extensions);
+            ..addAll(
+              extensions.map(
+                (source) => MapEntry((source.name ?? '').toLowerCase(), source),
+              ),
+            );
         });
       },
       onError: (Object _) {
@@ -223,11 +298,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Source? _sourceForLogLine(String raw) {
+    if (_extensionMatchers.isEmpty) return null;
     final normalized = raw.toLowerCase();
-    for (final source in _extensionSources) {
-      final name = source.name?.trim();
-      if (name != null && name.isNotEmpty && normalized.contains(name.toLowerCase())) {
-        return source;
+    for (final entry in _extensionMatchers) {
+      if (entry.key.isNotEmpty && normalized.contains(entry.key)) {
+        return entry.value;
       }
     }
     return null;
@@ -267,14 +342,6 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     }
   }
 
-  Set<String> get _availableTags {
-    final tags = <String>{};
-    for (final l in _lines) {
-      if (l.tag != null) tags.add(l.tag!);
-    }
-    return tags;
-  }
-
   void _applyFilter() {
     final q = _search.text.toLowerCase();
     setState(() {
@@ -301,7 +368,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             !_categoryFilter.any((category) => category.matches(l))) {
           return false;
         }
-        if (q.isNotEmpty && !l.raw.toLowerCase().contains(q)) return false;
+        if (q.isNotEmpty && !l.lower.contains(q)) return false;
         return true;
       }).toList();
     });
@@ -484,9 +551,15 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     botToast('Logs copiés dans le presse-papiers');
   }
 
-  int get _errorCount => _lines.where((l) => l.type == _LineType.error).length;
-  int get _warnCount => _lines.where((l) => l.type == _LineType.warning).length;
-  int get _successCount => _lines.where((l) => l.type == _LineType.success).length;
+  void _clearParsedState() {
+    _lines = [];
+    _filtered = [];
+    _errorCount = 0;
+    _warnCount = 0;
+    _successCount = 0;
+    _availableTags = <String>{};
+    _collapsedSessions.clear();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -589,8 +662,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               if (v == 'clear') setState(() {
                 AppLogger.clearRing();
                 _rawContent = '';
-                _lines = [];
-                _filtered = [];
+                _clearParsedState();
               });
             },
             itemBuilder: (_) => [
@@ -1130,6 +1202,14 @@ class _LogLineWidget extends StatelessWidget {
     caseSensitive: false,
   );
 
+  /// Resolved once per colour instead of once per row, per rebuild.
+  static final Map<Color, TextStyle> _monoStyles = <Color, TextStyle>{};
+
+  static TextStyle _monoFor(Color color) => _monoStyles.putIfAbsent(
+    color,
+    () => GoogleFonts.jetBrainsMono(fontSize: 11, color: color, height: 1.5),
+  );
+
   static String _prettyUrl(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null || uri.host.isEmpty) return url;
@@ -1188,12 +1268,12 @@ class _LogLineWidget extends StatelessWidget {
         if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
         textChild = Text.rich(
           TextSpan(children: spans),
-          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: color, height: 1.5),
+          style: _monoFor(color),
         );
       } else {
         textChild = Text(
           text,
-          style: GoogleFonts.jetBrainsMono(fontSize: 11, color: color, height: 1.5),
+          style: _monoFor(color),
         );
       }
 
@@ -1426,6 +1506,10 @@ enum _LineType {
 
 class _LogLine {
   final String raw;
+
+  /// [raw] lower-cased once, at parse time. Searching used to lower-case every
+  /// line of the file again on every keystroke.
+  final String lower;
   final _LineType type;
   final String? tag;
   final int sessionId;
@@ -1433,7 +1517,7 @@ class _LogLine {
   final String? extensionIconUrl;
   final int? extensionSourceId;
 
-  const _LogLine({
+  _LogLine({
     required this.raw,
     required this.type,
     this.tag,
@@ -1441,5 +1525,5 @@ class _LogLine {
     this.extensionName,
     this.extensionIconUrl,
     this.extensionSourceId,
-  });
+  }) : lower = raw.toLowerCase();
 }

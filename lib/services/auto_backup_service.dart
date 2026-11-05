@@ -79,7 +79,8 @@ class AutoBackupService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_enabledKey, value);
       if (value) {
-        unawaited(backupNow());
+        // Turning the feature on is an explicit user action.
+        unawaited(backupNow(force: true));
       }
     } catch (error) {
       AppLogger.log(
@@ -246,11 +247,34 @@ class AutoBackupService {
 
   // ─── Snapshot ───────────────────────────────────────────────────────────────
 
+  /// Copies the live Isar file, which is the expensive part of a snapshot.
+  /// Automatic snapshots are skipped when the previous one is younger than
+  /// this: switching apps used to copy the whole database on every single
+  /// background transition, which is tens to hundreds of megabytes of I/O on
+  /// the isolate that was still rendering the screen it came from.
+  static const Duration _autoBackupMinInterval = Duration(minutes: 10);
+
+  /// The launch snapshot waits for the first screen to settle instead of
+  /// competing with it for disk and memory. Still "at launch": an app that is
+  /// backgrounded before the delay is covered by the lifecycle snapshot.
+  static const Duration _startupSnapshotDelay = Duration(seconds: 12);
+
   /// Writes a fresh snapshot of the database, Hive boxes and preferences.
-  static Future<void> backupNow() async {
+  ///
+  /// [force] bypasses the freshness guard and is used by the explicit
+  /// "Sauvegarder" action, where the user asked for a snapshot now.
+  static Future<void> backupNow({bool force = false}) async {
     if (kIsWeb) return;
     if (!await isEnabled()) return;
     if (_backupInFlight) return;
+    if (!force) {
+      final last = await _lastBackupMillis();
+      if (last != null &&
+          DateTime.now().millisecondsSinceEpoch - last <
+              _autoBackupMinInterval.inMilliseconds) {
+        return;
+      }
+    }
     _backupInFlight = true;
     try {
       final dir = await _backupDirectory(create: true);
@@ -348,7 +372,21 @@ class AutoBackupService {
       const Duration(minutes: 30),
       (_) => unawaited(backupNow()),
     );
-    unawaited(backupNow());
+    unawaited(_firstSnapshotAfterStartup());
+  }
+
+  static Future<void> _firstSnapshotAfterStartup() async {
+    await Future<void>.delayed(_startupSnapshotDelay);
+    await backupNow();
+  }
+
+  static Future<int?> _lastBackupMillis() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(_lastBackupKey);
+    } catch (_) {
+      return null;
+    }
   }
 
   static void stopAutoBackup() {
