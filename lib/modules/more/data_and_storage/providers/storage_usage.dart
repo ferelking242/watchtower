@@ -55,13 +55,24 @@ class TotalChapterCacheSizeState extends _$TotalChapterCacheSizeState {
   Future<int> _getdirectorySize(Directory directory) async {
     try {
       if (await directory.exists()) {
-        return directory
-            .list(recursive: true, followLinks: false)
-            .where((entity) => entity is File)
-            .cast<File>()
-            .fold(0, (total, file) {
-              return total + file.lengthSync();
-            });
+        var total = 0;
+        // `lengthSync()` per entry meant one blocking syscall per cached image
+        // on the UI isolate: a chapter cache with a few thousand files froze
+        // the settings screen while it scrolled. The async read yields between
+        // entries, so the cost is identical but the frames keep coming.
+        await for (final entity in directory.list(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (entity is File) {
+            try {
+              total += await entity.length();
+            } catch (_) {
+              // Deleted between listing and stat — nothing to count.
+            }
+          }
+        }
+        return total;
       }
     } catch (_) {}
     return 0;

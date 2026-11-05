@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:archive/archive_io.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart' hide Category;
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
@@ -137,7 +138,11 @@ Future<void> doBackUp(
     final backupFilePath = p.join(path, "$name.backup.db");
     final file = File(backupFilePath);
 
-    await file.writeAsString(jsonEncode(datas));
+    // Serialising the whole library is a single long synchronous string build.
+    // Done on the UI isolate it froze the screen for the entire backup on a
+    // large library, right after the user tapped the button. Encode off-thread.
+    final encoded = await compute(jsonEncode, datas);
+    await file.writeAsString(encoded);
     final zipPath = p.join(path, "$name.backup");
     final zipEncoder = ZipFileEncoder();
     zipEncoder.create(zipPath, level: compressionLevel);

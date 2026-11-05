@@ -957,3 +957,33 @@ must not leak into watch code paths or logs:
   6 description, 7 genre, 8 status, 9 thumbnailUrl, 13 dateAdded, 14 viewer,
   16 chapters, 17 categories, 18 tracking, 100 favorite, 101 chapterFlags,
   103 viewer_flags, 104 history.
+
+## Démarrage : aucune étape ne doit bloquer la première frame (ne pas régresser)
+- `main()` n'a qu'un objectif : atteindre `runApp`. Toute étape avant
+  `runApp` passe par `_startupStage` (nom + timeout + durée journalisée). Une
+  exception qui s'échappe d'une étape laisse l'écran de démarrage natif affiché
+  indéfiniment — c'est exactement ce que les utilisateurs décrivent comme
+  « l'app crash au lancement ». Ne jamais réintroduire un `await` nu sur un
+  service externe (keystore, keychain, Hive, base de données, fichiers).
+- `Isar.open` est le seul échec toléré : `initDB` fait déjà 3 tentatives
+  (éviction du handle zombie + suppression des fichiers). Si les 3 échouent,
+  l'app démarre quand même et l'erreur est journalisée ; ne pas revenir au
+  comportement « splash pour toujours ».
+- Les boîtes Hive s'ouvrent via `_openHiveBoxSafely`, qui supprime et recrée
+  une boîte corrompue (kill pendant une écriture) au lieu de faire échouer le
+  lancement.
+- Le pool de workers d'extension (jusqu'à 4 isolates, chacun relisant les
+  données de dates `intl`) ne doit pas être attendu avant `runApp` :
+  `GetIsolateService.start()` est lancé en `unawaited`, et `start()` est
+  mémoïsé (`_startFuture`) pour qu'un appel concurrent n'ouvre pas un second
+  pool complet.
+- `LibraryAutoUpdater` attend 45 s sur un démarrage à froid : une mise à jour
+  complète de la bibliothèque lancée à t=0 se superpose au premier rendu, aux
+  shelves d'accueil et aux décodages d'images.
+- `prewarmHomeHeroImages()` est plafonné par `DeviceCapabilities.ramTier`
+  (0 image en tier `low`, 4 en `mid`, 8 en `high`) : le cache image ne fait que
+  20 Mo sur un appareil à faible RAM, où préchauffer une douzaine de bannières
+  pleine résolution provoque decode → éviction → decode, au pire moment.
+- Les grosses sérialisations restent hors isolate UI : `jsonEncode` de la
+  sauvegarde passe par `compute`, et les tailles de dossier se cumulent avec
+  `File.length()` (asynchrone), jamais `lengthSync()`.

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
+import 'package:watchtower/services/device_capabilities.dart';
 
 /// Warms the hero-carousel artwork while the splash screen is still visible.
 ///
@@ -18,14 +19,26 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 /// cache and the artwork is already decoded, so cards show their poster on
 /// the very first frame instead of a flat colour block.
 Future<void> prewarmHomeHeroImages({int perSection = 8}) async {
+  // Hero artwork is full-resolution and the shared image cache is only 20 MB on
+  // a low-RAM phone, where it holds barely two banners. Prewarming a dozen of
+  // them there decodes and immediately evicts them (decode → evict → decode)
+  // during the exact window where the process is already tightest after
+  // launch — the OOM kills users reported as a crash at start-up. Skip it on
+  // that tier, warm a handful on mid-range, keep the full set on flagships.
+  final take = switch (DeviceCapabilities.ramTier) {
+    'low' => 0,
+    'mid' => perSection.clamp(0, 4).toInt(),
+    _ => perSection.clamp(0, 8).toInt(),
+  };
+  if (take == 0) return;
   final futures = <Future<void>>[
     _warm<AnilistHome>(
       (c) => c.read(anilistHomeProvider.future),
-      (home) => _anilistUrls(home, perSection),
+      (home) => _anilistUrls(home, take),
     ),
     _warm<TmdbHome>(
       (c) => c.read(tmdbHomeProvider.future),
-      (home) => _tmdbUrls(home, perSection),
+      (home) => _tmdbUrls(home, take),
     ),
   ];
   // Never let a warmup failure block startup.

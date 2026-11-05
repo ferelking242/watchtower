@@ -57,7 +57,17 @@ class LibraryAutoUpdater {
 
   static const String _kLastRunKey = 'auto_update_last_run';
 
+  /// How long a cold start waits before its catch-up run.
+  ///
+  /// The catch-up is a full library refresh: an extension call per item plus
+  /// the Isar writes that follow. Firing it at t=0 put that whole job on top of
+  /// the launch (first frame, home shelves, image decodes) — the stall users
+  /// feel when the app "starts slowly". Nothing about the schedule needs it to
+  /// start before the app is usable.
+  static const Duration _coldStartDelay = Duration(seconds: 45);
+
   Timer? _timer;
+  Timer? _coldStartTimer;
   ProviderContainer? _container;
   bool _running = false;
 
@@ -67,13 +77,17 @@ class LibraryAutoUpdater {
     _container = container;
     _timer?.cancel();
     _timer = Timer.periodic(_tick, (_) => _tick_());
-    // A cold start counts as a tick so a long-overdue schedule catches up.
-    unawaited(_tick_());
+    // A cold start counts as a tick so a long-overdue schedule catches up, but
+    // it waits out the launch window first (see [_coldStartDelay]).
+    _coldStartTimer?.cancel();
+    _coldStartTimer = Timer(_coldStartDelay, () => unawaited(_tick_()));
   }
 
   void stop() {
     _timer?.cancel();
     _timer = null;
+    _coldStartTimer?.cancel();
+    _coldStartTimer = null;
   }
 
   Future<void> _tick_() async {

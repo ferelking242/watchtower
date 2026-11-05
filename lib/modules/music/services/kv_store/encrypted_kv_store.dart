@@ -11,7 +11,18 @@ abstract class EncryptedKvStoreService {
   static String? _encryptionKeySync;
 
   static Future<void> initialize() async {
-    _encryptionKeySync = await encryptionKey;
+    // A wedged keychain/keystore (cold boot, device just unlocked, OEM quirks)
+    // made the awaited read hang, which held the splash screen up. Bounded here
+    // rather than at the call site so `encryptionKeySync` is always assigned:
+    // leaving it null turned a slow keychain into a Null check operator crash
+    // on the first music screen that touched it.
+    try {
+      _encryptionKeySync = await encryptionKey.timeout(
+        const Duration(seconds: 6),
+      );
+    } catch (_) {
+      _encryptionKeySync = KVStoreService.encryptionKey;
+    }
   }
 
   static String get encryptionKeySync => _encryptionKeySync!;

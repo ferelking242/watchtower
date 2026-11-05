@@ -130,20 +130,37 @@ class GetIsolateService {
   /// Number of spawned extension workers.
   int get workerCount => _workers.length;
 
-  Future<void> start() async {
-    if (!_isRunning) {
-      try {
-        await _initGetIsolateService();
-      } catch (e, st) {
-        AppLogger.log(
-          'Failed to start extension workers: $e',
-          logLevel: LogLevel.error,
-          tag: LogTag.extension_,
-          error: e,
-          stackTrace: st,
-        );
-        await stop();
-      }
+  /// In-flight startup, shared by every caller.
+  ///
+  /// Without this, two concurrent first calls ("open an item" and a shelf
+  /// refresh land together) each passed the `!_isRunning` check and spawned a
+  /// second full worker pool: double the isolates, double the memory, and one
+  /// of the two pools leaked because only the last handle was kept.
+  Future<void>? _startFuture;
+
+  Future<void> start() {
+    if (_isRunning) return Future<void>.value();
+    final inFlight = _startFuture;
+    if (inFlight != null) return inFlight;
+    final future = _start();
+    _startFuture = future;
+    return future;
+  }
+
+  Future<void> _start() async {
+    try {
+      await _initGetIsolateService();
+    } catch (e, st) {
+      AppLogger.log(
+        'Failed to start extension workers: $e',
+        logLevel: LogLevel.error,
+        tag: LogTag.extension_,
+        error: e,
+        stackTrace: st,
+      );
+      await stop();
+    } finally {
+      _startFuture = null;
     }
   }
 

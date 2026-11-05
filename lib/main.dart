@@ -132,6 +132,77 @@ void _writeCliDiagnostic(String? message, {int? wrapWidth}) {
   }
 }
 
+/// Runs one startup stage behind its own error boundary and timer.
+///
+/// Everything before `runApp` used to be a hard dependency of the launch. One
+/// failing service — a Hive box left corrupt by a kill-during-write, a
+/// keychain read that throws on a cold boot, a platform channel that never
+/// answers — propagated out of `main()` and left the native splash on screen
+/// forever, which users experience as "the app crashes at launch" or "it just
+/// sits there". A stage failure is now logged and skipped; the app still
+/// reaches its first frame and the failure stays visible in the session log.
+Future<void> _startupStage(
+  String name,
+  Future<void> Function() body, {
+  Duration timeout = const Duration(seconds: 20),
+}) async {
+  final sw = Stopwatch()..start();
+  try {
+    await body().timeout(timeout);
+  } catch (e, st) {
+    debugPrint(
+      '[startup] "$name" failed after ${sw.elapsedMilliseconds} ms: $e',
+    );
+    AppLogger.log(
+      'startup stage "$name" failed: $e',
+      logLevel: LogLevel.error,
+      error: e,
+      stackTrace: st,
+    );
+  } finally {
+    final ms = sw.elapsedMilliseconds;
+    // Worth keeping: a stage that eats more than a couple of frames is the
+    // first thing to look at when someone reports a slow launch.
+    if (ms >= 40) {
+      debugPrint('[startup] $name → ${ms}ms');
+      AppLogger.log('[startup] $name → ${ms}ms', logLevel: LogLevel.debug);
+    }
+  }
+}
+
+/// Opens a Hive box, recovering from the corruption a kill-during-write leaves
+/// behind: Hive then throws on open, and that used to abort the whole launch.
+Future<void> _openHiveBoxSafely(String name) async {
+  try {
+    await Hive.openBox(name);
+    return;
+  } catch (e, st) {
+    debugPrint('[startup] Hive box "$name" failed to open: $e');
+    AppLogger.log(
+      'Hive box "$name" failed to open — recreating it',
+      logLevel: LogLevel.error,
+      error: e,
+      stackTrace: st,
+    );
+  }
+  try {
+    await Hive.deleteBoxFromDisk(name);
+    await Hive.openBox(name);
+    AppLogger.log(
+      'Hive box "$name" recreated after a corrupt open',
+      logLevel: LogLevel.info,
+    );
+  } catch (e, st) {
+    debugPrint('[startup] Hive box "$name" unrecoverable: $e');
+    AppLogger.log(
+      'Hive box "$name" unrecoverable: $e',
+      logLevel: LogLevel.error,
+      error: e,
+      stackTrace: st,
+    );
+  }
+}
+
 void main(List<String> args) async {
   final isCliInvocation = !kIsWeb && args.isNotEmpty && args.first == '--cli';
 
@@ -300,24 +371,59 @@ void main(List<String> args) async {
         // left by a previous installation before opening Isar, so the library,
         // settings, extensions and caches come back intact. See
         // AutoBackupService for the snapshot layout.
-        await AutoBackupService.restoreOnFreshInstall();
-        isar = await storage.initDB(null, inspector: false);
+        await _startupStage('auto-backup fresh-install restore', () async {
+          await AutoBackupService.restoreOnFreshInstall();
+        }, timeout: const Duration(seconds: 60));
+        var dbReady = false;
+        try {
+          isar = await storage.initDB(null, inspector: false);
+          dbReady = true;
+        } catch (e, st) {
+          // initDB already retries three times after evicting the handle and
+          // deleting the files. If it still cannot open, staying on the splash
+          // helps nobody: log it, start the app, and let the user reach
+          // Settings → Data & storage to restore a snapshot.
+          debugPrint('[startup] initDB failed: $e');
+          AppLogger.log(
+            'initDB failed — starting without a database: $e',
+            logLevel: LogLevel.error,
+            error: e,
+            stackTrace: st,
+          );
+        }
         // Auto-réparation du record `Settings` : un record corrompu (ex. cache
         // de pages embarqué dont les préfixes de taille dépassent les octets
         // présents → `RangeError (length)` à la désérialisation) rendait
         // TOUTE lecture de settings fautive dans toute l'app, dont le
         // démarrage des téléchargements. On lit+répare dès l'ouverture de la
         // base, avant le moindre écran / scheduler.
-        healSettingsRecord(isar: isar);
+        // `isar` is a `late` global: touching it after a failed open throws a
+        // LateInitializationError out of `main()`, which is the very freeze
+        // this block is here to prevent.
+        if (dbReady) healSettingsRecord(isar: isar);
         // _ensureLocalSources() is intentionally deferred to _postLaunchInit().
         // Running it here (before runApp) triggers Isar Rust FFI string_to_bytes
         // malloc on the main thread while memory is tight on iPhone 7 (2 GB).
         // iOS frees background-app RAM only after the foreground app becomes
         // visible — deferring past runApp() gives the system time to do that.
       }
-      // Start the background isolate AFTER the DB is open and isar is assigned.
+      // Start the background isolate AFTER the DB is open and isar is assigned,
+      // but no longer *before* the first frame. Spawning the pool means up to
+      // four isolate starts, each re-reading intl date data: easily a second of
+      // splash on a mid-range phone. Nothing needs the pool until the first
+      // extension call, and `GetIsolateService.get()` awaits `start()` (now
+      // memoized), so the launch path only has to kick it off.
       if (!kIsWeb) {
-        await getIsolateService.start();
+        unawaited(
+          getIsolateService.start().then((_) {
+            debugPrint(
+              '[startup] extension workers ready '
+              '(${getIsolateService.workerCount})',
+            );
+          }).catchError((Object e) {
+            debugPrint('[startup] extension workers failed: $e');
+          }),
+        );
       }
 
       // Init Hive BEFORE runApp so nav_display providers read persisted values
@@ -329,19 +435,34 @@ void main(List<String> args) async {
         kIsWeb ? null : ((!kIsWeb && Platform.isAndroid) ? "" : hivePath),
       );
       Hive.registerAdapter(TrackSearchAdapter());
-      await Hive.openBox('nav_display');
-      await Hive.openBox('ui_prefs');
-      await Hive.openBox('library_settings');
-      await Hive.openBox('reader_prefs');
-      await Hive.openBox('player_prefs');
+      for (final box in const [
+        'nav_display',
+        'ui_prefs',
+        'library_settings',
+        'reader_prefs',
+        'player_prefs',
+      ]) {
+        await _openHiveBoxSafely(box);
+      }
       // Fresh install: put the snapshotted preference boxes back before any
       // provider reads them. No-op on a normal launch.
       await AutoBackupService.restoreHiveBoxes();
 
       // --- Music module init ---
-      await KVStoreService.initialize();
+      // Both carry their own fallback (see EncryptedKvStoreService.initialize),
+      // and the timeout keeps a wedged keychain/keystore from holding the
+      // splash hostage on a cold boot.
+      await _startupStage(
+        'music KV store',
+        KVStoreService.initialize,
+        timeout: const Duration(seconds: 10),
+      );
       if (!kIsWeb) {
-        await EncryptedKvStoreService.initialize();
+        await _startupStage(
+          'encrypted KV store',
+          EncryptedKvStoreService.initialize,
+          timeout: const Duration(seconds: 10),
+        );
       }
 
       // --- NFile service initialisation ---
@@ -387,7 +508,20 @@ void main(List<String> args) async {
           );
         });
       }
-      unawaited(_postLaunchInit(storage));
+      unawaited(
+        _postLaunchInit(storage).catchError((Object e, StackTrace st) {
+          // Post-launch work must never surface as an unhandled async error:
+          // that is what used to take the whole zone down after the app was
+          // already visible.
+          debugPrint('[startup] post-launch init failed: $e');
+          AppLogger.log(
+            'post-launch init failed: $e',
+            logLevel: LogLevel.error,
+            error: e,
+            stackTrace: st,
+          );
+        }),
+      );
     },
     (Object error, StackTrace stack) {
       final msg = error.toString();
@@ -448,7 +582,20 @@ void _ensureLocalSources() {
 Future<void> _postLaunchInit(StorageProvider storage) async {
   // Deferred from main() — see comment there. Runs after runApp() so iOS has
   // freed background-app memory before the first Isar Rust FFI string alloc.
-  if (!kIsWeb) _ensureLocalSources();
+  if (!kIsWeb) {
+    try {
+      _ensureLocalSources();
+    } catch (e, st) {
+      // Only reachable when initDB failed and the `isar` global is unset; it
+      // must not stop the rest of the deferred init from running.
+      AppLogger.log(
+        '_ensureLocalSources failed: $e',
+        logLevel: LogLevel.error,
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
   await AppLogger.init();
   // Start the automatic snapshot of the database, Hive boxes and preferences
   // into <storage root>/.backup, so a reinstall can restore everything.
