@@ -4040,44 +4040,22 @@ class _SkeletonBoxState extends State<_SkeletonBox>
 
 // ─── Pulsing loading overlay for the banner ────────────────────────────────────
 
-class _LoadingBannerPulse extends StatefulWidget {
+class _LoadingBannerPulse extends StatelessWidget {
   const _LoadingBannerPulse();
 
   @override
-  State<_LoadingBannerPulse> createState() => _LoadingBannerPulseState();
-}
-
-class _LoadingBannerPulseState extends State<_LoadingBannerPulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 850),
-    )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.15, end: 0.42).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, _) => Container(
-        color: Colors.black.withValues(alpha: _anim.value),
-        child: const Center(
-          child: _ThreeDotsAnimation(),
+    return IgnorePointer(
+      child: Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.58),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: _ThreeDotsAnimation(),
+          ),
         ),
       ),
     );
