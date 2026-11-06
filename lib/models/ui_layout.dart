@@ -102,16 +102,81 @@ class SearchLayout {
   final SectionPresentation? results;
   final String? filters;
   final bool searchPreview;
+  final List<SearchTabLayout> tabs;
 
-  const SearchLayout({this.results, this.filters, this.searchPreview = false});
+  const SearchLayout({
+    this.results,
+    this.filters,
+    this.searchPreview = false,
+    this.tabs = const [],
+  });
 
-  factory SearchLayout.fromJson(Map<String, dynamic> json) => SearchLayout(
-    results: json['results'] != null
-        ? SectionPresentation.fromJson(json['results'] as Map<String, dynamic>)
-        : null,
-    filters: json['filters'] as String?,
-    searchPreview: json['searchPreview'] == true,
-  );
+  factory SearchLayout.fromJson(Map<String, dynamic> json) {
+    final rawTabs = json['tabs'];
+    if (rawTabs != null && rawTabs is! List) {
+      throw const FormatException('browse.search.tabs must be an array');
+    }
+
+    final tabs = <SearchTabLayout>[];
+    final ids = <String>{};
+    for (final rawTab in (rawTabs as List?) ?? const []) {
+      if (rawTab is! Map) {
+        throw const FormatException('each browse.search tab must be an object');
+      }
+      final tab = SearchTabLayout.fromJson(Map<String, dynamic>.from(rawTab));
+      if (!RegExp(r'^[a-zA-Z0-9_-]{1,64}$').hasMatch(tab.id) ||
+          tab.title.trim().isEmpty ||
+          !ids.add(tab.id)) {
+        throw const FormatException(
+          'search tabs need unique ids and non-empty titles',
+        );
+      }
+      if (tab.source != 'search' && tab.source != 'custom') {
+        throw FormatException('unknown search tab source "${tab.source}"');
+      }
+      tabs.add(tab);
+    }
+
+    return SearchLayout(
+      results: json['results'] != null
+          ? SectionPresentation.fromJson(
+              json['results'] as Map<String, dynamic>,
+            )
+          : null,
+      filters: json['filters'] as String?,
+      searchPreview: json['searchPreview'] == true,
+      tabs: List.unmodifiable(tabs),
+    );
+  }
+}
+
+/// A search category declared by an extension's browse.search.tabs layout.
+class SearchTabLayout {
+  /// Stable ID; custom tabs are passed to getCustomList as search_tab:<id>:…
+  final String id;
+  final String title;
+
+  /// `search` uses the extension's normal search() method; `custom` uses
+  /// getCustomList so extensions can run a category-specific query.
+  final String source;
+
+  /// Optional result kind used to keep broad search fallbacks in their tab.
+  final String? resultType;
+
+  const SearchTabLayout({
+    required this.id,
+    required this.title,
+    this.source = 'custom',
+    this.resultType,
+  });
+
+  factory SearchTabLayout.fromJson(Map<String, dynamic> json) =>
+      SearchTabLayout(
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        source: json['source'] as String? ?? 'custom',
+        resultType: json['resultType'] as String?,
+      );
 }
 
 class DetailLayout {

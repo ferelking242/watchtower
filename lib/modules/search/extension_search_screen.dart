@@ -8,6 +8,7 @@ import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
@@ -28,9 +29,9 @@ import 'package:watchtower/modules/media/extension_image_headers.dart';
 ///
 /// Same chrome as the TMDB search (chevron back, compact field with the mic
 /// inside, filter + three-dots outside). Empty state: recent searches, popular
-/// & latest of the extension as ranked hot tabs. Results: "Tout" tab plus tabs
-/// derived from the extension result (Genres for MangaDex-like sources,
-/// Auteur/Langue when present).
+/// & latest of the extension as ranked hot tabs. Results use tabs declared by
+/// the extension when present; otherwise the screen keeps its legacy "Tout"
+/// tab plus result-derived tabs (genres, author/language, etc.).
 class ExtensionSearchScreen extends ConsumerStatefulWidget {
   final Source source;
   final VoidCallback onClose;
@@ -60,6 +61,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   bool _submitted = false;
   Timer? _filterSearchDebounce;
   Timer? _previewDebounce;
+  Future<void>? _layoutFuture;
   bool _searchPreviewEnabled = false;
   bool _previewLoading = false;
   List<MManga> _previewResults = const [];
@@ -76,6 +78,12 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
 
   late TabController _tabs;
   List<String> _tabLabels = const ['Tout'];
+  List<SearchTabLayout> _searchTabs = const [];
+  String? _activeSearchTabId;
+  final Map<String, List<MManga>> _searchTabResults = {};
+  final Map<String, int> _searchTabPages = {};
+  final Map<String, bool> _searchTabHasNext = {};
+  final Set<String> _loadedSearchTabs = {};
   int _searchRequestVersion = 0;
 
   List<dynamic> _filterList = [];
@@ -92,9 +100,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     _loadRecent();
     _loadFilterList();
     _tabs = TabController(length: 1, vsync: this);
-    if (widget.source.providesHome) {
-      unawaited(_loadLayout());
-    }
+    if (widget.source.id != null) _layoutFuture = _loadLayout();
     if (initial.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _runSearch(initial));
     }
@@ -165,14 +171,15 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   Future<void> _loadLayout() async {
     await LayoutRegistry.instance.load(widget.source);
     if (!mounted) return;
-    final searchPreview =
-        LayoutRegistry.instance
-            .get(widget.source)
-            .browse
-            ?.search
-            ?.searchPreview ??
-        false;
-    setState(() => _searchPreviewEnabled = searchPreview);
+    final searchLayout = LayoutRegistry.instance
+        .get(widget.source)
+        .browse
+        ?.search;
+    final searchPreview = searchLayout?.searchPreview ?? false;
+    setState(() {
+      _searchPreviewEnabled = searchPreview;
+      _searchTabs = searchLayout?.tabs ?? const [];
+    });
     if (searchPreview && _controller.text.trim().length >= 2) {
       _scheduleSearchPreview(_controller.text);
     }
@@ -213,6 +220,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _page = 1;
         _hasNext = true;
         _seen.clear();
+        _searchTabResults.clear();
+        _searchTabPages.clear();
+        _searchTabHasNext.clear();
+        _loadedSearchTabs.clear();
         _setTabLabels(const ['Tout']);
       });
     } else if (!_searchPreviewEnabled && query.isEmpty && _query.isNotEmpty) {
@@ -227,6 +238,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _page = 1;
         _hasNext = true;
         _seen.clear();
+        _searchTabResults.clear();
+        _searchTabPages.clear();
+        _searchTabHasNext.clear();
+        _loadedSearchTabs.clear();
         _setTabLabels(const ['Tout']);
       });
     } else {
@@ -312,11 +327,13 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _tabs.index = 0;
     }
     _tabLabels = nextLabels;
+    _activeSearchTabId = null;
   }
 
   Future<void> _runSearch(String raw) async {
     final query = raw.trim();
     if (query.isEmpty) return;
+    final requestVersion = ++_searchRequestVersion;
     _previewDebounce?.cancel();
     _previewRequestVersion++;
     setState(() {
@@ -324,7 +341,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _previewResults = const [];
       _previewError = null;
     });
-    final requestVersion = ++_searchRequestVersion;
+    await (_layoutFuture ?? Future<void>.value());
+    if (!mounted || requestVersion != _searchRequestVersion) return;
+    _previewDebounce?.cancel();
+    _previewRequestVersion++;
     _controller
       ..text = query
       ..selection = TextSelection.collapsed(offset: query.length);
@@ -343,8 +363,22 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _loadingMore = false;
       _seen.clear();
       _loading = true;
-      _setTabLabels(const ['Tout']);
+      _searchTabResults.clear();
+      _searchTabPages.clear();
+      _searchTabHasNext.clear();
+      _loadedSearchTabs.clear();
+      _setTabLabels(
+        _searchTabs.isEmpty
+            ? const ['Tout']
+            : _searchTabs.map((tab) => tab.title).toList(growable: false),
+      );
     });
+    if (_searchTabs.isNotEmpty) {
+      final firstTab = _searchTabs.first;
+      _activeSearchTabId = firstTab.id;
+      await _loadDeclaredSearchTab(firstTab, 1, requestVersion);
+      return;
+    }
     try {
       final page = await ref.read(
         searchProvider(
@@ -374,8 +408,153 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     }
   }
 
+  bool _matchesDeclaredResult(MManga item, SearchTabLayout tab) {
+    final kind = tab.resultType?.toLowerCase();
+    if (kind == null || kind.isEmpty) return true;
+    final path = Uri.tryParse(item.link ?? '')?.path.toLowerCase() ?? '';
+    return switch (kind) {
+      'video' => path.contains('/video.') || path.contains('/video/'),
+      'actress' || 'actresses' =>
+        path.contains('/pornstars/') || path.contains('/actresses/'),
+      'channel' || 'channels' => path.contains('/channels/'),
+      _ => true,
+    };
+  }
+
+  Future<void> _loadDeclaredSearchTab(
+    SearchTabLayout tab,
+    int page,
+    int requestVersion, {
+    bool append = false,
+  }) async {
+    try {
+      final result = tab.source == 'search'
+          ? await ref.read(
+              searchProvider(
+                source: widget.source,
+                query: _query,
+                page: page,
+                filterList: _activeFilters,
+              ).future,
+            )
+          : await ref.read(
+              getCustomListProvider(
+                source: widget.source,
+                listId: 'search_tab:${tab.id}:${Uri.encodeComponent(_query)}',
+                page: page,
+              ).future,
+            );
+      if (!mounted || requestVersion != _searchRequestVersion) return;
+
+      final matches = (result?.list ?? const <MManga>[]).where(
+        (item) => _matchesDeclaredResult(item, tab),
+      );
+      final fresh = matches
+          .where(
+            (item) => _seen.add(item.link ?? item.name ?? '${item.hashCode}'),
+          )
+          .toList(growable: false);
+      final items = append ? [...?_results, ...fresh] : fresh;
+      final hasNext = fresh.isNotEmpty && (result?.hasNextPage ?? false);
+      _searchTabResults[tab.id] = items;
+      _searchTabPages[tab.id] = page;
+      _searchTabHasNext[tab.id] = hasNext;
+      _loadedSearchTabs.add(tab.id);
+      setState(() {
+        _results = items;
+        _page = page;
+        _hasNext = hasNext;
+        _loading = false;
+        _loadingMore = false;
+        _error = null;
+      });
+    } catch (error) {
+      if (!mounted || requestVersion != _searchRequestVersion) return;
+      setState(() {
+        if (!append) {
+          _error = error;
+          _loading = false;
+        }
+        _loadingMore = false;
+      });
+    }
+  }
+
+  Future<void> _selectSearchTab(int index) async {
+    if (index < 0 || index >= _searchTabs.length) return;
+    final tab = _searchTabs[index];
+    if (tab.id == _activeSearchTabId) return;
+    _activeSearchTabId = tab.id;
+    final requestVersion = ++_searchRequestVersion;
+    _seen.clear();
+    final cached = _searchTabResults[tab.id];
+    if (_loadedSearchTabs.contains(tab.id) && cached != null) {
+      _seen.addAll(
+        cached.map((item) => item.link ?? item.name ?? '${item.hashCode}'),
+      );
+      setState(() {
+        _results = cached;
+        _page = _searchTabPages[tab.id] ?? 1;
+        _hasNext = _searchTabHasNext[tab.id] ?? false;
+        _loading = false;
+        _loadingMore = false;
+        _error = null;
+      });
+      return;
+    }
+    setState(() {
+      _results = null;
+      _error = null;
+      _loading = true;
+      _loadingMore = false;
+      _page = 1;
+      _hasNext = true;
+    });
+    await _loadDeclaredSearchTab(tab, 1, requestVersion);
+  }
+
   void _retrySearch() {
     if (_query.isEmpty) return;
+    if (_searchTabs.isNotEmpty) {
+      final index = _searchTabs.indexWhere(
+        (tab) => tab.id == _activeSearchTabId,
+      );
+      final tab = _searchTabs[index < 0 ? 0 : index];
+      if (tab.source == 'custom') {
+        ref.invalidate(
+          getCustomListProvider(
+            source: widget.source,
+            listId: 'search_tab:${tab.id}:${Uri.encodeComponent(_query)}',
+            page: 1,
+          ),
+        );
+      } else {
+        ref.invalidate(
+          searchProvider(
+            source: widget.source,
+            query: _query,
+            page: 1,
+            filterList: _activeFilters,
+          ),
+        );
+      }
+      _searchTabResults.remove(tab.id);
+      _searchTabPages.remove(tab.id);
+      _searchTabHasNext.remove(tab.id);
+      _loadedSearchTabs.remove(tab.id);
+      _seen.clear();
+      final requestVersion = ++_searchRequestVersion;
+      setState(() {
+        _results = null;
+        _error = null;
+        _loading = true;
+        _loadingMore = false;
+        _page = 1;
+        _hasNext = true;
+      });
+      unawaited(_loadDeclaredSearchTab(tab, 1, requestVersion));
+      return;
+    }
     ref.invalidate(
       searchProvider(
         source: widget.source,
@@ -430,6 +609,20 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     if (_loadingMore || !_hasNext || _results == null) return;
     final requestVersion = _searchRequestVersion;
     final query = _query;
+    if (_searchTabs.isNotEmpty) {
+      final index = _searchTabs.indexWhere(
+        (tab) => tab.id == _activeSearchTabId,
+      );
+      if (index < 0) return;
+      setState(() => _loadingMore = true);
+      await _loadDeclaredSearchTab(
+        _searchTabs[index],
+        _page + 1,
+        requestVersion,
+        append: true,
+      );
+      return;
+    }
     setState(() => _loadingMore = true);
     try {
       final next = await ref.read(
@@ -474,6 +667,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _page = 1;
       _hasNext = true;
       _seen.clear();
+      _searchTabResults.clear();
+      _searchTabPages.clear();
+      _searchTabHasNext.clear();
+      _loadedSearchTabs.clear();
       _setTabLabels(const ['Tout']);
     });
     _focus.requestFocus();
@@ -531,6 +728,12 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     );
   }
 
+  bool get _showFilterButton {
+    if (_searchTabs.isEmpty) return true;
+    final index = _searchTabs.indexWhere((tab) => tab.id == _activeSearchTabId);
+    return _searchTabs[index < 0 ? 0 : index].source == 'search';
+  }
+
   @override
   Widget build(BuildContext context) {
     final headers = ref.watch(
@@ -578,7 +781,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                   // Filtre d'extension : hors de la box, à côté des 3 points,
                   // via le composant partagé de la Librairie. Présent pour
                   // toutes les extensions, même sans filtre déclaré.
-                  _buildFilterButton(),
+                  if (_showFilterButton) _buildFilterButton(),
                   // Menu 3 points, même composant glass que la Librairie.
                   if (_results != null && _results!.isNotEmpty)
                     Padding(
@@ -609,7 +812,9 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                             items: _previewResults,
                             errorMessage: _previewError == null
                                 ? null
-                                : extensionRequestFailureMessage(_previewError) ??
+                                : extensionRequestFailureMessage(
+                                        _previewError,
+                                      ) ??
                                       'La recherche d’aperçu est momentanément indisponible.',
                             onRetry: _retrySearchPreview,
                             onOpen: widget.onOpen,
@@ -644,6 +849,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   // ── Results ────────────────────────────────────────────────────────────────
 
   Widget _resultsArea() {
+    if (_searchTabs.isNotEmpty) return _declaredResultsArea();
     if (_loading) return const SharedSearchShimmerList();
     if (_error != null) {
       final statusCode = extensionHttpStatusCode(_error);
@@ -696,6 +902,59 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _declaredResultsArea() {
+    Widget content;
+    if (_loading) {
+      content = const SharedSearchShimmerList();
+    } else if (_error != null) {
+      final statusCode = extensionHttpStatusCode(_error);
+      content = _ExtensionSearchMessage(
+        title: statusCode == null
+            ? 'Recherche indisponible'
+            : 'Erreur HTTP $statusCode',
+        message:
+            extensionRequestFailureMessage(_error) ??
+            'La source est momentanément indisponible. Réessaie dans quelques instants.',
+        onRetry: _retrySearch,
+      );
+    } else if (_results == null || _results!.isEmpty) {
+      content = SharedSearchEmptyAnimation(
+        title: 'Aucun résultat',
+        message: 'Rien ne correspond à « $_query ».',
+      );
+    } else {
+      content = _ExtensionResultsGrid(
+        items: _results!,
+        onLoadMore: _loadMore,
+        loadingMore: _loadingMore,
+        onOpen: widget.onOpen,
+        cardComponent: _searchCardComponent,
+      );
+    }
+
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabs,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          dividerColor: Colors.white10,
+          indicatorColor: Theme.of(context).colorScheme.primary,
+          labelColor: Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: Colors.white54,
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          onTap: (index) => unawaited(_selectSearchTab(index)),
+          tabs: [for (final label in _tabLabels) Tab(text: label)],
+        ),
+        Expanded(child: content),
       ],
     );
   }

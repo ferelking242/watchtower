@@ -17,9 +17,10 @@ Future<MPages?> getCustomList(
   required String listId,
   required int page,
 }) async {
-  final isSearchPreview = listId.startsWith('search_preview:');
-  final keepAlive = isSearchPreview ? null : ref.keepAlive();
-  final cacheTimer = isSearchPreview
+  final isLiveSearch =
+      listId.startsWith('search_preview:') || listId.startsWith('search_tab:');
+  final keepAlive = isLiveSearch ? null : ref.keepAlive();
+  final cacheTimer = isLiveSearch
       ? null
       : Timer(const Duration(minutes: 2), keepAlive!.close);
   if (cacheTimer != null) ref.onDispose(cacheTimer.cancel);
@@ -93,7 +94,7 @@ Future<MPages?> getCustomList(
 
   // Resume-history descriptions are derived from live progress and should not
   // be cached. Other extension lists are stable for the short cache window.
-  if (isSearchPreview || (listId == 'history' && source.touchToPreview)) {
+  if (isLiveSearch || (listId == 'history' && source.touchToPreview)) {
     return load();
   }
   return extensionPageCache.getOrLoad(

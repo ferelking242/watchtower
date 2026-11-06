@@ -145,7 +145,10 @@ void main() {
       isTrue,
     );
     expect(
-      LayoutComponentRegistry.supports('chapterCard', LayoutComponentContext.home),
+      LayoutComponentRegistry.supports(
+        'chapterCard',
+        LayoutComponentContext.home,
+      ),
       isFalse,
     );
     expect(
@@ -257,6 +260,51 @@ void main() {
     expect(results?.columns, 3);
     expect(results?.cardComponent, 'mangaFeaturedCard');
     expect(layout.browse?.search?.filters, 'chips');
+    expect(layout.browse?.search?.tabs, isEmpty);
+  });
+
+  test('parses extension-declared search tabs and result routing', () {
+    final layout = UiLayout.fromJson({
+      'schemaVersion': 1,
+      'home': {'sections': []},
+      'browse': {
+        'search': {
+          'tabs': [
+            {
+              'id': 'videos',
+              'title': 'Vidéos',
+              'source': 'search',
+              'resultType': 'video',
+            },
+            {
+              'id': 'actresses',
+              'title': 'Actrices',
+              'source': 'custom',
+              'resultType': 'actress',
+            },
+          ],
+        },
+      },
+    });
+    final tabs = layout.browse?.search?.tabs ?? const [];
+
+    expect(tabs.map((tab) => tab.id), ['videos', 'actresses']);
+    expect(tabs.first.source, 'search');
+    expect(tabs.first.resultType, 'video');
+    expect(tabs.last.source, 'custom');
+    expect(tabs.last.title, 'Actrices');
+  });
+
+  test('rejects duplicate or malformed declared search tabs', () {
+    expect(
+      () => SearchLayout.fromJson({
+        'tabs': [
+          {'id': 'videos', 'title': 'Vidéos'},
+          {'id': 'videos', 'title': 'Autres'},
+        ],
+      }),
+      throwsA(isA<FormatException>()),
+    );
   });
 
   test('Search adapter builds both registered cards from ContentItem data', () {
@@ -290,17 +338,11 @@ void main() {
       ExtensionEpisodeCardAdapter.parseEpisodeNumber('S2E05 - The Arrival'),
       5,
     );
-    expect(
-      ExtensionEpisodeCardAdapter.parseEpisodeNumber('Episode 12'),
-      12,
-    );
+    expect(ExtensionEpisodeCardAdapter.parseEpisodeNumber('Episode 12'), 12);
     expect(
       ExtensionEpisodeCardAdapter.parseEpisodeNumber('The Arrival'),
       isNull,
     );
-    expect(
-      ExtensionEpisodeCardAdapter.parseEpisodeNumber('Arcane 4'),
-      isNull,
-    );
+    expect(ExtensionEpisodeCardAdapter.parseEpisodeNumber('Arcane 4'), isNull);
   });
 }
