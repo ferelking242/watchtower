@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/atomic_snapshot_file.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Automatic, uninstall-surviving snapshot of everything the app needs to
@@ -280,8 +281,14 @@ class AutoBackupService {
       final dir = await _backupDirectory(create: true);
       if (dir == null) return;
 
-      // 1 — Isar database file. copyToFile is safe while the DB is open.
-      await isar.copyToFile(p.join(dir.path, _isarFileName));
+      // 1 — Isar database file. Write to a fresh sibling path first:
+      // MDBX returns "File exists" when copyToFile targets the old snapshot.
+      // Rename only after the new copy is complete so failures keep the last
+      // good backup available for restore.
+      await writeSnapshotAtomically(
+        destinationPath: p.join(dir.path, _isarFileName),
+        writeSnapshot: (path) => isar.copyToFile(path),
+      );
 
       final dbDir = await StorageProvider().getDatabaseDirectory();
       if (dbDir != null) {

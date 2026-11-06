@@ -31,6 +31,8 @@ import 'package:watchtower/modules/more/settings/player/providers/player_prefs_p
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/hls_adaptive_quality.dart';
 import 'package:watchtower/services/player_codec_error.dart';
+import 'package:watchtower/services/downloaded_video_preference.dart'
+    as downloaded_video_preference;
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
 import 'package:cached_network_image/cached_network_image.dart';
@@ -135,16 +137,11 @@ bool _isLocalVideoPath(String value) {
 }
 
 String _displayVideoQuality(String quality) {
-  final k = RegExp(r'\b(8k|4k)\b', caseSensitive: false).firstMatch(quality);
-  if (k != null) return k.group(1)!.toUpperCase();
-  final resolution = RegExp(r'(\d{3,4})\s*p?', caseSensitive: false)
-      .firstMatch(quality);
-  if (resolution != null) return '${resolution.group(1)}p';
-  return quality.trim();
+  return downloaded_video_preference.displayVideoQuality(quality);
 }
 
 String _videoQualityKey(String quality) =>
-    _displayVideoQuality(quality).toLowerCase();
+    downloaded_video_preference.videoQualityKey(quality);
 
 // ─── Native-style toast (used app-wide inside the player, replaces the old
 // custom purple toasts / SnackBars) ─────────────────────────────────────────
@@ -442,23 +439,10 @@ class WatchInlinePlayer {
   List<wt.Video> _mergeLocalQualityVideos(
     List<wt.Video> online,
     List<wt.Video> local,
-  ) {
-    final localByQuality = <String, wt.Video>{
-      for (final video in local) _videoQualityKey(video.quality): video,
-    };
-    final merged = <wt.Video>[];
-    final seen = <String>{};
-    for (final video in online) {
-      final key = _videoQualityKey(video.quality);
-      if (!seen.add(key)) continue;
-      merged.add(localByQuality.remove(key) ?? video);
-    }
-    for (final video in localByQuality.values) {
-      final key = _videoQualityKey(video.quality);
-      if (seen.add(key)) merged.add(video);
-    }
-    return merged;
-  }
+  ) => downloaded_video_preference.mergeDownloadedVideosFirst(
+    online: online,
+    downloaded: local,
+  );
 
   void _watchActualDuration(Chapter chapter, {Duration? ignore}) {
     _actualDurationSub?.cancel();
@@ -943,10 +927,16 @@ class WatchInlinePlayer {
           error: error,
         );
       }
-      final videos = _mergeLocalQualityVideos(
-        onlineVideos,
-        _localQualityVideos(chapter),
-      );
+      final localVideos = _localQualityVideos(chapter);
+      if (localVideos.isNotEmpty) {
+        AppLogger.log(
+          '[PLAYER] found ${localVideos.length} downloaded video(s); '
+          'trying local files before online qualities',
+          logLevel: LogLevel.info,
+          tag: LogTag.watch,
+        );
+      }
+      final videos = _mergeLocalQualityVideos(onlineVideos, localVideos);
       loadedVideos = videos;
 
       if (videos.isEmpty) {
