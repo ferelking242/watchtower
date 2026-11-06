@@ -349,8 +349,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           // IgnorePointer : la zone du titre laisse passer
                           // les touches jusqu'au bouton réglages de
                           // l'overlay (sinon il restait mort et grisé).
-                          IgnorePointer(
-                            child: Expanded(
+                          Expanded(
+                            child: IgnorePointer(
                               child: ValueListenableBuilder<double>(
                                 valueListenable: _headerTitleOpacity,
                                 builder: (_, opacity, _) => Opacity(
