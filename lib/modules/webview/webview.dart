@@ -1054,27 +1054,71 @@ const String _kVideoInterceptJs = r"""
     return 'Video';
   }
 
+  function videoRect(videoEl) {
+    if(!videoEl || !videoEl.getBoundingClientRect) return null;
+    try {
+      var r = videoEl.getBoundingClientRect();
+      if(!r || r.width <= 0 || r.height <= 0) return null;
+      var left = r.left, top = r.top, current = window;
+      // Add iframe offsets when the page exposes them; a cross-origin frame
+      // that refuses access still falls back to its local viewport.
+      while(current !== current.top) {
+        try {
+          var frame = current.frameElement;
+          if(!frame) break;
+          var frameRect = frame.getBoundingClientRect();
+          left += frameRect.left;
+          top += frameRect.top;
+          current = current.parent;
+        } catch(e) { break; }
+      }
+      return { left: left, top: top, width: r.width, height: r.height };
+    } catch(e) { return null; }
+  }
+
+  function reportVideoPosition() {
+    var videoEl = window.__wtActiveVideoElement;
+    var rect = videoRect(videoEl);
+    if(!rect) return;
+    try {
+      window.flutter_inappwebview.callHandler(
+        'videoPositionChanged',
+        JSON.stringify({
+          url: window.__wtActiveVideoUrl || '',
+          rect: rect
+        })
+      );
+    } catch(e) {}
+  }
+
+  var _positionFrame = 0;
+  function scheduleVideoPosition() {
+    if(_positionFrame) return;
+    _positionFrame = requestAnimationFrame(function() {
+      _positionFrame = 0;
+      reportVideoPosition();
+    });
+  }
+  window.addEventListener('scroll', scheduleVideoPosition, true);
+  window.addEventListener('resize', scheduleVideoPosition, {passive:true});
+  document.addEventListener('scroll', scheduleVideoPosition, true);
+
   function sendUrl(url, quality, type, videoEl) {
     if(!url || !isMedia(url)) return;
+    if(videoEl) {
+      window.__wtActiveVideoElement = videoEl;
+      window.__wtActiveVideoUrl = url;
+    }
     var key = url.split('?')[0].split('#')[0];
-    if(_seenUrls[key]) return;
+    if(_seenUrls[key]) {
+      scheduleVideoPosition();
+      return;
+    }
     _seenUrls[key] = 1;
     var q = quality || qualityLabel(url);
     var t = type || streamType(url);
-    // Geometry of the site's own player, so the replacement box can start
-    // exactly where the site drew it and only then dock to a corner.
-    var rect = null;
-    try {
-      if(videoEl && videoEl.getBoundingClientRect) {
-        var r = videoEl.getBoundingClientRect();
-        if(r && r.width > 0 && r.height > 0) {
-          rect = {
-            left: r.left, top: r.top, width: r.width, height: r.height,
-            viewportW: window.innerWidth, viewportH: window.innerHeight
-          };
-        }
-      }
-    } catch(e) {}
+    // Start the replacement player exactly over the site's video box.
+    var rect = videoRect(videoEl || window.__wtActiveVideoElement);
     try {
       window.flutter_inappwebview.callHandler(
         'videoIntercepted',
@@ -1333,6 +1377,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 
   // WebView state
   InAppWebViewController? _webViewController;
+  final GlobalKey _webViewKey = GlobalKey();
   late String _url = widget.url;
   late String _title = widget.title;
   bool _cookieStoreReady = false;
@@ -1349,6 +1394,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   // Video interception — floating PiP player
   final _interceptedUrls = <String>{};
   OverlayEntry? _floatingEntry;
+  Rect? _floatingVideoRect;
 
   /// Set when the page reports a real user gesture. The network-level
   /// interceptor stays inert until then, so autoplay and preloading during a
@@ -1356,6 +1402,30 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   final _userIntent = UserIntentGate();
 
   bool get _hasUserIntent => _userIntent.hasIntent;
+
+  Rect? _videoRectFromPayload(dynamic payload) {
+    if (payload is! Map) return null;
+    double read(String key) {
+      final value = payload[key];
+      return value is num ? value.toDouble() : 0;
+    }
+
+    final width = read('width');
+    final height = read('height');
+    if (width <= 0 || height <= 0) return null;
+    final renderObject = _webViewKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+
+    final origin = renderObject.localToGlobal(Offset.zero);
+    // WebView CSS pixels map to Flutter logical pixels; DPR is for physical
+    // display pixels and must not be applied to these overlay coordinates.
+    return Rect.fromLTWH(
+      origin.dx + read('left'),
+      origin.dy + read('top'),
+      width,
+      height,
+    );
+  }
 
   // Night mode / text size / desktop / incognito
   bool _nightMode = false;
@@ -2130,13 +2200,27 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     String? title,
     String quality = '',
     String type = '',
+    Rect? rect,
   }) {
     if (!mounted || url.isEmpty) return;
     final baseUrl = url.split('?').first.split('#').first;
-    if (_interceptedUrls.contains(baseUrl)) return;
+    if (_interceptedUrls.contains(baseUrl)) {
+      if (rect != null) {
+        _floatingVideoRect = rect;
+        _floatingEntry?.markNeedsBuild();
+      }
+      return;
+    }
     _interceptedUrls.add(baseUrl);
+    _floatingVideoRect = rect;
     _userIntent.markIntent();
-    _showFloatingPlayer(url, title: title, quality: quality, type: type);
+    _showFloatingPlayer(
+      url,
+      title: title,
+      quality: quality,
+      type: type,
+      initialRect: rect,
+    );
   }
 
   // ── Floating PiP helpers ─────────────────────────────────────────────────
@@ -2147,6 +2231,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     String? title,
     String quality = '',
     String type = '',
+    Rect? initialRect,
   }) async {
     // Pause the site's video element (JS override already prevents origPlay,
     // but belt-and-suspenders for iframes / non-overridden paths).
@@ -2157,7 +2242,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       );
     } catch (error) { AppLogger.log('Ignored error (webview.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
 
-    _dismissFloatingPlayer();
+    if (initialRect != null) _floatingVideoRect = initialRect;
+    _dismissFloatingPlayer(clearTarget: false);
     if (!mounted) return;
 
     final displayTitle =
@@ -2166,6 +2252,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     final capturedQuality = quality;
     final capturedType = type;
     final capturedTitle = displayTitle;
+    final capturedRect = initialRect ?? _floatingVideoRect;
 
     // Extract og:image as thumbnail for the PiP box cover
     String? thumbnailUrl;
@@ -2189,6 +2276,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         quality: capturedQuality,
         type: capturedType,
         thumbnailUrl: thumbnailUrl,
+        targetRect: _floatingVideoRect ?? capturedRect,
         onFullscreen: () {
           _dismissFloatingPlayer();
           _openInMpvFullscreen(capturedUrl, capturedTitle).then((_) {
@@ -2198,6 +2286,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                 title: capturedTitle,
                 quality: capturedQuality,
                 type: capturedType,
+                initialRect: capturedRect,
               );
             }
           });
@@ -2210,10 +2299,11 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   }
 
   /// Removes the floating PiP player overlay.
-  void _dismissFloatingPlayer() {
+  void _dismissFloatingPlayer({bool clearTarget = true}) {
     _floatingEntry?.remove();
     _floatingEntry?.dispose();
     _floatingEntry = null;
+    if (clearTarget) _floatingVideoRect = null;
   }
 
   /// Creates a temporary Isar entry and opens our full MPV player as a
@@ -2291,26 +2381,40 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     );
   }
 
-  /// Opens the sessions list. The current page is shown on top; sessions the
-  /// user minimised earlier (the `miniWebViewProvider` stack) follow, so the
-  /// left dock button always gives access to what is open.
-  void _showTabsSheet() {
-    showModalBottomSheet(
+  void _showAddressEditor() {
+    final controller = TextEditingController(text: _url);
+    final sheetFuture = showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
         final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
-        final l10n = l10nLocalizations(sheetCtx)!;
-        final sessions = ref.read(miniWebViewProvider);
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        final foreground = isDark ? Colors.white : Colors.black87;
+
+        void submit(String value) {
+          Navigator.of(sheetCtx).pop();
+          _navigateFromAddress(value);
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetCtx).bottom,
           ),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: SafeArea(
-            top: false,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF202024) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.20),
+                  blurRadius: 24,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2327,59 +2431,276 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                   ),
                 ),
                 Text(
-                  l10n.browser_dock_tabs,
+                  'Adresse ou recherche',
                   style: TextStyle(
-                    fontSize: 16,
+                    color: foreground,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 12),
-                _TabRow(
-                  title: _title.isNotEmpty ? _title : _displayHost(_url),
-                  subtitle: _displayHost(_url),
-                  isDark: isDark,
-                  current: true,
-                  onTap: () => Navigator.of(sheetCtx).pop(),
-                ),
-                for (int i = 0; i < sessions.length; i++)
-                  _TabRow(
-                    title: sessions[i].title,
-                    subtitle: _displayHost(sessions[i].url),
-                    isDark: isDark,
-                    current: false,
-                    onTap: () {
-                      final entry = sessions[i];
-                      ref.read(miniWebViewProvider.notifier).removeAt(i);
-                      Navigator.of(sheetCtx).pop();
-                      context.push(
-                        '/mangawebview',
-                        extra: <String, dynamic>{
-                          'url': entry.url,
-                          'title': entry.title,
-                          if (entry.sourceId != null)
-                            'sourceId': entry.sourceId.toString(),
-                        },
-                      );
-                    },
-                    onClose: () {
-                      ref.read(miniWebViewProvider.notifier).removeAt(i);
-                      Navigator.of(sheetCtx).pop();
-                    },
+                const SizedBox(height: 10),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.go,
+                  autocorrect: false,
+                  onSubmitted: submit,
+                  style: TextStyle(color: foreground),
+                  decoration: InputDecoration(
+                    hintText: 'https://example.com',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: IconButton(
+                      tooltip: 'Effacer',
+                      onPressed: controller.clear,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.black.withValues(alpha: 0.04),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
+                ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.of(sheetCtx).pop();
-                      _openNewTab();
-                    },
-                    icon: const Icon(Icons.add_rounded),
-                    label: Text(l10n.browser_dock_new_tab),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: () => submit(controller.text),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                    label: const Text('Ouvrir'),
                   ),
                 ),
               ],
+            ),
+          ),
+        );
+      },
+    );
+    unawaited(sheetFuture.whenComplete(controller.dispose));
+  }
+
+  Future<void> _navigateFromAddress(String rawAddress) async {
+    final input = rawAddress.trim();
+    if (input.isEmpty) return;
+
+    final parsed = Uri.tryParse(input);
+    final hasWebScheme =
+        parsed != null &&
+        (parsed.scheme == 'http' || parsed.scheme == 'https') &&
+        parsed.host.isNotEmpty;
+    final looksLikeHost =
+        !input.contains(RegExp(r'\s')) &&
+        RegExp(r'^[\w.-]+(?::\d+)?(?:/|$)').hasMatch(input);
+    final destination = hasWebScheme
+        ? parsed!.toString()
+        : looksLikeHost
+        ? 'https://$input'
+        : 'https://www.google.com/search?q=${Uri.encodeQueryComponent(input)}';
+
+    try {
+      await _webViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri(destination)),
+      );
+      if (mounted) {
+        setState(() {
+          _url = destination;
+          _progress = 0;
+        });
+      }
+    } catch (error) {
+      AppLogger.log(
+        'Unable to open address from browser dock',
+        logLevel: LogLevel.debug,
+        tag: LogTag.ui,
+        error: error,
+      );
+    }
+  }
+
+  void _showSiteInfo() {
+    final uri = Uri.tryParse(_url);
+    final isSecure = uri?.scheme == 'https';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              isSecure ? Icons.lock_rounded : Icons.info_outline_rounded,
+              color: isSecure ? Colors.green : null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _displayHost(_url),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: SelectableText(
+          _url,
+          style: TextStyle(
+            color: isDark ? Colors.white70 : Colors.black87,
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the sessions list. The current page is shown on top; sessions the
+  /// user minimised earlier (the `miniWebViewProvider` stack) follow, so the
+  /// left dock button always gives access to what is open.
+  void _showTabsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+        final l10n = l10nLocalizations(sheetCtx)!;
+        final sessions = ref.read(miniWebViewProvider);
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: sessions.isEmpty ? 0.42 : 0.58,
+          minChildSize: 0.34,
+          maxChildSize: 0.92,
+          builder: (_, scrollController) => Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.black26,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 0, 12, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${l10n.browser_dock_tabs} · ${sessions.length + 1}',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _displayHost(_url),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetCtx).pop(),
+                          tooltip: 'Fermer',
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+                      children: [
+                        _TabRow(
+                          title: _title.isNotEmpty
+                              ? _title
+                              : _displayHost(_url),
+                          subtitle: _displayHost(_url),
+                          isDark: isDark,
+                          current: true,
+                          onTap: () => Navigator.of(sheetCtx).pop(),
+                        ),
+                        for (int i = 0; i < sessions.length; i++)
+                          _TabRow(
+                            title: sessions[i].title,
+                            subtitle: _displayHost(sessions[i].url),
+                            isDark: isDark,
+                            current: false,
+                            onTap: () {
+                              final entry = sessions[i];
+                              ref
+                                  .read(miniWebViewProvider.notifier)
+                                  .removeAt(i);
+                              Navigator.of(sheetCtx).pop();
+                              context.push(
+                                '/mangawebview',
+                                extra: <String, dynamic>{
+                                  'url': entry.url,
+                                  'title': entry.title,
+                                  if (entry.sourceId != null)
+                                    'sourceId': entry.sourceId.toString(),
+                                },
+                              );
+                            },
+                            onClose: () {
+                              ref
+                                  .read(miniWebViewProvider.notifier)
+                                  .removeAt(i);
+                              Navigator.of(sheetCtx).pop();
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.of(sheetCtx).pop();
+                          _openNewTab();
+                        },
+                        icon: const Icon(Icons.add_rounded),
+                        label: Text(l10n.browser_dock_new_tab),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -2404,6 +2725,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         }
 
         return _MoreSheet(
+          pageTitle: _title,
+          url: _url,
           adEnabled: _adBlockEnabled,
           blockedCount: _blockedCount,
           blockedElements: _blockedElements,
@@ -2558,9 +2881,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       );
     }
 
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenH = MediaQuery.of(context).size.height;
+    final tabCount = ref.watch(miniWebViewProvider).length + 1;
 
     // Wrap in panel-resize container for Telegram-style minimize
     Widget panelContent = PopScope(
@@ -2580,6 +2903,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         // ── WebView body ──────────────────────────────────────────────
         body: !kIsWeb && !Platform.isWindows
             ? InAppWebView(
+                            key: _webViewKey,
                             webViewEnvironment: webViewEnvironment,
                             initialUrlRequest: URLRequest(
                               url: WebUri(widget.url),
@@ -2663,12 +2987,15 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                     final pageTitle = (data['title'] ?? '').toString().trim();
                                     final quality = (data['quality'] ?? '').toString().trim();
                                     final type = (data['type'] ?? '').toString().trim();
+                                    final initialRect =
+                                        _videoRectFromPayload(data['rect']);
                                     if (videoUrl.isNotEmpty) {
                                       _handleInterceptedVideo(
                                         videoUrl,
                                         title: pageTitle.isEmpty ? null : pageTitle,
                                         quality: quality,
                                         type: type,
+                                        rect: initialRect,
                                       );
                                     }
                                   } catch (_) {
@@ -2681,6 +3008,51 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                   }
                                 },
                               );
+                              c.addJavaScriptHandler(
+                                handlerName: 'videoPositionChanged',
+                                callback: (args) {
+                                  if (!mounted ||
+                                      args.isEmpty ||
+                                      _interceptedUrls.isEmpty) {
+                                    return null;
+                                  }
+                                  try {
+                                    final raw = args[0];
+                                    final decoded = raw is String
+                                        ? jsonDecode(raw)
+                                        : raw;
+                                    if (decoded is! Map) return null;
+                                    final data = Map<String, dynamic>.from(
+                                      decoded,
+                                    );
+                                    final sourceUrl =
+                                        (data['url'] ?? '').toString();
+                                    final sourceBase = sourceUrl
+                                        .split('?')
+                                        .first
+                                        .split('#')
+                                        .first;
+                                    if (sourceBase.isNotEmpty &&
+                                        !_interceptedUrls.contains(sourceBase)) {
+                                      return null;
+                                    }
+                                    final rect =
+                                        _videoRectFromPayload(data['rect']);
+                                    if (rect != null) {
+                                      _floatingVideoRect = rect;
+                                      _floatingEntry?.markNeedsBuild();
+                                    }
+                                  } catch (error) {
+                                    AppLogger.log(
+                                      'Ignored video position update',
+                                      logLevel: LogLevel.debug,
+                                      tag: LogTag.ui,
+                                      error: error,
+                                    );
+                                  }
+                                  return null;
+                                },
+                              );
                             },
                             onCreateWindow: (c, req) async {
                               return true;
@@ -2688,12 +3060,18 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                             onLoadStart: (c, url) {
                               if (mounted) setState(() {
                                 _url = url.toString();
+                                _progress = 0;
                                 _interceptedUrls.clear();
                               });
                             },
                             onLoadStop: (c, url) async {
                               final loadedUrl = url?.toString() ?? widget.url;
-                              if (mounted) setState(() => _url = loadedUrl);
+                              if (mounted) {
+                                setState(() {
+                                  _url = loadedUrl;
+                                  _progress = 1;
+                                });
+                              }
                               if (widget.captureSession && url != null) {
                                 final ua = await c.evaluateJavascript(
                                       source: 'navigator.userAgent',
@@ -2821,31 +3199,17 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       fit: StackFit.expand,
       children: [
         panelContent,
-        // Slim loading line hugging the very top: the only leftover of the
-        // removed header. Ignored for hits so it never blocks the page.
-        if (_progress < 1.0)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: IgnorePointer(
-              child: SizedBox(
-                height: 2,
-                child: LinearProgressIndicator(
-                  value: _progress,
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
-                ),
-              ),
-            ),
-          ),
         if (!kIsWeb)
           _BrowserDock(
             isDark: isDark,
-            cs: cs,
+            url: _url,
+            tabCount: tabCount,
+            progress: _progress,
             collapsed: _dockCollapsed,
             onCollapsedChanged: (v) => setState(() => _dockCollapsed = v),
             onTabs: _showTabsSheet,
+            onAddressTap: _showAddressEditor,
+            onSiteInfo: _showSiteInfo,
             onNewTab: _openNewTab,
             onMore: _showMoreMenu,
           ),
@@ -3037,19 +3401,27 @@ class _TabRow extends StatelessWidget {
 
 class _BrowserDock extends StatefulWidget {
   final bool isDark;
-  final ColorScheme cs;
+  final String url;
+  final int tabCount;
+  final double progress;
   final bool collapsed;
   final ValueChanged<bool> onCollapsedChanged;
   final VoidCallback onTabs;
+  final VoidCallback onAddressTap;
+  final VoidCallback onSiteInfo;
   final VoidCallback onNewTab;
   final VoidCallback onMore;
 
   const _BrowserDock({
     required this.isDark,
-    required this.cs,
+    required this.url,
+    required this.tabCount,
+    required this.progress,
     required this.collapsed,
     required this.onCollapsedChanged,
     required this.onTabs,
+    required this.onAddressTap,
+    required this.onSiteInfo,
     required this.onNewTab,
     required this.onMore,
   });
@@ -3148,6 +3520,15 @@ class _BrowserDockState extends State<_BrowserDock> {
     required Color border,
     required AppLocalizations l10n,
   }) {
+    final isLoading = widget.progress < 1.0;
+    final progress = widget.progress.clamp(0.06, 1.0).toDouble();
+    const rainbow = [
+      Color(0xFF00D5FF),
+      Color(0xFF7D69FF),
+      Color(0xFFFF4F91),
+      Color(0xFFFF7A38),
+    ];
+
     return GestureDetector(
       onHorizontalDragStart: (_) => setState(() => _dragging = true),
       onHorizontalDragUpdate: (d) => setState(() => _dragDx += d.delta.dx),
@@ -3163,11 +3544,15 @@ class _BrowserDockState extends State<_BrowserDock> {
         duration: _dragging ? Duration.zero : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         transform: Matrix4.translationValues(_dragDx, 0, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 520),
+        padding: EdgeInsets.all(isLoading ? 1.5 : 1),
         decoration: BoxDecoration(
-          color: bg,
-          border: Border.all(color: border, width: 0.5),
-          borderRadius: BorderRadius.circular(24),
+          color: isLoading ? null : border,
+          gradient: isLoading
+              ? const LinearGradient(colors: rainbow)
+              : null,
+          borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.22),
@@ -3176,28 +3561,134 @@ class _BrowserDockState extends State<_BrowserDock> {
             ),
           ],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _DockBtn(
-              icon: Icons.tab_rounded,
-              label: l10n.browser_dock_tabs,
-              color: fg,
-              onTap: widget.onTabs,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(29),
+          child: Container(
+            height: 54,
+            color: bg,
+            child: Stack(
+              children: [
+                Row(
+                  children: [
+                    const SizedBox(width: 5),
+                    Semantics(
+                      button: true,
+                      label: '${l10n.browser_dock_tabs}: ${widget.tabCount}',
+                      child: Material(
+                        color: isLoading
+                            ? Colors.black.withValues(alpha: 0.32)
+                            : border,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          onTap: widget.onTabs,
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            width: 38,
+                            height: 42,
+                            child: Center(
+                              child: Text(
+                                '${widget.tabCount}',
+                                style: TextStyle(
+                                  color: fg,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: widget.onAddressTap,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: Text(
+                                    _displayHost(widget.url),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: fg,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 36,
+                                height: 44,
+                                child: IconButton(
+                                  onPressed: widget.onSiteInfo,
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  tooltip: 'Informations sur le site',
+                                  icon: Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 17,
+                                    color: fg.withValues(alpha: 0.78),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    _DockBtn(
+                      icon: Icons.add_rounded,
+                      label: l10n.browser_dock_new_tab,
+                      color: fg,
+                      onTap: widget.onNewTab,
+                    ),
+                    _DockBtn(
+                      icon: Icons.more_vert_rounded,
+                      label: l10n.browser_dock_more,
+                      color: fg,
+                      onTap: widget.onMore,
+                    ),
+                    const SizedBox(width: 3),
+                  ],
+                ),
+                if (isLoading)
+                  Positioned(
+                    top: 0,
+                    left: 54,
+                    right: 92,
+                    child: IgnorePointer(
+                      child: SizedBox(
+                        height: 2,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: progress,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(colors: rainbow),
+                                borderRadius: BorderRadius.vertical(
+                                  bottom: Radius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            _DockBtn(
-              icon: Icons.add_rounded,
-              label: l10n.browser_dock_new_tab,
-              color: fg,
-              onTap: widget.onNewTab,
-            ),
-            _DockBtn(
-              icon: Icons.more_vert_rounded,
-              label: l10n.browser_dock_more,
-              color: fg,
-              onTap: widget.onMore,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -3224,9 +3715,10 @@ class _DockBtn extends StatelessWidget {
       child: InkResponse(
         onTap: onTap,
         radius: 22,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Icon(icon, size: 21, color: color),
+        child: SizedBox(
+          width: 42,
+          height: 48,
+          child: Center(child: Icon(icon, size: 21, color: color)),
         ),
       ),
     );
@@ -3236,6 +3728,8 @@ class _DockBtn extends StatelessWidget {
 // ─── More options sheet (Via-style, 3 swipeable pages) ────────────────────────
 
 class _MoreSheet extends StatefulWidget {
+  final String pageTitle;
+  final String url;
   final bool adEnabled;
   final int blockedCount;
   final List<String> blockedElements;
@@ -3268,6 +3762,8 @@ class _MoreSheet extends StatefulWidget {
   final bool incognito;
 
   const _MoreSheet({
+    required this.pageTitle,
+    required this.url,
     required this.adEnabled,
     required this.blockedCount,
     required this.blockedElements,
@@ -3320,6 +3816,8 @@ class _MoreSheetState extends State<_MoreSheet> {
     final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
     final iconColor = isDark ? Colors.white : Colors.black87;
     final labelColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+    const sectionTitles = ['Navigation', 'Protection', 'Outils'];
+    final sectionTitle = sectionTitles[_page];
 
     Widget item(IconData? icon, String label, VoidCallback onTap, {Color? accent, bool highlight = false, String? svgAsset}) {
       final effectiveColor = highlight
@@ -3476,7 +3974,58 @@ class _MoreSheetState extends State<_MoreSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 16),
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.fromLTRB(0, 12, 0, 10),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black26,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 12, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          sectionTitle,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.pageTitle.isNotEmpty
+                              ? '${_displayHost(widget.url)} · ${widget.pageTitle}'
+                              : _displayHost(widget.url),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Fermer',
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+            ),
 
             // PageView — 3 pages
             SizedBox(
@@ -4289,6 +4838,8 @@ class _WebFloatingPlayerOverlay extends StatefulWidget {
   final String quality;
   final String type;
   final String? thumbnailUrl;
+  final Rect? targetRect;
+  final String playbackLabel;
   final VoidCallback onFullscreen;
   final VoidCallback onDismiss;
 
@@ -4298,6 +4849,8 @@ class _WebFloatingPlayerOverlay extends StatefulWidget {
     this.quality = '',
     this.type = '',
     this.thumbnailUrl,
+    this.targetRect,
+    this.playbackLabel = 'Lecture dans Watchtower',
     required this.onFullscreen,
     required this.onDismiss,
   });
@@ -4320,6 +4873,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
   // Pinch-to-resize
   double _scale = 1.0;
   double _scaleBase = 1.0;
+  bool _hasManualPosition = false;
 
   // Mini (edge-snapped) state
   bool _isMini = false;
@@ -4369,29 +4923,41 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
-  double _boxW(double screenW) {
+  double _boxW(double screenW, {double? scale}) {
     final baseW = screenW - 2 * _kMarginH;
-    return (baseW * _scale).clamp(180.0, screenW);
+    return (baseW * (scale ?? _scale)).clamp(180.0, screenW);
   }
 
-  double _boxH(double screenW) => _boxW(screenW) * 9.0 / 16.0;
+  double _boxH(double screenW, {double? scale}) =>
+      _boxW(screenW, scale: scale) * 9.0 / 16.0;
 
   /// Default anchor: bottom-centre of screen.
-  double _anchorLeft(double sw) {
-    final bw = _boxW(sw);
+  double _anchorLeft(double sw, {double? scale}) {
+    final bw = _boxW(sw, scale: scale);
     return _kMarginH + (sw - 2 * _kMarginH - bw) / 2;
   }
 
-  double _anchorTop(double sw, double sh) => sh - _kMarginB - _boxH(sw);
+  double _anchorTop(double sw, double sh, {double? scale}) =>
+      sh - _kMarginB - _boxH(sw, scale: scale);
 
   // ── Gestures ───────────────────────────────────────────────────────────────
 
-  void _onScaleStart(ScaleStartDetails d) {
+  void _onScaleStart(ScaleStartDetails d, Size screen) {
     _springCtrl.stop();
+    final target = widget.targetRect;
+    if (!_hasManualPosition && target != null) {
+      final baseWidth = screen.width - 2 * _kMarginH;
+      _scale = (target.width / baseWidth).clamp(0.38, 1.62);
+      _dx = target.left - _anchorLeft(screen.width);
+      _dy = target.top - _anchorTop(screen.width, screen.height);
+    }
     _scaleBase = _scale;
   }
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
+    if (d.pointerCount > 1 || d.focalPointDelta.distance > 0.5) {
+      _hasManualPosition = true;
+    }
     setState(() {
       if (d.pointerCount > 1) {
         _scale = (_scaleBase * d.scale).clamp(0.38, 1.62);
@@ -4403,6 +4969,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
   }
 
   void _onScaleEnd(ScaleEndDetails d, Size screen) {
+    if (!_hasManualPosition) return;
     final sw = screen.width;
     final sh = screen.height;
     final bw = _boxW(sw);
@@ -4545,13 +5112,23 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
   Widget _buildFull(Size screen) {
     final sw = screen.width;
     final sh = screen.height;
-    final bw = _boxW(sw);
-    final bh = _boxH(sw);
-    final aL = _anchorLeft(sw);
-    final aT = _anchorTop(sw, sh);
+    final target = _hasManualPosition ? null : widget.targetRect;
+    final targetScale = target == null
+        ? _scale
+        : (target.width / (sw - 2 * _kMarginH))
+              .clamp(0.38, 1.62)
+              .toDouble();
+    final bw = _boxW(sw, scale: targetScale);
+    final bh = _boxH(sw, scale: targetScale);
+    final aL = _anchorLeft(sw, scale: targetScale);
+    final aT = _anchorTop(sw, sh, scale: targetScale);
 
-    final left = (aL + _dx).clamp(0.0, sw - bw);
-    final top = (aT + _dy).clamp(60.0, sh - bh - 12.0);
+    final left = (target?.left ?? aL + _dx)
+        .clamp(0.0, sw - bw)
+        .toDouble();
+    final maxTop = (sh - bh - 12.0).clamp(60.0, sh).toDouble();
+    final top =
+        (target?.top ?? aT + _dy).clamp(60.0, maxTop).toDouble();
 
     return Positioned(
       left: left,
@@ -4587,7 +5164,7 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
             bottom: 30,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onScaleStart: _onScaleStart,
+              onScaleStart: (d) => _onScaleStart(d, screen),
               onScaleUpdate: _onScaleUpdate,
               onScaleEnd: (d) => _onScaleEnd(d, screen),
                onTap: _togglePlayback,
@@ -4627,6 +5204,36 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
             right: 8,
             child: _PipBtn(
                 icon: Icons.fullscreen_rounded, onTap: widget.onFullscreen),
+          ),
+
+          Positioned(
+            bottom: 32,
+            left: 8,
+            right: 8,
+            child: IgnorePointer(
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.58),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    widget.playbackLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
 
           // ── Seek bar — bottom ──────────────────────────────────────────
