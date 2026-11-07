@@ -11,7 +11,9 @@ import 'package:watchtower/services/download_manager/external_downloader_launche
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/media/widgets/bulk_download_formats.dart';
 import 'package:watchtower/modules/watch/detail/download/video_file_meta.dart';
+import 'package:watchtower/modules/watch/detail/download/video_meta_cache.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -48,60 +50,9 @@ const LinearGradient _kActionGradient = LinearGradient(
 enum _Downloader { internal, external }
 
 // ── Cache mémoire des métadonnées poids/durée, polite sur le réseau ──────────
-// Clé = URL EXACTE du flux. Un poids déjà mesuré ne change jamais : rouvrir le
-// sheet, changer de qualité ou de langue relit simplement ces valeurs.
-
-class _UrlMeta {
-  final String? sizeLabel; // « 259.9MB »
-  final int? durationSeconds;
-  const _UrlMeta({this.sizeLabel, this.durationSeconds});
-}
-
-final Map<String, _UrlMeta> kVideoDirectMetaCache = <String, _UrlMeta>{};
-final Map<String, HlsMeta> kVideoHlsMetaCache = <String, HlsMeta>{};
-
-void _trimMetaCaches() {
-  if (kVideoDirectMetaCache.length > 800) kVideoDirectMetaCache.clear();
-  if (kVideoHlsMetaCache.length > 800) kVideoHlsMetaCache.clear();
-}
-
-/// HLS master (ou playlist média) : un seul probe réseau par URL, en cache.
-Future<HlsMeta?> cachedHlsMeta(String url, Map<String, String>? headers) {
-  final hit = kVideoHlsMetaCache[url];
-  if (hit != null) return Future.value(hit);
-  return fetchHlsMeta(url, headers).then((meta) {
-    if (meta != null) {
-      _trimMetaCaches();
-      kVideoHlsMetaCache[url] = meta;
-    }
-    return meta;
-  });
-}
-
-/// Fichier direct : poids via `Content-Range` + durée conteneur, en cache.
-Future<_UrlMeta?> cachedDirectMeta(String url, Map<String, String>? headers) async {
-  final hit = kVideoDirectMetaCache[url];
-  if (hit != null) return hit;
-  String? size;
-  int? seconds;
-  try {
-    final bytes = await fetchDirectFileSize(url, headers);
-    if (bytes != null && bytes > 0) size = formatBytes(bytes);
-  } catch (_) {
-    // Poids indisponible : la durée reste cherchée.
-  }
-  try {
-    seconds = await fetchDirectFileDuration(url, headers);
-  } catch (_) {
-    // Durée indisponible.
-  }
-  final meta = _UrlMeta(sizeLabel: size, durationSeconds: seconds);
-  if (size != null || seconds != null) {
-    _trimMetaCaches();
-    kVideoDirectMetaCache[url] = meta;
-  }
-  return meta;
-}
+// Vit dans `video_meta_cache.dart` pour être partagé avec la fiche de
+// téléchargement en masse : le poids d'une URL mesuré ici y est réutilisé, et
+// inversement.
 
 /// Ouvre le sheet « Télécharger » (barre transparente : la vidéo reste visible
 /// et continue de jouer pendant la sélection).
@@ -378,10 +329,19 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     for (final row in sorted) {
       if (seen.add(row.label)) deduped.add(row);
     }
-    _filmRows = deduped;
+    // Une résolution déjà en bibliothèque sort des chips : le moteur refuse le
+    // doublon, autant ne pas le proposer. Filtrage APRÈS le dépliage HLS, car
+    // celui-ci recrée des lignes par variante.
+    final downloaded = _downloadedKeys;
+    _filmRows = downloaded.isEmpty
+        ? deduped
+        : [
+            for (final row in deduped)
+              if (!downloaded.contains(resolutionKey(row.label))) row,
+          ];
     if (_filmQuality == null ||
-        !deduped.any((row) => row.label == _filmQuality)) {
-      _filmQuality = deduped.isEmpty ? null : deduped.last.label;
+        !_filmRows.any((row) => row.label == _filmQuality)) {
+      _filmQuality = _filmRows.isEmpty ? null : _filmRows.last.label;
     }
     setState(() {});
   }
@@ -448,6 +408,20 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     final real = out.where(_isRealResolution).toList();
     return real.isNotEmpty ? real : out;
   }
+
+  /// Resolutions already in the library for this video (source + link), so the
+  /// quality chips skip them. Empty when the item cannot be matched.
+  ///
+  /// Resolved once: the getter is read from `build` (chips) and from
+  /// `_startDownload`, and a synchronous Isar query per rebuild would jank the
+  /// sheet. The library cannot gain a row for this item while the sheet is
+  /// open — starting a download closes it.
+  Set<String> get _downloadedKeys =>
+      _downloadedCache ??= downloadedResolutionKeysForSource(
+        widget.manga.sourceId,
+        widget.manga.link,
+      );
+  Set<String>? _downloadedCache;
 
   /// Déduplication par numéro d'épisode (sources multi-qualité).
   static int _episodeKeyNum(Chapter ch, int fallback) {
@@ -542,6 +516,12 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
 
   // ── Action de téléchargement ─────────────────────────────────────────────────
   Future<void> _startDownload() async {
+    // Film dont toutes les résolutions sont déjà en bibliothèque : il n'y a
+    // rien de neuf à télécharger, et le moteur refuserait le doublon.
+    if (_isFilm && _downloadedKeys.isNotEmpty && _filmRows.isEmpty) {
+      botToast('Toutes les qualités sont déjà téléchargées.');
+      return;
+    }
     // ── Film : pas de sélection d'épisode, le choix porte sur les qualités. ──
     if (_isFilm) {
       if (widget.chapters.isEmpty) return;
@@ -915,11 +895,18 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
   }
 
   /// Chips qualité du cas film : les options déjà résolues (lignes) puis,
-  /// pendant le chargement, les qualités détectées sur les flux bruts.
+  /// pendant le chargement, les qualités détectées sur les flux bruts — moins
+  /// celles déjà en bibliothèque.
   List<String> get _filmChips {
     final fromRows =
         _filmRows.map((row) => row.label).where(_isRealResolution).toList();
-    return fromRows.isNotEmpty ? fromRows : _qualities;
+    if (fromRows.isNotEmpty) return fromRows;
+    final downloaded = _downloadedKeys;
+    if (downloaded.isEmpty) return _qualities;
+    return [
+      for (final quality in _qualities)
+        if (!downloaded.contains(resolutionKey(quality))) quality,
+    ];
   }
 
   // ── Boutons de qualité (360P | 480P | 720P | 1080P) ─────────────────────────

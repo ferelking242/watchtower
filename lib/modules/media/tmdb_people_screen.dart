@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:extended_image/extended_image.dart';
@@ -804,6 +805,34 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
   bool _hasMore = true;
   Object? _loadMoreError;
 
+  /// Real catalogue size announced by the extension (XVideos profile
+  /// `nb_videos`). When set, the header shows it instead of the number of
+  /// cards loaded so far.
+  int? _total;
+
+  /// Serialises page loads: the scroll listener, the background drain and the
+  /// "Tout télécharger" wait all share one in-flight request.
+  Future<void>? _loadMoreTask;
+
+  /// The single in-flight background drain, shared by every caller so a second
+  /// request waits on the loop already running instead of starting a rival one.
+  Future<void>? _drainTask;
+
+  /// Bumped on refresh: a drain started before it must stop, otherwise the old
+  /// loop keeps paging against the freshly reset list.
+  int _drainEpoch = 0;
+
+  /// Safety bound on the background drain, so a broken `hasNextPage` cannot
+  /// page forever. A 4k-video profile fits well inside it.
+  static const int _autoDrainPageCap = 250;
+
+  /// The tab renders inside one scroll box, so a profile with thousands of
+  /// videos would build every card at once and freeze the UI. Only this many
+  /// are laid out; the rest stay in [_videos] (and in the bulk download) behind
+  /// an "Afficher plus" button.
+  int _renderLimit = 120;
+  static const int _renderStep = 120;
+
   MManga get _details => _refreshedDetails ?? widget.details ?? widget.profile;
 
   List<MChapter> get _videos => [
@@ -830,6 +859,14 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
   void initState() {
     super.initState();
     widget.scrollController.addListener(_onScroll);
+    // The header must show the real catalogue size, and "Tout télécharger"
+    // must cover every video — not just the first page the profile shipped.
+    // Drain the remaining pages in the background instead of waiting for the
+    // user to scroll to the bottom. Deferred to after the first frame: the
+    // drain calls setState, which must not run inside initState.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_drainAll());
+    });
   }
 
   @override
@@ -846,10 +883,61 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
     if (position.pixels >= position.maxScrollExtent - 480) _loadMore();
   }
 
-  Future<void> _loadMore() async {
+  /// Loads every remaining page until the extension says there is none, so the
+  /// count and the bulk download cover the whole listing. Pages are fetched one
+  /// after another: the extension runtime serves a source's calls in order, so
+  /// firing them together would only queue them anyway. A single drain runs at
+  /// a time; a second caller waits on the one already in flight.
+  Future<void> _drainAll() {
+    final inFlight = _drainTask;
+    if (inFlight != null) return inFlight;
+    final task = _drainAllPages();
+    _drainTask = task;
+    return task.whenComplete(() {
+      if (identical(_drainTask, task)) _drainTask = null;
+    });
+  }
+
+  Future<void> _drainAllPages() async {
+    final epoch = _drainEpoch;
+    var stalls = 0;
+    while (mounted && epoch == _drainEpoch && _hasMore && _page < _autoDrainPageCap) {
+      final before = _videos.length;
+      await _loadMore();
+      if (!mounted || epoch != _drainEpoch || !_hasMore) return;
+      // A page that adds nothing is not necessarily the end: profile listings
+      // sometimes repeat a card across page boundaries. Only give up after
+      // several consecutive empty pages, so a repeat cannot truncate the count.
+      stalls = _videos.length == before ? stalls + 1 : 0;
+      if (stalls >= 3) {
+        if (mounted) setState(() => _hasMore = false);
+        return;
+      }
+    }
+    if (mounted && epoch == _drainEpoch && _page >= _autoDrainPageCap && _hasMore) {
+      setState(() => _hasMore = false);
+    }
+  }
+
+  /// Completes once every page has been loaded (or loading stopped), used
+  /// before a bulk download so the selection covers the whole catalogue.
+  Future<void> _ensureAllLoaded() => _drainAll();
+
+  Future<void> _loadMore() {
+    final inFlight = _loadMoreTask;
+    if (inFlight != null) return inFlight;
+    final task = _loadMoreOnce();
+    _loadMoreTask = task;
+    return task.whenComplete(() {
+      if (identical(_loadMoreTask, task)) _loadMoreTask = null;
+    });
+  }
+
+  Future<void> _loadMoreOnce() async {
     final listId = _profileListId;
     final source = widget.source;
     if (listId == null || source == null || _loadingMore || !_hasMore) return;
+    final epoch = _drainEpoch;
     setState(() {
       _loadingMore = true;
       _loadMoreError = null;
@@ -860,7 +948,9 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
       final pages = await ref.read(
         getCustomListProvider(source: source, listId: listId, page: nextPage).future,
       );
-      if (!mounted) return;
+      // A refresh reset the listing while this page was in flight: its cards
+      // belong to the previous list and must not be appended.
+      if (!mounted || epoch != _drainEpoch) return;
       final known = _videos.map((video) => video.url).toSet();
       final fresh = (pages?.list ?? const <MManga>[])
           .where((item) => item.link?.trim().isNotEmpty == true)
@@ -877,7 +967,12 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
       setState(() {
         _page = nextPage;
         _extra.addAll(fresh);
-        _hasMore = (pages?.hasNextPage ?? false) && fresh.isNotEmpty;
+        final announced = pages?.total;
+        if (announced != null && announced > 0) _total = announced;
+        // Follow the extension's own signal. A page that only repeats known
+        // cards must not silently end the drain; the stall guard in [_drainAll]
+        // stops a genuinely looping listing.
+        _hasMore = pages?.hasNextPage ?? false;
         _loadingMore = false;
       });
     } catch (error) {
@@ -1018,12 +1113,19 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
         _refreshedDetails = details;
         _extra.clear();
         _page = 1;
+        _total = null;
         _hasMore = true;
         _loadingMore = false;
         _selectedVideoUrls.clear();
         _refreshing = false;
         _refreshFailed = false;
+        // Invalidate any drain/load started against the previous list, so it
+        // cannot re-add stale cards after the refresh cleared [_extra].
+        _drainEpoch++;
+        _drainTask = null;
+        _loadMoreTask = null;
       });
+      unawaited(_drainAll());
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -1086,11 +1188,34 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
     );
   }
 
+  /// Menu entry point: loads every remaining page first so "Tout télécharger"
+  /// (and the count in its confirmation sheet) covers the whole catalogue
+  /// instead of only the cards already on screen.
+  Future<void> _handleMenuAction(CatalogBulkDownloadAction action) async {
+    if (action == CatalogBulkDownloadAction.downloadAll) {
+      await _ensureAllLoaded();
+      if (!mounted) return;
+    }
+    if (!mounted) return;
+    CatalogBulkDownload.handleMenu(
+      context,
+      ref,
+      widget.source,
+      _selectedDownloadItems.isNotEmpty
+          ? _selectedDownloadItems
+          : _allDownloadItems,
+      action,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final videos = _videos;
     if (videos.isEmpty) return const _PeopleEmpty();
-    final visible = _visible(videos);
+    final filtered = _visible(videos);
+    final visible = filtered.length > _renderLimit
+        ? filtered.sublist(0, _renderLimit)
+        : filtered;
     final isFrench = Localizations.localeOf(context).languageCode == 'fr';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1099,9 +1224,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
           children: [
             Expanded(
               child: Text(
-                isFrench
-                    ? '${videos.length} vidéos${_hasMore ? '+' : ''}'
-                    : '${videos.length} videos${_hasMore ? '+' : ''}',
+                _countLabel(videos.length, isFrench),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -1110,15 +1233,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
               ),
             ),
             CatalogDownloadMenuButton(
-              onSelected: (action) => CatalogBulkDownload.handleMenu(
-                context,
-                ref,
-                widget.source,
-                _selectedDownloadItems.isNotEmpty
-                    ? _selectedDownloadItems
-                    : _allDownloadItems,
-                action,
-              ),
+              onSelected: (action) => unawaited(_handleMenuAction(action)),
               onRefresh: () => _refreshVideos(),
               onSelectMultiple: _toggleSelectionMode,
               selectionActive: _selecting,
@@ -1130,9 +1245,45 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
         ),
         const SizedBox(height: 14),
         _buildItems(context, visible),
+        if (filtered.length > _renderLimit) _buildShowMore(filtered.length),
         if (_hasMore || _loadMoreError != null) _buildFooter(context),
       ],
     );
+  }
+
+  /// "Afficher plus" bar: the tab is one scroll box, so the full list is only
+  /// laid out on demand.
+  Widget _buildShowMore(int total) {
+    final isFrench = Localizations.localeOf(context).languageCode == 'fr';
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Center(
+        child: OutlinedButton(
+          onPressed: () => setState(() => _renderLimit += _renderStep),
+          child: Text(
+            isFrench
+                ? 'Afficher plus (${total - _renderLimit} restantes)'
+                : 'Show more (${total - _renderLimit} left)',
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Header count. Shows the extension's announced total when it provides one
+  /// (XVideos `nb_videos`), otherwise the number of cards loaded, with a `+`
+  /// while more pages remain.
+  String _countLabel(int loaded, bool isFrench) {
+    final total = _total;
+    if (total != null && total > loaded) {
+      return isFrench
+          ? '$loaded / $total vidéos${_hasMore ? '…' : ''}'
+          : '$loaded / $total videos${_hasMore ? '…' : ''}';
+    }
+    final count = total != null && total > 0 ? total : loaded;
+    return isFrench
+        ? '$count vidéos${_hasMore ? '+' : ''}'
+        : '$count videos${_hasMore ? '+' : ''}';
   }
 
   Widget _buildFooter(BuildContext context) {

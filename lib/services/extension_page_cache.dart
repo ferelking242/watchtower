@@ -144,6 +144,7 @@ MPages? _copyPages(MPages? pages) {
   if (pages == null) return null;
   return MPages(
     hasNextPage: pages.hasNextPage,
+    total: pages.total,
     list: pages.list.map(_copyManga).toList(growable: true),
   );
 }
