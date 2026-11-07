@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_filter_list_tile_widget.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_sort_list_tile_widget.dart';
 import 'package:watchtower/modules/widgets/custom_draggable_tabbar.dart';
@@ -207,7 +208,7 @@ class _SortTab extends ConsumerWidget {
     );
     return Column(
       children: [
-        for (var i = 0; i < 7; i++)
+        for (var i = 0; i < 10; i++)
           ListTileChapterSort(
             label: _getSortNameByIndex(i, context, itemType),
             reverse: reverse,
@@ -219,14 +220,24 @@ class _SortTab extends ConsumerWidget {
                       settings: settings,
                     ).notifier,
                   )
-                  .set(i);
+                  .set(_sortIndexForRow(i));
             },
-            showLeading: reverseChapter.index == i,
+            showLeading: reverseChapter.index == _sortIndexForRow(i),
           ),
       ],
     );
   }
 }
+
+/// Maps the visible sort row to the persisted sort index. Rows 7-9 are the
+/// options that sit between "Date ajoutée" and the alphabetical row in the
+/// overlay: release date, folder name and random.
+int _sortIndexForRow(int row) => switch (row) {
+  7 => 7,
+  8 => 8,
+  9 => 9,
+  _ => row,
+};
 
 String _getSortNameByIndex(int index, BuildContext context, ItemType itemType) {
   final l10n = l10nLocalizations(context)!;
@@ -237,6 +248,9 @@ String _getSortNameByIndex(int index, BuildContext context, ItemType itemType) {
     3 => itemType != ItemType.anime ? l10n.unread_count : l10n.unwatched_count,
     4 => itemType != ItemType.anime ? l10n.total_chapters : l10n.total_episodes,
     5 => itemType != ItemType.anime ? l10n.latest_chapter : l10n.latest_episode,
+    7 => l10n.release_date,
+    8 => l10n.folder_name,
+    9 => l10n.random,
     _ => l10n.date_added,
   };
 }
@@ -291,6 +305,8 @@ class _DisplayTab extends ConsumerWidget {
     final localSource = ref.watch(
       libraryLocalSourceStateProvider(itemType: itemType, settings: settings),
     );
+    final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
+    final overlay = ref.watch(libraryOverlayProvider);
     return SingleChildScrollView(
       physics: const NeverScrollableScrollPhysics(),
       child: Column(
@@ -374,6 +390,15 @@ class _DisplayTab extends ConsumerWidget {
                   },
                 ),
                 ListTileChapterFilter(
+                  label: l10n.show_unread_chapters,
+                  type: showUnread ? 1 : 0,
+                  onTap: () {
+                    ref
+                        .read(libraryShowUnreadChaptersProvider.notifier)
+                        .set(!showUnread);
+                  },
+                ),
+                ListTileChapterFilter(
                   label: l10n.language,
                   type: language ? 1 : 0,
                   onTap: () {
@@ -399,6 +424,15 @@ class _DisplayTab extends ConsumerWidget {
                           ).notifier,
                         )
                         .set(!localSource);
+                  },
+                ),
+                ListTileChapterFilter(
+                  label: l10n.overlay,
+                  type: overlay ? 1 : 0,
+                  onTap: () {
+                    ref
+                        .read(libraryOverlayProvider.notifier)
+                        .set(!overlay);
                   },
                 ),
                 ListTileChapterFilter(

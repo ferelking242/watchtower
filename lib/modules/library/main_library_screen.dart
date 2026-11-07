@@ -78,6 +78,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   int _typeIndex = 1; // default = Watch (index of ItemType.anime in _kTypes)
   bool _showSearch = false;
   bool _searchOpening = false;
+  bool _searchClosing = false;
   bool _searchIconRotated = false;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
@@ -116,7 +117,15 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
   Future<void> _toggleSearch() async {
     if (_showSearch) {
+      if (_searchClosing) return;
+      // Mirror the opening sequence on close: the field has to stay mounted
+      // while the container animates back to zero width, otherwise swapping the
+      // child out for an empty box made the collapse invisible.
+      setState(() => _searchClosing = true);
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+      if (!mounted) return;
       setState(() {
+        _searchClosing = false;
         _showSearch = false;
         _searchController.clear();
         _searchFocus.unfocus();
@@ -480,10 +489,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     children: [
                       Positioned.fill(
                         child: AnimatedOpacity(
-                          opacity: _showSearch ? 0 : 1,
+                          opacity: (_showSearch && !_searchClosing) ? 0 : 1,
                           duration: const Duration(milliseconds: 200),
                           child: IgnorePointer(
-                            ignoring: _showSearch,
+                            ignoring: _showSearch && !_searchClosing,
                             child: Row(
                               children: [
                                 SizedBox(
@@ -525,11 +534,13 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                         top: 5,
                         child: ClipRect(
                           child: AnimatedContainer(
-                            width: _showSearch ? rowWidth : 0,
+                            width: (_showSearch && !_searchClosing)
+                                ? rowWidth
+                                : 0,
                             height: 46,
                             duration: const Duration(milliseconds: 260),
                             curve: Curves.easeInOutCubic,
-                            child: _showSearch
+                            child: (_showSearch || _searchClosing)
                                 ? SizedBox(
                                     width: rowWidth,
                                     height: 46,

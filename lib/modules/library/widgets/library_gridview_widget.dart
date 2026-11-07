@@ -8,6 +8,7 @@ import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/history.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
@@ -56,6 +57,8 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
       builder: (context, ref, child) {
         final isLongPressed = ref.watch(isLongPressedStateProvider);
         final itemType = widget.itemType;
+        final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
+        final overlay = ref.watch(libraryOverlayProvider);
 
         final rawGridSize = ref.watch(
           libraryGridSizeStateProvider(itemType: itemType),
@@ -153,7 +156,11 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(3),
-                                    color: context.primaryColor,
+                                    color: overlay
+                                        ? context.primaryColor.withValues(
+                                            alpha: 0.85,
+                                          )
+                                        : context.primaryColor,
                                   ),
                                   child: Row(
                                     children: [
@@ -183,96 +190,97 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                             ),
                                           ),
                                         ),
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 5,
-                                        ),
-                                        child: Consumer(
-                                          builder: (context, ref, child) {
-                                            List nbrDown = [];
-                                            if (widget.downloadedChapter) {
-                                              isar.txnSync(() {
-                                                for (
-                                                  var i = 0;
-                                                  i < entry.chapters.length;
-                                                  i++
-                                                ) {
-                                                  final entries = isar.downloads
-                                                      .filter()
-                                                      .idEqualTo(
-                                                        entry.chapters
-                                                            .toList()[i]
-                                                            .id,
-                                                      )
-                                                      .findAllSync();
-
-                                                  if (entries.isNotEmpty &&
-                                                      entries
-                                                          .first
-                                                          .isDownload!) {
-                                                    nbrDown.add(1);
-                                                  }
-                                                }
-                                              });
-                                            }
-
-                                            return Row(
-                                              children: [
-                                                if (nbrDown.isNotEmpty &&
-                                                    widget.downloadedChapter)
-                                                  Container(
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          const BorderRadius.only(
-                                                            topLeft:
-                                                                Radius.circular(
-                                                                  3,
-                                                                ),
-                                                            bottomLeft:
-                                                                Radius.circular(
-                                                                  3,
-                                                                ),
-                                                          ),
-                                                      color: Theme.of(
-                                                        context,
-                                                      ).secondaryHeaderColor,
-                                                    ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            left: 3,
-                                                            right: 3,
-                                                          ),
-                                                      child: Text(
-                                                        nbrDown.length
-                                                            .toString(),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        left: 3,
-                                                      ),
-                                                  child: Text(
-                                                    entry.chapters
-                                                        .where(
-                                                          (element) =>
-                                                              !element.isRead!,
+                                      if (showUnread)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 5,
+                                          ),
+                                          child: Consumer(
+                                            builder: (context, ref, child) {
+                                              List nbrDown = [];
+                                              if (widget.downloadedChapter) {
+                                                isar.txnSync(() {
+                                                  for (
+                                                    var i = 0;
+                                                    i < entry.chapters.length;
+                                                    i++
+                                                  ) {
+                                                    final entries = isar.downloads
+                                                        .filter()
+                                                        .idEqualTo(
+                                                          entry.chapters
+                                                              .toList()[i]
+                                                              .id,
                                                         )
-                                                        .length
-                                                        .toString(),
-                                                    style: TextStyle(
-                                                      color: context
-                                                          .dynamicBlackWhiteColor,
+                                                        .findAllSync();
+
+                                                    if (entries.isNotEmpty &&
+                                                        entries
+                                                            .first
+                                                            .isDownload!) {
+                                                      nbrDown.add(1);
+                                                    }
+                                                  }
+                                                });
+                                              }
+
+                                              return Row(
+                                                children: [
+                                                  if (nbrDown.isNotEmpty &&
+                                                      widget.downloadedChapter)
+                                                    Container(
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            const BorderRadius.only(
+                                                              topLeft:
+                                                                  Radius.circular(
+                                                                    3,
+                                                                  ),
+                                                              bottomLeft:
+                                                                  Radius.circular(
+                                                                    3,
+                                                                  ),
+                                                            ),
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).secondaryHeaderColor,
+                                                      ),
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              left: 3,
+                                                              right: 3,
+                                                            ),
+                                                        child: Text(
+                                                          nbrDown.length
+                                                              .toString(),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          left: 3,
+                                                        ),
+                                                    child: Text(
+                                                      entry.chapters
+                                                          .where(
+                                                            (element) =>
+                                                                !element.isRead!,
+                                                          )
+                                                          .length
+                                                          .toString(),
+                                                      style: TextStyle(
+                                                        color: context
+                                                            .dynamicBlackWhiteColor,
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              ],
-                                            );
-                                          },
+                                                ],
+                                              );
+                                            },
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -292,7 +300,13 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                           topLeft: Radius.circular(3),
                                           bottomLeft: Radius.circular(3),
                                         ),
-                                        color: Theme.of(context).hintColor,
+                                        color: overlay
+                                            ? Theme.of(
+                                                context,
+                                              ).hintColor.withValues(
+                                                alpha: 0.85,
+                                              )
+                                            : Theme.of(context).hintColor,
                                       ),
                                       child: Padding(
                                         padding: const EdgeInsets.only(

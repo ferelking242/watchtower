@@ -165,6 +165,12 @@ List<Manga> _filterAndSortManga({
     }).toList();
   }
 
+  // "Aléatoire" — shuffle instead of comparing.
+  if (sortType == 9) {
+    mangas.shuffle();
+    return mangas;
+  }
+
   // Sort
   mangas.sort((a, b) {
     switch (sortType) {
@@ -187,10 +193,53 @@ List<Manga> _filterAndSortManga({
         );
       case 6:
         return a.dateAdded?.compareTo(b.dateAdded ?? 0) ?? 0;
+      // "Date de sortie" — release date of the series, i.e. the earliest
+      // chapter upload date. Chapters are ordered newest-first, so the last
+      // entry is the oldest.
+      case 7:
+        return (a.chapters.lastOrNull?.dateUpload ?? "").compareTo(
+          b.chapters.lastOrNull?.dateUpload ?? "",
+        );
+      // "Nom du dossier" — the on-disk folder name for local archives, falling
+      // back to the title when there is no path.
+      case 8:
+        return _folderName(a).compareTo(_folderName(b));
+      // "R18" — adult titles (flagged through their genre) sink to the end.
+      case 11:
+        return (_isNsfw(a) ? 1 : 0).compareTo(_isNsfw(b) ? 1 : 0);
+      // "Date de récupération du chapitre" — when the latest chapter was
+      // fetched into the library.
+      case 10:
+        return (a.chapters.lastOrNull?.updatedAt ?? 0).compareTo(
+          b.chapters.lastOrNull?.updatedAt ?? 0,
+        );
       default:
         return 0;
     }
   });
 
   return mangas;
+}
+
+/// Folder name used by the "Nom du dossier" sort: the basename of the stored
+/// path for local archives, otherwise the entry title.
+String _folderName(Manga manga) {
+  final link = manga.link;
+  if (link != null && link.trim().isNotEmpty) {
+    final normalized = link.replaceAll('\\', '/');
+    final base = normalized.split('/').where((s) => s.isNotEmpty).lastOrNull;
+    if (base != null && base.isNotEmpty) return base.toLowerCase();
+  }
+  return (manga.name ?? '').toLowerCase();
+}
+
+/// Whether an entry is adult content, as declared by its genre list.
+bool _isNsfw(Manga manga) {
+  const markers = {'r18', 'r-18', '18+', 'nsfw', 'adult', 'hentai', 'ecchi'};
+  final genres = manga.genre;
+  if (genres == null) return false;
+  for (final g in genres) {
+    if (markers.contains(g.trim().toLowerCase())) return true;
+  }
+  return false;
 }

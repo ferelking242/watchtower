@@ -146,6 +146,27 @@ class AppLocalizationsFr extends AppLocalizations {
   String get local_source => 'Source locale';
 
   @override
+  String get overlay => 'Superposition';
+
+  @override
+  String get show_unread_chapters => 'Chapitres non lus';
+
+  @override
+  String get random => 'Aléatoire';
+
+  @override
+  String get release_date => 'Date de sortie';
+
+  @override
+  String get folder_name => 'Nom du dossier';
+
+  @override
+  String get chapter_fetch_date => 'Date de récupération du chapitre';
+
+  @override
+  String get nsfw_only => 'R18';
+
+  @override
   String get tabs => 'Onglets';
 
   @override

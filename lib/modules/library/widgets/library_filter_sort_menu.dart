@@ -7,8 +7,10 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart'
     show getMangaCategorieStreamProvider;
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
+import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 /// Nested Library "Filter & Sort" overlay — matches the reference architecture:
 ///
@@ -46,7 +48,7 @@ class LibraryFilterSortMenu extends ConsumerStatefulWidget {
       _LibraryFilterSortMenuState();
 }
 
-enum _Level { root, sort, filter, contentRating, sources, categories }
+enum _Level { root, sort, filter, display, contentRating, sources, categories }
 
 class _LibraryFilterSortMenuState
     extends ConsumerState<LibraryFilterSortMenu> {
@@ -64,6 +66,7 @@ class _LibraryFilterSortMenuState
         _Level.root => _buildRoot(context),
         _Level.sort => _buildSort(context),
         _Level.filter => _buildFilter(context),
+        _Level.display => _buildDisplay(context),
         _Level.contentRating => _buildContentRating(context),
         _Level.sources => _buildSources(context),
         _Level.categories => _buildCategories(context),
@@ -161,9 +164,234 @@ class _LibraryFilterSortMenuState
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => _go(_Level.filter),
         ),
+        const AdaptiveOverlayDivider(),
+        AdaptiveOverlayItem(
+          icon: Broken.element_3,
+          label: l10n.display,
+          trailing: const Icon(Broken.arrow_right_3, size: 14),
+          onTap: () => _go(_Level.display),
+        ),
       ],
     );
   }
+
+  // ── Level: display ─────────────────────────────────────────────────────────
+
+  Widget _buildDisplay(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    final itemType = widget.itemType;
+    final settings = widget.settings;
+
+    final displayType = ref.watch(
+      libraryDisplayTypeStateProvider(itemType: itemType, settings: settings),
+    );
+    final displayNotifier = ref.read(
+      libraryDisplayTypeStateProvider(
+        itemType: itemType,
+        settings: settings,
+      ).notifier,
+    );
+    final gridSize =
+        ref.watch(libraryGridSizeStateProvider(itemType: itemType)) ?? 0;
+    final gridSizeNotifier = ref.read(
+      libraryGridSizeStateProvider(itemType: itemType).notifier,
+    );
+
+    final downloadedChapter = ref.watch(
+      libraryDownloadedChaptersStateProvider(
+        itemType: itemType,
+        settings: settings,
+      ),
+    );
+    final language = ref.watch(
+      libraryLanguageStateProvider(itemType: itemType, settings: settings),
+    );
+    final localSource = ref.watch(
+      libraryLocalSourceStateProvider(itemType: itemType, settings: settings),
+    );
+    final continueReaderBtn = ref.watch(
+      libraryShowContinueReadingButtonStateProvider(
+        itemType: itemType,
+        settings: settings,
+      ),
+    );
+    final showCategoryTabs = ref.watch(
+      libraryShowCategoryTabsStateProvider(
+        itemType: itemType,
+        settings: settings,
+      ),
+    );
+    final showNumbersOfItems = ref.watch(
+      libraryShowNumbersOfItemsStateProvider(
+        itemType: itemType,
+        settings: settings,
+      ),
+    );
+    final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
+    final overlay = ref.watch(libraryOverlayProvider);
+
+    Widget displayMode(DisplayType type, String label) => AdaptiveOverlayItem(
+      label: label,
+      selected: displayType == type,
+      onTap: () => displayNotifier.setLibraryDisplayType(type),
+    );
+
+    Widget toggle(
+      String label,
+      bool value,
+      ValueChanged<bool> onChanged,
+    ) => AdaptiveOverlayItem(
+      label: label,
+      trailing: Icon(
+        value ? Broken.tick_circle : Broken.record_circle,
+        size: 16,
+        color: value ? context.primaryColor : context.secondaryColor,
+      ),
+      onTap: () => onChanged(!value),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _backHeader(l10n.display, () => _go(_Level.root)),
+
+        // Mode d'affichage
+        _displaySection(l10n.display_mode),
+        displayMode(DisplayType.compactGrid, l10n.compact_grid),
+        displayMode(DisplayType.comfortableGrid, l10n.comfortable_grid),
+        displayMode(DisplayType.coverOnlyGrid, l10n.cover_only_grid),
+        displayMode(DisplayType.list, l10n.list),
+
+        // Éléments par ligne
+        _displaySection(l10n.grid_size),
+        AdaptiveOverlayItem(
+          label: gridSize == 0
+              ? l10n.default0
+              : l10n.n_per_row(gridSize.toString()),
+          trailing: SizedBox(
+            width: 150,
+            child: Slider(
+              min: 0,
+              max: 7,
+              divisions: 7,
+              value: gridSize.toDouble(),
+              onChanged: (v) => gridSizeNotifier.set(v.toInt()),
+              onChangeEnd: (v) => gridSizeNotifier.set(v.toInt(), end: true),
+            ),
+          ),
+        ),
+
+        const AdaptiveOverlayDivider(),
+
+        // Badges
+        _displaySection(l10n.badges),
+        toggle(
+          itemType != ItemType.anime
+              ? l10n.downloaded_chapters
+              : l10n.downloaded_episodes,
+          downloadedChapter,
+          (v) => ref
+              .read(
+                libraryDownloadedChaptersStateProvider(
+                  itemType: itemType,
+                  settings: settings,
+                ).notifier,
+              )
+              .set(v),
+        ),
+        toggle(
+          l10n.show_unread_chapters,
+          showUnread,
+          (v) => ref.read(libraryShowUnreadChaptersProvider.notifier).set(v),
+        ),
+        toggle(
+          l10n.language,
+          language,
+          (v) => ref
+              .read(
+                libraryLanguageStateProvider(
+                  itemType: itemType,
+                  settings: settings,
+                ).notifier,
+              )
+              .set(v),
+        ),
+        toggle(
+          l10n.local_source,
+          localSource,
+          (v) => ref
+              .read(
+                libraryLocalSourceStateProvider(
+                  itemType: itemType,
+                  settings: settings,
+                ).notifier,
+              )
+              .set(v),
+        ),
+        toggle(
+          l10n.overlay,
+          overlay,
+          (v) => ref.read(libraryOverlayProvider.notifier).set(v),
+        ),
+
+        const AdaptiveOverlayDivider(),
+
+        // Comportement
+        _displaySection(l10n.other),
+        toggle(
+          itemType != ItemType.anime
+              ? l10n.show_continue_reading_buttons
+              : l10n.show_continue_watching_buttons,
+          continueReaderBtn,
+          (v) => ref
+              .read(
+                libraryShowContinueReadingButtonStateProvider(
+                  itemType: itemType,
+                  settings: settings,
+                ).notifier,
+              )
+              .set(v),
+        ),
+        toggle(
+          l10n.show_category_tabs,
+          showCategoryTabs,
+          (v) => ref
+              .read(
+                libraryShowCategoryTabsStateProvider(
+                  itemType: itemType,
+                  settings: settings,
+                ).notifier,
+              )
+              .set(v),
+        ),
+        toggle(
+          l10n.show_numbers_of_items,
+          showNumbersOfItems,
+          (v) => ref
+              .read(
+                libraryShowNumbersOfItemsStateProvider(
+                  itemType: itemType,
+                  settings: settings,
+                ).notifier,
+              )
+              .set(v),
+        ),
+      ],
+    );
+  }
+
+  Widget _displaySection(String label) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+    child: Text(
+      label,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: context.secondaryColor,
+      ),
+    ),
+  );
 
   // ── Level: sort ────────────────────────────────────────────────────────────
 
@@ -207,27 +435,41 @@ class _LibraryFilterSortMenuState
           widget.itemType != ItemType.anime ? l10n.last_read : l10n.last_watched,
           1,
         ),
-        sortItem('Date de sortie', null),
-        sortItem('Nom du dossier', null),
+        sortItem(l10n.release_date, 7),
+        sortItem(l10n.folder_name, 8),
         sortItem(
           widget.itemType != ItemType.anime
               ? l10n.total_chapters
               : l10n.total_episodes,
           4,
         ),
-        sortItem('Aléatoire', null),
+        sortItem(
+          widget.itemType != ItemType.anime
+              ? l10n.unread_count
+              : l10n.unwatched_count,
+          3,
+        ),
+        sortItem(
+          widget.itemType != ItemType.anime
+              ? l10n.latest_chapter
+              : l10n.latest_episode,
+          5,
+        ),
+        sortItem(l10n.chapter_fetch_date, 10),
+        sortItem(l10n.nsfw_only, 11),
+        sortItem(l10n.random, 9),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.arrow_up_3,
           label: 'Croissant',
           selected: !reverse,
-          onTap: () => notifier.update(false, sortState.index ?? 0),
+          onTap: () => notifier.setReverse(false),
         ),
         AdaptiveOverlayItem(
           icon: Broken.arrow_down,
           label: 'Décroissant',
           selected: reverse,
-          onTap: () => notifier.update(true, sortState.index ?? 0),
+          onTap: () => notifier.setReverse(true),
         ),
       ],
     );

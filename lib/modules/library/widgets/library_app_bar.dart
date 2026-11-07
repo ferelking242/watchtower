@@ -167,26 +167,44 @@ class _LibraryAppBarState extends ConsumerState<LibraryAppBar> {
             ),
       actions: [
         // ── 1. Search ──────────────────────────────────────────────────────
-        if (widget.isSearch)
-          SeachFormTextField(
-            onChanged: (_) => widget.onSearchClear(),
-            onPressed: widget.onSearchToggle,
-            controller: widget.textEditingController,
-            onSuffixPressed: () {
-              widget.textEditingController.clear();
-              widget.onSearchClear();
-            },
-            filterButton: filterBtn,
-          )
-        else
-          IconButton(
-            splashRadius: 20,
-            onPressed: () {
-              widget.textEditingController.clear();
-              widget.onSearchToggle();
-            },
-            icon: const Icon(Broken.search_normal_1),
+        // The field used to appear instantly and vanish instantly when the
+        // back arrow was tapped. An [AnimatedSwitcher] plays the same
+        // fade-and-slide for both directions, so closing matches opening.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+              sizeFactor: animation,
+              axis: Axis.horizontal,
+              alignment: Alignment.centerLeft,
+              child: child,
+            ),
           ),
+          child: widget.isSearch
+              ? SeachFormTextField(
+                  key: const ValueKey('library-search-field'),
+                  onChanged: (_) => widget.onSearchClear(),
+                  onPressed: widget.onSearchToggle,
+                  controller: widget.textEditingController,
+                  onSuffixPressed: () {
+                    widget.textEditingController.clear();
+                    widget.onSearchClear();
+                  },
+                  filterButton: filterBtn,
+                )
+              : IconButton(
+                  key: const ValueKey('library-search-button'),
+                  splashRadius: 20,
+                  onPressed: () {
+                    widget.textEditingController.clear();
+                    widget.onSearchToggle();
+                  },
+                  icon: const Icon(Broken.search_normal_1),
+                ),
+        ),
 
         // Ignore-filters checkbox (only when searching, mobile)
         if (widget.isSearch)
