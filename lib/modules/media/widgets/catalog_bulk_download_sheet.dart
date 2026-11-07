@@ -11,9 +11,11 @@ import 'package:watchtower/modules/media/app_ui_components.dart' show AppShimmer
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart'
     show QualityFallback;
 import 'package:watchtower/modules/media/extension_image_headers.dart';
+import 'package:watchtower/modules/media/widgets/bulk_download_formats.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/get_video_list.dart';
+import 'package:watchtower/models/video.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/cover_url.dart';
 
@@ -82,6 +84,14 @@ class _ResolvedVideo {
   List<String> qualities = const [];
   List<String> languages = const [];
   bool formatsLoading = false;
+
+  /// Size label per resolution key, filled asynchronously by
+  /// [probeFormatSizes] so the row renders before the probes finish.
+  Map<String, String> sizeByResolution = {};
+
+  /// Resolutions already downloaded for this item. They are removed from the
+  /// picker so a second identical download is never offered.
+  Set<String> downloadedKeys = {};
 
   /// Season label picked for this series (`S01`, …), or null for "Toutes".
   String? season;
@@ -167,12 +177,17 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   }
 
   List<String> _qualitiesFor(_ResolvedVideo row) {
-    if (row.qualities.isNotEmpty) return row.qualities;
-    return (widget.source.videoQualities ?? const <String>[])
-        .map(_normQuality)
-        .where((quality) => quality.trim().isNotEmpty)
-        .toSet()
-        .toList()
+    final source = row.qualities.isNotEmpty
+        ? row.qualities
+        : (widget.source.videoQualities ?? const <String>[])
+              .map(_normQuality)
+              .where((quality) => quality.trim().isNotEmpty)
+              .toList();
+    final filtered = [
+      for (final quality in source)
+        if (!row.downloadedKeys.contains(resolutionKey(quality))) quality,
+    ];
+    return filtered.toSet().toList()
       ..sort((a, b) => _resRank(a).compareTo(_resRank(b)));
   }
 
@@ -293,24 +308,48 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         row.qualities = _qualitiesFor(row);
       }
       row.languages = languages.toList()..sort();
+      // Drop resolutions already in the library so the picker never offers a
+      // second download of the same quality (the engine refuses it anyway).
+      // Only for single-episode items: the library lookup is manga-wide, so a
+      // series where one episode has 720p must keep 720p for the others.
+      row.downloadedKeys = chapters.length <= 1
+          ? downloadedResolutionKeys(widget.source, row.item.link)
+          : const <String>{};
+      if (row.downloadedKeys.isNotEmpty) {
+        row.qualities = [
+          for (final quality in row.qualities)
+            if (!row.downloadedKeys.contains(resolutionKey(quality))) quality,
+        ];
+      }
       final bulkQuality = _bulkQuality;
       if (bulkQuality != null) {
         row.quality = _resolveQuality(
           _qualitiesFor(row),
           bulkQuality,
           _bulkFallback,
+          exclude: row.downloadedKeys,
         );
       }
       if (_bulkLanguage != null &&
           row.languages.any((language) => language.toLowerCase() == _bulkLanguage!.toLowerCase())) {
         row.language = _bulkLanguage;
       }
+      if (mounted) setState(() {});
+      // Sizes arrive after the list is already usable, in a bounded pool so
+      // dozens of videos are probed together instead of one after another.
+      unawaited(_probeRowSizes(row, videos));
     } catch (_) {
       row.qualities = _qualitiesFor(row);
     } finally {
       row.formatsLoading = false;
       if (mounted) setState(() {});
     }
+  }
+
+  Future<void> _probeRowSizes(_ResolvedVideo row, List<Video> videos) async {
+    final sizes = await probeFormatSizes(videos);
+    if (!mounted || sizes.isEmpty) return;
+    setState(() => row.sizeByResolution = sizes);
   }
 
   /// Applies the header selection to every row. A missing resolution is
@@ -321,7 +360,12 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       for (final row in _rows) {
         row.quality = target == null
             ? null
-            : _resolveQuality(_qualitiesFor(row), target, _bulkFallback);
+            : _resolveQuality(
+                _qualitiesFor(row),
+                target,
+                _bulkFallback,
+                exclude: row.downloadedKeys,
+              );
       }
     });
   }
@@ -562,9 +606,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                 ? 'Récupération des formats…'
                 : row.error != null
                 ? 'Format indisponible'
-                : isSeries
-                ? '${row.selected.length}/${row.chapters.length} épisodes'
-                : '1 vidéo',
+                : _rowSubtitle(row, isSeries),
             style: TextStyle(
               color: row.error != null ? mbRed : cs.onSurfaceVariant,
               fontSize: 11.5,
@@ -667,6 +709,20 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     );
   }
 
+  /// Row subtitle: episode count for a series, `1 vidéo` for a film, plus the
+  /// size of the chosen quality (and a note when some resolutions are already
+  /// downloaded and therefore hidden from the picker).
+  String _rowSubtitle(_ResolvedVideo row, bool isSeries) {
+    final base = isSeries
+        ? '${row.selected.length}/${row.chapters.length} épisodes'
+        : '1 vidéo';
+    final parts = <String>[base];
+    final size = _selectedSizeLabel(row);
+    if (size != null) parts.add(size);
+    if (row.downloadedKeys.isNotEmpty) parts.add('déjà téléchargé(s) masqué(s)');
+    return parts.join(' · ');
+  }
+
   Widget _cover(MManga item) {
     final url = normalizeCoverUrl(item.imageUrl);
     if (url == null || url.isEmpty) {
@@ -688,6 +744,21 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     );
   }
 
+  /// Label of one quality option: the resolution plus its file size when the
+  /// concurrent probe has already measured it (`720p · 259.9MB`).
+  String _qualityOptionLabel(_ResolvedVideo row, String? quality) {
+    if (quality == null) return 'Auto';
+    final size = row.sizeByResolution[resolutionKey(quality)];
+    return size == null ? quality : '$quality · $size';
+  }
+
+  /// Size of the row's currently selected quality, for the row subtitle.
+  String? _selectedSizeLabel(_ResolvedVideo row) {
+    final quality = row.quality;
+    if (quality == null) return null;
+    return row.sizeByResolution[resolutionKey(quality)];
+  }
+
   /// Per-video quality box, pinned at the right end of the row, followed by the
   /// chevron that unfolds the episode picker (series only).
   Widget _qualityBox(_ResolvedVideo row) {
@@ -700,7 +771,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: 96,
+          width: 110,
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String?>(
               isExpanded: true,
@@ -711,7 +782,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                   DropdownMenuItem<String?>(
                     value: q,
                     child: Text(
-                      q ?? 'Auto',
+                      _qualityOptionLabel(row, q),
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12.5),
                     ),
@@ -816,10 +887,23 @@ class _BulkDropdown<T> extends StatelessWidget {
 }
 
 /// Resolves [target] against the [available] resolutions using [fallback].
-String? _resolveQuality(List<String> available, String target, QualityFallback fallback) {
-  if (available.isEmpty) return target;
+///
+/// Resolutions whose [resolutionKey] is in [exclude] are already downloaded and
+/// are dropped before matching, so the resolver never hands back a quality the
+/// user already has (the engine would refuse the duplicate anyway).
+String? _resolveQuality(
+  List<String> available,
+  String target,
+  QualityFallback fallback, {
+  Set<String> exclude = const {},
+}) {
+  final usable = [
+    for (final quality in available)
+      if (!exclude.contains(resolutionKey(quality))) quality,
+  ];
+  if (usable.isEmpty) return exclude.isEmpty ? target : null;
   final targetRank = _resRank(target);
-  final ranked = [for (final q in available) (label: q, rank: _resRank(q))]
+  final ranked = [for (final q in usable) (label: q, rank: _resRank(q))]
     ..sort((a, b) => a.rank.compareTo(b.rank));
   for (final q in ranked) {
     if (q.rank == targetRank) return q.label;

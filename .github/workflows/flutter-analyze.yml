@@ -125,6 +125,9 @@ jobs:
             test/search_result_card_test.dart \
             test/moviebox_progress_bar_test.dart
 
+      - name: Run bulk download format tests
+        run: flutter test test/bulk_download_formats_test.dart
+
       - name: Run extension scheduling and queue dispatch tests
         run: |
           flutter test \
