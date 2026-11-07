@@ -103,11 +103,15 @@ void main() {
         ),
       ),
     );
+    // The badge is padded with its own SizedBox, so several are nested under
+    // MbThumb: the first descendant is the ClipRRect's frame.
     final thumbnail = tester.widget<SizedBox>(
-      find.descendant(
-        of: find.byType(MbThumb),
-        matching: find.byType(SizedBox),
-      ),
+      find
+          .descendant(
+            of: find.byType(MbThumb),
+            matching: find.byType(SizedBox),
+          )
+          .first,
     );
 
     expect(thumbnail.width, 106);
@@ -132,11 +136,15 @@ void main() {
         ),
       ),
     );
+    // The badge is padded with its own SizedBox, so several are nested under
+    // MbThumb: the first descendant is the ClipRRect's frame.
     final thumbnail = tester.widget<SizedBox>(
-      find.descendant(
-        of: find.byType(MbThumb),
-        matching: find.byType(SizedBox),
-      ),
+      find
+          .descendant(
+            of: find.byType(MbThumb),
+            matching: find.byType(SizedBox),
+          )
+          .first,
     );
 
     expect(thumbnail.width, 120);
