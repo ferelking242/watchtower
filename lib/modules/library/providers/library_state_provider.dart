@@ -895,6 +895,37 @@ class SortLibraryMangaState extends _$SortLibraryMangaState {
     update(reverse, index);
   }
 
+  /// Sets the direction explicitly instead of toggling it.
+  ///
+  /// [update] flips `reverse` when the tapped index is the current one, which
+  /// is right for a sort row (tap twice = toggle) but wrong for the two
+  /// "Croissant"/"Décroissant" rows: tapping the direction already selected
+  /// toggled it, so choosing "Croissant" while descending kept descending and
+  /// vice-versa. The direction rows call this instead.
+  void setReverse(bool reverse) {
+    Settings appSettings = Settings();
+    var value = SortLibraryManga()
+      ..index = state.index ?? 0
+      ..reverse = reverse;
+
+    switch (itemType) {
+      case ItemType.manga:
+        appSettings = settings..sortLibraryManga = value;
+        break;
+      case ItemType.anime:
+        appSettings = settings..sortLibraryAnime = value;
+        break;
+      default:
+        appSettings = settings..sortLibraryNovel = value;
+    }
+    isar.writeTxnSync(() {
+      isar.settings.putSync(
+        appSettings..updatedAt = DateTime.now().millisecondsSinceEpoch,
+      );
+    });
+    state = value;
+  }
+
   bool isReverse() {
     return state.reverse!;
   }

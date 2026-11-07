@@ -371,6 +371,48 @@ abstract class AppLocalizations {
   /// **'Local source'**
   String get local_source;
 
+  /// No description provided for @overlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay'**
+  String get overlay;
+
+  /// No description provided for @show_unread_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'Unread chapters'**
+  String get show_unread_chapters;
+
+  /// No description provided for @random.
+  ///
+  /// In en, this message translates to:
+  /// **'Random'**
+  String get random;
+
+  /// No description provided for @release_date.
+  ///
+  /// In en, this message translates to:
+  /// **'Release date'**
+  String get release_date;
+
+  /// No description provided for @folder_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder name'**
+  String get folder_name;
+
+  /// No description provided for @chapter_fetch_date.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter fetch date'**
+  String get chapter_fetch_date;
+
+  /// No description provided for @nsfw_only.
+  ///
+  /// In en, this message translates to:
+  /// **'R18'**
+  String get nsfw_only;
+
   /// No description provided for @tabs.
   ///
   /// In en, this message translates to:

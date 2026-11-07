@@ -144,6 +144,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get local_source => '本地来源';
 
   @override
+  String get overlay => 'Overlay';
+
+  @override
+  String get show_unread_chapters => 'Unread chapters';
+
+  @override
+  String get random => 'Random';
+
+  @override
+  String get release_date => 'Release date';
+
+  @override
+  String get folder_name => 'Folder name';
+
+  @override
+  String get chapter_fetch_date => 'Chapter fetch date';
+
+  @override
+  String get nsfw_only => 'R18';
+
+  @override
   String get tabs => '标签';
 
   @override

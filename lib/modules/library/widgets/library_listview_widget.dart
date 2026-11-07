@@ -8,6 +8,7 @@ import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/history.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
@@ -47,6 +48,8 @@ class LibraryListViewWidget extends StatelessWidget {
         return Consumer(
           builder: (context, ref, child) {
             final isLongPressed = ref.watch(isLongPressedStateProvider);
+            final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
+            final overlay = ref.watch(libraryOverlayProvider);
             return LibrarySwipeWrapper(
               manga: entry,
               child: Material(
@@ -176,7 +179,11 @@ class LibraryListViewWidget extends StatelessWidget {
                               child: Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(3),
-                                  color: context.primaryColor,
+                                  color: overlay
+                                      ? context.primaryColor.withValues(
+                                          alpha: 0.85,
+                                        )
+                                      : context.primaryColor,
                                 ),
                                 child: SizedBox(
                                   height: 22,
@@ -281,7 +288,14 @@ class LibraryListViewWidget extends StatelessWidget {
                                           right: 3,
                                         ),
                                         child: Text(
-                                          entry.chapters.length.toString(),
+                                          (showUnread
+                                                  ? entry.chapters
+                                                        .where(
+                                                          (e) => !e.isRead!,
+                                                        )
+                                                        .length
+                                                  : entry.chapters.length)
+                                              .toString(),
                                           style: const TextStyle(
                                             color: Colors.white,
                                           ),

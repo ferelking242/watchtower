@@ -313,3 +313,35 @@ final defaultCategoryStateProvider =
     NotifierProvider<DefaultCategoryNotifier, String>(
   DefaultCategoryNotifier.new,
 );
+
+// ── Display options mirrored from the Library filter overlay ─────────────────
+
+/// Shows an unread-chapter badge on each library card.
+class LibraryShowUnreadChaptersNotifier extends Notifier<bool> {
+  @override
+  bool build() => _read('show_unread_chapters', true);
+
+  void set(bool v) {
+    _write('show_unread_chapters', v);
+    state = v;
+  }
+}
+
+final libraryShowUnreadChaptersProvider =
+    NotifierProvider<LibraryShowUnreadChaptersNotifier, bool>(
+  LibraryShowUnreadChaptersNotifier.new,
+);
+
+/// Draws the count/language badges as a translucent overlay on the cover.
+class LibraryOverlayNotifier extends Notifier<bool> {
+  @override
+  bool build() => _read('cover_overlay', true);
+
+  void set(bool v) {
+    _write('cover_overlay', v);
+    state = v;
+  }
+}
+
+final libraryOverlayProvider =
+    NotifierProvider<LibraryOverlayNotifier, bool>(LibraryOverlayNotifier.new);
