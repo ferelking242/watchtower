@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
