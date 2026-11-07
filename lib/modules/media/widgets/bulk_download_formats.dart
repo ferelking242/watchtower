@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:watchtower/main.dart' show isar;
+import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/watch/detail/download/video_file_meta.dart';

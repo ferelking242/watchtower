@@ -312,7 +312,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       // second download of the same quality (the engine refuses it anyway).
       // Only for single-episode items: the library lookup is manga-wide, so a
       // series where one episode has 720p must keep 720p for the others.
-      row.downloadedKeys = chapters.length <= 1
+      row.downloadedKeys = row.chapters.length <= 1
           ? downloadedResolutionKeys(widget.source, row.item.link)
           : const <String>{};
       if (row.downloadedKeys.isNotEmpty) {
