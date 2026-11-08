@@ -3664,6 +3664,7 @@ class _BrowserDockState extends State<_BrowserDock>
                     l10n: l10n,
                   ),
                 ),
+        ),
       ),
     );
   }
@@ -3769,6 +3770,7 @@ class _BrowserDockState extends State<_BrowserDock>
     final dockWidth = (media.size.width - 40)
         .clamp(200.0, 420.0)
         .toDouble();
+    final isLoading = widget.progress < 1;
 
     return GestureDetector(
       onHorizontalDragStart: (_) => setState(() => _dragging = true),
@@ -4648,7 +4650,7 @@ class _MoreSheetState extends State<_MoreSheet> {
                     'Nouvel onglet',
                     widget.onNewTab,
                   ),
-                ),
+                ],
               ),
             ),
           ],
