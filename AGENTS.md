@@ -678,6 +678,24 @@ must return that URL unchanged (see the extension's `harimanga.js`).
   and `cached_network.dart` logs render failures with `headers=oui|NON`. Use
   those before blaming the CDN.
 
+### Headers must be cheap (do not regress)
+
+`headersProvider` is watched by **every visible cover**, so its body runs once
+per card per rebuild and must stay O(1) after the first call for a source:
+
+- It memoises the result map by source signature and borrows the runtime from
+  `ExtensionServiceRegistry.get` (one service per source). Do **not** go back to
+  `getExtensionService(source)` + `service.dispose()`: that booted and tore down
+  a QuickJS interpreter per card and was the main library jank/RAM cause.
+- `getSource` (`lib/utils/utils.dart`) must query by indexed `id` / `lang+name`,
+  not `isar.sources.where().findAllSync().where(...)`. It has 20+ call sites and
+  runs on the UI thread; the Dart-side scan made it O(sources) per call.
+- Library cards read `downloadedChapterIdsProvider` (a `Set<int>`) for the
+  download badge. Never run a per-chapter `isar.downloads...findAllSync()` loop
+  inside a card build — that was O(cards × chapters) synchronous Isar queries.
+- `Manga.isLocalArchive` and `Chapter.isRead` are nullable: read them with
+  `?? false` / `!= true`, not `!`. A `!` on one entry threw and blanked the
+  whole grid.
 
 ## Item naming conventions (do not regress)
 `Manga` is the **shared** Isar model for every medium — manga, watch, novel,
