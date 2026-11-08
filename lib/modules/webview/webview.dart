@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:desktop_webview_window/desktop_webview_window.dart';
@@ -1381,7 +1382,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   late String _url = widget.url;
   late String _title = widget.title;
   bool _cookieStoreReady = false;
-  double _progress = 0;
+  double _progress = 1;
 
   // AdBlock
   bool _adBlockEnabled = true;
@@ -2521,6 +2522,127 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     }
   }
 
+  void _showFindInPage() {
+    final queryController = TextEditingController();
+
+    Future<void> search({required bool backwards}) async {
+      final query = queryController.text.trim();
+      if (query.isEmpty) return;
+      final direction = backwards ? 'true' : 'false';
+      try {
+        final found = await _webViewController?.evaluateJavascript(
+          source:
+              'window.find(${jsonEncode(query)}, false, $direction, true, false, true, false)',
+        );
+        if ((found == false || found == 'false') && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucun résultat trouvé')),
+          );
+        }
+      } catch (error) {
+        AppLogger.log(
+          'Find in page failed',
+          logLevel: LogLevel.debug,
+          tag: LogTag.ui,
+          error: error,
+        );
+      }
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Chercher dans la page'),
+        content: TextField(
+          controller: queryController,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => search(backwards: false),
+          decoration: const InputDecoration(
+            hintText: 'Mot ou expression',
+            prefixIcon: Icon(Icons.search_rounded),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => search(backwards: true),
+            child: const Text('Précédent'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Fermer'),
+          ),
+          FilledButton(
+            onPressed: () => search(backwards: false),
+            child: const Text('Suivant'),
+          ),
+        ],
+      ),
+    ).whenComplete(queryController.dispose);
+  }
+
+  Future<void> _showSourceCode() async {
+    final controller = _webViewController;
+    if (controller == null) return;
+    try {
+      final rawSource = await controller.evaluateJavascript(
+        source: 'document.documentElement.outerHTML',
+      );
+      if (!mounted) return;
+      final source = rawSource?.toString() ?? '';
+      final visibleSource = source.length > 60000
+          ? '${source.substring(0, 60000)}\n\n…'
+          : source;
+      showDialog<void>(
+        context: context,
+        builder: (dialogCtx) => Dialog(
+          child: SafeArea(
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Code source de la page'),
+                  trailing: IconButton(
+                    onPressed: () => Navigator.of(dialogCtx).pop(),
+                    tooltip: 'Fermer',
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ),
+                Expanded(
+                  child: SelectionArea(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        visibleSource.isEmpty
+                            ? 'Aucun code source disponible.'
+                            : visibleSource,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      AppLogger.log(
+        'Unable to load page source',
+        logLevel: LogLevel.debug,
+        tag: LogTag.ui,
+        error: error,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de lire le code source')),
+        );
+      }
+    }
+  }
+
   void _showSiteInfo() {
     final uri = Uri.tryParse(_url);
     final isSecure = uri?.scheme == 'https';
@@ -2708,12 +2830,25 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     );
   }
 
-  void _showMoreMenu() {
+  void _showMoreMenu() async {
+    final controller = _webViewController;
+    var canGoBack = false;
+    var canGoForward = false;
+    try {
+      canGoBack = await controller?.canGoBack() ?? false;
+      canGoForward = await controller?.canGoForward() ?? false;
+    } catch (_) {
+      // The menu remains available even when the WebView has no history.
+    }
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      enableDrag: false,
+      enableDrag: true,
+      useSafeArea: true,
+      showDragHandle: false,
       builder: (sheetCtx) {
         // Use sheetCtx (the modal's own context) to pop the bottom sheet.
         // Using the outer widget context causes a navigator mismatch with
@@ -2724,9 +2859,29 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
           }
         }
 
-        return _MoreSheet(
+        void dismissThen(VoidCallback action) {
+          dismiss();
+          Future<void>.delayed(const Duration(milliseconds: 180), action);
+        }
+
+        return SizedBox(
+          height: MediaQuery.sizeOf(sheetCtx).height * 0.88,
+          child: _MoreSheet(
           pageTitle: _title,
           url: _url,
+          canGoBack: canGoBack,
+          canGoForward: canGoForward,
+          onAddressTap: () => dismissThen(_showAddressEditor),
+          onNewTab: () => dismissThen(_openNewTab),
+          onBack: () => dismissThen(() {
+            if (canGoBack) controller?.goBack();
+          }),
+          onForward: () => dismissThen(() {
+            if (canGoForward) controller?.goForward();
+          }),
+          onReload: () => dismissThen(() {
+            controller?.reload();
+          }),
           adEnabled: _adBlockEnabled,
           blockedCount: _blockedCount,
           blockedElements: _blockedElements,
@@ -2741,8 +2896,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               const SnackBar(content: Text('URL copiée'), duration: Duration(seconds: 2)),
             );
           },
-          onShare: () {
-            dismiss();
+          onShare: () => dismissThen(() {
             final box = context.findRenderObject() as RenderBox?;
             SharePlus.instance.share(
               ShareParams(
@@ -2752,33 +2906,26 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                     : null,
               ),
             );
-          },
-          onOpenBrowser: () {
-            dismiss();
+          }),
+          onOpenBrowser: () => dismissThen(() {
             InAppBrowser.openWithSystemBrowser(url: WebUri(_url));
-          },
-          onViewSource: () {
-            dismiss();
-            _webViewController?.evaluateJavascript(source: "document.documentElement.outerHTML");
-          },
-          onFindInPage: () {
-            dismiss();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Recherche dans la page non disponible'), duration: Duration(seconds: 2)),
-            );
-          },
-          onToggleAdBlock: () {
-            dismiss();
+          }),
+          onViewSource: () => dismissThen(() {
+            _showSourceCode();
+          }),
+          onFindInPage: () => dismissThen(() {
+            _showFindInPage();
+          }),
+          onToggleAdBlock: () => dismissThen(() {
             _showAdMenu();
-          },
-          onPickElement: () {
-            dismiss();
+          }),
+          onPickElement: () => dismissThen(() {
             setState(() => _pickerMode = true);
             _activatePicker();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Tap sur un élément pour le bloquer'), duration: Duration(seconds: 4)),
             );
-          },
+          }),
           onResetRules: () {
             setState(() { _blockedCount = 0; _blockedElements.clear(); });
             dismiss();
@@ -2791,59 +2938,52 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               const SnackBar(content: Text('Cookies effacés'), duration: Duration(seconds: 2)),
             );
           },
-          onFullscreen: () {
-            dismiss();
+          onFullscreen: () => dismissThen(() {
             _toggleImmersive();
-          },
-          onUserAgent: () {
-            dismiss();
-            _toggleDesktopMode();
-          },
-          onNetworkLog: () {
-            dismiss();
-            _showAdMenu();
-          },
+          }),
           onNightMode: () {
             dismiss();
-            _toggleNightMode();
+            Future<void>.delayed(
+              const Duration(milliseconds: 180),
+              _toggleNightMode,
+            );
           },
           onTextSize: () {
             dismiss();
-            _cycleTextSize();
+            Future<void>.delayed(
+              const Duration(milliseconds: 180),
+              _cycleTextSize,
+            );
           },
           onDesktopMode: () {
             dismiss();
-            _toggleDesktopMode();
+            Future<void>.delayed(
+              const Duration(milliseconds: 180),
+              _toggleDesktopMode,
+            );
           },
-          onTranslate: () {
-            dismiss();
+          onTranslate: () => dismissThen(() {
             _openTranslation();
-          },
-          onDownload: () {
-            dismiss();
+          }),
+          onDownload: () => dismissThen(() {
             _openDownload();
-          },
-          onBookmark: () {
-            dismiss();
-            _copyUrlAsBookmark();
-          },
-          onQrCode: () {
-            dismiss();
+          }),
+          onQrCode: () => dismissThen(() {
             _showQrCode();
-          },
-          onOrientation: () {
-            dismiss();
+          }),
+          onOrientation: () => dismissThen(() {
             _toggleOrientation();
-          },
-          onIncognito: () {
-            dismiss();
+          }),
+          onIncognito: () => dismissThen(() {
             _toggleIncognito();
-          },
-          onMinimize: () {
-            dismiss();
+          }),
+          onMinimize: () => dismissThen(() {
             _minimizeToDock();
-          },
-          onCloseWebView: _popRouteIfPossible,
+          }),
+          onCloseWebView: () => dismissThen(() {
+            _popRouteIfPossible();
+          }),
+          ),
         );
       },
     );
@@ -3201,7 +3341,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         panelContent,
         if (!kIsWeb)
           _BrowserDock(
-            isDark: isDark,
             url: _url,
             tabCount: tabCount,
             progress: _progress,
@@ -3400,7 +3539,6 @@ class _TabRow extends StatelessWidget {
 // space, so the page keeps the whole screen.
 
 class _BrowserDock extends StatefulWidget {
-  final bool isDark;
   final String url;
   final int tabCount;
   final double progress;
@@ -3413,7 +3551,6 @@ class _BrowserDock extends StatefulWidget {
   final VoidCallback onMore;
 
   const _BrowserDock({
-    required this.isDark,
     required this.url,
     required this.tabCount,
     required this.progress,
@@ -3430,25 +3567,62 @@ class _BrowserDock extends StatefulWidget {
   State<_BrowserDock> createState() => _BrowserDockState();
 }
 
-class _BrowserDockState extends State<_BrowserDock> {
+class _BrowserDockState extends State<_BrowserDock>
+    with TickerProviderStateMixin {
   /// Horizontal offset from the centred rest position while being dragged.
   double _dragDx = 0;
   bool _dragging = false;
+  bool _collapsedLeft = false;
+  late final AnimationController _loadMotion;
+  late final AnimationController _loadSettle;
 
   /// How far the pill must be pulled sideways before it folds away.
   static const double _kFoldThreshold = 56.0;
 
   @override
+  void initState() {
+    super.initState();
+    _loadMotion = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _loadSettle = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+      value: 1,
+    );
+    if (widget.progress < 1) _loadMotion.repeat();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BrowserDock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final wasLoading = oldWidget.progress < 1;
+    final isLoading = widget.progress < 1;
+    if (!wasLoading && isLoading) {
+      _loadSettle
+        ..stop()
+        ..value = 1;
+      _loadMotion.repeat();
+    } else if (wasLoading && !isLoading) {
+      _loadMotion.stop();
+      _loadSettle.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _loadMotion.dispose();
+    _loadSettle.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
-    final isDark = widget.isDark;
-    final bg = isDark
-        ? const Color(0xFF2A2A2E).withValues(alpha: 0.94)
-        : Colors.white.withValues(alpha: 0.96);
-    final fg = isDark ? Colors.white : Colors.black87;
-    final border = isDark
-        ? Colors.white.withValues(alpha: 0.10)
-        : Colors.black.withValues(alpha: 0.08);
+    const bg = Color(0xF21B1B20);
+    const fg = Colors.white;
+    final border = Colors.white.withValues(alpha: 0.14);
 
     return Positioned(
       left: 0,
@@ -3456,25 +3630,45 @@ class _BrowserDockState extends State<_BrowserDock> {
       bottom: 18,
       child: SafeArea(
         top: false,
-        child: widget.collapsed
-            ? Align(
-                alignment: Alignment.centerRight,
-                child: _buildCollapsed(
-                  fg: fg,
-                  bg: bg,
-                  border: border,
-                  l10n: l10n,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.86, end: 1).animate(animation),
+              child: child,
+            ),
+          ),
+          child: widget.collapsed
+              ? Align(
+                  key: const ValueKey('dock-collapsed'),
+                  alignment: _collapsedLeft
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
+                  child: _buildCollapsed(
+                    fg: fg,
+                    bg: bg,
+                    border: border,
+                    l10n: l10n,
+                  ),
+                )
+              : Align(
+                  key: const ValueKey('dock-expanded'),
+                  alignment: Alignment.bottomCenter,
+                  child: _buildPill(
+                    fg: fg,
+                    bg: bg,
+                    border: border,
+                    l10n: l10n,
+                  ),
                 ),
-              )
-            : Align(
-                alignment: Alignment.bottomCenter,
-                child: _buildPill(fg: fg, bg: bg, border: border, l10n: l10n),
-              ),
       ),
     );
   }
 
-  /// Folded state: a small handle hugging the right edge.
+  /// Folded state: a small handle docked to either screen edge.
   Widget _buildCollapsed({
     required Color fg,
     required Color bg,
@@ -3484,31 +3678,82 @@ class _BrowserDockState extends State<_BrowserDock> {
     return GestureDetector(
       onTap: () => widget.onCollapsedChanged(false),
       onHorizontalDragUpdate: (d) {
-        // Pulling left un-folds immediately.
-        if (d.delta.dx < 0) widget.onCollapsedChanged(false);
+        final pulledInward = _collapsedLeft
+            ? d.delta.dx > 0
+            : d.delta.dx < 0;
+        if (pulledInward) widget.onCollapsedChanged(false);
       },
       behavior: HitTestBehavior.opaque,
       child: Semantics(
         button: true,
         label: l10n.browser_dock_expand,
-        child: Container(
-          width: 30,
-          height: 46,
-          decoration: BoxDecoration(
-            color: bg,
-            border: Border.all(color: border, width: 0.5),
-            borderRadius: const BorderRadius.horizontal(
-              left: Radius.circular(14),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 10,
-                offset: const Offset(-2, 2),
+        child: SizedBox(
+          width: 82,
+          height: 50,
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 29,
+                      height: 29,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: border),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${widget.tabCount}',
+                        style: TextStyle(
+                          color: fg,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Icon(
+                      _collapsedLeft
+                          ? Icons.chevron_right_rounded
+                          : Icons.chevron_left_rounded,
+                      size: 21,
+                      color: fg,
+                    ),
+                  ],
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([_loadMotion, _loadSettle]),
+                    builder: (context, _) => CustomPaint(
+                      foregroundPainter: _DockLoadOutlinePainter(
+                        progress: widget.progress,
+                        phase: _loadMotion.value,
+                        settle: _loadSettle.value,
+                        idleColor: border,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          child: Icon(Icons.chevron_left_rounded, size: 20, color: fg),
         ),
       ),
     );
@@ -3520,23 +3765,21 @@ class _BrowserDockState extends State<_BrowserDock> {
     required Color border,
     required AppLocalizations l10n,
   }) {
-    final isLoading = widget.progress < 1.0;
-    final progress = widget.progress.clamp(0.06, 1.0).toDouble();
-    const rainbow = [
-      Color(0xFF00D5FF),
-      Color(0xFF7D69FF),
-      Color(0xFFFF4F91),
-      Color(0xFFFF7A38),
-    ];
+    final media = MediaQuery.of(context);
+    final dockWidth = (media.size.width - 40)
+        .clamp(200.0, 420.0)
+        .toDouble();
 
     return GestureDetector(
       onHorizontalDragStart: (_) => setState(() => _dragging = true),
       onHorizontalDragUpdate: (d) => setState(() => _dragDx += d.delta.dx),
       onHorizontalDragEnd: (_) {
         final folded = _dragDx.abs() >= _kFoldThreshold;
+        final foldLeft = _dragDx < 0;
         setState(() {
           _dragging = false;
           _dragDx = 0;
+          if (folded) _collapsedLeft = foldLeft;
         });
         if (folded) widget.onCollapsedChanged(true);
       },
@@ -3544,14 +3787,9 @@ class _BrowserDockState extends State<_BrowserDock> {
         duration: _dragging ? Duration.zero : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         transform: Matrix4.translationValues(_dragDx, 0, 0),
-        width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 520),
-        padding: EdgeInsets.all(isLoading ? 1.5 : 1),
+        width: dockWidth,
         decoration: BoxDecoration(
-          color: isLoading ? null : border,
-          gradient: isLoading
-              ? const LinearGradient(colors: rainbow)
-              : null,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -3661,31 +3899,22 @@ class _BrowserDockState extends State<_BrowserDock> {
                     const SizedBox(width: 3),
                   ],
                 ),
-                if (isLoading)
-                  Positioned(
-                    top: 0,
-                    left: 54,
-                    right: 92,
-                    child: IgnorePointer(
-                      child: SizedBox(
-                        height: 2,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: FractionallySizedBox(
-                            widthFactor: progress,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(colors: rainbow),
-                                borderRadius: BorderRadius.vertical(
-                                  bottom: Radius.circular(2),
-                                ),
-                              ),
-                            ),
-                          ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([_loadMotion, _loadSettle]),
+                      builder: (context, _) => CustomPaint(
+                        foregroundPainter: _DockLoadOutlinePainter(
+                          progress: widget.progress,
+                          phase: _loadMotion.value,
+                          settle: _loadSettle.value,
+                          idleColor: border,
                         ),
+                        child: const SizedBox.expand(),
                       ),
                     ),
                   ),
+                ),
               ],
             ),
           ),
@@ -3725,11 +3954,131 @@ class _DockBtn extends StatelessWidget {
   }
 }
 
-// ─── More options sheet (Via-style, 3 swipeable pages) ────────────────────────
+const _dockRainbow = [
+  Color(0xFFFF2F78),
+  Color(0xFFFF6B35),
+  Color(0xFFFFC857),
+  Color(0xFF55D187),
+  Color(0xFF2EC4B6),
+  Color(0xFF3A86FF),
+  Color(0xFF7457D7),
+];
+
+class _DockLoadOutlinePainter extends CustomPainter {
+  final double progress;
+  final double phase;
+  final double settle;
+  final Color idleColor;
+
+  const _DockLoadOutlinePainter({
+    required this.progress,
+    required this.phase,
+    required this.settle,
+    required this.idleColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width < 8 || size.height < 8) return;
+    final bounds = Offset.zero & size;
+    final ringBounds = bounds.deflate(1.6);
+    final radius = Radius.circular(
+      (ringBounds.height / 2).clamp(0.0, 40.0).toDouble(),
+    );
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(ringBounds, radius));
+    final metrics = path.computeMetrics();
+    if (metrics.isEmpty) return;
+    final metric = metrics.first;
+    final isLoading = progress < 1;
+    final fade = isLoading ? 1.0 : (1 - settle).clamp(0.0, 1.0).toDouble();
+
+    if (!isLoading && fade <= 0.001) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = idleColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
+      return;
+    }
+
+    final sweepColors = [
+      for (var i = 0; i <= _dockRainbow.length; i++)
+        _dockRainbow[i % _dockRainbow.length].withValues(alpha: 0.24 * fade),
+    ];
+    final shader = SweepGradient(
+      colors: sweepColors,
+      transform: GradientRotation(2 * math.pi * phase),
+    ).createShader(bounds);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = shader
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6,
+    );
+
+    final end = progress.clamp(0.0, 1.0).toDouble();
+    final indeterminate = end <= 0.015;
+    final segmentLength = indeterminate ? metric.length * 0.32 : metric.length * end;
+    final start = indeterminate ? metric.length * phase : 0.0;
+    final segmentPaint = Paint()
+      ..shader = SweepGradient(
+        colors: [..._dockRainbow, _dockRainbow.first],
+        transform: GradientRotation(2 * math.pi * phase),
+      ).createShader(bounds)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2.8 * fade;
+    final glowPaint = Paint()
+      ..shader = segmentPaint.shader
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 6.5 * fade
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+
+    void drawSegment(double from, double to, Paint paint) {
+      if (to <= from) return;
+      canvas.drawPath(metric.extractPath(from, to), paint);
+    }
+
+    if (segmentLength >= metric.length) {
+      drawSegment(0, metric.length, glowPaint);
+      drawSegment(0, metric.length, segmentPaint);
+    } else if (start + segmentLength <= metric.length) {
+      drawSegment(start, start + segmentLength, glowPaint);
+      drawSegment(start, start + segmentLength, segmentPaint);
+    } else {
+      final wrappedEnd = start + segmentLength - metric.length;
+      drawSegment(start, metric.length, glowPaint);
+      drawSegment(0, wrappedEnd, glowPaint);
+      drawSegment(start, metric.length, segmentPaint);
+      drawSegment(0, wrappedEnd, segmentPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DockLoadOutlinePainter oldDelegate) =>
+      progress != oldDelegate.progress ||
+      phase != oldDelegate.phase ||
+      settle != oldDelegate.settle ||
+      idleColor != oldDelegate.idleColor;
+}
+
+// ─── Candy-style browser overflow sheet ───────────────────────────────────────
 
 class _MoreSheet extends StatefulWidget {
   final String pageTitle;
   final String url;
+  final bool canGoBack;
+  final bool canGoForward;
+  final VoidCallback onAddressTap;
+  final VoidCallback onNewTab;
+  final VoidCallback onBack;
+  final VoidCallback onForward;
+  final VoidCallback onReload;
   final bool adEnabled;
   final int blockedCount;
   final List<String> blockedElements;
@@ -3746,14 +4095,11 @@ class _MoreSheet extends StatefulWidget {
   final VoidCallback onResetRules;
   final VoidCallback onClearCookies;
   final VoidCallback onFullscreen;
-  final VoidCallback onUserAgent;
-  final VoidCallback onNetworkLog;
   final VoidCallback onNightMode;
   final VoidCallback onTextSize;
   final VoidCallback onDesktopMode;
   final VoidCallback onTranslate;
   final VoidCallback onDownload;
-  final VoidCallback onBookmark;
   final VoidCallback onQrCode;
   final VoidCallback onOrientation;
   final VoidCallback onIncognito;
@@ -3764,6 +4110,13 @@ class _MoreSheet extends StatefulWidget {
   const _MoreSheet({
     required this.pageTitle,
     required this.url,
+    required this.canGoBack,
+    required this.canGoForward,
+    required this.onAddressTap,
+    required this.onNewTab,
+    required this.onBack,
+    required this.onForward,
+    required this.onReload,
     required this.adEnabled,
     required this.blockedCount,
     required this.blockedElements,
@@ -3781,14 +4134,11 @@ class _MoreSheet extends StatefulWidget {
     required this.onResetRules,
     required this.onClearCookies,
     required this.onFullscreen,
-    required this.onUserAgent,
-    required this.onNetworkLog,
     required this.onNightMode,
     required this.onTextSize,
     required this.onDesktopMode,
     required this.onTranslate,
     required this.onDownload,
-    required this.onBookmark,
     required this.onQrCode,
     required this.onOrientation,
     required this.onIncognito,
@@ -3813,151 +4163,306 @@ class _MoreSheetState extends State<_MoreSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final bg = isDark ? const Color(0xFF19191E) : const Color(0xFFF7F7F9);
     final iconColor = isDark ? Colors.white : Colors.black87;
     final labelColor = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
-    const sectionTitles = ['Navigation', 'Protection', 'Outils'];
-    final sectionTitle = sectionTitles[_page];
+    final tileColor = isDark
+        ? Colors.white.withValues(alpha: 0.055)
+        : Colors.black.withValues(alpha: 0.045);
+    const sectionTitles = ['Actions de la page', 'Contrôles'];
 
-    Widget item(IconData? icon, String label, VoidCallback onTap, {Color? accent, bool highlight = false, String? svgAsset}) {
+    Widget item(
+      IconData? icon,
+      String label,
+      VoidCallback onTap, {
+      Color? accent,
+      bool highlight = false,
+      String? svgAsset,
+    }) {
       final effectiveColor = highlight
           ? (accent ?? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600))
           : (accent ?? iconColor);
       final iconBg = highlight
           ? (accent ?? (isDark ? Colors.greenAccent.shade400 : Colors.green.shade600)).withValues(alpha: 0.12)
-          : (isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05));
-      return GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.translucent,
-        child: SizedBox(
-          width: 62,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Center(
-                  child: svgAsset != null
-                      ? SvgPicture.asset(
-                          svgAsset,
-                          width: 26,
-                          height: 26,
-                          colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
-                        )
-                      : Icon(icon, size: 26, color: effectiveColor),
-                ),
+          : tileColor;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: tileColor,
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: highlight ? effectiveColor : (accent ?? labelColor),
-                  fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
-                  decoration: TextDecoration.none,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: svgAsset != null
+                          ? SvgPicture.asset(
+                              svgAsset,
+                              width: 22,
+                              height: 22,
+                              colorFilter: ColorFilter.mode(
+                                effectiveColor,
+                                BlendMode.srcIn,
+                              ),
+                            )
+                          : Icon(icon, size: 22, color: effectiveColor),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: iconColor,
+                        fontWeight: highlight
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (highlight)
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: effectiveColor,
+                      size: 20,
+                    )
+                  else
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: labelColor,
+                      size: 20,
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
     }
 
-    // ── Build pages ──────────────────────────────────────────────────────────
     Widget buildPage(List<Widget> items) {
-      final rows = <Widget>[];
-      for (int i = 0; i < items.length; i += 5) {
-        final rowItems = items.sublist(i, (i + 5).clamp(0, items.length));
-        while (rowItems.length < 5) rowItems.add(const SizedBox(width: 62));
-        rows.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        children: items,
+      );
+    }
+
+    Widget controlCard({
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+      bool active = false,
+      String? detail,
+    }) {
+      final activeColor = isDark ? Colors.greenAccent.shade400 : Colors.green.shade700;
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 82),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: active
+                  ? activeColor.withValues(alpha: 0.13)
+                  : tileColor,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: active
+                    ? activeColor.withValues(alpha: 0.42)
+                    : Colors.transparent,
+              ),
+            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: rowItems,
+              children: [
+                Icon(icon, color: active ? activeColor : iconColor, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: iconColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (detail != null)
+                        Text(
+                          detail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: labelColor, fontSize: 10),
+                        ),
+                    ],
+                  ),
+                ),
+                if (active)
+                  Icon(Icons.check_rounded, size: 17, color: activeColor),
+              ],
             ),
           ),
-        );
-      }
-      return Column(children: rows);
+        ),
+      );
     }
 
     final page1 = buildPage([
-      item(null, 'Chercher', widget.onFindInPage, svgAsset: 'assets/icons/search-in-page.svg'),
-      item(Icons.copy_rounded, 'Copier URL', widget.onCopyUrl),
+      item(null, 'Chercher dans la page', widget.onFindInPage, svgAsset: 'assets/icons/search-in-page.svg'),
+      item(Icons.copy_rounded, 'Copier le lien', widget.onCopyUrl),
       item(null, 'Partager', widget.onShare, svgAsset: 'assets/icons/share-2.svg'),
-      item(null, 'Navigateur', widget.onOpenBrowser, svgAsset: 'assets/icons/globe.svg'),
-      item(null, 'Source', widget.onViewSource, svgAsset: 'assets/icons/code.svg'),
-      item(null, 'Plein écran', widget.onFullscreen, svgAsset: 'assets/icons/maximize.svg'),
-      item(null, 'Cookies', widget.onClearCookies, svgAsset: 'assets/icons/trash-2.svg'),
-      item(null, 'User-Agent', widget.onUserAgent, svgAsset: 'assets/icons/user-agent.svg'),
-      item(null, 'Réseau', widget.onNetworkLog, svgAsset: 'assets/icons/network-log.svg'),
-      item(null, 'Réduire', widget.onMinimize, svgAsset: 'assets/icons/minus-circle.svg'),
-    ]);
-
-    final page2 = buildPage([
-      item(
-        null,
-        widget.adEnabled
-            ? (widget.blockedCount > 0 ? '${widget.blockedCount} bloqués' : 'AdBlock ON')
-            : 'AdBlock OFF',
-        widget.onToggleAdBlock,
-        svgAsset: 'assets/icons/block-ads.svg',
-        accent: widget.adEnabled ? Colors.greenAccent.shade400 : Colors.grey,
-        highlight: widget.adEnabled,
-      ),
-      item(null, 'Sélect. élém.', widget.onPickElement, svgAsset: 'assets/icons/edit-2.svg', accent: Colors.orange),
-      item(null, 'Masquer élém.', widget.onPickElement, svgAsset: 'assets/icons/eye-slash.svg'),
-      item(null, 'Bloquer dom.', widget.onPickElement, svgAsset: 'assets/icons/minus-circle.svg', accent: Colors.redAccent),
-      item(Icons.refresh_rounded, 'Réinitialiser', widget.onResetRules),
-      item(
-        null,
-        widget.blockedElements.isEmpty ? 'Aucun bloqué' : '${widget.blockedElements.length} règles',
-        () {},
-        svgAsset: 'assets/icons/layers.svg',
-      ),
-      item(null, 'Nuit', widget.onNightMode,
-          svgAsset: 'assets/icons/moon.svg',
-          highlight: widget.nightMode,
-          accent: widget.nightMode ? Colors.indigo.shade300 : null),
-      item(null, 'Statistiques', () => Navigator.pop(context), svgAsset: 'assets/icons/activity.svg'),
-      item(null, 'Réglages', () => Navigator.pop(context), svgAsset: 'assets/icons/settings.svg'),
-      item(null, 'Whitelist', () => Navigator.pop(context), svgAsset: 'assets/icons/block-ads.svg'),
-    ]);
-
-    final textSizeLabels = ['Texte', 'Texte+', 'Texte++'];
-    final page3 = buildPage([
-      item(null, textSizeLabels[widget.textSizeStep], widget.onTextSize,
-          svgAsset: 'assets/icons/text-size.svg',
-          highlight: widget.textSizeStep > 0,
-          accent: widget.textSizeStep > 0 ? Colors.blue.shade400 : null),
-      item(Icons.brightness_6_rounded, 'Luminosité', () => Navigator.pop(context)),
-      item(null, 'Orientation', widget.onOrientation, svgAsset: 'assets/icons/orientation.svg'),
+      item(null, 'Ouvrir dans le navigateur', widget.onOpenBrowser, svgAsset: 'assets/icons/globe.svg'),
+      item(null, 'Afficher le code source', widget.onViewSource, svgAsset: 'assets/icons/code.svg'),
+      item(null, 'Effacer les cookies', widget.onClearCookies, svgAsset: 'assets/icons/trash-2.svg'),
+      item(null, 'Traduire la page', widget.onTranslate, svgAsset: 'assets/icons/translate.svg'),
       item(null, 'Télécharger', widget.onDownload, svgAsset: 'assets/icons/download.svg'),
-      item(null, 'Favoris', widget.onBookmark, svgAsset: 'assets/icons/star.svg'),
-      item(null, 'Accueil', () => Navigator.pop(context), svgAsset: 'assets/icons/home.svg'),
-      item(null, 'QR Code', widget.onQrCode, svgAsset: 'assets/icons/qr-code.svg'),
-      item(null, 'Traduction', widget.onTranslate, svgAsset: 'assets/icons/translate.svg'),
-      item(null, 'Bureau', widget.onDesktopMode,
-          svgAsset: 'assets/icons/desktop.svg',
-          highlight: widget.desktopMode,
-          accent: widget.desktopMode ? Colors.blue.shade400 : null),
-      item(null, 'Incognito', widget.onIncognito,
-          svgAsset: 'assets/icons/ghost.svg',
-          highlight: widget.incognito,
-          accent: widget.incognito ? Colors.deepPurple.shade300 : null),
+      item(null, 'Créer un QR code', widget.onQrCode, svgAsset: 'assets/icons/qr-code.svg'),
+      item(null, 'Changer l’orientation', widget.onOrientation, svgAsset: 'assets/icons/orientation.svg'),
+      item(null, 'Plein écran', widget.onFullscreen, svgAsset: 'assets/icons/maximize.svg'),
+      item(null, 'Réduire la fenêtre', widget.onMinimize, svgAsset: 'assets/icons/minus-circle.svg'),
+      item(Icons.close_rounded, 'Fermer le WebView', widget.onCloseWebView),
     ]);
+
+    final textSizeLabels = ['Texte normal', 'Texte grand', 'Texte très grand'];
+    final page2 = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        crossAxisSpacing: 9,
+        mainAxisSpacing: 9,
+        childAspectRatio: 1.8,
+        children: [
+          controlCard(
+            icon: Icons.shield_outlined,
+            label: 'Bloqueur de pubs',
+            detail: widget.adEnabled ? '${widget.blockedCount} bloqués' : 'Désactivé',
+            active: widget.adEnabled,
+            onTap: widget.onToggleAdBlock,
+          ),
+          controlCard(
+            icon: Icons.nightlight_round,
+            label: 'Mode nuit',
+            detail: widget.nightMode ? 'Activé' : 'Désactivé',
+            active: widget.nightMode,
+            onTap: widget.onNightMode,
+          ),
+          controlCard(
+            icon: Icons.desktop_windows_rounded,
+            label: 'Version ordinateur',
+            detail: widget.desktopMode ? 'Activée' : 'Désactivée',
+            active: widget.desktopMode,
+            onTap: widget.onDesktopMode,
+          ),
+          controlCard(
+            icon: Icons.visibility_off_rounded,
+            label: 'Navigation privée',
+            detail: widget.incognito ? 'Activée' : 'Désactivée',
+            active: widget.incognito,
+            onTap: widget.onIncognito,
+          ),
+          controlCard(
+            icon: Icons.text_fields_rounded,
+            label: textSizeLabels[widget.textSizeStep],
+            detail: 'Toucher pour modifier',
+            active: widget.textSizeStep > 0,
+            onTap: widget.onTextSize,
+          ),
+          controlCard(
+            icon: Icons.touch_app_rounded,
+            label: 'Sélectionner un élément',
+            detail: 'Touchez un élément de la page',
+            onTap: widget.onPickElement,
+          ),
+          controlCard(
+            icon: Icons.layers_clear_rounded,
+            label: 'Réinitialiser les règles',
+            detail: '${widget.blockedElements.length} élément(s) bloqué(s)',
+            onTap: widget.onResetRules,
+          ),
+        ],
+      ),
+    );
+
+    Widget quickAction(
+      IconData icon,
+      String label,
+      VoidCallback onTap,
+    ) {
+      return Expanded(
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: tileColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 21),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: labelColor, fontSize: 10),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget toolbarAction(
+      IconData icon,
+      String label,
+      VoidCallback? onTap, {
+      bool enabled = true,
+    }) {
+      return Expanded(
+        child: IconButton(
+          onPressed: enabled ? onTap : null,
+          tooltip: label,
+          icon: Icon(
+            icon,
+            color: enabled ? iconColor : labelColor.withValues(alpha: 0.35),
+          ),
+        ),
+      );
+    }
 
     return Container(
-      // Pleine largeur, arrondi uniquement en haut
       decoration: BoxDecoration(
         color: bg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
@@ -3972,148 +4477,178 @@ class _MoreSheetState extends State<_MoreSheet> {
       child: SafeArea(
         top: false,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.fromLTRB(0, 12, 0, 10),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.black26,
-                  borderRadius: BorderRadius.circular(2),
+            InkWell(
+              onTap: () => Navigator.of(context).pop(),
+              child: SizedBox(
+                height: 28,
+                width: double.infinity,
+                child: Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white30 : Colors.black26,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 0, 12, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          sectionTitle,
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              child: Material(
+                color: tileColor,
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  onTap: widget.onAddressTap,
+                  borderRadius: BorderRadius.circular(18),
+                  child: SizedBox(
+                    height: 54,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 13),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Uri.tryParse(widget.url)?.scheme == 'https'
+                                ? Icons.lock_rounded
+                                : Icons.language_rounded,
+                            color: iconColor,
+                            size: 19,
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.pageTitle.isNotEmpty
-                              ? '${_displayHost(widget.url)} · ${widget.pageTitle}'
-                              : _displayHost(widget.url),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isDark
-                                ? Colors.grey.shade400
-                                : Colors.grey.shade600,
-                            fontSize: 12,
+                          const SizedBox(width: 11),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _displayHost(widget.url),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: iconColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (widget.pageTitle.isNotEmpty)
+                                  Text(
+                                    widget.pageTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: labelColor,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          Icon(Icons.edit_rounded, color: labelColor, size: 18),
+                        ],
+                      ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    tooltip: 'Fermer',
-                    icon: const Icon(Icons.close_rounded),
-                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
+              child: Row(
+                children: [
+                  quickAction(Icons.add_rounded, 'Nouvel onglet', widget.onNewTab),
+                  quickAction(Icons.share_rounded, 'Partager', widget.onShare),
+                  quickAction(Icons.copy_rounded, 'Copier URL', widget.onCopyUrl),
+                  quickAction(Icons.download_rounded, 'Télécharger', widget.onDownload),
+                  quickAction(Icons.qr_code_rounded, 'QR code', widget.onQrCode),
                 ],
               ),
             ),
-
-            // PageView — 3 pages
-            SizedBox(
-              height: 190,
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-                child: PageView(
-                  controller: _pageCtrl,
-                  onPageChanged: (i) => setState(() => _page = i),
-                  children: [
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: page1),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: page2),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: page3),
-                  ],
-                ),
-              ),
-            ),
-
-            // Dots — cercles uniformes, bien centrés
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (i) {
-                  final active = _page == i;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: active ? 18 : 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(3),
-                      color: active
-                          ? (isDark ? Colors.white.withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.72))
-                          : (isDark ? Colors.white.withValues(alpha: 0.22) : Colors.black.withValues(alpha: 0.18)),
+                children: List.generate(2, (index) {
+                  final selected = _page == index;
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: index == 0 ? 8 : 0),
+                      child: Material(
+                        color: selected
+                            ? (isDark
+                                ? Colors.white.withValues(alpha: 0.14)
+                                : Colors.black.withValues(alpha: 0.09))
+                            : tileColor,
+                        borderRadius: BorderRadius.circular(14),
+                        child: InkWell(
+                          onTap: () => _pageCtrl.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          child: SizedBox(
+                            height: 44,
+                            child: Center(
+                              child: Text(
+                                sectionTitles[index],
+                                style: TextStyle(
+                                  color: iconColor,
+                                  fontSize: 13,
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 }),
               ),
             ),
-
-            // Boutons Power + Chevron — alignés à droite
+            Expanded(
+              child: PageView(
+                controller: _pageCtrl,
+                onPageChanged: (i) => setState(() => _page = i),
+                children: [page1, page2],
+              ),
+            ),
+            Divider(height: 1, color: tileColor),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 20, 14),
+              padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Power = fermer le WebView
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      widget.onCloseWebView();
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.power_settings_new_rounded,
-                        size: 22,
-                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.50),
-                      ),
-                    ),
+                  toolbarAction(
+                    Icons.arrow_back_rounded,
+                    'Retour',
+                    widget.onBack,
+                    enabled: widget.canGoBack,
                   ),
-                  const SizedBox(width: 10),
-                  // Chevron bas = fermer le sheet
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 26,
-                        color: isDark ? Colors.white.withValues(alpha: 0.65) : Colors.black.withValues(alpha: 0.50),
-                      ),
-                    ),
+                  toolbarAction(
+                    Icons.arrow_forward_rounded,
+                    'Suivant',
+                    widget.onForward,
+                    enabled: widget.canGoForward,
                   ),
-                ],
+                  toolbarAction(
+                    Icons.refresh_rounded,
+                    'Actualiser',
+                    widget.onReload,
+                  ),
+                  toolbarAction(
+                    Icons.copy_rounded,
+                    'Copier URL',
+                    widget.onCopyUrl,
+                  ),
+                  toolbarAction(
+                    Icons.add_rounded,
+                    'Nouvel onglet',
+                    widget.onNewTab,
+                  ),
+                ),
               ),
             ),
           ],
@@ -4629,21 +5164,6 @@ class _AdBlockFullPage extends StatelessWidget {
                     subtitle: Text('Remet le compteur à 0 et efface les règles personnalisées', style: TextStyle(fontSize: 11, color: subColor)),
                     trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
                     onTap: () { onReset(); Navigator.pop(context); },
-                  ),
-
-                  Divider(height: 1, color: divColor),
-
-                  // Whitelist (placeholder)
-                  ListTile(
-                    leading: Container(
-                      width: 38, height: 38,
-                      decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                      child: Icon(Icons.playlist_remove_rounded, size: 20, color: Colors.blue.shade400),
-                    ),
-                    title: Text('Liste blanche', style: TextStyle(color: textColor, fontSize: 14)),
-                    subtitle: Text('Sites exemptés du filtrage', style: TextStyle(fontSize: 11, color: subColor)),
-                    trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
-                    onTap: () {},
                   ),
 
                   // Blocked elements list
