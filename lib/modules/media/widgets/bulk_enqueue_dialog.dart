@@ -114,14 +114,27 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
                     : c.paused
                     ? 'Mise en file en pause'
                     : 'Mise en file d’attente',
-                style: TextStyle(color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: cs.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
-                '${c.done}/${c.total} éléments'
-                '${c.queued > 0 ? ' · ${c.queued} vidéo(s)' : ''}'
+                '${c.done}/${c.total} vidéos traitées'
+                '${c.queued > 0 ? ' · ${c.queued} ajoutées' : ''}'
                 '${c.failed > 0 ? ' · ${c.failed} échec(s)' : ''}',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                c.estimatedSizeSummary,
+                style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -135,7 +148,9 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
   Widget _itemCard(ColorScheme cs, BulkEnqueueController c, int index) {
     final isProcessing = index == c.done;
     final isDone = index < c.done;
-    final title = index < widget.titles.length ? widget.titles[index] : 'Élément ${index + 1}';
+    final title = index < widget.titles.length
+        ? widget.titles[index]
+        : 'Élément ${index + 1}';
     return AnimatedOpacity(
       opacity: index <= c.done ? 1 : 0.45,
       duration: const Duration(milliseconds: 220),
@@ -145,7 +160,9 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(10),
-          border: isProcessing ? Border.all(color: cs.primary.withValues(alpha: 0.6)) : null,
+          border: isProcessing
+              ? Border.all(color: cs.primary.withValues(alpha: 0.6))
+              : null,
         ),
         child: Row(
           children: [
@@ -153,10 +170,18 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
               width: 16,
               height: 16,
               child: isDone
-                  ? const Icon(Icons.check_circle_rounded, size: 16, color: mbGreen)
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      size: 16,
+                      color: mbGreen,
+                    )
                   : isProcessing
                   ? const CircularProgressIndicator(strokeWidth: 2)
-                  : Icon(Icons.schedule_rounded, size: 16, color: cs.onSurfaceVariant),
+                  : Icon(
+                      Icons.schedule_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant,
+                    ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -180,7 +205,10 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
         Expanded(
           child: TextButton.icon(
             onPressed: c.cancelled || c.finished ? null : c.togglePause,
-            icon: Icon(isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded, size: 18),
+            icon: Icon(
+              isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              size: 18,
+            ),
             label: Text(isPaused ? 'Reprendre' : 'Pause'),
           ),
         ),

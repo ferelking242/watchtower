@@ -2,12 +2,12 @@ import 'dart:async';
 
 /// Bounded-concurrency helpers.
 ///
-/// Extension runtimes are non-reentrant per source (see
-/// `ExtensionServiceRegistry`), and every call for one source is serialized by
-/// its queue. Running several `get` calls for the *same* source in parallel is
-/// therefore pointless: they will run one after another anyway. Running them
-/// for *different* sources (or plain network/disk work that does not touch an
-/// extension runtime) is what these helpers are for.
+/// Extension runtimes are non-reentrant per source within one isolate (see
+/// `ExtensionServiceRegistry`), and calls there are serialized by their queue.
+/// Running several `get` calls for the *same* source on that runtime is
+/// pointless. The bulk-download sheet is a deliberate exception: it pins
+/// independent entries to separate worker isolates, each with its own runtime.
+/// For other work, run different sources or plain network/disk requests here.
 ///
 /// They replace the common `for (final x in xs) { await f(x); }` pattern, which
 /// serializes independent network and disk requests and is the main reason
@@ -101,4 +101,28 @@ Future<void> forEachParallel<T>(
   if (firstError != null) {
     Error.throwWithStackTrace(firstError!, firstStack!);
   }
+}
+
+/// Runs [task] over [items] with bounded concurrency and a stable slot per
+/// worker. Use the slot to pin a sequence of related calls to one isolate.
+Future<void> forEachParallelWithWorkerSlots<T>(
+  Iterable<T> items,
+  int maxConcurrent,
+  Future<void> Function(T item, int workerSlot) task,
+) async {
+  final list = items.toList(growable: false);
+  if (list.isEmpty) return;
+  final requested = maxConcurrent < 1 ? 1 : maxConcurrent;
+  final limit = requested < list.length ? requested : list.length;
+
+  var next = 0;
+  Future<void> worker(int workerSlot) async {
+    while (true) {
+      final index = next++;
+      if (index >= list.length) return;
+      await task(list[index], workerSlot);
+    }
+  }
+
+  await Future.wait([for (var slot = 0; slot < limit; slot++) worker(slot)]);
 }

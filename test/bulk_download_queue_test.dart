@@ -1,7 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/eval/model/m_chapter.dart';
+import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/media/widgets/bulk_enqueue_controller.dart';
 import 'package:watchtower/modules/media/widgets/catalog_bulk_download_sheet.dart';
 import 'package:watchtower/utils/cover_url.dart';
+
+BulkDownloadItem _item(int? estimatedBytesPerVideo, {int videos = 1}) {
+  return BulkDownloadItem(
+    item: MManga(name: 'Video'),
+    detail: MManga(name: 'Video'),
+    chapters: [
+      for (var i = 0; i < videos; i++)
+        MChapter(name: 'Episode ${i + 1}', url: 'https://example.com/$i'),
+    ],
+    estimatedBytesPerVideo: estimatedBytesPerVideo,
+  );
+}
 
 void main() {
   group('normalizeCoverUrl', () {
@@ -26,11 +40,14 @@ void main() {
 
   group('mosaicGrid', () {
     test('reports the grid geometry of known sprite sheets', () {
-      expect(
-        mosaicGrid('https://x/mozaique_listing.jpg'),
-        (columns: 3, rows: 3),
-      );
-      expect(mosaicGrid('https://x/mozaique_full.jpg'), (columns: 10, rows: 10));
+      expect(mosaicGrid('https://x/mozaique_listing.jpg'), (
+        columns: 3,
+        rows: 3,
+      ));
+      expect(mosaicGrid('https://x/mozaique_full.jpg'), (
+        columns: 10,
+        rows: 10,
+      ));
     });
 
     test('is null for a single-frame picture', () {
@@ -83,6 +100,32 @@ void main() {
       expect(controller.failed, 1);
       expect(controller.progress, closeTo(0.75, 0.001));
       expect(controller.remaining, 1);
+    });
+  });
+
+  group('BulkDownloadPlan size summary', () {
+    const mb = 1024 * 1024;
+
+    test('sums the selected video sizes without rounding', () {
+      final plan = BulkDownloadPlan(
+        items: [_item(30 * mb), _item(70 * mb), _item(20 * mb)],
+      );
+
+      expect(plan.totalVideos, 3);
+      expect(plan.totalEstimatedBytes, 120 * mb);
+      expect(plan.unestimatedVideos, 0);
+      expect(plan.estimatedSizeSummary, contains('120.0MB'));
+    });
+
+    test('multiplies series estimates and reports unknown video sizes', () {
+      final plan = BulkDownloadPlan(
+        items: [_item(25 * mb, videos: 2), _item(null)],
+      );
+
+      expect(plan.totalVideos, 3);
+      expect(plan.totalEstimatedBytes, 50 * mb);
+      expect(plan.unestimatedVideos, 1);
+      expect(plan.estimatedSizeSummary, contains('estimation partielle'));
     });
   });
 }

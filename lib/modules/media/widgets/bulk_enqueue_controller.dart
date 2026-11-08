@@ -12,13 +12,18 @@ import 'package:watchtower/services/update_notification_service.dart';
 /// and the worker pool that performs the enqueues. Pausing here suspends the
 /// workers; cancelling stops them after the in-flight item.
 class BulkEnqueueController extends ChangeNotifier {
-  BulkEnqueueController({required this.total});
+  BulkEnqueueController({
+    required this.total,
+    this.estimatedSizeSummary = 'Poids indisponible',
+  });
 
   /// The controller currently driving a run, so a notification action can find
   /// it back after the dialog was dismissed.
   static BulkEnqueueController? active;
 
+  /// Number of selected videos, rather than the number of catalogue rows.
   final int total;
+  final String estimatedSizeSummary;
 
   int done = 0;
   int queued = 0;

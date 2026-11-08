@@ -108,6 +108,8 @@ void _forwardExtensionLog(String message) {
 }
 
 class GetIsolateService {
+  static const Object _workerSlotZoneKey = #watchtowerExtensionWorkerSlot;
+
   bool _isRunning = false;
   RootIsolateToken? _rootIsolateToken;
   SendPort? _browserPort;
@@ -129,6 +131,21 @@ class GetIsolateService {
 
   /// Number of spawned extension workers.
   int get workerCount => _workers.length;
+
+  /// Worker slot selected by [runOnWorkerSlot] in the current async context.
+  int? get currentWorkerSlot => Zone.current[_workerSlotZoneKey] as int?;
+
+  /// Pins extension calls made inside [action] to one worker isolate.
+  ///
+  /// A source's QuickJS runtime is intentionally serial within an isolate. A
+  /// bulk operation can use a different slot for each independent video to
+  /// resolve several videos at once without making one runtime reentrant.
+  Future<T> runOnWorkerSlot<T>(int workerSlot, Future<T> Function() action) {
+    return runZoned<Future<T>>(
+      action,
+      zoneValues: {_workerSlotZoneKey: workerSlot},
+    );
+  }
 
   /// In-flight startup, shared by every caller.
   ///
@@ -225,11 +242,9 @@ class GetIsolateService {
       );
       // Push the active log filters right after the handshake, so the worker
       // never starts by forwarding noise the root isolate would throw away.
-      worker.sendPort?.send(
-        <String, Object?>{
-          kWorkerLogFilterKey: AppLogger.workerFilterSnapshot,
-        },
-      );
+      worker.sendPort?.send(<String, Object?>{
+        kWorkerLogFilterKey: AppLogger.workerFilterSnapshot,
+      });
       return worker;
     } catch (_) {
       worker.isolate?.kill(priority: Isolate.immediate);
@@ -243,7 +258,23 @@ class GetIsolateService {
       '${source?.id ?? source?.name ?? source?.hashCode}:'
       '${source?.lang ?? ""}';
 
-  Future<_ExtensionWorker> _workerForSource(Source? source) async {
+  Future<_ExtensionWorker> _workerForSource(
+    Source? source, {
+    int? workerSlot,
+  }) async {
+    if (workerSlot != null) {
+      while (true) {
+        if (_workers.isEmpty) {
+          throw StateError('No healthy extension worker is available');
+        }
+        final index = workerSlot % _workers.length;
+        final worker = _workers[index];
+        final restart = worker.restartFuture;
+        if (restart == null) return worker;
+        await restart;
+      }
+    }
+
     final key = _sourceKey(source);
     final existing = _sourceWorkers[key];
     if (existing != null) {
@@ -322,7 +353,9 @@ class GetIsolateService {
         tag: LogTag.extension_,
       );
     } catch (e, st) {
-      _sourceWorkers.removeWhere((_, worker) => identical(worker, failedWorker));
+      _sourceWorkers.removeWhere(
+        (_, worker) => identical(worker, failedWorker),
+      );
       _workers.remove(failedWorker);
       _isRunning = _workers.isNotEmpty;
       AppLogger.log(
@@ -376,9 +409,7 @@ class GetIsolateService {
             // Log-filter updates from the root isolate. Checked first: the
             // payload is a Map, and every other Map on this port is a call.
             if (message is Map && message.containsKey(kWorkerLogFilterKey)) {
-              AppLogger.applyWorkerFilterSnapshot(
-                message[kWorkerLogFilterKey],
-              );
+              AppLogger.applyWorkerFilterSnapshot(message[kWorkerLogFilterKey]);
               return;
             }
             if (message is Map<String, dynamic>) {
@@ -398,7 +429,8 @@ class GetIsolateService {
                 useLogger = useLoggerValue;
               }
 
-              final srcId = '${source?.name ?? source?.id ?? "?"}[${source?.lang ?? "?"}]';
+              final srcId =
+                  '${source?.name ?? source?.id ?? "?"}[${source?.lang ?? "?"}]';
 
               // ── Timing + entry log ──
               final sw = Stopwatch()..start();
@@ -413,38 +445,36 @@ class GetIsolateService {
               responsePort.send({'started': true});
 
               try {
-                final result = await withExtensionService(
-                  source!,
-                  (service) async {
-                    switch (serviceType) {
-                      case 'getDetail':
-                        return await service.getDetail(url!);
-                      case 'getPopular':
-                        return await service.getPopular(page!);
-                      case 'getLatestUpdates':
-                        return await service.getLatestUpdates(page!);
-                      case 'search':
-                        return await service.search(query!, page!, filterList!);
-                      case 'getCustomList':
-                        return await service.getCustomList(url!, page!);
-                      case 'getVideoList':
-                        return await service.getVideoList(url!);
-                      case 'getPageList':
-                        return await service.getPageList(url!);
-                      case 'getHeaders':
-                        return Future.value(service.getHeaders());
-                      case 'getRecommendations':
-                        return await service.getRecommendations(url!);
-                      case 'getComments':
-                        return await service.getComments(url!);
-                      case 'getSuggestions':
-                        return await service.getSuggestions(query!);
-                      default:
-                        throw Exception('Unknown service type: $serviceType');
-                    }
-                  },
-                  serviceType: serviceType,
-                );
+                final result = await withExtensionService(source!, (
+                  service,
+                ) async {
+                  switch (serviceType) {
+                    case 'getDetail':
+                      return await service.getDetail(url!);
+                    case 'getPopular':
+                      return await service.getPopular(page!);
+                    case 'getLatestUpdates':
+                      return await service.getLatestUpdates(page!);
+                    case 'search':
+                      return await service.search(query!, page!, filterList!);
+                    case 'getCustomList':
+                      return await service.getCustomList(url!, page!);
+                    case 'getVideoList':
+                      return await service.getVideoList(url!);
+                    case 'getPageList':
+                      return await service.getPageList(url!);
+                    case 'getHeaders':
+                      return Future.value(service.getHeaders());
+                    case 'getRecommendations':
+                      return await service.getRecommendations(url!);
+                    case 'getComments':
+                      return await service.getComments(url!);
+                    case 'getSuggestions':
+                      return await service.getSuggestions(query!);
+                    default:
+                      throw Exception('Unknown service type: $serviceType');
+                  }
+                }, serviceType: serviceType);
                 sw.stop();
 
                 // ── Result summary log ──
@@ -461,7 +491,9 @@ class GetIsolateService {
                 } else {
                   resultSummary = result.runtimeType.toString();
                 }
-                print('[EXT][INFO] ◀ $serviceType [$srcId] OK ${sw.elapsedMilliseconds}ms → $resultSummary');
+                print(
+                  '[EXT][INFO] ◀ $serviceType [$srcId] OK ${sw.elapsedMilliseconds}ms → $resultSummary',
+                );
 
                 responsePort.send({'success': true, 'data': result});
               } catch (e, st) {
@@ -470,18 +502,27 @@ class GetIsolateService {
                 // whether it is an extension bug or an app/network bug.
                 final errStr = e.toString();
                 final String blame;
-                if (errStr.contains('JS CRASH') || errStr.contains('JS error') || errStr.contains('failed to initialise')) {
+                if (errStr.contains('JS CRASH') ||
+                    errStr.contains('JS error') ||
+                    errStr.contains('failed to initialise')) {
                   blame = '← BUG IN EXTENSION JS';
-                } else if (errStr.contains('SocketException') || errStr.contains('HttpException') || errStr.contains('Connection refused') || errStr.contains('CORS')) {
+                } else if (errStr.contains('SocketException') ||
+                    errStr.contains('HttpException') ||
+                    errStr.contains('Connection refused') ||
+                    errStr.contains('CORS')) {
                   blame = '← NETWORK ERROR (check URL / connectivity)';
-                } else if (errStr.contains('JSON') || errStr.contains('FormatException')) {
+                } else if (errStr.contains('JSON') ||
+                    errStr.contains('FormatException')) {
                   blame = '← EXTENSION returned malformed data';
-                } else if (errStr.contains('Timeout') || errStr.contains('timeout')) {
+                } else if (errStr.contains('Timeout') ||
+                    errStr.contains('timeout')) {
                   blame = '← TIMEOUT (slow server or extension infinite loop)';
                 } else {
                   blame = '← APP ERROR (check Dart stack trace)';
                 }
-                print('[EXT][ERROR] ✗ $serviceType [$srcId] FAILED ${sw.elapsedMilliseconds}ms $blame: $errStr');
+                print(
+                  '[EXT][ERROR] ✗ $serviceType [$srcId] FAILED ${sw.elapsedMilliseconds}ms $blame: $errStr',
+                );
                 // Log first 8 stack-trace lines
                 final stLines = st.toString().split('\n').take(8).join('\n  ');
                 print('[EXT][DEBUG] Stack:\n  $stLines');
@@ -531,7 +572,9 @@ class GetIsolateService {
       case 'getSuggestions':
         return <String>[] as T;
       default:
-        throw Exception('Web: unsupported service type "$serviceType" for local/mock source');
+        throw Exception(
+          'Web: unsupported service type "$serviceType" for local/mock source',
+        );
     }
   }
 
@@ -543,38 +586,34 @@ class GetIsolateService {
     Source? source,
     String? serviceType,
   }) async {
-    return withExtensionService<T>(
-      source!,
-      (service) async {
-        switch (serviceType) {
-          case 'getDetail':
-            return await service.getDetail(url!) as T;
-          case 'getPopular':
-            return await service.getPopular(page!) as T;
-          case 'getLatestUpdates':
-            return await service.getLatestUpdates(page!) as T;
-          case 'search':
-            return await service.search(query!, page!, filterList!) as T;
-          case 'getCustomList':
-            return await service.getCustomList(url!, page!) as T;
-          case 'getVideoList':
-            return await service.getVideoList(url!) as T;
-          case 'getPageList':
-            return await service.getPageList(url!) as T;
-          case 'getHeaders':
-            return service.getHeaders() as T;
-          case 'getRecommendations':
-            return await service.getRecommendations(url!) as T;
-          case 'getComments':
-            return await service.getComments(url!) as T;
-          case 'getSuggestions':
-            return await service.getSuggestions(query!) as T;
-          default:
-            throw Exception('Unknown service type: $serviceType');
-        }
-      },
-      serviceType: serviceType,
-    );
+    return withExtensionService<T>(source!, (service) async {
+      switch (serviceType) {
+        case 'getDetail':
+          return await service.getDetail(url!) as T;
+        case 'getPopular':
+          return await service.getPopular(page!) as T;
+        case 'getLatestUpdates':
+          return await service.getLatestUpdates(page!) as T;
+        case 'search':
+          return await service.search(query!, page!, filterList!) as T;
+        case 'getCustomList':
+          return await service.getCustomList(url!, page!) as T;
+        case 'getVideoList':
+          return await service.getVideoList(url!) as T;
+        case 'getPageList':
+          return await service.getPageList(url!) as T;
+        case 'getHeaders':
+          return service.getHeaders() as T;
+        case 'getRecommendations':
+          return await service.getRecommendations(url!) as T;
+        case 'getComments':
+          return await service.getComments(url!) as T;
+        case 'getSuggestions':
+          return await service.getSuggestions(query!) as T;
+        default:
+          throw Exception('Unknown service type: $serviceType');
+      }
+    }, serviceType: serviceType);
   }
 
   Future<T> get<T>({
@@ -590,8 +629,7 @@ class GetIsolateService {
     // ── Web path ──────────────────────────────────────────────────────────
     if (kIsWeb) {
       final isLocalOrMock =
-          source?.isLocal == true ||
-          (source?.sourceCode?.isEmpty ?? true);
+          source?.isLocal == true || (source?.sourceCode?.isEmpty ?? true);
 
       if (isLocalOrMock) {
         return _webLocalFallback<T>(url: url, serviceType: serviceType);
@@ -620,7 +658,8 @@ class GetIsolateService {
       throw Exception('Isolate not running');
     }
 
-    final worker = await _workerForSource(source);
+    final workerSlot = Zone.current[_workerSlotZoneKey] as int?;
+    final worker = await _workerForSource(source, workerSlot: workerSlot);
     final responsePort = ReceivePort();
     final completer = Completer<T>();
     late final StreamSubscription sub;
@@ -667,12 +706,11 @@ class GetIsolateService {
         // QuickJS work inside the worker. Restarting it clears the blocked
         // per-source queue so a retry does not hang behind this request.
         unawaited(
-          _restartWorker(worker).catchError(
-            (Object _, StackTrace _) {},
-          ),
+          _restartWorker(worker).catchError((Object _, StackTrace _) {}),
         );
       });
     }
+
     armTimeout(executionBudget + const Duration(seconds: 60), 'queue');
 
     sub = responsePort.listen((response) {

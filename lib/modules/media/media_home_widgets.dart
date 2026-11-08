@@ -1970,13 +1970,23 @@ abstract final class CatalogBulkDownload {
     if (plan == null || plan.items.isEmpty) return;
     if (!context.mounted) return;
 
-    final controller = BulkEnqueueController(total: plan.items.length);
+    final controller = BulkEnqueueController(
+      total: plan.totalVideos,
+      estimatedSizeSummary: plan.estimatedSizeSummary,
+    );
     BulkEnqueueController.active = controller;
     final titles = [
       for (final entry in plan.items)
-        entry.item.name?.trim().isNotEmpty == true
-            ? entry.item.name!.trim()
-            : 'Vidéo',
+        ...entry.chapters.map((chapter) {
+          final itemTitle = entry.item.name?.trim().isNotEmpty == true
+              ? entry.item.name!.trim()
+              : 'Vidéo';
+          if (entry.chapters.length == 1) return itemTitle;
+          final episodeTitle = chapter.name?.trim().isNotEmpty == true
+              ? chapter.name!.trim()
+              : 'Épisode';
+          return '$itemTitle · $episodeTitle';
+        }),
     ];
     BuildContext? dialogContext;
     void closeDialog() {
@@ -2020,15 +2030,12 @@ abstract final class CatalogBulkDownload {
       while (await controller.waitTurn()) {
         if (nextIndex >= plan.items.length) return;
         final index = nextIndex++;
+        final item = plan.items[index];
         try {
-          final chapters = await _enqueueItemDownloads(
-            ref,
-            source,
-            plan.items[index],
-          );
-          controller.report(queued: chapters);
+          final result = await _enqueueItemDownloads(ref, source, item);
+          controller.report(queued: result.queued, failed: result.failed);
         } catch (_) {
-          controller.report(failed: 1);
+          controller.report(failed: item.chapters.length);
         }
       }
     }
@@ -2041,6 +2048,7 @@ abstract final class CatalogBulkDownload {
       final queued = controller.queued;
       final failed = controller.failed;
       final remaining = controller.remaining;
+      final weightSummary = ' · ${controller.estimatedSizeSummary}';
       controller.complete();
       if (!controller.backgrounded) closeDialog();
       if (context.mounted) {
@@ -2050,10 +2058,12 @@ abstract final class CatalogBulkDownload {
               cancelled
                   ? 'Annulé · $queued ajouté(s), '
                         '$failed échec(s), $remaining restant(s).'
+                        '$weightSummary'
                   : failed == 0
-                  ? 'Téléchargements ajoutés à la file : $queued.'
+                  ? 'Téléchargements ajoutés à la file : '
+                        '$queued vidéo(s)$weightSummary.'
                   : '$queued téléchargement(s) mis en file, '
-                        '$failed échec(s).',
+                        '$failed échec(s)$weightSummary.',
             ),
           ),
         );
@@ -2068,7 +2078,7 @@ abstract final class CatalogBulkDownload {
   /// d'épisodes retenus ; une qualité sélectionnée est mémorisée via
   /// [chapterPreferredQuality] pour que le moteur télécharge réellement la
   /// bonne résolution (avec repli supérieure/inférieure si demandé).
-  static Future<int> _enqueueItemDownloads(
+  static Future<({int queued, int failed})> _enqueueItemDownloads(
     WidgetRef ref,
     Source source,
     BulkDownloadItem plan,
@@ -2122,6 +2132,7 @@ abstract final class CatalogBulkDownload {
       for (final video in plan.chapters)
         if (video.url?.trim().isNotEmpty == true) video.url!.trim(),
     };
+    final resolvedUrls = <String>{};
     final queue = <Chapter>[];
     isar.writeTxnSync(() {
       loaded.id = isar.mangas.putSync(loaded);
@@ -2131,6 +2142,7 @@ abstract final class CatalogBulkDownload {
         if (selectedUrls.isNotEmpty && !selectedUrls.contains(videoUrl)) {
           continue;
         }
+        if (!resolvedUrls.add(videoUrl)) continue;
         final chapter =
             chaptersByUrl[videoUrl] ??
             Chapter(
@@ -2148,10 +2160,15 @@ abstract final class CatalogBulkDownload {
         queue.add(chapter);
       }
     });
-    if (queue.isEmpty) return 0;
+    final notResolved = (plan.chapters.length - queue.length)
+        .clamp(0, plan.chapters.length)
+        .toInt();
+    if (queue.isEmpty) return (queued: 0, failed: plan.chapters.length);
     final quality = plan.quality;
     final language = plan.language;
     final fallback = plan.fallback;
+    var queued = 0;
+    var failed = notResolved;
     for (final chapter in queue) {
       if (chapter.id != null) {
         if (quality != null) {
@@ -2162,14 +2179,19 @@ abstract final class CatalogBulkDownload {
           chapterPreferredLang[chapter.id!] = language;
         }
       }
-      await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
-      if (chapter.id != null) {
-        ref
-            .read(downloadQueueStateProvider.notifier)
-            .setPaused(chapter.id!, false);
+      try {
+        await ref.read(addDownloadToQueueProvider(chapter: chapter).future);
+        if (chapter.id != null) {
+          ref
+              .read(downloadQueueStateProvider.notifier)
+              .setPaused(chapter.id!, false);
+        }
+        queued++;
+      } catch (_) {
+        failed++;
       }
     }
-    return queue.length;
+    return (queued: queued, failed: failed);
   }
 }
 
@@ -2201,16 +2223,15 @@ class CatalogDownloadMenuButton extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(Broken.more_2, size: 22),
       ),
-      contentBuilder: (close) =>
-          _CatalogDownloadMenuOverlay(
-            close: close,
-            onSelected: onSelected,
-            onRefresh: onRefresh,
-            onSelectMultiple: onSelectMultiple,
-            selectionActive: selectionActive,
-            selectedCount: selectedCount,
-            onDownloadSelection: onDownloadSelection,
-          ),
+      contentBuilder: (close) => _CatalogDownloadMenuOverlay(
+        close: close,
+        onSelected: onSelected,
+        onRefresh: onRefresh,
+        onSelectMultiple: onSelectMultiple,
+        selectionActive: selectionActive,
+        selectedCount: selectedCount,
+        onDownloadSelection: onDownloadSelection,
+      ),
     );
   }
 }
@@ -2289,8 +2310,7 @@ class _CatalogDownloadMenuOverlayState
                   : 'Sélection multiple',
               onTap: () => _runAction(widget.onSelectMultiple!),
             ),
-          if (widget.onDownloadSelection != null &&
-              widget.selectedCount > 0)
+          if (widget.onDownloadSelection != null && widget.selectedCount > 0)
             AdaptiveOverlayItem(
               icon: Broken.document_download,
               label: 'Télécharger la sélection (${widget.selectedCount})',

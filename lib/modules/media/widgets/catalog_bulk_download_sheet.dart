@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
@@ -7,7 +8,8 @@ import 'package:watchtower/eval/model/m_chapter.dart';
 import 'package:watchtower/models/chapter.dart' as db_chapter;
 import 'package:watchtower/models/manga.dart' as db_manga;
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/modules/media/app_ui_components.dart' show AppShimmerBlock;
+import 'package:watchtower/modules/media/app_ui_components.dart'
+    show AppShimmerBlock;
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart'
     show QualityFallback;
 import 'package:watchtower/modules/media/extension_image_headers.dart';
@@ -15,8 +17,10 @@ import 'package:watchtower/modules/media/widgets/bulk_download_formats.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/get_video_list.dart';
+import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/concurrency.dart';
 import 'package:watchtower/utils/cover_url.dart';
 
 /// One catalogue entry resolved for the batch: its detail, the episodes kept
@@ -28,6 +32,7 @@ class BulkDownloadItem {
     required this.chapters,
     this.quality,
     this.language,
+    this.estimatedBytesPerVideo,
     this.fallback = QualityFallback.exact,
   });
 
@@ -36,6 +41,7 @@ class BulkDownloadItem {
   final List<MChapter> chapters;
   final String? quality;
   final String? language;
+  final int? estimatedBytesPerVideo;
 
   /// Strategy used by the engine when [quality] is absent from the episode's
   /// real video list (supérieure / inférieure / exacte).
@@ -47,6 +53,28 @@ class BulkDownloadPlan {
   const BulkDownloadPlan({required this.items});
 
   final List<BulkDownloadItem> items;
+
+  int get totalVideos =>
+      items.fold(0, (sum, item) => sum + item.chapters.length);
+
+  int get totalEstimatedBytes => items.fold(
+    0,
+    (sum, item) =>
+        sum + (item.estimatedBytesPerVideo ?? 0) * item.chapters.length,
+  );
+
+  int get unestimatedVideos => items.fold(
+    0,
+    (sum, item) =>
+        sum + (item.estimatedBytesPerVideo == null ? item.chapters.length : 0),
+  );
+
+  String get estimatedSizeSummary {
+    final label = formatVideoBytes(totalEstimatedBytes);
+    if (label == null) return 'Poids indisponible';
+    if (unestimatedVideos > 0) return '$label connus · estimation partielle';
+    return '≈ $label au total';
+  }
 }
 
 const LinearGradient _kSheetGradient = LinearGradient(
@@ -69,7 +97,8 @@ Future<BulkDownloadPlan?> showCatalogBulkDownloadSheet({
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     elevation: 0,
-    builder: (_) => _CatalogBulkDownloadSheet(ref: ref, source: source, items: items),
+    builder: (_) =>
+        _CatalogBulkDownloadSheet(ref: ref, source: source, items: items),
   );
 }
 
@@ -84,10 +113,13 @@ class _ResolvedVideo {
   List<String> qualities = const [];
   List<String> languages = const [];
   bool formatsLoading = false;
+  bool sizesLoading = false;
 
-  /// Size label per resolution key, filled asynchronously by
-  /// [probeFormatSizes] so the row renders before the probes finish.
-  Map<String, String> sizeByResolution = {};
+  /// Size in bytes per resolution key, filled asynchronously by
+  /// [probeFormatSizeBytes] so the row renders before the probes finish.
+  Map<String, int> sizeBytesByResolution = {};
+  Set<String> completedSizeResolutions = {};
+  String? autoResolutionKey;
 
   /// Resolutions already downloaded for this item. They are removed from the
   /// picker so a second identical download is never offered.
@@ -137,14 +169,19 @@ String? seasonOf(String? name) {
 }
 
 class _CatalogBulkDownloadSheet extends StatefulWidget {
-  const _CatalogBulkDownloadSheet({required this.ref, required this.source, required this.items});
+  const _CatalogBulkDownloadSheet({
+    required this.ref,
+    required this.source,
+    required this.items,
+  });
 
   final WidgetRef ref;
   final Source source;
   final List<MManga> items;
 
   @override
-  State<_CatalogBulkDownloadSheet> createState() => _CatalogBulkDownloadSheetState();
+  State<_CatalogBulkDownloadSheet> createState() =>
+      _CatalogBulkDownloadSheetState();
 }
 
 class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
@@ -202,7 +239,8 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     return values.toList()..sort();
   }
 
-  bool get _resolvingRows => _rows.any((row) => row.loading);
+  bool get _resolvingRows =>
+      _rows.any((row) => row.loading || row.formatsLoading);
 
   @override
   void initState() {
@@ -212,16 +250,21 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   }
 
   Future<void> _resolveAll() async {
-    var next = 0;
-    Future<void> worker() async {
-      while (next < _rows.length) {
-        final row = _rows[next++];
-        await _resolveOne(row);
-      }
-    }
-
-    final workers = _rows.length < 4 ? _rows.length : 4;
-    await Future.wait([for (var i = 0; i < workers; i++) worker()]);
+    // Each extension runtime is non-reentrant. Pin independent catalogue
+    // entries to separate isolates so their getDetail/getVideoList calls can
+    // actually run in parallel instead of merely queuing on one runtime.
+    if (!kIsWeb) await getIsolateService.start();
+    final workerCount = kIsWeb
+        ? 1
+        : (getIsolateService.workerCount > 0
+              ? getIsolateService.workerCount
+              : 1);
+    await forEachParallelWithWorkerSlots(
+      _rows,
+      workerCount,
+      (row, workerSlot) =>
+          getIsolateService.runOnWorkerSlot(workerSlot, () => _resolveOne(row)),
+    );
   }
 
   Future<void> _resolveOne(_ResolvedVideo row) async {
@@ -286,7 +329,9 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         scanlator: first.scanlator,
         thumbnailUrl: first.thumbnailUrl,
       )..manga.value = manga;
-      final result = await widget.ref.read(getVideoListProvider(episode: episode).future);
+      final result = await widget.ref.read(
+        getVideoListProvider(episode: episode).future,
+      );
       final videos = result.$1;
       final qualities = <String>{};
       final languages = <String>{};
@@ -303,11 +348,15 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         }
       }
       if (qualities.isNotEmpty) {
-        row.qualities = qualities.toList()..sort((a, b) => _resRank(a).compareTo(_resRank(b)));
+        row.qualities = qualities.toList()
+          ..sort((a, b) => _resRank(a).compareTo(_resRank(b)));
       } else {
         row.qualities = _qualitiesFor(row);
       }
       row.languages = languages.toList()..sort();
+      row.autoResolutionKey = videos.isEmpty
+          ? null
+          : resolutionKey(videos.first.quality);
       // Drop resolutions already in the library so the picker never offers a
       // second download of the same quality (the engine refuses it anyway).
       // Only for single-episode items: the library lookup is manga-wide, so a
@@ -331,7 +380,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         );
       }
       if (_bulkLanguage != null &&
-          row.languages.any((language) => language.toLowerCase() == _bulkLanguage!.toLowerCase())) {
+          row.languages.any(
+            (language) =>
+                language.toLowerCase() == _bulkLanguage!.toLowerCase(),
+          )) {
         row.language = _bulkLanguage;
       }
       if (mounted) setState(() {});
@@ -347,9 +399,26 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   }
 
   Future<void> _probeRowSizes(_ResolvedVideo row, List<Video> videos) async {
-    final sizes = await probeFormatSizes(videos);
-    if (!mounted || sizes.isEmpty) return;
-    setState(() => row.sizeByResolution = sizes);
+    row.sizesLoading = true;
+    if (mounted) setState(() {});
+    try {
+      final sizes = await probeFormatSizeBytes(
+        videos,
+        priorityResolutionKey: _selectedResolutionKey(row),
+        onProbeComplete: (key, bytes) {
+          if (!mounted) return;
+          setState(() {
+            row.completedSizeResolutions.add(key);
+            if (bytes != null) row.sizeBytesByResolution[key] = bytes;
+          });
+        },
+      );
+      if (!mounted) return;
+      setState(() => row.sizeBytesByResolution.addAll(sizes));
+    } finally {
+      row.sizesLoading = false;
+      if (mounted) setState(() {});
+    }
   }
 
   /// Applies the header selection to every row. A missing resolution is
@@ -381,7 +450,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       for (final row in _rows) {
         row.language =
             language != null &&
-                row.languages.any((candidate) => candidate.toLowerCase() == language.toLowerCase())
+                row.languages.any(
+                  (candidate) =>
+                      candidate.toLowerCase() == language.toLowerCase(),
+                )
             ? language
             : null;
       }
@@ -401,7 +473,51 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     });
   }
 
-  int get _totalSelected => _rows.fold(0, (sum, row) => sum + row.selected.length);
+  int get _totalSelected =>
+      _rows.fold(0, (sum, row) => sum + row.selected.length);
+
+  String? _selectedResolutionKey(_ResolvedVideo row) {
+    final key = row.quality == null
+        ? row.autoResolutionKey
+        : resolutionKey(row.quality!);
+    return key?.isEmpty == true ? null : key;
+  }
+
+  int? _selectedSizeBytes(_ResolvedVideo row) {
+    final key = _selectedResolutionKey(row);
+    return key == null ? null : row.sizeBytesByResolution[key];
+  }
+
+  int get _estimatedSelectedBytes => _rows.fold(0, (sum, row) {
+    final perVideo = _selectedSizeBytes(row);
+    return sum + (perVideo == null ? 0 : perVideo * row.selected.length);
+  });
+
+  int get _unestimatedSelectedVideos => _rows.fold(0, (sum, row) {
+    return sum + (_selectedSizeBytes(row) == null ? row.selected.length : 0);
+  });
+
+  bool get _selectedSizesLoading => _rows.any((row) {
+    final key = _selectedResolutionKey(row);
+    return row.selected.isNotEmpty &&
+        row.sizesLoading &&
+        key != null &&
+        !row.completedSizeResolutions.contains(key);
+  });
+
+  String get _selectedSizeSummary {
+    final bytes = _estimatedSelectedBytes;
+    final missing = _unestimatedSelectedVideos;
+    final label = formatVideoBytes(bytes);
+    if (_selectedSizesLoading) {
+      return label == null
+          ? 'Calcul du poids…'
+          : 'Calcul en cours · $label connus';
+    }
+    if (label == null) return 'Poids indisponible';
+    if (missing > 0) return '$label connus · estimation partielle';
+    return '≈ $label au total';
+  }
 
   void _confirm() {
     final items = <BulkDownloadItem>[];
@@ -419,14 +535,15 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
           chapters: chapters,
           quality: row.quality,
           language: row.language,
+          estimatedBytesPerVideo: _selectedSizeBytes(row),
           fallback: _bulkFallback,
         ),
       );
     }
     if (items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Aucune vidéo sélectionnée.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune vidéo sélectionnée.')),
+      );
       return;
     }
     Navigator.of(context).pop(BulkDownloadPlan(items: items));
@@ -469,7 +586,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               Expanded(
                 child: Text(
                   'Télécharger ${widget.items.length} vidéo(s)',
-                  style: TextStyle(color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    color: cs.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               IconButton(
@@ -486,8 +607,12 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                   label: 'Qualité (toutes)',
                   value: _bulkQuality,
                   items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Auto (meilleure)')),
-                    for (final q in _formats) DropdownMenuItem<String?>(value: q, child: Text(q)),
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Auto (meilleure)'),
+                    ),
+                    for (final q in _formats)
+                      DropdownMenuItem<String?>(value: q, child: Text(q)),
                   ],
                   onChanged: _applyBulkQuality,
                 ),
@@ -498,9 +623,18 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                   label: 'Si absente',
                   value: _bulkFallback,
                   items: const [
-                    DropdownMenuItem(value: QualityFallback.higher, child: Text('Supérieure')),
-                    DropdownMenuItem(value: QualityFallback.lower, child: Text('Inférieure')),
-                    DropdownMenuItem(value: QualityFallback.exact, child: Text('Exacte')),
+                    DropdownMenuItem(
+                      value: QualityFallback.higher,
+                      child: Text('Supérieure'),
+                    ),
+                    DropdownMenuItem(
+                      value: QualityFallback.lower,
+                      child: Text('Inférieure'),
+                    ),
+                    DropdownMenuItem(
+                      value: QualityFallback.exact,
+                      child: Text('Exacte'),
+                    ),
                   ],
                   onChanged: (v) => _applyBulkFallback(v),
                 ),
@@ -515,7 +649,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                   label: 'Langue (toutes)',
                   value: _bulkLanguage,
                   items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Toutes les langues')),
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Toutes les langues'),
+                    ),
                     for (final l in _headerLanguages)
                       DropdownMenuItem<String?>(value: l, child: Text(l)),
                   ],
@@ -528,7 +665,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                   label: 'Saison (toutes)',
                   value: _bulkSeason,
                   items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Toutes')),
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Toutes'),
+                    ),
                     for (final s in _headerSeasons)
                       DropdownMenuItem<String?>(value: s, child: Text(s)),
                   ],
@@ -552,7 +692,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       ),
       child: Row(
         children: [
-          const SizedBox(width: 48, height: 68, child: AppShimmerBlock(radius: 8)),
+          const SizedBox(
+            width: 48,
+            height: 68,
+            child: AppShimmerBlock(radius: 8),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -573,7 +717,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
             ),
           ),
           const SizedBox(width: 12),
-          const SizedBox(width: 70, height: 34, child: AppShimmerBlock(radius: 9)),
+          const SizedBox(
+            width: 70,
+            height: 34,
+            child: AppShimmerBlock(radius: 9),
+          ),
         ],
       ),
     );
@@ -587,19 +735,29 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.22)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          tilePadding: const EdgeInsets.fromLTRB(10, 2, 14, 2),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           onExpansionChanged: (value) => setState(() => row.expanded = value),
-          leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: _cover(row.item)),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: _cover(row.item),
+          ),
           title: Text(
-            row.item.name?.trim().isNotEmpty == true ? row.item.name!.trim() : 'Vidéo',
+            row.item.name?.trim().isNotEmpty == true
+                ? row.item.name!.trim()
+                : 'Vidéo',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: cs.onSurface, fontSize: 13.5, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: cs.onSurface,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           subtitle: Text(
             row.loading || row.formatsLoading
@@ -612,12 +770,15 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               fontSize: 11.5,
             ),
           ),
-          trailing: _qualityBox(row),
+          trailing: _qualityBox(row, isSeries: isSeries),
           children: [
             if (row.error != null)
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text(row.error!, style: const TextStyle(color: mbRed, fontSize: 11.5)),
+                child: Text(
+                  row.error!,
+                  style: const TextStyle(color: mbRed, fontSize: 11.5),
+                ),
               )
             else if (isSeries) ...[
               Row(
@@ -627,7 +788,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                       label: 'Langue',
                       value: row.language,
                       items: [
-                        const DropdownMenuItem<String?>(value: null, child: Text('Toutes')),
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Toutes'),
+                        ),
                         for (final l in row.languages)
                           DropdownMenuItem<String?>(value: l, child: Text(l)),
                       ],
@@ -640,7 +804,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                       label: 'Saison',
                       value: row.season,
                       items: [
-                        const DropdownMenuItem<String?>(value: null, child: Text('Toutes')),
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Toutes'),
+                        ),
                         for (final s in row.seasons)
                           DropdownMenuItem<String?>(value: s, child: Text(s)),
                       ],
@@ -717,9 +884,13 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         ? '${row.selected.length}/${row.chapters.length} épisodes'
         : '1 vidéo';
     final parts = <String>[base];
-    final size = _selectedSizeLabel(row);
-    if (size != null) parts.add(size);
-    if (row.downloadedKeys.isNotEmpty) parts.add('déjà téléchargé(s) masqué(s)');
+    final perVideo = _selectedSizeBytes(row);
+    final size = perVideo == null
+        ? null
+        : formatVideoBytes(perVideo * row.selected.length);
+    if (size != null) parts.add('≈ $size');
+    if (row.downloadedKeys.isNotEmpty)
+      parts.add('déjà téléchargé(s) masqué(s)');
     return parts.join(' · ');
   }
 
@@ -747,88 +918,133 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   /// Label of one quality option: the resolution plus its file size when the
   /// concurrent probe has already measured it (`720p · 259.9MB`).
   String _qualityOptionLabel(_ResolvedVideo row, String? quality) {
-    if (quality == null) return 'Auto';
-    final size = row.sizeByResolution[resolutionKey(quality)];
-    return size == null ? quality : '$quality · $size';
-  }
-
-  /// Size of the row's currently selected quality, for the row subtitle.
-  String? _selectedSizeLabel(_ResolvedVideo row) {
-    final quality = row.quality;
-    if (quality == null) return null;
-    return row.sizeByResolution[resolutionKey(quality)];
+    final label = quality ?? 'Auto';
+    final key = quality == null
+        ? row.autoResolutionKey
+        : resolutionKey(quality);
+    final bytes = key == null ? null : row.sizeBytesByResolution[key];
+    final size = formatVideoBytes(bytes);
+    return size == null ? label : '$label · $size';
   }
 
   /// Per-video quality box, pinned at the right end of the row, followed by the
   /// chevron that unfolds the episode picker (series only).
-  Widget _qualityBox(_ResolvedVideo row) {
+  Widget _qualityBox(_ResolvedVideo row, {required bool isSeries}) {
     final cs = Theme.of(context).colorScheme;
     if (row.loading || row.error != null) {
-      return Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant);
+      return isSeries
+          ? Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant)
+          : const SizedBox.shrink();
     }
     final options = <String?>[null, ..._qualitiesFor(row)];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 110,
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String?>(
-              isExpanded: true,
-              value: options.contains(row.quality) ? row.quality : null,
-              style: TextStyle(color: cs.onSurface, fontSize: 12.5),
-              items: [
-                for (final q in options)
-                  DropdownMenuItem<String?>(
-                    value: q,
-                    child: Text(
-                      _qualityOptionLabel(row, q),
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12.5),
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 104,
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 7),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.82),
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.32),
+              ),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                isExpanded: true,
+                isDense: true,
+                icon: Icon(
+                  Icons.expand_more_rounded,
+                  color: cs.onSurfaceVariant,
+                  size: 18,
+                ),
+                value: options.contains(row.quality) ? row.quality : null,
+                style: TextStyle(color: cs.onSurface, fontSize: 12),
+                items: [
+                  for (final q in options)
+                    DropdownMenuItem<String?>(
+                      value: q,
+                      child: Text(
+                        _qualityOptionLabel(row, q),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (v) => setState(() => row.quality = v),
+                ],
+                onChanged: (v) => setState(() => row.quality = v),
+              ),
             ),
           ),
-        ),
-        AnimatedRotation(
-          turns: row.expanded ? 0.25 : 0,
-          duration: const Duration(milliseconds: 180),
-          child: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant, size: 20),
-        ),
-      ],
+          if (isSeries) ...[
+            const SizedBox(width: 1),
+            AnimatedRotation(
+              turns: row.expanded ? 0.25 : 0,
+              duration: const Duration(milliseconds: 180),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                color: cs.onSurfaceVariant,
+                size: 19,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   Widget _footer(ColorScheme cs) {
-    final enabled = !_resolvingRows && _totalSelected > 0;
+    final enabled =
+        !_resolvingRows && !_selectedSizesLoading && _totalSelected > 0;
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
         child: SizedBox(
           width: double.infinity,
-          height: 46,
+          height: 56,
           child: FilledButton(
             onPressed: enabled ? _confirm : null,
             style: FilledButton.styleFrom(
               padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             child: Ink(
               decoration: BoxDecoration(
                 gradient: enabled ? _kSheetGradient : null,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
-                child: Text(
-                  'Mettre en file d’attente ($_totalSelected)',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Mettre en file d’attente',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _resolvingRows
+                          ? '${kIsWeb ? 'Récupération' : 'Récupération en parallèle'} · ${widget.items.length} éléments'
+                          : '$_totalSelected vidéos · $_selectedSizeSummary',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -861,7 +1077,11 @@ class _BulkDropdown<T> extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 10.5, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: cs.onSurfaceVariant,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 2),
         Container(

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:isar_community/isar.dart';
@@ -37,24 +39,109 @@ String? formatVideoBytes(int? bytes) {
 /// Both go through the shared per-URL cache, so a size measured for the
 /// download sheet is reused here and never probed twice.
 Future<String?> probeStreamSize(Video video) async {
+  return formatVideoBytes(await probeStreamSizeBytes(video));
+}
+
+/// Byte estimate for one concrete stream, without downloading it.
+///
+/// Keeping the byte count lets the batch sheet total selected videos instead
+/// of adding already-rounded display strings.
+Future<int?> probeStreamSizeBytes(Video video) async {
   try {
     if (isHlsUrl(video.url)) {
       final meta = await cachedHlsMeta(video.url, video.headers);
       final playlist = meta?.playlistBytesEstimate;
-      if (playlist != null && playlist > 0) return formatVideoBytes(playlist);
+      if (playlist != null && playlist > 0) return playlist;
       final tracks = meta?.tracks ?? const [];
       if (tracks.isNotEmpty) {
         final best = tracks
             .map((track) => track.estimatedBytes ?? 0)
             .fold<int>(0, math.max);
-        return formatVideoBytes(best);
+        return best > 0 ? best : null;
       }
       return null;
     }
-    return formatVideoBytes(await fetchDirectFileSize(video.url, video.headers));
+    final bytes = await fetchDirectFileSize(video.url, video.headers);
+    return bytes != null && bytes > 0 ? bytes : null;
   } catch (_) {
     // A size is a display nicety: a refused probe must never fail the row.
     return null;
+  }
+}
+
+/// Byte estimates for every distinct resolution in [videos].
+Future<Map<String, int>> probeFormatSizeBytes(
+  List<Video> videos, {
+  int concurrency = 6,
+  String? priorityResolutionKey,
+  void Function(String key, int? bytes)? onProbeComplete,
+}) async {
+  final byResolution = <String, Video>{};
+  for (final video in videos) {
+    final key = resolutionKey(video.quality);
+    if (key.isEmpty) continue;
+    byResolution.putIfAbsent(key, () => video);
+  }
+  final entries = byResolution.entries.toList();
+  if (entries.isEmpty) return const {};
+  if (priorityResolutionKey != null) {
+    final priorityIndex = entries.indexWhere(
+      (entry) => entry.key == priorityResolutionKey,
+    );
+    if (priorityIndex > 0) {
+      entries.insert(0, entries.removeAt(priorityIndex));
+    }
+  }
+
+  final sizes = <String, int>{};
+  var next = 0;
+  Future<void> worker() async {
+    while (true) {
+      final index = next++;
+      if (index >= entries.length) return;
+      final entry = entries[index];
+      final size = await _bulkSizeProbeGate.withPermit(
+        () => probeStreamSizeBytes(entry.value),
+      );
+      if (size != null) sizes[entry.key] = size;
+      onProbeComplete?.call(entry.key, size);
+    }
+  }
+
+  final requested = concurrency < 1 ? 1 : concurrency;
+  final workers = math.min(requested, entries.length);
+  await Future.wait([for (var i = 0; i < workers; i++) worker()]);
+  return sizes;
+}
+
+final _bulkSizeProbeGate = _AsyncSemaphore(6);
+
+/// Limits size probes across all rows, not just within one row's worker pool.
+class _AsyncSemaphore {
+  _AsyncSemaphore(this._maximum);
+
+  final int _maximum;
+  int _active = 0;
+  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+
+  Future<T> withPermit<T>(Future<T> Function() action) async {
+    if (_active < _maximum) {
+      _active++;
+    } else {
+      final waiter = Completer<void>();
+      _waiters.addLast(waiter);
+      await waiter.future;
+    }
+
+    try {
+      return await action();
+    } finally {
+      if (_waiters.isEmpty) {
+        _active--;
+      } else {
+        _waiters.removeFirst().complete();
+      }
+    }
   }
 }
 
@@ -67,30 +154,16 @@ Future<Map<String, String>> probeFormatSizes(
   List<Video> videos, {
   int concurrency = 6,
 }) async {
-  final byResolution = <String, Video>{};
-  for (final video in videos) {
-    final key = resolutionKey(video.quality);
-    if (key.isEmpty) continue;
-    byResolution.putIfAbsent(key, () => video);
+  final byteSizes = await probeFormatSizeBytes(
+    videos,
+    concurrency: concurrency,
+  );
+  final labels = <String, String>{};
+  for (final entry in byteSizes.entries) {
+    final label = formatVideoBytes(entry.value);
+    if (label != null) labels[entry.key] = label;
   }
-  final entries = byResolution.entries.toList(growable: false);
-  if (entries.isEmpty) return const {};
-
-  final sizes = <String, String>{};
-  var next = 0;
-  Future<void> worker() async {
-    while (true) {
-      final index = next++;
-      if (index >= entries.length) return;
-      final entry = entries[index];
-      final size = await probeStreamSize(entry.value);
-      if (size != null) sizes[entry.key] = size;
-    }
-  }
-
-  final workers = math.min(concurrency, entries.length);
-  await Future.wait([for (var i = 0; i < workers; i++) worker()]);
-  return sizes;
+  return labels;
 }
 
 /// Resolutions already downloaded for the catalogue item [link] of [source].
@@ -116,7 +189,8 @@ Set<String> downloadedResolutionKeysForSource(int? sourceId, String? link) {
     final mangaId = manga?.id;
     if (mangaId == null) return const {};
     final keys = <String>{};
-    for (final chapter in isar.chapters.filter().mangaIdEqualTo(mangaId).findAllSync()) {
+    for (final chapter
+        in isar.chapters.filter().mangaIdEqualTo(mangaId).findAllSync()) {
       final chapterId = chapter.id;
       if (chapterId == null) continue;
       final download = isar.downloads.getSync(chapterId);
