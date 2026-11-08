@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/history.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
+import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/models/manga.dart';
@@ -99,7 +99,10 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                     entry.imageUrl ??
                                     "",
                               ),
-                              headers: entry.isLocalArchive!
+                              // Null-safe: `isLocalArchive` is nullable and the
+                              // old `!` crashed the whole grid with a null-check
+                              // error as soon as one local entry lacked the flag.
+                              headers: (entry.isLocalArchive ?? false)
                                   ? null
                                   : ref.watch(
                                       headersProvider(
@@ -197,36 +200,30 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                           ),
                                           child: Consumer(
                                             builder: (context, ref, child) {
-                                              List nbrDown = [];
-                                              if (widget.downloadedChapter) {
-                                                isar.txnSync(() {
-                                                  for (
-                                                    var i = 0;
-                                                    i < entry.chapters.length;
-                                                    i++
-                                                  ) {
-                                                    final entries = isar.downloads
-                                                        .filter()
-                                                        .idEqualTo(
-                                                          entry.chapters
-                                                              .toList()[i]
-                                                              .id,
+                                              // O(chapters) set lookups instead of
+                                              // one Isar query per chapter, run
+                                              // synchronously on the UI thread
+                                              // for every visible card.
+                                              final downloadedIds = ref.watch(
+                                                downloadedChapterIdsProvider,
+                                              );
+                                              final downloadedCount =
+                                                  widget.downloadedChapter
+                                                  ? entry.chapters
+                                                        .where(
+                                                          (chap) =>
+                                                              chap.id != null &&
+                                                              downloadedIds
+                                                                  .contains(
+                                                                    chap.id,
+                                                                  ),
                                                         )
-                                                        .findAllSync();
-
-                                                    if (entries.isNotEmpty &&
-                                                        entries
-                                                            .first
-                                                            .isDownload!) {
-                                                      nbrDown.add(1);
-                                                    }
-                                                  }
-                                                });
-                                              }
+                                                        .length
+                                                  : 0;
 
                                               return Row(
                                                 children: [
-                                                  if (nbrDown.isNotEmpty &&
+                                                  if (downloadedCount > 0 &&
                                                       widget.downloadedChapter)
                                                     Container(
                                                       decoration: BoxDecoration(
@@ -252,7 +249,7 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                                               right: 3,
                                                             ),
                                                         child: Text(
-                                                          nbrDown.length
+                                                          downloadedCount
                                                               .toString(),
                                                         ),
                                                       ),
@@ -266,7 +263,9 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                                       entry.chapters
                                                           .where(
                                                             (element) =>
-                                                                !element.isRead!,
+                                                                element
+                                                                    .isRead !=
+                                                                true,
                                                           )
                                                           .length
                                                           .toString(),
@@ -301,11 +300,8 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                           bottomLeft: Radius.circular(3),
                                         ),
                                         color: overlay
-                                            ? Theme.of(
-                                                context,
-                                              ).hintColor.withValues(
-                                                alpha: 0.85,
-                                              )
+                                            ? Theme.of(context).hintColor
+                                                  .withValues(alpha: 0.85)
                                             : Theme.of(context).hintColor,
                                       ),
                                       child: Padding(

@@ -171,6 +171,16 @@ List<Manga> _filterAndSortManga({
     return mangas;
   }
 
+  // "Nombre de non-lus": precompute the unread count once per entry. Doing it
+  // inside the comparator re-scanned every chapter list O(n log n) times.
+  Map<int?, int>? unreadCounts;
+  if (sortType == 3) {
+    unreadCounts = {
+      for (final manga in mangas)
+        manga.id: manga.chapters.where((e) => e.isRead != true).length,
+    };
+  }
+
   // Sort
   mangas.sort((a, b) {
     switch (sortType) {
@@ -181,10 +191,7 @@ List<Manga> _filterAndSortManga({
       case 2:
         return a.lastUpdate?.compareTo(b.lastUpdate ?? 0) ?? 0;
       case 3:
-        return a.chapters
-            .where((e) => !e.isRead!)
-            .length
-            .compareTo(b.chapters.where((e) => !e.isRead!).length);
+        return (unreadCounts![a.id] ?? 0).compareTo(unreadCounts[b.id] ?? 0);
       case 4:
         return a.chapters.length.compareTo(b.chapters.length);
       case 5:

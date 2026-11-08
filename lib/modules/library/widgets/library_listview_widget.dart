@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/history.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
+import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/models/manga.dart';
@@ -221,31 +221,24 @@ class LibraryListViewWidget extends StatelessWidget {
                                           ),
                                           child: Consumer(
                                             builder: (context, ref, child) {
-                                              List nbrDown = [];
-                                              isar.txnSync(() {
-                                                for (
-                                                  var i = 0;
-                                                  i < entry.chapters.length;
-                                                  i++
-                                                ) {
-                                                  final entries = isar.downloads
-                                                      .filter()
-                                                      .idEqualTo(
-                                                        entry.chapters
-                                                            .toList()[i]
-                                                            .id,
-                                                      )
-                                                      .findAllSync();
-
-                                                  if (entries.isNotEmpty &&
-                                                      entries
-                                                          .first
-                                                          .isDownload!) {
-                                                    nbrDown.add(entries.first);
-                                                  }
-                                                }
-                                              });
-                                              if (nbrDown.isNotEmpty) {
+                                              // O(chapters) set lookups instead of
+                                              // one Isar query per chapter, run
+                                              // synchronously on the UI thread
+                                              // for every visible row.
+                                              final downloadedIds = ref.watch(
+                                                downloadedChapterIdsProvider,
+                                              );
+                                              final downloadedCount = entry
+                                                  .chapters
+                                                  .where(
+                                                    (chap) =>
+                                                        chap.id != null &&
+                                                        downloadedIds.contains(
+                                                          chap.id,
+                                                        ),
+                                                  )
+                                                  .length;
+                                              if (downloadedCount > 0) {
                                                 return Container(
                                                   decoration: BoxDecoration(
                                                     borderRadius:
@@ -270,7 +263,8 @@ class LibraryListViewWidget extends StatelessWidget {
                                                           right: 3,
                                                         ),
                                                     child: Text(
-                                                      nbrDown.length.toString(),
+                                                      downloadedCount
+                                                          .toString(),
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                       ),
@@ -291,7 +285,8 @@ class LibraryListViewWidget extends StatelessWidget {
                                           (showUnread
                                                   ? entry.chapters
                                                         .where(
-                                                          (e) => !e.isRead!,
+                                                          (e) =>
+                                                              e.isRead != true,
                                                         )
                                                         .length
                                                   : entry.chapters.length)
