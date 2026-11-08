@@ -18,6 +18,7 @@ import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/extension_page_cache.dart';
 import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/update_notification_service.dart';
+import 'package:watchtower/utils/concurrency.dart';
 
 // ── Web proxy helper ─────────────────────────────────────────────────────────
 // Sur Flutter web, toutes les requêtes cross-origin sont bloquées par CORS.
@@ -383,8 +384,11 @@ Future<void> fetchSourcesList({
       );
     }
 
-    // Auto-updates still need individual downloads
-    for (final source in toAutoUpdate) {
+    // Auto-updates still need individual downloads. Each source is an
+    // independent host/runtime, so downloading them one at a time was pure
+    // wall-clock waste; run a bounded pool instead (Isar serializes the
+    // resulting write transactions on its own).
+    await forEachParallel(toAutoUpdate, 4, (source) async {
       AppLogger.log(
         'Auto-updating "${source.name}" | repo=${repo?.name}',
         tag: LogTag.extension_,
@@ -410,7 +414,7 @@ Future<void> fetchSourcesList({
           stackTrace: st,
         );
       }
-    }
+    }, propagateErrors: false);
   }
 
   try {

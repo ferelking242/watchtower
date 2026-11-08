@@ -51,6 +51,7 @@ import 'package:watchtower/services/download_manager/download_isolate_pool.dart'
 import 'package:watchtower/src/rust/frb_generated.dart';
 import 'package:watchtower/utils/discord_rpc.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/concurrency.dart';
 import 'package:watchtower/utils/url_protocol/api.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/theme_provider.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/display_prefs_provider.dart';
@@ -691,7 +692,9 @@ Future<String?> _installPendingExtensionsFromNotification() async {
 
   var installedCount = 0;
   final failedNames = <String>[];
-  for (final source in updates) {
+  // Each extension downloads from its own repo; install them with a bounded
+  // pool instead of one after another.
+  await forEachParallel<Source>(updates, 4, (source) async {
     try {
       await installExtensionUpdate(source);
       installedCount++;
@@ -703,7 +706,7 @@ Future<String?> _installPendingExtensionsFromNotification() async {
         tag: LogTag.network,
       );
     }
-  }
+  }, propagateErrors: false);
 
   if (failedNames.isEmpty) {
     return '$installedCount extension${installedCount == 1 ? '' : 's'} mise'
@@ -1107,21 +1110,23 @@ class _MyAppState extends ConsumerState<MyApp>
   }
 
   Future<bool> _checkValidUrls(List<String> urls) async {
+    if (urls.isEmpty) return true;
     final http = MClient.init(reqcopyWith: {'useDartHttpClient': true});
-    for (final url in urls) {
-      final req = await http.get(Uri.parse(url));
-      try {
+    // Each URL is an independent host; probing them one at a time made adding
+    // several repos wait for the sum of every round-trip.
+    final results = await mapParallel<String, bool>(
+      urls,
+      4,
+      (url) async {
+        final req = await http.get(Uri.parse(url));
         final sourceList = (jsonDecode(req.body) as List).map(
           (e) => Source.fromJson(e),
         );
-        if (sourceList.firstOrNull?.name == null) {
-          return false;
-        }
-      } catch (err) {
-        return false;
-      }
-    }
-    return true;
+        return sourceList.firstOrNull?.name != null;
+      },
+      propagateErrors: false,
+    );
+    return results.every((ok) => ok == true);
   }
 
   Future<void> _setupMpvConfig() async {

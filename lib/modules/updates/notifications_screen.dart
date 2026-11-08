@@ -18,6 +18,7 @@ import 'package:watchtower/services/fetch_sources_list.dart'
         hasPendingExtensionUpdate,
         installExtensionUpdate;
 import 'package:watchtower/services/layout_registry.dart';
+import 'package:watchtower/utils/concurrency.dart';
 
 /// In-app notification centre.
 ///
@@ -322,10 +323,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Future<void> _installAll(List<Source> sources) async {
-    for (final source in sources) {
+    // Independent repos: update a bounded pool at once instead of one by one.
+    await forEachParallel<Source>(sources, 4, (source) async {
       if (!mounted) return;
       await _install(source);
-    }
+    }, propagateErrors: false);
   }
 
   /// Hides one update without installing it, until a newer version appears.

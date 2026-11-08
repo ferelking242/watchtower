@@ -17,6 +17,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/manga/archive_reader/providers/archive_reader_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/utils.dart';
+import 'package:watchtower/utils/concurrency.dart';
 import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -307,9 +308,18 @@ Future<GetChapterPagesModel> getChapterPages(
       } else {
         int localCount = 0;
         int remoteCount = 0;
+        // One `File.exists()` per page, awaited one after another, was the
+        // slowest part of opening a chapter: a 200-page chapter paid 200 serial
+        // disk round-trips. Probe them with a bounded pool instead.
+        final present = await mapParallel<int, bool>(
+          List.generate(pageUrls.length, (i) => i),
+          8,
+          (i) => File(p.join(path!.path, '${padIndex(i)}.jpg')).exists(),
+          propagateErrors: false,
+        );
         for (var i = 0; i < pageUrls.length; i++) {
           archiveImages.add(null);
-          if (await File(p.join(path!.path, '${padIndex(i)}.jpg')).exists()) {
+          if (present[i] == true) {
             isLocaleList.add(true);
             localCount++;
           } else {

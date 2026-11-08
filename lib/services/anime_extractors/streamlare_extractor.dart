@@ -3,6 +3,7 @@ import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/extensions/others.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/utils/concurrency.dart';
 
 class StreamlareExtractor {
   final InterceptedClient client = MClient.init(
@@ -57,24 +58,33 @@ class StreamlareExtractor {
         }).toList();
       } else {
         const separator = '"label":"';
-        List<Video> videoList = [];
         List<String> values = playlist
             .substringAfter(separator)
             .split(separator);
-        for (var value in values) {
-          final quality = value.substringAfter(separator).substringBefore('",');
-          final apiUrl = value
-              .substringAfter('"file":"')
-              .substringBefore('",')
-              .replaceAll('\\', '');
-          final response = await client.post(Uri.parse(apiUrl));
-          final videoUrl = response.request!.url.toString();
-
-          videoList.add(
-            Video(videoUrl, _buildQuality(quality, prefix, suffix), videoUrl),
-          );
-        }
-        return videoList;
+        // Each `apiUrl` is an independent CDN endpoint; resolving them one by
+        // one multiplied the load time by the number of qualities.
+        final videos = await mapParallel<String, Video?>(
+          values,
+          5,
+          (value) async {
+            final quality = value
+                .substringAfter(separator)
+                .substringBefore('",');
+            final apiUrl = value
+                .substringAfter('"file":"')
+                .substringBefore('",')
+                .replaceAll('\\', '');
+            final response = await client.post(Uri.parse(apiUrl));
+            final videoUrl = response.request!.url.toString();
+            return Video(
+              videoUrl,
+              _buildQuality(quality, prefix, suffix),
+              videoUrl,
+            );
+          },
+          propagateErrors: false,
+        );
+        return videos.nonNulls.toList();
       }
     } catch (_) {
       return [];

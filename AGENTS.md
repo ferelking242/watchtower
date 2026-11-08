@@ -249,6 +249,27 @@ Verbose/Extreme modes must never stall the UI isolate. Measured causes of the
   lower-case form for search, and typing in the search field is debounced
   (180 ms) instead of rescanning the file on every keystroke.
 
+## Serial network/IO loops are a performance bug (do not regress)
+The app's "slow" reports trace back to `for (final x in xs) { await get(x); }`
+loops, where every independent request waits for the previous one. Use the
+bounded pool in `lib/utils/concurrency.dart` instead:
+
+- `mapParallel(items, maxConcurrent, task)` → results in input order; pass
+  `propagateErrors: false` to keep going (a failed slot is `null`).
+- `forEachParallel(items, maxConcurrent, task)` for side-effecting work.
+
+Rules of thumb:
+- **Per-source extension calls stay serialized by design.** One source runs on
+  one non-reentrant extension runtime (`ExtensionServiceRegistry._queues`), so
+  firing several calls for the *same* source in parallel buys nothing. Parallelize
+  across *different* sources, or plain network/disk work that touches no runtime.
+- Bulk extension work (auto-update in `fetch_sources_list.dart`, "update all"
+  in `browse_screen.dart`, install-all in `notifications_screen.dart`/`main.dart`,
+  repo URL probing in `main._checkValidUrls`) uses a pool of 4.
+- Disk probes scale higher: `get_chapter_pages.dart` checks every page's
+  `File.exists()` with a pool of 8 (a 200-page chapter used to pay 200 serial
+  syscalls). `video_file_meta.dart`'s HLS size probes run together (5).
+
 ## Automatic backup must not compete with the first frame
 `AutoBackupService` copies the whole Isar file, so it is the most expensive
 routine the app runs. It waits `_startupSnapshotDelay` (12 s) before the launch

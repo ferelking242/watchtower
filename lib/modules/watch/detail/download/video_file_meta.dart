@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/services/hls_variant_resolver.dart';
+import 'package:watchtower/utils/concurrency.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Métadonnées (poids | durée) d'une vidéo, quel que soit le flux :
@@ -377,15 +378,19 @@ Future<int?> _estimateHlsPlaylistSize(
   final probes = {
     for (final f in const [0.0, 0.25, 0.5, 0.75, 1.0])
       (f * (count - 1)).round(),
-  };
+  }.where((i) => i >= 0 && i < count).toList();
+  if (probes.isEmpty) return null;
+  // The probes hit independent byte ranges; awaiting them one by one made the
+  // size estimate take the sum of five round-trips. Run them together.
+  final sizes = await mapParallel<int, int?>(
+    probes,
+    5,
+    (i) => fetchDirectFileSize(segments[i].toString(), headers),
+    propagateErrors: false,
+  );
   var sum = 0;
   var weighed = 0;
-  for (final i in probes) {
-    if (i < 0 || i >= count) continue;
-    final size = await fetchDirectFileSize(
-      segments[i].toString(),
-      headers,
-    );
+  for (final size in sizes) {
     if (size != null && size > 0) {
       sum += size;
       weighed++;

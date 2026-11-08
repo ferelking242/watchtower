@@ -17,6 +17,7 @@ import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
+import 'package:watchtower/utils/concurrency.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
@@ -231,13 +232,20 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
               .where(hasPendingExtensionUpdate)
           .toList();
       int done = 0;
-      for (final src in sources) {
+      // Each extension is an independent download from its own repo; running
+      // them one at a time made "update all" wait for the sum of every fetch.
+      await forEachParallel<Source>(sources, 4, (src) async {
         try {
-          await ref.read(fetchItemSourcesListProvider(
-            id: src.id, reFresh: true, itemType: src.itemType).future);
+          await ref.read(
+            fetchItemSourcesListProvider(
+              id: src.id,
+              reFresh: true,
+              itemType: src.itemType,
+            ).future,
+          );
           done++;
         } catch (_) {}
-      }
+      }, propagateErrors: false);
       if (context.mounted) {
         messenger.hideCurrentSnackBar();
         messenger.showSnackBar(SnackBar(
