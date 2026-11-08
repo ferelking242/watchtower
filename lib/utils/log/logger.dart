@@ -188,6 +188,15 @@ class AppLogger {
   static LogMode _currentMode = LogMode.verbose;
   static void Function(String payload)? _workerLogForwarder;
 
+  /// The user's "Logs" switch (À propos > Développeur). When it is off the
+  /// whole pipeline is skipped at the top of [log] — no sanitisation, no
+  /// formatting, no ring push, no broadcast, no console write. Callers run
+  /// this on hot paths (per-frame watchdogs, download progress, extension
+  /// workers), so a disabled switch must cost a single bool read.
+  static bool _loggingEnabled = true;
+  static bool get loggingEnabled => _loggingEnabled;
+  static void setLoggingEnabled(bool enabled) => _loggingEnabled = enabled;
+
   /// Routes structured worker-isolate logs to the root isolate.
   /// The root isolate owns the persistent file sink and applies the user's
   /// active log filters.
@@ -394,12 +403,14 @@ class AppLogger {
   static String? get sessionsDirPath => _sessionsDirPath;
 
   static Future<void> init() async {
-    // File logging is always enabled — regardless of the enableLogs setting.
-    // One daily file per calendar day, appended across sessions (never reset).
-    // Location: <storage>/Watchtower/logs/YYYY-MM-DD.log
-    // The enableLogs setting now only controls the in-app log-viewer filters.
+    // File logging writes only while the user's "Logs" switch (À propos >
+    // Développeur) is on. The caller reads the switch and passes it through
+    // [setLoggingEnabled] before calling this, so a cold start with logging
+    // off does not create a sink, scan the logs directory or write a session
+    // header for a file that stays empty.
     await _bootstrapVerboseDownloadDiagnostics();
     await _loadSettings();
+    if (!_loggingEnabled) return;
     log(
       'Diagnostic logging ready: mode=${_currentMode.displayName}',
       tag: LogTag.download,
@@ -645,6 +656,11 @@ class AppLogger {
     Object? error,
     StackTrace? stackTrace,
   }) {
+    // 0. Master switch. When logging is disabled in À propos > Développeur,
+    //    nothing below (flood budget, worker hop, sanitisation, formatting,
+    //    ring/broadcast, console) is worth paying for on a hot path.
+    if (!_loggingEnabled) return;
+
     // 1. Cheapest gate first: a Debug/Info flood is dropped before it reaches
     //    sanitisation, formatting, the ring buffer or a widget rebuild.
     if (!_allowThroughFloodBudget(logLevel)) return;

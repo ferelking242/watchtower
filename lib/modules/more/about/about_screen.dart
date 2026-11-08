@@ -25,6 +25,7 @@ import 'package:watchtower/services/download_manager/engines/aria2_binary_manage
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -326,6 +327,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                     );
                                   });
                                   ref.invalidate(logsStateProvider);
+                                  AppLogger.setLoggingEnabled(value);
+                                  LogOverlayController.instance.setEnabled(value);
                                   if (value) {
                                     AppLogger.init();
                                   } else {

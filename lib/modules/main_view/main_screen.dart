@@ -19,6 +19,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
+import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
@@ -164,11 +165,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         // fetch every configured repository at app startup: that made each
         // Browse tab show a loading skeleton and could flood the network
         // before the user had opened the Marketplace.
-        // Always show the diagnostic handle at launch. The overlay itself
-        // starts collapsed so it stays out of the way until opened.
-        WidgetsBinding.instance.addPostFrameCallback(
-          (_) => LogOverlayController.instance.show(),
-        );
+        // Only show the diagnostic handle when logging is enabled (À propos >
+        // Développeur). When the switch is off the box must never appear.
+        final logsEnabled = ref.read(logsStateProvider);
+        AppLogger.setLoggingEnabled(logsEnabled);
+        LogOverlayController.instance.setEnabled(logsEnabled);
+        if (logsEnabled) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => LogOverlayController.instance.show(),
+          );
+        }
       }
     });
   }
@@ -226,6 +232,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.listen<String?>(routerCurrentLocationStateProvider, (prev, next) {
       if (prev != next) {
         ref.read(dockHiddenProvider.notifier).set(false);
+      }
+    });
+    // The floating log box and the logger itself follow the "Logs" switch in
+    // À propos > Développeur. Toggling it must tear the box down immediately
+    // instead of leaving it pinned on top of every screen.
+    ref.listen<bool>(logsStateProvider, (_, enabled) {
+      AppLogger.setLoggingEnabled(enabled);
+      LogOverlayController.instance.setEnabled(enabled);
+      if (enabled) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => LogOverlayController.instance.show(),
+        );
       }
     });
 

@@ -27,13 +27,27 @@ class LogOverlayController {
   OverlayEntry? _entry;
   final ValueNotifier<bool> _visible = ValueNotifier<bool>(false);
 
+  /// Master switch, driven by the "Logs" setting in À propos > Développeur.
+  /// When logging is turned off the floating box must disappear too — it used
+  /// to stay pinned on top of every screen after the toggle was disabled.
+  bool _enabled = true;
+  bool get enabled => _enabled;
+
   /// Reactive visibility flag — wire a switch to it in your settings.
   ValueListenable<bool> get visibleListenable => _visible;
   bool get isVisible => _visible.value;
 
+  /// Enables or disables the whole overlay. Disabling hides any visible box
+  /// and makes [show]/[toggle] a no-op until it is enabled again.
+  void setEnabled(bool enabled) {
+    _enabled = enabled;
+    if (!enabled) hide();
+  }
+
   void toggle() => isVisible ? hide() : show();
 
   void show() {
+    if (!_enabled) return;
     if (_entry != null) return;
     final overlay = navigatorKey.currentState?.overlay;
     if (overlay == null) {
@@ -165,6 +179,11 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
     _incoming.clear();
     _viewDirty = true;
     if (!mounted) return;
+    // While collapsed only the small handle is on screen; rebuilding the
+    // whole panel every flush window just to repaint a static label is pure
+    // waste. The view stays dirty and is recomputed lazily by [_viewRows] the
+    // next time the panel is expanded.
+    if (_collapsed) return;
     setState(_recomputeView);
     if (_autoScroll) _scrollToBottom();
   }

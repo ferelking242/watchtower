@@ -597,6 +597,15 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
       );
     }
   }
+  // The floating log box and file logging follow the "Logs" switch in
+  // À propos > Développeur. Read it here so [AppLogger.init] can skip the
+  // whole file sink when logging is off, and so the overlay starts hidden.
+  // Guarded: when initDB failed the global is unset and touching it throws.
+  var logsEnabled = false;
+  try {
+    logsEnabled = readSettingsSafely(isar: isar).enableLogs ?? false;
+  } catch (_) {}
+  AppLogger.setLoggingEnabled(logsEnabled);
   await AppLogger.init();
   // Start the automatic snapshot of the database, Hive boxes and preferences
   // into <storage root>/.backup, so a reinstall can restore everything.

@@ -57,10 +57,14 @@ void main() {
   });
 
   group('seasonOf', () {
-    test('extracts a padded season marker', () {
-      expect(seasonOf('S1 E04'), 'S01');
-      expect(seasonOf('Alice S02 E12'), 'S02');
-      expect(seasonOf('saison 3 ep 1'), isNull);
+    test('extracts a season marker as a display label', () {
+      expect(seasonOf('S1 E04'), 'Saison 1');
+      expect(seasonOf('Alice S02 E12'), 'Saison 2');
+      expect(seasonOf('Season 3 Ep 1'), 'Saison 3');
+    });
+
+    test('matches the French "saison" marker too', () {
+      expect(seasonOf('saison 3 ep 1'), 'Saison 3');
     });
 
     test('returns null when the episode carries no season', () {
