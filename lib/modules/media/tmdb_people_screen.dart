@@ -1390,16 +1390,11 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
       );
     }
     final deviceColumns = AppUI.mediaGridColumns(context);
-    final automaticColumns = switch (_filter.layout) {
-      CatalogLayout.comfortable =>
-        (deviceColumns - 1).clamp(1, deviceColumns).toInt(),
-      CatalogLayout.compact =>
-        (deviceColumns + 1).clamp(1, 6).toInt(),
-      _ => deviceColumns,
-    };
-    final columns = _filter.columns == 0
-        ? automaticColumns
-        : _filter.columns.clamp(1, 6).toInt();
+    final columns = catalogDisplayColumns(
+      deviceColumns: deviceColumns,
+      layout: _filter.layout,
+      columns: _filter.columns,
+    );
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

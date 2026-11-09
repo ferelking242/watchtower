@@ -1,5 +1,43 @@
 /// Denseur d'affichage choisi dans la section « Affichage » de la feuille.
-enum CatalogLayout { grid, comfortable, list, compact }
+///
+/// Les modes reprennent ceux de la bibliothèque pour que toutes les surfaces
+/// catalogue (recherche, « voir tout », studios) exposent le même jeu.
+enum CatalogLayout { grid, comfortable, list, compact, coverOnly }
+
+/// Libellé français d'un [CatalogLayout], partagé par toutes les surfaces qui
+/// proposent le sélecteur « Affichage » (catalogue, recherche, studios).
+String catalogLayoutLabel(CatalogLayout layout) => switch (layout) {
+  CatalogLayout.grid => 'Grille',
+  CatalogLayout.comfortable => 'Grille espacée',
+  CatalogLayout.list => 'Liste',
+  CatalogLayout.compact => 'Grille compacte',
+  CatalogLayout.coverOnly => 'Grille avec seulement la couverture',
+};
+
+/// Nombre de colonnes effectif d'une grille de catalogue : un réglage explicite
+/// (1–6) l'emporte, sinon le mode d'affichage ajuste le nombre de colonnes de
+/// l'appareil. Partagé par toutes les grilles pour rester cohérent.
+int catalogDisplayColumns({
+  required int deviceColumns,
+  required CatalogLayout layout,
+  required int columns,
+}) {
+  if (columns > 0) return columns.clamp(1, 6);
+  return switch (layout) {
+    CatalogLayout.comfortable => (deviceColumns - 1).clamp(1, deviceColumns),
+    CatalogLayout.compact => (deviceColumns + 1).clamp(1, 6),
+    _ => deviceColumns,
+  };
+}
+
+/// Le titre se superpose à la couverture sauf en grille espacée (titre dessous)
+/// et en mode « couverture seule » (pas de titre du tout).
+bool catalogLayoutTitleOnCover(CatalogLayout layout) =>
+    layout != CatalogLayout.comfortable && layout != CatalogLayout.coverOnly;
+
+/// Le titre est affiché partout sauf en mode « couverture seule ».
+bool catalogLayoutShowTitle(CatalogLayout layout) =>
+    layout != CatalogLayout.coverOnly;
 
 /// Un choix de la section « Type » (ex. Film, Série, Animation…).
 class CatalogTypeOption {

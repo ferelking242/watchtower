@@ -32,6 +32,10 @@ class ExtensionFilterOverlay extends StatefulWidget {
     required this.close,
     this.searchValue = '',
     this.onSearchChanged,
+    this.layout = CatalogLayout.grid,
+    this.columns = 0,
+    this.onLayoutChanged,
+    this.onColumnsChanged,
   });
 
   final List<dynamic> filterList;
@@ -40,14 +44,31 @@ class ExtensionFilterOverlay extends StatefulWidget {
   final String searchValue;
   final ValueChanged<String>? onSearchChanged;
 
+  /// Densité d'affichage partagée avec les grilles de résultats. Quand
+  /// [onLayoutChanged] est fourni, la section « Affichage » est ajoutée à la
+  /// racine du panneau, comme dans la bibliothèque.
+  final CatalogLayout layout;
+  final int columns;
+  final ValueChanged<CatalogLayout>? onLayoutChanged;
+  final ValueChanged<int>? onColumnsChanged;
+
   @override
   State<ExtensionFilterOverlay> createState() => _ExtensionFilterOverlayState();
 }
 
 class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
+  /// Sentinelle de niveau pour l'écran « Affichage » : les filtres utilisent
+  /// l'index réel dans [ExtensionFilterOverlay.filterList], donc -1 est libre.
+  static const int _displayDrill = -1;
+
   int? _drillIndex;
   final TextEditingController _optionSearchController = TextEditingController();
   String _optionSearchQuery = '';
+
+  // Draft d'affichage local : le panneau se met à jour immédiatement, comme
+  // CatalogFilterOverlay, sans dépendre d'un rebuild du parent.
+  late CatalogLayout _layout = widget.layout;
+  late int _columns = widget.columns;
 
   List<dynamic> get _filters => widget.filterList;
 
@@ -144,7 +165,11 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
-          child: drill == null ? _buildRoot() : _buildDrill(_filters[drill]),
+          child: drill == null
+              ? _buildRoot()
+              : drill == _displayDrill
+              ? _buildDisplay()
+              : _buildDrill(_filters[drill]),
         ),
       ],
     );
@@ -177,6 +202,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
   }
 
   Widget _buildRoot() {
+    final showDisplay = widget.onLayoutChanged != null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -186,6 +212,27 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
               ? 'Filtres · $_activeCount actif(s)'
               : 'Filtres',
         ),
+        if (showDisplay) ...[
+          AdaptiveOverlayItem(
+            label: 'Affichage',
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  catalogLayoutLabel(_layout),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Icon(Broken.arrow_right_3, size: 14),
+              ],
+            ),
+            onTap: () => setState(() => _drillIndex = _displayDrill),
+          ),
+          if (_filters.isNotEmpty) const AdaptiveOverlayDivider(),
+        ],
         for (var i = 0; i < _filters.length; i++) _buildFilterRow(i),
         if (_activeCount > 0) ...[
           const AdaptiveOverlayDivider(),
@@ -195,6 +242,40 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
             onTap: _reset,
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildDisplay() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _backHeader('Affichage', () => setState(() => _drillIndex = null)),
+        const AdaptiveOverlaySection(title: 'Mode d\'affichage'),
+        for (final layout in CatalogLayout.values)
+          AdaptiveOverlayItem(
+            label: catalogLayoutLabel(layout),
+            selected: _layout == layout,
+            onTap: () {
+              setState(() => _layout = layout);
+              widget.onLayoutChanged?.call(layout);
+            },
+          ),
+        const AdaptiveOverlaySection(title: 'Éléments par ligne'),
+        for (final columns in const [0, 1, 2, 3, 4, 5, 6])
+          AdaptiveOverlayItem(
+            label: columns == 0
+                ? 'Automatique'
+                : columns == 1
+                ? '1 colonne'
+                : '$columns colonnes',
+            selected: _columns == columns,
+            onTap: () {
+              setState(() => _columns = columns);
+              widget.onColumnsChanged?.call(columns);
+            },
+          ),
       ],
     );
   }
@@ -746,12 +827,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
     );
   }
 
-  String _layoutLabel(CatalogLayout layout) => switch (layout) {
-    CatalogLayout.grid => 'Grille',
-    CatalogLayout.comfortable => 'Grille confortable',
-    CatalogLayout.list => 'Liste',
-    CatalogLayout.compact => 'Grille compacte',
-  };
+  String _layoutLabel(CatalogLayout layout) => catalogLayoutLabel(layout);
 
   Widget _buildRoot() {
     final d = _draft;
@@ -867,9 +943,13 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _backHeader('Nombre de colonnes'),
-        for (final columns in const [0, 2, 3, 4, 5, 6])
+        for (final columns in const [0, 1, 2, 3, 4, 5, 6])
           AdaptiveOverlayItem(
-            label: columns == 0 ? 'Automatique' : '$columns colonnes',
+            label: columns == 0
+                ? 'Automatique'
+                : columns == 1
+                ? '1 colonne'
+                : '$columns colonnes',
             selected: _draft.columns == columns,
             onTap: () {
               _update(() => _draft.columns = columns);

@@ -482,6 +482,16 @@ do not reintroduce a bespoke popup or a filter bottom sheet.
   type/year/rating/genre/sort/layout). Both drill down in place, like
   `LibraryFilterSortMenu`. The catalogue filter *state* stays in
   `catalog_filter_sheet.dart`; only the UI moved.
+- Display density is shared through `catalog_filter_sheet.dart`:
+  `CatalogLayout` (`grid`, `comfortable`, `list`, `compact`, `coverOnly`) plus
+  `catalogLayoutLabel`, `catalogDisplayColumns`, `catalogLayoutTitleOnCover`
+  and `catalogLayoutShowTitle`. Every catalogue grid (library, studios,
+  "see all", people, extension search) must resolve its columns and title
+  treatment through these helpers so the modes stay identical.
+- `ExtensionFilterOverlay` renders the "Affichage" drill only when
+  `onLayoutChanged` is passed; pass `layout`/`columns` plus the two callbacks
+  to expose the same modes as `CatalogFilterOverlay`. `PosterCard.showTitle`
+  turns the cover-only grid mode on.
 - Every search surface shares `SharedSearchHeader` (chevron back + mic inside
   the field); the filter and three-dots live outside the field, composed by the
   screen. `handleSearchBack` clears the query before leaving.

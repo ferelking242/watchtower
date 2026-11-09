@@ -228,4 +228,59 @@ void main() {
     expect(applied, isNotNull);
     expect(applied!.layout, CatalogLayout.list);
   });
+
+  testWidgets('ExtensionFilterOverlay exposes the shared display section', (
+    tester,
+  ) async {
+    final filters = <dynamic>[
+      CheckBoxFilter('genre', 'Aventure', 'adventure', 'CheckBox'),
+    ];
+    CatalogLayout? layout;
+    int? columns;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+          body: AdaptiveOverlayMenuButton(
+            menuWidth: 300,
+            trigger: const Text('open'),
+            contentBuilder: (close) => ExtensionFilterOverlay(
+              filterList: filters,
+              onChanged: (_) {},
+              close: close,
+              onLayoutChanged: (value) => layout = value,
+              onColumnsChanged: (value) => columns = value,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // The display entry sits at the root next to the extension's own filters.
+    expect(find.text('Affichage'), findsOneWidget);
+    expect(find.text('Aventure'), findsOneWidget);
+
+    await tester.tap(find.text('Affichage'));
+    await tester.pumpAndSettle();
+
+    // The same modes as the Library are offered, including cover-only.
+    expect(find.text('MODE D\'AFFICHAGE'), findsOneWidget);
+    expect(find.text('Grille avec seulement la couverture'), findsOneWidget);
+    expect(find.text('Liste'), findsOneWidget);
+    expect(find.text('1 colonne'), findsOneWidget);
+
+    await tester.tap(find.text('Liste'));
+    await tester.pumpAndSettle();
+    expect(layout, CatalogLayout.list);
+
+    await tester.ensureVisible(find.text('1 colonne'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 colonne'));
+    await tester.pumpAndSettle();
+    expect(columns, 1);
+  });
 }

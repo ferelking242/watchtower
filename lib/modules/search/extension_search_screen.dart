@@ -10,6 +10,7 @@ import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
@@ -90,6 +91,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   List<dynamic> _activeFilters = [];
   final ValueNotifier<List<dynamic>> _filterNotifier =
       ValueNotifier<List<dynamic>>(const []);
+
+  // Densité d'affichage des résultats, alignée sur la bibliothèque/studios.
+  CatalogLayout _layout = CatalogLayout.grid;
+  int _columns = 0;
 
   @override
   void initState() {
@@ -723,6 +728,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
           close: close,
           searchValue: _query,
           onSearchChanged: _onFilterSearchChanged,
+          layout: _layout,
+          columns: _columns,
+          onLayoutChanged: (value) => setState(() => _layout = value),
+          onColumnsChanged: (value) => setState(() => _columns = value),
         ),
       ),
     );
@@ -898,6 +907,8 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                   loadingMore: _loadingMore,
                   onOpen: widget.onOpen,
                   cardComponent: _searchCardComponent,
+                  layout: _layout,
+                  columns: _columns,
                 ),
             ],
           ),
@@ -933,6 +944,8 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         loadingMore: _loadingMore,
         onOpen: widget.onOpen,
         cardComponent: _searchCardComponent,
+        layout: _layout,
+        columns: _columns,
       );
     }
 
@@ -966,6 +979,8 @@ class _ExtensionResultsGrid extends StatelessWidget {
   final bool loadingMore;
   final ValueChanged<MManga> onOpen;
   final String? cardComponent;
+  final CatalogLayout layout;
+  final int columns;
 
   const _ExtensionResultsGrid({
     required this.items,
@@ -973,24 +988,74 @@ class _ExtensionResultsGrid extends StatelessWidget {
     required this.loadingMore,
     required this.onOpen,
     required this.cardComponent,
+    this.layout = CatalogLayout.grid,
+    this.columns = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (n.metrics.extentAfter < 420) onLoadMore();
-        return false;
-      },
-      child: GridView.builder(
-        padding: EdgeInsets.fromLTRB(
-          AppUI.pagePadding(context),
-          14,
-          AppUI.pagePadding(context),
-          120,
+    bool onScroll(ScrollNotification n) {
+      if (n.metrics.extentAfter < 420) onLoadMore();
+      return false;
+    }
+
+    final padding = EdgeInsets.fromLTRB(
+      AppUI.pagePadding(context),
+      14,
+      AppUI.pagePadding(context),
+      120,
+    );
+
+    Widget card(MManga item, {required bool list}) {
+      final contentItem = ContentItem.fromManga(item);
+      void onTap() => onOpen(item);
+      if (list) return _SearchListRow(item: contentItem, onTap: onTap);
+      final configuredCard = cardComponent == null
+          ? null
+          : MangaHomeCardAdapter.build(
+              component: cardComponent!,
+              componentContext: LayoutComponentContext.search,
+              item: contentItem,
+              width: double.infinity,
+              onTap: onTap,
+            );
+      if (configuredCard != null) return configuredCard;
+      return PosterCard(
+        item: contentItem,
+        width: double.infinity,
+        compact: layout == CatalogLayout.compact,
+        titleOnCover: catalogLayoutTitleOnCover(layout),
+        showTitle: catalogLayoutShowTitle(layout),
+        onTap: onTap,
+      );
+    }
+
+    if (layout == CatalogLayout.list) {
+      return NotificationListener<ScrollNotification>(
+        onNotification: onScroll,
+        child: ListView.builder(
+          padding: padding,
+          itemCount: items.length + (loadingMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index >= items.length) {
+              return const AppShimmerBlock(radius: AppUI.cardRadius);
+            }
+            return card(items[index], list: true);
+          },
         ),
+      );
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: onScroll,
+      child: GridView.builder(
+        padding: padding,
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: AppUI.mediaGridColumns(context),
+          crossAxisCount: catalogDisplayColumns(
+            deviceColumns: AppUI.mediaGridColumns(context),
+            layout: layout,
+            columns: columns,
+          ),
           childAspectRatio: AppUI.mediaGridChildAspectRatio(context),
           crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
           mainAxisSpacing: 16,
@@ -1000,25 +1065,74 @@ class _ExtensionResultsGrid extends StatelessWidget {
           if (index >= items.length) {
             return const AppShimmerBlock(radius: AppUI.cardRadius);
           }
-          final item = items[index];
-          final contentItem = ContentItem.fromManga(item);
-          final onTap = () => onOpen(item);
-          final configuredCard = cardComponent == null
-              ? null
-              : MangaHomeCardAdapter.build(
-                  component: cardComponent!,
-                  componentContext: LayoutComponentContext.search,
-                  item: contentItem,
-                  width: double.infinity,
-                  onTap: onTap,
-                );
-          if (configuredCard != null) return configuredCard;
-          return PosterCard(
-            item: contentItem,
-            width: double.infinity,
-            onTap: onTap,
-          );
+          return card(items[index], list: false);
         },
+      ),
+    );
+  }
+}
+
+/// Compact "Liste" row for extension search results, reusing the shared cover
+/// placeholder so the layout matches the catalogue list rows.
+class _SearchListRow extends StatelessWidget {
+  const _SearchListRow({required this.item, required this.onTap});
+
+  final ContentItem item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 62,
+                height: 92,
+                child: ContentImage(url: item.posterUrl, radius: 10),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (item.description?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.description!.trim(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: cs.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Broken.arrow_right_2, size: 18, color: cs.onSurfaceVariant),
+          ],
+        ),
       ),
     );
   }

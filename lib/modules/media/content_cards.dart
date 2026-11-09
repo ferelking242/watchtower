@@ -136,6 +136,7 @@ class PosterCard extends StatelessWidget {
     this.compact = false,
     this.showMediaMetadata = true,
     this.titleOnCover = false,
+    this.showTitle = true,
   });
 
   final ContentItem item;
@@ -145,6 +146,10 @@ class PosterCard extends StatelessWidget {
   final bool compact;
   final bool showMediaMetadata;
   final bool titleOnCover;
+
+  /// Masque entièrement le titre (au-dessus comme sous la vignette) pour le
+  /// mode « Grille avec seulement la couverture ».
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +207,7 @@ class PosterCard extends StatelessWidget {
                           axis: Axis.vertical,
                         ),
                       ),
-                    if (titleOnCover)
+                    if (titleOnCover && showTitle)
                       Positioned(
                         left: 0,
                         right: 0,
@@ -236,7 +241,7 @@ class PosterCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (!titleOnCover) ...[
+            if (!titleOnCover && showTitle) ...[
               SizedBox(height: compact ? 5 : 6),
               Text(
                 item.title,

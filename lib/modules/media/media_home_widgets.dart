@@ -2775,6 +2775,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           close: close,
           searchValue: _searchQuery,
           onSearchChanged: _onExtensionSearchChanged,
+          layout: _filter.layout,
+          columns: _filter.columns,
+          onLayoutChanged: (value) => setState(() => _filter.layout = value),
+          onColumnsChanged: (value) => setState(() => _filter.columns = value),
         ),
       );
     }
@@ -3054,7 +3058,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
                 item: ContentItem.fromTmdb(media),
                 heroTag: tmdbHeroTag(media, source),
                 compact: _filter.layout == CatalogLayout.compact,
-                titleOnCover: _filter.layout != CatalogLayout.comfortable,
+                titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
+                showTitle: catalogLayoutShowTitle(_filter.layout),
                 onTap: () =>
                     pushTmdbMediaDetail(context, media, source: source),
               );
@@ -3074,14 +3079,11 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     double mainAxisSpacing = 16,
   }) {
     final columns = AppUI.mediaGridColumns(context);
-    final automaticCount = switch (_filter.layout) {
-      CatalogLayout.comfortable => (columns - 1).clamp(1, columns).toInt(),
-      CatalogLayout.compact => (columns + 1).clamp(1, 6).toInt(),
-      _ => columns,
-    };
-    final count = _filter.columns == 0
-        ? automaticCount
-        : _filter.columns.clamp(1, 6).toInt();
+    final count = catalogDisplayColumns(
+      deviceColumns: columns,
+      layout: _filter.layout,
+      columns: _filter.columns,
+    );
     return SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: count,
       childAspectRatio: childAspectRatio,
@@ -3249,7 +3251,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             width: double.infinity,
             showMediaMetadata: true,
             compact: _filter.layout == CatalogLayout.compact,
-            titleOnCover: _filter.layout != CatalogLayout.comfortable,
+            titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
+            showTitle: catalogLayoutShowTitle(_filter.layout),
             onTap: () => onTap(media),
           );
         },
@@ -3378,7 +3381,8 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           item: ContentItem.fromManga(item),
           width: double.infinity,
           compact: _filter.layout == CatalogLayout.compact,
-          titleOnCover: _filter.layout != CatalogLayout.comfortable,
+          titleOnCover: catalogLayoutTitleOnCover(_filter.layout),
+          showTitle: catalogLayoutShowTitle(_filter.layout),
           onTap: () => _openExtensionItem(item),
         );
       },
