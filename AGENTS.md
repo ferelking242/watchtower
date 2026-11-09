@@ -207,6 +207,26 @@ too:
   URL never creates a usable HTML session. Retrying from the source page keeps
   the browser's origin and Referer aligned with the request that initiated
   playback; keep this exception limited to that source/CDN pair.
+* **Surrit needs an uncredentialed, referrer-carrying request.** The MissAV
+  page is `missav.ws` and the media is `surrit.com`, so the in-page `fetch()` is
+  always cross-origin. Surrit answers `Access-Control-Allow-Origin:
+  https://missav.ws` but sends **no `Access-Control-Allow-Credentials`**, so the
+  default `credentials: 'include'` makes the browser discard a perfectly good
+  `200` as `TypeError: Failed to fetch` — this, not the 403, is what killed
+  every download. It also refuses a media request with no missav.ws `Referer`,
+  and MissAV serves `Referrer-Policy: same-origin`, which strips that referrer
+  from a cross-origin request. The fix is on the request, not the headers:
+  `omitCredentials: true` plus an explicit `referrer`/`referrerPolicy:
+  'unsafe-url'` for Surrit (`BrowserCaptureRequest.omitCredentials` /
+  `.referrer` / `.referrerPolicy`, resolved by `BrowserFetchService.isMissAvMediaUrl`
+  and `missAvMediaReferrer`). `Referer`/`Origin` stay in
+  `kForbiddenBrowserFetchHeaders`: the engine owns them, and `fetch()`'s
+  `referrer` option is the only way to set them.
+* A host whose native client was already challenged is remembered per isolate
+  (`BrowserFetchService.markNativeChallenged` / `nativeProbeIsPointless`) and
+  the next GET on it goes straight to the browser. The verdict is on the client
+  fingerprint, not the request, so the native probe could only ever burn a
+  round-trip — a dozen home shelves paid it once each.
 
 `sourceId` threads from the download provider through `M3u8Downloader` and
 `M3u8DownloadParams` so the session can restore the right cookies.

@@ -551,6 +551,17 @@ class M3u8Downloader {
         pageUrl:
             BrowserFetchService.pageUrlForMissAvMediaRequest(url, headers) ??
             _originOf(url),
+        // Surrit answers `Access-Control-Allow-Origin: https://missav.ws` but
+        // sends no `Access-Control-Allow-Credentials`, so a credentialed
+        // in-page fetch is discarded as a `TypeError` even after the CDN
+        // served the bytes. It also refuses a request with no MissAV referrer,
+        // which the page's own `Referrer-Policy: same-origin` would strip from
+        // a cross-origin fetch — so both are set explicitly here.
+        omitCredentials: BrowserFetchService.isMissAvMediaUrl(url),
+        referrer: BrowserFetchService.missAvMediaReferrer(url, headers),
+        referrerPolicy: BrowserFetchService.isMissAvMediaUrl(url)
+            ? 'unsafe-url'
+            : null,
       );
       if (response.outcome != BrowserFetchOutcome.resolved) return null;
       final result = response.result!;

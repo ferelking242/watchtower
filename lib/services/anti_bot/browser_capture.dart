@@ -91,6 +91,9 @@ class BrowserCaptureRequest {
     this.solveTimeout = const Duration(seconds: 30),
     this.pageUrl,
     this.binary = false,
+    this.omitCredentials = false,
+    this.referrer,
+    this.referrerPolicy,
   });
 
   final String url;
@@ -115,6 +118,29 @@ class BrowserCaptureRequest {
   /// for covers and reader pages, which are not UTF-8 text.
   final bool binary;
 
+  /// Send the in-page `fetch()` **without** credentials.
+  ///
+  /// A cross-origin CDN that answers with `Access-Control-Allow-Origin` but no
+  /// `Access-Control-Allow-Credentials` rejects a credentialed `fetch` with a
+  /// `TypeError: Failed to fetch`, even though the bytes were served — the
+  /// response is discarded before the page can read it. MissAV's Surrit media
+  /// host is exactly that case: it echoes `https://missav.ws` and serves the
+  /// playlist/segments to a plain request, so dropping the credentials is what
+  /// turns the replay from a `TypeError` into a `200`.
+  final bool omitCredentials;
+
+  /// Explicit `Referer` the engine must send with the in-page request.
+  ///
+  /// The browser strips the referrer from a cross-origin request when the
+  /// document's own policy says so — MissAV serves `Referrer-Policy:
+  /// same-origin` — and Surrit refuses a media request that carries no MissAV
+  /// referrer. Setting it here (with [referrerPolicy]) is what reattaches it.
+  final String? referrer;
+
+  /// Overrides the document referrer policy for this single request so
+  /// [referrer] is actually transmitted cross-origin (`unsafe-url`).
+  final String? referrerPolicy;
+
   Map<String, dynamic> toMap() => {
     'url': url,
     'sourceId': sourceId,
@@ -123,6 +149,9 @@ class BrowserCaptureRequest {
     'solveTimeoutMs': solveTimeout.inMilliseconds,
     if (pageUrl != null) 'pageUrl': pageUrl,
     if (binary) 'binary': true,
+    if (omitCredentials) 'omitCredentials': true,
+    if (referrer != null) 'referrer': referrer,
+    if (referrerPolicy != null) 'referrerPolicy': referrerPolicy,
   };
 
   static BrowserCaptureRequest fromMap(Map<String, dynamic> map) {
@@ -141,6 +170,9 @@ class BrowserCaptureRequest {
       ),
       pageUrl: map['pageUrl'] as String?,
       binary: map['binary'] as bool? ?? false,
+      omitCredentials: map['omitCredentials'] as bool? ?? false,
+      referrer: map['referrer'] as String?,
+      referrerPolicy: map['referrerPolicy'] as String?,
     );
   }
 }
@@ -192,10 +224,14 @@ class BrowserCaptureResult {
 /// request at all.
 ///
 /// So the session opens once per host, clears the challenge, and afterwards
-/// runs `fetch(url, {credentials: 'include'})` **inside the accepted page**.
-/// The browser supplies the TLS fingerprint, the cookies, the Referer and the
-/// User-Agent, and the extension receives the body with the real status code —
-/// for HTML pages and JSON endpoints alike.
+/// runs a `fetch()` **inside the accepted page**. The browser supplies the TLS
+/// fingerprint, the cookies, the Referer and the User-Agent, and the extension
+/// receives the body with the real status code — for HTML pages and JSON
+/// endpoints alike. That fetch sends the clearance cookie by default; a
+/// cross-origin CDN that refuses credentialed requests (MissAV's Surrit, which
+/// sends no `Access-Control-Allow-Credentials`) is served with
+/// `credentials: 'omit'` and an explicit `referrer` instead — see
+/// [BrowserCaptureRequest.omitCredentials].
 ///
 /// Must run on the root isolate: platform views cannot be created from a
 /// spawned isolate. See `browser_bridge.dart` for the worker path.
@@ -464,8 +500,8 @@ class _BrowserSession {
       final key = '__tw_browser_${DateTime.now().microsecondsSinceEpoch}'
           '_${_ticket++}';
       final script = request.binary
-          ? _fetchBinaryScript(key, request.url, request.headers)
-          : _fetchScript(key, request.url, request.headers);
+          ? _fetchBinaryScript(key, request)
+          : _fetchScript(key, request);
       await _evaluate(controller, script);
 
       final deadline = DateTime.now().add(request.timeout);
@@ -658,24 +694,14 @@ class _BrowserSession {
   /// `response.text()` would corrupt a JPEG/WebP. Everything else mirrors
   /// [_fetchScript] — a global is written and the caller polls it, because a
   /// `Promise` is not awaited by `evaluateJavascript` on every platform.
-  static String _fetchBinaryScript(
-    String key,
-    String url,
-    Map<String, String> headers,
-  ) {
-    final target = jsonEncode(url);
-    final extra = jsonEncode(browserFetchHeaders(headers));
+  static String _fetchBinaryScript(String key, BrowserCaptureRequest request) {
+    final target = jsonEncode(request.url);
+    final extra = jsonEncode(browserFetchHeaders(request.headers));
+    final init = _fetchInitJs(request, extra);
     return '''
 (() => {
   const key = '$key';
   window[key] = { done: false };
-  const init = {
-    method: 'GET',
-    credentials: 'include',
-    cache: 'no-store',
-    redirect: 'follow',
-    headers: $extra
-  };
   const toBase64 = (buffer) => {
     const bytes = new Uint8Array(buffer);
     let binary = '';
@@ -686,7 +712,7 @@ class _BrowserSession {
     }
     return btoa(binary);
   };
-  fetch($target, init)
+  fetch($target, $init)
     .then((response) => response.arrayBuffer().then((buffer) => {
       // The payload goes to its own global: the poll reads the small status
       // object on every tick, so serializing the whole base64 each time would
@@ -711,27 +737,17 @@ class _BrowserSession {
   ///
   /// The result is written to a global instead of being returned, because a
   /// `Promise` is not awaited by `evaluateJavascript` on every platform; the
-  /// caller polls the global. `redirect: 'follow'` keeps the final URL, and
-  /// `credentials: 'include'` sends the clearance cookie the engine owns.
-  static String _fetchScript(
-    String key,
-    String url,
-    Map<String, String> headers,
-  ) {
-    final target = jsonEncode(url);
-    final extra = jsonEncode(browserFetchHeaders(headers));
+  /// caller polls the global. `redirect: 'follow'` keeps the final URL. See
+  /// [_fetchInitJs] for the credentials/referrer the request carries.
+  static String _fetchScript(String key, BrowserCaptureRequest request) {
+    final target = jsonEncode(request.url);
+    final extra = jsonEncode(browserFetchHeaders(request.headers));
+    final init = _fetchInitJs(request, extra);
     return '''
 (() => {
   const key = '$key';
   window[key] = { done: false };
-  const init = {
-    method: 'GET',
-    credentials: 'include',
-    cache: 'no-store',
-    redirect: 'follow',
-    headers: $extra
-  };
-  fetch($target, init)
+  fetch($target, $init)
     .then((response) => response.text().then((text) => {
       window[key] = {
         done: true,
@@ -746,5 +762,33 @@ class _BrowserSession {
     });
 })()
 ''';
+  }
+
+  /// The `fetch()` init object shared by both scripts.
+  ///
+  /// Credentials default to `include` (the clearance cookie the engine owns),
+  /// but a cross-origin CDN that does not echo
+  /// `Access-Control-Allow-Credentials` rejects a credentialed request with a
+  /// `TypeError` even after serving it — MissAV's Surrit host is that case, so
+  /// its replay asks for `omit`. An explicit `referrer`/`referrerPolicy` is
+  /// attached when the caller needs the missav.ws referrer restored, since the
+  /// page's own `same-origin` policy would strip it cross-origin.
+  static String _fetchInitJs(BrowserCaptureRequest request, String extra) {
+    final credentials =
+        request.omitCredentials ? 'omit' : 'include';
+    final referrer = request.referrer == null
+        ? ''
+        : '\n    referrer: ${jsonEncode(request.referrer)},';
+    final policy = request.referrerPolicy == null
+        ? ''
+        : '\n    referrerPolicy: ${jsonEncode(request.referrerPolicy)},';
+    return '''
+{
+    method: 'GET',
+    credentials: '$credentials',$referrer$policy
+    cache: 'no-store',
+    redirect: 'follow',
+    headers: $extra
+  }''';
   }
 }

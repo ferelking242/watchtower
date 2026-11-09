@@ -249,6 +249,21 @@ Future<String> _toHttpResponse(
       return jsonEncode(resMap);
     }
     requestStarted = true;
+    // A host whose native client was already challenged in this isolate will be
+    // refused again — the verdict is on the client fingerprint, not the request
+    // — so skip the doomed probe and let the browser session serve it. Without
+    // this the home layout paid a native 403 per shelf before every browser
+    // round-trip.
+    var browserAttempted = false;
+    if (method == "GET" && BrowserFetchService.nativeProbeIsPointless(url)) {
+      browserAttempted = true;
+      final earlyBrowser = await _browserResponseForRefused(
+        url,
+        headers,
+        sourceId,
+      );
+      if (earlyBrowser != null) return earlyBrowser;
+    }
     final future = switch (method) {
       "HEAD" => client.head(Uri.parse(url), headers: headers),
       "GET" => client.get(Uri.parse(url), headers: headers),
@@ -272,16 +287,16 @@ Future<String> _toHttpResponse(
               url,
               resp.statusCode,
             ))) {
-      final browser = await _browserResponseFor(
-        url,
-        headers,
-        sourceId,
-        pageUrl: BrowserFetchService.pageUrlForMissAvMediaRequest(
+      // Remember the verdict so a later call on this host skips the probe.
+      BrowserFetchService.markNativeChallenged(url);
+      if (!browserAttempted) {
+        final browser = await _browserResponseForRefused(
           url,
           headers,
-        ),
-      );
-      if (browser != null) return browser;
+          sourceId,
+        );
+        if (browser != null) return browser;
+      }
     }
 
     AppLogger.log(
@@ -316,7 +331,11 @@ Future<String> _toHttpResponse(
       // before the HTTP client can produce a response. Let only extensions
       // that explicitly opt in replay that GET through their saved browser
       // session; do not broaden this to every extension/network failure.
-      final browserResponse = await _browserResponseFor(url, headers, sourceId);
+      final browserResponse = await _browserResponseForRefused(
+        url,
+        headers,
+        sourceId,
+      );
       if (browserResponse != null) return browserResponse;
     }
     final argumentTypes = args.map((argument) => argument.runtimeType).join(', ');
@@ -472,11 +491,36 @@ Future<String> _toHttpResponseViaProxy(
 /// Returns the JSON response the extension expects, or `null` when the browser
 /// could not obtain the page either — the original (refused) response then
 /// stands and only at that point is the user interrupted.
+Future<String?> _browserResponseForRefused(
+  String url,
+  Map<String, String>? headers,
+  int? sourceId,
+) {
+  return _browserResponseFor(
+    url,
+    headers,
+    sourceId,
+    pageUrl: BrowserFetchService.pageUrlForMissAvMediaRequest(url, headers),
+    // A Surrit media request (playlist or segment) refused natively is replayed
+    // from the MissAV page: the CDN echoes that origin but sends no
+    // `Access-Control-Allow-Credentials`, and it needs a MissAV referrer that
+    // the page's `Referrer-Policy: same-origin` strips from a cross-origin
+    // fetch. Both are reattached explicitly for that host only.
+    omitCredentials: BrowserFetchService.isMissAvMediaUrl(url),
+    referrer: BrowserFetchService.missAvMediaReferrer(url, headers),
+    referrerPolicy:
+        BrowserFetchService.isMissAvMediaUrl(url) ? 'unsafe-url' : null,
+  );
+}
+
 Future<String?> _browserResponseFor(
   String url,
   Map<String, String>? headers,
   int? sourceId, {
   String? pageUrl,
+  bool omitCredentials = false,
+  String? referrer,
+  String? referrerPolicy,
 }) async {
   try {
     final response = await BrowserFetchService.fetch(
@@ -484,6 +528,9 @@ Future<String?> _browserResponseFor(
       sourceId: sourceId,
       headers: headers,
       pageUrl: pageUrl,
+      omitCredentials: omitCredentials,
+      referrer: referrer,
+      referrerPolicy: referrerPolicy,
     );
     switch (response.outcome) {
       case BrowserFetchOutcome.resolved:

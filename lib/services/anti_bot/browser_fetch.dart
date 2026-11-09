@@ -87,6 +87,37 @@ class BrowserFetchService {
     return pageUri.toString();
   }
 
+  /// True for a MissAV media URL on the Surrit CDN, whatever its path.
+  ///
+  /// Both the HLS playlist and its `.ts`/`.jpeg` segments live there, and both
+  /// need the same replay shape (no credentials, MissAV referrer), so the test
+  /// is on the host alone rather than on the `.m3u8` extension
+  /// [isMissAvHlsPlaylistRefusal] uses.
+  static bool isMissAvMediaUrl(String url) {
+    final uri = Uri.tryParse(url);
+    return uri != null && uri.scheme == 'https' && _isSurritHost(uri.host);
+  }
+
+  /// The MissAV referrer a Surrit media request must carry, or `null` when the
+  /// request is not a MissAV media one.
+  ///
+  /// Surrit refuses a playlist/segment whose `Referer` is missing or is not a
+  /// missav.ws page (a bare origin is enough: `https://missav.ws/` is accepted).
+  /// The browser normally sends that referrer itself, but MissAV answers with
+  /// `Referrer-Policy: same-origin`, so a cross-origin `fetch()` from the
+  /// accepted page drops it — this value is reattached with an explicit
+  /// `referrer`/`referrerPolicy: 'unsafe-url'` on the in-page request.
+  static String? missAvMediaReferrer(
+    String url,
+    Map<String, String>? headers,
+  ) {
+    if (!isMissAvMediaUrl(url)) return null;
+    final page = pageUrlForMissAvMediaRequest(url, headers);
+    if (page != null) return page;
+    // No usable page header: the site root still satisfies Surrit's check.
+    return 'https://missav.ws/';
+  }
+
   static bool _isSurritHost(String host) {
     final normalized = host.toLowerCase();
     return normalized == 'surrit.com' || normalized.endsWith('.surrit.com');
@@ -99,6 +130,32 @@ class BrowserFetchService {
 
   /// Hosts being served right now, per isolate.
   static final Set<String> _inFlightHosts = {};
+
+  /// Hosts whose native client was already answered with a challenge in this
+  /// isolate. The verdict is on the client fingerprint (Rust/rustls), not on
+  /// the request, so every later native attempt on the same host is guaranteed
+  /// to burn a round-trip before the browser serves it — the home layout's
+  /// dozen shelves each paid that toll. Remembering the host lets the caller
+  /// skip straight to the browser. Bounded and never persisted: a fresh isolate
+  /// starts empty, so a host that stops challenging is probed natively again.
+  static final Set<String> _nativeChallengedHosts = {};
+
+  /// Records that [url]'s host answered the native client with a challenge.
+  static void markNativeChallenged(String url) {
+    final host = _hostOf(url);
+    if (host == null) return;
+    _nativeChallengedHosts.add(host);
+    while (_nativeChallengedHosts.length > 64) {
+      _nativeChallengedHosts.remove(_nativeChallengedHosts.first);
+    }
+  }
+
+  /// True when the native client is known to be challenged on [url]'s host, so
+  /// the caller may go straight to the browser session.
+  static bool nativeProbeIsPointless(String url) {
+    final host = _hostOf(url);
+    return host != null && _nativeChallengedHosts.contains(host);
+  }
 
   /// Hosts just served by the browser: challenges arriving in this window are
   /// the normal tail of a burst, not something to alert the user about.
@@ -133,6 +190,9 @@ class BrowserFetchService {
     Map<String, String>? headers,
     String? pageUrl,
     bool binary = false,
+    bool omitCredentials = false,
+    String? referrer,
+    String? referrerPolicy,
     Duration timeout = const Duration(seconds: 12),
   }) async {
     final host = _hostOf(url);
@@ -148,6 +208,9 @@ class BrowserFetchService {
         headers: headers ?? const <String, String>{},
         pageUrl: pageUrl,
         binary: binary,
+        omitCredentials: omitCredentials,
+        referrer: referrer,
+        referrerPolicy: referrerPolicy,
         timeout: timeout,
       );
       final result = BrowserBridge.isRootIsolate

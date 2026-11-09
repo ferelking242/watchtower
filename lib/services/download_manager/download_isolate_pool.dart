@@ -2129,6 +2129,15 @@ Future<bool> _segmentViaBrowser(
             ) ??
             _mediaOriginOf(ts.url),
         binary: true,
+        // Surrit serves `Access-Control-Allow-Origin: https://missav.ws` with
+        // no `Access-Control-Allow-Credentials`, so the in-page fetch must run
+        // without credentials; it also needs the MissAV referrer, which the
+        // page's `Referrer-Policy: same-origin` would otherwise strip.
+        omitCredentials: BrowserFetchService.isMissAvMediaUrl(ts.url),
+        referrer: BrowserFetchService.missAvMediaReferrer(ts.url, headers),
+        referrerPolicy: BrowserFetchService.isMissAvMediaUrl(ts.url)
+            ? 'unsafe-url'
+            : null,
         timeout: const Duration(seconds: 60),
         solveTimeout: const Duration(seconds: 20),
       ),

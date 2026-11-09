@@ -106,8 +106,31 @@ void main() {
       final map = request.toMap();
       expect(map.containsKey('pageUrl'), isFalse);
       expect(map.containsKey('binary'), isFalse);
+      expect(map.containsKey('omitCredentials'), isFalse);
+      expect(map.containsKey('referrer'), isFalse);
+      expect(map.containsKey('referrerPolicy'), isFalse);
       expect(BrowserCaptureRequest.fromMap(map).binary, isFalse);
       expect(BrowserCaptureRequest.fromMap(map).pageUrl, isNull);
+    });
+
+    test('the Surrit replay options survive the isolate hop', () {
+      const request = BrowserCaptureRequest(
+        url: 'https://surrit.com/id/playlist.m3u8',
+        sourceId: 1900000218,
+        pageUrl: 'https://missav.ws/en/video-id',
+        omitCredentials: true,
+        referrer: 'https://missav.ws/en/video-id',
+        referrerPolicy: 'unsafe-url',
+      );
+
+      final decoded = BrowserCaptureRequest.fromMap(
+        Map<String, dynamic>.from(request.toMap()),
+      );
+
+      expect(decoded.omitCredentials, isTrue);
+      expect(decoded.referrer, 'https://missav.ws/en/video-id');
+      expect(decoded.referrerPolicy, 'unsafe-url');
+      expect(decoded.pageUrl, 'https://missav.ws/en/video-id');
     });
 
     test('binary bytes round-trip through the map as base64', () {
@@ -207,6 +230,67 @@ void main() {
           {'Referer': 'javascript://missav.ws/video'},
         ),
         isNull,
+      );
+    });
+
+    test('recognises any Surrit media URL, not only playlists', () {
+      expect(
+        BrowserFetchService.isMissAvMediaUrl(
+          'https://surrit.com/id/1080p/video.m3u8',
+        ),
+        isTrue,
+      );
+      expect(
+        BrowserFetchService.isMissAvMediaUrl(
+          'https://surrit.com/id/1080p/video0.jpeg',
+        ),
+        isTrue,
+      );
+      expect(
+        BrowserFetchService.isMissAvMediaUrl(
+          'https://cdn.example/id/video.m3u8',
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserFetchService.isMissAvMediaUrl('http://surrit.com/id/x.ts'),
+        isFalse,
+      );
+    });
+
+    test('always attaches a MissAV referrer to a Surrit media request', () {
+      expect(
+        BrowserFetchService.missAvMediaReferrer(
+          'https://surrit.com/id/playlist.m3u8',
+          {'Referer': 'https://missav.ws/en/video-id'},
+        ),
+        'https://missav.ws/en/video-id',
+      );
+      // No usable page header: the site root still satisfies Surrit's check.
+      expect(
+        BrowserFetchService.missAvMediaReferrer(
+          'https://surrit.com/id/playlist.m3u8',
+          const {},
+        ),
+        'https://missav.ws/',
+      );
+      expect(
+        BrowserFetchService.missAvMediaReferrer(
+          'https://cdn.example/video.m3u8',
+          {'Referer': 'https://missav.ws/en/video-id'},
+        ),
+        isNull,
+      );
+    });
+
+    test('remembers a host the native client was challenged on', () {
+      const url = 'https://missav.ws/en/new';
+      expect(BrowserFetchService.nativeProbeIsPointless(url), isFalse);
+      BrowserFetchService.markNativeChallenged(url);
+      expect(BrowserFetchService.nativeProbeIsPointless(url), isTrue);
+      expect(
+        BrowserFetchService.nativeProbeIsPointless('https://other.test/x'),
+        isFalse,
       );
     });
   });
