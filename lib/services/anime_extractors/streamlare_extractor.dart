@@ -65,7 +65,7 @@ class StreamlareExtractor {
         // one multiplied the load time by the number of qualities.
         final videos = await mapParallel<String, Video?>(
           values,
-          5,
+          kNetworkConcurrency,
           (value) async {
             final quality = value
                 .substringAfter(separator)

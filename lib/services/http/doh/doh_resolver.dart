@@ -47,6 +47,14 @@ class DoHResolver {
 
   static const Duration _requestTimeout = Duration(seconds: 5);
 
+  /// One long-lived client for every DoH query. Building a fresh [HttpClient]
+  /// per lookup forced a full TCP+TLS handshake on each DNS resolution, which
+  /// is paid on the critical path of every request that enables DoH.
+  static final HttpClient _client = HttpClient()
+    ..connectionTimeout = _requestTimeout
+    ..idleTimeout = const Duration(seconds: 30)
+    ..maxConnectionsPerHost = 6;
+
   /// Resolve hostname using specified DoH provider with A and AAAA records
   /// Uses bootstrap IPs to avoid circular DNS resolution
   static Future<List<String>> resolve(
@@ -149,35 +157,30 @@ class DoHResolver {
     String recordType,
   ) async {
     final uri = Uri.parse(provider.url);
-    final client = HttpClient();
-    client.connectionTimeout = _requestTimeout;
+    final client = _client;
 
-    try {
-      final request = await client.getUrl(
-        Uri(
-          scheme: uri.scheme,
-          host: uri.host,
-          port: uri.port,
-          path: uri.path,
-          query: 'name=$targetHost&type=$recordType',
-        ),
-      );
+    final request = await client.getUrl(
+      Uri(
+        scheme: uri.scheme,
+        host: uri.host,
+        port: uri.port,
+        path: uri.path,
+        query: 'name=$targetHost&type=$recordType',
+      ),
+    );
 
-      request.headers.set('Accept', 'application/dns-json');
-      request.headers.set('User-Agent', 'Watchtower/1.0');
+    request.headers.set('Accept', 'application/dns-json');
+    request.headers.set('User-Agent', 'Watchtower/1.0');
 
-      final response = await request.close().timeout(_requestTimeout);
+    final response = await request.close().timeout(_requestTimeout);
 
-      if (response.statusCode == 200) {
-        final body = await utf8.decodeStream(response);
-        return _parseDoHResponse(body);
-      }
-
-      _log('HTTP ${response.statusCode} from hostname (${provider.name})');
-      return [];
-    } finally {
-      client.close(force: true);
+    if (response.statusCode == 200) {
+      final body = await utf8.decodeStream(response);
+      return _parseDoHResponse(body);
     }
+
+    _log('HTTP ${response.statusCode} from hostname (${provider.name})');
+    return [];
   }
 
   /// Fallback resolution with other providers

@@ -22,7 +22,17 @@ import 'package:watchtower/utils/constant.dart';
 
 class MClient {
   MClient();
-  static final defaultClient = IOClient(HttpClient());
+
+  /// Shared client for every non-rhttp request. The single underlying
+  /// [HttpClient] keeps idle connections alive, and its pool is capped so a
+  /// burst of extension calls cannot open an unbounded number of sockets to
+  /// one host.
+  static final defaultClient = IOClient(
+    HttpClient()
+      ..maxConnectionsPerHost = 12
+      ..idleTimeout = const Duration(seconds: 20)
+      ..connectionTimeout = const Duration(seconds: 30),
+  );
   static final Map<rhttp.ClientSettings, Client> rhttpPool = {};
   static List<MCookie>? _workerCookieSnapshot;
   static String? _workerUserAgentSnapshot;

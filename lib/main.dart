@@ -703,7 +703,7 @@ Future<String?> _installPendingExtensionsFromNotification() async {
   final failedNames = <String>[];
   // Each extension downloads from its own repo; install them with a bounded
   // pool instead of one after another.
-  await forEachParallel<Source>(updates, 4, (source) async {
+  await forEachParallel<Source>(updates, kNetworkConcurrency, (source) async {
     try {
       await installExtensionUpdate(source);
       installedCount++;
@@ -1125,7 +1125,7 @@ class _MyAppState extends ConsumerState<MyApp>
     // several repos wait for the sum of every round-trip.
     final results = await mapParallel<String, bool>(
       urls,
-      4,
+      kNetworkConcurrency,
       (url) async {
         final req = await http.get(Uri.parse(url));
         final sourceList = (jsonDecode(req.body) as List).map(

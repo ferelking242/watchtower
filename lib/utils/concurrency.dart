@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:pool/pool.dart';
+
 /// Bounded-concurrency helpers.
 ///
 /// Extension runtimes are non-reentrant per source within one isolate (see
@@ -13,6 +15,13 @@ import 'dart:async';
 /// serializes independent network and disk requests and is the main reason
 /// bulk operations (library scan, extension updates, chapter page probing)
 /// felt slow.
+
+/// Default ceiling for network-bound work: enough to hide latency without
+/// opening a connection storm that starves the OS or trips server throttling.
+const int kNetworkConcurrency = 6;
+
+/// Default ceiling for disk-bound probes: cheap syscalls, so a wider pool.
+const int kDiskConcurrency = 8;
 
 /// Maps [items] through [task] with at most [maxConcurrent] in flight at once,
 /// preserving input order in the result.
@@ -29,33 +38,34 @@ Future<List<R?>> mapParallel<T, R>(
   final list = items.toList(growable: false);
   final results = List<R?>.filled(list.length, null);
   if (list.isEmpty) return results;
-  final limit = maxConcurrent < 1 ? 1 : maxConcurrent;
 
-  var next = 0;
+  final pool = Pool(maxConcurrent < 1 ? 1 : maxConcurrent);
   Object? firstError;
   StackTrace? firstStack;
 
-  Future<void> worker() async {
-    while (true) {
-      if (propagateErrors && firstError != null) return;
-      final i = next++;
-      if (i >= list.length) return;
-      try {
-        results[i] = await task(list[i]);
-      } catch (error, stackTrace) {
-        if (propagateErrors) {
-          firstError = error;
-          firstStack = stackTrace;
-          return;
-        }
+  Future<void> run(int i) async {
+    // Once a failure is recorded, skip the tasks still queued behind it so a
+    // broken item does not keep burning connections.
+    if (firstError != null) return;
+    try {
+      results[i] = await task(list[i]);
+    } catch (error, stackTrace) {
+      if (propagateErrors) {
+        firstError ??= error;
+        firstStack ??= stackTrace;
+      } else {
         results[i] = null;
       }
     }
   }
 
-  await Future.wait(
-    List.generate(limit < list.length ? limit : list.length, (_) => worker()),
-  );
+  try {
+    await Future.wait(
+      List.generate(list.length, (i) => pool.withResource(() => run(i))),
+    );
+  } finally {
+    unawaited(pool.close());
+  }
   if (firstError != null) {
     Error.throwWithStackTrace(firstError!, firstStack!);
   }
@@ -70,37 +80,12 @@ Future<void> forEachParallel<T>(
   Future<void> Function(T item) task, {
   bool propagateErrors = true,
 }) async {
-  final list = items.toList(growable: false);
-  if (list.isEmpty) return;
-  final limit = maxConcurrent < 1 ? 1 : maxConcurrent;
-
-  var next = 0;
-  Object? firstError;
-  StackTrace? firstStack;
-
-  Future<void> worker() async {
-    while (true) {
-      if (propagateErrors && firstError != null) return;
-      final i = next++;
-      if (i >= list.length) return;
-      try {
-        await task(list[i]);
-      } catch (error, stackTrace) {
-        if (propagateErrors) {
-          firstError = error;
-          firstStack = stackTrace;
-          return;
-        }
-      }
-    }
-  }
-
-  await Future.wait(
-    List.generate(limit < list.length ? limit : list.length, (_) => worker()),
+  await mapParallel<T, void>(
+    items,
+    maxConcurrent,
+    (item) => task(item),
+    propagateErrors: propagateErrors,
   );
-  if (firstError != null) {
-    Error.throwWithStackTrace(firstError!, firstStack!);
-  }
 }
 
 /// Runs [task] over [items] with bounded concurrency and a stable slot per

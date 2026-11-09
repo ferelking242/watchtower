@@ -270,6 +270,25 @@ Rules of thumb:
   `File.exists()` with a pool of 8 (a 200-page chapter used to pay 200 serial
   syscalls). `video_file_meta.dart`'s HLS size probes run together (5).
 
+## Network hardening: connection caps, retry, heavy-decode offload
+`lib/utils/retry.dart` adds `retry(task, policy: RetryPolicy(...))`:
+exponential backoff + full jitter, transient-only (socket/timeout errors and
+5xx/429; 404 and parse errors fail fast). Use it for **idempotent** calls
+(GET/HEAD, metadata probes) — it is wired into the extension-index fetch and the
+HLS/`Range: bytes=0-0` probes. Never wrap a POST that is not idempotent.
+
+Connection limits matter as much as the pool size. Dart's `HttpClient` has
+`maxConnectionsPerHost == null` (unbounded) by default, so a burst of parallel
+extension calls can open a socket per request. The shared/single-host clients
+cap it: `MClient.defaultClient` (12), the DoH resolver's long-lived client (6),
+WebDAV (6), and `video_file_meta._open` (6). The DoH client used to be rebuilt
+per lookup — a full TCP+TLS handshake on the critical path of *every* request
+when DoH is enabled; it is now a `static final` shared instance.
+
+Heavy pure-CPU decoding must not run on the UI isolate. `fetch_sources_list.dart`
+decodes extension-index bodies larger than `_isolateDecodeThreshold` (256 KB)
+via `compute()`, mirroring the existing pattern in `marketplace_screen.dart`.
+
 ## Automatic backup must not compete with the first frame
 `AutoBackupService` copies the whole Isar file, so it is the most expensive
 routine the app runs. It waits `_startupSnapshotDelay` (12 s) before the launch

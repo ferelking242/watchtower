@@ -24,6 +24,8 @@ class WebDavRemoteClient implements RemoteClient {
   }) {
     _httpClient = HttpClient();
     _httpClient.connectionTimeout = const Duration(seconds: 15);
+    _httpClient.maxConnectionsPerHost = 6;
+    _httpClient.idleTimeout = const Duration(seconds: 20);
   }
 
   String get _baseUrl {

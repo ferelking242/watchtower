@@ -3,6 +3,7 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:watchtower/services/hls_variant_resolver.dart';
 import 'package:watchtower/utils/concurrency.dart';
+import 'package:watchtower/utils/retry.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Métadonnées (poids | durée) d'une vidéo, quel que soit le flux :
@@ -231,6 +232,8 @@ Future<(HttpClient, HttpClientRequest)> _open(
 ) async {
   final client = HttpClient();
   client.connectionTimeout = const Duration(seconds: 12);
+  client.maxConnectionsPerHost = 6;
+  client.idleTimeout = const Duration(seconds: 20);
   final request = await client.openUrl(method, Uri.parse(url));
   headers?.forEach(request.headers.set);
   return (client, request);
@@ -241,17 +244,25 @@ Future<String?> httpGetText(
   String url,
   Map<String, String>? headers,
 ) async {
-  final (client, request) = await _open('GET', url, headers);
   try {
-    final response = await request.close().timeout(const Duration(seconds: 15));
-    if (response.statusCode ~/ 100 != 2) return null;
-    return await response
-        .transform(utf8.decoder)
-        .join();
+    return await retry(() async {
+      final (client, request) = await _open('GET', url, headers);
+      try {
+        final response =
+            await request.close().timeout(const Duration(seconds: 15));
+        if (response.statusCode ~/ 100 != 2) {
+          if (response.statusCode >= 500) {
+            throw HttpStatusException(response.statusCode, url);
+          }
+          return null;
+        }
+        return await response.transform(utf8.decoder).join();
+      } finally {
+        client.close(force: true);
+      }
+    });
   } catch (_) {
     return null;
-  } finally {
-    client.close(force: true);
   }
 }
 
@@ -260,24 +271,36 @@ Future<int?> fetchDirectFileSize(
   String url,
   Map<String, String>? headers,
 ) async {
-  final (client, request) = await _open('GET', url, headers);
   try {
-    request.headers.set('range', 'bytes=0-0');
-    final response = await request.close().timeout(const Duration(seconds: 15));
-    // On ne lit pas le corps : seules les entêtes nous intéressent.
-    await response.drain<void>().timeout(const Duration(seconds: 15));
-    if (response.statusCode ~/ 100 != 2) return null;
-    final contentRange = response.headers.value('content-range'); // b 0-0/TOTAL
-    if (contentRange != null) {
-      final slash = contentRange.lastIndexOf('/');
-      if (slash != -1) return int.tryParse(contentRange.substring(slash + 1));
-    }
-    final length = response.headers.value('content-length');
-    return length == null ? null : int.tryParse(length.split('.')[0]);
+    return await retry(() async {
+      final (client, request) = await _open('GET', url, headers);
+      try {
+        request.headers.set('range', 'bytes=0-0');
+        final response =
+            await request.close().timeout(const Duration(seconds: 15));
+        // On ne lit pas le corps : seules les entêtes nous intéressent.
+        await response.drain<void>().timeout(const Duration(seconds: 15));
+        if (response.statusCode ~/ 100 != 2) {
+          if (response.statusCode >= 500) {
+            throw HttpStatusException(response.statusCode, url);
+          }
+          return null;
+        }
+        final contentRange = response.headers.value('content-range'); // b 0-0/TOTAL
+        if (contentRange != null) {
+          final slash = contentRange.lastIndexOf('/');
+          if (slash != -1) {
+            return int.tryParse(contentRange.substring(slash + 1));
+          }
+        }
+        final length = response.headers.value('content-length');
+        return length == null ? null : int.tryParse(length.split('.')[0]);
+      } finally {
+        client.close(force: true);
+      }
+    });
   } catch (_) {
     return null;
-  } finally {
-    client.close(force: true);
   }
 }
 
@@ -384,7 +407,7 @@ Future<int?> _estimateHlsPlaylistSize(
   // size estimate take the sum of five round-trips. Run them together.
   final sizes = await mapParallel<int, int?>(
     probes,
-    5,
+    kNetworkConcurrency,
     (i) => fetchDirectFileSize(segments[i].toString(), headers),
     propagateErrors: false,
   );

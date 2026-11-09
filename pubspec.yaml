@@ -190,6 +190,7 @@ dependencies:
   change_case: ^1.1.0
   args: ^2.5.0
   collection: any
+  pool: ^1.5.2
   logger: ^2.0.2
   wikipedia_api: ^0.1.0
   file_selector: ^1.0.3

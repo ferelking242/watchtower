@@ -19,6 +19,7 @@ import 'package:watchtower/services/extension_page_cache.dart';
 import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/concurrency.dart';
+import 'package:watchtower/utils/retry.dart';
 
 // ── Web proxy helper ─────────────────────────────────────────────────────────
 // Sur Flutter web, toutes les requêtes cross-origin sont bloquées par CORS.
@@ -75,6 +76,9 @@ Future<rawHttp.Response> _webProxyGet(String url) async {
 // the raw index body for [_indexCacheTtl] and de-duplicate concurrent
 // in-flight requests so only one HTTP call hits the network at a time.
 const Duration _indexCacheTtl = Duration(seconds: 30);
+
+/// Index bodies above this size are decoded on a worker isolate.
+const int _isolateDecodeThreshold = 256 * 1024;
 final Map<String, _IndexCacheEntry> _indexCache = {};
 final Map<String, Future<String>> _indexInflight = {};
 
@@ -123,7 +127,13 @@ Future<String> _fetchIndexBody({
         req = await _webProxyGet(url);
       }
     } else {
-      req = await http.get(Uri.parse(url));
+      req = await retry(() async {
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode >= 500) {
+          throw HttpStatusException(response.statusCode, url);
+        }
+        return response;
+      });
     }
     final body = utf8.decode(req.bodyBytes);
     _indexCache[url] = _IndexCacheEntry(body, DateTime.now());
@@ -159,13 +169,14 @@ Future<void> fetchSourcesList({
     http: http,
     forceRefresh: refresh,
   );
-  // Mimic the original `req.body`-based decode below by wrapping the
-  // cached/freshly-fetched string into a minimal shim with the same
-  // call site shape.
-  final req = _BodyShim(body);
   final info = await PackageInfo.fromPlatform();
 
-  final sourceList = (jsonDecode(req.body) as List)
+  // Decoding a multi-megabyte extension index is pure CPU. For large bodies,
+  // run it on a worker isolate so the list parse does not jank the UI.
+  final decoded = body.length > _isolateDecodeThreshold
+      ? await compute(_decodeIndexList, body)
+      : _decodeIndexList(body);
+  final sourceList = decoded
       .expand((e) sync* {
         if (e['id'] is String &&
             e['name'] != null &&
@@ -388,7 +399,7 @@ Future<void> fetchSourcesList({
     // independent host/runtime, so downloading them one at a time was pure
     // wall-clock waste; run a bounded pool instead (Isar serializes the
     // resulting write transactions on its own).
-    await forEachParallel(toAutoUpdate, 4, (source) async {
+    await forEachParallel(toAutoUpdate, kNetworkConcurrency, (source) async {
       AppLogger.log(
         'Auto-updating "${source.name}" | repo=${repo?.name}',
         tag: LogTag.extension_,
@@ -846,9 +857,6 @@ String _convertLang(dynamic e) {
   return "all";
 }
 
-/// Lightweight shim so we can pass a `String` body through the same
-/// `req.body`-based decode path used by the original code.
-class _BodyShim {
-  final String body;
-  _BodyShim(this.body);
-}
+/// Decodes an extension index into raw maps. Top-level so it can run inside a
+/// `compute()` isolate.
+List<dynamic> _decodeIndexList(String body) => jsonDecode(body) as List<dynamic>;

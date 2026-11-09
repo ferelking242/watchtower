@@ -234,7 +234,7 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       int done = 0;
       // Each extension is an independent download from its own repo; running
       // them one at a time made "update all" wait for the sum of every fetch.
-      await forEachParallel<Source>(sources, 4, (src) async {
+      await forEachParallel<Source>(sources, kNetworkConcurrency, (src) async {
         try {
           await ref.read(
             fetchItemSourcesListProvider(

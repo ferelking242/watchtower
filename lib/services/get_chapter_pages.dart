@@ -313,7 +313,7 @@ Future<GetChapterPagesModel> getChapterPages(
         // disk round-trips. Probe them with a bounded pool instead.
         final present = await mapParallel<int, bool>(
           List.generate(pageUrls.length, (i) => i),
-          8,
+          kDiskConcurrency,
           (i) => File(p.join(path!.path, '${padIndex(i)}.jpg')).exists(),
           propagateErrors: false,
         );
