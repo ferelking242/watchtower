@@ -2593,7 +2593,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   Future<MPages?> _fetchExtensionPage(int page) {
     final source = widget.extensionSource!;
     final sectionId = widget.extensionSectionId!;
-    if (_extensionFilters.isNotEmpty) {
+    if (_searchQuery.trim().isNotEmpty || _activeExtensionFilterCount > 0) {
       return ref.read(
         searchProvider(
           source: source,

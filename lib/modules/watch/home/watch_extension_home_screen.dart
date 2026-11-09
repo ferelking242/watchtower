@@ -1681,6 +1681,12 @@ class ExtensionLayoutPreview extends StatelessWidget {
   /// Three-dot overflow control shown at the right end of the section header.
   final Widget? trailing;
 
+  double? _numericParam(String key) {
+    final value = params[key];
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
   @override
   Widget build(BuildContext context) {
     final contentItems = items.map(ContentItem.fromManga).toList(growable: false);
@@ -1916,6 +1922,9 @@ class ExtensionLayoutPreview extends StatelessWidget {
         rows: rows,
         scrollDirection: scrollDirection,
         cardStyle: cardStyle,
+        cardWidth: _numericParam('cardWidth'),
+        mainAxisSpacing: _numericParam('mainAxisSpacing'),
+        crossAxisSpacing: _numericParam('crossAxisSpacing'),
         onSeeAll: episodeCardComponent == null && chapterCardComponent == null ? onSeeAll : null,
         itemCardBuilder: gridCardBuilder,
       ),

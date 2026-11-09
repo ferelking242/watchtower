@@ -478,6 +478,9 @@ class MediaGridSection extends StatelessWidget {
     this.rows,
     this.scrollDirection,
     this.cardStyle,
+    this.cardWidth,
+    this.mainAxisSpacing,
+    this.crossAxisSpacing,
     this.itemCardBuilder,
     super.key,
   });
@@ -492,10 +495,13 @@ class MediaGridSection extends StatelessWidget {
   final int? columns;
   final int? rows;
   final String? scrollDirection;
+  final double? cardWidth;
+  final double? mainAxisSpacing;
+  final double? crossAxisSpacing;
 
-  /// Presentation hint from the layout (`tag`, `thumbnail`…). `tag` renders the
-  /// shared [TagCard] instead of the poster default, so a tag grid uses the
-  /// real component rather than a bespoke card.
+  /// Presentation hint from the layout (`tag`, `landscape`, `thumbnail`…).
+  /// `tag` renders the shared [TagCard]; `landscape` uses the shared
+  /// [LandscapeCard]. Other values keep the poster default.
   final String? cardStyle;
   final Widget Function(
     BuildContext context,
@@ -515,6 +521,7 @@ class MediaGridSection extends StatelessWidget {
     final horizontal = scrollDirection == 'horizontal';
     final visible = items.take(columnCount * rowCount).toList(growable: false);
     final isTagGrid = cardStyle == 'tag';
+    final isLandscapeGrid = cardStyle == 'landscape';
     // TagCard has a fixed 72 px height; reserve that per row (plus the row
     // spacing) so the tile never gets clipped by the grid's fixed extent.
     final tagSpacing = 10.0;
@@ -539,11 +546,13 @@ class MediaGridSection extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final horizontalPadding = AppUI.pagePadding(context);
+              final effectiveCrossAxisSpacing = crossAxisSpacing ?? 12.0;
+              final effectiveCardWidth = cardWidth ?? 132.0;
               final cellWidth = horizontal
-                  ? 132.0
+                  ? effectiveCardWidth
                   : ((constraints.maxWidth -
                                 horizontalPadding * 2 -
-                                12 * (columnCount - 1)) /
+                                effectiveCrossAxisSpacing * (columnCount - 1)) /
                             columnCount)
                         .clamp(1.0, double.infinity)
                         .toDouble();
@@ -560,15 +569,20 @@ class MediaGridSection extends StatelessWidget {
                   // A tag tile keeps the TagCard's own 72 px height whatever
                   // the column width, so it is never clipped on narrow phones.
                   mainAxisExtent: horizontal
-                      ? 132
+                      ? effectiveCardWidth
                       : isTagGrid
                       ? 72
                       : null,
-                  mainAxisSpacing: isTagGrid ? tagSpacing : 16,
-                  crossAxisSpacing: 12,
+                  mainAxisSpacing:
+                      mainAxisSpacing ?? (isTagGrid ? tagSpacing : 16),
+                  crossAxisSpacing: effectiveCrossAxisSpacing,
                   // Cellules un peu plus hautes : à .55, l'affiche et son titre
                   // dépassaient de la cellule sur les grilles serrées.
-                  childAspectRatio: itemCardBuilder == null ? .5 : .52,
+                  childAspectRatio: isLandscapeGrid
+                      ? 1.25
+                      : itemCardBuilder == null
+                      ? .5
+                      : .52,
                 ),
                 itemBuilder: (context, index) {
                   final item = visible[index];
@@ -580,17 +594,25 @@ class MediaGridSection extends StatelessWidget {
                       onTap: onTap,
                     );
                   }
-                  return itemCardBuilder?.call(
-                        context,
-                        item,
-                        cellWidth,
-                        onTap,
-                      ) ??
-                      PosterCard(
-                        item: item,
-                        width: double.infinity,
-                        onTap: onTap,
-                      );
+                  final customCard = itemCardBuilder?.call(
+                    context,
+                    item,
+                    cellWidth,
+                    onTap,
+                  );
+                  if (customCard != null) return customCard;
+                  if (isLandscapeGrid) {
+                    return LandscapeCard(
+                      item: item,
+                      width: cellWidth,
+                      onTap: onTap,
+                    );
+                  }
+                  return PosterCard(
+                    item: item,
+                    width: double.infinity,
+                    onTap: onTap,
+                  );
                 },
               );
             },
