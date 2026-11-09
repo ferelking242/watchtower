@@ -507,13 +507,18 @@ class GalleryComponentRenderer {
 
       // ── Collection rails ──
       case 'similar-media':
-        return SimilarMediaCard(items: _entries(ctx, items), width: w ?? 430);
+        return SimilarMediaCard(
+          items: _entries(ctx, items),
+          width: w ?? 430,
+          flat: ctx.flag('flat', fallback: true),
+        );
       case 'trending':
       case 'trending-card':
         return TrendingCard(
           items: _entries(ctx, items),
           width: w ?? 430,
           onSeeAll: seeAll,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'popular':
       case 'popular-card':
@@ -521,31 +526,39 @@ class GalleryComponentRenderer {
           items: _entries(ctx, items),
           width: w ?? 430,
           onSeeAll: seeAll,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'top-rated':
         return TopRatedCard(
           items: _entries(ctx, items),
           width: w ?? 430,
           onSeeAll: seeAll,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'ranked-media':
         return RankedMediaCard(
           items: _entries(ctx, items),
           width: w ?? 430,
           onSeeAll: seeAll,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'numbered':
-        return NumberedCard(items: _entries(ctx, items), width: w ?? 400);
+        return NumberedCard(
+          items: _entries(ctx, items),
+          width: w ?? 400,
+          flat: ctx.flag('flat', fallback: true),
+        );
       case 'recommendation':
         return RecommendationCard(
           items: _entries(ctx, items),
           width: w ?? 430,
           onSeeAll: seeAll,
+          flat: ctx.flag('flat', fallback: true),
         );
       case 'carousel-card':
-        return CarouselCard(
+        return UniverseCarouselCard(
           universes: _entries(ctx, items),
-          width: w ?? 420,
+          width: w ?? 540,
           onPrevious: () {},
           onNext: () {},
         );
@@ -920,8 +933,6 @@ class GalleryComponentRenderer {
         return RecentlyWatchedCard(
           items: _streamEpisodes(ctx, items),
           width: w ?? 470,
-          headerLabel: title,
-          onSeeAll: seeAll,
         );
 
       // ── Swipe ──
@@ -1264,7 +1275,11 @@ class GalleryComponentRenderer {
           width: w ?? 340,
         );
       case 'episode-thumbnail':
-        return EpisodeThumbnail(entry: _episode(ctx, item, i), width: w ?? 240);
+        // Composant supprimé : replié sur la carte d'épisode compacte.
+        return CompactEpisodeCard(
+          entry: _episode(ctx, item, i),
+          width: w ?? 340,
+        );
       case 'episode-preview':
         return EpisodePreviewCard(
           entry: _episode(ctx, item, i),

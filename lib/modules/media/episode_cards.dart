@@ -54,6 +54,12 @@ class EpisodeEntry {
   final VoidCallback? onTap;
   final VoidCallback? onPlay;
 
+  /// Actions du balayage gauche/droite des listes, comme dans la bibliothèque.
+  /// Le geste est désactivé quand l'action correspondante est `null`.
+  final VoidCallback? onMarkWatched;
+  final VoidCallback? onDownload;
+  final VoidCallback? onShare;
+
   const EpisodeEntry({
     required this.title,
     this.meta,
@@ -74,6 +80,9 @@ class EpisodeEntry {
     this.hd = false,
     this.onTap,
     this.onPlay,
+    this.onMarkWatched,
+    this.onDownload,
+    this.onShare,
   });
 
   /// Progression bornée 0 → 1.
@@ -136,95 +145,109 @@ class CompactEpisodeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final header = [
+      if (entry.meta != null && entry.meta!.isNotEmpty) entry.meta!,
+      if (entry.duration != null && entry.duration!.isNotEmpty) entry.duration!,
+    ].join(' · ');
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(10),
       decoration: _episodePanelDecoration(accent),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 92,
-            height: 118,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ContentImage(url: entry.thumbUrl, radius: 10),
-                Center(
-                  child: _EpisodePlayCircle(size: 30, onTap: entry.onPlay),
-                ),
-              ],
-            ),
+          // Bandeau repliable : le tap sur l'en-tête replie le détail.
+          _EpisodeFoldHeader(
+            title: entry.title,
+            trailing: entry.hd ? const _EpisodeHdTag() : null,
+            onToggle: entry.onTap,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SizedBox(
-              height: 118,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 92,
+                height: 118,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ContentImage(url: entry.thumbUrl, radius: 10),
+                    Center(
+                      child: _EpisodePlayCircle(size: 30, onTap: entry.onPlay),
                     ),
-                  ),
-                  if (entry.meta != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      entry.meta!,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
+                    if (entry.hd)
+                      const Positioned(
+                        right: 5,
+                        top: 5,
+                        child: _EpisodeHdTag(),
                       ),
-                    ),
                   ],
-                  if (entry.subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      entry.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                  if (entry.duration != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      entry.duration!,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  Row(
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 118,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (
-                        var i = 0;
-                        i < entry.genres.length && i < 2;
-                        i++
-                      ) ...[
-                        if (i > 0) const SizedBox(width: 5),
-                        _EpisodeTagChip(label: entry.genres[i]),
+                      if (header.isNotEmpty)
+                        Text(
+                          header,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      if (entry.subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          entry.subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ],
-                      const Spacer(),
-                      if (entry.hd) const _EpisodeBadge(label: 'HD'),
+                      if (entry.description != null) ...[
+                        const SizedBox(height: 4),
+                        Expanded(
+                          child: Text(
+                            entry.description!,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ] else
+                        const Spacer(),
+                      Row(
+                        children: [
+                          for (
+                            var i = 0;
+                            i < entry.genres.length && i < 2;
+                            i++
+                          ) ...[
+                            if (i > 0) const SizedBox(width: 5),
+                            _EpisodeTagChip(label: entry.genres[i]),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -232,102 +255,71 @@ class CompactEpisodeCard extends StatelessWidget {
   }
 }
 
-/// ── 2. EpisodeThumbnail ─────────────────────────────────────────────────
-/// Miniature d'épisode (grand format).
-class EpisodeThumbnail extends StatelessWidget {
-  const EpisodeThumbnail({super.key, required this.entry, this.width = 240});
+/// Bandeau pliable d'une carte d'épisode : titre + chevron d'ouverture.
+class _EpisodeFoldHeader extends StatelessWidget {
+  const _EpisodeFoldHeader({
+    required this.title,
+    this.trailing,
+    this.onToggle,
+  });
 
-  final EpisodeEntry entry;
-  final double width;
+  final String title;
+  final Widget? trailing;
+  final VoidCallback? onToggle;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: onToggle,
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
         children: [
-          Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: ContentImage(
-                  url: entry.backdropUrl ?? entry.thumbUrl,
-                  radius: 14,
-                ),
-              ),
-              if (entry.hd)
-                const Positioned(
-                  right: 8,
-                  top: 8,
-                  child: _EpisodeBadge(label: 'HD'),
-                ),
-              Center(child: _EpisodePlayCircle(size: 38, onTap: entry.onPlay)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (entry.meta != null)
-            Text(
-              entry.meta!,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          if (entry.title.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              entry.title,
+          Expanded(
+            child: Text(
+              title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 13,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w800,
               ),
             ),
-          ],
-          if (entry.subtitle != null || entry.rating != null) ...[
-            const SizedBox(height: 3),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    entry.subtitle ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (entry.rating != null)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 11,
-                        color: Colors.amber,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        entry.rating!.toStringAsFixed(2),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ],
+          ),
+          if (trailing != null) ...[const SizedBox(width: 6), trailing!],
+          const SizedBox(width: 4),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: Colors.white54,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Pastille « HD » dorée, posée sur la vignette et dans l'en-tête pliable.
+class _EpisodeHdTag extends StatelessWidget {
+  const _EpisodeHdTag();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD4AF37).withValues(alpha: .18),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFD4AF37)),
+      ),
+      child: const Text(
+        'HD',
+        style: TextStyle(
+          color: Color(0xFFF2D06B),
+          fontSize: 8.5,
+          fontWeight: FontWeight.w900,
+          letterSpacing: .5,
+        ),
       ),
     );
   }
@@ -1231,34 +1223,37 @@ class _EpisodeListRow extends StatelessWidget {
             dimension: style == _EpisodeRowStyle.numbered ? 40 : 50,
           );
 
-    return InkWell(
-      onTap: entry.locked ? null : (entry.onTap ?? () {}),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: entry.current
-              ? accent.withValues(alpha: .12)
-              : Colors.white.withValues(alpha: .04),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
+    return _EpisodeSwipeActions(
+      entry: entry,
+      child: InkWell(
+        onTap: entry.locked ? null : (entry.onTap ?? () {}),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
             color: entry.current
-                ? accent.withValues(alpha: .55)
-                : Colors.white.withValues(alpha: .06),
-          ),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: thumb.width,
-              height: thumb.height,
-              child: ContentImage(url: entry.thumbUrl, radius: 8),
+                ? accent.withValues(alpha: .12)
+                : Colors.white.withValues(alpha: .04),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: entry.current
+                  ? accent.withValues(alpha: .55)
+                  : Colors.white.withValues(alpha: .06),
             ),
-            const SizedBox(width: 10),
-            Expanded(child: _rowContent()),
-            const SizedBox(width: 8),
-            _EpisodeStateIcon(entry: entry, size: 26),
-          ],
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: thumb.width,
+                height: thumb.height,
+                child: ContentImage(url: entry.thumbUrl, radius: 8),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: _rowContent()),
+              const SizedBox(width: 8),
+              _EpisodeStateIcon(entry: entry, size: 26),
+            ],
+          ),
         ),
       ),
     );
@@ -2060,14 +2055,29 @@ class _CarouselArrowButton extends StatelessWidget {
 /// ── 17. SeasonBannerCard ────────────────────────────────────────────────
 /// SeasonCard (style horizontal).
 class SeasonBannerCard extends StatelessWidget {
-  const SeasonBannerCard({super.key, required this.season, this.width = 420});
+  const SeasonBannerCard({
+    super.key,
+    required this.season,
+    this.width = 420,
+    this.coverLeft = false,
+  });
 
   final SeasonEntry season;
   final double width;
 
+  /// Place la vignette à gauche (au lieu de la droite) — variante miroir.
+  final bool coverLeft;
+
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final cover = SizedBox(width: 118, child: _SeasonBannerCover(season: season));
+    final body = Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: _SeasonBannerBody(season: season, accent: accent),
+      ),
+    );
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       decoration: _episodePanelDecoration(accent),
@@ -2075,112 +2085,106 @@ class SeasonBannerCard extends StatelessWidget {
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      season.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    if (season.seasonLabel != null || season.stats != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        [
-                          if (season.seasonLabel != null) season.seasonLabel!,
-                          if (season.stats != null) season.stats!,
-                        ].join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    if (season.description != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        season.description!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 10,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
-                    Row(
-                      children: [
-                        // Le libellé du bouton se comprime : la rangée gardait
-                        // sinon un débordement sur les cartes les plus
-                        // étroites.
-                        Flexible(
-                          child: _EpisodeActionButton(
-                            label: 'Voir les épisodes',
-                            onTap: season.onTap,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (season.rating != null) ...[
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 12,
-                            color: Colors.amber,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            season.rating!.toStringAsFixed(1),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 118,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ContentImage(
-                    url: season.thumbUrl,
-                    fit: BoxFit.cover,
-                    radius: 0,
-                  ),
-                  const _EpisodeGradient(opacity: .6),
-                  Positioned(
-                    right: 8,
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: _EpisodeChevronCircle(onTap: season.onTap),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          children: coverLeft ? [cover, body] : [body, cover],
         ),
       ),
+    );
+  }
+}
+
+class _SeasonBannerCover extends StatelessWidget {
+  const _SeasonBannerCover({required this.season});
+
+  final SeasonEntry season;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ContentImage(url: season.thumbUrl, fit: BoxFit.cover, radius: 0),
+        const _EpisodeGradient(opacity: .6),
+        Center(child: _EpisodeChevronCircle(onTap: season.onTap)),
+      ],
+    );
+  }
+}
+
+class _SeasonBannerBody extends StatelessWidget {
+  const _SeasonBannerBody({required this.season, required this.accent});
+
+  final SeasonEntry season;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          season.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        if (season.seasonLabel != null || season.stats != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            [
+              if (season.seasonLabel != null) season.seasonLabel!,
+              if (season.stats != null) season.stats!,
+            ].join(' · '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (season.description != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            season.description!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              height: 1.3,
+            ),
+          ),
+        ],
+        const Spacer(),
+        Row(
+          children: [
+            Flexible(
+              child: _EpisodeActionButton(
+                label: 'Voir les épisodes',
+                onTap: season.onTap,
+              ),
+            ),
+            const Spacer(),
+            if (season.rating != null) ...[
+              const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+              const SizedBox(width: 3),
+              Text(
+                season.rating!.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }
@@ -2492,6 +2496,93 @@ class _EpisodeProgressBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Actions du balayage gauche/droite d'une ligne d'épisode.
+///
+/// Même comportement que la bibliothèque : le geste déclenche l'action
+/// configurée puis la ligne revient en place (jamais réellement supprimée).
+/// Les côtés sans action sont désactivés.
+class _EpisodeSwipeActions extends StatelessWidget {
+  const _EpisodeSwipeActions({required this.entry, required this.child});
+
+  final EpisodeEntry entry;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = entry.onMarkWatched;
+    final end = entry.onDownload ?? entry.onShare;
+    final direction = switch ((start != null, end != null)) {
+      (true, true) => DismissDirection.horizontal,
+      (true, false) => DismissDirection.startToEnd,
+      (false, true) => DismissDirection.endToStart,
+      _ => DismissDirection.none,
+    };
+    if (direction == DismissDirection.none) return child;
+
+    return Dismissible(
+      key: ValueKey('episode-swipe-${entry.number}-${entry.title}'),
+      direction: direction,
+      dismissThresholds: const {
+        DismissDirection.startToEnd: 0.25,
+        DismissDirection.endToStart: 0.25,
+      },
+      confirmDismiss: (d) async {
+        if (d == DismissDirection.startToEnd) {
+          start?.call();
+        } else {
+          (entry.onDownload ?? entry.onShare)?.call();
+        }
+        return false;
+      },
+      background: _EpisodeSwipeBackground(
+        alignment: Alignment.centerLeft,
+        icon: Icons.done_all,
+        label: entry.watched ? 'Non lu' : 'Lu',
+      ),
+      secondaryBackground: _EpisodeSwipeBackground(
+        alignment: Alignment.centerRight,
+        icon: entry.onDownload != null
+            ? Icons.download_rounded
+            : Icons.ios_share_rounded,
+        label: entry.onDownload != null ? 'Télécharger' : 'Partager',
+      ),
+      child: child,
+    );
+  }
+}
+
+class _EpisodeSwipeBackground extends StatelessWidget {
+  const _EpisodeSwipeBackground({
+    required this.alignment,
+    required this.icon,
+    required this.label,
+  });
+
+  final Alignment alignment;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(fontSize: 12)),
+        ],
       ),
     );
   }

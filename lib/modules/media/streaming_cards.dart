@@ -245,10 +245,8 @@ class ContinueWatchingItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _streamCardDecoration(accent),
+    return SizedBox(
+      width: width,
       child: Row(
         children: [
           SizedBox(
@@ -424,83 +422,30 @@ class ResumeWatchingCard extends StatelessWidget {
 }
 
 /// ── 4. RecentlyWatchedCard ──────────────────────────────────────────────
-/// Panneau « Récemment regardés » : rangée de petits posters.
+/// Rangée de petits posters « Récemment regardés ».
+///
+/// La carte n'embarque volontairement aucun en-tête : le titre et l'action
+/// « Voir tout » appartiennent à la section qui l'héberge.
 class RecentlyWatchedCard extends StatelessWidget {
   const RecentlyWatchedCard({
     super.key,
     required this.items,
-    this.onSeeAll,
     this.width = 470,
-    this.headerLabel = 'Récemment regardés',
   });
 
   final List<StreamingEpisode> items;
-
-  /// Bouton « Voir tout » dans l'en-tête.
-  final VoidCallback? onSeeAll;
-
   final double width;
-  final String headerLabel;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(14),
-      decoration: _streamCardDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      width: width,
+      child: Row(
         children: [
-          Row(
-            children: [
-              // Titre compressible : il ne pousse plus « Voir tout » hors de
-              // la carte sur les largeurs réduites.
-              Flexible(
-                child: Text(
-                  headerLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              if (onSeeAll != null)
-                InkWell(
-                  onTap: onSeeAll,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.all(3),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Voir tout',
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Icon(Broken.arrow_right_3, size: 13, color: accent),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (var i = 0; i < items.length && i < 3; i++) ...[
-                Expanded(child: _RecentPoster(entry: items[i])),
-                if (i < items.length - 1 && i < 2) const SizedBox(width: 10),
-              ],
-            ],
-          ),
+          for (var i = 0; i < items.length && i < 3; i++) ...[
+            Expanded(child: _RecentPoster(entry: items[i])),
+            if (i < items.length - 1 && i < 2) const SizedBox(width: 10),
+          ],
         ],
       ),
     );
@@ -1307,173 +1252,26 @@ class _SeasonChip extends StatelessWidget {
   }
 }
 
-/// ── 11. SeriesEpisodeCard ───────────────────────────────────────────────
-/// Série + épisode en format compact (rangée horizontale).
-class SeriesEpisodeCard extends StatelessWidget {
-  const SeriesEpisodeCard({super.key, required this.data, this.width = 400});
+/// ── 11. ProgressMediaCard ───────────────────────────────────────────────
+/// Carte de progression unique, déclinée par [ProgressMediaStyle].
+///
+/// [SeriesEpisodeCard], [WatchProgressCard] et les trois variantes
+/// [ProgressMediaCard] étaient quatre copies du même widget. Elles fusionnent
+/// ici : le style ne change que la position du pourcentage, la disposition du
+/// badge et l'affichage du temps restant.
+enum ProgressMediaStyle {
+  /// Vignette carrée, titre + sous-titre, barre de progression seule.
+  bar,
 
-  final StreamingCardData data;
-  final double width;
+  /// Barre de progression + pourcentage aligné à droite.
+  percent,
 
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _streamCardDecoration(accent),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 82,
-            height: 58,
-            child: ContentImage(
-              url: data.item.backdropUrl ?? data.item.posterUrl,
-              radius: 10,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data.item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  data.seriesMeta ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (data.extraMeta != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    data.extraMeta!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          _StreamPlayButton(onTap: data.onPlay, size: 34),
-          const SizedBox(width: 4),
-          const Icon(Broken.arrow_right_3, size: 15, color: Colors.white38),
-        ],
-      ),
-    );
-  }
+  /// Pastille de pourcentage posée sur la vignette.
+  chip,
+
+  /// Vignette large 16:9, métadonnées de série, bouton play et chevron.
+  series,
 }
-
-/// ── 12. WatchProgressCard ───────────────────────────────────────────────
-/// Progression visuelle : vignette, barre et pourcentage.
-class WatchProgressCard extends StatelessWidget {
-  const WatchProgressCard({super.key, required this.data, this.width = 400});
-
-  final StreamingCardData data;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _streamCardDecoration(accent),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 70,
-            height: 70,
-            child: ContentImage(
-              url: data.item.backdropUrl ?? data.item.posterUrl,
-              radius: 10,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data.item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (data.seriesMeta != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    data.seriesMeta!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StreamProgressBar(
-                        value: data.progressValue,
-                        accent: accent,
-                        height: 5,
-                      ),
-                    ),
-                    if (data.percentLabel != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        data.percentLabel!,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          _StreamPlayButton(onTap: data.onPlay, size: 34),
-        ],
-      ),
-    );
-  }
-}
-
-/// ── 13. ProgressMediaCard ───────────────────────────────────────────────
-/// Carte avec barre de progression, en trois styles.
-enum ProgressMediaStyle { bar, percent, chip }
 
 class ProgressMediaCard extends StatelessWidget {
   const ProgressMediaCard({
@@ -1485,17 +1283,18 @@ class ProgressMediaCard extends StatelessWidget {
 
   final StreamingCardData data;
   final double width;
-
-  /// `bar` : barre seule · `percent` : pourcentage à droite ·
-  /// `chip` : pastille de pourcentage sur la vignette.
   final ProgressMediaStyle style;
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final series = style == ProgressMediaStyle.series;
+    final thumbWidth = series ? 82.0 : 70.0;
+    final thumbHeight = series ? 58.0 : 70.0;
+
     final thumb = SizedBox(
-      width: 70,
-      height: 70,
+      width: thumbWidth,
+      height: thumbHeight,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1549,10 +1348,10 @@ class ProgressMediaCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (data.seriesMeta != null) ...[
+                if (data.seriesMeta != null || data.extraMeta != null) ...[
                   const SizedBox(height: 3),
                   Text(
-                    data.seriesMeta!,
+                    data.metaLine,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1562,39 +1361,89 @@ class ProgressMediaCard extends StatelessWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StreamProgressBar(
-                        value: data.progressValue,
-                        accent: accent,
-                        height: 5,
+                if (series) ...[
+                  if (data.remainingLabel != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      data.remainingLabel!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (style == ProgressMediaStyle.percent &&
-                        data.percentLabel != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        data.percentLabel!,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
+                  ],
+                ] else ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StreamProgressBar(
+                          value: data.progressValue,
+                          accent: accent,
+                          height: 5,
                         ),
                       ),
+                      if (style == ProgressMediaStyle.percent &&
+                          data.percentLabel != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          data.percentLabel!,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 10),
           _StreamPlayButton(onTap: data.onPlay, size: 34),
+          if (series) ...[
+            const SizedBox(width: 4),
+            const Icon(Broken.arrow_right_3, size: 15, color: Colors.white38),
+          ],
         ],
       ),
     );
   }
+}
+
+/// Alias historiques de [ProgressMediaCard] : conservés pour les layouts JSON
+/// existants et le catalogue de composants.
+class SeriesEpisodeCard extends StatelessWidget {
+  const SeriesEpisodeCard({super.key, required this.data, this.width = 400});
+
+  final StreamingCardData data;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) => ProgressMediaCard(
+    data: data,
+    width: width,
+    style: ProgressMediaStyle.series,
+  );
+}
+
+class WatchProgressCard extends StatelessWidget {
+  const WatchProgressCard({super.key, required this.data, this.width = 400});
+
+  final StreamingCardData data;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) => ProgressMediaCard(
+    data: data,
+    width: width,
+    style: ProgressMediaStyle.percent,
+  );
 }
 
 /// ─────────────────────────────────────────────────────────────────────────

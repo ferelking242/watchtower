@@ -5031,7 +5031,7 @@ List<_ComponentSpec> _buildComponents() => [
     title: 'Récemment regardés',
     className: 'RecentlyWatchedCard',
     path: 'lib/modules/media/streaming_cards.dart',
-    usage: 'Panneau à trois posters + voir tout',
+    usage: 'Rangée de trois posters (sans en-tête)',
     section: 'STREAMING & PROGRESSION',
     icon: Icons.recent_actors_outlined,
     kind: _PreviewKind.streamRecently,
@@ -5041,7 +5041,6 @@ List<_ComponentSpec> _buildComponents() => [
         _streamEpisode(_tmdbItems[4], meta: 'S1 • Ép. 6'),
         _streamEpisode(_tmdbItems[2], meta: 'Film • 2h 30min'),
       ],
-      onSeeAll: () {},
     ),
   ),
   _ComponentSpec(
@@ -5556,14 +5555,14 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    title: 'Carrousel d’univers',
-    className: 'CarouselCard',
+    title: 'Carrousel de collections',
+    className: 'UniverseCarouselCard',
     path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Collections / univers avec flèches',
+    usage: 'Trois univers par vue, avec flèches',
     section: 'COLLECTIONS & FRANCHISES',
     icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.collCarousel,
-    result: (_) => CarouselCard(
+    result: (_) => UniverseCarouselCard(
       onPrevious: () {},
       onNext: () {},
       universes: [
@@ -5575,6 +5574,11 @@ List<_ComponentSpec> _buildComponents() => [
         _collectionEntry(
           'Univers Harry Potter',
           meta: 'Films · Livres',
+          thumbUrl: _backdropInterstellar,
+        ),
+        _collectionEntry(
+          'Univers Marvel',
+          meta: 'Films · Séries',
           thumbUrl: _backdropInterstellar,
         ),
       ],
@@ -5598,27 +5602,6 @@ List<_ComponentSpec> _buildComponents() => [
         genres: ['Action', 'Drame'],
         hd: true,
         thumbUrl: _posterThrones,
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Miniature d\'épisode',
-    className: 'EpisodeThumbnail',
-    path: 'lib/modules/media/episode_cards.dart',
-    usage: 'Grand format 16:9 avec play et HD',
-    section: 'ÉPISODES & SAISONS',
-    icon: Icons.image_outlined,
-    kind: _PreviewKind.epThumbnail,
-    result: (_) => EpisodeThumbnail(
-      entry: _episodeEntry(
-        'Long, Long Time',
-        meta: 'S1 · Ép. 3',
-        subtitle: 'The Last of Us',
-        duration: '52 min',
-        rating: 8.7,
-        hd: true,
-        thumbUrl: _posterThrones,
-        backdropUrl: _backdropInterstellar,
       ),
     ),
   ),

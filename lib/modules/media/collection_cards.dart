@@ -229,16 +229,25 @@ class SimilarMediaCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
+    this.flat = false,
     this.headerLabel = 'Vous aimerez aussi',
   });
 
   final List<CollectionEntry> items;
   final double width;
+
+  /// Sans cadre (l'habillage vient de la section).
+  final bool flat;
   final String headerLabel;
 
   @override
   Widget build(BuildContext context) {
-    return _PosterRowCard(items: items, width: width, headerTitle: headerLabel);
+    return _PosterRowCard(
+      flat: flat,
+      items: items,
+      width: width,
+      headerTitle: headerLabel,
+    );
   }
 }
 
@@ -249,16 +258,21 @@ class TrendingCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
+    this.flat = false,
     this.onSeeAll,
   });
 
   final List<CollectionEntry> items;
   final double width;
+
+  /// Sans cadre (l'habillage vient de la section).
+  final bool flat;
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     return _PosterRowCard(
+      flat: flat,
       items: items,
       width: width,
       headerTitle: 'Tendances',
@@ -277,16 +291,21 @@ class PopularCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
+    this.flat = false,
     this.onSeeAll,
   });
 
   final List<CollectionEntry> items;
   final double width;
+
+  /// Sans cadre (l'habillage vient de la section).
+  final bool flat;
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     return _PosterRowCard(
+      flat: flat,
       items: items,
       width: width,
       headerTitle: 'Le plus populaire',
@@ -305,16 +324,21 @@ class TopRatedCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
+    this.flat = false,
     this.onSeeAll,
   });
 
   final List<CollectionEntry> items;
   final double width;
+
+  /// Sans cadre (l'habillage vient de la section).
+  final bool flat;
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     return _PosterRowCard(
+      flat: flat,
       items: items,
       width: width,
       headerTitle: 'Top notés',
@@ -334,18 +358,23 @@ class RankedMediaCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
+    this.flat = false,
     this.rankLabel = 'Top 10',
     this.onSeeAll,
   });
 
   final List<CollectionEntry> items;
   final double width;
+
+  /// Sans cadre (l'habillage vient de la section).
+  final bool flat;
   final String rankLabel;
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     return _PosterRowCard(
+      flat: flat,
       items: items,
       width: width,
       headerTitle: rankLabel,
@@ -359,14 +388,23 @@ class RankedMediaCard extends StatelessWidget {
 /// ── 17. NumberedCard ────────────────────────────────────────────────────
 /// Carte numérotée (ex : top 10, classement).
 class NumberedCard extends StatelessWidget {
-  const NumberedCard({super.key, required this.items, this.width = 400});
+  const NumberedCard({
+    super.key,
+    required this.items,
+    this.width = 400,
+    this.flat = false,
+  });
 
   final List<CollectionEntry> items;
   final double width;
 
+  /// Sans cadre (l'habillage vient de la section).
+  final bool flat;
+
   @override
   Widget build(BuildContext context) {
     return _PosterRowCard(
+      flat: flat,
       items: items,
       width: width,
       showRank: true,
@@ -382,16 +420,21 @@ class RecommendationCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
+    this.flat = false,
     this.onSeeAll,
   });
 
   final List<CollectionEntry> items;
   final double width;
+
+  /// Sans cadre (l'habillage vient de la section).
+  final bool flat;
   final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     return _PosterRowCard(
+      flat: flat,
       items: items,
       width: width,
       headerTitle: 'Parce que vous avez aimé…',
@@ -416,6 +459,7 @@ class _PosterRowCard extends StatelessWidget {
     this.showRating = false,
     this.showViews = false,
     this.showMeta = true,
+    this.flat = false,
   });
 
   final List<CollectionEntry> items;
@@ -431,45 +475,58 @@ class _PosterRowCard extends StatelessWidget {
   final bool showViews;
   final bool showMeta;
 
+  /// Sans cadre : la carte n'est plus qu'un en-tête et une rangée de posters.
+  /// L'habillage revient à la section qui l'héberge.
+  final bool flat;
+
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    // Un maximum de cinq tuiles par rangée : au-delà les posters devenaient
+    // trop serrés et illisibles. L'action « Voir tout » mène au reste.
+    final visible = items.length > 5 ? items.sublist(0, 5) : items;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (headerTitle != null) ...[
+          _CollectionHeader(
+            title: headerTitle!,
+            icon: headerIcon,
+            iconBadge: headerBadge,
+            showSeeAll: showSeeAll,
+            onSeeAll: onSeeAll,
+          ),
+          const SizedBox(height: 10),
+        ],
+        Row(
+          children: [
+            for (var i = 0; i < visible.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(
+                child: _PosterTile(
+                  entry: visible[i],
+                  showRank: showRank,
+                  showBigRank: showBigRank,
+                  showRating: showRating,
+                  showViews: showViews,
+                  showMeta: showMeta,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+
+    if (flat) {
+      return SizedBox(width: width, child: content);
+    }
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
       decoration: _collectionDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (headerTitle != null) ...[
-            _CollectionHeader(
-              title: headerTitle!,
-              icon: headerIcon,
-              iconBadge: headerBadge,
-              showSeeAll: showSeeAll,
-              onSeeAll: onSeeAll,
-            ),
-            const SizedBox(height: 10),
-          ],
-          Row(
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(
-                  child: _PosterTile(
-                    entry: items[i],
-                    showRank: showRank,
-                    showBigRank: showBigRank,
-                    showRating: showRating,
-                    showViews: showViews,
-                    showMeta: showMeta,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 }
@@ -676,14 +733,14 @@ class SpotlightCard extends StatelessWidget {
   }
 }
 
-/// ── 21. CarouselCard ────────────────────────────────────────────────────
-/// Carrousel de collections / univers.
-class CarouselCard extends StatelessWidget {
-  const CarouselCard({
+/// ── 21. UniverseCarouselCard ────────────────────────────────────────────
+/// Carrousel de collections / univers : trois tuiles et des flèches.
+class UniverseCarouselCard extends StatelessWidget {
+  const UniverseCarouselCard({
     super.key,
     required this.universes,
-    this.width = 420,
-    this.height = 128,
+    this.width = 540,
+    this.height = 150,
     this.onPrevious,
     this.onNext,
   });
@@ -699,24 +756,51 @@ class CarouselCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: _collectionDecoration(accent),
       child: Row(
         children: [
           _CarouselArrow(icon: Icons.chevron_left_rounded, onTap: onPrevious),
-          const SizedBox(width: 6),
-          for (var i = 0; i < universes.length && i < 2; i++) ...[
-            if (i > 0) const SizedBox(width: 6),
+          const SizedBox(width: 10),
+          for (var i = 0; i < universes.length && i < 3; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
             Expanded(
               child: _UniverseTile(entry: universes[i], height: height),
             ),
           ],
-          const SizedBox(width: 6),
+          const SizedBox(width: 10),
           _CarouselArrow(icon: Icons.chevron_right_rounded, onTap: onNext),
         ],
       ),
     );
   }
+}
+
+/// Nom historique de [UniverseCarouselCard], conservé pour les layouts JSON.
+class CarouselCard extends StatelessWidget {
+  const CarouselCard({
+    super.key,
+    required this.universes,
+    this.width = 540,
+    this.height = 150,
+    this.onPrevious,
+    this.onNext,
+  });
+
+  final List<CollectionEntry> universes;
+  final double width;
+  final double height;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) => UniverseCarouselCard(
+    universes: universes,
+    width: width,
+    height: height,
+    onPrevious: onPrevious,
+    onNext: onNext,
+  );
 }
 
 class _UniverseTile extends StatelessWidget {
@@ -746,28 +830,29 @@ class _UniverseTile extends StatelessWidget {
                 children: [
                   Text(
                     entry.title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 11.5,
+                      fontSize: 12.5,
+                      height: 1.15,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   if (entry.meta != null) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       entry.meta!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white54,
-                        fontSize: 9,
+                        fontSize: 9.5,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   _CollectionButton(
                     label: 'Explorer',
                     onTap: entry.onTap ?? () {},

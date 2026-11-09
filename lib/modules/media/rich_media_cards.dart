@@ -473,11 +473,8 @@ class ExpandedMovieCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = data.item;
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return SizedBox(
       width: width,
-      padding: const EdgeInsets.all(10),
-      decoration: _cardDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
