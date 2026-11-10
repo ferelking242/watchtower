@@ -1075,3 +1075,31 @@ must not leak into watch code paths or logs:
 - Les grosses sérialisations restent hors isolate UI : `jsonEncode` de la
   sauvegarde passe par `compute`, et les tailles de dossier se cumulent avec
   `File.length()` (asynchrone), jamais `lengthSync()`.
+
+## Onboarding : la page Migration est un écran d'onboarding, pas une route
+- L'ordre est : showcase → slogan → **migration** → permissions. Le
+  `PageView` de `OnboardingScreen` construit les voisins, donc chaque page non
+  visible est enveloppée dans `TickerMode(enabled: _currentPage == i)` ;
+  ajouter une page sans ce garde-fou remet deux animations en marche en même
+  temps. Le nombre de points de l'indicateur et la borne de `_next()`
+  (`_currentPage < 3`) doivent suivre le nombre de pages.
+- L'import ne réinvente aucun parseur : la bibliothèque passe par
+  `restoreMihonBackup` (`.tachibk` / `.proto.gz`), les chapitres téléchargés
+  par le scanner de bibliothèque locale (`local/`). `MigrationApp
+  .importSupported` décide si la moitié « bibliothèque » est proposée, donc la
+  page n'offre jamais un import qu'elle ne peut pas honorer.
+- `restoreMihonBackup` écrit bibliothèque + catégories + historique +
+  réglages d'un bloc. `importHistory` / `importSettings` sont honorés en
+  *élagant* après coup (vider `isar.historys`, remettre les réglages
+  précédents), pas en modifiant le restaurateur.
+- `MigrationLogoOrbit` suit la convention du showcase :
+  `showcaseMotionDisabled(context)` coupe l'animation et la fige. Tout nouveau
+  widget animé de l'onboarding doit lire ce même flag, sinon le test
+  « reduce-motion » échoue.
+- Les tests de widgets d'onboarding doivent fournir
+  `AppLocalizations.localizationsDelegates` / `supportedLocales` : les pages
+  lisent `context.l10n` et lèvent une erreur de null-check sans le delegate.
+- Les clés `ob*` / `mig*` sont injectées par `tools/l10n_onboarding_migration.py`
+  (idempotent) puis `flutter gen-l10n`. Toute nouvelle clé doit passer par ce
+  script pour que `app_fr.arb` reste une vraie traduction et que le test de
+  parité ARB passe.
