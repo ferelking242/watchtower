@@ -1456,6 +1456,16 @@ Future<void> downloadChapter(
       if (currentDownload?.status == 'paused' || currentDownload?.status == 'cancelled') {
         return;
       }
+      // Second pass announced: the transfer is over and the fragments are being
+      // assembled + muxed. Surface it through the same golden "second pass" bar
+      // the manga archive packer uses, and stop touching the transfer counters
+      // (the merge event carries none).
+      if (progress.isMerging) {
+        if (chapter.id != null) {
+          ArchiveProgressStore.instance.markIndeterminate(chapter.id!);
+        }
+        return;
+      }
       final previousLiveProgress = chapterId == null
           ? null
           : ref.read(downloadQueueStateProvider).liveProgress[chapterId!];
@@ -2897,6 +2907,9 @@ Future<void> downloadChapter(
           } finally {
             if (chapter.id != null) {
               ActiveDownloadRegistry.unregister(chapter.id!);
+              // Drop the golden second-pass bar whether the merge succeeded or
+              // failed; a failure must not leave it running forever.
+              ArchiveProgressStore.instance.clear(chapter.id!);
             }
           }
         }
@@ -2926,6 +2939,9 @@ Future<void> downloadChapter(
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
+            // The HLS path may have announced the golden second pass; clear it
+            // before the FFmpeg fallback re-drives progress.
+            ArchiveProgressStore.instance.clear(chapter.id!);
           }
         }
 

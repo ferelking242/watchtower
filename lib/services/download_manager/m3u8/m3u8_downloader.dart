@@ -394,6 +394,14 @@ class M3u8Downloader {
     void Function(DownloadProgress) onProgress,
   ) async {
     _log('Merging segments...');
+    // Announce the second pass so the queue restarts the bar as a golden,
+    // indeterminate pass. Assembly + mux copies the whole episode and can run
+    // for minutes on a phone; without this the bar sits at 100% (or the last
+    // segment count) and the download looks stalled. The event carries no
+    // counters: it must not overwrite the stored transfer totals.
+    onProgress(
+      DownloadProgress(0, 0, chapter.manga.value!.itemType, isMerging: true),
+    );
     try {
       await _mergeTsToMp4(outputFile, tempDir);
 

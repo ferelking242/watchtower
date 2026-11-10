@@ -5,10 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Progress of the archive-packing ("compression") pass that runs after every
-/// manga page has been downloaded. It is deliberately kept out of Isar: adding
-/// a field to the [Download] collection would change its schema and force
-/// Isar to wipe the whole database on the next open.
+/// Progress of the second pass that runs after a transfer has finished. Two
+/// passes feed it: the archive-packing ("compression") pass that packs every
+/// downloaded manga page, and the HLS fragment-assembly pass that concatenates
+/// the video fragments and muxes them into the final MP4. It is deliberately
+/// kept out of Isar: adding a field to the [Download] collection would change
+/// its schema and force Isar to wipe the whole database on the next open.
 ///
 /// The values are mirrored into SharedPreferences so the golden second pass is
 /// not lost when the app is backgrounded/restarted, and exposed through a
@@ -18,18 +20,37 @@ class ArchiveProgress {
   final int done;
   final int total;
 
-  const ArchiveProgress({required this.done, required this.total});
+  /// True when the pass has no measurable unit left (the HLS mux has no cheap
+  /// progress source), so the queue animates an indeterminate golden bar
+  /// instead of freezing near 100% for the whole mux.
+  final bool indeterminate;
 
-  double get value => total <= 0 ? 0 : (done / total).clamp(0.0, 1.0);
+  const ArchiveProgress({
+    required this.done,
+    required this.total,
+    this.indeterminate = false,
+  });
 
-  Map<String, dynamic> toJson() => {'done': done, 'total': total};
+  /// Null means "no percentage": either indeterminate, or no usable total.
+  double? get value =>
+      indeterminate || total <= 0 ? null : (done / total).clamp(0.0, 1.0);
+
+  Map<String, dynamic> toJson() => {
+    'done': done,
+    'total': total,
+    'indeterminate': indeterminate,
+  };
 
   static ArchiveProgress? fromJson(Object? json) {
     if (json is! Map) return null;
     final done = (json['done'] as num?)?.toInt();
     final total = (json['total'] as num?)?.toInt();
     if (done == null || total == null || total <= 0) return null;
-    return ArchiveProgress(done: done, total: total);
+    return ArchiveProgress(
+      done: done,
+      total: total,
+      indeterminate: json['indeterminate'] == true,
+    );
   }
 }
 
@@ -87,10 +108,33 @@ class ArchiveProgressStore {
 
   ArchiveProgress? of(int chapterId) => _current[chapterId];
 
-  void set(int chapterId, {required int done, required int total}) {
+  void set(
+    int chapterId, {
+    required int done,
+    required int total,
+    bool indeterminate = false,
+  }) {
     if (total <= 0) return;
     final next = Map<int, ArchiveProgress>.from(_current)
-      ..[chapterId] = ArchiveProgress(done: done, total: total);
+      ..[chapterId] = ArchiveProgress(
+        done: done,
+        total: total,
+        indeterminate: indeterminate,
+      );
+    _current = Map<int, ArchiveProgress>.unmodifiable(next);
+    _emit();
+    _persist();
+  }
+
+  /// Marks the second pass as running with no measurable unit (the HLS mux):
+  /// the queue shows the golden bar as indeterminate until [clear].
+  void markIndeterminate(int chapterId) {
+    final next = Map<int, ArchiveProgress>.from(_current)
+      ..[chapterId] = const ArchiveProgress(
+        done: 0,
+        total: 1,
+        indeterminate: true,
+      );
     _current = Map<int, ArchiveProgress>.unmodifiable(next);
     _emit();
     _persist();

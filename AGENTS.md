@@ -895,6 +895,14 @@ must not leak into watch code paths or logs:
   downloaded. Every site that derives the `<name>.mp4` path from a chapter or
   episode title applies the same bound so lookups, deletes and shares resolve
   the file the downloader actually wrote.
+- The assembly + mux is a **second pass**: it is announced once through the
+  `DownloadProgress.isMerging` flag before `_mergeTsToMp4` runs. That event
+  carries no counters; it must not overwrite the stored transfer totals. The
+  queue turns it into the golden indeterminate bar (the same one the manga
+  archive packer uses, via `ArchiveProgressStore.markIndeterminate`), labelled
+  "Assemblage" for anime. Without it the bar sat at 100% for the whole mux and
+  the download looked stalled. The marker is cleared in the HLS `finally` block
+  whether the merge succeeds or fails.
 
 ## Manga archive conversion (do not regress)
 - From compression level 1 up, each page is decoded and re-encoded as an
@@ -1090,6 +1098,13 @@ must not leak into watch code paths or logs:
 - La restauration manuelle ne peut pas échanger la base Isar tant qu'elle est
   ouverte : elle restaure Hive + préférences tout de suite et pose un marqueur
   `pending_restore.flag`, appliqué au prochain lancement avant `Isar.open`.
+- `backupNow` pose le drapeau `_backupInFlight` **avant** le premier `await`.
+  Le snapshot de lancement et un passage en arrière-plan peuvent se déclencher
+  à la même seconde ; quand les deux franchissaient la garde *après* un
+  rendu, ils partageaient le même fichier de transit `<db>.pending` et le
+  `rename` du perdant échouait avec `No such file or directory` (errno 2) —
+  d'où un « AutoBackup: snapshot failed » juste à côté d'un snapshot réussi.
+  Rendre la garde synchrone fait échouer le second appelant immédiatement.
 - Il n'y a **qu'un seul lecteur vidéo** : la route anime rend `WatchDetailView`.
   Le second lecteur parallèle (`anime_player_view_io.dart` et ses widgets) a
   été supprimé — ne pas le réintroduire.

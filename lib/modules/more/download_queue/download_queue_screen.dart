@@ -2965,7 +2965,9 @@ class _DownloadCard extends ConsumerWidget {
 
     final String statusText;
     if (isCompressing) {
-      statusText = 'Compression';
+      // Manga packs its pages into an archive; anime concatenates the HLS
+      // fragments and muxes them. Both are the golden second pass.
+      statusText = itemType == ItemType.anime ? 'Assemblage' : 'Compression';
     } else if (isComplete) {
       statusText = fileDetails.isNotEmpty ? fileDetails : 'Terminé';
     } else if (hasFailed) {
@@ -3235,23 +3237,27 @@ class _DownloadCard extends ConsumerWidget {
             if (progressBar != null)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(1),
-                  child: LinearProgressIndicator(
-                    value: isProgressIndeterminate
-                        ? null
-                        : progress.clamp(0.0, 1.0),
-                    minHeight: 2,
-                    backgroundColor: scheme.surfaceContainerHighest,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      hasFailed
-                          ? Colors.redAccent
-                          : isPaused
-                          ? Colors.orange
-                          : scheme.primary,
-                    ),
-                  ),
-                ),
+                child: isCompressing
+                    // Reuse the golden second-pass bar so the minimal layout
+                    // shows assembly/compression instead of an empty hairline.
+                    ? progressBar
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(1),
+                        child: LinearProgressIndicator(
+                          value: isProgressIndeterminate
+                              ? null
+                              : progress.clamp(0.0, 1.0),
+                          minHeight: 2,
+                          backgroundColor: scheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            hasFailed
+                                ? Colors.redAccent
+                                : isPaused
+                                ? Colors.orange
+                                : scheme.primary,
+                          ),
+                        ),
+                      ),
               ),
           ],
         ),

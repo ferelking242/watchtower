@@ -279,8 +279,11 @@ segments/0002.m4s
         6,
       ]);
       expect(await tempDir.exists(), isFalse);
-      expect(progress.single.downloadedBytes, 4);
-      expect(progress.single.totalBytes, 4);
+      // The merge announces the second pass first (golden bar), then reports
+      // the finished file size.
+      expect(progress.first.isMerging, isTrue);
+      expect(progress.last.downloadedBytes, 4);
+      expect(progress.last.totalBytes, 4);
     });
 
     test(

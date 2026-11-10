@@ -266,18 +266,25 @@ class AutoBackupService {
   /// "Sauvegarder" action, where the user asked for a snapshot now.
   static Future<void> backupNow({bool force = false}) async {
     if (kIsWeb) return;
-    if (!await isEnabled()) return;
+    // Claim the slot before the first `await`. The launch snapshot and a
+    // lifecycle pause can fire within the same second; when both passed the
+    // guard *after* yielding, they shared one staging file (`<db>.pending`) and
+    // the loser's rename failed with "No such file or directory" (errno 2),
+    // which surfaced as "AutoBackup: snapshot failed" right next to a
+    // successful snapshot. Setting the flag synchronously makes the guard
+    // atomic so a second caller always bails out here.
     if (_backupInFlight) return;
-    if (!force) {
-      final last = await _lastBackupMillis();
-      if (last != null &&
-          DateTime.now().millisecondsSinceEpoch - last <
-              _autoBackupMinInterval.inMilliseconds) {
-        return;
-      }
-    }
     _backupInFlight = true;
     try {
+      if (!await isEnabled()) return;
+      if (!force) {
+        final last = await _lastBackupMillis();
+        if (last != null &&
+            DateTime.now().millisecondsSinceEpoch - last <
+                _autoBackupMinInterval.inMilliseconds) {
+          return;
+        }
+      }
       final dir = await _backupDirectory(create: true);
       if (dir == null) return;
 

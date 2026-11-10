@@ -57,6 +57,11 @@ class DownloadProgress {
   /// Total size in bytes. Estimated from Content-Length or segment accumulation.
   final int? totalBytes;
 
+  /// True on the event that announces the second pass (fragment assembly +
+  /// FFmpeg mux) has begun, so the queue can restart the bar as a golden
+  /// indeterminate pass instead of freezing at 100% of the transfer.
+  final bool isMerging;
+
   DownloadProgress(
     this.completed,
     this.total,
@@ -65,6 +70,7 @@ class DownloadProgress {
     this.pageUrl,
     this.isCompleted = false,
     this.isIndeterminate = false,
+    this.isMerging = false,
     this.downloadedBytes,
     this.totalBytes,
   });
