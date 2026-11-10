@@ -495,12 +495,26 @@ class M3u8Downloader {
 
   Future<String> _getM3u8Body(String url) async {
     final effectiveHeaders = _buildEffectiveHeaders(urlOverride: url);
+
+    // A host whose native client was already challenged (Surrit behind MissAV)
+    // refuses every native attempt: the verdict is on the client fingerprint,
+    // not the request. Skipping the doomed GET here removes two refused
+    // round-trips per playlist and per segment, which is what made the download
+    // crawl before the browser session even started.
+    if (BrowserFetchService.nativeProbeIsPointless(url)) {
+      final viaBrowser = await _m3u8BodyViaBrowser(url, effectiveHeaders);
+      if (viaBrowser != null) return viaBrowser;
+    }
+
     final response = await httpClient.get(
       Uri.parse(url),
       headers: effectiveHeaders,
     );
 
     if (response.statusCode == 403) {
+      // Remember the verdict so the variant playlist and every later call skip
+      // the native probe too.
+      BrowserFetchService.markNativeChallenged(url);
       _log('403 Forbidden — retrying with refreshed headers...');
       // Wait briefly and retry with cookies refreshed
       await Future.delayed(const Duration(seconds: 1));

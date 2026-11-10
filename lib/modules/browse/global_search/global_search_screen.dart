@@ -1,4 +1,3 @@
-import 'package:speech_to_text/speech_to_text.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -13,6 +12,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
+import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
@@ -23,7 +23,6 @@ import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/utils/log/logger.dart';
-import 'package:watchtower/modules/library/widgets/search_text_form_field.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/widgets/bottom_text_widget.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
@@ -173,6 +172,70 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     setState(() => _query = submitted);
   }
 
+  void _startVoiceSearch() {
+    unawaited(
+      startVoiceSearch(
+        onResult: (words) {
+          if (!mounted) return;
+          _textEditingController.text = words;
+          _textEditingController.selection = TextSelection.collapsed(
+            offset: words.length,
+          );
+          _submitQuery(words);
+        },
+      ),
+    );
+  }
+
+  /// Compact filter trigger, matching the extension-search page: a slider icon
+  /// with a badge when any filter is active, opening the source filter sheet.
+  Widget _buildFilterButton(BuildContext context, ColorScheme cs) {
+    return IconButton(
+      tooltip: 'Filtrer les sources',
+      icon: Badge(
+        isLabelVisible: _hasActiveFilters,
+        backgroundColor: cs.primary,
+        child: Icon(
+          Broken.slider_horizontal,
+          size: 20,
+          color: _hasActiveFilters ? cs.primary : cs.onSurfaceVariant,
+        ),
+      ),
+      onPressed: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => StatefulBuilder(
+            builder: (context, setSheetState) => _FilterSheet(
+              availableLangs: _availableLangs,
+              availableTypes: _availableTypes,
+              selectedLang: _selectedLang,
+              selectedType: _selectedType,
+              hasActiveFilters: _hasActiveFilters,
+              cs: cs,
+              onLangSelected: (lang) {
+                setState(
+                  () => _selectedLang = lang == _selectedLang ? null : lang,
+                );
+                setSheetState(() {});
+              },
+              onTypeSelected: (type) {
+                setState(
+                  () => _selectedType = type == _selectedType ? null : type,
+                );
+                setSheetState(() {});
+              },
+              onClearAll: () {
+                _clearFilters();
+                setSheetState(() {});
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final query = _query;
@@ -183,135 +246,74 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        toolbarHeight: 64,
+        titleSpacing: 0,
         title: Row(
           children: [
-            SeachFormTextField(
-              onChanged: (value) {},
-              onPressed: () => Navigator.pop(context),
-              onFieldSubmitted: _submitQuery,
-              onSuffixPressed: () {
-                _textEditingController.clear();
-                setState(() => _query = "");
-              },
-              controller: _textEditingController,
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Broken.microphone, size: 20),
-            tooltip: 'Recherche vocale',
-            onPressed: () async {
-              try {
-                final speech = SpeechToText();
-                final available = await speech.initialize();
-                if (!available || !context.mounted) return;
-                await speech.listen(
-                  onResult: (result) {
-                    if (result.recognizedWords.isNotEmpty) {
-                      _textEditingController.text = result.recognizedWords;
-                      _submitQuery(result.recognizedWords);
-                    }
-                  },
-                  listenOptions: SpeechListenOptions(
-                    listenFor: const Duration(seconds: 8),
-                  ),
-                );
-                // Auto-stop after timeout
-                await Future.delayed(const Duration(seconds: 9));
-                await speech.stop();
-              } catch (_) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Recherche vocale indisponible'),
-                      duration: Duration(seconds: 1),
-                    ),
-                  );
-                }
-              }
-            },
-          ),
-          IconButton(
-            icon: Icon(
-              Broken.slider_horizontal,
-              size: 20,
-              color: _hasActiveFilters ? cs.primary : cs.onSurfaceVariant,
-            ),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => StatefulBuilder(
-                  builder: (context, setSheetState) => _FilterSheet(
-                    availableLangs: _availableLangs,
-                    availableTypes: _availableTypes,
-                    selectedLang: _selectedLang,
-                    selectedType: _selectedType,
-                    hasActiveFilters: _hasActiveFilters,
-                    cs: cs,
-                    onLangSelected: (lang) {
-                      setState(
-                        () => _selectedLang =
-                            lang == _selectedLang ? null : lang,
-                      );
-                      setSheetState(() {});
-                    },
-                    onTypeSelected: (type) {
-                      setState(
-                        () => _selectedType =
-                            type == _selectedType ? null : type,
-                      );
-                      setSheetState(() {});
-                    },
-                    onClearAll: () {
-                      _clearFilters();
-                      setSheetState(() {});
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
-          PopupMenuButton<_GlobalSearchMenuAction>(
-            tooltip: 'Plus d’options',
-            icon: const Icon(Broken.more, size: 20),
-            onSelected: (action) {
-              switch (action) {
-                case _GlobalSearchMenuAction.pinnedOnly:
-                  setState(() => _pinnedOnly = !_pinnedOnly);
-                  break;
-                case _GlobalSearchMenuAction.clearFilters:
-                  _clearFilters();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              CheckedPopupMenuItem<_GlobalSearchMenuAction>(
-                value: _GlobalSearchMenuAction.pinnedOnly,
-                checked: _pinnedOnly,
-                child: const Row(
-                  children: [
-                    Icon(Broken.bookmark_2, size: 18),
-                    SizedBox(width: 10),
-                    Text('Sources épinglées uniquement'),
-                  ],
-                ),
+            Expanded(
+              child: SharedSearchHeader(
+                controller: _textEditingController,
+                hint: 'Rechercher dans les extensions…',
+                onBack: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go('/WatchtowerHome');
+                  }
+                },
+                onMic: _startVoiceSearch,
+                onSubmit: _submitQuery,
+                onChanged: (value) {
+                  // Clearing the field returns to the idle sources list, like
+                  // the previous inline field did via its clear suffix.
+                  if (value.trim().isEmpty && _query.isNotEmpty) {
+                    setState(() => _query = "");
+                  }
+                },
               ),
-              if (_hasActiveFilters)
-                const PopupMenuItem<_GlobalSearchMenuAction>(
-                  value: _GlobalSearchMenuAction.clearFilters,
-                  child: Row(
+            ),
+            _buildFilterButton(context, cs),
+            PopupMenuButton<_GlobalSearchMenuAction>(
+              tooltip: 'Plus d’options',
+              icon: const Icon(Broken.more, size: 20),
+              onSelected: (action) {
+                switch (action) {
+                  case _GlobalSearchMenuAction.pinnedOnly:
+                    setState(() => _pinnedOnly = !_pinnedOnly);
+                    break;
+                  case _GlobalSearchMenuAction.clearFilters:
+                    _clearFilters();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                CheckedPopupMenuItem<_GlobalSearchMenuAction>(
+                  value: _GlobalSearchMenuAction.pinnedOnly,
+                  checked: _pinnedOnly,
+                  child: const Row(
                     children: [
-                      Icon(Broken.filter_remove, size: 18),
+                      Icon(Broken.bookmark_2, size: 18),
                       SizedBox(width: 10),
-                      Text('Effacer les filtres'),
+                      Text('Sources épinglées uniquement'),
                     ],
                   ),
                 ),
-            ],
-          ),
-        ],
+                if (_hasActiveFilters)
+                  const PopupMenuItem<_GlobalSearchMenuAction>(
+                    value: _GlobalSearchMenuAction.clearFilters,
+                    child: Row(
+                      children: [
+                        Icon(Broken.filter_remove, size: 18),
+                        SizedBox(width: 10),
+                        Text('Effacer les filtres'),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
       ),
       body: Column(
         children: [

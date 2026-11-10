@@ -407,17 +407,16 @@ class AppSectionHeader extends StatelessWidget {
             ),
           ),
           if (actionLabel != null)
-            TextButton.icon(
+            TextButton(
               onPressed: onAction,
-              icon: Text(
-                actionLabel == 'View all' || actionLabel == 'All >'
-                    ? 'All'
-                    : actionLabel!,
-              ),
-              label: const Icon(Broken.arrow_right_3, size: 17),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 visualDensity: VisualDensity.compact,
+              ),
+              child: Text(
+                actionLabel == 'View all' || actionLabel == 'All >'
+                    ? 'All'
+                    : actionLabel!,
               ),
             ),
           if (trailing != null) trailing!,

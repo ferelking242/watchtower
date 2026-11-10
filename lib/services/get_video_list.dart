@@ -8,6 +8,7 @@ import 'package:watchtower/modules/browse/extension/providers/extension_preferen
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/remote/remote_client.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/services/get_source_preference.dart';
 import 'package:watchtower/services/hls_variant_resolver.dart';
@@ -380,6 +381,18 @@ Future<String?> _fetchHlsPlaylist(String url, List<Video> videos) async {
       )
       .headers;
   final sw = Stopwatch()..start();
+
+  // A host whose native client was already answered with a challenge (the
+  // Surrit CDN behind MissAV, most visibly) will refuse this probe too: the
+  // verdict is on the client fingerprint, not the request. Going native first
+  // only burned the 2 s budget before the browser session took over, which is
+  // exactly the tap-to-play delay reported on those sources.
+  if (BrowserFetchService.nativeProbeIsPointless(url)) {
+    final viaBrowser = await _fetchHlsPlaylistViaBrowser(url, headers);
+    if (viaBrowser != null) return viaBrowser;
+    return null;
+  }
+
   HttpClient? cli;
   try {
     cli = HttpClient()..connectionTimeout = const Duration(seconds: 2);
@@ -390,6 +403,13 @@ Future<String?> _fetchHlsPlaylist(String url, List<Video> videos) async {
     req.headers.set('Accept', '*/*');
     final resp = await req.close().timeout(const Duration(seconds: 2));
     if (resp.statusCode != 200) {
+      // The host refuses this client's fingerprint, not the request: the same
+      // playlist loads in the WebView. Replay it in the browser session before
+      // giving up, and remember the verdict so the next episode skips the
+      // doomed native probe entirely.
+      BrowserFetchService.markNativeChallenged(url);
+      final viaBrowser = await _fetchHlsPlaylistViaBrowser(url, headers);
+      if (viaBrowser != null) return viaBrowser;
       AppLogger.log(
         '[$url] HLS master probe status=${resp.statusCode} — keeping the '
         'extension entry only',
@@ -413,6 +433,35 @@ Future<String?> _fetchHlsPlaylist(String url, List<Video> videos) async {
     return null;
   } finally {
     cli?.close(force: true);
+  }
+}
+
+/// Replays the master-playlist probe inside the browser session of its host.
+///
+/// Returns `null` when no session can serve the host, so the caller keeps the
+/// extension's own entry — the probe is only ever additive.
+Future<String?> _fetchHlsPlaylistViaBrowser(
+  String url,
+  Map<String, String>? headers,
+) async {
+  if (!BrowserFetchService.isSupported) return null;
+  try {
+    final response = await BrowserFetchService.fetch(
+      url,
+      headers: headers,
+      pageUrl: BrowserFetchService.pageUrlForMissAvMediaRequest(url, headers),
+      omitCredentials: BrowserFetchService.isMissAvMediaUrl(url),
+      referrer: BrowserFetchService.missAvMediaReferrer(url, headers),
+      referrerPolicy: BrowserFetchService.isMissAvMediaUrl(url)
+          ? 'unsafe-url'
+          : null,
+    );
+    if (response.outcome != BrowserFetchOutcome.resolved) return null;
+    final result = response.result!;
+    if (result.statusCode != 200 || result.body.isEmpty) return null;
+    return result.body;
+  } catch (_) {
+    return null;
   }
 }
 

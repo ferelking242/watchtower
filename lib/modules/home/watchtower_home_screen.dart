@@ -1411,19 +1411,16 @@ class _SeeAllBtn extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Voir tout',
-            style: TextStyle(
-              color: cs.primary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Text(
+          'Voir tout',
+          style: TextStyle(
+            color: cs.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
           ),
-          Icon(Icons.chevron_right_rounded, size: 16, color: cs.primary),
-        ],
+        ),
       ),
     );
   }
