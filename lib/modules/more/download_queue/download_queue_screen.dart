@@ -1657,7 +1657,6 @@ class _RowChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: tooltip,
       triggerMode: TooltipTriggerMode.tap,
