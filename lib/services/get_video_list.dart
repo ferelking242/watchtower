@@ -128,7 +128,7 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
         epManga.source != "torrent";
     final mp4animePath = p.join(
       mangaDirectory!.path,
-      "${episode.name!.replaceForbiddenCharacters(' ')}.mp4",
+      "${episode.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
     );
     List<String> infoHashes = [];
 

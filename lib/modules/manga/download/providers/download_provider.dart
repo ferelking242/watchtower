@@ -1332,7 +1332,13 @@ Future<void> downloadChapter(
     final qualitySuffix = itemType == ItemType.anime && RegExp(r'^\d{3,4}$').hasMatch(resolution)
         ? ' [${resolution}p]'
         : '';
-    final chapterName = '${chapter.name!.replaceForbiddenCharacters(' ')}$qualitySuffix';
+    // The HLS assembler writes `<name>.mp4.part.joined` next to the final
+    // file, so the name must leave room for that suffix (16 bytes) under the
+    // 255-byte NAME_MAX limit; otherwise the merge aborts with errno 36 after
+    // the whole episode has already been downloaded. The base is truncated
+    // first so the ` [360p]` quality tag always survives whole.
+    final chapterName =
+        '${chapter.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes - qualitySuffix.length)}$qualitySuffix';
     final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
       chapter,
       mangaMainDirectory: mangaMainDirectory,

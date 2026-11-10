@@ -475,7 +475,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         int sizeKb = 0;
         final chapterName = (chapter.name ?? '').replaceForbiddenCharacters(
           ' ',
-        );
+        ).truncateToBytes(kMaxDownloadNameBytes);
 
         if (manga.itemType == ItemType.anime) {
           final mp4 = File(p.join(mangaDir.path, '$chapterName.mp4'));

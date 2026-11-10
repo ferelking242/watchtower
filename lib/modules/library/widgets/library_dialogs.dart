@@ -231,7 +231,7 @@ Future<String> _deleteDownload(Manga manga, String mangaDirectory) async {
       file = File(
         p.join(
           mangaDir!.path,
-          "${chapter.name!.replaceForbiddenCharacters(' ')}.mp4",
+          "${chapter.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
         ),
       );
     }

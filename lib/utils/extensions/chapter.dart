@@ -81,7 +81,7 @@ extension ChapterExtension on Chapter {
     try {
       final mp4Path = p.join(
         mangaDir!.path,
-        "${name!.replaceForbiddenCharacters(' ')}.mp4",
+        "${name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
       );
       for (final candidate in [
         mp4Path,

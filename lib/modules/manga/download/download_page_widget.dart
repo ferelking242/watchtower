@@ -116,7 +116,7 @@ class ChapterPageDownload extends ConsumerWidget {
     final mp4File = File(
       p.join(
         mangaDir.path,
-        "${chapter.name!.replaceForbiddenCharacters(' ')}.mp4",
+        "${chapter.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
       ),
     );
     final htmlFile = File(p.join(mangaDir.path, "${chapter.name}.html"));
@@ -160,7 +160,7 @@ class ChapterPageDownload extends ConsumerWidget {
         final mp4File = File(
           p.join(
             mangaDir!.path,
-            "${chapter.name!.replaceForbiddenCharacters(' ')}.mp4",
+            "${chapter.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
           ),
         );
         if (mp4File.existsSync()) {

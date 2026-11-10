@@ -1,3 +1,14 @@
+import 'dart:convert';
+
+/// Byte budget for a download file's name, excluding its extension.
+///
+/// Linux, Android and iOS cap one path component at 255 bytes (`NAME_MAX`).
+/// The HLS assembler appends `.mp4.part.joined` (16 bytes) to the final name
+/// while it merges, so the name must leave that much headroom: 255 − 16 = 239.
+/// A longer episode title otherwise aborts the merge with `File name too long`
+/// (errno 36) after the whole episode has already been downloaded.
+const int kMaxDownloadNameBytes = 239;
+
 extension StringExtensions on String {
   String substringAfter(String pattern) {
     final startIndex = indexOf(pattern);
@@ -38,6 +49,17 @@ extension StringExtensions on String {
       RegExp(r'[\\/:*?"<>|\0]|(^CON$|^PRN$|^AUX$|^NUL$|^COM[1-9]$|^LPT[1-9]$)'),
       source,
     );
+  }
+
+  /// Truncates this string so its UTF-8 encoding fits in [maxBytes], never
+  /// splitting a rune. Apply it to a name *before* the extension is appended.
+  String truncateToBytes(int maxBytes) {
+    if (utf8.encode(this).length <= maxBytes) return this;
+    var end = length;
+    while (end > 0 && utf8.encode(substring(0, end)).length > maxBytes) {
+      end--;
+    }
+    return substring(0, end);
   }
 
   String get getUrlWithoutDomain {

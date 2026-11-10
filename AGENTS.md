@@ -880,6 +880,15 @@ must not leak into watch code paths or logs:
   `docs/FFMPEG_MANAGEMENT.md`.
 - The `temp/` segment directory is deleted only **after** a successful merge, so
   a failed merge keeps its resumable fragments.
+- A download file name must be truncated to `kMaxDownloadNameBytes` (239, see
+  `lib/utils/extensions/string_extensions_io.dart`) **before** its extension is
+  appended. The assembler writes `<name>.mp4.part.joined` — 16 bytes past the
+  final name — and one path component is capped at 255 bytes (`NAME_MAX`) on
+  Linux, Android and iOS. An unbounded long episode title otherwise aborts the
+  merge with `File name too long` (errno 36) *after* the whole episode has been
+  downloaded. Every site that derives the `<name>.mp4` path from a chapter or
+  episode title applies the same bound so lookups, deletes and shares resolve
+  the file the downloader actually wrote.
 
 
 ## Settings navigation (Mihon/Aniyomi parity)
