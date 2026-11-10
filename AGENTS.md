@@ -1103,3 +1103,28 @@ must not leak into watch code paths or logs:
   (idempotent) puis `flutter gen-l10n`. Toute nouvelle clé doit passer par ce
   script pour que `app_fr.arb` reste une vraie traduction et que le test de
   parité ARB passe.
+
+## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
+- Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
+  interrompu n'offre donc aucun fichier jouable. Les fragments présents sont
+  assemblés en une playlist locale (`partial.m3u8`) que mpv ouvre directement.
+- `segments.json` (écrit par `M3u8Downloader._writeSegmentManifest` à partir des
+  `#EXTINF`) fige l'ordre de la playlist et la durée de chaque fragment : c'est
+  ce qui permet de restituer la timeline d'origine. Le fragment
+  d'initialisation fMP4 est stocké à part (`initSegmentName`) pour être émis via
+  `#EXT-X-MAP`.
+- `PartialPlaybackPlan` (pur, testé) est la seule source de vérité pour la
+  correspondance **compressed** (ce qui est sur le disque) ↔ **real** (la vraie
+  durée de l'épisode). Toute position affichée ou demandée passe par lui ;
+  comparer directement à `player.state.position`/`duration` réintroduit le bug
+  de la timeline compressée.
+- Un seek qui tombe dans un trou est redirigé vers le fragment suivant
+  (`resolveSeek`), jamais laissé sur une donnée absente. Les trous sont peints
+  sur la piste par `_PartialSliderTrackShape`, par-dessus la progression : un
+  trou doit rester visible même quand la tête de lecture l'a dépassé.
+- La durée réelle (et non celle de mpv) est persistée : `_watchActualDuration`
+  ignore la durée mpv tant qu'un `partialPlan` est actif, sinon la longueur de
+  l'épisode serait écrasée par celle des seuls fragments présents.
+- `PartialPlaybackResolver` tolère les liens Isar non chargés/absents
+  (`_resolveChapter` / `_resolveManga`) et accepte un `Chapter` déjà résolu
+  pour éviter une relecture Isar quand l'appelant le détient déjà.
