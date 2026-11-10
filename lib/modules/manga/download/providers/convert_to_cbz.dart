@@ -78,15 +78,17 @@ Future<List<String>> convertToMangaArchive({
   final level = compressionLevel.clamp(0, 9);
   if (onProgress == null) {
     // No streaming requested — a one-shot helper avoids isolate ping-pong.
-    return compute(_convertToMangaArchive, (
-      chapterDir,
-      mangaDir,
-      chapterName,
-      pageList,
-      comicInfo,
-      formatExtension,
-      level,
-    ));
+    return Isolate.run(
+      () => _convertToMangaArchive((
+        chapterDir,
+        mangaDir,
+        chapterName,
+        pageList,
+        comicInfo,
+        formatExtension,
+        level,
+      )),
+    );
   }
 
   final receivePort = ReceivePort();
@@ -150,10 +152,10 @@ Future<List<String>> convertToMangaArchive({
 }
 
 @pragma('vm:entry-point')
-void _archiveIsolateEntry(Map<String, dynamic> args) {
+Future<void> _archiveIsolateEntry(Map<String, dynamic> args) async {
   final sendPort = args['sendPort'] as SendPort;
   try {
-    final result = _convertToMangaArchive(
+    final result = await _convertToMangaArchive(
       (
         args['chapterDir'] as String,
         args['mangaDir'] as String,
@@ -219,10 +221,10 @@ String _xmlEscape(String value) {
       .replaceAll("'", '&apos;');
 }
 
-List<String> _convertToMangaArchive(
+Future<List<String>> _convertToMangaArchive(
   (String, String, String, List<String>, ComicInfoData?, String, int) datas, {
   void Function(int done, int total, String currentName)? onProgress,
-}) {
+}) async {
   final (
     chapterDir,
     mangaDir,
@@ -264,21 +266,34 @@ List<String> _convertToMangaArchive(
   final List<String> includedFiles = [];
 
   final total = imagesPaths.length;
-  for (var i = 0; i < total; i++) {
-    final imagePath = imagesPaths[i];
-    final file = File(imagePath);
-    if (!file.existsSync()) {
-      missingFiles.add(imagePath);
-      continue;
+  // Level 0 keeps the original bytes, so there is no per-page work to spread;
+  // reading each file inline is then the fastest path. From level 1 up every
+  // page is decoded and re-encoded as JPEG, which is pure CPU work, so it runs
+  // across the device's cores instead of one. The loop stays sequential for
+  // level 0 to keep memory bounded and the archive order deterministic.
+  if (jpegQuality == null) {
+    for (var i = 0; i < total; i++) {
+      final imagePath = imagesPaths[i];
+      final file = File(imagePath);
+      if (!file.existsSync()) {
+        missingFiles.add(imagePath);
+        continue;
+      }
+      final fileName = path.basename(imagePath);
+      archive.add(ArchiveFile.bytes(fileName, file.readAsBytesSync()));
+      includedFiles.add(imagePath);
+      onProgress?.call(i + 1, total, fileName);
     }
-    final bytes = file.readAsBytesSync();
-    final fileName = path.basename(imagePath);
-    final packed = jpegQuality == null
-        ? bytes
-        : (_recompressJpeg(bytes, jpegQuality, maxDimension) ?? bytes);
-    archive.add(ArchiveFile.bytes(fileName, packed));
-    includedFiles.add(imagePath);
-    onProgress?.call(i + 1, total, fileName);
+  } else {
+    await _packRecompressed(
+      archive: archive,
+      imagesPaths: imagesPaths,
+      quality: jpegQuality,
+      maxDimension: maxDimension,
+      missingFiles: missingFiles,
+      includedFiles: includedFiles,
+      onProgress: onProgress,
+    );
   }
 
   // Add ComicInfo.xml if metadata is provided
@@ -383,4 +398,91 @@ Uint8List? _recompressJpeg(Uint8List bytes, int quality, int? maxDimension) {
   } catch (_) {
     return null;
   }
+}
+
+/// Decodes and re-encodes every page across the device's cores, then adds them
+/// to [archive] in playlist order.
+///
+/// The re-encode is pure CPU work and used to run one page at a time, which
+/// left every core but one idle for the whole chapter. Each page is independent
+/// (only its bytes and its index matter), so the pages are split into as many
+/// chunks as the device has cores and each chunk is recompressed in its own
+/// isolate. Results are placed by index, so the archive order is identical to
+/// the sequential version, and the chunk count is capped so a large chapter
+/// cannot hold dozens of decoded bitmaps in memory at once.
+Future<void> _packRecompressed({
+  required Archive archive,
+  required List<String> imagesPaths,
+  required int quality,
+  required int? maxDimension,
+  required List<String> missingFiles,
+  required List<String> includedFiles,
+  required void Function(int done, int total, String currentName)? onProgress,
+}) async {
+  final total = imagesPaths.length;
+  final packed = List<Uint8List?>.filled(total, null);
+  final missing = List<bool>.filled(total, false);
+  final workerCount = (Platform.numberOfProcessors - 1).clamp(1, 6);
+  var done = 0;
+
+  await Future.wait(
+    List.generate(workerCount, (worker) async {
+      final indices = [
+        for (var i = worker; i < total; i += workerCount) i,
+      ];
+      if (indices.isEmpty) return;
+      final paths = [for (final i in indices) imagesPaths[i]];
+      final batch = await Isolate.run(
+        () => _recompressBatch(paths, quality, maxDimension),
+      );
+      for (var k = 0; k < indices.length; k++) {
+        final index = indices[k];
+        final (isMissing, bytes) = batch[k];
+        if (isMissing) {
+          missing[index] = true;
+        } else {
+          packed[index] = bytes;
+        }
+        done++;
+        onProgress?.call(done, total, path.basename(imagesPaths[index]));
+      }
+    }),
+  );
+
+  // Placed by index, not by completion order: the workers finish out of order,
+  // so the archive and the returned page list must be rebuilt in page order.
+  for (var i = 0; i < total; i++) {
+    if (missing[i]) {
+      missingFiles.add(imagesPaths[i]);
+      continue;
+    }
+    final bytes = packed[i];
+    if (bytes != null) {
+      includedFiles.add(imagesPaths[i]);
+      archive.add(ArchiveFile.bytes(path.basename(imagesPaths[i]), bytes));
+    }
+  }
+}
+
+/// Recompresses one chunk of pages in a worker isolate.
+///
+/// Returns one `(isMissing, bytes)` record per input path, in the same order.
+/// A missing file is flagged rather than skipped so the caller keeps the
+/// "archive refused because pages are missing" contract.
+List<(bool, Uint8List)> _recompressBatch(
+  List<String> paths,
+  int quality,
+  int? maxDimension,
+) {
+  final out = <(bool, Uint8List)>[];
+  for (final imagePath in paths) {
+    final file = File(imagePath);
+    if (!file.existsSync()) {
+      out.add((true, Uint8List(0)));
+      continue;
+    }
+    final bytes = file.readAsBytesSync();
+    out.add((false, _recompressJpeg(bytes, quality, maxDimension) ?? bytes));
+  }
+  return out;
 }

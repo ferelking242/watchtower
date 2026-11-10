@@ -890,6 +890,25 @@ must not leak into watch code paths or logs:
   episode title applies the same bound so lookups, deletes and shares resolve
   the file the downloader actually wrote.
 
+## Manga archive conversion (do not regress)
+- From compression level 1 up, each page is decoded and re-encoded as an
+  optimised JPEG; that re-encode is the whole cost of building a CBZ and is pure
+  CPU work. It used to run one page at a time inside the archive isolate, which
+  left every core but one idle for the whole chapter — the "download is stuck at
+  processing" report. `_packRecompressed`
+  (`lib/modules/manga/download/providers/convert_to_cbz.dart`) now splits the
+  pages into `numberOfProcessors - 1` (capped at 6) chunks and recompresses each
+  chunk in its own isolate via `Isolate.run`, then rebuilds the archive **by
+  index** so the page order is byte-for-byte what the sequential loop produced.
+  `includedFiles` and the archive must both be filled in the final ordered pass,
+  never from a worker as it finishes — workers complete out of order.
+- Level 0 stores the original bytes and does no per-page work, so it keeps the
+  inline sequential loop (fastest, bounded memory, deterministic order).
+- A page that cannot be read is recorded in `missingFiles` (the archive is then
+  refused) rather than silently dropped; a page that cannot be *decoded* keeps
+  its original bytes (`_recompressJpeg` returns null). Covered by
+  `test/manga_archive_conversion_test.dart`.
+
 
 ## Settings navigation (Mihon/Aniyomi parity)
 - Every settings subpage uses `SettingsSubpageScaffold`
