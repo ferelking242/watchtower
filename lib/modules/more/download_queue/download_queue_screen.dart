@@ -22,6 +22,7 @@ import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/cover_url.dart';
+import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
@@ -1794,6 +1795,18 @@ class _GroupedDownloadTabListState
     final firstDownload = items.first;
     final manga = firstDownload.chapter.value?.manga.value;
     final itemType = manga?.itemType ?? ItemType.manga;
+    // The parent cover is fetched from the extension's CDN, which is often
+    // hotlink-protected: it needs the extension's own headers (Referer/UA).
+    // Without them the card renders headerless and falls back to a placeholder.
+    final coverHeaders = manga == null
+        ? null
+        : ref.watch(
+            headersProvider(
+              source: manga.source ?? '',
+              lang: manga.lang ?? '',
+              sourceId: manga.sourceId,
+            ),
+          );
     final title =
         manga?.name ??
         firstDownload.title ??
@@ -1942,6 +1955,8 @@ class _GroupedDownloadTabListState
                   itemType: itemType,
                   width: 56,
                   height: 78,
+                  headers: coverHeaders,
+                  sourceId: manga?.sourceId,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2320,6 +2335,18 @@ class _DownloadCard extends ConsumerWidget {
     final manga = download.chapter.value?.manga.value;
     final chapter = download.chapter.value;
     final itemType = manga?.itemType ?? ItemType.manga;
+    // The per-chapter thumbnail lives on the extension's CDN, which is usually
+    // hotlink-protected: without the extension's headers the cover request goes
+    // out headerless and the card shows a placeholder instead of the artwork.
+    final coverHeaders = manga == null
+        ? null
+        : ref.watch(
+            headersProvider(
+              source: manga.source ?? '',
+              lang: manga.lang ?? '',
+              sourceId: manga.sourceId,
+            ),
+          );
     ref.watch(cardButtonsStateProvider);
     final layout = ref.watch(downloadCardLayoutStateProvider);
 
@@ -2577,6 +2604,8 @@ class _DownloadCard extends ConsumerWidget {
               itemType: itemType,
               width: 40,
               height: 56,
+              headers: coverHeaders,
+              sourceId: manga?.sourceId,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -2826,6 +2855,8 @@ class _DownloadCard extends ConsumerWidget {
               itemType: itemType,
               width: 60,
               height: 82,
+              headers: coverHeaders,
+              sourceId: manga?.sourceId,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2970,6 +3001,8 @@ class _DownloadCard extends ConsumerWidget {
             isVideo: itemType == ItemType.anime,
             width: thumbnailWidth,
             height: thumbnailHeight,
+            headers: coverHeaders,
+            sourceId: manga?.sourceId,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -3189,6 +3222,8 @@ class _CoverThumbnail extends StatelessWidget {
   final ItemType itemType;
   final double width;
   final double height;
+  final Map<String, String>? headers;
+  final int? sourceId;
 
   const _CoverThumbnail({
     required this.imageUrl,
@@ -3196,6 +3231,8 @@ class _CoverThumbnail extends StatelessWidget {
     required this.itemType,
     this.width = 46,
     this.height = 62,
+    this.headers,
+    this.sourceId,
   });
 
   @override
@@ -3249,6 +3286,8 @@ class _CoverThumbnail extends StatelessWidget {
             width: w,
             height: h,
             fit: BoxFit.cover,
+            headers: headers,
+            sourceId: sourceId,
             errorWidget: placeholder,
           ),
         ),

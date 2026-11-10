@@ -774,6 +774,12 @@ must return that URL unchanged (see the extension's `harimanga.js`).
 - Any widget that calls `cachedNetworkImage` directly instead of going through
   `ContentImage` bypasses the scope and must read `ExtensionImageHeaders.of`
   itself (see `_CatalogListRow`, `AppGenreTile`).
+- The download-queue cards are the 2026-11-10 case of the same trap:
+  `_CoverThumbnail` and `MbThumb` are plain `StatelessWidget`s that call
+  `cachedNetworkImage` directly and never inherited a scope, so every
+  parent/series and child cover fetched headerless (`ref=NONE ua=NONE`) and
+  showed a placeholder. They now take explicit `headers`/`sourceId` and the
+  callers pass `ref.watch(headersProvider(...))` built from the row's manga.
 - The detail view was never affected: it has always passed the extension
   headers to `cachedNetworkImage` explicitly.
 - Debug aid: `custom_extended_image_provider.dart` logs a headers summary and

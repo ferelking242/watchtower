@@ -21,6 +21,8 @@ class MbThumb extends StatelessWidget {
   final bool isVideo;
   final double width;
   final double height;
+  final Map<String, String>? headers;
+  final int? sourceId;
 
   const MbThumb({
     super.key,
@@ -31,6 +33,8 @@ class MbThumb extends StatelessWidget {
     required this.isVideo,
     this.width = 106,
     this.height = 64,
+    this.headers,
+    this.sourceId,
   });
 
   @override
@@ -75,6 +79,8 @@ class MbThumb extends StatelessWidget {
           width: w,
           height: h,
           fit: BoxFit.cover,
+          headers: headers,
+          sourceId: sourceId,
           errorWidget: placeholder,
         ),
       );
