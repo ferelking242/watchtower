@@ -1170,3 +1170,22 @@ must not leak into watch code paths or logs:
   (idempotent) puis `flutter gen-l10n`. Toute nouvelle clé doit passer par ce
   script pour que `app_fr.arb` reste une vraie traduction et que le test de
   parité ARB passe.
+
+## Compteurs de pages manga (ne pas régresser)
+- `succeeded`/`total` d'une ligne `Download` sont des **octets** pour l'anime et
+  des **pages** pour le manga. Une vieille ligne manga a déjà stocké des octets
+  dans `total`, ce qui affichait « 1/1048576 pages » (un million) pour une série
+  de 30 ou 60 chapitres. Toute valeur qui ne peut pas être un vrai nombre de
+  pages doit être ignorée par `trustedMangaPageCount` (borne
+  `maxTrustedMangaPages`, `lib/services/download_manager/download_size.dart`).
+- `mangaChapterProgress` (`download_queue_progress.dart`) est le seul endroit qui
+  décide du dénominateur : il filtre le stocké **et** le live, retombe sur le
+  live quand le stocké est pourri, sinon sur une barre indéterminée.
+- `setProgress` (`download_provider.dart`) ne doit **jamais** réécrire un
+  dénominateur non fiable dans Isar : une ligne manga corrompue repart à 0/0,
+  sinon le « ~1M » se republie à chaque tick.
+- Réglages par type (Watch, Manga, Roman, Musique, Jeu) : clés dans
+  `DownloadSettingsService`, providers dans `downloads_state_provider.dart`
+  (`.g.dart` édité à la main car `riverpod_generator` 4.0.0 plante avec
+  l'analyzer 9.0.0). La feuille « Gérer » ouvre chaque type **dans la feuille**
+  (`_openType`), sans changer de route.
