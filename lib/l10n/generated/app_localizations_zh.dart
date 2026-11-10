@@ -3426,4 +3426,497 @@ class AppLocalizationsZh extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get obNext => 'Next';
+
+  @override
+  String get obStart => 'Get started';
+
+  @override
+  String get obBack => 'Back';
+
+  @override
+  String get obContinue => 'Continue';
+
+  @override
+  String get obSkipForNow => 'Skip for now';
+
+  @override
+  String get obEnterWatchtower => 'Enter Watchtower';
+
+  @override
+  String get obPermissionsTitle => 'Permissions';
+
+  @override
+  String get obPermissionsSubtitle =>
+      'Watchtower needs a few permissions to run properly.';
+
+  @override
+  String get obOptionalSection => 'OPTIONAL';
+
+  @override
+  String get obPermStorageTitle => 'Storage';
+
+  @override
+  String get obPermStorageSubtitle =>
+      'Allow full file access for downloads and Smart Library.';
+
+  @override
+  String get obPermStorageIosSubtitle =>
+      'iOS sandbox access — no action required.';
+
+  @override
+  String get obPermNotifTitle => 'Notifications';
+
+  @override
+  String get obPermNotifSubtitle => 'Downloads and library update alerts.';
+
+  @override
+  String get obPermInstallTitle => 'App installation';
+
+  @override
+  String get obPermInstallSubtitle =>
+      'Install APK updates directly from the app.';
+
+  @override
+  String get obPermOverlayTitle => 'Overlay / PiP';
+
+  @override
+  String get obPermOverlaySubtitle =>
+      'Show the video floating over other apps.';
+
+  @override
+  String get obPermBatteryTitle => 'No battery restriction';
+
+  @override
+  String get obPermBatterySubtitle =>
+      'Stops Android from killing background downloads (Doze, standby).';
+
+  @override
+  String get obGrant => 'Allow';
+
+  @override
+  String get obGranted => 'Granted';
+
+  @override
+  String get obShowcaseHeadline =>
+      'Anime, manga, novels, music, films, series and games — all in one place.';
+
+  @override
+  String get obSloganWatch => 'Watch.';
+
+  @override
+  String get obSloganRead => 'Read.';
+
+  @override
+  String get obSloganListen => 'Listen.';
+
+  @override
+  String get obSloganAll => 'All.';
+
+  @override
+  String get obSloganSub => 'One place for everything you love.';
+
+  @override
+  String get migTitle => 'Migration';
+
+  @override
+  String get migHeadline => 'Bring your library with you.';
+
+  @override
+  String get migSpeech =>
+      'Coming from Mihon, Aniyomi, Mangayomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.';
+
+  @override
+  String get migTabManga => 'Manga';
+
+  @override
+  String get migTabAnime => 'Anime';
+
+  @override
+  String get migTabUniversal => 'Universal';
+
+  @override
+  String get migSearchHint => 'Search an app…';
+
+  @override
+  String get migFilterTitle => 'Filter';
+
+  @override
+  String get migFilterPlatform => 'Platform';
+
+  @override
+  String get migFilterOpenSource => 'Open source only';
+
+  @override
+  String get migFilterWithBackup => 'Backup import supported';
+
+  @override
+  String get migFilterReset => 'Reset filters';
+
+  @override
+  String get migSortTitle => 'Sort';
+
+  @override
+  String get migSortName => 'Alphabetically';
+
+  @override
+  String get migSortPlatform => 'By platform';
+
+  @override
+  String get migMoreTitle => 'Options';
+
+  @override
+  String get migMoreSelectAll => 'Select all apps';
+
+  @override
+  String get migMoreClear => 'Clear selection';
+
+  @override
+  String get migMoreGuide => 'Migration guide';
+
+  @override
+  String get migMoreRefresh => 'Refresh';
+
+  @override
+  String migAppsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count apps',
+      one: '1 app',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get migEmptySearch => 'No app matches your search.';
+
+  @override
+  String get migPros => 'Pros';
+
+  @override
+  String get migCons => 'Cons';
+
+  @override
+  String get migOfficialSite => 'Official site';
+
+  @override
+  String get migBackupFormat => 'Backup format';
+
+  @override
+  String get migPlatforms => 'Platforms';
+
+  @override
+  String get migSupported => 'Import supported';
+
+  @override
+  String get migSelect => 'Select';
+
+  @override
+  String get migSelected => 'Selected';
+
+  @override
+  String get migWhatToImport => 'What to import';
+
+  @override
+  String get migImportLibrary => 'Library and categories';
+
+  @override
+  String get migImportLibrarySub =>
+      'Titles, covers, categories and read state.';
+
+  @override
+  String get migImportDownloads => 'Downloaded chapters';
+
+  @override
+  String get migImportDownloadsSub =>
+      'Copy or move the files Mihon already downloaded.';
+
+  @override
+  String get migImportHistory => 'Reading history';
+
+  @override
+  String get migImportHistorySub => 'Resume each series where you stopped.';
+
+  @override
+  String get migImportSettings => 'App settings';
+
+  @override
+  String get migImportSettingsSub => 'Theme, reader and download preferences.';
+
+  @override
+  String get migBackupSource => 'Backup file';
+
+  @override
+  String get migBackupSourceHint =>
+      'Pick the .tachibk backup exported by the app.';
+
+  @override
+  String get migPickBackup => 'Choose a file';
+
+  @override
+  String get migDownloadFolder => 'Downloads folder';
+
+  @override
+  String get migDownloadFolderHint =>
+      'The folder where the other app stored its downloads.';
+
+  @override
+  String get migPickFolder => 'Choose a folder';
+
+  @override
+  String get migNoFile => 'No file selected';
+
+  @override
+  String get migFileMode => 'File handling';
+
+  @override
+  String get migCopy => 'Copy';
+
+  @override
+  String get migCopySub => 'Keeps the original files in place.';
+
+  @override
+  String get migMove => 'Move';
+
+  @override
+  String get migMoveSub => 'Frees the space the other app used.';
+
+  @override
+  String get migScan => 'Scan';
+
+  @override
+  String get migScanning => 'Scanning…';
+
+  @override
+  String migScanResultLibrary(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries in the backup',
+      one: '1 entry in the backup',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migScanResultDownloads(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count downloaded chapters found',
+      one: '1 downloaded chapter found',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get migScanResultNone => 'Nothing detected yet.';
+
+  @override
+  String get migStartImport => 'Start import';
+
+  @override
+  String get migImporting => 'Importing…';
+
+  @override
+  String get migImportDone => 'Import complete';
+
+  @override
+  String migImportLibraryDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries imported',
+      one: '1 entry imported',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migImportDownloadsDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count downloads imported',
+      one: '1 download imported',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get migImportFailed => 'The import could not finish.';
+
+  @override
+  String get migNeedSelection => 'Pick at least one thing to import.';
+
+  @override
+  String get migDetectedApps => 'Apps detected on this device';
+
+  @override
+  String get migNoDetectedApps =>
+      'No other app data found. You can still pick a backup manually.';
+
+  @override
+  String get migFeatureTitle => 'More than a library';
+
+  @override
+  String get migFeatureTrackers =>
+      'Trackers and AniList/MAL progress follow your titles.';
+
+  @override
+  String get migFeatureSync => 'Cloud sync keeps every device aligned.';
+
+  @override
+  String get migFeatureExtensions => 'Install extensions to add new sources.';
+
+  @override
+  String get migFeatureSmart =>
+      'Smart Library rebuilds shelves from your files.';
+
+  @override
+  String get migFooterHint =>
+      'Everything is processed on your device. Nothing is uploaded.';
+
+  @override
+  String get migProMangaReader => 'Manga reading app';
+
+  @override
+  String get migProAnimeWatcher => 'Anime watching app';
+
+  @override
+  String get migProLightNovelReader => 'Light novel reading app';
+
+  @override
+  String get migProBothAnimeManga => 'Supports both anime and manga';
+
+  @override
+  String get migProAnimeLnManga => 'Supports anime, light novels and manga';
+
+  @override
+  String get migProManySources => 'Many extension sources available';
+
+  @override
+  String get migProManySourcesShort => 'Many sources available';
+
+  @override
+  String get migProOpenSource => 'Open source';
+
+  @override
+  String get migProActivelyDeveloped => 'Actively developed';
+
+  @override
+  String get migProLongTrackRecord => 'Long track record';
+
+  @override
+  String get migProCrossPlatform =>
+      'Cross platform (Android, iOS, Mac, Windows, Linux)';
+
+  @override
+  String get migProDesktopPlatforms => 'Supports Windows, Linux and Mac';
+
+  @override
+  String get migProOpenExtensionSystem => 'Open extension system';
+
+  @override
+  String get migProNiceUi => 'Nice user interface';
+
+  @override
+  String get migProIntegration =>
+      'Integrates with many other apps (backups and extensions)';
+
+  @override
+  String get migProTracker => 'Manga tracker';
+
+  @override
+  String get migProTrackReleases => 'Tracks new chapter releases across sites';
+
+  @override
+  String get migProEbookOutput => 'Generates e-book output';
+
+  @override
+  String get migProBatchZip => 'Batch .zip download';
+
+  @override
+  String get migProLargeLibrary => 'Very large library';
+
+  @override
+  String get migProMangadexClient => 'Focused MangaDex client';
+
+  @override
+  String get migProSameAsMihon => 'Everything Mihon does, plus more';
+
+  @override
+  String get migProCombinesForks =>
+      'Combines features from several Mihon forks';
+
+  @override
+  String get migProEh => 'E-Hentai and ExHentai integration';
+
+  @override
+  String get migConAndroidOnly => 'Android only';
+
+  @override
+  String get migConDesktopOnly => 'Desktop only';
+
+  @override
+  String get migConNeedExtension => 'Need to install an extension to use';
+
+  @override
+  String get migConExtensionSeparate => 'Extensions installed separately';
+
+  @override
+  String get migConOriginalUnmaintained =>
+      'Original repository no longer maintained';
+
+  @override
+  String get migConNotIosStore => 'Not in the iOS App Store';
+
+  @override
+  String get migConNeedPlugins => 'Need to install plugins to use';
+
+  @override
+  String get migConLessPopular => 'Less popular';
+
+  @override
+  String get migConNewApp => 'New app, less popular';
+
+  @override
+  String get migConOnlyMangadex => 'Only MangaDex content';
+
+  @override
+  String get migConCannotReadOffline => 'Cannot read offline';
+
+  @override
+  String get migConArchived => 'Original repository archived';
+
+  @override
+  String get migConTorrent => 'Depends on a torrent connection';
+
+  @override
+  String get migConIosDonors => 'iOS build only for donors';
+
+  @override
+  String get migConRaw => 'Manga are untranslated (raw)';
+
+  @override
+  String get migConBareboneSearch => 'Bare-bones search and filter';
+
+  @override
+  String get migConNotDifferent => 'Not drastically different';
+
+  @override
+  String get migConRelativelyNew => 'Relatively new';
+
+  @override
+  String get migConMissingNewFeatures =>
+      'Missing features added in the parent app';
+
+  @override
+  String get migDetectedBackup => 'Backup found';
+
+  @override
+  String get migDetectedDownloads => 'Downloads found';
 }

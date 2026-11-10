@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 
@@ -9,7 +10,13 @@ Future<void> _pumpAt(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(const MaterialApp(home: OnboardingScreen()));
+  await tester.pumpWidget(
+    MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const OnboardingScreen(),
+    ),
+  );
   await tester.pump(const Duration(milliseconds: 100));
 }
 
@@ -75,8 +82,10 @@ void _motionTests() {
     // The MediaQuery must sit *below* MaterialApp: MaterialApp inserts its own,
     // which would otherwise hide the flag from the page.
     await tester.pumpWidget(
-      const MaterialApp(
-        home: MediaQuery(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const MediaQuery(
           data: MediaQueryData(disableAnimations: true),
           child: OnboardingScreen(),
         ),
@@ -97,7 +106,13 @@ void _motionTests() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const MaterialApp(home: OnboardingScreen()));
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const OnboardingScreen(),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 100));
 
     // Control: the same screen does drive frames when nothing asked it to stop.

@@ -153,7 +153,8 @@ jobs:
           flutter test \
             test/onboarding_showcase_test.dart \
             test/onboarding_media_service_test.dart \
-            test/onboarding_screen_layout_test.dart
+            test/onboarding_screen_layout_test.dart \
+            test/onboarding_migration_test.dart
 
       - name: Run settings navigation tests
         run: |

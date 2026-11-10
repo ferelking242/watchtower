@@ -276,6 +276,7 @@ flutter:
     - assets/fonts/Ubuntu_Mono/
     - assets/images/
     - assets/images/logos/
+    - assets/images/migration/apps/
     - assets/plugins/spotube-plugin-musicbrainz-listenbrainz/
     - assets/plugins/spotube-plugin-youtube-audio/
     - packages/hetu_std/assets/bytecode/std.out

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:watchtower/modules/onboarding/migration/migration_page.dart';
 import 'package:watchtower/modules/onboarding/onboarding_fallback_catalog.dart';
 import 'package:watchtower/modules/onboarding/onboarding_media_service.dart';
 import 'package:watchtower/modules/onboarding/onboarding_showcase_config.dart';
@@ -251,7 +252,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ── Navigation ───────────────────────────────────────────────────────────
 
   void _next() {
-    if (_currentPage < 2) {
+    if (_currentPage < 3) {
       _page.nextPage(
         duration: const Duration(milliseconds: 420),
         curve: Curves.easeInOut,
@@ -295,6 +296,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   enabled: _currentPage == 1,
                   child: _SloganPage(onNext: _next),
                 ),
+                TickerMode(
+                  enabled: _currentPage == 2,
+                  child: MigrationPage(onNext: _next),
+                ),
                 _PermissionsPage(
                   storageGranted: _storageGranted,
                   notifGranted: _notifGranted,
@@ -325,7 +330,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(3, (i) {
+                    children: List.generate(4, (i) {
                       final active = i == _currentPage;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 280),

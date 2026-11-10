@@ -6256,6 +6256,870 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{{count} result} other{{count} results}}'**
   String marketplace_search_results_count(num count);
+
+  /// No description provided for @obNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get obNext;
+
+  /// No description provided for @obStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get obStart;
+
+  /// No description provided for @obBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get obBack;
+
+  /// No description provided for @obContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get obContinue;
+
+  /// No description provided for @obSkipForNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip for now'**
+  String get obSkipForNow;
+
+  /// No description provided for @obEnterWatchtower.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Watchtower'**
+  String get obEnterWatchtower;
+
+  /// No description provided for @obPermissionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get obPermissionsTitle;
+
+  /// No description provided for @obPermissionsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Watchtower needs a few permissions to run properly.'**
+  String get obPermissionsSubtitle;
+
+  /// No description provided for @obOptionalSection.
+  ///
+  /// In en, this message translates to:
+  /// **'OPTIONAL'**
+  String get obOptionalSection;
+
+  /// No description provided for @obPermStorageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get obPermStorageTitle;
+
+  /// No description provided for @obPermStorageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow full file access for downloads and Smart Library.'**
+  String get obPermStorageSubtitle;
+
+  /// No description provided for @obPermStorageIosSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'iOS sandbox access — no action required.'**
+  String get obPermStorageIosSubtitle;
+
+  /// No description provided for @obPermNotifTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get obPermNotifTitle;
+
+  /// No description provided for @obPermNotifSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads and library update alerts.'**
+  String get obPermNotifSubtitle;
+
+  /// No description provided for @obPermInstallTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App installation'**
+  String get obPermInstallTitle;
+
+  /// No description provided for @obPermInstallSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Install APK updates directly from the app.'**
+  String get obPermInstallSubtitle;
+
+  /// No description provided for @obPermOverlayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay / PiP'**
+  String get obPermOverlayTitle;
+
+  /// No description provided for @obPermOverlaySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the video floating over other apps.'**
+  String get obPermOverlaySubtitle;
+
+  /// No description provided for @obPermBatteryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No battery restriction'**
+  String get obPermBatteryTitle;
+
+  /// No description provided for @obPermBatterySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stops Android from killing background downloads (Doze, standby).'**
+  String get obPermBatterySubtitle;
+
+  /// No description provided for @obGrant.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get obGrant;
+
+  /// No description provided for @obGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Granted'**
+  String get obGranted;
+
+  /// No description provided for @obShowcaseHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime, manga, novels, music, films, series and games — all in one place.'**
+  String get obShowcaseHeadline;
+
+  /// No description provided for @obSloganWatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch.'**
+  String get obSloganWatch;
+
+  /// No description provided for @obSloganRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read.'**
+  String get obSloganRead;
+
+  /// No description provided for @obSloganListen.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen.'**
+  String get obSloganListen;
+
+  /// No description provided for @obSloganAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All.'**
+  String get obSloganAll;
+
+  /// No description provided for @obSloganSub.
+  ///
+  /// In en, this message translates to:
+  /// **'One place for everything you love.'**
+  String get obSloganSub;
+
+  /// No description provided for @migTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Migration'**
+  String get migTitle;
+
+  /// No description provided for @migHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Bring your library with you.'**
+  String get migHeadline;
+
+  /// No description provided for @migSpeech.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming from Mihon, Aniyomi, Mangayomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.'**
+  String get migSpeech;
+
+  /// No description provided for @migTabManga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get migTabManga;
+
+  /// No description provided for @migTabAnime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get migTabAnime;
+
+  /// No description provided for @migTabUniversal.
+  ///
+  /// In en, this message translates to:
+  /// **'Universal'**
+  String get migTabUniversal;
+
+  /// No description provided for @migSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search an app…'**
+  String get migSearchHint;
+
+  /// No description provided for @migFilterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter'**
+  String get migFilterTitle;
+
+  /// No description provided for @migFilterPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform'**
+  String get migFilterPlatform;
+
+  /// No description provided for @migFilterOpenSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Open source only'**
+  String get migFilterOpenSource;
+
+  /// No description provided for @migFilterWithBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup import supported'**
+  String get migFilterWithBackup;
+
+  /// No description provided for @migFilterReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset filters'**
+  String get migFilterReset;
+
+  /// No description provided for @migSortTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get migSortTitle;
+
+  /// No description provided for @migSortName.
+  ///
+  /// In en, this message translates to:
+  /// **'Alphabetically'**
+  String get migSortName;
+
+  /// No description provided for @migSortPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'By platform'**
+  String get migSortPlatform;
+
+  /// No description provided for @migMoreTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get migMoreTitle;
+
+  /// No description provided for @migMoreSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all apps'**
+  String get migMoreSelectAll;
+
+  /// No description provided for @migMoreClear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear selection'**
+  String get migMoreClear;
+
+  /// No description provided for @migMoreGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Migration guide'**
+  String get migMoreGuide;
+
+  /// No description provided for @migMoreRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get migMoreRefresh;
+
+  /// No description provided for @migAppsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 app} other{{count} apps}}'**
+  String migAppsCount(int count);
+
+  /// No description provided for @migEmptySearch.
+  ///
+  /// In en, this message translates to:
+  /// **'No app matches your search.'**
+  String get migEmptySearch;
+
+  /// No description provided for @migPros.
+  ///
+  /// In en, this message translates to:
+  /// **'Pros'**
+  String get migPros;
+
+  /// No description provided for @migCons.
+  ///
+  /// In en, this message translates to:
+  /// **'Cons'**
+  String get migCons;
+
+  /// No description provided for @migOfficialSite.
+  ///
+  /// In en, this message translates to:
+  /// **'Official site'**
+  String get migOfficialSite;
+
+  /// No description provided for @migBackupFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup format'**
+  String get migBackupFormat;
+
+  /// No description provided for @migPlatforms.
+  ///
+  /// In en, this message translates to:
+  /// **'Platforms'**
+  String get migPlatforms;
+
+  /// No description provided for @migSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Import supported'**
+  String get migSupported;
+
+  /// No description provided for @migSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get migSelect;
+
+  /// No description provided for @migSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get migSelected;
+
+  /// No description provided for @migWhatToImport.
+  ///
+  /// In en, this message translates to:
+  /// **'What to import'**
+  String get migWhatToImport;
+
+  /// No description provided for @migImportLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Library and categories'**
+  String get migImportLibrary;
+
+  /// No description provided for @migImportLibrarySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Titles, covers, categories and read state.'**
+  String get migImportLibrarySub;
+
+  /// No description provided for @migImportDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded chapters'**
+  String get migImportDownloads;
+
+  /// No description provided for @migImportDownloadsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy or move the files Mihon already downloaded.'**
+  String get migImportDownloadsSub;
+
+  /// No description provided for @migImportHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading history'**
+  String get migImportHistory;
+
+  /// No description provided for @migImportHistorySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume each series where you stopped.'**
+  String get migImportHistorySub;
+
+  /// No description provided for @migImportSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'App settings'**
+  String get migImportSettings;
+
+  /// No description provided for @migImportSettingsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme, reader and download preferences.'**
+  String get migImportSettingsSub;
+
+  /// No description provided for @migBackupSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup file'**
+  String get migBackupSource;
+
+  /// No description provided for @migBackupSourceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the .tachibk backup exported by the app.'**
+  String get migBackupSourceHint;
+
+  /// No description provided for @migPickBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a file'**
+  String get migPickBackup;
+
+  /// No description provided for @migDownloadFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads folder'**
+  String get migDownloadFolder;
+
+  /// No description provided for @migDownloadFolderHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The folder where the other app stored its downloads.'**
+  String get migDownloadFolderHint;
+
+  /// No description provided for @migPickFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a folder'**
+  String get migPickFolder;
+
+  /// No description provided for @migNoFile.
+  ///
+  /// In en, this message translates to:
+  /// **'No file selected'**
+  String get migNoFile;
+
+  /// No description provided for @migFileMode.
+  ///
+  /// In en, this message translates to:
+  /// **'File handling'**
+  String get migFileMode;
+
+  /// No description provided for @migCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get migCopy;
+
+  /// No description provided for @migCopySub.
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps the original files in place.'**
+  String get migCopySub;
+
+  /// No description provided for @migMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get migMove;
+
+  /// No description provided for @migMoveSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Frees the space the other app used.'**
+  String get migMoveSub;
+
+  /// No description provided for @migScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan'**
+  String get migScan;
+
+  /// No description provided for @migScanning.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning…'**
+  String get migScanning;
+
+  /// No description provided for @migScanResultLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 entry in the backup} other{{count} entries in the backup}}'**
+  String migScanResultLibrary(int count);
+
+  /// No description provided for @migScanResultDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 downloaded chapter found} other{{count} downloaded chapters found}}'**
+  String migScanResultDownloads(int count);
+
+  /// No description provided for @migScanResultNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing detected yet.'**
+  String get migScanResultNone;
+
+  /// No description provided for @migStartImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Start import'**
+  String get migStartImport;
+
+  /// No description provided for @migImporting.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing…'**
+  String get migImporting;
+
+  /// No description provided for @migImportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Import complete'**
+  String get migImportDone;
+
+  /// No description provided for @migImportLibraryDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 entry imported} other{{count} entries imported}}'**
+  String migImportLibraryDone(int count);
+
+  /// No description provided for @migImportDownloadsDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 download imported} other{{count} downloads imported}}'**
+  String migImportDownloadsDone(int count);
+
+  /// No description provided for @migImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The import could not finish.'**
+  String get migImportFailed;
+
+  /// No description provided for @migNeedSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick at least one thing to import.'**
+  String get migNeedSelection;
+
+  /// No description provided for @migDetectedApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Apps detected on this device'**
+  String get migDetectedApps;
+
+  /// No description provided for @migNoDetectedApps.
+  ///
+  /// In en, this message translates to:
+  /// **'No other app data found. You can still pick a backup manually.'**
+  String get migNoDetectedApps;
+
+  /// No description provided for @migFeatureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'More than a library'**
+  String get migFeatureTitle;
+
+  /// No description provided for @migFeatureTrackers.
+  ///
+  /// In en, this message translates to:
+  /// **'Trackers and AniList/MAL progress follow your titles.'**
+  String get migFeatureTrackers;
+
+  /// No description provided for @migFeatureSync.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud sync keeps every device aligned.'**
+  String get migFeatureSync;
+
+  /// No description provided for @migFeatureExtensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Install extensions to add new sources.'**
+  String get migFeatureExtensions;
+
+  /// No description provided for @migFeatureSmart.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Library rebuilds shelves from your files.'**
+  String get migFeatureSmart;
+
+  /// No description provided for @migFooterHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything is processed on your device. Nothing is uploaded.'**
+  String get migFooterHint;
+
+  /// No description provided for @migProMangaReader.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga reading app'**
+  String get migProMangaReader;
+
+  /// No description provided for @migProAnimeWatcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime watching app'**
+  String get migProAnimeWatcher;
+
+  /// No description provided for @migProLightNovelReader.
+  ///
+  /// In en, this message translates to:
+  /// **'Light novel reading app'**
+  String get migProLightNovelReader;
+
+  /// No description provided for @migProBothAnimeManga.
+  ///
+  /// In en, this message translates to:
+  /// **'Supports both anime and manga'**
+  String get migProBothAnimeManga;
+
+  /// No description provided for @migProAnimeLnManga.
+  ///
+  /// In en, this message translates to:
+  /// **'Supports anime, light novels and manga'**
+  String get migProAnimeLnManga;
+
+  /// No description provided for @migProManySources.
+  ///
+  /// In en, this message translates to:
+  /// **'Many extension sources available'**
+  String get migProManySources;
+
+  /// No description provided for @migProManySourcesShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Many sources available'**
+  String get migProManySourcesShort;
+
+  /// No description provided for @migProOpenSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Open source'**
+  String get migProOpenSource;
+
+  /// No description provided for @migProActivelyDeveloped.
+  ///
+  /// In en, this message translates to:
+  /// **'Actively developed'**
+  String get migProActivelyDeveloped;
+
+  /// No description provided for @migProLongTrackRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Long track record'**
+  String get migProLongTrackRecord;
+
+  /// No description provided for @migProCrossPlatform.
+  ///
+  /// In en, this message translates to:
+  /// **'Cross platform (Android, iOS, Mac, Windows, Linux)'**
+  String get migProCrossPlatform;
+
+  /// No description provided for @migProDesktopPlatforms.
+  ///
+  /// In en, this message translates to:
+  /// **'Supports Windows, Linux and Mac'**
+  String get migProDesktopPlatforms;
+
+  /// No description provided for @migProOpenExtensionSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Open extension system'**
+  String get migProOpenExtensionSystem;
+
+  /// No description provided for @migProNiceUi.
+  ///
+  /// In en, this message translates to:
+  /// **'Nice user interface'**
+  String get migProNiceUi;
+
+  /// No description provided for @migProIntegration.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrates with many other apps (backups and extensions)'**
+  String get migProIntegration;
+
+  /// No description provided for @migProTracker.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga tracker'**
+  String get migProTracker;
+
+  /// No description provided for @migProTrackReleases.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracks new chapter releases across sites'**
+  String get migProTrackReleases;
+
+  /// No description provided for @migProEbookOutput.
+  ///
+  /// In en, this message translates to:
+  /// **'Generates e-book output'**
+  String get migProEbookOutput;
+
+  /// No description provided for @migProBatchZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Batch .zip download'**
+  String get migProBatchZip;
+
+  /// No description provided for @migProLargeLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Very large library'**
+  String get migProLargeLibrary;
+
+  /// No description provided for @migProMangadexClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Focused MangaDex client'**
+  String get migProMangadexClient;
+
+  /// No description provided for @migProSameAsMihon.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything Mihon does, plus more'**
+  String get migProSameAsMihon;
+
+  /// No description provided for @migProCombinesForks.
+  ///
+  /// In en, this message translates to:
+  /// **'Combines features from several Mihon forks'**
+  String get migProCombinesForks;
+
+  /// No description provided for @migProEh.
+  ///
+  /// In en, this message translates to:
+  /// **'E-Hentai and ExHentai integration'**
+  String get migProEh;
+
+  /// No description provided for @migConAndroidOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Android only'**
+  String get migConAndroidOnly;
+
+  /// No description provided for @migConDesktopOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Desktop only'**
+  String get migConDesktopOnly;
+
+  /// No description provided for @migConNeedExtension.
+  ///
+  /// In en, this message translates to:
+  /// **'Need to install an extension to use'**
+  String get migConNeedExtension;
+
+  /// No description provided for @migConExtensionSeparate.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions installed separately'**
+  String get migConExtensionSeparate;
+
+  /// No description provided for @migConOriginalUnmaintained.
+  ///
+  /// In en, this message translates to:
+  /// **'Original repository no longer maintained'**
+  String get migConOriginalUnmaintained;
+
+  /// No description provided for @migConNotIosStore.
+  ///
+  /// In en, this message translates to:
+  /// **'Not in the iOS App Store'**
+  String get migConNotIosStore;
+
+  /// No description provided for @migConNeedPlugins.
+  ///
+  /// In en, this message translates to:
+  /// **'Need to install plugins to use'**
+  String get migConNeedPlugins;
+
+  /// No description provided for @migConLessPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Less popular'**
+  String get migConLessPopular;
+
+  /// No description provided for @migConNewApp.
+  ///
+  /// In en, this message translates to:
+  /// **'New app, less popular'**
+  String get migConNewApp;
+
+  /// No description provided for @migConOnlyMangadex.
+  ///
+  /// In en, this message translates to:
+  /// **'Only MangaDex content'**
+  String get migConOnlyMangadex;
+
+  /// No description provided for @migConCannotReadOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot read offline'**
+  String get migConCannotReadOffline;
+
+  /// No description provided for @migConArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'Original repository archived'**
+  String get migConArchived;
+
+  /// No description provided for @migConTorrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Depends on a torrent connection'**
+  String get migConTorrent;
+
+  /// No description provided for @migConIosDonors.
+  ///
+  /// In en, this message translates to:
+  /// **'iOS build only for donors'**
+  String get migConIosDonors;
+
+  /// No description provided for @migConRaw.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga are untranslated (raw)'**
+  String get migConRaw;
+
+  /// No description provided for @migConBareboneSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Bare-bones search and filter'**
+  String get migConBareboneSearch;
+
+  /// No description provided for @migConNotDifferent.
+  ///
+  /// In en, this message translates to:
+  /// **'Not drastically different'**
+  String get migConNotDifferent;
+
+  /// No description provided for @migConRelativelyNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Relatively new'**
+  String get migConRelativelyNew;
+
+  /// No description provided for @migConMissingNewFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing features added in the parent app'**
+  String get migConMissingNewFeatures;
+
+  /// No description provided for @migDetectedBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup found'**
+  String get migDetectedBackup;
+
+  /// No description provided for @migDetectedDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads found'**
+  String get migDetectedDownloads;
 }
 
 class _AppLocalizationsDelegate
