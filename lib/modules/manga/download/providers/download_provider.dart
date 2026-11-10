@@ -1542,14 +1542,19 @@ Future<void> downloadChapter(
           download = null;
         }
       }
-      if (progress.itemType == ItemType.manga &&
-          (storedSucceeded < 0 ||
-              storedTotal < 0 ||
-              (storedTotal > 0 && storedSucceeded > storedTotal) ||
-              (storedTotal <= 0 && storedSucceeded > 0))) {
+      if (progress.itemType == ItemType.manga) {
         // Old/corrupt rows can contain byte counts or stale page counters.
-        // Never treat an impossible value as a valid resume offset.
-        storedSucceeded = 0;
+        // Never treat an impossible value as a valid resume offset, and never
+        // let a bogus denominator be reused as the completion page total (that
+        // is what republished the ~1M "1/1048576 pages" back into Isar).
+        final trustedTotal = trustedMangaPageCount(storedTotal);
+        if (trustedTotal == null ||
+            storedSucceeded < 0 ||
+            (trustedTotal > 0 && storedSucceeded > trustedTotal) ||
+            (trustedTotal <= 0 && storedSucceeded > 0)) {
+          storedSucceeded = 0;
+        }
+        storedTotal = trustedTotal ?? 0;
       }
 
       final reportedDownloadedBytes = progress.itemType == ItemType.anime
@@ -3298,11 +3303,15 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           ItemType.manga: DownloadSettingsService.instance.mangaSimultaneous,
           ItemType.anime: DownloadSettingsService.instance.watchSimultaneous,
           ItemType.novel: DownloadSettingsService.instance.novelSimultaneous,
+          ItemType.music: DownloadSettingsService.instance.musicSimultaneous,
+          ItemType.game: DownloadSettingsService.instance.gameSimultaneous,
         };
         final typePerSrcMax = <ItemType, int>{
           ItemType.manga: DownloadSettingsService.instance.mangaSimultaneousPerSource,
           ItemType.anime: DownloadSettingsService.instance.watchSimultaneousPerSource,
           ItemType.novel: DownloadSettingsService.instance.novelSimultaneousPerSource,
+          ItemType.music: DownloadSettingsService.instance.musicSimultaneousPerSource,
+          ItemType.game: DownloadSettingsService.instance.gameSimultaneousPerSource,
         };
 
         // ── Start downloads that fit within the limits ─────────────────────────

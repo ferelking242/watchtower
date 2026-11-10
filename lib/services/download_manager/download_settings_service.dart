@@ -221,6 +221,24 @@ class DownloadSettingsService {
     await _save();
   }
 
+  int get musicConnections {
+    return (_data['musicConnections'] as int? ?? 3).clamp(1, 10);
+  }
+
+  Future<void> setMusicConnections(int value) async {
+    _data['musicConnections'] = value.clamp(1, 10);
+    await _save();
+  }
+
+  int get gameConnections {
+    return (_data['gameConnections'] as int? ?? 3).clamp(1, 10);
+  }
+
+  Future<void> setGameConnections(int value) async {
+    _data['gameConnections'] = value.clamp(1, 10);
+    await _save();
+  }
+
   // ── Manga archive format ───────────────────────────────────────────────────
 
   MangaArchiveFormat get mangaArchiveFormat {
@@ -278,6 +296,18 @@ class DownloadSettingsService {
   bool get novelOnlyOnWifi => _data['novelOnlyOnWifi'] as bool? ?? false;
   Future<void> setNovelOnlyOnWifi(bool v) async {
     _data['novelOnlyOnWifi'] = v;
+    await _save();
+  }
+
+  bool get musicOnlyOnWifi => _data['musicOnlyOnWifi'] as bool? ?? false;
+  Future<void> setMusicOnlyOnWifi(bool v) async {
+    _data['musicOnlyOnWifi'] = v;
+    await _save();
+  }
+
+  bool get gameOnlyOnWifi => _data['gameOnlyOnWifi'] as bool? ?? false;
+  Future<void> setGameOnlyOnWifi(bool v) async {
+    _data['gameOnlyOnWifi'] = v;
     await _save();
   }
 
@@ -389,6 +419,20 @@ class DownloadSettingsService {
     await _save();
   }
 
+  int get musicSimultaneous =>
+      (_data['musicSimultaneous'] as int? ?? 3).clamp(1, 20);
+  Future<void> setMusicSimultaneous(int v) async {
+    _data['musicSimultaneous'] = v.clamp(1, 20);
+    await _save();
+  }
+
+  int get gameSimultaneous =>
+      (_data['gameSimultaneous'] as int? ?? 3).clamp(1, 20);
+  Future<void> setGameSimultaneous(int v) async {
+    _data['gameSimultaneous'] = v.clamp(1, 20);
+    await _save();
+  }
+
   // ── Per-source simultaneous downloads ─────────────────────────────────────
 
   int get watchSimultaneousPerSource =>
@@ -409,6 +453,20 @@ class DownloadSettingsService {
       (_data['novelSimPerSource'] as int? ?? 2).clamp(1, 10);
   Future<void> setNovelSimultaneousPerSource(int v) async {
     _data['novelSimPerSource'] = v.clamp(1, 10);
+    await _save();
+  }
+
+  int get musicSimultaneousPerSource =>
+      (_data['musicSimPerSource'] as int? ?? 2).clamp(1, 10);
+  Future<void> setMusicSimultaneousPerSource(int v) async {
+    _data['musicSimPerSource'] = v.clamp(1, 10);
+    await _save();
+  }
+
+  int get gameSimultaneousPerSource =>
+      (_data['gameSimPerSource'] as int? ?? 2).clamp(1, 10);
+  Future<void> setGameSimultaneousPerSource(int v) async {
+    _data['gameSimPerSource'] = v.clamp(1, 10);
     await _save();
   }
 

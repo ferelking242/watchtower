@@ -250,6 +250,34 @@ class NovelConnectionsState extends _$NovelConnectionsState {
   }
 }
 
+@riverpod
+class MusicConnectionsState extends _$MusicConnectionsState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.musicConnections;
+  }
+
+  Future<void> set(int value) async {
+    state = value;
+    await DownloadSettingsService.instance.setMusicConnections(value);
+  }
+}
+
+@riverpod
+class GameConnectionsState extends _$GameConnectionsState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.gameConnections;
+  }
+
+  Future<void> set(int value) async {
+    state = value;
+    await DownloadSettingsService.instance.setGameConnections(value);
+  }
+}
+
 // ── Per-type Only on WiFi ─────────────────────────────────────────────────────
 
 @riverpod
@@ -291,6 +319,34 @@ class NovelOnlyOnWifiState extends _$NovelOnlyOnWifiState {
   Future<void> set(bool v) async {
     state = v;
     await DownloadSettingsService.instance.setNovelOnlyOnWifi(v);
+  }
+}
+
+@riverpod
+class MusicOnlyOnWifiState extends _$MusicOnlyOnWifiState {
+  @override
+  bool build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.musicOnlyOnWifi;
+  }
+
+  Future<void> set(bool v) async {
+    state = v;
+    await DownloadSettingsService.instance.setMusicOnlyOnWifi(v);
+  }
+}
+
+@riverpod
+class GameOnlyOnWifiState extends _$GameOnlyOnWifiState {
+  @override
+  bool build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.gameOnlyOnWifi;
+  }
+
+  Future<void> set(bool v) async {
+    state = v;
+    await DownloadSettingsService.instance.setGameOnlyOnWifi(v);
   }
 }
 
@@ -495,6 +551,34 @@ class NovelSimultaneousState extends _$NovelSimultaneousState {
   }
 }
 
+@riverpod
+class MusicSimultaneousState extends _$MusicSimultaneousState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.musicSimultaneous;
+  }
+
+  Future<void> set(int v) async {
+    state = v;
+    await DownloadSettingsService.instance.setMusicSimultaneous(v);
+  }
+}
+
+@riverpod
+class GameSimultaneousState extends _$GameSimultaneousState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.gameSimultaneous;
+  }
+
+  Future<void> set(int v) async {
+    state = v;
+    await DownloadSettingsService.instance.setGameSimultaneous(v);
+  }
+}
+
 // ── Per-source simultaneous downloads ─────────────────────────────────────────
 
 @riverpod
@@ -539,6 +623,36 @@ class NovelSimultaneousPerSourceState
   Future<void> set(int v) async {
     state = v;
     await DownloadSettingsService.instance.setNovelSimultaneousPerSource(v);
+  }
+}
+
+@riverpod
+class MusicSimultaneousPerSourceState
+    extends _$MusicSimultaneousPerSourceState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.musicSimultaneousPerSource;
+  }
+
+  Future<void> set(int v) async {
+    state = v;
+    await DownloadSettingsService.instance.setMusicSimultaneousPerSource(v);
+  }
+}
+
+@riverpod
+class GameSimultaneousPerSourceState
+    extends _$GameSimultaneousPerSourceState {
+  @override
+  int build() {
+    DownloadSettingsService.instance.load();
+    return DownloadSettingsService.instance.gameSimultaneousPerSource;
+  }
+
+  Future<void> set(int v) async {
+    state = v;
+    await DownloadSettingsService.instance.setGameSimultaneousPerSource(v);
   }
 }
 

@@ -10,6 +10,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/watch_download_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/manga_download_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/novel_download_screen.dart';
+import 'package:watchtower/modules/more/settings/downloads/sub_pages/extra_type_download_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/sub_pages/download_cards_screen.dart';
 import 'package:watchtower/modules/more/settings/settings_subpage_route.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -73,6 +74,20 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               subtitle: 'Connexions, téléchargements Wi-Fi',
               iconColor: scheme.tertiary,
               onTap: () => _push(context, const NovelDownloadScreen()),
+            ),
+            _NavTile(
+              icon: Broken.music,
+              label: 'Musique',
+              subtitle: 'Connexions, téléchargements Wi-Fi',
+              iconColor: scheme.primary,
+              onTap: () => _push(context, const MusicDownloadScreen()),
+            ),
+            _NavTile(
+              icon: Broken.game,
+              label: 'Jeu',
+              subtitle: 'Connexions, téléchargements Wi-Fi',
+              iconColor: scheme.secondary,
+              onTap: () => _push(context, const GameDownloadScreen()),
             ),
 
             // ── Général ───────────────────────────────────────────────────

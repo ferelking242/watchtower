@@ -1747,6 +1747,426 @@ abstract class _$NovelSimultaneousPerSourceState extends $Notifier<int> {
   }
 }
 
+@ProviderFor(MusicConnectionsState)
+final musicConnectionsStateProvider = MusicConnectionsStateProvider._();
+
+final class MusicConnectionsStateProvider
+    extends $NotifierProvider<MusicConnectionsState, int> {
+  MusicConnectionsStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'musicConnectionsStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$musicConnectionsStateHash();
+
+  @$internal
+  @override
+  MusicConnectionsState create() => MusicConnectionsState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$musicConnectionsStateHash() =>
+    r'a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6';
+
+abstract class _$MusicConnectionsState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(GameConnectionsState)
+final gameConnectionsStateProvider = GameConnectionsStateProvider._();
+
+final class GameConnectionsStateProvider
+    extends $NotifierProvider<GameConnectionsState, int> {
+  GameConnectionsStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'gameConnectionsStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$gameConnectionsStateHash();
+
+  @$internal
+  @override
+  GameConnectionsState create() => GameConnectionsState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$gameConnectionsStateHash() =>
+    r'b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7';
+
+abstract class _$GameConnectionsState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(MusicOnlyOnWifiState)
+final musicOnlyOnWifiStateProvider = MusicOnlyOnWifiStateProvider._();
+
+final class MusicOnlyOnWifiStateProvider
+    extends $NotifierProvider<MusicOnlyOnWifiState, bool> {
+  MusicOnlyOnWifiStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'musicOnlyOnWifiStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$musicOnlyOnWifiStateHash();
+
+  @$internal
+  @override
+  MusicOnlyOnWifiState create() => MusicOnlyOnWifiState();
+
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$musicOnlyOnWifiStateHash() =>
+    r'c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8';
+
+abstract class _$MusicOnlyOnWifiState extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(GameOnlyOnWifiState)
+final gameOnlyOnWifiStateProvider = GameOnlyOnWifiStateProvider._();
+
+final class GameOnlyOnWifiStateProvider
+    extends $NotifierProvider<GameOnlyOnWifiState, bool> {
+  GameOnlyOnWifiStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'gameOnlyOnWifiStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$gameOnlyOnWifiStateHash();
+
+  @$internal
+  @override
+  GameOnlyOnWifiState create() => GameOnlyOnWifiState();
+
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$gameOnlyOnWifiStateHash() =>
+    r'd0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9';
+
+abstract class _$GameOnlyOnWifiState extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(MusicSimultaneousState)
+final musicSimultaneousStateProvider = MusicSimultaneousStateProvider._();
+
+final class MusicSimultaneousStateProvider
+    extends $NotifierProvider<MusicSimultaneousState, int> {
+  MusicSimultaneousStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'musicSimultaneousStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$musicSimultaneousStateHash();
+
+  @$internal
+  @override
+  MusicSimultaneousState create() => MusicSimultaneousState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$musicSimultaneousStateHash() =>
+    r'e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0';
+
+abstract class _$MusicSimultaneousState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(GameSimultaneousState)
+final gameSimultaneousStateProvider = GameSimultaneousStateProvider._();
+
+final class GameSimultaneousStateProvider
+    extends $NotifierProvider<GameSimultaneousState, int> {
+  GameSimultaneousStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'gameSimultaneousStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$gameSimultaneousStateHash();
+
+  @$internal
+  @override
+  GameSimultaneousState create() => GameSimultaneousState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$gameSimultaneousStateHash() =>
+    r'f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1';
+
+abstract class _$GameSimultaneousState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(MusicSimultaneousPerSourceState)
+final musicSimultaneousPerSourceStateProvider =
+    MusicSimultaneousPerSourceStateProvider._();
+
+final class MusicSimultaneousPerSourceStateProvider
+    extends $NotifierProvider<MusicSimultaneousPerSourceState, int> {
+  MusicSimultaneousPerSourceStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'musicSimultaneousPerSourceStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() =>
+      _$musicSimultaneousPerSourceStateHash();
+
+  @$internal
+  @override
+  MusicSimultaneousPerSourceState create() => MusicSimultaneousPerSourceState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$musicSimultaneousPerSourceStateHash() =>
+    r'a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2';
+
+abstract class _$MusicSimultaneousPerSourceState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(GameSimultaneousPerSourceState)
+final gameSimultaneousPerSourceStateProvider =
+    GameSimultaneousPerSourceStateProvider._();
+
+final class GameSimultaneousPerSourceStateProvider
+    extends $NotifierProvider<GameSimultaneousPerSourceState, int> {
+  GameSimultaneousPerSourceStateProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'gameSimultaneousPerSourceStateProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() =>
+      _$gameSimultaneousPerSourceStateHash();
+
+  @$internal
+  @override
+  GameSimultaneousPerSourceState create() => GameSimultaneousPerSourceState();
+
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$gameSimultaneousPerSourceStateHash() =>
+    r'b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3';
+
+abstract class _$GameSimultaneousPerSourceState extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
+
 @ProviderFor(DownloadCardLayoutState)
 final downloadCardLayoutStateProvider = DownloadCardLayoutStateProvider._();
 

@@ -92,5 +92,44 @@ void main() {
       expect(invalid.value, 0);
       expect(mangaSeriesProgress([invalid]), 0);
     });
+
+    test('drops a byte count leaked into the page total (the ~1M bug)', () {
+      // A single downloaded page once surfaced as "1/1048576 pages" because the
+      // stored total held bytes, not pages.
+      final leaked = mangaChapterProgress(
+        storedCompleted: 1,
+        storedTotal: 1048576,
+        isComplete: false,
+      );
+
+      expect(leaked.totalPages, 1);
+      expect(leaked.isDeterminate, isFalse);
+      expect(mangaSeriesProgress([leaked]), isNull);
+    });
+
+    test('drops an implausible stored total even when marked complete', () {
+      final leaked = mangaChapterProgress(
+        storedCompleted: 0,
+        storedTotal: 2097152,
+        isComplete: true,
+      );
+
+      expect(leaked.totalPages, 1);
+      expect(leaked.isDeterminate, isFalse);
+    });
+
+    test('ignores an implausible live total and keeps a sane stored one', () {
+      final progress = mangaChapterProgress(
+        storedCompleted: 5,
+        storedTotal: 20,
+        isComplete: false,
+        liveCompleted: 5,
+        liveTotal: 4194304,
+      );
+
+      expect(progress.totalPages, 20);
+      expect(progress.completedPages, 5);
+      expect(progress.isDeterminate, isTrue);
+    });
   });
 }

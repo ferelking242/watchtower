@@ -1,3 +1,5 @@
+import 'package:watchtower/services/download_manager/download_size.dart';
+
 class MangaChapterProgress {
   const MangaChapterProgress({
     required this.completedPages,
@@ -19,8 +21,14 @@ MangaChapterProgress mangaChapterProgress({
   int? liveCompleted,
   int? liveTotal,
 }) {
-  final hasLivePageTotal = liveTotal != null && liveTotal > 1;
-  final rawTotal = hasLivePageTotal ? liveTotal! : (storedTotal ?? 0);
+  // A byte count or a stale counter can leak into the persisted page counters
+  // (an old manga row stored `succeeded/total` in bytes), which surfaced as an
+  // impossible "1/1048576 pages" — a million. Drop anything that cannot be a
+  // real page count before it reaches the UI.
+  final trustedStoredTotal = trustedMangaPageCount(storedTotal);
+  final trustedLiveTotal = trustedMangaPageCount(liveTotal);
+  final hasLivePageTotal = trustedLiveTotal != null && trustedLiveTotal > 1;
+  final rawTotal = hasLivePageTotal ? trustedLiveTotal : (trustedStoredTotal ?? 0);
   final total = rawTotal > 0 ? rawTotal : 1;
 
   if (isComplete) {

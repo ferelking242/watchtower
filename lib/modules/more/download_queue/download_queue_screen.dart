@@ -675,6 +675,10 @@ class _GererSheet extends ConsumerStatefulWidget {
 }
 
 class _GererSheetState extends ConsumerState<_GererSheet> {
+  /// When set, the sheet shows that type's download settings in place instead
+  /// of the queue overview — the user never leaves the "Gérer" box.
+  ItemType? _openType;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -683,9 +687,13 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
     final watchTotal = ref.watch(watchSimultaneousStateProvider);
     final mangaTotal = ref.watch(mangaSimultaneousStateProvider);
     final novelTotal = ref.watch(novelSimultaneousStateProvider);
+    final musicTotal = ref.watch(musicSimultaneousStateProvider);
+    final gameTotal = ref.watch(gameSimultaneousStateProvider);
     final watchPerSrc = ref.watch(watchSimultaneousPerSourceStateProvider);
     final mangaPerSrc = ref.watch(mangaSimultaneousPerSourceStateProvider);
     final novelPerSrc = ref.watch(novelSimultaneousPerSourceStateProvider);
+    final musicPerSrc = ref.watch(musicSimultaneousPerSourceStateProvider);
+    final gamePerSrc = ref.watch(gameSimultaneousPerSourceStateProvider);
     final layout = ref.watch(downloadCardLayoutStateProvider);
 
     return Container(
@@ -711,13 +719,30 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(
                 children: [
-                  Icon(Icons.tune_rounded, size: 18, color: scheme.primary),
+                  if (_openType != null)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      tooltip: 'Retour',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => setState(() => _openType = null),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Icon(
+                        Icons.tune_rounded,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                    ),
                   const SizedBox(width: 8),
                   Text(
-                    'Gérer les téléchargements',
+                    _openType == null
+                        ? 'Gérer les téléchargements'
+                        : 'Paramètres ${_gererTypeLabel(_openType!)}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -729,7 +754,12 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
             ),
             Divider(height: 1, color: scheme.outlineVariant),
             Expanded(
-              child: ListView(
+              child: _openType != null
+                  ? _InlineTypeDownloadSettings(
+                      type: _openType!,
+                      scheme: scheme,
+                    )
+                  : ListView(
                 controller: scrollCtrl,
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
@@ -866,6 +896,8 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         .read(watchSimultaneousPerSourceStateProvider.notifier)
                         .set(v),
                     scheme: scheme,
+                    onOpenSettings: () =>
+                        setState(() => _openType = ItemType.anime),
                   ),
                   const SizedBox(height: 8),
                   _SimultaneousRow(
@@ -883,6 +915,8 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         .read(mangaSimultaneousPerSourceStateProvider.notifier)
                         .set(v),
                     scheme: scheme,
+                    onOpenSettings: () =>
+                        setState(() => _openType = ItemType.manga),
                   ),
                   const SizedBox(height: 8),
                   _SimultaneousRow(
@@ -900,6 +934,46 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         .read(novelSimultaneousPerSourceStateProvider.notifier)
                         .set(v),
                     scheme: scheme,
+                    onOpenSettings: () =>
+                        setState(() => _openType = ItemType.novel),
+                  ),
+                  const SizedBox(height: 8),
+                  _SimultaneousRow(
+                    icon: Icons.music_note_outlined,
+                    label: 'Musique',
+                    iconColor: scheme.primary,
+                    total: musicTotal,
+                    perSource: musicPerSrc,
+                    maxTotal: 20,
+                    maxPerSource: 10,
+                    onTotalChanged: (v) => ref
+                        .read(musicSimultaneousStateProvider.notifier)
+                        .set(v),
+                    onPerSourceChanged: (v) => ref
+                        .read(musicSimultaneousPerSourceStateProvider.notifier)
+                        .set(v),
+                    scheme: scheme,
+                    onOpenSettings: () =>
+                        setState(() => _openType = ItemType.music),
+                  ),
+                  const SizedBox(height: 8),
+                  _SimultaneousRow(
+                    icon: Icons.sports_esports_outlined,
+                    label: 'Jeu',
+                    iconColor: scheme.secondary,
+                    total: gameTotal,
+                    perSource: gamePerSrc,
+                    maxTotal: 20,
+                    maxPerSource: 10,
+                    onTotalChanged: (v) => ref
+                        .read(gameSimultaneousStateProvider.notifier)
+                        .set(v),
+                    onPerSourceChanged: (v) => ref
+                        .read(gameSimultaneousPerSourceStateProvider.notifier)
+                        .set(v),
+                    scheme: scheme,
+                    onOpenSettings: () =>
+                        setState(() => _openType = ItemType.game),
                   ),
 
                   const SizedBox(height: 20),
@@ -1024,6 +1098,370 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 
 // ── Sheet helpers ──────────────────────────────────────────────────────────────
 
+String _gererTypeLabel(ItemType type) => switch (type) {
+  ItemType.anime => 'Watch',
+  ItemType.manga => 'Manga',
+  ItemType.novel => 'Roman',
+  ItemType.music => 'Musique',
+  ItemType.game => 'Jeu',
+  ItemType.plugin => 'Extension',
+};
+
+/// Per-type download settings shown *inside* the "Gérer" sheet.
+///
+/// Tapping the ">" on a type row swaps the sheet body for this panel — the user
+/// never leaves the box, matching the Paramètres → Téléchargements sub-pages.
+class _InlineTypeDownloadSettings extends ConsumerWidget {
+  final ItemType type;
+  final ColorScheme scheme;
+
+  const _InlineTypeDownloadSettings({
+    required this.type,
+    required this.scheme,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = DownloadSettingsService.instance;
+    final connections = switch (type) {
+      ItemType.anime => ref.watch(animeConnectionsStateProvider),
+      ItemType.novel => ref.watch(novelConnectionsStateProvider),
+      ItemType.music => ref.watch(musicConnectionsStateProvider),
+      ItemType.game => ref.watch(gameConnectionsStateProvider),
+      _ => ref.watch(mangaConnectionsStateProvider),
+    };
+    final simultaneous = switch (type) {
+      ItemType.anime => ref.watch(watchSimultaneousStateProvider),
+      ItemType.novel => ref.watch(novelSimultaneousStateProvider),
+      ItemType.music => ref.watch(musicSimultaneousStateProvider),
+      ItemType.game => ref.watch(gameSimultaneousStateProvider),
+      _ => ref.watch(mangaSimultaneousStateProvider),
+    };
+    final perSource = switch (type) {
+      ItemType.anime => ref.watch(watchSimultaneousPerSourceStateProvider),
+      ItemType.novel => ref.watch(novelSimultaneousPerSourceStateProvider),
+      ItemType.music => ref.watch(musicSimultaneousPerSourceStateProvider),
+      ItemType.game => ref.watch(gameSimultaneousPerSourceStateProvider),
+      _ => ref.watch(mangaSimultaneousPerSourceStateProvider),
+    };
+    final onlyOnWifi = switch (type) {
+      ItemType.anime => ref.watch(watchOnlyOnWifiStateProvider),
+      ItemType.novel => ref.watch(novelOnlyOnWifiStateProvider),
+      ItemType.music => ref.watch(musicOnlyOnWifiStateProvider),
+      ItemType.game => ref.watch(gameOnlyOnWifiStateProvider),
+      _ => ref.watch(mangaOnlyOnWifiStateProvider),
+    };
+    final accent = switch (type) {
+      ItemType.manga => scheme.secondary,
+      ItemType.novel => scheme.tertiary,
+      _ => scheme.primary,
+    };
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        _SheetSection(
+          label: 'Simultanés',
+          scheme: scheme,
+          icon: Icons.download_for_offline_outlined,
+          helpText: 'Téléchargements parallèles pour ${_gererTypeLabel(type)}',
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              _CounterField(
+                label: 'Total',
+                value: simultaneous,
+                min: 1,
+                max: 20,
+                onChanged: _simultaneousSetter(ref),
+                scheme: scheme,
+                accentColor: accent,
+                compact: true,
+              ),
+              const Spacer(),
+              _CounterField(
+                label: 'Src',
+                value: perSource,
+                min: 1,
+                max: 10,
+                onChanged: _perSourceSetter(ref),
+                scheme: scheme,
+                accentColor: accent,
+                compact: true,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 18),
+        _SheetSection(
+          label: 'Connexions',
+          scheme: scheme,
+          icon: Icons.link_rounded,
+          helpText: 'Connexions parallèles par unité téléchargée',
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Text(
+                type == ItemType.anime
+                    ? 'Segments HLS par épisode'
+                    : 'Connexions par chapitre',
+                style: TextStyle(fontSize: 12, color: scheme.onSurface),
+              ),
+              const Spacer(),
+              _CounterField(
+                label: '',
+                value: connections,
+                min: 1,
+                max: 10,
+                onChanged: _connectionsSetter(ref),
+                scheme: scheme,
+                accentColor: accent,
+                compact: true,
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 18),
+        _SheetSection(
+          label: 'Comportement',
+          scheme: scheme,
+          icon: Icons.tune_rounded,
+        ),
+        const SizedBox(height: 4),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Icons.wifi_rounded),
+          title: const Text('Wi-Fi uniquement', style: TextStyle(fontSize: 13)),
+          subtitle: const Text(
+            'Télécharger uniquement via Wi-Fi',
+            style: TextStyle(fontSize: 11),
+          ),
+          value: onlyOnWifi,
+          onChanged: (v) => _wifiSetter(ref)(v),
+        ),
+
+        if (type == ItemType.anime) ...[
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.auto_awesome_rounded),
+            title: const Text(
+              'Télécharger les nouveaux épisodes',
+              style: TextStyle(fontSize: 13),
+            ),
+            value: ref.watch(autoDownloadNewEpisodesStateProvider),
+            onChanged: (v) => ref
+                .read(autoDownloadNewEpisodesStateProvider.notifier)
+                .set(v),
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.filter_alt_outlined),
+            title: const Text(
+              'Autoriser les épisodes filler',
+              style: TextStyle(fontSize: 13),
+            ),
+            value: ref.watch(downloadFillerEpisodesStateProvider),
+            onChanged: (v) =>
+                ref.read(downloadFillerEpisodesStateProvider.notifier).set(v),
+          ),
+        ],
+
+        if (type == ItemType.manga) ...[
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.auto_awesome_rounded),
+            title: const Text(
+              'Télécharger les nouveaux chapitres',
+              style: TextStyle(fontSize: 13),
+            ),
+            value: ref.watch(autoDownloadNewChaptersStateProvider),
+            onChanged: (v) => ref
+                .read(autoDownloadNewChaptersStateProvider.notifier)
+                .set(v),
+          ),
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.folder_zip_outlined),
+            title: const Text(
+              'Format d\'archive',
+              style: TextStyle(fontSize: 13),
+            ),
+            subtitle: Text(
+              settings.mangaArchiveFormat.label,
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+            trailing: Text(
+              settings.mangaArchiveFormat.shortLabel,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: accent,
+              ),
+            ),
+            onTap: () => _pickMangaArchiveFormat(ref, context),
+          ),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.delete_outline_rounded),
+            title: const Text(
+              'Supprimer après lecture',
+              style: TextStyle(fontSize: 13),
+            ),
+            value: ref.watch(deleteAfterMarkedReadStateProvider),
+            onChanged: (v) =>
+                ref.read(deleteAfterMarkedReadStateProvider.notifier).set(v),
+          ),
+        ],
+
+        if (type == ItemType.anime) ...[
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.download_outlined),
+            title: const Text(
+              'Moteur de téléchargement',
+              style: TextStyle(fontSize: 13),
+            ),
+            subtitle: Text(
+              settings.animeDownloadMode.label,
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+            onTap: () => _pickDownloadMode(ref, context),
+          ),
+        ],
+      ],
+    );
+  }
+
+  ValueChanged<int> _simultaneousSetter(WidgetRef ref) => switch (type) {
+    ItemType.anime =>
+      (v) => ref.read(watchSimultaneousStateProvider.notifier).set(v),
+    ItemType.novel =>
+      (v) => ref.read(novelSimultaneousStateProvider.notifier).set(v),
+    ItemType.music =>
+      (v) => ref.read(musicSimultaneousStateProvider.notifier).set(v),
+    ItemType.game =>
+      (v) => ref.read(gameSimultaneousStateProvider.notifier).set(v),
+    _ => (v) => ref.read(mangaSimultaneousStateProvider.notifier).set(v),
+  };
+
+  ValueChanged<int> _perSourceSetter(WidgetRef ref) => switch (type) {
+    ItemType.anime => (v) =>
+      ref.read(watchSimultaneousPerSourceStateProvider.notifier).set(v),
+    ItemType.novel => (v) =>
+      ref.read(novelSimultaneousPerSourceStateProvider.notifier).set(v),
+    ItemType.music => (v) =>
+      ref.read(musicSimultaneousPerSourceStateProvider.notifier).set(v),
+    ItemType.game => (v) =>
+      ref.read(gameSimultaneousPerSourceStateProvider.notifier).set(v),
+    _ => (v) =>
+      ref.read(mangaSimultaneousPerSourceStateProvider.notifier).set(v),
+  };
+
+  ValueChanged<int> _connectionsSetter(WidgetRef ref) => switch (type) {
+    ItemType.anime => (v) => ref.read(animeConnectionsStateProvider.notifier).set(v),
+    ItemType.novel => (v) => ref.read(novelConnectionsStateProvider.notifier).set(v),
+    ItemType.music => (v) => ref.read(musicConnectionsStateProvider.notifier).set(v),
+    ItemType.game => (v) => ref.read(gameConnectionsStateProvider.notifier).set(v),
+    _ => (v) => ref.read(mangaConnectionsStateProvider.notifier).set(v),
+  };
+
+  ValueChanged<bool> _wifiSetter(WidgetRef ref) => switch (type) {
+    ItemType.anime => (v) => ref.read(watchOnlyOnWifiStateProvider.notifier).set(v),
+    ItemType.novel => (v) => ref.read(novelOnlyOnWifiStateProvider.notifier).set(v),
+    ItemType.music => (v) => ref.read(musicOnlyOnWifiStateProvider.notifier).set(v),
+    ItemType.game => (v) => ref.read(gameOnlyOnWifiStateProvider.notifier).set(v),
+    _ => (v) => ref.read(mangaOnlyOnWifiStateProvider.notifier).set(v),
+  };
+
+  Future<void> _pickMangaArchiveFormat(WidgetRef ref, BuildContext context) async {
+    final current = DownloadSettingsService.instance.mangaArchiveFormat;
+    final picked = await showDialog<MangaArchiveFormat>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Format d\'archive'),
+        children: MangaArchiveFormat.supportedFormats
+            .map(
+              (f) => RadioGroup<MangaArchiveFormat>(
+                groupValue: current,
+                onChanged: (v) {
+                  if (v != null) Navigator.pop(ctx, v);
+                },
+                child: RadioListTile<MangaArchiveFormat>(
+                  title: Text(f.label),
+                  subtitle: Text(
+                    f.shortLabel,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  value: f,
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (picked != null) {
+      await ref.read(mangaArchiveFormatStateProvider.notifier).set(picked);
+    }
+  }
+
+  Future<void> _pickDownloadMode(WidgetRef ref, BuildContext context) async {
+    final current = DownloadSettingsService.instance.animeDownloadMode;
+    final picked = await showDialog<DownloadMode>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Moteur de téléchargement'),
+        children: DownloadMode.values
+            .map(
+              (m) => RadioGroup<DownloadMode>(
+                groupValue: current,
+                onChanged: (v) {
+                  if (v != null) Navigator.pop(ctx, v);
+                },
+                child: RadioListTile<DownloadMode>(
+                  title: Text(m.label),
+                  subtitle: Text(
+                    m.description,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  value: m,
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (picked != null) {
+      await ref.read(downloadModeStateProvider.notifier).set(picked);
+    }
+  }
+}
+
+
 class _SheetSection extends StatelessWidget {
   final String label;
   final ColorScheme scheme;
@@ -1132,6 +1570,9 @@ class _SimultaneousRow extends StatelessWidget {
   final ValueChanged<int> onPerSourceChanged;
   final ColorScheme scheme;
 
+  /// Opens this type's download settings in place (inside the same sheet).
+  final VoidCallback? onOpenSettings;
+
   const _SimultaneousRow({
     required this.icon,
     required this.label,
@@ -1143,6 +1584,7 @@ class _SimultaneousRow extends StatelessWidget {
     required this.onTotalChanged,
     required this.onPerSourceChanged,
     required this.scheme,
+    this.onOpenSettings,
   });
 
   @override
@@ -1188,7 +1630,55 @@ class _SimultaneousRow extends StatelessWidget {
             accentColor: iconColor,
             compact: true,
           ),
+          if (onOpenSettings != null) ...[
+            const SizedBox(width: 6),
+            _RowChevron(
+              tooltip: 'Paramètres $label',
+              color: iconColor,
+              onTap: onOpenSettings!,
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Small ">" button that opens a type's settings without leaving the sheet.
+class _RowChevron extends StatelessWidget {
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+  const _RowChevron({
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      triggerMode: TooltipTriggerMode.tap,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.12),
+            border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+          ),
+          child: Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: color,
+            semanticLabel: tooltip,
+          ),
+        ),
       ),
     );
   }
