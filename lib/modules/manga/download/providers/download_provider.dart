@@ -43,6 +43,7 @@ import 'package:watchtower/services/download_manager/engine_selector.dart';
 import 'package:watchtower/services/video_duration_probe_stub.dart'
     if (dart.library.ffi) 'package:watchtower/services/video_duration_probe_io.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
+import 'package:watchtower/services/download_manager/engines/ffmpeg_hls_engine.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
@@ -2913,6 +2914,48 @@ Future<void> downloadChapter(
           );
         } finally {
           if (chapter.id != null) {
+            ActiveDownloadRegistry.unregister(chapter.id!);
+          }
+        }
+
+        // ── FFmpeg transport fallback ───────────────────────────────────
+        // Some CDNs (Surrit behind MissAV) refuse both the isolate downloader
+        // and the in-page browser replay while the same stream plays in the
+        // bundled player. Both go through FFmpeg's HTTP stack, so hand the
+        // whole playlist to FFmpeg before declaring failure.
+        if (caughtError != null && chapter.id != null) {
+          log(
+            '[downloadChapter][anime/HLS→FFmpeg] retrying chapterId=${chapter.id}',
+          );
+          final ffmpegEngine = FfmpegHlsEngine(
+            url: videoUrl,
+            outputPath: m3u8Downloader.fileName,
+            headers: m3u8Downloader.headers ?? {},
+            itemType: itemType,
+            chapterId: '${chapter.id}',
+          );
+          ref
+              .read(downloadQueueStateProvider.notifier)
+              .setEngine(chapter.id!, 'FFMPEG');
+          ActiveDownloadRegistry.registerEngine(
+            chapter.id!,
+            ffmpegEngine,
+            itemType: itemType,
+            source: manga.source ?? '_unknown',
+          );
+          try {
+            await ffmpegEngine.start((progress) => setProgress(progress));
+            caughtError = null;
+            log(
+              '[downloadChapter][anime/FFmpeg] completed chapterId=${chapter.id}',
+            );
+          } catch (e) {
+            caughtError = e;
+            log(
+              '[downloadChapter][anime/FFmpeg] FAILED chapterId=${chapter.id} '
+              'error=$e',
+            );
+          } finally {
             ActiveDownloadRegistry.unregister(chapter.id!);
           }
         }

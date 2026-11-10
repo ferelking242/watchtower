@@ -231,6 +231,39 @@ too:
 `sourceId` threads from the download provider through `M3u8Downloader` and
 `M3u8DownloadParams` so the session can restore the right cookies.
 
+#### FFmpeg is the transport of last resort for a blocked CDN
+
+The browser replay above fixes a *fetch* refused by Cloudflare, but it cannot
+fix a CDN that refuses the app's HTTP client while the *player* streams the very
+same URL. Surrit is exactly that: `curl`, `wget` and Python get `200` with the
+extension's headers, `dart:io` `HttpClient` gets `403` for every header
+combination (the verdict is on the TLS/HTTP fingerprint, not the request), and
+the WebView replay also fails — the accepted MissAV page serves
+`Content-Security-Policy: connect-src 'self'`, so the in-page `fetch()` is
+blocked by the page's own CSP (`TypeError: Failed to fetch`) even though the
+player loads the same bytes.
+
+The player works because it is FFmpeg/libavformat, whose TLS/HTTP stack the CDN
+accepts. `FfmpegHlsEngine`
+(`lib/services/download_manager/engines/ffmpeg_hls_engine.dart`) reuses that
+stack: it hands the whole playlist to the bundled FFmpegKit
+(`ffmpeg_kit_flutter_new`, the Full+GPL variant, so HTTPS/HLS are compiled in)
+with the extension's headers, remuxes to MP4 and writes the file. The download
+provider reaches it only after the isolate downloader *and* its browser replay
+have failed (`download_provider.dart`, the `anime/HLS→FFmpeg` branch), so a
+source FFmpeg can serve costs the fallback a normal download and nothing more.
+Generic by construction — no per-source branch — and the caller is where a new
+exception belongs, not the engine.
+
+`buildArguments` forwards `Referer`/`User-Agent` through `-referer`/`-user_agent`
+and everything else (Origin, Cookie, Authorization, Accept*, Sec-Fetch-*) through
+one `-headers` block; it drops the headers the transport owns (`Host`,
+`Connection`, `Content-Length`, `Accept-Encoding`) so FFmpeg never sends a
+duplicated value. `-rw_timeout` aborts a stalled CDN and the engine targets
+`<file>.mp4.part`, promoting it only on a successful exit, so a crash cannot
+leave a truncated video in place of the download. Covered by
+`test/ffmpeg_hls_engine_test.dart`.
+
 Covered by `test/extension_home_empty_state_test.dart`,
 `test/cloudflare_detection_test.dart`, `test/cloudflare_challenge_url_test.dart`,
 `test/bypass_notification_content_test.dart`.
