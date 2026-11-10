@@ -41,4 +41,35 @@ void main() {
       expect(shouldShowDownloadGroupHeader(['Chapter 1', 'Chapter 2']), isTrue);
     });
   });
+
+  group('orderByPriorityDescending', () {
+    test('keeps the chapter order for a long equal-priority queue', () {
+      // A 30-chapter queue: `List.sort` is not stable past 32 elements, so a
+      // naive priority sort started it at chapter 21 instead of chapter 1.
+      final chapters = List.generate(30, (i) => i + 1);
+      final ordered = orderByPriorityDescending(
+        chapters,
+        priorityOf: (_) => 0,
+      );
+      expect(ordered, chapters);
+    });
+
+    test('puts higher priorities first and keeps ties in input order', () {
+      final items = List.generate(40, (i) => i + 1);
+      final ordered = orderByPriorityDescending(
+        items,
+        priorityOf: (chapter) => chapter % 10 == 0 ? 1 : 0,
+      );
+      // The four "priority" chapters lead, in their original relative order…
+      expect(ordered.take(4), [10, 20, 30, 40]);
+      // …then the rest, still ascending.
+      expect(ordered.skip(4), items.where((c) => c % 10 != 0));
+    });
+
+    test('is stable for a shuffled list of equal keys', () {
+      final items = List.generate(50, (i) => 'ch$i');
+      final ordered = orderByPriorityDescending(items, priorityOf: (_) => 0);
+      expect(ordered, items);
+    });
+  });
 }

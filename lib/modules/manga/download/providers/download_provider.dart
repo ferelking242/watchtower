@@ -17,6 +17,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -3189,15 +3190,20 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         }
 
         // ── Speed Master: high-priority downloads start first ────────────────
-        // Stable sort: within the same priority the original (FIFO-ish) Isar
-        // order is preserved. Re-read every tick so toggling priority in the
-        // queue UI applies immediately without restarting the scheduler.
+        // `List.sort` is not stable beyond 32 elements, so a plain sort by
+        // priority shuffled equal-priority rows and started a 30-chapter queue
+        // at chapter 21 instead of chapter 1. Decorate with the original index
+        // and use it as the tie-breaker to keep the FIFO (chapter) order.
+        // Re-read every tick so toggling priority in the queue UI applies
+        // immediately without restarting the scheduler.
         final prioMap = ref.read(downloadQueueStateProvider).priorities;
-        toStart.sort(
-          (a, b) => (prioMap[b.chapter.value?.id ?? -1] ?? 0).compareTo(
-            prioMap[a.chapter.value?.id ?? -1] ?? 0,
-          ),
+        final ordered = orderByPriorityDescending(
+          toStart,
+          priorityOf: (d) => prioMap[d.chapter.value?.id ?? -1] ?? 0,
         );
+        toStart
+          ..clear()
+          ..addAll(ordered);
 
         final effectiveUseWifi =
             _processDownloadsWifiOverride ??
