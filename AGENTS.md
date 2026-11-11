@@ -351,6 +351,18 @@ apps used to copy the database on every single lifecycle pause. Explicit actions
 (the "Sauvegarder" button, re-enabling the feature) pass `force: true` and are
 never skipped.
 
+## Git workflow: a single branch, `main`
+
+This repo has one long-lived branch, `main`. Everything lands on `main`; there
+are no feature branches. Do not open a PR branch for routine work, and do not
+leave finished work on a side branch: commit it on `main` and push `main`.
+
+- Before pushing, `git fetch origin && git merge origin/main` so the push is a
+  fast-forward. If a merge is needed, resolve it (keep both sides of an
+  append-only file such as this one) and run `flutter test` before pushing.
+- `main` is the source of truth for the build: the release workflows build from
+  it. A fix that lives only on a side branch does not ship.
+
 ## Local verification (mirrors CI)
 
 Flutter 3.47.2. Useful commands:
