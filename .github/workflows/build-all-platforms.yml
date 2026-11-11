@@ -423,9 +423,10 @@ jobs:
           text = source.read_text()
           old = "    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));\n\n    if (expires >= 0)\n"
           new = "    SoupDate *expires_date = soup_cookie_get_expires(cookie);\n    gdouble expires = expires_date == nullptr\n        ? -1\n        : static_cast<gdouble>(soup_date_to_time_t(expires_date));\n\n    if (expires >= 0)\n"
-          if old not in text:
+          if old in text:
+              source.write_text(text.replace(old, new, 1))
+          elif new not in text:
               raise SystemExit("desktop_webview_window GLib code was not found")
-          source.write_text(text.replace(old, new, 1))
           PY
           sed -i 's/ -Wno-deprecated-literal-operator//g' "$WEBVIEW_CMAKE"
 
@@ -584,6 +585,10 @@ jobs:
 
           source = Path(sys.argv[1])
           text = source.read_text()
+
+          marker = "extension WebAuthenticationSession: ASWebAuthenticationPresentationContextProviding"
+          if marker in text:
+              raise SystemExit(0)
 
           text, count = re.subn(
               r",\s*ASWebAuthenticationPresentationContextProviding", "", text, count=1
@@ -1103,40 +1108,137 @@ jobs:
           compression-level: 0
           retention-days: 30
 
-  # Android TV uses the same all-ABI APK as the phone build. The manifest
-  # declares LEANBACK_LAUNCHER and no touchscreen requirement, so this is a
-  # separately labelled TV deliverable without a second divergent app flavor.
+  # Android TV ships real, installable APKs (not a renamed archive): a
+  # sideloadable APK is what a TV/box user expects, and one APK per TV ABI lets
+  # both 64-bit boxes and x86_64 emulators install directly. The manifest keeps
+  # LEANBACK_LAUNCHER plus optional leanback/touchscreen, so the same source
+  # yields a phone APK and a TV APK without a second divergent flavor.
   build-android-tv:
-    name: Android TV (Universal)
+    name: Android TV (APK)
     runs-on: ubuntu-latest
-    needs: build-android-universal
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
         with:
           lfs: true
 
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Cache pub packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Cache Gradle
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-tv-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
+          restore-keys: |
+            gradle-tv-${{ runner.os }}-
+            gradle-${{ runner.os }}-
+
+      - name: Cache Android SDK extras (NDK, CMake)
+        uses: actions/cache@v5
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/cmake/3.22.1
+          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+
+      - name: Install Rust Android cross targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Cache Rust (Android TV)
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+            rust_builder/target
+          key: rust-android-tv-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
+          restore-keys: rust-android-tv-${{ runner.os }}-
+
+      - name: Decode keystore from secret
+        run: |
+          echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
+          echo "Keystore size: $(wc -c < android/app/watchtower-debug.keystore) bytes"
+
+      - name: Flutter pub get and prepare plugin assets
+        run: |
+          flutter pub get
+          find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
+            mkdir -p "$dir/assets"
+          done
+
       - name: Verify Android TV manifest
         run: |
           grep -q 'android.intent.category.LEANBACK_LAUNCHER' android/app/src/main/AndroidManifest.xml
+          grep -q 'android.software.leanback' android/app/src/main/AndroidManifest.xml
           grep -q 'android.hardware.touchscreen.*required="false"' android/app/src/main/AndroidManifest.xml
 
-      - name: Download universal Android artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: android-universal
-          path: tv-artifact
-
-      - name: Publish Android TV artifact
+      # splits.abi stays disabled, so --split-per-abi can never emit per-ABI
+      # APKs; the app's build.gradle selects the ABIs with the watchtowerCiAbi
+      # gradle property (ORG_GRADLE_PROJECT_* exports it).
+      - name: Build TV APK (arm64-v8a)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dmaven.wagon.http.retryHandler.count=3"
         run: |
-          test -f tv-artifact/watchtower-android-universal.7z
-          cp tv-artifact/watchtower-android-universal.7z watchtower-android-tv-universal.7z
+          flutter build apk \
+            --release \
+            --target-platform android-arm64 \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
+            --tree-shake-icons
+          mkdir -p build/tv
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/tv/watchtower-tv-arm64.apk
 
-      - name: Upload Android TV artifact
+      - name: Build TV APK (x86_64)
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Dorg.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC -Dmaven.wagon.http.retryHandler.count=3"
+          ORG_GRADLE_PROJECT_watchtowerCiAbi: x86_64
+        run: |
+          rm -f build/app/outputs/flutter-apk/app-release.apk
+          flutter build apk \
+            --release \
+            --target-platform android-x64 \
+            --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }} \
+            --tree-shake-icons
+          test -f build/app/outputs/flutter-apk/app-release.apk \
+            || { echo 'x86_64 APK was not produced'; exit 1; }
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            build/tv/watchtower-tv-x86_64.apk
+
+      - name: Verify TV APKs
+        run: |
+          ls -lh build/tv
+          for apk in build/tv/*.apk; do
+            echo "=== $apk ==="
+            "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools/" | sort -V | tail -1)/apksigner" verify --print-certs "$apk" | head -3
+          done
+
+      - name: Upload Android TV artifacts
         uses: actions/upload-artifact@v5
         with:
           name: android-tv-universal
-          path: watchtower-android-tv-universal.7z
-          compression-level: 0
+          path: build/tv/*.apk
+          if-no-files-found: error
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
@@ -1214,7 +1316,8 @@ jobs:
           copy "$SRC_android_arm64"  "Watchtower-${V}-android-arm64.7z"
           copy "$SRC_android_x86_64" "Watchtower-${V}-android-x86_64.7z"
           copy "$SRC_android_universal" "Watchtower-${V}-android-universal.7z"
-          copy "$SRC_android_tv"     "Watchtower-${V}-android-tv-universal.7z"
+          copy "$SRC_android_tv"     "Watchtower-${V}-android-tv-arm64.apk"
+          copy "$SRC_android_tv"     "Watchtower-${V}-android-tv-x86_64.apk"
           copy "$SRC_linux"          "Watchtower-${V}-linux-x64.7z"
           copy "$SRC_macos"          "Watchtower-${V}-macos.zip"
           copy "$SRC_windows"        "Watchtower-${V}-windows-x64.7z"
@@ -1238,7 +1341,8 @@ jobs:
           add "Android arm64"         "Watchtower-${V}-android-arm64.7z"
           add "Android x86_64"        "Watchtower-${V}-android-x86_64.7z"
           add "Android universal"     "Watchtower-${V}-android-universal.7z"
-          add "Android TV universal"  "Watchtower-${V}-android-tv-universal.7z"
+          add "Android TV arm64 (APK)"  "Watchtower-${V}-android-tv-arm64.apk"
+          add "Android TV x86_64 (APK)" "Watchtower-${V}-android-tv-x86_64.apk"
           add "Linux x64"             "Watchtower-${V}-linux-x64.7z"
           add "macOS"                 "Watchtower-${V}-macos.zip"
           add "Windows x64"           "Watchtower-${V}-windows-x64.7z"
