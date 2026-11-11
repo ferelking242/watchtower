@@ -1249,6 +1249,18 @@ must not leak into watch code paths or logs:
   `publish-release` ne s'exécute **que si toutes** les builds sont vertes, puis
   publie `v<major>.<minor>.<run_number>` avec des notes propres
   (`scripts/release_notes.py`, style Mihon) et des noms d'assets normalisés.
+- Le job TV de `build-all-platforms.yml` **construit de vrais APK** signés
+  (arm64-v8a et x86_64) via `flutter build apk --release --target-platform …`,
+  pas un `.7z` renommé : un utilisateur TV attend un APK installable. L'artifact
+  `android-tv-universal` contient `watchtower-tv-arm64.apk` et
+  `watchtower-tv-x86_64.apk` ; `publish-release` les copie par **nom de fichier**
+  (`copy_named`), sinon les deux assets seraient le même APK (le helper `copy`
+  ne prend que le premier fichier du dossier).
+- Le pub-cache est **restauré d'un run à l'autre** : un paquet déjà patché
+  revient modifié et le patch suivant devient un no-op (ou échoue). Les étapes
+  qui patchent `desktop_webview_window` (Linux) et
+  `flutter_inappwebview_{linux,macos}` suppriment d'abord ces dossiers du cache
+  puis relancent `flutter pub get`, et leurs patchs sont **idempotents**.
 - iOS : `libc` est **épinglé à 0.2.191** dans `rust/Cargo.lock`. En 0.2.190 les
   symboles `_dyld_*` sont `#[cfg(target_os = "macos")]`, donc `backtrace`
   (via `allo-isolate`) ne compile pas pour `aarch64-apple-ios(-sim)` (E0425).
