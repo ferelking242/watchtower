@@ -519,10 +519,24 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     unawaited(deleteMediaDownload(ref, id));
   }
 
-  /// Open: directly launch the reader/player for the downloaded chapter
+  /// Open: launch the player/reader for this download.
+  ///
+  /// Video episodes go straight to `/animePlayerView`, which resolves the
+  /// chapter from Isar and renders the single real player. That bypasses the
+  /// "source active" gate in `pushToReaderView`: a downloaded episode must
+  /// play from disk even after its source was removed, and a partially
+  /// downloaded one plays the fragments already on disk.
   void _openDownload(Download element, BuildContext context) {
     final chapter = element.chapter.value;
-    if (chapter == null) return;
+    if (chapter == null) {
+      botToast('Chapitre introuvable.');
+      return;
+    }
+    if (chapter.manga.value?.itemType == ItemType.anime &&
+        chapter.id != null) {
+      context.push('/animePlayerView', extra: chapter.id!);
+      return;
+    }
     chapter.pushToReaderView(context, ignoreIsRead: true);
   }
 
@@ -2577,6 +2591,7 @@ class _DownloadCard extends ConsumerWidget {
               itemType: itemType,
               width: 40,
               height: 56,
+              onTap: onOpen,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -2826,6 +2841,7 @@ class _DownloadCard extends ConsumerWidget {
               itemType: itemType,
               width: 60,
               height: 82,
+              onTap: onOpen,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2970,6 +2986,7 @@ class _DownloadCard extends ConsumerWidget {
             isVideo: itemType == ItemType.anime,
             width: thumbnailWidth,
             height: thumbnailHeight,
+            onTap: onOpen,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -3190,16 +3207,30 @@ class _CoverThumbnail extends StatelessWidget {
   final double width;
   final double height;
 
+  /// When set, the whole thumbnail becomes the tap target (opens the episode).
+  final VoidCallback? onTap;
+
   const _CoverThumbnail({
     required this.imageUrl,
     required this.customBytes,
     required this.itemType,
     this.width = 46,
     this.height = 62,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final thumb = _buildThumb(context);
+    if (onTap == null) return thumb;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: thumb,
+    );
+  }
+
+  Widget _buildThumb(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final w = width;
     final h = height;
