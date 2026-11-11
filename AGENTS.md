@@ -1224,6 +1224,27 @@ must not leak into watch code paths or logs:
   arm64 ; une TV 32-bit (`armeabi-v7a`) a besoin d'un build
   `-PwatchtowerCiAbis` depuis `build-all-platforms.yml`.
 - Le workflow dédié `build-android-tv.yml` (arm64 + x86_64 pour émulateurs) est
-  actuellement `disabled_manually` et ne peut pas être réactivé via un PAT
-  (nécessite les droits Actions du GITHUB_TOKEN de l'app GitHub). L'APK TV se
-  télécharge donc depuis la release glissante `android-latest`.
+  **actif** et publie la release glissante `android-tv-latest`
+  (`watchtower-tv-arm64.apk`, `watchtower-tv-x86_64.apk` + `.sha256`). Un APK TV
+  n'est pas un APK Android téléphone : toujours tester la build TV, pas
+  `build-release.yml`. Le dispatch `workflow_dispatch` exige un token avec le
+  scope `workflow` (un PAT sans ce scope renvoie 403
+  « Resource not accessible by integration »).
+
+## CI — release multi-plateformes (ne pas régresser)
+- `build-all-platforms.yml` construit web, tous les ABI Android (+ universal),
+  Android TV, Linux, Windows, macOS, iOS (sideload + simulateur). Le job
+  `publish-release` ne s'exécute **que si toutes** les builds sont vertes, puis
+  publie `v<major>.<minor>.<run_number>` avec des notes propres
+  (`scripts/release_notes.py`, style Mihon) et des noms d'assets normalisés.
+- iOS : `libc` est **épinglé à 0.2.191** dans `rust/Cargo.lock`. En 0.2.190 les
+  symboles `_dyld_*` sont `#[cfg(target_os = "macos")]`, donc `backtrace`
+  (via `allo-isolate`) ne compile pas pour `aarch64-apple-ios(-sim)` (E0425).
+- macOS : le patch CI de `flutter_inappwebview_macos` doit déplacer la conformité
+  `ASWebAuthenticationPresentationContextProviding` dans une **extension**
+  `@available(macOS 10.15, *)`, pas annoter la méthode dans la classe : le
+  protocole exige 10.14, donc un témoin 10.15 est refusé par Xcode.
+- Web : les littéraux entiers de `pseudom` (CSSParser) dépassent 2^53 et
+  `dart2js` échoue. Le patch doit couvrir **toutes** les racines du pub-cache,
+  échouer si `pseudom` est absent, échouer si un littéral hors-bornes reste, et
+  `flutter pub get` doit tourner **avant** le patch.
