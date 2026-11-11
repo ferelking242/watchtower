@@ -1211,3 +1211,19 @@ must not leak into watch code paths or logs:
   via `context.push('/transfer')` : la route plein écran reste pour les autres
   entrées. En mode panneau, la salle ne s'arrête à la fermeture que si le
   panneau l'a lui-même démarrée (`_ownsRoom`) ; un salon déjà actif survit.
+
+## Android TV / Leanback (ne pas régresser)
+- Le `AndroidManifest.xml` porte les deux launchers (`LAUNCHER` téléphone +
+  `LEANBACK_LAUNCHER` TV) et déclare `android.software.leanback` et
+  `android.hardware.touchscreen` en `required="false"` : l'APK s'installe sur
+  les deux et apparaît sur l'écran d'accueil TV. Ne jamais retirer l'un des deux
+  intent-filters ni repasser une de ces features en `required="true"`.
+- ABI : `build-release.yml` et `build-android-tv.yml` produisent **arm64-v8a
+  uniquement** (`--target-platform android-arm64`, filtre ABI dans
+  `build.gradle`). La majorité des TV/box Android et des Fire TV modernes sont
+  arm64 ; une TV 32-bit (`armeabi-v7a`) a besoin d'un build
+  `-PwatchtowerCiAbis` depuis `build-all-platforms.yml`.
+- Le workflow dédié `build-android-tv.yml` (arm64 + x86_64 pour émulateurs) est
+  actuellement `disabled_manually` et ne peut pas être réactivé via un PAT
+  (nécessite les droits Actions du GITHUB_TOKEN de l'app GitHub). L'APK TV se
+  télécharge donc depuis la release glissante `android-latest`.
