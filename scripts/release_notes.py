@@ -43,6 +43,8 @@ MAX_COMMITS = 60
 # Subjects that are pure release bookkeeping and must never reach the notes.
 NOISE = re.compile(
     r"^(merge\b|revert \"?merge|source update:|chore\(release\)|"
+    r"add files via upload|upload files|initial commit|"
+    r"(create|update|delete) [\w./-]+\.[A-Za-z0-9]+$|"
     r"release:\s|v?\d+\.\d+\.\d+\+?\d*\s*$)",
     re.IGNORECASE,
 )
