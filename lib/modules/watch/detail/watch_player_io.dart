@@ -7,7 +7,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,6 +27,8 @@ import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
+import 'package:watchtower/services/download_manager/partial/partial_playback_plan.dart';
+import 'package:watchtower/services/download_manager/partial/partial_playback_resolver.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/hls_adaptive_quality.dart';
 import 'package:watchtower/services/player_codec_error.dart';
@@ -222,6 +223,85 @@ class _LedSliderTrackShape extends RoundedRectSliderTrackShape {
 
 // ─── Public API ────────────────────────────────────────────────────────────────
 
+/// Slider track that also paints the parts of the episode which are not on disk
+/// yet, so a partially-downloaded episode shows at a glance what can be played
+/// and what cannot.
+///
+/// The gaps are painted *over* the played/inactive track on purpose: the played
+/// span legitimately crosses a gap (the position jumps over it), and the missing
+/// part must stay visible as a hole rather than being covered by the progress
+/// fill. The playhead itself is never inside a gap, so the two never conflict.
+class _PartialSliderTrackShape extends _LedSliderTrackShape {
+  const _PartialSliderTrackShape({
+    required this.gapRanges,
+    required this.totalMs,
+  });
+
+  final List<PlayableRange> gapRanges;
+  final int totalMs;
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool? isEnabled,
+    bool? isDiscrete,
+    required TextDirection textDirection,
+    double additionalActiveTrackHeight = 0.0,
+  }) {
+    super.paint(
+      context,
+      offset,
+      parentBox: parentBox,
+      sliderTheme: sliderTheme,
+      enableAnimation: enableAnimation,
+      thumbCenter: thumbCenter,
+      secondaryOffset: secondaryOffset,
+      isEnabled: isEnabled ?? true,
+      isDiscrete: isDiscrete ?? false,
+      textDirection: textDirection,
+      additionalActiveTrackHeight: additionalActiveTrackHeight,
+    );
+    if (totalMs <= 0 || gapRanges.isEmpty) return;
+    final rect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled ?? true,
+      isDiscrete: isDiscrete ?? false,
+    );
+    final radius = Radius.circular((rect.height / 2) + 1);
+    final gapPaint = Paint()..color = const Color(0xCC1A1A1A);
+    final outlinePaint = Paint()
+      ..color = Colors.white24
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    for (final gap in gapRanges) {
+      final left =
+          rect.left + (gap.startMs / totalMs).clamp(0.0, 1.0) * rect.width;
+      final right =
+          rect.left + (gap.endMs / totalMs).clamp(0.0, 1.0) * rect.width;
+      if (right - left < 0.5) continue;
+      final gapRect = Rect.fromLTRB(
+        left,
+        rect.top - 1,
+        right,
+        rect.bottom + 1,
+      );
+      final rrect = RRect.fromRectAndRadius(gapRect, radius);
+      context.canvas.drawRRect(rrect, gapPaint);
+      context.canvas.drawRRect(rrect, outlinePaint);
+    }
+  }
+}
+
+// ─── Public API ────────────────────────────────────────────────────────────────
+
 class WatchInlinePlayer {
   late final Player _player;
   late final VideoController _controller;
@@ -244,6 +324,53 @@ class WatchInlinePlayer {
   /// When set, the next successful [load] seeks to this position. Used to
   /// resume a partially-watched episode opened from History.
   Duration? startPosition;
+
+  /// Non-null while the loaded episode is a partially-downloaded HLS episode
+  /// played from the fragments that are present. mpv then runs on a compressed
+  /// timeline (the missing fragments are simply absent), and this plan maps
+  /// that position back onto the episode's real timeline so the UI can show the
+  /// true clock, paint the missing spans, and redirect a seek that lands in a
+  /// gap to the next available fragment.
+  PartialPlaybackPlan? partialPlan;
+
+  /// True when the episode is being played partially.
+  bool get isPartialPlayback => partialPlan != null;
+
+  /// Set while a partial episode is being loaded, so the success handler can
+  /// attach [partialPlan] once the local playlist is the stream that opened.
+  PartialPlaybackMedia? _pendingPartialMedia;
+
+  /// Real (displayed) duration. For a partial episode this is the full episode
+  /// length, not the length of what happens to be on disk.
+  Duration get displayDuration {
+    final plan = partialPlan;
+    if (plan == null) return _player.state.duration;
+    return Duration(milliseconds: plan.totalDurationMs);
+  }
+
+  /// Position on the real timeline for the player's current position.
+  Duration get displayPosition {
+    final plan = partialPlan;
+    if (plan == null) return _player.state.position;
+    return Duration(
+      milliseconds: plan.compressedToRealMs(
+        _player.state.position.inMilliseconds,
+      ),
+    );
+  }
+
+  /// Seeks to a position on the real timeline. A position inside a gap is
+  /// redirected to the start of the next available fragment — this is what
+  /// keeps a tap at "10:34" from landing on missing data.
+  Future<void> seekReal(Duration realPosition) async {
+    final plan = partialPlan;
+    if (plan == null) {
+      await _player.seek(realPosition);
+      return;
+    }
+    final target = plan.resolveSeek(realPosition.inMilliseconds);
+    await _player.seek(Duration(milliseconds: target.compressedMs));
+  }
 
   bool _isDisposed = false; // guard against post-dispose async calls
 
@@ -412,28 +539,73 @@ class WatchInlinePlayer {
           quality.isEmpty) {
         continue;
       }
-      Chapter? savedChapter = download.chapter.value;
-      if (savedChapter == null && !download.chapter.isLoaded) {
-        try {
-          download.chapter.loadSync();
-          savedChapter = download.chapter.value;
-        } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
-      }
-      savedChapter ??= download.id == null
-          ? null
-          : isar.chapters.getSync(download.id!);
-      if (savedChapter == null ||
-          savedChapter.mangaId != chapter.mangaId ||
-          savedChapter.name != chapter.name ||
-          savedChapter.url != chapter.url ||
-          savedChapter.scanlator != chapter.scanlator) {
-        continue;
-      }
+      if (!_downloadMatchesChapter(download, chapter)) continue;
       if (!_isLocalVideoPath(path)) continue;
       final key = _videoQualityKey(quality);
       videos[key] = wt.Video(path, quality, path);
     }
     return videos.values.toList();
+  }
+
+  /// True when [download] belongs to the same episode as [chapter].
+  bool _downloadMatchesChapter(Download download, Chapter chapter) {
+    Chapter? savedChapter = download.chapter.value;
+    if (savedChapter == null && !download.chapter.isLoaded) {
+      try {
+        download.chapter.loadSync();
+        savedChapter = download.chapter.value;
+      } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
+    }
+    savedChapter ??= download.id == null
+        ? null
+        : isar.chapters.getSync(download.id!);
+    if (savedChapter == null) return false;
+    return savedChapter.mangaId == chapter.mangaId &&
+        savedChapter.name == chapter.name &&
+        savedChapter.url == chapter.url &&
+        savedChapter.scanlator == chapter.scanlator;
+  }
+
+  /// Finds the download row for [chapter] that can be played partially.
+  Download? _partialDownloadFor(Chapter chapter) {
+    if (chapter.mangaId == null) return null;
+    for (final download in isar.downloads.where().findAllSync()) {
+      if (download.isDownload == true) continue;
+      if (!_downloadMatchesChapter(download, chapter)) continue;
+      return download;
+    }
+    return null;
+  }
+
+  /// Resolves the partially-downloaded fragments of [chapter] into a local
+  /// playlist that mpv can play directly. Returns null when the episode is not
+  /// an HLS download in progress, or has nothing playable yet.
+  Future<PartialPlaybackMedia?> _resolvePartialMedia(Chapter chapter) async {
+    final download = _partialDownloadFor(chapter);
+    if (download == null) return null;
+    try {
+      return await PartialPlaybackResolver().resolve(download, chapter: chapter);
+    } catch (error, stack) {
+      AppLogger.log(
+        '[PLAYER] partial playback resolution failed for chapterId=${chapter.id}',
+        logLevel: LogLevel.warning,
+        tag: LogTag.watch,
+        error: error,
+        stackTrace: stack,
+      );
+      return null;
+    }
+  }
+
+  /// Quality label for the partial playlist entry. It must not collide with a
+  /// real rendition's key, otherwise the partial stream would replace (or be
+  /// replaced by) a full download in the quality list.
+  String _partialQualityLabel(Chapter chapter) {
+    final quality = _partialDownloadFor(chapter)?.quality?.trim();
+    if (quality != null && quality.isNotEmpty) {
+      return 'Partiel • ${_displayVideoQuality(quality)}';
+    }
+    return 'Partiel';
   }
 
   List<wt.Video> _mergeLocalQualityVideos(
@@ -448,6 +620,10 @@ class WatchInlinePlayer {
     _actualDurationSub?.cancel();
     _actualDurationSub = _player.stream.duration.listen((duration) {
       if (duration <= Duration.zero || duration == ignore) return;
+      // For a partial episode mpv only sees the fragments that are present, so
+      // its duration is the compressed one. Persisting it would overwrite the
+      // real episode length with a shorter value.
+      if (partialPlan != null) return;
       _persistActualDuration(chapter, duration);
     });
   }
@@ -901,6 +1077,8 @@ class WatchInlinePlayer {
     hasVideoUrl = false;
     final previousDuration = _player.state.duration;
     _activeChapter = chapter;
+    partialPlan = null;
+    _pendingPartialMedia = null;
     await _applyUserMpvPrefs(ref);
     _actualDurationSub?.cancel();
     // Kill any ongoing playback immediately so the old audio doesn't bleed
@@ -932,6 +1110,31 @@ class WatchInlinePlayer {
         AppLogger.log(
           '[PLAYER] found ${localVideos.length} downloaded video(s); '
           'trying local files before online qualities',
+          logLevel: LogLevel.info,
+          tag: LogTag.watch,
+        );
+      }
+      // A partially-downloaded episode has no merged file yet, so it never
+      // shows up in [localVideos]. Reconstruct what is on disk as a local
+      // playlist and try it before the network: it plays instantly, on the
+      // real timeline, and skipping over the missing fragments.
+      final partialMedia = await _resolvePartialMedia(chapter);
+      if (partialMedia != null) {
+        _pendingPartialMedia = partialMedia;
+        localVideos.insert(
+          0,
+          wt.Video(
+            partialMedia.playlistPath,
+            _partialQualityLabel(chapter),
+            partialMedia.playlistPath,
+          ),
+        );
+        AppLogger.log(
+          '[PLAYER] partial playback available: '
+          '${partialMedia.plan.availableIndices.length}/'
+          '${partialMedia.plan.segments.length} fragments, '
+          'real=${partialMedia.plan.totalDurationMs}ms '
+          'available=${partialMedia.plan.availableDurationMs}ms',
           logLevel: LogLevel.info,
           tag: LogTag.watch,
         );
@@ -1034,8 +1237,21 @@ class WatchInlinePlayer {
           posSub?.cancel();
           hasVideoUrl = true;
           selectedQuality = v.quality;
+          // Attach the plan when the stream that just opened is the partial
+          // playlist, so every position read below is mapped to the real
+          // timeline.
+          final pending = _pendingPartialMedia;
+          if (pending != null && v.url == pending.playlistPath) {
+            partialPlan = pending.plan;
+            _pendingPartialMedia = null;
+          }
           final actualDuration = _player.state.duration;
-          if (actualDuration > Duration.zero) {
+          if (partialPlan != null) {
+            _persistActualDuration(
+              chapter,
+              Duration(milliseconds: partialPlan!.totalDurationMs),
+            );
+          } else if (actualDuration > Duration.zero) {
             _persistActualDuration(chapter, actualDuration);
           }
           _watchActualDuration(chapter, ignore: previousDuration);
@@ -1334,7 +1550,7 @@ class WatchInlinePlayer {
               onTimeout: () => Duration.zero,
             );
         if (_isDisposed) return;
-        await _player.seek(pos);
+        await seekReal(pos);
       } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     }());
   }
@@ -1408,6 +1624,7 @@ class WatchInlinePlayer {
       chapters: chapters,
       onEpisodeTap: onEpisodeTap,
       coverUrl: coverUrl,
+      partialPlan: partialPlan,
     );
   }
 
@@ -1441,6 +1658,7 @@ class WatchInlinePlayer {
             chapters: chapters,
             onEpisodeTap: onEpisodeTap,
             fallbackCoverUrl: coverUrl,
+            partialPlan: partialPlan,
           ),
         ),
       ],
@@ -1463,6 +1681,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
   final List<Chapter> chapters;
   final void Function(Chapter)? onEpisodeTap;
   final String? fallbackCoverUrl;
+  final PartialPlaybackPlan? partialPlan;
 
   const _FullscreenPlayerPage({
     required this.controller,
@@ -1477,6 +1696,7 @@ class _FullscreenPlayerPage extends StatefulWidget {
     this.chapters = const [],
     this.onEpisodeTap,
     this.fallbackCoverUrl,
+    this.partialPlan,
   });
 
   @override
@@ -1582,6 +1802,7 @@ class _FullscreenPlayerPageState extends State<_FullscreenPlayerPage> {
                 onNextEpisode: widget.onNextEpisode,
                 chapters: widget.chapters,
                 onEpisodeTap: widget.onEpisodeTap,
+                partialPlan: widget.partialPlan,
               ),
             ),
           ],
@@ -1609,6 +1830,9 @@ class _FullscreenControlsOverlay extends ConsumerStatefulWidget {
   final void Function(Chapter)? onEpisodeTap;
   final String? fallbackCoverUrl;
 
+  /// Non-null while a partially-downloaded episode is playing.
+  final PartialPlaybackPlan? partialPlan;
+
   const _FullscreenControlsOverlay({
     required this.player,
     required this.controller,
@@ -1624,6 +1848,7 @@ class _FullscreenControlsOverlay extends ConsumerStatefulWidget {
     this.chapters = const [],
     this.onEpisodeTap,
     this.fallbackCoverUrl,
+    this.partialPlan,
   });
 
   @override
@@ -1782,7 +2007,10 @@ class _FullscreenControlsOverlayState
     // Buffer fraction stream
     _bufSub = widget.player.stream.buffer.listen((buf) {
       if (!mounted) return;
-      final dur = widget.player.state.duration;
+      // For a partial episode the buffered span is measured in compressed
+      // time; the slider value is on the real timeline, so the fraction must be
+      // taken against the real (full) duration to stay aligned.
+      final dur = _realDuration;
       if (dur.inMilliseconds > 0) {
         setState(
           () => _bufferFrac = (buf.inMilliseconds / dur.inMilliseconds).clamp(
@@ -2200,12 +2428,10 @@ class _FullscreenControlsOverlayState
   }
 
   void _seek(int deltaSeconds) {
-    final pos = widget.player.state.position;
-    final dur = widget.player.state.duration;
+    final pos = _realPosition;
+    final dur = _realDuration;
     final next = pos + Duration(seconds: deltaSeconds);
-    widget.player.seek(
-      next.isNegative ? Duration.zero : (next > dur ? dur : next),
-    );
+    _seekReal(next.isNegative ? Duration.zero : (next > dur ? dur : next));
     _resetHideTimer();
   }
 
@@ -2222,6 +2448,36 @@ class _FullscreenControlsOverlayState
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
+  /// Real-timeline duration: the full episode length for a partially-downloaded
+  /// episode, mpv's own (compressed) duration otherwise.
+  Duration get _realDuration {
+    final plan = widget.partialPlan;
+    return plan == null
+        ? widget.player.state.duration
+        : Duration(milliseconds: plan.totalDurationMs);
+  }
+
+  /// Player position mapped onto the real timeline.
+  Duration get _realPosition {
+    final plan = widget.partialPlan;
+    final pos = widget.player.state.position;
+    return plan == null
+        ? pos
+        : Duration(milliseconds: plan.compressedToRealMs(pos.inMilliseconds));
+  }
+
+  /// Seeks to a position on the real timeline, redirecting a position inside a
+  /// gap to the next available fragment.
+  Future<void> _seekReal(Duration real) async {
+    final plan = widget.partialPlan;
+    if (plan == null) {
+      await widget.player.seek(real);
+      return;
+    }
+    final target = plan.resolveSeek(real.inMilliseconds);
+    await widget.player.seek(Duration(milliseconds: target.compressedMs));
   }
 
   void _showSpeedSheet() {
@@ -2378,27 +2634,26 @@ class _FullscreenControlsOverlayState
       onHorizontalDragStart: (d) {
         if (_locked || _holdSpeedActive || !_swipeGesturesEnabled) return;
         _horizDragStartX = d.globalPosition.dx;
-        _horizSeekStartPos = widget.player.state.position;
+        _horizSeekStartPos = _realPosition;
         _horizSeekDelta = 0;
         _hideTimer?.cancel();
       },
       onHorizontalDragUpdate: (d) {
         if (_horizDragStartX == null || _holdSpeedActive) return;
         final dx = d.globalPosition.dx - _horizDragStartX!;
-        final dur = widget.player.state.duration.inSeconds;
+        final realDur = _realDuration;
+        final dur = realDur.inSeconds;
         if (dur <= 0) return;
         // Vitesse adaptative : un swipe pleine largeur couvre ~1/4 de la
         // durée du flux (clip de 20 min → précis, film de 2 h → rapide).
-        final secondsPerScreen = (widget.player.state.duration.inSeconds / 4)
-            .clamp(20.0, 900.0);
+        final secondsPerScreen = (realDur.inSeconds / 4).clamp(20.0, 900.0);
         _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
         setState(() => _showSeekSwipeHUD = true);
         // Vignette position cible (style YouTube)
-        final full = widget.player.state.duration;
         final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-        if (full > Duration.zero) {
+        if (realDur > Duration.zero) {
           _requestThumb(
-            (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0),
+            (target.inMilliseconds / realDur.inMilliseconds).clamp(0.0, 1.0),
           );
         }
       },
@@ -2406,12 +2661,12 @@ class _FullscreenControlsOverlayState
         if (_horizDragStartX != null &&
             !_holdSpeedActive &&
             _horizSeekDelta != 0) {
-          final dur = widget.player.state.duration;
+          final realDur = _realDuration;
           final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
           final clamped = next < Duration.zero
               ? Duration.zero
-              : (next > dur ? dur : next);
-          widget.player.seek(clamped);
+              : (next > realDur ? realDur : next);
+          _seekReal(clamped);
         }
         _horizDragStartX = null;
         _horizSeekDelta = 0;
@@ -2525,8 +2780,18 @@ class _FullscreenControlsOverlayState
                         stream: widget.player.stream.position,
                         initialData: widget.player.state.position,
                         builder: (_, posSnap) {
-                          final pos = posSnap.data ?? Duration.zero;
-                          final dur = widget.player.state.duration;
+                          final plan = widget.partialPlan;
+                          final rawPos = posSnap.data ?? Duration.zero;
+                          final pos = plan == null
+                              ? rawPos
+                              : Duration(
+                                  milliseconds: plan.compressedToRealMs(
+                                    rawPos.inMilliseconds,
+                                  ),
+                                );
+                          final dur = plan == null
+                              ? widget.player.state.duration
+                              : Duration(milliseconds: plan.totalDurationMs);
                           return Text(
                             '${_fmt(pos)} / ${_fmt(dur)}',
                             style: const TextStyle(
@@ -3096,7 +3361,7 @@ class _FullscreenControlsOverlayState
 
   Widget _buildSeekSwipeHUD() {
     final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-    final dur = widget.player.state.duration;
+    final dur = _realDuration;
     final clamped = pos < Duration.zero
         ? Duration.zero
         : (pos > dur ? dur : pos);
@@ -3491,8 +3756,20 @@ class _FullscreenControlsOverlayState
       stream: widget.player.stream.position,
       initialData: widget.player.state.position,
       builder: (_, posSnap) {
-        final pos = posSnap.data ?? Duration.zero;
-        final dur = widget.player.state.duration;
+        final plan = widget.partialPlan;
+        final rawDur = widget.player.state.duration;
+        final rawPos = posSnap.data ?? Duration.zero;
+        // On a partially-downloaded episode mpv's clock is the compressed one
+        // (only the fragments present). The UI shows the real episode timeline
+        // instead, so the user sees the true length and position.
+        final dur = plan == null
+            ? rawDur
+            : Duration(milliseconds: plan.totalDurationMs);
+        final pos = plan == null
+            ? rawPos
+            : Duration(
+                milliseconds: plan.compressedToRealMs(rawPos.inMilliseconds),
+              );
         final progress = dur.inMilliseconds > 0
             ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
             : 0.0;
@@ -3534,6 +3811,12 @@ class _FullscreenControlsOverlayState
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 2.5,
+                          trackShape: plan == null
+                              ? null
+                              : _PartialSliderTrackShape(
+                                  gapRanges: plan.gapRanges,
+                                  totalMs: plan.totalDurationMs,
+                                ),
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: 6,
                           ),
@@ -3561,11 +3844,17 @@ class _FullscreenControlsOverlayState
                           onChangeEnd: (v) {
                             _thumbPreview.clearRequest();
                             if (dur.inMilliseconds > 0) {
+                              final realTarget = Duration(
+                                milliseconds: (v * dur.inMilliseconds).round(),
+                              );
                               widget.player.seek(
-                                Duration(
-                                  milliseconds: (v * dur.inMilliseconds)
-                                      .round(),
-                                ),
+                                plan == null
+                                    ? realTarget
+                                    : Duration(
+                                        milliseconds: plan
+                                            .resolveSeek(realTarget.inMilliseconds)
+                                            .compressedMs,
+                                      ),
                               );
                             }
                             setState(() => _seekDragging = false);
@@ -5576,6 +5865,10 @@ class _PortraitPlayerOverlay extends ConsumerStatefulWidget {
   final void Function(Chapter)? onEpisodeTap;
   final String? coverUrl;
 
+  /// Non-null while a partially-downloaded episode is playing. Drives the
+  /// gap-aware progress bar and the seek redirection.
+  final PartialPlaybackPlan? partialPlan;
+
   const _PortraitPlayerOverlay({
     required this.player,
     required this.controller,
@@ -5592,6 +5885,7 @@ class _PortraitPlayerOverlay extends ConsumerStatefulWidget {
     this.chapters = const [],
     this.onEpisodeTap,
     this.coverUrl,
+    this.partialPlan,
   });
 
   @override
@@ -5693,12 +5987,40 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   }
 
   void _seek(int deltaSeconds) {
-    final pos = widget.player.state.position;
-    final dur = widget.player.state.duration;
+    final pos = _realPosition;
+    final dur = _realDuration;
     final next = pos + Duration(seconds: deltaSeconds);
-    widget.player.seek(
-      next.isNegative ? Duration.zero : (next > dur ? dur : next),
-    );
+    _seekReal(next.isNegative ? Duration.zero : (next > dur ? dur : next));
+  }
+
+  /// Real-timeline duration: the full episode length for a partially-downloaded
+  /// episode, mpv's own (compressed) duration otherwise.
+  Duration get _realDuration {
+    final plan = widget.partialPlan;
+    return plan == null
+        ? widget.player.state.duration
+        : Duration(milliseconds: plan.totalDurationMs);
+  }
+
+  /// Player position mapped onto the real timeline.
+  Duration get _realPosition {
+    final plan = widget.partialPlan;
+    final pos = widget.player.state.position;
+    return plan == null
+        ? pos
+        : Duration(milliseconds: plan.compressedToRealMs(pos.inMilliseconds));
+  }
+
+  /// Seeks to a position on the real timeline, redirecting a position inside a
+  /// gap to the next available fragment.
+  Future<void> _seekReal(Duration real) async {
+    final plan = widget.partialPlan;
+    if (plan == null) {
+      await widget.player.seek(real);
+      return;
+    }
+    final target = plan.resolveSeek(real.inMilliseconds);
+    await widget.player.seek(Duration(milliseconds: target.compressedMs));
   }
 
   void _handleDoubleTap({required bool isRight}) {
@@ -5753,7 +6075,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   void _onHorizDragStart(DragStartDetails d) {
     if (!_swipeGesturesEnabled) return;
     _horizDragStartX = d.globalPosition.dx;
-    _horizSeekStartPos = widget.player.state.position;
+    _horizSeekStartPos = _realPosition;
     _horizSeekDelta = 0;
     _hideTimer?.cancel();
   }
@@ -5761,33 +6083,30 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   void _onHorizDragUpdate(DragUpdateDetails d, Size size) {
     if (_horizDragStartX == null) return;
     final dx = d.globalPosition.dx - _horizDragStartX!;
-    final dur = widget.player.state.duration.inSeconds;
+    final realDur = _realDuration;
+    final dur = realDur.inSeconds;
     if (dur <= 0) return;
     // Vitesse adaptative : ~1/4 de la durée par swipe pleine largeur.
-    final secondsPerScreen = (widget.player.state.duration.inSeconds / 4).clamp(
-      20.0,
-      900.0,
-    );
+    final secondsPerScreen = (realDur.inSeconds / 4).clamp(20.0, 900.0);
     _horizSeekDelta = (dx / size.width * secondsPerScreen).round();
     setState(() => _showSeekSwipeHUD = true);
     // Vignette de la position cible (style YouTube)
-    final full = widget.player.state.duration;
     final target = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-    if (full > Duration.zero) {
+    if (realDur > Duration.zero) {
       _requestThumb(
-        (target.inMilliseconds / full.inMilliseconds).clamp(0.0, 1.0),
+        (target.inMilliseconds / realDur.inMilliseconds).clamp(0.0, 1.0),
       );
     }
   }
 
   void _onHorizDragEnd(DragEndDetails _) {
     if (_horizDragStartX != null && _horizSeekDelta != 0) {
-      final dur = widget.player.state.duration;
+      final dur = _realDuration;
       final next = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
       final clamped = next < Duration.zero
           ? Duration.zero
           : (next > dur ? dur : next);
-      widget.player.seek(clamped);
+      _seekReal(clamped);
     }
     _horizDragStartX = null;
     _horizSeekDelta = 0;
@@ -5836,7 +6155,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
 
   Widget _buildSeekSwipeHUD() {
     final pos = _horizSeekStartPos + Duration(seconds: _horizSeekDelta);
-    final dur = widget.player.state.duration;
+    final dur = _realDuration;
     final clamped = pos < Duration.zero
         ? Duration.zero
         : (pos > dur ? dur : pos);
@@ -6238,6 +6557,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
                   chapters: widget.chapters,
                   onEpisodeTap: widget.onEpisodeTap,
                   fallbackCoverUrl: widget.coverUrl,
+                  partialPlan: widget.partialPlan,
                 ),
               ),
             ),
@@ -6275,6 +6595,9 @@ class _InlineControls extends StatefulWidget {
   final void Function(Chapter)? onEpisodeTap;
   final String? fallbackCoverUrl;
 
+  /// Non-null while a partially-downloaded episode is playing.
+  final PartialPlaybackPlan? partialPlan;
+
   const _InlineControls({
     required this.player,
     required this.controller,
@@ -6289,6 +6612,7 @@ class _InlineControls extends StatefulWidget {
     this.chapters = const [],
     this.onEpisodeTap,
     this.fallbackCoverUrl,
+    this.partialPlan,
   });
 
   @override
@@ -6368,6 +6692,7 @@ class _InlineControlsState extends State<_InlineControls> {
               chapters: widget.chapters,
               onEpisodeTap: widget.onEpisodeTap,
               fallbackCoverUrl: widget.fallbackCoverUrl,
+              partialPlan: widget.partialPlan,
             ),
           ),
         );
@@ -6391,6 +6716,7 @@ class _InlineControlsState extends State<_InlineControls> {
           chapters: widget.chapters,
           onEpisodeTap: widget.onEpisodeTap,
           fallbackCoverUrl: widget.fallbackCoverUrl,
+          partialPlan: widget.partialPlan,
         ),
       ),
     );
@@ -6426,8 +6752,19 @@ class _InlineControlsState extends State<_InlineControls> {
               stream: _p.stream.position,
               initialData: _p.state.position,
               builder: (_, posSnap) {
-                final pos = posSnap.data ?? Duration.zero;
-                final dur = _p.state.duration;
+                final plan = widget.partialPlan;
+                final rawDur = _p.state.duration;
+                final rawPos = posSnap.data ?? Duration.zero;
+                final dur = plan == null
+                    ? rawDur
+                    : Duration(milliseconds: plan.totalDurationMs);
+                final pos = plan == null
+                    ? rawPos
+                    : Duration(
+                        milliseconds: plan.compressedToRealMs(
+                          rawPos.inMilliseconds,
+                        ),
+                      );
                 final progress = dur.inMilliseconds > 0
                     ? (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0)
                     : 0.0;
@@ -6452,6 +6789,12 @@ class _InlineControlsState extends State<_InlineControls> {
                         SliderTheme(
                           data: SliderTheme.of(context).copyWith(
                             trackHeight: 2.5,
+                            trackShape: plan == null
+                                ? null
+                                : _PartialSliderTrackShape(
+                                    gapRanges: plan.gapRanges,
+                                    totalMs: plan.totalDurationMs,
+                                  ),
                             thumbShape: const RoundSliderThumbShape(
                               enabledThumbRadius: 5,
                             ),
@@ -6482,11 +6825,20 @@ class _InlineControlsState extends State<_InlineControls> {
                             onChangeEnd: (v) {
                               _thumbPreview.clearRequest();
                               if (dur.inMilliseconds > 0) {
+                                final realTarget = Duration(
+                                  milliseconds: (v * dur.inMilliseconds)
+                                      .round(),
+                                );
                                 _p.seek(
-                                  Duration(
-                                    milliseconds: (v * dur.inMilliseconds)
-                                        .round(),
-                                  ),
+                                  plan == null
+                                      ? realTarget
+                                      : Duration(
+                                          milliseconds: plan
+                                              .resolveSeek(
+                                                realTarget.inMilliseconds,
+                                              )
+                                              .compressedMs,
+                                        ),
                                 );
                               }
                               setState(() => _dragActive = false);

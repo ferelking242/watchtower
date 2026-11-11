@@ -10,6 +10,7 @@ import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/ts_info.dart';
+import 'package:watchtower/services/download_manager/partial/hls_segment_manifest.dart';
 import 'package:watchtower/services/download_manager/m3u8/ffmpeg_merge_service.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
@@ -166,6 +167,11 @@ class M3u8Downloader {
 
     try {
       final (tsList, key, iv, mediaSequence) = await _getTsList();
+
+      // Persist the playlist order and each fragment's duration before the
+      // transfer starts. It is what lets an interrupted episode be played back
+      // on its real timeline instead of as a truncated file.
+      await _writeSegmentManifest(tsList, tempDir);
 
       final (tsListToDownload, completedSegments, downloadedBytes) =
           await _getResumeState(tsList, tempDir);
@@ -358,6 +364,30 @@ class M3u8Downloader {
     );
 
     return completer.future;
+  }
+
+  /// Persists the playlist order and per-fragment durations next to the
+  /// fragments. The fMP4 initialization fragment is stored separately by name
+  /// so a partial playback can emit it through `#EXT-X-MAP`.
+  Future<void> _writeSegmentManifest(List<TsInfo> tsList, String tempDir) async {
+    String? initSegmentName;
+    final mediaSegments = <HlsSegmentEntry>[];
+    for (final segment in tsList) {
+      if (segment.isInitialization) {
+        initSegmentName = '${segment.name}.ts';
+        continue;
+      }
+      mediaSegments.add(
+        HlsSegmentEntry(name: segment.name, durationMs: segment.durationMs),
+      );
+    }
+    await HlsSegmentManifest.write(
+      tempDir,
+      HlsSegmentManifest(
+        segments: mediaSegments,
+        initSegmentName: initSegmentName,
+      ),
+    );
   }
 
   /// Merges the downloaded fragments and removes the resumable working
@@ -670,11 +700,26 @@ class M3u8Downloader {
       );
     }
 
+    // `#EXTINF:<seconds>,` applies to the next URI line. Reading it lets the
+    // segment manifest carry the real duration of each fragment, which is what
+    // a partial download needs to keep the original timeline when the missing
+    // segments are left out.
+    var pendingDurationMs = 0;
     for (final line in lines) {
       final trimmed = line.trim();
-      if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+      if (trimmed.isEmpty) continue;
+      if (trimmed.startsWith('#EXTINF:')) {
+        final value = trimmed.substringAfter('#EXTINF:').substringBefore(',');
+        final seconds = double.tryParse(value.trim());
+        if (seconds != null && seconds > 0) {
+          pendingDurationMs = (seconds * 1000).round();
+        }
+        continue;
+      }
+      if (trimmed.startsWith('#')) continue;
       final tsUrl = Uri.parse(baseUrl).resolve(trimmed).toString();
-      tsList.add(TsInfo('TS_$index', tsUrl));
+      tsList.add(TsInfo('TS_$index', tsUrl, durationMs: pendingDurationMs));
+      pendingDurationMs = 0;
       index++;
     }
     return tsList;

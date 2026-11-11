@@ -24,6 +24,10 @@ class MbThumb extends StatelessWidget {
   final Map<String, String>? headers;
   final int? sourceId;
 
+  /// When set, tapping the thumbnail opens the episode (the whole poster is
+  /// the tap target, not just the small play glyph).
+  final VoidCallback? onTap;
+
   const MbThumb({
     super.key,
     required this.imageUrl,
@@ -35,6 +39,7 @@ class MbThumb extends StatelessWidget {
     this.height = 64,
     this.headers,
     this.sourceId,
+    this.onTap,
   });
 
   @override
@@ -86,7 +91,7 @@ class MbThumb extends StatelessWidget {
       );
     }
 
-    return ClipRRect(
+    final thumb = ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: SizedBox(
         width: w,
@@ -143,6 +148,12 @@ class MbThumb extends StatelessWidget {
           ],
         ),
       ),
+    );
+    if (onTap == null) return thumb;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: thumb,
     );
   }
 }
