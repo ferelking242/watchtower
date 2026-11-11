@@ -1128,3 +1128,18 @@ must not leak into watch code paths or logs:
 - `PartialPlaybackResolver` tolère les liens Isar non chargés/absents
   (`_resolveChapter` / `_resolveManga`) et accepte un `Chapter` déjà résolu
   pour éviter une relecture Isar quand l'appelant le détient déjà.
+
+## File de téléchargement : « play » doit toujours ouvrir l'épisode
+- La vignette (poster) est le point de clic naturel : `MbThumb` / `_CoverThumbnail`
+  acceptent un `onTap` optionnel et enveloppent alors toute l'image (pas
+  seulement le petit glyphe play central) dans un `GestureDetector`. Sans
+  `onTap`, aucun détecteur n'est inséré. Ne pas remettre un `InkWell` autour de
+  la ligne entière : les lignes de série replient/déplient le groupe au tap.
+- Le bouton play/pause d'une carte reste un contrôle de transfert : il ne route
+  vers `onOpen` que lorsque `isComplete`. Un téléchargement en cours n'a donc
+  pas de bouton « lire » ; c'est la vignette qui ouvre la lecture.
+- `_openDownload` route les épisodes vidéo directement vers
+  `/animePlayerView` (le lecteur unique) au lieu de `pushToReaderView`. Cela
+  contourne volontairement le filtre « source active » de ce dernier : un
+  épisode téléchargé doit se lire depuis le disque même si sa source a été
+  supprimée, et un épisode partiel lit les fragments déjà présents.
