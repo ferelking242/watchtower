@@ -1314,10 +1314,19 @@ jobs:
           SRC_windows="artifacts/windows-x64"
           SRC_ios="artifacts/watchtower-ios-profile-ipa"
           SRC_ios_sim="artifacts/watchtower-ios-simulator"
-          copy() { # $1 src-dir $2 clean-name
+          copy() { # $1 src-dir $2 clean-name  (first file in the dir)
             local dir="$1" name="$2"
             local file
             file=$(find "$dir" -type f -maxdepth 2 2>/dev/null | head -1)
+            if [ -n "$file" ]; then
+              cp "$file" "dist/$name"
+              echo "  + $name"
+            fi
+          }
+          copy_named() { # $1 src-dir $2 basename $3 clean-name
+            local dir="$1" base="$2" name="$3"
+            local file
+            file=$(find "$dir" -type f -name "$base" -maxdepth 2 2>/dev/null | head -1)
             if [ -n "$file" ]; then
               cp "$file" "dist/$name"
               echo "  + $name"
@@ -1328,8 +1337,8 @@ jobs:
           copy "$SRC_android_arm64"  "Watchtower-${V}-android-arm64.7z"
           copy "$SRC_android_x86_64" "Watchtower-${V}-android-x86_64.7z"
           copy "$SRC_android_universal" "Watchtower-${V}-android-universal.7z"
-          copy "$SRC_android_tv"     "Watchtower-${V}-android-tv-arm64.apk"
-          copy "$SRC_android_tv"     "Watchtower-${V}-android-tv-x86_64.apk"
+          copy_named "$SRC_android_tv" "watchtower-tv-arm64.apk"  "Watchtower-${V}-android-tv-arm64.apk"
+          copy_named "$SRC_android_tv" "watchtower-tv-x86_64.apk" "Watchtower-${V}-android-tv-x86_64.apk"
           copy "$SRC_linux"          "Watchtower-${V}-linux-x64.7z"
           copy "$SRC_macos"          "Watchtower-${V}-macos.zip"
           copy "$SRC_windows"        "Watchtower-${V}-windows-x64.7z"
