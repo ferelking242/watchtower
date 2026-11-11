@@ -177,7 +177,7 @@ jobs:
           printf -- '- `watchtower-tv-arm64.apk` — TV / box Android 64-bit (recommandé)\n' >> "$NOTES"
           printf -- '- `watchtower-tv-x86_64.apk` — émulateurs et box x86_64\n\n' >> "$NOTES"
           printf 'SHA-256 arm64 : %s\n' "$(cut -d" " -f1 "$ARM64.sha256")" >> "$NOTES"
-          printf 'Taille arm64  : %s octets\n' "$(stat -c %%s "$ARM64")" >> "$NOTES"
+          printf 'Taille arm64  : %s octets\n' "$(stat -c %s "$ARM64")" >> "$NOTES"
           gh release create android-tv-latest \
             "$ARM64" "$ARM64.sha256" "$X86" "$X86.sha256" \
             --title "Watchtower Android TV (latest)" \
