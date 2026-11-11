@@ -66,9 +66,15 @@ jobs:
           path: watchtower-extensions
           lfs: true
 
+      # The pub cache is restored across runs, so a package patched by an
+      # earlier run would come back already-modified and defeat the patch step.
+      # Re-fetch the two packages the patch touches before applying it.
       - name: Prepare Linux build
         run: |
           flutter config --enable-linux-desktop
+          flutter pub get
+          rm -rf ~/.pub-cache/git/desktop_webview_window-* \
+                 ~/.pub-cache/hosted/pub.dev/flutter_inappwebview_linux-*
           flutter pub get
           find ~/.pub-cache/git -maxdepth 1 -name "flutter_new_pipe_extractor*" -type d | while read dir; do
             mkdir -p "$dir/assets"
@@ -88,9 +94,10 @@ jobs:
           text = source.read_text()
           old = "    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));\n\n    if (expires >= 0)\n"
           new = "    SoupDate *expires_date = soup_cookie_get_expires(cookie);\n    gdouble expires = expires_date == nullptr\n        ? -1\n        : static_cast<gdouble>(soup_date_to_time_t(expires_date));\n\n    if (expires >= 0)\n"
-          if old not in text:
+          if old in text:
+              source.write_text(text.replace(old, new, 1))
+          elif new not in text:
               raise SystemExit("desktop_webview_window GLib code was not found")
-          source.write_text(text.replace(old, new, 1))
           PY
           sed -i 's/ -Wno-deprecated-literal-operator//g' "$WEBVIEW_CMAKE"
 
