@@ -18,8 +18,8 @@ class IncomingOffer {
   IncomingOffer(this.offer, this.response);
 }
 
-typedef ProgressCallback = void Function(
-    double progress, String sessionId, String fileId);
+typedef ProgressCallback =
+    void Function(double progress, String sessionId, String fileId);
 
 class TransferServer {
   final String deviceName;
@@ -53,9 +53,13 @@ class TransferServer {
       ..post('/transfer/<sid>/<fid>', _transfer);
 
     final handler = const Pipeline()
-        .addMiddleware(logRequests(logger: (msg, isError) {
-          if (isError) debugPrint('[Server] $msg');
-        }))
+        .addMiddleware(
+          logRequests(
+            logger: (msg, isError) {
+              if (isError) debugPrint('[Server] $msg');
+            },
+          ),
+        )
         .addHandler(router.call);
 
     _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, 0);
@@ -65,9 +69,9 @@ class TransferServer {
   }
 
   Response _ping(Request req) => Response.ok(
-        jsonEncode({'app': 'watchtower', 'device': deviceName}),
-        headers: {'content-type': 'application/json'},
-      );
+    jsonEncode({'app': 'watchtower', 'device': deviceName}),
+    headers: {'content-type': 'application/json'},
+  );
 
   // ── Catalog ──────────────────────────────────────────────────────────────
 
@@ -214,8 +218,25 @@ class TransferServer {
   }
 
   static Future<Directory> _resolveReceiveDir() async {
+    // Prefer the shared, user-visible location, but fall back to the app-scoped
+    // directory when MANAGE_EXTERNAL_STORAGE is not granted. Creating a file in
+    // a non-granted /storage path throws and would fail the whole transfer, so
+    // a writable fallback keeps receiving working on every device.
     if (Platform.isAndroid) {
-      return Directory('/storage/emulated/0/watchtower/received');
+      final shared = Directory('/storage/emulated/0/watchtower/received');
+      try {
+        await shared.create(recursive: true);
+        return shared;
+      } catch (_) {
+        final fallback = await getExternalStorageDirectory();
+        if (fallback != null) {
+          final dir = Directory(
+            p.join(fallback.path, 'watchtower', 'received'),
+          );
+          await dir.create(recursive: true);
+          return dir;
+        }
+      }
     }
     final docs = await getApplicationDocumentsDirectory();
     return Directory(p.join(docs.path, 'Watchtower', 'received'));

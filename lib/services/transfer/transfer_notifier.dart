@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,24 +52,25 @@ class TransferState {
     Map<String, List<PeerCatalogEntry>>? peerCatalogs,
     Set<String>? catalogsLoading,
     int? localLibraryCount,
-  }) =>
-      TransferState(
-        mode: mode ?? this.mode,
-        peers: peers ?? this.peers,
-        pendingOffers: pendingOffers ?? this.pendingOffers,
-        sessions: sessions ?? this.sessions,
-        localIp: localIp ?? this.localIp,
-        serverPort: serverPort ?? this.serverPort,
-        error: error,
-        peerCatalogs: peerCatalogs ?? this.peerCatalogs,
-        catalogsLoading: catalogsLoading ?? this.catalogsLoading,
-        localLibraryCount: localLibraryCount ?? this.localLibraryCount,
-      );
+  }) => TransferState(
+    mode: mode ?? this.mode,
+    peers: peers ?? this.peers,
+    pendingOffers: pendingOffers ?? this.pendingOffers,
+    sessions: sessions ?? this.sessions,
+    localIp: localIp ?? this.localIp,
+    serverPort: serverPort ?? this.serverPort,
+    error: error,
+    peerCatalogs: peerCatalogs ?? this.peerCatalogs,
+    catalogsLoading: catalogsLoading ?? this.catalogsLoading,
+    localLibraryCount: localLibraryCount ?? this.localLibraryCount,
+  );
 
   List<TransferSession> get activeSessions => sessions
-      .where((s) =>
-          s.status == TransferStatus.inProgress ||
-          s.status == TransferStatus.pending)
+      .where(
+        (s) =>
+            s.status == TransferStatus.inProgress ||
+            s.status == TransferStatus.pending,
+      )
       .toList();
 }
 
@@ -89,11 +91,13 @@ class TransferNotifier extends Notifier<TransferState> {
 
   late final String _fingerprint;
   late final String _deviceName;
+  late final String _platform;
 
   @override
   TransferState build() {
     _fingerprint = _genId();
     _deviceName = _resolveDeviceName();
+    _platform = _resolvePlatform();
 
     ref.onDispose(() {
       _disposed = true;
@@ -115,6 +119,19 @@ class TransferNotifier extends Notifier<TransferState> {
     } catch (_) {
       return 'Watchtower';
     }
+  }
+
+  /// Short, lowercase OS tag shared with peers ("android", "windows", …).
+  static String _resolvePlatform() {
+    if (kIsWeb) return 'web';
+    try {
+      if (Platform.isAndroid) return 'android';
+      if (Platform.isIOS) return 'ios';
+      if (Platform.isWindows) return 'windows';
+      if (Platform.isMacOS) return 'macos';
+      if (Platform.isLinux) return 'linux';
+    } catch (_) {}
+    return 'unknown';
   }
 
   void _safeSet(TransferState Function(TransferState) updater) {
@@ -142,15 +159,16 @@ class TransferNotifier extends Notifier<TransferState> {
     final port = await _server!.start();
 
     _offerSub = _server!.offerStream.listen((incoming) {
-      _safeSet((s) => s.copyWith(
-            pendingOffers: [...s.pendingOffers, incoming],
-          ));
+      _safeSet(
+        (s) => s.copyWith(pendingOffers: [...s.pendingOffers, incoming]),
+      );
     });
 
     _discovery = TransferDiscovery(
       fingerprint: _fingerprint,
       deviceName: _deviceName,
       httpPort: port,
+      platform: _platform,
     );
     final localIp = await _discovery!.getLocalIp();
     await _discovery!.start();
@@ -158,10 +176,8 @@ class TransferNotifier extends Notifier<TransferState> {
     _peersSub = _discovery!.peersStream.listen((peers) {
       _safeSet((s) {
         // Remove catalog entries for peers no longer in the list
-        final activeFingerprints =
-            peers.map((p) => p.fingerprint).toSet();
-        final pruned = Map<String, List<PeerCatalogEntry>>.from(
-            s.peerCatalogs)
+        final activeFingerprints = peers.map((p) => p.fingerprint).toSet();
+        final pruned = Map<String, List<PeerCatalogEntry>>.from(s.peerCatalogs)
           ..removeWhere((k, _) => !activeFingerprints.contains(k));
         return s.copyWith(peers: peers, peerCatalogs: pruned);
       });
@@ -175,11 +191,13 @@ class TransferNotifier extends Notifier<TransferState> {
       }
     });
 
-    _safeSet((_) => TransferState(
-          mode: TransferMode.room,
-          serverPort: port,
-          localIp: localIp,
-        ));
+    _safeSet(
+      (_) => TransferState(
+        mode: TransferMode.room,
+        serverPort: port,
+        localIp: localIp,
+      ),
+    );
   }
 
   // ── Legacy send/receive ───────────────────────────────────────────────────
@@ -198,15 +216,16 @@ class TransferNotifier extends Notifier<TransferState> {
     final port = await _server!.start();
 
     _offerSub = _server!.offerStream.listen((incoming) {
-      _safeSet((s) => s.copyWith(
-            pendingOffers: [...s.pendingOffers, incoming],
-          ));
+      _safeSet(
+        (s) => s.copyWith(pendingOffers: [...s.pendingOffers, incoming]),
+      );
     });
 
     _discovery = TransferDiscovery(
       fingerprint: _fingerprint,
       deviceName: _deviceName,
       httpPort: port,
+      platform: _platform,
     );
     final localIp = await _discovery!.getLocalIp();
     await _discovery!.start();
@@ -215,11 +234,13 @@ class TransferNotifier extends Notifier<TransferState> {
       _safeSet((s) => s.copyWith(peers: peers));
     });
 
-    _safeSet((_) => TransferState(
-          mode: TransferMode.receiving,
-          serverPort: port,
-          localIp: localIp,
-        ));
+    _safeSet(
+      (_) => TransferState(
+        mode: TransferMode.receiving,
+        serverPort: port,
+        localIp: localIp,
+      ),
+    );
   }
 
   Future<void> startSending() async {
@@ -235,6 +256,7 @@ class TransferNotifier extends Notifier<TransferState> {
       fingerprint: _fingerprint,
       deviceName: _deviceName,
       httpPort: 0,
+      platform: _platform,
     );
     final localIp = await _discovery!.getLocalIp();
     await _discovery!.start();
@@ -249,10 +271,9 @@ class TransferNotifier extends Notifier<TransferState> {
       onProgress: _onProgress,
     );
 
-    _safeSet((_) => TransferState(
-          mode: TransferMode.sending,
-          localIp: localIp,
-        ));
+    _safeSet(
+      (_) => TransferState(mode: TransferMode.sending, localIp: localIp),
+    );
   }
 
   Future<void> sendFiles(PeerDevice peer, List<TransferFile> files) async {
@@ -310,26 +331,31 @@ class TransferNotifier extends Notifier<TransferState> {
       isSender: false,
       status: TransferStatus.inProgress,
     );
-    _safeSet((s) => s.copyWith(
-          pendingOffers: s.pendingOffers.where((o) => o != incoming).toList(),
-          sessions: [...s.sessions, session],
-        ));
+    _safeSet(
+      (s) => s.copyWith(
+        pendingOffers: s.pendingOffers.where((o) => o != incoming).toList(),
+        sessions: [...s.sessions, session],
+      ),
+    );
   }
 
   void rejectOffer(IncomingOffer incoming) {
     incoming.response.complete(false);
-    _safeSet((s) => s.copyWith(
-          pendingOffers: s.pendingOffers.where((o) => o != incoming).toList(),
-        ));
+    _safeSet(
+      (s) => s.copyWith(
+        pendingOffers: s.pendingOffers.where((o) => o != incoming).toList(),
+      ),
+    );
   }
 
   // ── Catalog fetch ─────────────────────────────────────────────────────────
 
   Future<void> fetchCatalog(PeerDevice peer) async {
     if (state.catalogsLoading.contains(peer.fingerprint)) return;
-    _safeSet((s) => s.copyWith(
-          catalogsLoading: {...s.catalogsLoading, peer.fingerprint},
-        ));
+    _safeSet(
+      (s) =>
+          s.copyWith(catalogsLoading: {...s.catalogsLoading, peer.fingerprint}),
+    );
 
     try {
       final client = HttpClient()
@@ -342,13 +368,13 @@ class TransferNotifier extends Notifier<TransferState> {
 
       if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
 
-      final list =
-          (jsonDecode(body) as List).cast<Map<String, dynamic>>();
+      final list = (jsonDecode(body) as List).cast<Map<String, dynamic>>();
       final entries = list.map(PeerCatalogEntry.fromJson).toList();
 
       _safeSet((s) {
-        final updated =
-            Map<String, List<PeerCatalogEntry>>.from(s.peerCatalogs);
+        final updated = Map<String, List<PeerCatalogEntry>>.from(
+          s.peerCatalogs,
+        );
         updated[peer.fingerprint] = entries;
         final loading = Set<String>.from(s.catalogsLoading)
           ..remove(peer.fingerprint);
@@ -367,8 +393,7 @@ class TransferNotifier extends Notifier<TransferState> {
   void refreshCatalog(PeerDevice peer) {
     _fetchedFingerprints.remove(peer.fingerprint);
     _safeSet((s) {
-      final updated =
-          Map<String, List<PeerCatalogEntry>>.from(s.peerCatalogs);
+      final updated = Map<String, List<PeerCatalogEntry>>.from(s.peerCatalogs);
       updated.remove(peer.fingerprint);
       return s.copyWith(peerCatalogs: updated);
     });
@@ -414,8 +439,9 @@ class TransferNotifier extends Notifier<TransferState> {
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 10)
         ..idleTimeout = const Duration(minutes: 30);
-      final uri =
-          Uri.parse('http://${peer.ip}:${peer.port}/file/${chapter.id}');
+      final uri = Uri.parse(
+        'http://${peer.ip}:${peer.port}/file/${chapter.id}',
+      );
       final req = await client.getUrl(uri);
       final res = await req.close();
       if (res.statusCode != 200) {
@@ -426,14 +452,14 @@ class TransferNotifier extends Notifier<TransferState> {
       final saveDir = await _saveDir();
       await saveDir.create(recursive: true);
 
-      String safeName =
-          chapter.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      String safeName = chapter.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       if (safeName.isEmpty) safeName = 'file_${chapter.id}';
       final savePath = p.join(saveDir.path, safeName);
 
       final sink = File(savePath).openWrite();
-      final contentLength =
-          int.tryParse(res.headers.value('content-length') ?? '');
+      final contentLength = int.tryParse(
+        res.headers.value('content-length') ?? '',
+      );
       var received = 0;
 
       await for (final chunk in res) {
@@ -455,8 +481,24 @@ class TransferNotifier extends Notifier<TransferState> {
   }
 
   static Future<Directory> _saveDir() async {
+    // Mirror TransferServer._resolveReceiveDir so pull downloads land next to
+    // push-received files and never fail when the shared storage permission is
+    // missing (fall back to the app-scoped external directory).
     if (!kIsWeb && Platform.isAndroid) {
-      return Directory('/storage/emulated/0/watchtower/received');
+      final shared = Directory('/storage/emulated/0/watchtower/received');
+      try {
+        await shared.create(recursive: true);
+        return shared;
+      } catch (_) {
+        final fallback = await getExternalStorageDirectory();
+        if (fallback != null) {
+          final dir = Directory(
+            p.join(fallback.path, 'watchtower', 'received'),
+          );
+          await dir.create(recursive: true);
+          return dir;
+        }
+      }
     }
     final docs = await getApplicationDocumentsDirectory();
     return Directory(p.join(docs.path, 'Watchtower', 'received'));
@@ -487,11 +529,12 @@ class TransferNotifier extends Notifier<TransferState> {
     final sessions = state.sessions.map((s) {
       if (s.id != sessionId) return s;
       s.fileProgress[fileId] = 1.0;
-      final allDone =
-          s.files.every((f) => (s.fileProgress[f.id] ?? 0) >= 1.0);
+      final allDone = s.files.every((f) => (s.fileProgress[f.id] ?? 0) >= 1.0);
       if (allDone) {
         return s.copyWith(
-            status: TransferStatus.done, completedAt: DateTime.now());
+          status: TransferStatus.done,
+          completedAt: DateTime.now(),
+        );
       }
       return s;
     }).toList();
@@ -528,5 +571,6 @@ class TransferNotifier extends Notifier<TransferState> {
 // Provider
 // ─────────────────────────────────────────────────────────────────────────────
 
-final transferProvider =
-    NotifierProvider<TransferNotifier, TransferState>(TransferNotifier.new);
+final transferProvider = NotifierProvider<TransferNotifier, TransferState>(
+  TransferNotifier.new,
+);

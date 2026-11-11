@@ -3957,4 +3957,176 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Downloads found';
+
+  @override
+  String get transfer_title => '共有ルーム';
+
+  @override
+  String get transfer_subtitle =>
+      '同じ WiFi ネットワーク上の他の端末とダウンロードを共有できます。インターネットは不要です。';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapters available to share',
+      one: '1 chapter available to share',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => 'ルームに参加';
+
+  @override
+  String get transfer_lan_only => 'LAN / ホットスポットのみ · 外部サーバーなし';
+
+  @override
+  String get transfer_devices_in_room => 'ルーム内の端末';
+
+  @override
+  String get transfer_active_downloads => '進行中のダウンロード';
+
+  @override
+  String get transfer_completed => '完了';
+
+  @override
+  String transfer_started_download(num count) {
+    return '$count 個のファイルのダウンロードを開始しました';
+  }
+
+  @override
+  String get transfer_local_room => 'ローカルルーム';
+
+  @override
+  String get transfer_active => 'アクティブ';
+
+  @override
+  String get transfer_my_device => 'この端末';
+
+  @override
+  String get transfer_me => '自分';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount 部',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount 話',
+    );
+    return '$_temp0 · $_temp1 共有';
+  }
+
+  @override
+  String get transfer_searching_devices => '端末を検索中…';
+
+  @override
+  String get transfer_same_wifi_hint => '他の端末と同じ WiFi またはホットスポットに接続してください。';
+
+  @override
+  String get transfer_loading_catalog => 'カタログを読み込み中…';
+
+  @override
+  String get transfer_catalog_unavailable => 'カタログを利用できません';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount 部',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount 話',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => '閲覧';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => '完了';
+
+  @override
+  String get transfer_status_failed => '失敗';
+
+  @override
+  String get transfer_catalog_empty => '空のカタログ';
+
+  @override
+  String get transfer_no_files => '利用可能なファイルがありません';
+
+  @override
+  String get transfer_select_chapters => 'チャプターを選択';
+
+  @override
+  String transfer_download_count(Object count) {
+    return 'ダウンロード（$count）';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => '小説';
+
+  @override
+  String get transfer_type_other => 'その他';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => '転送方法';
+
+  @override
+  String get transfer_howto_step1 => '両方の端末を同じ WiFi ネットワークまたはホットスポットに接続します。';
+
+  @override
+  String get transfer_howto_step2 =>
+      'もう一方の端末で ダウンロード → Transfert を開き、ルームに参加します。';
+
+  @override
+  String get transfer_howto_step3 => '端末をタップしてライブラリを閲覧し、チャプターを選んでダウンロードします。';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => '端末';
 }

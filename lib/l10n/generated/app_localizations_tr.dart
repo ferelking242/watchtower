@@ -3998,4 +3998,183 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Downloads found';
+
+  @override
+  String get transfer_title => 'Paylaşım odası';
+
+  @override
+  String get transfer_subtitle =>
+      'İndirmelerinizi aynı WiFi ağındaki diğer cihazlarla internet olmadan paylaşın.';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Paylaşılacak $count bölüm var',
+      one: 'Paylaşılacak 1 bölüm var',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => 'ODAYA KATIL';
+
+  @override
+  String get transfer_lan_only => 'Yalnızca LAN / hotspot · harici sunucu yok';
+
+  @override
+  String get transfer_devices_in_room => 'Odadaki cihazlar';
+
+  @override
+  String get transfer_active_downloads => 'Devam eden indirmeler';
+
+  @override
+  String get transfer_completed => 'Tamamlandı';
+
+  @override
+  String transfer_started_download(num count) {
+    return '$count dosyanın indirilmesi başladı';
+  }
+
+  @override
+  String get transfer_local_room => 'Yerel oda';
+
+  @override
+  String get transfer_active => 'ETKİN';
+
+  @override
+  String get transfer_my_device => 'Cihazım';
+
+  @override
+  String get transfer_me => 'Ben';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount manga',
+      one: '1 manga',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount bölüm',
+      one: '1 bölüm',
+    );
+    return '$_temp0 · $_temp1 paylaşıldı';
+  }
+
+  @override
+  String get transfer_searching_devices => 'Cihazlar aranıyor…';
+
+  @override
+  String get transfer_same_wifi_hint =>
+      'Diğer cihazlarla aynı WiFi veya hotspotta olduğunuzdan emin olun.';
+
+  @override
+  String get transfer_loading_catalog => 'Katalog yükleniyor…';
+
+  @override
+  String get transfer_catalog_unavailable => 'Katalog kullanılamıyor';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount manga',
+      one: '1 manga',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount bölüm',
+      one: '1 bölüm',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => 'Gözat';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => 'Tamamlandı';
+
+  @override
+  String get transfer_status_failed => 'Başarısız';
+
+  @override
+  String get transfer_catalog_empty => 'Boş katalog';
+
+  @override
+  String get transfer_no_files => 'Kullanılabilir dosya yok';
+
+  @override
+  String get transfer_select_chapters => 'Bölümleri seç';
+
+  @override
+  String transfer_download_count(Object count) {
+    return 'İndir ($count)';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => 'ROMAN';
+
+  @override
+  String get transfer_type_other => 'DİĞER';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => 'Nasıl aktarılır';
+
+  @override
+  String get transfer_howto_step1 =>
+      'Her iki cihazı da aynı WiFi ağına veya hotspotta bağlayın.';
+
+  @override
+  String get transfer_howto_step2 =>
+      'Diğer cihazda İndirmeler → Transfert yolunu açıp odaya katılın.';
+
+  @override
+  String get transfer_howto_step3 =>
+      'Kitaplığına göz atmak için bir cihaza dokunun, bölümleri seçip indirin.';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => 'Cihaz';
 }

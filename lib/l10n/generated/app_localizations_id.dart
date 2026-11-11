@@ -3995,4 +3995,180 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Downloads found';
+
+  @override
+  String get transfer_title => 'Ruang berbagi';
+
+  @override
+  String get transfer_subtitle =>
+      'Bagikan unduhan Anda dengan perangkat lain di jaringan WiFi yang sama, tanpa internet.';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapters available to share',
+      one: '1 chapter available to share',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => 'GABUNG RUANG';
+
+  @override
+  String get transfer_lan_only =>
+      'Hanya LAN / hotspot · tanpa server eksternal';
+
+  @override
+  String get transfer_devices_in_room => 'Perangkat di ruang';
+
+  @override
+  String get transfer_active_downloads => 'Unduhan berlangsung';
+
+  @override
+  String get transfer_completed => 'Selesai';
+
+  @override
+  String transfer_started_download(num count) {
+    return 'Unduhan $count berkas dimulai';
+  }
+
+  @override
+  String get transfer_local_room => 'Ruang lokal';
+
+  @override
+  String get transfer_active => 'AKTIF';
+
+  @override
+  String get transfer_my_device => 'Perangkat saya';
+
+  @override
+  String get transfer_me => 'Saya';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount manga',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount bab',
+    );
+    return '$_temp0 · $_temp1 dibagikan';
+  }
+
+  @override
+  String get transfer_searching_devices => 'Mencari perangkat…';
+
+  @override
+  String get transfer_same_wifi_hint =>
+      'Pastikan berada di WiFi atau hotspot yang sama dengan perangkat lain.';
+
+  @override
+  String get transfer_loading_catalog => 'Memuat katalog…';
+
+  @override
+  String get transfer_catalog_unavailable => 'Katalog tidak tersedia';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount manga',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount bab',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => 'Jelajahi';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => 'Selesai';
+
+  @override
+  String get transfer_status_failed => 'Gagal';
+
+  @override
+  String get transfer_catalog_empty => 'Katalog kosong';
+
+  @override
+  String get transfer_no_files => 'Tidak ada berkas tersedia';
+
+  @override
+  String get transfer_select_chapters => 'Pilih bab';
+
+  @override
+  String transfer_download_count(Object count) {
+    return 'Unduh ($count)';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => 'NOVEL';
+
+  @override
+  String get transfer_type_other => 'LAINNYA';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => 'Cara mentransfer';
+
+  @override
+  String get transfer_howto_step1 =>
+      'Hubungkan kedua perangkat ke jaringan WiFi atau hotspot yang sama.';
+
+  @override
+  String get transfer_howto_step2 =>
+      'Di perangkat lain, buka Unduhan → Transfert dan gabung ke ruang.';
+
+  @override
+  String get transfer_howto_step3 =>
+      'Ketuk perangkat untuk menjelajahi pustakanya, pilih bab, lalu unduh.';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => 'Perangkat';
 }

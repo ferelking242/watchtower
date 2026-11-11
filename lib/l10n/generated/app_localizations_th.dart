@@ -3986,4 +3986,180 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Downloads found';
+
+  @override
+  String get transfer_title => 'ห้องแชร์';
+
+  @override
+  String get transfer_subtitle =>
+      'แชร์ดาวน์โหลดของคุณกับอุปกรณ์อื่นบนเครือข่าย WiFi เดียวกัน โดยไม่ต้องใช้อินเทอร์เน็ต';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapters available to share',
+      one: '1 chapter available to share',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => 'เข้าร่วมห้อง';
+
+  @override
+  String get transfer_lan_only =>
+      'เฉพาะ LAN / ฮอตสปอต · ไม่มีเซิร์ฟเวอร์ภายนอก';
+
+  @override
+  String get transfer_devices_in_room => 'อุปกรณ์ในห้อง';
+
+  @override
+  String get transfer_active_downloads => 'ดาวน์โหลดที่กำลังดำเนินการ';
+
+  @override
+  String get transfer_completed => 'เสร็จสิ้น';
+
+  @override
+  String transfer_started_download(num count) {
+    return 'เริ่มดาวน์โหลด $count ไฟล์แล้ว';
+  }
+
+  @override
+  String get transfer_local_room => 'ห้องในเครื่อง';
+
+  @override
+  String get transfer_active => 'ใช้งานอยู่';
+
+  @override
+  String get transfer_my_device => 'อุปกรณ์ของฉัน';
+
+  @override
+  String get transfer_me => 'ฉัน';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount เรื่อง',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount ตอน',
+    );
+    return '$_temp0 · $_temp1 แชร์';
+  }
+
+  @override
+  String get transfer_searching_devices => 'กำลังค้นหาอุปกรณ์…';
+
+  @override
+  String get transfer_same_wifi_hint =>
+      'ตรวจสอบว่าคุณอยู่ใน WiFi หรือฮอตสปอตเดียวกับอุปกรณ์อื่น';
+
+  @override
+  String get transfer_loading_catalog => 'กำลังโหลดแคตตาล็อก…';
+
+  @override
+  String get transfer_catalog_unavailable => 'แคตตาล็อกไม่พร้อมใช้งาน';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount เรื่อง',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount ตอน',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => 'เรียกดู';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => 'เสร็จสิ้น';
+
+  @override
+  String get transfer_status_failed => 'ล้มเหลว';
+
+  @override
+  String get transfer_catalog_empty => 'แคตตาล็อกว่างเปล่า';
+
+  @override
+  String get transfer_no_files => 'ไม่มีไฟล์ที่ใช้ได้';
+
+  @override
+  String get transfer_select_chapters => 'เลือกตอน';
+
+  @override
+  String transfer_download_count(Object count) {
+    return 'ดาวน์โหลด ($count)';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => 'นิยาย';
+
+  @override
+  String get transfer_type_other => 'อื่น ๆ';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => 'วิธีถ่ายโอน';
+
+  @override
+  String get transfer_howto_step1 =>
+      'เชื่อมต่อทั้งสองอุปกรณ์กับเครือข่าย WiFi หรือฮอตสปอตเดียวกัน';
+
+  @override
+  String get transfer_howto_step2 =>
+      'บนอุปกรณ์อีกเครื่อง เปิด ดาวน์โหลด → Transfert แล้วเข้าร่วมห้อง';
+
+  @override
+  String get transfer_howto_step3 =>
+      'แตะที่อุปกรณ์เพื่อเรียกดูคลัง เลือกตอน แล้วดาวน์โหลด';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => 'อุปกรณ์';
 }

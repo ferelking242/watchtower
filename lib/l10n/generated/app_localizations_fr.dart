@@ -4033,4 +4033,190 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Téléchargements trouvés';
+
+  @override
+  String get transfer_title => 'Salle de partage';
+
+  @override
+  String get transfer_subtitle =>
+      'Partagez vos téléchargements avec d\'autres appareils sur le même réseau WiFi, sans internet.';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapitres disponibles à partager',
+      one: '1 chapitre disponible à partager',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => 'REJOINDRE LA SALLE';
+
+  @override
+  String get transfer_lan_only =>
+      'LAN / Hotspot uniquement · aucun serveur externe';
+
+  @override
+  String get transfer_devices_in_room => 'Appareils dans la salle';
+
+  @override
+  String get transfer_active_downloads => 'Téléchargements en cours';
+
+  @override
+  String get transfer_completed => 'Terminés';
+
+  @override
+  String transfer_started_download(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Téléchargement de $count fichiers démarré',
+      one: 'Téléchargement de 1 fichier démarré',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_local_room => 'Salle locale';
+
+  @override
+  String get transfer_active => 'ACTIF';
+
+  @override
+  String get transfer_my_device => 'Mon appareil';
+
+  @override
+  String get transfer_me => 'Moi';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount mangas',
+      one: '1 manga',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount chapitres',
+      one: '1 chapitre',
+    );
+    return '$_temp0 · $_temp1 partagés';
+  }
+
+  @override
+  String get transfer_searching_devices => 'Recherche d\'appareils…';
+
+  @override
+  String get transfer_same_wifi_hint =>
+      'Assurez-vous d\'être sur le même WiFi ou hotspot que les autres appareils.';
+
+  @override
+  String get transfer_loading_catalog => 'Chargement du catalogue…';
+
+  @override
+  String get transfer_catalog_unavailable => 'Catalogue non disponible';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount mangas',
+      one: '1 manga',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount chapitres',
+      one: '1 chapitre',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => 'Parcourir';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fichiers',
+      one: '1 fichier',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => 'Terminé';
+
+  @override
+  String get transfer_status_failed => 'Échec';
+
+  @override
+  String get transfer_catalog_empty => 'Catalogue vide';
+
+  @override
+  String get transfer_no_files => 'Aucun fichier disponible';
+
+  @override
+  String get transfer_select_chapters => 'Sélectionner des chapitres';
+
+  @override
+  String transfer_download_count(Object count) {
+    return 'Télécharger ($count)';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => 'ROMAN';
+
+  @override
+  String get transfer_type_other => 'AUTRE';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => 'Comment transférer';
+
+  @override
+  String get transfer_howto_step1 =>
+      'Connectez les deux appareils au même réseau WiFi ou hotspot.';
+
+  @override
+  String get transfer_howto_step2 =>
+      'Sur l\'autre appareil, ouvrez Téléchargements → Transfert et rejoignez la salle.';
+
+  @override
+  String get transfer_howto_step3 =>
+      'Touchez un appareil pour parcourir sa bibliothèque, choisissez des chapitres puis téléchargez.';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => 'Appareil';
 }

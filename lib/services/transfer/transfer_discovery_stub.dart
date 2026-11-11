@@ -7,11 +7,13 @@ class TransferDiscovery {
   final String fingerprint;
   final String deviceName;
   final int httpPort;
+  final String platform;
 
   TransferDiscovery({
     required this.fingerprint,
     required this.deviceName,
     required this.httpPort,
+    this.platform = '',
   });
 
   final _ctrl = StreamController<List<PeerDevice>>.broadcast();

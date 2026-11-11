@@ -1,4 +1,3 @@
-
 enum TransferMode { idle, room, receiving, sending }
 
 enum TransferStatus { pending, accepted, rejected, inProgress, done, failed }
@@ -12,12 +11,18 @@ class PeerDevice {
   final int port;
   DateTime seenAt;
 
+  /// Reported operating system of the peer ("android", "windows", "macos",
+  /// "linux", "ios", "web", …). Used to label each device so a user knows what
+  /// they are transferring to. Empty when the peer is too old to report it.
+  final String platform;
+
   PeerDevice({
     required this.fingerprint,
     required this.name,
     required this.ip,
     required this.port,
     required this.seenAt,
+    this.platform = '',
   });
 
   bool get isStale => DateTime.now().difference(seenAt).inSeconds > 8;
@@ -46,18 +51,18 @@ class TransferFile {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'size': size,
-        'type': type.name,
-      };
+    'id': id,
+    'name': name,
+    'size': size,
+    'type': type.name,
+  };
 
   factory TransferFile.fromJson(Map<String, dynamic> j) => TransferFile(
-        id: j['id'] as String,
-        name: j['name'] as String,
-        size: (j['size'] as num).toInt(),
-        type: TransferItemType.values.byName((j['type'] as String?) ?? 'other'),
-      );
+    id: j['id'] as String,
+    name: j['name'] as String,
+    size: (j['size'] as num).toInt(),
+    type: TransferItemType.values.byName((j['type'] as String?) ?? 'other'),
+  );
 
   String get sizeLabel {
     if (size < 1024) return '$size B';
@@ -70,11 +75,13 @@ class TransferFile {
 
   static TransferItemType typeFromExtension(String filePath) {
     final ext = filePath.toLowerCase().split('.').last;
-    if (['cbz', 'cbr', 'zip', 'pdf'].contains(ext)) return TransferItemType.manga;
+    if (['cbz', 'cbr', 'zip', 'pdf'].contains(ext))
+      return TransferItemType.manga;
     if (['mp4', 'mkv', 'avi', 'webm', 'm4v'].contains(ext)) {
       return TransferItemType.anime;
     }
-    if (['epub', 'fb2', 'mobi', 'txt'].contains(ext)) return TransferItemType.novel;
+    if (['epub', 'fb2', 'mobi', 'txt'].contains(ext))
+      return TransferItemType.novel;
     return TransferItemType.other;
   }
 }
@@ -123,8 +130,8 @@ class TransferSession {
     DateTime? startedAt,
     Map<String, double>? fileProgress,
     this.completedAt,
-  })  : fileProgress = fileProgress ?? {for (final f in files) f.id: 0.0},
-        startedAt = startedAt ?? DateTime.now();
+  }) : fileProgress = fileProgress ?? {for (final f in files) f.id: 0.0},
+       startedAt = startedAt ?? DateTime.now();
 
   double get totalProgress {
     if (files.isEmpty) return 0;
@@ -163,15 +170,16 @@ class PeerCatalogEntry {
   });
 
   factory PeerCatalogEntry.fromJson(Map<String, dynamic> j) => PeerCatalogEntry(
-        mangaName: j['mangaName'] as String? ?? '—',
-        imageUrl: j['imageUrl'] as String?,
-        itemType: TransferItemType.values.byName(
-            (j['itemType'] as String?) ?? 'manga'),
-        chapters: ((j['chapters'] as List?) ?? [])
-            .cast<Map<String, dynamic>>()
-            .map(PeerCatalogChapter.fromJson)
-            .toList(),
-      );
+    mangaName: j['mangaName'] as String? ?? '—',
+    imageUrl: j['imageUrl'] as String?,
+    itemType: TransferItemType.values.byName(
+      (j['itemType'] as String?) ?? 'manga',
+    ),
+    chapters: ((j['chapters'] as List?) ?? [])
+        .cast<Map<String, dynamic>>()
+        .map(PeerCatalogChapter.fromJson)
+        .toList(),
+  );
 
   int get totalSize => chapters.fold(0, (s, c) => s + c.size);
 }
@@ -194,8 +202,7 @@ class PeerCatalogChapter {
         id: j['id'] as String,
         name: j['name'] as String? ?? '—',
         size: (j['size'] as num).toInt(),
-        type: TransferItemType.values.byName(
-            (j['type'] as String?) ?? 'manga'),
+        type: TransferItemType.values.byName((j['type'] as String?) ?? 'manga'),
       );
 
   String get sizeLabel {

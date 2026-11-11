@@ -3919,4 +3919,174 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Downloads found';
+
+  @override
+  String get transfer_title => '共享房间';
+
+  @override
+  String get transfer_subtitle => '在同一 WiFi 网络下与其他设备共享你的下载，无需互联网。';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapters available to share',
+      one: '1 chapter available to share',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => '加入房间';
+
+  @override
+  String get transfer_lan_only => '仅局域网 / 热点 · 无外部服务器';
+
+  @override
+  String get transfer_devices_in_room => '房间内的设备';
+
+  @override
+  String get transfer_active_downloads => '进行中的下载';
+
+  @override
+  String get transfer_completed => '已完成';
+
+  @override
+  String transfer_started_download(num count) {
+    return '已开始下载 $count 个文件';
+  }
+
+  @override
+  String get transfer_local_room => '本地房间';
+
+  @override
+  String get transfer_active => '活动';
+
+  @override
+  String get transfer_my_device => '我的设备';
+
+  @override
+  String get transfer_me => '我';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount 部漫画',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount 个章节',
+    );
+    return '$_temp0 · $_temp1 已共享';
+  }
+
+  @override
+  String get transfer_searching_devices => '正在搜索设备…';
+
+  @override
+  String get transfer_same_wifi_hint => '请确保与其他设备连接到同一 WiFi 或热点。';
+
+  @override
+  String get transfer_loading_catalog => '正在加载目录…';
+
+  @override
+  String get transfer_catalog_unavailable => '目录不可用';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount 部漫画',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount 个章节',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => '浏览';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => '已完成';
+
+  @override
+  String get transfer_status_failed => '失败';
+
+  @override
+  String get transfer_catalog_empty => '空目录';
+
+  @override
+  String get transfer_no_files => '没有可用的文件';
+
+  @override
+  String get transfer_select_chapters => '选择章节';
+
+  @override
+  String transfer_download_count(Object count) {
+    return '下载（$count）';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => '小说';
+
+  @override
+  String get transfer_type_other => '其他';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => '如何传输';
+
+  @override
+  String get transfer_howto_step1 => '将两台设备连接到同一 WiFi 网络或热点。';
+
+  @override
+  String get transfer_howto_step2 => '在另一台设备上，打开 下载 → Transfert 并加入房间。';
+
+  @override
+  String get transfer_howto_step3 => '点击设备浏览其库，选择章节后下载。';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => '设备';
 }

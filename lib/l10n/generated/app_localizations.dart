@@ -7120,6 +7120,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Downloads found'**
   String get migDetectedDownloads;
+
+  /// Title of the local transfer / share room screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Share room'**
+  String get transfer_title;
+
+  /// Lobby subtitle explaining local sharing.
+  ///
+  /// In en, this message translates to:
+  /// **'Share your downloads with other devices on the same WiFi network, without internet.'**
+  String get transfer_subtitle;
+
+  /// Count of chapters available to share.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 chapter available to share} other{{count} chapters available to share}}'**
+  String transfer_chapters_available(num count);
+
+  /// Button that joins the local share room.
+  ///
+  /// In en, this message translates to:
+  /// **'JOIN THE ROOM'**
+  String get transfer_join_room;
+
+  /// Reassurance that transfer stays on the local network.
+  ///
+  /// In en, this message translates to:
+  /// **'LAN / Hotspot only · no external server'**
+  String get transfer_lan_only;
+
+  /// Section header listing discovered devices.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices in the room'**
+  String get transfer_devices_in_room;
+
+  /// Section header for in-progress transfers.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads in progress'**
+  String get transfer_active_downloads;
+
+  /// Section header for finished transfers.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get transfer_completed;
+
+  /// Snackbar confirming a transfer started.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Download of 1 file started} other{Download of {count} files started}}'**
+  String transfer_started_download(num count);
+
+  /// Title of the local room top bar.
+  ///
+  /// In en, this message translates to:
+  /// **'Local room'**
+  String get transfer_local_room;
+
+  /// Badge showing the room is live.
+  ///
+  /// In en, this message translates to:
+  /// **'ACTIVE'**
+  String get transfer_active;
+
+  /// Label of the current device card.
+  ///
+  /// In en, this message translates to:
+  /// **'My device'**
+  String get transfer_my_device;
+
+  /// Small badge marking the current device.
+  ///
+  /// In en, this message translates to:
+  /// **'Me'**
+  String get transfer_me;
+
+  /// Summary of what this device shares.
+  ///
+  /// In en, this message translates to:
+  /// **'{mangaCount, plural, =1{1 manga} other{{mangaCount} mangas}} · {chapterCount, plural, =1{1 chapter} other{{chapterCount} chapters}} shared'**
+  String transfer_shared_summary(num mangaCount, num chapterCount);
+
+  /// Empty-state title while discovering peers.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching for devices…'**
+  String get transfer_searching_devices;
+
+  /// Empty-state hint about the network.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure you are on the same WiFi or hotspot as the other devices.'**
+  String get transfer_same_wifi_hint;
+
+  /// Loading indicator for a peer catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading catalogue…'**
+  String get transfer_loading_catalog;
+
+  /// Shown when a peer catalogue cannot be read.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalogue unavailable'**
+  String get transfer_catalog_unavailable;
+
+  /// Peer catalogue counts.
+  ///
+  /// In en, this message translates to:
+  /// **'{mangaCount, plural, =1{1 manga} other{{mangaCount} mangas}} · {chapterCount, plural, =1{1 chapter} other{{chapterCount} chapters}}'**
+  String transfer_catalog_summary(num mangaCount, num chapterCount);
+
+  /// Button opening a peer catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse'**
+  String get transfer_browse;
+
+  /// Number of files in a transfer session.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 file} other{{count} files}}'**
+  String transfer_file_count(num count);
+
+  /// Transfer finished successfully.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get transfer_status_done;
+
+  /// Transfer failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get transfer_status_failed;
+
+  /// Peer catalogue header when empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty catalogue'**
+  String get transfer_catalog_empty;
+
+  /// Empty-state when a peer has nothing to share.
+  ///
+  /// In en, this message translates to:
+  /// **'No files available'**
+  String get transfer_no_files;
+
+  /// Hint prompting chapter selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Select chapters'**
+  String get transfer_select_chapters;
+
+  /// Download button with a selection count.
+  ///
+  /// In en, this message translates to:
+  /// **'Download ({count})'**
+  String transfer_download_count(Object count);
+
+  /// Badge for anime items.
+  ///
+  /// In en, this message translates to:
+  /// **'ANIME'**
+  String get transfer_type_anime;
+
+  /// Badge for novel items.
+  ///
+  /// In en, this message translates to:
+  /// **'NOVEL'**
+  String get transfer_type_novel;
+
+  /// Badge for other items.
+  ///
+  /// In en, this message translates to:
+  /// **'OTHER'**
+  String get transfer_type_other;
+
+  /// Badge for manga items.
+  ///
+  /// In en, this message translates to:
+  /// **'MANGA'**
+  String get transfer_type_manga;
+
+  /// Title of the cross-device transfer instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'How to transfer'**
+  String get transfer_howto_title;
+
+  /// Instruction step 1.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect both devices to the same WiFi network or hotspot.'**
+  String get transfer_howto_step1;
+
+  /// Instruction step 2.
+  ///
+  /// In en, this message translates to:
+  /// **'On the other device, open Downloads → Transfert and join the room.'**
+  String get transfer_howto_step2;
+
+  /// Instruction step 3.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a device to browse its library, pick chapters, then download.'**
+  String get transfer_howto_step3;
+
+  /// Android device label.
+  ///
+  /// In en, this message translates to:
+  /// **'Android'**
+  String get transfer_platform_android;
+
+  /// iOS device label.
+  ///
+  /// In en, this message translates to:
+  /// **'iPhone / iPad'**
+  String get transfer_platform_ios;
+
+  /// Windows device label.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows'**
+  String get transfer_platform_windows;
+
+  /// macOS device label.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS'**
+  String get transfer_platform_macos;
+
+  /// Linux device label.
+  ///
+  /// In en, this message translates to:
+  /// **'Linux'**
+  String get transfer_platform_linux;
+
+  /// Web device label.
+  ///
+  /// In en, this message translates to:
+  /// **'Web'**
+  String get transfer_platform_web;
+
+  /// Fallback device label.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get transfer_platform_unknown;
 }
 
 class _AppLocalizationsDelegate

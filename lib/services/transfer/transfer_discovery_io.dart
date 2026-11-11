@@ -13,6 +13,10 @@ class TransferDiscovery {
   final String deviceName;
   final int httpPort;
 
+  /// OS of this device, shared with peers so they can show a device-type icon
+  /// ("windows", "android", "macos", "linux", "ios", "web").
+  final String platform;
+
   RawDatagramSocket? _socket;
   Timer? _broadcastTimer;
   Timer? _staleTimer;
@@ -22,12 +26,14 @@ class TransferDiscovery {
   final _peers = <String, PeerDevice>{};
 
   Stream<List<PeerDevice>> get peersStream => _ctrl.stream;
-  List<PeerDevice> get currentPeers => List.unmodifiable(_peers.values.toList());
+  List<PeerDevice> get currentPeers =>
+      List.unmodifiable(_peers.values.toList());
 
   TransferDiscovery({
     required this.fingerprint,
     required this.deviceName,
     required this.httpPort,
+    this.platform = '',
   });
 
   Future<String?> getLocalIp() async {
@@ -84,22 +90,25 @@ class TransferDiscovery {
       debugPrint('[Discovery] bind error: $e');
     }
 
-    _broadcastTimer =
-        Timer.periodic(const Duration(seconds: 2), (_) => _broadcast());
+    _broadcastTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _broadcast(),
+    );
     _broadcast();
-    _staleTimer =
-        Timer.periodic(const Duration(seconds: 5), (_) => _evictStale());
+    _staleTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _evictStale(),
+    );
   }
 
   void _broadcast() {
     if (_socket == null || _localIp == null) return;
-    final msg = '$_kMagic\t$fingerprint\t$deviceName\t$_localIp\t$httpPort';
+    // Tabs and newlines would corrupt the tab-separated datagram format.
+    final safeName = deviceName.replaceAll(RegExp(r'[\t\r\n]'), ' ').trim();
+    final msg =
+        '$_kMagic\t$fingerprint\t$safeName\t$_localIp\t$httpPort\t$platform';
     try {
-      _socket!.send(
-        msg.codeUnits,
-        InternetAddress('255.255.255.255'),
-        _kPort,
-      );
+      _socket!.send(msg.codeUnits, InternetAddress('255.255.255.255'), _kPort);
     } catch (_) {}
   }
 
@@ -112,6 +121,8 @@ class TransferDiscovery {
       final name = parts[2];
       final ip = parts[3];
       final port = int.tryParse(parts[4]) ?? 0;
+      // Platform is optional: peers on older builds omit it.
+      final platform = parts.length >= 6 ? parts[5] : '';
       if (fp == fingerprint) return;
 
       final existed = _peers.containsKey(fp);
@@ -121,6 +132,7 @@ class TransferDiscovery {
         ip: ip,
         port: port,
         seenAt: DateTime.now(),
+        platform: platform,
       );
       if (!existed && !_ctrl.isClosed) {
         _ctrl.add(currentPeers);

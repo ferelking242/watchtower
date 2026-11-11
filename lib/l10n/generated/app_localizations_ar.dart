@@ -3994,4 +3994,190 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Downloads found';
+
+  @override
+  String get transfer_title => 'غرفة المشاركة';
+
+  @override
+  String get transfer_subtitle =>
+      'شارك تنزيلاتك مع أجهزة أخرى على نفس شبكة WiFi، دون إنترنت.';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count فصول متاحة للمشاركة',
+      one: 'فصل واحد متاح للمشاركة',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => 'انضم إلى الغرفة';
+
+  @override
+  String get transfer_lan_only =>
+      'شبكة محلية / نقطة اتصال فقط · بدون خادم خارجي';
+
+  @override
+  String get transfer_devices_in_room => 'الأجهزة في الغرفة';
+
+  @override
+  String get transfer_active_downloads => 'التنزيلات الجارية';
+
+  @override
+  String get transfer_completed => 'مكتملة';
+
+  @override
+  String transfer_started_download(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'بدأ تنزيل $count ملفات',
+      one: 'بدأ تنزيل ملف واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_local_room => 'غرفة محلية';
+
+  @override
+  String get transfer_active => 'نشط';
+
+  @override
+  String get transfer_my_device => 'جهازي';
+
+  @override
+  String get transfer_me => 'أنا';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount مانغا',
+      one: 'مانغا واحد',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount فصول',
+      one: 'فصل واحد',
+    );
+    return '$_temp0 · $_temp1 مشتركة';
+  }
+
+  @override
+  String get transfer_searching_devices => 'جارٍ البحث عن الأجهزة…';
+
+  @override
+  String get transfer_same_wifi_hint =>
+      'تأكد من أن جميع الأجهزة على نفس شبكة WiFi أو نقطة الاتصال.';
+
+  @override
+  String get transfer_loading_catalog => 'جارٍ تحميل الكتالوج…';
+
+  @override
+  String get transfer_catalog_unavailable => 'الكتالوج غير متاح';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount مانغا',
+      one: 'مانغا واحد',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount فصول',
+      one: 'فصل واحد',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => 'استعراض';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => 'مكتمل';
+
+  @override
+  String get transfer_status_failed => 'فشل';
+
+  @override
+  String get transfer_catalog_empty => 'كتالوج فارغ';
+
+  @override
+  String get transfer_no_files => 'لا توجد ملفات متاحة';
+
+  @override
+  String get transfer_select_chapters => 'اختر الفصول';
+
+  @override
+  String transfer_download_count(Object count) {
+    return 'تنزيل ($count)';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => 'رواية';
+
+  @override
+  String get transfer_type_other => 'أخرى';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => 'كيفية النقل';
+
+  @override
+  String get transfer_howto_step1 =>
+      'وصّل كلا الجهازين بنفس شبكة WiFi أو نقطة الاتصال.';
+
+  @override
+  String get transfer_howto_step2 =>
+      'على الجهاز الآخر، افتح التنزيلات → Transfert وانضم إلى الغرفة.';
+
+  @override
+  String get transfer_howto_step3 =>
+      'اضغط على جهاز لاستعراض مكتبته، اختر الفصول ثم نزّل.';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => 'جهاز';
 }

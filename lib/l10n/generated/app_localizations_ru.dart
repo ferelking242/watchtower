@@ -4025,4 +4025,190 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get migDetectedDownloads => 'Downloads found';
+
+  @override
+  String get transfer_title => 'Комната обмена';
+
+  @override
+  String get transfer_subtitle =>
+      'Делитесь загрузками с другими устройствами в той же сети WiFi, без интернета.';
+
+  @override
+  String transfer_chapters_available(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count глав доступно для обмена',
+      one: '1 глава доступна для обмена',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_join_room => 'ПРИСОЕДИНИТЬСЯ К КОМНАТЕ';
+
+  @override
+  String get transfer_lan_only =>
+      'Только LAN / точка доступа · без внешнего сервера';
+
+  @override
+  String get transfer_devices_in_room => 'Устройства в комнате';
+
+  @override
+  String get transfer_active_downloads => 'Загрузки в процессе';
+
+  @override
+  String get transfer_completed => 'Завершено';
+
+  @override
+  String transfer_started_download(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Начата загрузка $count файлов',
+      one: 'Начата загрузка 1 файла',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_local_room => 'Локальная комната';
+
+  @override
+  String get transfer_active => 'АКТИВНО';
+
+  @override
+  String get transfer_my_device => 'Моё устройство';
+
+  @override
+  String get transfer_me => 'Я';
+
+  @override
+  String transfer_shared_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount манги',
+      one: '1 манга',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount глав',
+      one: '1 глава',
+    );
+    return '$_temp0 · $_temp1 доступно';
+  }
+
+  @override
+  String get transfer_searching_devices => 'Поиск устройств…';
+
+  @override
+  String get transfer_same_wifi_hint =>
+      'Убедитесь, что все устройства в одной сети WiFi или точке доступа.';
+
+  @override
+  String get transfer_loading_catalog => 'Загрузка каталога…';
+
+  @override
+  String get transfer_catalog_unavailable => 'Каталог недоступен';
+
+  @override
+  String transfer_catalog_summary(num mangaCount, num chapterCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      mangaCount,
+      locale: localeName,
+      other: '$mangaCount манги',
+      one: '1 манга',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      chapterCount,
+      locale: localeName,
+      other: '$chapterCount глав',
+      one: '1 глава',
+    );
+    return '$_temp0 · $_temp1';
+  }
+
+  @override
+  String get transfer_browse => 'Обзор';
+
+  @override
+  String transfer_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count files',
+      one: '1 file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get transfer_status_done => 'Завершено';
+
+  @override
+  String get transfer_status_failed => 'Ошибка';
+
+  @override
+  String get transfer_catalog_empty => 'Пустой каталог';
+
+  @override
+  String get transfer_no_files => 'Нет доступных файлов';
+
+  @override
+  String get transfer_select_chapters => 'Выбрать главы';
+
+  @override
+  String transfer_download_count(Object count) {
+    return 'Скачать ($count)';
+  }
+
+  @override
+  String get transfer_type_anime => 'ANIME';
+
+  @override
+  String get transfer_type_novel => 'РОМАН';
+
+  @override
+  String get transfer_type_other => 'ДРУГОЕ';
+
+  @override
+  String get transfer_type_manga => 'MANGA';
+
+  @override
+  String get transfer_howto_title => 'Как передавать';
+
+  @override
+  String get transfer_howto_step1 =>
+      'Подключите оба устройства к одной сети WiFi или точке доступа.';
+
+  @override
+  String get transfer_howto_step2 =>
+      'На другом устройстве откройте Загрузки → Transfert и войдите в комнату.';
+
+  @override
+  String get transfer_howto_step3 =>
+      'Нажмите на устройство, чтобы открыть его библиотеку, выберите главы и скачайте.';
+
+  @override
+  String get transfer_platform_android => 'Android';
+
+  @override
+  String get transfer_platform_ios => 'iPhone / iPad';
+
+  @override
+  String get transfer_platform_windows => 'Windows';
+
+  @override
+  String get transfer_platform_macos => 'macOS';
+
+  @override
+  String get transfer_platform_linux => 'Linux';
+
+  @override
+  String get transfer_platform_web => 'Web';
+
+  @override
+  String get transfer_platform_unknown => 'Устройство';
 }

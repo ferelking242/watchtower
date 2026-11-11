@@ -27,6 +27,8 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_tree_connector.dart';
+import 'package:watchtower/modules/transfer/transfer_screen.dart'
+    show showTransferPanel;
 
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
@@ -214,7 +216,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             actions: [
               // ── Transfert pill — solid gradient, MovieBox style ─────────
               GestureDetector(
-                onTap: () => context.push('/transfer'),
+                onTap: () => showTransferPanel(context),
                 child: Container(
                   margin: const EdgeInsets.only(right: 12),
                   padding: const EdgeInsets.symmetric(
