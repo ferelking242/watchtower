@@ -567,13 +567,15 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      # flutter_inappwebview_macos 1.2.0-beta.3 predates the @MainActor
-      # annotation that current SDKs put on ASWebAuthenticationPresentationContextProviding.
-      # Add @MainActor but keep the 10.15 availability: ASWebAuthenticationSession
-      # itself is 10.15+, so a lower floor fails to compile.
+      # flutter_inappwebview_macos 1.2.0-beta.3 declares conformance to
+      # ASWebAuthenticationPresentationContextProviding with a presentationAnchor
+      # method marked @available(macOS 10.15, *). Newer SDKs reject that: the
+      # protocol requirement is 10.14, so a 10.15 method cannot witness it.
+      # Move the conformance into a @available(macOS 10.15, *) extension instead,
+      # which is the supported way to satisfy a protocol from a newer OS.
       - name: Patch macOS plugins for current Xcode
         run: |
-          AUTH_SOURCE="$(find ~/.pub-cache/hosted/pub.dev -path '*/flutter_inappwebview_macos-*/macos/flutter_inappwebview_macos/Sources/flutter_inappwebview_macos/WebAuthenticationSession/WebAuthenticationSession.swift' -print -quit)"
+          AUTH_SOURCE="$(find ~/.pub-cache -path '*flutter_inappwebview_macos*' -name 'WebAuthenticationSession.swift' -print -quit)"
           test -n "$AUTH_SOURCE"
           python3 - "$AUTH_SOURCE" <<'PY'
           from pathlib import Path
@@ -582,12 +584,35 @@ jobs:
 
           source = Path(sys.argv[1])
           text = source.read_text()
-          method = "    @available(macOS 10.15, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
-          pattern = r"(?m)^[ \t]*(?:@available\(macOS \d+\.\d+, \*\)[ \t]*\n[ \t]*)?(?:@MainActor[ \t]+)?public func presentationAnchor\(for session: ASWebAuthenticationSession\)"
-          patched, count = re.subn(pattern, method, text, count=1)
+
+          text, count = re.subn(
+              r",\s*ASWebAuthenticationPresentationContextProviding", "", text, count=1
+          )
           if count != 1:
-              raise SystemExit("flutter_inappwebview_macos authentication method was not found")
-          source.write_text(patched)
+              raise SystemExit("flutter_inappwebview_macos protocol conformance was not found")
+
+          method = re.compile(
+              r"\n[ \t]*@available\(macOS 10\.15, \*\)[ \t]*\n"
+              r"[ \t]*public func presentationAnchor\(for session: ASWebAuthenticationSession\)"
+              r" -> ASPresentationAnchor \{\n.*?\n[ \t]*\}\n",
+              re.S,
+          )
+          text, count = method.subn("\n", text, count=1)
+          if count != 1:
+              raise SystemExit("flutter_inappwebview_macos presentationAnchor was not found")
+
+          text = text.rstrip() + "\n\n" + (
+              "// Conditional conformance: presentationAnchor(for:) builds an\n"
+              "// ASWebAuthenticationSession (macOS 10.15+), so the protocol is only\n"
+              "// satisfied from 10.15 on while the class keeps working below it.\n"
+              "@available(macOS 10.15, *)\n"
+              "extension WebAuthenticationSession: ASWebAuthenticationPresentationContextProviding {\n"
+              "    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {\n"
+              "        return NSApplication.shared.windows.first { $0.isKeyWindow } ?? ASPresentationAnchor()\n"
+              "    }\n"
+              "}\n"
+          )
+          source.write_text(text)
           PY
 
       - name: Build macOS
