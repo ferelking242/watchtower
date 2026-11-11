@@ -1203,4 +1203,11 @@ must not leak into watch code paths or logs:
   `DownloadSettingsService`, providers dans `downloads_state_provider.dart`
   (`.g.dart` édité à la main car `riverpod_generator` 4.0.0 plante avec
   l'analyzer 9.0.0). La feuille « Gérer » ouvre chaque type **dans la feuille**
-  (`_openType`), sans changer de route.
+  (`_openType`), sans changer de route. Un seul `_SimultaneousRow` par type
+  (5 lignes), chacune avec son chevron « > » qui bascule la feuille sur
+  `_InlineTypeDownloadSettings` pour ce type.
+- Le pill « Transférer » de la file de téléchargement ouvre la salle de partage
+  en **panneau** (`showTransferPanel` → `TransferScreen(asPanel: true)`), jamais
+  via `context.push('/transfer')` : la route plein écran reste pour les autres
+  entrées. En mode panneau, la salle ne s'arrête à la fermeture que si le
+  panneau l'a lui-même démarrée (`_ownsRoom`) ; un salon déjà actif survit.
