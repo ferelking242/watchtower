@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -153,3 +153,33 @@ jobs:
           path: build/tv/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      # Rolling release: refresh the `android-tv-latest` tag + release on every
+      # green build so the TV APK always has a stable, shareable download link.
+      - name: Publish android-tv-latest rolling release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release delete android-tv-latest --yes --cleanup-tag 2>/dev/null || true
+          git tag -d android-tv-latest 2>/dev/null || true
+          git push origin :refs/tags/android-tv-latest 2>/dev/null || true
+          git -c user.name=github-actions \
+              -c user.email=github-actions@users.noreply.github.com \
+              tag -a android-tv-latest -m "Android TV rolling release"
+          git push origin android-tv-latest
+          ARM64=build/tv/watchtower-tv-arm64.apk
+          X86=build/tv/watchtower-tv-x86_64.apk
+          sha256sum "$ARM64" > "$ARM64.sha256"
+          sha256sum "$X86"   > "$X86.sha256"
+          NOTES=$(mktemp)
+          printf 'APK Android TV (Leanback) auto depuis "main".\n\n' > "$NOTES"
+          printf -- '- `watchtower-tv-arm64.apk` — TV / box Android 64-bit (recommandé)\n' >> "$NOTES"
+          printf -- '- `watchtower-tv-x86_64.apk` — émulateurs et box x86_64\n\n' >> "$NOTES"
+          printf 'SHA-256 arm64 : %s\n' "$(cut -d" " -f1 "$ARM64.sha256")" >> "$NOTES"
+          printf 'Taille arm64  : %s octets\n' "$(stat -c %%s "$ARM64")" >> "$NOTES"
+          gh release create android-tv-latest \
+            "$ARM64" "$ARM64.sha256" "$X86" "$X86.sha256" \
+            --title "Watchtower Android TV (latest)" \
+            --notes-file "$NOTES" \
+            --prerelease

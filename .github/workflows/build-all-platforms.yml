@@ -1109,3 +1109,146 @@ jobs:
           path: watchtower-android-tv-universal.7z
           compression-level: 0
           retention-days: 30
+
+  # ────────────────────────────────────────────────────────────
+  # Publish — runs only when every build above is green.
+  # Creates/refreshes the `v<version>` release with a clean,
+  # Mihon-style body generated from the conventional commits and
+  # tidy asset names (no CI noise, no duplicate suffixes).
+  # ────────────────────────────────────────────────────────────
+  publish-release:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs:
+      - build-web
+      - build-android
+      - build-android-universal
+      - build-linux
+      - build-macos
+      - build-windows
+      - build-ios
+      - build-android-tv
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download every build artifact
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: Compute version
+        id: ver
+        run: |
+          MAJOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*([0-9]+)\..*/\1/')
+          MINOR=$(grep '^version:' pubspec.yaml | sed -E 's/version:\s*[0-9]+\.([0-9]+)\..*/\1/')
+          VNAME="${MAJOR}.${MINOR}.${GITHUB_RUN_NUMBER}"
+          echo "name=${VNAME}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VNAME}"  >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Collect artifacts with clean names
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          V="${{ steps.ver.outputs.name }}"
+          # Map the raw artifact folder names to the clean release name.
+          SRC_android_armv7a="artifacts/android-armeabi-v7a"
+          SRC_android_arm64="artifacts/android-arm64-v8a"
+          SRC_android_x86_64="artifacts/android-x86_64"
+          SRC_android_universal="artifacts/android-universal"
+          SRC_android_tv="artifacts/android-tv-universal"
+          SRC_linux="artifacts/linux-x64"
+          SRC_macos="artifacts/macos"
+          SRC_windows="artifacts/windows-x64"
+          SRC_ios="artifacts/watchtower-ios-profile-ipa"
+          SRC_ios_sim="artifacts/watchtower-ios-simulator"
+          copy() { # $1 src-dir $2 clean-name
+            local dir="$1" name="$2"
+            local file
+            file=$(find "$dir" -type f -maxdepth 2 2>/dev/null | head -1)
+            if [ -n "$file" ]; then
+              cp "$file" "dist/$name"
+              echo "  + $name"
+            fi
+          }
+          echo "Collecting release assets:"
+          copy "$SRC_android_armv7a" "Watchtower-${V}-android-armv7a.7z"
+          copy "$SRC_android_arm64"  "Watchtower-${V}-android-arm64.7z"
+          copy "$SRC_android_x86_64" "Watchtower-${V}-android-x86_64.7z"
+          copy "$SRC_android_universal" "Watchtower-${V}-android-universal.7z"
+          copy "$SRC_android_tv"     "Watchtower-${V}-android-tv-universal.7z"
+          copy "$SRC_linux"          "Watchtower-${V}-linux-x64.7z"
+          copy "$SRC_macos"          "Watchtower-${V}-macos.zip"
+          copy "$SRC_windows"        "Watchtower-${V}-windows-x64.7z"
+          copy "$SRC_ios"            "Watchtower-${V}-ios.ipa"
+          copy "$SRC_ios_sim"        "Watchtower-${V}-ios-simulator.zip"
+          # Web is a directory bundle; zip it for the release.
+          if [ -d artifacts/watchtower-web ]; then
+            ( cd artifacts/watchtower-web && zip -qr "$GITHUB_WORKSPACE/dist/Watchtower-${V}-web.zip" . )
+            echo "  + Watchtower-${V}-web.zip"
+          fi
+          echo "--- dist ---"
+          ls -lh dist
+          test "$(ls -1 dist | wc -l)" -gt 0
+
+      - name: Generate release notes
+        run: |
+          V="${{ steps.ver.outputs.name }}"
+          ASSETS=()
+          add() { [ -f "dist/$2" ] && ASSETS+=(--asset "$1:$2"); }
+          add "Android armv7a"        "Watchtower-${V}-android-armv7a.7z"
+          add "Android arm64"         "Watchtower-${V}-android-arm64.7z"
+          add "Android x86_64"        "Watchtower-${V}-android-x86_64.7z"
+          add "Android universal"     "Watchtower-${V}-android-universal.7z"
+          add "Android TV universal"  "Watchtower-${V}-android-tv-universal.7z"
+          add "Linux x64"             "Watchtower-${V}-linux-x64.7z"
+          add "macOS"                 "Watchtower-${V}-macos.zip"
+          add "Windows x64"           "Watchtower-${V}-windows-x64.7z"
+          add "iOS (TrollStore)"      "Watchtower-${V}-ios.ipa"
+          add "iOS Simulator"         "Watchtower-${V}-ios-simulator.zip"
+          add "Web (PWA)"             "Watchtower-${V}-web.zip"
+          python3 scripts/release_notes.py \
+            --version "$V" \
+            --build "${{ github.run_number }}" \
+            --sha "${{ github.sha }}" \
+            --date "${{ steps.ver.outputs.date }}" \
+            --output RELEASE_NOTES.md \
+            "${ASSETS[@]}"
+          echo "--- release notes ---"
+          cat RELEASE_NOTES.md
+
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.ver.outputs.tag }}"
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          git tag -d "$TAG" 2>/dev/null || true
+          git push origin ":refs/tags/$TAG" 2>/dev/null || true
+          git -c user.name=github-actions \
+              -c user.email=github-actions@users.noreply.github.com \
+              tag -a "$TAG" -m "Watchtower ${{ steps.ver.outputs.name }}"
+          git push origin "$TAG"
+          gh release create "$TAG" dist/* \
+            --title "Watchtower ${{ steps.ver.outputs.name }}" \
+            --notes-file RELEASE_NOTES.md \
+            --latest
+
+      - name: Notify ntfy (release published)
+        if: success()
+        run: |
+          curl -s -X POST https://ntfy.sh/watchtower \
+            -H "Title: Watchtower ${{ steps.ver.outputs.name }} publié" \
+            -H "Priority: default" \
+            -H "Tags: package" \
+            -d "Release ${{ steps.ver.outputs.tag }} publiée depuis main" || true
