@@ -406,8 +406,15 @@ jobs:
       - name: Enable Linux desktop
         run: flutter config --enable-linux-desktop
 
-      - name: Flutter pub get
-        run: flutter pub get
+      # The pub cache is restored across runs, so a package patched by an
+      # earlier run would come back already-modified and defeat the patch step.
+      # Re-fetch the two packages the patch touches before applying it.
+      - name: Flutter pub get and clean patched packages
+        run: |
+          flutter pub get
+          rm -rf ~/.pub-cache/git/desktop_webview_window-* \
+                 ~/.pub-cache/hosted/pub.dev/flutter_inappwebview_linux-*
+          flutter pub get
 
       - name: Fix Linux desktop_webview_window for current GLib and Clang
         run: |
@@ -565,8 +572,13 @@ jobs:
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
 
-      - name: Flutter pub get
-        run: flutter pub get
+      # See the Linux note: the cached package may already be patched, so
+      # re-fetch it before the patch step runs.
+      - name: Flutter pub get and clean patched packages
+        run: |
+          flutter pub get
+          rm -rf ~/.pub-cache/hosted/pub.dev/flutter_inappwebview_macos-*
+          flutter pub get
 
       # flutter_inappwebview_macos 1.2.0-beta.3 declares conformance to
       # ASWebAuthenticationPresentationContextProviding with a presentationAnchor
