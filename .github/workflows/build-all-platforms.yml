@@ -567,6 +567,10 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      # flutter_inappwebview_macos 1.2.0-beta.3 predates the @MainActor
+      # annotation that current SDKs put on ASWebAuthenticationPresentationContextProviding.
+      # Add @MainActor but keep the 10.15 availability: ASWebAuthenticationSession
+      # itself is 10.15+, so a lower floor fails to compile.
       - name: Patch macOS plugins for current Xcode
         run: |
           AUTH_SOURCE="$(find ~/.pub-cache/hosted/pub.dev -path '*/flutter_inappwebview_macos-*/macos/flutter_inappwebview_macos/Sources/flutter_inappwebview_macos/WebAuthenticationSession/WebAuthenticationSession.swift' -print -quit)"
@@ -578,7 +582,7 @@ jobs:
 
           source = Path(sys.argv[1])
           text = source.read_text()
-          method = "    @available(macOS 10.14, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
+          method = "    @available(macOS 10.15, *)\n    @MainActor public func presentationAnchor(for session: ASWebAuthenticationSession)"
           pattern = r"(?m)^[ \t]*(?:@available\(macOS \d+\.\d+, \*\)[ \t]*\n[ \t]*)?(?:@MainActor[ \t]+)?public func presentationAnchor\(for session: ASWebAuthenticationSession\)"
           patched, count = re.subn(pattern, method, text, count=1)
           if count != 1:
