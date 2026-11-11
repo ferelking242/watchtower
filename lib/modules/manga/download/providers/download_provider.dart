@@ -44,6 +44,8 @@ import 'package:watchtower/services/video_duration_probe_stub.dart'
     if (dart.library.ffi) 'package:watchtower/services/video_duration_probe_io.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
 import 'package:watchtower/services/download_manager/engines/ffmpeg_hls_engine.dart';
+import 'package:watchtower/services/download_manager/media_file_name.dart';
+import 'package:watchtower/services/download_manager/speed_meter.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
@@ -1328,17 +1330,18 @@ Future<void> downloadChapter(
     final storedQuality = chapterId == null
         ? null
         : chapterPreferredQuality[chapterId] ?? isar.downloads.getSync(chapterId)?.quality;
-    final resolution = storedQuality == null ? '' : _qualityDigits(storedQuality);
-    final qualitySuffix = itemType == ItemType.anime && RegExp(r'^\d{3,4}$').hasMatch(resolution)
-        ? ' [${resolution}p]'
-        : '';
-    // The HLS assembler writes `<name>.mp4.part.joined` next to the final
-    // file, so the name must leave room for that suffix (16 bytes) under the
-    // 255-byte NAME_MAX limit; otherwise the merge aborts with errno 36 after
-    // the whole episode has already been downloaded. The base is truncated
-    // first so the ` [360p]` quality tag always survives whole.
-    final chapterName =
-        '${chapter.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes - qualitySuffix.length)}$qualitySuffix';
+    // One source of truth for the on-disk name (see animeMp4BaseName): the
+    // downloader, the share sheet and the delete path must derive it the same
+    // way, otherwise a ` [360p]`-tagged MP4 is written but never found again.
+    // A null/blank title falls back to the chapter id instead of crashing on
+    // `chapter.name!` with "Null check operator used on a null value".
+    final chapterName = itemType == ItemType.anime
+        ? animeMp4BaseName(
+            chapterName: chapter.name,
+            chapterId: chapter.id,
+            quality: storedQuality,
+          )
+        : safeChapterBaseName(chapterName: chapter.name, chapterId: chapter.id);
     final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
       chapter,
       mangaMainDirectory: mangaMainDirectory,
@@ -1383,8 +1386,8 @@ Future<void> downloadChapter(
       final chapterIdForProgress = chapter.id;
       try {
         final chapterNumber = ChapterRecognition().parseChapterNumber(
-          chapter.manga.value!.name!,
-          chapter.name!,
+          manga.name ?? '',
+          chapter.name ?? '',
         );
         final comicInfo = ComicInfoData(
           title: chapter.name,
@@ -1439,11 +1442,10 @@ Future<void> downloadChapter(
     // counters must not be added a second time. -1 = not yet captured.
     var _resumeSucceededKbOffset = -1;
 
-    // ── Speed Master: live per-download speed (EMA, MB/s) ──────────────────
-    // Sampled from consecutive byte progress ticks; smoothed so the value in
-    // the queue UI stays readable instead of jumping on every segment done.
-    var _speedLastKb = -1;
-    var _speedLastMs = 0;
+    // ── Speed Master: live per-download speed (MB/s) ──────────────────────
+    // A sliding window over cumulative byte samples, so a single fast burst or
+    // a resume offset jump cannot inflate the value shown in the queue.
+    final speedMeter = SpeedMeter();
     var _speedEmaMbs = 0.0;
     var mediaCompletionNotified = false;
     var transferStatusMarked = false;
@@ -1666,33 +1668,20 @@ Future<void> downloadChapter(
       {
         final notifier = ref.read(downloadQueueStateProvider.notifier);
         if (progress.isCompleted) {
-          if (_speedEmaMbs > 0 || _speedLastKb >= 0) {
+          if (_speedEmaMbs > 0) {
             _speedEmaMbs = 0;
-            _speedLastKb = -1;
+            speedMeter.reset();
             notifier.setSpeed(chapter.id!, 0);
           }
         } else if (progress.itemType == ItemType.anime && !progress.isCompleted) {
           final nowMs = DateTime.now().millisecondsSinceEpoch;
-          final kbNow = progress.downloadedBytes != null
-              ? (progress.downloadedBytes! / 1024).ceil()
-              : isarSucceeded; // includes resume offset → cumulative
-          if (_speedLastKb < 0) {
-            _speedLastKb = kbNow;
-            _speedLastMs = nowMs;
-          } else {
-            final dtSec = (nowMs - _speedLastMs) / 1000.0;
-            // ≥0.5 s between samples keeps the EMA stable without flooding.
-            if (dtSec >= 0.5) {
-              final instMbs = ((kbNow - _speedLastKb) / 1024.0) / dtSec;
-              if (instMbs >= 0) {
-                _speedEmaMbs = _speedEmaMbs <= 0 ? instMbs : (_speedEmaMbs * 0.7 + instMbs * 0.3);
-                notifier.setSpeed(chapter.id!, _speedEmaMbs);
-              }
-              // Negative delta = a resume reset happened mid-session: re-seed.
-              _speedLastKb = kbNow;
-              _speedLastMs = nowMs;
-            }
-          }
+          // Cumulative bytes: the isolate reports the on-disk total, so a
+          // resume starts at the offset instead of zero. SpeedMeter ignores a
+          // backward jump rather than turning it into a negative rate.
+          final bytesNow = progress.downloadedBytes ??
+              (isarSucceeded > 0 ? isarSucceeded * 1024 : 0);
+          _speedEmaMbs = speedMeter.sample(bytesNow, nowMs);
+          notifier.setSpeed(chapter.id!, _speedEmaMbs);
         }
       }
 
@@ -2294,8 +2283,12 @@ Future<void> downloadChapter(
         log('[downloadChapter][anime] getVideoList error: $e', error: e, stackTrace: st);
       }
     } else if (itemType == ItemType.novel && chapter.url != null) {
-      final manga = chapter.manga.value!;
-      final source = getSource(manga.lang!, manga.source!, manga.sourceId)!;
+      final novelManga = chapter.manga.value;
+      if (novelManga == null) {
+        log('[downloadChapter][novel] missing manga link for chapterId=${chapter.id}');
+        throw StateError('Manga introuvable pour ce chapitre.');
+      }
+      final source = getSource(novelManga.lang!, novelManga.source!, novelManga.sourceId)!;
       final chapterUrl = "${source.baseUrl}${chapter.url!.getUrlWithoutDomain}";
       final cookie = MClient.getCookiesPref(chapterUrl);
       final headers = htmlHeader;
@@ -2774,7 +2767,10 @@ Future<void> downloadChapter(
         try {
           final html = await withExtensionService(
             source,
-            (service) => service.getHtmlContent(chapter.manga.value!.name!, chapter.url!),
+            (service) => service.getHtmlContent(
+              chapter.manga.value?.name ?? manga.name ?? '',
+              chapter.url!,
+            ),
           );
           log('[downloadChapter][novel] getHtmlContent returned ${html.length} chars');
           if (html.isNotEmpty) {

@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:watchtower/services/download_manager/m3u8/ffmpeg_runner.dart';
 
 /// The only application-facing boundary for HLS assembly.
@@ -38,7 +41,7 @@ class FfmpegMergeService {
     required String outputFile,
     required List<String> segmentPaths,
   }) async {
-    final workFile = File('$outputFile.joined');
+    final workFile = File(intermediatePathFor(outputFile, segmentPaths));
     try {
       await _concatenate(
         outputFile: workFile.path,
@@ -64,6 +67,27 @@ class FfmpegMergeService {
         } catch (_) {}
       }
     }
+  }
+
+  /// Path of the transient joined stream handed to FFmpeg.
+  ///
+  /// It must NOT inherit the output's file name: the final name is already
+  /// bounded to leave room for the `.mp4.part` suffix, so appending `.joined`
+  /// to it overflows `NAME_MAX` (255 bytes) for a long episode title and aborts
+  /// the merge with `File name too long` (errno 36) after the whole episode has
+  /// been downloaded. It lives next to the segments (the caller's temp
+  /// directory, deleted on success and on delete) so the intermediate is
+  /// chapter-scoped and never leaks a title into a path component.
+  @visibleForTesting
+  static String intermediatePathFor(
+    String outputFile,
+    List<String> segmentPaths,
+  ) {
+    final tempDir = segmentPaths.isEmpty
+        ? p.dirname(outputFile)
+        : p.dirname(segmentPaths.first);
+    final digest = md5.convert(utf8.encode(outputFile)).toString();
+    return p.join(tempDir, 'watchtower-merge-$digest.joined');
   }
 
   /// Builds the FFmpeg argument list for the final stream-copy mux.

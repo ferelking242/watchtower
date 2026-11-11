@@ -21,6 +21,7 @@ import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffo
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
+import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/models/download.dart';
@@ -478,10 +479,23 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         ).truncateToBytes(kMaxDownloadNameBytes);
 
         if (manga.itemType == ItemType.anime) {
-          final mp4 = File(p.join(mangaDir.path, '$chapterName.mp4'));
-          if (mp4.existsSync()) {
-            fileFound = true;
-            sizeKb = (mp4.lengthSync() / 1024).ceil();
+          // Match the downloader's on-disk name (`<title> [360p].mp4`); the
+          // untagged name is checked too so an older file is still measured.
+          final candidates = {
+            animeMp4BaseName(
+              chapterName: chapter.name,
+              chapterId: chapter.id,
+              quality: dl.quality,
+            ),
+            chapterName,
+          };
+          for (final base in candidates) {
+            final mp4 = File(p.join(mangaDir.path, '$base.mp4'));
+            if (mp4.existsSync()) {
+              fileFound = true;
+              sizeKb = (mp4.lengthSync() / 1024).ceil();
+              break;
+            }
           }
         } else if (manga.itemType == ItemType.manga) {
           // Check individual image files in the chapter subfolder.

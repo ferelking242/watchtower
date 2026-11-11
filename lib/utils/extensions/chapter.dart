@@ -9,6 +9,7 @@ import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
+import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:path/path.dart' as p;
 
@@ -79,19 +80,28 @@ extension ChapterExtension on Chapter {
       }
     } catch (_) {}
     try {
-      final mp4Path = p.join(
-        mangaDir!.path,
-        "${name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
-      );
-      for (final candidate in [
-        mp4Path,
-        '$mp4Path.part',
-        '$mp4Path.part.meta',
-        // Intermediate files left by an interrupted HLS assembly.
-        '$mp4Path.part.joined',
-      ]) {
-        final file = File(candidate);
-        if (file.existsSync()) file.deleteSync();
+      // The MP4 is written as `<name> [360p].mp4`, so the delete path must
+      // apply the same quality tag or the file survives the "delete" and keeps
+      // occupying storage. Older, untagged files are removed as well.
+      final mp4Paths = {
+        p.join(
+          mangaDir!.path,
+          '${animeMp4BaseName(chapterName: name, chapterId: id, quality: download.quality)}.mp4',
+        ),
+        p.join(
+          mangaDir.path,
+          '${safeChapterBaseName(chapterName: name, chapterId: id)}.mp4',
+        ),
+      };
+      for (final mp4Path in mp4Paths) {
+        for (final candidate in [
+          mp4Path,
+          '$mp4Path.part',
+          '$mp4Path.part.meta',
+        ]) {
+          final file = File(candidate);
+          if (file.existsSync()) file.deleteSync();
+        }
       }
     } catch (_) {}
     try {

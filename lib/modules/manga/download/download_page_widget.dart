@@ -12,8 +12,8 @@ import 'package:watchtower/modules/manga/download/providers/download_provider.da
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
+import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
-import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/global_style.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:share_plus/share_plus.dart';
@@ -102,6 +102,19 @@ class ChapterPageDownload extends ConsumerWidget {
     }
   }
 
+  /// Quality tag of the stored download, or null when the record is gone.
+  ///
+  /// The MP4 on disk carries this tag (`... [360p].mp4`); share and delete must
+  /// resolve the very same name.
+  String? _storedQuality(int? chapterId) {
+    if (chapterId == null) return null;
+    try {
+      return isar.downloads.getSync(chapterId)?.quality;
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _sendFile(BuildContext context) async {
     final storageProvider = StorageProvider();
     final mangaDir = await storageProvider.getMangaMainDirectory(chapter);
@@ -113,10 +126,13 @@ class ChapterPageDownload extends ConsumerWidget {
     List<XFile> files = [];
 
     final cbzFile = File(p.join(mangaDir!.path, "${chapter.name}.cbz"));
+    // The downloader names the MP4 after the chapter title *and* the quality
+    // tag it actually fetched; rebuild it the same way or the share sheet
+    // silently falls through to listing the whole directory.
     final mp4File = File(
       p.join(
         mangaDir.path,
-        "${chapter.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
+        '${animeMp4BaseName(chapterName: chapter.name, chapterId: chapter.id, quality: _storedQuality(chapter.id))}.mp4',
       ),
     );
     final htmlFile = File(p.join(mangaDir.path, "${chapter.name}.html"));
@@ -160,7 +176,7 @@ class ChapterPageDownload extends ConsumerWidget {
         final mp4File = File(
           p.join(
             mangaDir!.path,
-            "${chapter.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
+            '${animeMp4BaseName(chapterName: chapter.name, chapterId: chapter.id, quality: _storedQuality(chapter.id))}.mp4',
           ),
         );
         if (mp4File.existsSync()) {
