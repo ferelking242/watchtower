@@ -740,6 +740,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get add_to_library => 'Ajouter à la bibliothèque';
 
   @override
+  String get added_to_library => 'Ajouté à la bibliothèque';
+
+  @override
   String get completed => 'Terminé';
 
   @override
@@ -4219,4 +4222,44 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get transfer_platform_unknown => 'Appareil';
+
+  @override
+  String get copied => 'Copié';
+
+  @override
+  String get copied_to_clipboard => 'Copié dans le presse-papiers';
+
+  @override
+  String get author_works => 'Oeuvres de cet auteur';
+
+  @override
+  String get select_range => 'Sélectionner la plage';
+
+  @override
+  String get select_all => 'Tout sélectionner';
+
+  @override
+  String get select_invert => 'Inverser la sélection';
+
+  @override
+  String get select_none => 'Tout désélectionner';
+
+  @override
+  String get download_range => 'Télécharger une plage';
+
+  @override
+  String get range_start => 'Début';
+
+  @override
+  String get range_end => 'Fin';
+
+  @override
+  String get download_range_hint =>
+      'Les chapitres entre les deux numéros sont téléchargés, dans l\'ordre de lecture.';
+
+  @override
+  String get invalid_range => 'Plage invalide';
+
+  @override
+  String get no_comments => 'Aucun commentaire';
 }

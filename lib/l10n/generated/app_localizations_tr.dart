@@ -732,6 +732,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get add_to_library => 'Kütüphaneye Ekle';
 
   @override
+  String get added_to_library => 'Added to library';
+
+  @override
   String get completed => 'Tamamlandı';
 
   @override
@@ -4177,4 +4180,44 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get transfer_platform_unknown => 'Cihaz';
+
+  @override
+  String get copied => 'Copied';
+
+  @override
+  String get copied_to_clipboard => 'Copied to clipboard';
+
+  @override
+  String get author_works => 'Works by this author';
+
+  @override
+  String get select_range => 'Select range';
+
+  @override
+  String get select_all => 'Select all';
+
+  @override
+  String get select_invert => 'Invert selection';
+
+  @override
+  String get select_none => 'Deselect all';
+
+  @override
+  String get download_range => 'Download a range';
+
+  @override
+  String get range_start => 'Start';
+
+  @override
+  String get range_end => 'End';
+
+  @override
+  String get download_range_hint =>
+      'Chapters between the two numbers are downloaded, in reading order.';
+
+  @override
+  String get invalid_range => 'Invalid range';
+
+  @override
+  String get no_comments => 'No comments yet';
 }

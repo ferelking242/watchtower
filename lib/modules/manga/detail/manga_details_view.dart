@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
+import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/category.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -8,9 +10,11 @@ import 'package:watchtower/models/history.dart';
 import 'package:watchtower/modules/manga/detail/widgets/custom_floating_action_btn.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/widgets/category_selection_dialog.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_view.dart';
 import 'package:watchtower/modules/manga/detail/widgets/detail_shimmer.dart';
 import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
@@ -73,6 +77,83 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
   ) {
     final textSize = measureText(text, textStyle);
     return textSize.width + padding;
+  }
+
+  /// Author (and artist when different) as tappable links. Tapping opens the
+  /// extension search pre-filled with that name, showing every work by that
+  /// person within the current source.
+  Widget _buildAuthorLine(AppLocalizations l10n) {
+    final author = widget.manga.author?.trim();
+    final artist = widget.manga.artist?.trim();
+    final hasAuthor = author?.isNotEmpty ?? false;
+    final hasArtist = artist?.isNotEmpty ?? false;
+
+    if (!hasAuthor && !hasArtist) {
+      return Text(
+        l10n.unknown,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      );
+    }
+
+    final names = <String>[
+      if (hasAuthor) author!,
+      if (hasArtist && artist != author) artist!,
+    ];
+
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = 0; i < names.length; i++) ...[
+          if (i > 0)
+            Text(
+              ' • ',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: context.secondaryColor,
+              ),
+            ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openAuthorWorks(names[i]),
+            child: Text(
+              names[i],
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: context.primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Adds the manga to the library in the default category ("all"), bypassing
+  /// the category picker. Used by the long press on the heart button.
+  void _addToLibraryDefault() {
+    final model = widget.manga;
+    if (model.favorite == true) return;
+    isar.writeTxnSync(() {
+      model.favorite = true;
+      model.dateAdded = DateTime.now().millisecondsSinceEpoch;
+      model.updatedAt = DateTime.now().millisecondsSinceEpoch;
+      model.categories = [];
+      isar.mangas.putSync(model);
+    });
+    botToast(l10nLocalizations(context)!.added_to_library);
+  }
+
+  void _openAuthorWorks(String name) {
+    final source = getSource(
+      widget.manga.lang!,
+      widget.manga.source!,
+      widget.manga.sourceId,
+    );
+    if (source == null) {
+      botToast(l10nLocalizations(context)!.source_not_added);
+      return;
+    }
+    context.push('/extensionPersonSearch', extra: (source, name));
   }
 
   @override
@@ -173,12 +254,7 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                     child: DetailShimmerBox(width: 96, height: 12, radius: 4),
                   )
                 else
-                  Text(
-                    (widget.manga.author?.isEmpty ?? false)
-                        ? l10n.unknown
-                        : widget.manga.author!,
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
+                  _buildAuthorLine(l10n),
               ],
             ),
             const SizedBox(height: 6),
@@ -280,53 +356,53 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                         ),
                 ),
               )
-            : ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                  elevation: 0,
-                ),
-                onPressed: () {
-                  final model = widget.manga;
-                  final checkCategoryList = isar.categorys
-                      .filter()
-                      .forItemTypeEqualTo(model.itemType)
-                      .isNotEmptySync();
-                  if (checkCategoryList) {
-                    showCategorySelectionDialog(
-                      context: context,
-                      ref: ref,
-                      itemType: model.itemType,
-                      singleManga: model,
-                    );
-                  } else {
-                    isar.writeTxnSync(() {
-                      model.favorite = true;
-                      model.dateAdded = DateTime.now().millisecondsSinceEpoch;
-                      model.updatedAt = DateTime.now().millisecondsSinceEpoch;
-                      isar.mangas.putSync(model);
-                    });
-                  }
-                },
-                child: widget.isLoading
-                    ? const DetailActionButtonSkeleton(labelWidth: 70)
-                    : Column(
-                        children: [
-                          Icon(
-                            Broken.heart,
-                            size: 20,
-                            color: context.secondaryColor,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            l10n.add_to_library,
-                            style: TextStyle(
+            : GestureDetector(
+                // Long press: add straight to the library in the default
+                // category, without opening the category picker.
+                onLongPress: _addToLibraryDefault,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    final model = widget.manga;
+                    final checkCategoryList = isar.categorys
+                        .filter()
+                        .forItemTypeEqualTo(model.itemType)
+                        .isNotEmptySync();
+                    if (checkCategoryList) {
+                      showCategorySelectionDialog(
+                        context: context,
+                        ref: ref,
+                        itemType: model.itemType,
+                        singleManga: model,
+                      );
+                    } else {
+                      _addToLibraryDefault();
+                    }
+                  },
+                  child: widget.isLoading
+                      ? const DetailActionButtonSkeleton(labelWidth: 70)
+                      : Column(
+                          children: [
+                            Icon(
+                              Broken.heart,
+                              size: 20,
                               color: context.secondaryColor,
-                              fontSize: 11,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+                            const SizedBox(height: 4),
+                            Text(
+                              l10n.add_to_library,
+                              style: TextStyle(
+                                color: context.secondaryColor,
+                                fontSize: 11,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                ),
               ),
         manga: widget.manga,
         isExtended: (value) {

@@ -306,6 +306,16 @@ class RouterNotifier extends ChangeNotifier {
       name: "watchExtensionHome",
       builder: (source) => WatchExtensionHomeScreen(source: source),
     ),
+    // Person search: works of a single author/artist within one extension.
+    // The author name is passed as the initial search query and the results
+    // open directly in the extension's search screen (no global search).
+    _genericRoute<(Source, String)>(
+      name: "extensionPersonSearch",
+      builder: (data) => WatchExtensionHomeScreen(
+        source: data.$1,
+        initialSearchQuery: data.$2,
+      ),
+    ),
     _genericRoute<ItemType>(
       name: "localWatchHome",
       builder: (itemType) =>

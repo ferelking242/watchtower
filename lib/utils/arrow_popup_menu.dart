@@ -266,11 +266,16 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
 
     final double maxMenuHeight;
     final double top;
+    double? bottom;
 
     if (showAbove) {
       maxMenuHeight = spaceAbove.clamp(80.0, mq.size.height * 0.7);
-      top = (anchorGlobalPos.dy - offset.dy - maxMenuHeight)
-          .clamp(screenPadding, mq.size.height - screenPadding);
+      // Anchor the panel by its bottom edge so the caret stays glued to the
+      // trigger. Using `maxMenuHeight` in a `top` offset reserved a 70 %-of-
+      // screen slot and pushed a short menu — the seven reading modes — up to
+      // the middle of the screen instead of just above its button.
+      top = 0;
+      bottom = mq.size.height - (anchorGlobalPos.dy - offset.dy);
     } else {
       maxMenuHeight = spaceBelow.clamp(80.0, mq.size.height * 0.7);
       top = anchorBottomY;
@@ -300,7 +305,8 @@ class _ArrowMenuOverlay<T> extends StatelessWidget {
     return Stack(
       children: [
         Positioned(
-          top: top,
+          top: bottom == null ? top : null,
+          bottom: bottom,
           left: left,
           width: width,
           child: FadeTransition(

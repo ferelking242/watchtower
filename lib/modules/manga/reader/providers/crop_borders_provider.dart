@@ -5,6 +5,7 @@ import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/src/rust/api/image.dart';
 import 'package:watchtower/src/rust/frb_generated.dart';
 import 'package:watchtower/utils/extensions/others.dart';
+import 'package:watchtower/utils/headers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'crop_borders_provider.g.dart';
 
@@ -17,7 +18,21 @@ Future<Uint8List?> cropBorders(
   Uint8List? imageBytes;
 
   if (cropBorder) {
-    imageBytes = await data.getImageBytes;
+    // Pass the same extension headers the reader renders with, so the bytes
+    // are read from the very cache entry the page already wrote instead of
+    // re-fetching the image over the network.
+    final manga = data.chapter?.manga.value;
+    imageBytes = await data.getImageBytesWith(
+      headers: manga == null
+          ? null
+          : ref.read(
+              headersProvider(
+                source: manga.source!,
+                lang: manga.lang!,
+                sourceId: manga.sourceId,
+              ),
+            ),
+    );
 
     if (imageBytes == null) {
       return null;

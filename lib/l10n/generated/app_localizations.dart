@@ -1367,6 +1367,12 @@ abstract class AppLocalizations {
   /// **'Add to library'**
   String get add_to_library;
 
+  /// No description provided for @added_to_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Added to library'**
+  String get added_to_library;
+
   /// No description provided for @completed.
   ///
   /// In en, this message translates to:
@@ -2294,7 +2300,7 @@ abstract class AppLocalizations {
   /// No description provided for @load_more.
   ///
   /// In en, this message translates to:
-  /// **'Load More'**
+  /// **'Load more'**
   String get load_more;
 
   /// No description provided for @cancel_all_for_this_series.
@@ -7372,6 +7378,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Device'**
   String get transfer_platform_unknown;
+
+  /// No description provided for @copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get copied;
+
+  /// No description provided for @copied_to_clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get copied_to_clipboard;
+
+  /// No description provided for @author_works.
+  ///
+  /// In en, this message translates to:
+  /// **'Works by this author'**
+  String get author_works;
+
+  /// No description provided for @select_range.
+  ///
+  /// In en, this message translates to:
+  /// **'Select range'**
+  String get select_range;
+
+  /// No description provided for @select_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get select_all;
+
+  /// No description provided for @select_invert.
+  ///
+  /// In en, this message translates to:
+  /// **'Invert selection'**
+  String get select_invert;
+
+  /// No description provided for @select_none.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect all'**
+  String get select_none;
+
+  /// No description provided for @download_range.
+  ///
+  /// In en, this message translates to:
+  /// **'Download a range'**
+  String get download_range;
+
+  /// No description provided for @range_start.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get range_start;
+
+  /// No description provided for @range_end.
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get range_end;
+
+  /// No description provided for @download_range_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapters between the two numbers are downloaded, in reading order.'**
+  String get download_range_hint;
+
+  /// No description provided for @invalid_range.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid range'**
+  String get invalid_range;
+
+  /// No description provided for @no_comments.
+  ///
+  /// In en, this message translates to:
+  /// **'No comments yet'**
+  String get no_comments;
 }
 
 class _AppLocalizationsDelegate

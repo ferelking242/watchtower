@@ -346,6 +346,7 @@
   "a_week_ago": "A week ago",
   "next_week": "Next week",
   "add_to_library": "Add to library",
+  "added_to_library": "Added to library",
   "completed": "Completed",
   "ongoing": "Ongoing",
   "on_hiatus": "On Hiatus",
@@ -1568,5 +1569,19 @@
   },
   "@transfer_platform_unknown": {
     "description": "Fallback device label."
-  }
+  },
+  "copied": "Copied",
+  "copied_to_clipboard": "Copied to clipboard",
+  "author_works": "Works by this author",
+  "select_range": "Select range",
+  "select_all": "Select all",
+  "select_invert": "Invert selection",
+  "select_none": "Deselect all",
+  "download_range": "Download a range",
+  "range_start": "Start",
+  "range_end": "End",
+  "download_range_hint": "Chapters between the two numbers are downloaded, in reading order.",
+  "invalid_range": "Invalid range",
+  "load_more": "Load more",
+  "no_comments": "No comments yet"
 }

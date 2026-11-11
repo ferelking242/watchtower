@@ -69,6 +69,41 @@ class ChaptersListState extends _$ChaptersListState {
     state = newList;
   }
 
+  /// Selects every chapter between the first and the last currently selected
+  /// ones (in [allChapters] order), inclusive. Used by the "select range"
+  /// action so a first and last pick fills the chapters in between.
+  void selectBetweenExtremes(List<Chapter> allChapters) {
+    if (state.length < 2) return;
+    final indices = <int>[
+      for (final chapter in state) allChapters.indexOf(chapter),
+    ].where((i) => i != -1).toList();
+    if (indices.length < 2) return;
+    indices.sort();
+    final start = indices.first;
+    final end = indices.last;
+    var newList = List<Chapter>.from(state);
+    for (int i = start; i <= end; i++) {
+      if (!newList.contains(allChapters[i])) {
+        newList.add(allChapters[i]);
+      }
+    }
+    state = newList;
+  }
+
+  /// Inverts the selection over [allChapters]: chapters already selected are
+  /// removed, the others are added.
+  void invertSelection(List<Chapter> allChapters) {
+    final selected = state.toSet();
+    final inverted = <Chapter>[
+      for (final chapter in allChapters)
+        if (!selected.contains(chapter)) chapter,
+    ];
+    state = inverted;
+    if (state.isEmpty) {
+      ref.read(isLongPressedStateProvider.notifier).update(false);
+    }
+  }
+
   void clear() {
     state = [];
   }

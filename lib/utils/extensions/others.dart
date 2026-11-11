@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
-import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:path/path.dart' as p;
@@ -76,26 +75,43 @@ extension ImageProviderExtension on ImageProvider {
 }
 
 extension UChapDataPreloadExtensions on UChapDataPreload {
-  Future<Uint8List?> get getImageBytes async {
-    Uint8List? imageBytes;
-    if (archiveImage != null) {
-      imageBytes = archiveImage;
-    } else if (isLocale == true && directory != null && index != null) {
-      imageBytes = io.File(
+  /// Raw bytes of the page.
+  ///
+  /// Local archives and downloaded chapters are read straight from disk. A
+  /// remote page goes through the *same* [CustomExtendedNetworkImageProvider]
+  /// the reader renders from, so the bytes come out of the identical disk
+  /// cache entry (key = `md5(url + headers fingerprint)`). The previous
+  /// implementation re-derived the key as `md5(url)` only and never matched
+  /// what the reader had written, which is why "Rogner les bordures" silently
+  /// did nothing: the crop step received `null` for every page.
+  Future<Uint8List?> get getImageBytes => getImageBytesWith();
+
+  Future<Uint8List?> getImageBytesWith({Map<String, String>? headers}) async {
+    if (archiveImage != null) return archiveImage;
+    if (isLocale == true && directory != null && index != null) {
+      return io.File(
         p.join(directory!.path, "${padIndex(index!)}.jpg"),
-      ).readAsBytesSync();
-    } else {
-      io.File? cachedImage;
-      if (pageUrl != null) {
-        cachedImage = await _getCachedImageFile(pageUrl!.url);
-        if (cachedImage == null) {
-          await Future.delayed(const Duration(seconds: 3));
-          cachedImage = await _getCachedImageFile(pageUrl!.url);
-        }
-      }
-      imageBytes = cachedImage?.readAsBytesSync();
+      ).readAsBytes();
     }
-    return imageBytes;
+    if (pageUrl == null || pageUrl!.url.trim().isEmpty) return null;
+    return buildNetworkImageProvider(headers: headers).getNetworkImageData();
+  }
+
+  /// The network provider the reader uses for this page. Kept in one place so
+  /// the crop pipeline and the on-screen widget can never disagree on the
+  /// cache key or on the headers a request carries.
+  CustomExtendedNetworkImageProvider buildNetworkImageProvider({
+    Map<String, String>? headers,
+    bool showCloudFlareError = true,
+  }) {
+    return CustomExtendedNetworkImageProvider(
+      pageUrl!.url.trim(),
+      cache: true,
+      cacheMaxAge: const Duration(days: 3650),
+      showCloudFlareError: showCloudFlareError,
+      imageCacheFolderName: "cacheimagemanga",
+      headers: {...?pageUrl!.headers, ...?headers},
+    );
   }
 
   ImageProvider<Object> getImageProvider(
@@ -125,43 +141,18 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
                               ),
                             ),
                           )
-                  : CustomExtendedNetworkImageProvider(
-                      data.pageUrl!.url.trim(),
-                      cache: true,
-                      cacheMaxAge: const Duration(days: 3650),
+                  : buildNetworkImageProvider(
                       showCloudFlareError: showCloudFlareError,
-                      imageCacheFolderName: "cacheimagemanga",
-                      headers: {
-                        ...data.pageUrl!.headers ?? {},
-                        ...ref.watch(
-                          headersProvider(
-                            source: data.chapter!.manga.value!.source!,
-                            lang: data.chapter!.manga.value!.lang!,
-                            sourceId: data.chapter!.manga.value!.sourceId,
-                          ),
+                      headers: ref.watch(
+                        headersProvider(
+                          source: data.chapter!.manga.value!.source!,
+                          lang: data.chapter!.manga.value!.lang!,
+                          sourceId: data.chapter!.manga.value!.sourceId,
                         ),
-                      },
+                      ),
                     ))
               as ImageProvider<Object>;
   }
 }
 
 dynamic _localIoFile(String path) => io.File(path);
-
-Future<io.File?> _getCachedImageFile(String url, {String? cacheKey}) async {
-  try {
-    final String key = cacheKey ?? keyToMd5(url);
-    final io.Directory cacheImagesDirectory = await StorageProvider()
-        .getCacheDirectory('cacheimagemanga');
-    if (cacheImagesDirectory.existsSync()) {
-      await for (final io.FileSystemEntity file in cacheImagesDirectory.list()) {
-        if (file.path.endsWith(key)) {
-          return io.File(file.path);
-        }
-      }
-    }
-  } catch (_) {
-    return null;
-  }
-  return null;
-}

@@ -110,6 +110,12 @@ mixin ReaderMemoryManagement {
     _preloadManager.updatePageCropImage(index, cropImage);
   }
 
+  /// Updates the cropImage of a page identified by its instance (survives the
+  /// index shift caused by prepending a previous chapter).
+  void updatePageCropImageFor(UChapDataPreload page, Uint8List? cropImage) {
+    _preloadManager.updatePageCropImageFor(page, cropImage);
+  }
+
   /// Disposes the preload manager and clears all cached data.
   Future<void> disposePreloadManager() async {
     if (!_isPreloadManagerInitialized) return;

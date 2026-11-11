@@ -216,9 +216,17 @@ class _OverlayPanel extends StatelessWidget {
     final caretAlignX = caretFrac * 2.0 - 1.0;
 
     // ── Vertical position ─────────────────────────────────────────────────
-    final double top = showAbove
-        ? anchorPos.dy - _kGap - maxMenuH - _kCaretH
-        : bottomOfAnchor + _kGap;
+    // When the panel opens above the trigger it is anchored by its *bottom*
+    // edge, not by `top`. Sizing the offset with `maxMenuH` (the maximum the
+    // panel is allowed to grow to) placed a short menu — the seven reading
+    // modes, a two-row download menu — far from its button: the panel was
+    // reserved a 65 %-of-screen slot and then only filled a fraction of it, so
+    // it floated in the middle of the screen. `Positioned(bottom:)` pins the
+    // caret to the trigger whatever the real content height turns out to be.
+    final double top = bottomOfAnchor + _kGap;
+    final double? bottom = showAbove
+        ? mq.size.height - anchorPos.dy + _kGap
+        : null;
 
     // ── Animations ────────────────────────────────────────────────────────
     final fadeAnim = CurvedAnimation(
@@ -314,7 +322,8 @@ class _OverlayPanel extends StatelessWidget {
 
           // ── Floating panel ─────────────────────────────────────────────
           Positioned(
-            top: top,
+            top: bottom == null ? top : null,
+            bottom: bottom,
             left: left,
             width: menuWidth,
             child: FadeTransition(

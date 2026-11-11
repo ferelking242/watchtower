@@ -18,6 +18,7 @@ import 'package:watchtower/modules/manga/reader/mixins/reader_gestures.dart';
 import 'package:watchtower/modules/manga/reader/providers/crop_borders_provider.dart';
 import 'package:watchtower/modules/manga/reader/services/page_navigation_service.dart';
 import 'package:watchtower/modules/manga/reader/mixins/reader_memory_management.dart';
+import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/manga/reader/widgets/double_page_view.dart';
 import 'package:watchtower/modules/manga/reader/widgets/reader_app_bar.dart';
 import 'package:watchtower/modules/manga/reader/widgets/reader_bottom_bar.dart';
@@ -529,7 +530,9 @@ class _MangaChapterPageGalleryState
   final PhotoViewController _photoViewController = PhotoViewController();
   final PhotoViewScaleStateController _photoViewScaleStateController =
       PhotoViewScaleStateController();
-  final List<int> _cropBorderCheckList = [];
+  /// Pages whose crop has already been requested (tracked by identity, not
+  /// index: prepending a previous chapter shifts every index).
+  final Set<UChapDataPreload> _cropBorderCheckList = <UChapDataPreload>{};
 
   void _onScaleEnd(
     BuildContext context,
@@ -687,8 +690,16 @@ class _MangaChapterPageGalleryState
                             scrollDirection: isHorizontalContinuaous
                                 ? Axis.horizontal
                                 : Axis.vertical,
-                            minCacheExtent:
-                                pagePreloadAmount * context.height(1),
+                            // "Nombre de pages à précharger" drives *how early*
+                            // the next/previous chapter is fetched, not how much
+                            // decoded bitmap the viewport keeps resident. Using
+                            // the raw value here meant 20 preloaded pages = 20
+                            // screen-heights of live images, which is what made
+                            // the reader lag and crash at high preload counts.
+                            // The cache window is capped to a few screens; the
+                            // pages beyond it are fetched and evicted normally.
+                            minCacheExtent: pagePreloadAmount.clamp(1, 4) *
+                                context.height(1),
                             initialScrollIndex: _readerController
                                 .getPageIndex(),
                             physics: const ClampingScrollPhysics(),
@@ -1508,6 +1519,10 @@ class _MangaChapterPageGalleryState
 
   /// "Afficher le mode de lecture": lists the reading modes on first open so
   /// the user can switch without opening the settings sheet.
+  ///
+  /// Rendered as a compact panel anchored just above the bottom bar (where the
+  /// reading-mode button lives) instead of a centred dialog, so the choice sits
+  /// next to the control it belongs to.
   void _maybeShowReadingModePicker() {
     if (_readingModePickerShown) return;
     if (!ref.read(showReadingModeProvider)) return;
@@ -1515,27 +1530,49 @@ class _MangaChapterPageGalleryState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final current = ref.read(_currentReaderMode);
-      showModalBottomSheet(
+      showDialog<void>(
         context: context,
-        builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final mode in ReaderMode.values)
-                ListTile(
-                  leading: Icon(
-                    mode == current
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
+        barrierColor: Colors.black26,
+        builder: (ctx) => Align(
+          alignment: Alignment.bottomCenter,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).padding.bottom + 96,
+              left: 12,
+              right: 12,
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  title: Text(getReaderModeName(mode, ctx)),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    ref.read(_currentReaderMode.notifier).setMode(mode);
-                    _setReaderMode(mode, ref);
-                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final mode in ReaderMode.values)
+                        ListTile(
+                          dense: true,
+                          leading: Icon(
+                            mode == current
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                          ),
+                          title: Text(getReaderModeName(mode, ctx)),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            ref.read(_currentReaderMode.notifier).setMode(mode);
+                            _setReaderMode(mode, ref);
+                          },
+                        ),
+                    ],
+                  ),
                 ),
-            ],
+              ),
+            ),
           ),
         ),
       );
@@ -1727,32 +1764,39 @@ class _MangaChapterPageGalleryState
   }
 
   void _processCropBordersByIndex(int index) async {
-    if (!_cropBorderCheckList.contains(index)) {
-      _cropBorderCheckList.add(index);
-      if (!mounted) return;
+    final actual = _pageViewToActualIndex(index);
+    if (actual < 0 || actual >= pages.length) return;
+    final page = pages[actual];
+    if (!_cropBorderCheckList.add(page)) return; // already requested
+    if (!mounted) return;
+    try {
       final value = await ref.read(
-        cropBordersProvider(data: pages[index], cropBorder: true).future,
+        cropBordersProvider(data: page, cropBorder: true).future,
       );
-      if (mounted) {
-        updatePageCropImage(index, value);
-      }
+      if (mounted) updatePageCropImageFor(page, value);
+    } catch (_) {
+      // A crop failure (isolate unavailable, undecodable page) must not take
+      // the reader down: the page simply renders uncropped.
+      _cropBorderCheckList.remove(page);
     }
   }
 
-  void _processCropBorders() async {
-    if (_cropBorderCheckList.length == pages.length) return;
-
-    for (var i = 0; i < pages.length; i++) {
-      if (!_cropBorderCheckList.contains(i)) {
-        _cropBorderCheckList.add(i);
-        if (!mounted) return;
-        final value = await ref.read(
-          cropBordersProvider(data: pages[i], cropBorder: true).future,
-        );
-        if (mounted) {
-          updatePageCropImage(i, value);
-        }
-      }
+  /// Crops a bounded window around [center] instead of the whole chapter.
+  ///
+  /// The previous version walked *every* page and awaited each crop in turn.
+  /// On a 100-page chapter that meant 100 full-resolution images decoded, run
+  /// through the Rust isolate and re-uploaded to the UI isolate, which is what
+  /// made the reader stutter and run out of memory. Only the pages the user can
+  /// actually reach soon are worth cropping; the rest are cropped on demand by
+  /// [_processCropBordersByIndex] as they scroll into view.
+  void _processCropBorders({int? center}) {
+    if (pages.isEmpty) return;
+    final int middle = _pageViewToActualIndex(center ?? _currentIndex ?? 0);
+    final int radius = pagePreloadAmount.clamp(2, 6);
+    final int from = (middle - radius).clamp(0, pages.length - 1);
+    final int to = (middle + radius).clamp(0, pages.length - 1);
+    for (var i = from; i <= to; i++) {
+      _processCropBordersByIndex(i);
     }
   }
 

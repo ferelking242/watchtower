@@ -137,6 +137,7 @@
   "yesterday": "Hier",
   "a_week_ago": "Il y a une semaine",
   "add_to_library": "Ajouter à la bibliothèque",
+  "added_to_library": "Ajouté à la bibliothèque",
   "completed": "Terminé",
   "ongoing": "En cours",
   "on_hiatus": "En pause",
@@ -1295,5 +1296,19 @@
   "transfer_platform_macos": "macOS",
   "transfer_platform_linux": "Linux",
   "transfer_platform_web": "Web",
-  "transfer_platform_unknown": "Appareil"
+  "transfer_platform_unknown": "Appareil",
+  "copied": "Copi\u00e9",
+  "copied_to_clipboard": "Copi\u00e9 dans le presse-papiers",
+  "author_works": "Oeuvres de cet auteur",
+  "select_range": "S\u00e9lectionner la plage",
+  "select_all": "Tout s\u00e9lectionner",
+  "select_invert": "Inverser la s\u00e9lection",
+  "select_none": "Tout d\u00e9s\u00e9lectionner",
+  "download_range": "T\u00e9l\u00e9charger une plage",
+  "range_start": "D\u00e9but",
+  "range_end": "Fin",
+  "download_range_hint": "Les chapitres entre les deux num\u00e9ros sont t\u00e9l\u00e9charg\u00e9s, dans l'ordre de lecture.",
+  "invalid_range": "Plage invalide",
+  "load_more": "Charger plus",
+  "no_comments": "Aucun commentaire"
 }

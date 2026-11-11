@@ -738,6 +738,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get add_to_library => 'Agregar a la biblioteca';
 
   @override
+  String get added_to_library => 'Added to library';
+
+  @override
   String get completed => 'Completado';
 
   @override
@@ -4203,6 +4206,46 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get transfer_platform_unknown => 'Dispositivo';
+
+  @override
+  String get copied => 'Copied';
+
+  @override
+  String get copied_to_clipboard => 'Copied to clipboard';
+
+  @override
+  String get author_works => 'Works by this author';
+
+  @override
+  String get select_range => 'Select range';
+
+  @override
+  String get select_all => 'Select all';
+
+  @override
+  String get select_invert => 'Invert selection';
+
+  @override
+  String get select_none => 'Deselect all';
+
+  @override
+  String get download_range => 'Download a range';
+
+  @override
+  String get range_start => 'Start';
+
+  @override
+  String get range_end => 'End';
+
+  @override
+  String get download_range_hint =>
+      'Chapters between the two numbers are downloaded, in reading order.';
+
+  @override
+  String get invalid_range => 'Invalid range';
+
+  @override
+  String get no_comments => 'No comments yet';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).

@@ -322,6 +322,16 @@ class ChapterPreloadManager {
     }
   }
 
+  /// Updates the cropImage of a page identified by its instance.
+  ///
+  /// Prepending a previous chapter shifts every index in [_pages], so a crop
+  /// that finishes asynchronously can no longer trust the index it started
+  /// with. Addressing the page object keeps the bytes on the right page.
+  void updatePageCropImageFor(UChapDataPreload page, Uint8List? cropImage) {
+    page.cropImage = cropImage;
+    onPagesUpdated?.call();
+  }
+
   /// Gets a unique identifier for a chapter.
   String? _getChapterIdentifier(Chapter? chapter) {
     if (chapter == null) return null;

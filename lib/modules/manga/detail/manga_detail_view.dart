@@ -5,6 +5,7 @@ import 'package:draggable_menu/draggable_menu.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart' hide Category;
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
@@ -44,6 +45,8 @@ import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/manga/detail/widgets/detail_shimmer.dart';
+import 'package:watchtower/modules/manga/detail/widgets/similar_section.dart';
+import 'package:watchtower/modules/media/comments_view.dart';
 import 'package:watchtower/modules/manga/detail/widgets/readmore.dart';
 import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_list_tile_widget.dart';
@@ -58,6 +61,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 import '../../../utils/constant.dart';
 import 'package:path/path.dart' as p;
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 /// Onglets de la page de détail, dans l'ordre demandé :
@@ -243,6 +247,114 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
       // in a multi-chapter request failed to save.
       ref.read(processDownloadsProvider());
     }
+  }
+
+  /// Ligne icône + libellé partagée par les menus déroulants du détail.
+  Widget _menuRow(IconData icon, String label) => Row(
+    children: [Icon(icon, size: 18), const SizedBox(width: 10), Text(label)],
+  );
+
+  /// Extrait la valeur numérique du libellé d'un chapitre ("Chapitre 44.5" →
+  /// 44.5). Retourne null quand le nom ne porte aucun nombre.
+  double? _chapterNumber(Chapter chapter) {
+    final match = RegExp(
+      r'\d+(?:[.,]\d+)?',
+    ).firstMatch(chapter.name?.trim() ?? '');
+    return double.tryParse(match?.group(0)?.replaceAll(',', '.') ?? '');
+  }
+
+  String _formatChapterNumber(double value) =>
+      value == value.roundToDouble() ? value.toInt().toString() : '$value';
+
+  /// « Télécharger une plage » : demande un début et une fin puis met en file
+  /// tous les chapitres compris entre les deux, dans l'ordre de lecture.
+  Future<void> _downloadRange(List<Chapter> chapters) async {
+    if (chapters.isEmpty) return;
+    final l10n = l10nLocalizations(context)!;
+    final numbered = chapters
+        .map((c) => (chapter: c, number: _chapterNumber(c)))
+        .where((e) => e.number != null)
+        .toList();
+    if (numbered.isEmpty) {
+      botToast(l10n.invalid_range);
+      return;
+    }
+    final numbers = numbered.map((e) => e.number!).toList()..sort();
+    final startController = TextEditingController(
+      text: _formatChapterNumber(numbers.first),
+    );
+    final endController = TextEditingController(
+      text: _formatChapterNumber(numbers.last),
+    );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.download_range),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: startController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(labelText: l10n.range_start),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: endController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(labelText: l10n.range_end),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              l10n.download_range_hint,
+              style: const TextStyle(fontSize: 11.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(l10n.download),
+          ),
+        ],
+      ),
+    );
+    final start = double.tryParse(
+      startController.text.trim().replaceAll(',', '.'),
+    );
+    final end = double.tryParse(
+      endController.text.trim().replaceAll(',', '.'),
+    );
+    startController.dispose();
+    endController.dispose();
+    if (confirmed != true || start == null || end == null) return;
+    final low = start <= end ? start : end;
+    final high = start <= end ? end : start;
+    final selected = numbered
+        .where((e) => e.number! >= low && e.number! <= high)
+        .map((e) => e.chapter)
+        .toList();
+    if (selected.isEmpty) {
+      botToast(l10n.invalid_range);
+      return;
+    }
+    await _queueChapters(selected);
   }
 
   List<Chapter> _filterAndSortChapter({
@@ -455,32 +567,25 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               icon: const Icon(Broken.tick_square, size: 23),
                             ),
                             IconButton(
+                              tooltip: l10n.select_invert,
                               onPressed: () {
-                                if (chapters.length == chapterList.length) {
-                                  for (var chapter in chapters) {
-                                    ref
-                                        .read(
-                                          chaptersListStateProvider.notifier,
-                                        )
-                                        .selectSome(chapter);
-                                  }
-                                  ref
-                                      .read(isLongPressedStateProvider.notifier)
-                                      .update(false);
-                                } else {
-                                  for (var chapter in chapters) {
-                                    ref
-                                        .read(
-                                          chaptersListStateProvider.notifier,
-                                        )
-                                        .selectSome(chapter);
-                                  }
-                                }
+                                ref
+                                    .read(chaptersListStateProvider.notifier)
+                                    .invertSelection(chapters);
                               },
                               icon: const Icon(
                                 Broken.refresh_left_square,
                                 size: 23,
                               ),
+                            ),
+                            IconButton(
+                              tooltip: l10n.select_range,
+                              onPressed: () {
+                                ref
+                                    .read(chaptersListStateProvider.notifier)
+                                    .selectBetweenExtremes(chapters);
+                              },
+                              icon: const Icon(Broken.maximize_3, size: 23),
                             ),
                           ],
                         ),
@@ -503,63 +608,86 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                             : Theme.of(context).scaffoldBackgroundColor,
                         actions: [
                           if (!isLocalArchive) ...[
-                            ArrowPopupMenuButton(
-                              padding: const EdgeInsets.all(12),
-                              popUpAnimationStyle: popupAnimationStyle,
+                            AdaptiveOverlayMenu<int>(
                               icon: const Icon(
                                 // Icône de téléchargement Broken (anneau de
                                 // progression affiché sur les tuiles chapitre).
                                 Broken.receive_square,
                                 size: 23,
                               ),
+                              menuWidth: 250,
                               itemBuilder: (context) {
+                                final isAnime =
+                                    widget.itemType == ItemType.anime;
+                                Widget row(IconData icon, String label) => Row(
+                                  children: [
+                                    Icon(icon, size: 18),
+                                    const SizedBox(width: 10),
+                                    Text(label),
+                                  ],
+                                );
                                 return [
                                   PopupMenuItem<int>(
                                     value: 0,
-                                    child: Text(
-                                      widget.itemType != ItemType.anime
-                                          ? context.l10n.next_chapter
-                                          : context.l10n.next_episode,
+                                    child: row(
+                                      Broken.book_1,
+                                      isAnime
+                                          ? context.l10n.next_episode
+                                          : context.l10n.next_chapter,
                                     ),
                                   ),
                                   PopupMenuItem<int>(
                                     value: 1,
-                                    child: Text(
-                                      widget.itemType != ItemType.anime
-                                          ? context.l10n.next_5_chapters
-                                          : context.l10n.next_5_episodes,
+                                    child: row(
+                                      Broken.element_3,
+                                      isAnime
+                                          ? context.l10n.next_5_episodes
+                                          : context.l10n.next_5_chapters,
                                     ),
                                   ),
                                   PopupMenuItem<int>(
                                     value: 2,
-                                    child: Text(
-                                      widget.itemType != ItemType.anime
-                                          ? context.l10n.next_10_chapters
-                                          : context.l10n.next_10_episodes,
+                                    child: row(
+                                      Broken.task,
+                                      isAnime
+                                          ? context.l10n.next_10_episodes
+                                          : context.l10n.next_10_chapters,
                                     ),
                                   ),
                                   PopupMenuItem<int>(
                                     value: 3,
-                                    child: Text(
-                                      widget.itemType != ItemType.anime
-                                          ? context.l10n.next_25_chapters
-                                          : context.l10n.next_25_episodes,
+                                    child: row(
+                                      Broken.layer,
+                                      isAnime
+                                          ? context.l10n.next_25_episodes
+                                          : context.l10n.next_25_chapters,
                                     ),
                                   ),
+                                  PopupMenuDivider(),
                                   PopupMenuItem<int>(
                                     value: 4,
-                                    child: Text(
-                                      widget.itemType != ItemType.anime
-                                          ? context.l10n.unread
-                                          : context.l10n.unwatched,
+                                    child: row(
+                                      Broken.bookmark,
+                                      isAnime
+                                          ? context.l10n.unwatched
+                                          : context.l10n.unread,
                                     ),
                                   ),
                                   PopupMenuItem<int>(
                                     value: 5,
-                                    child: Text(
-                                      widget.itemType != ItemType.anime
-                                          ? context.l10n.all_chapters
-                                          : context.l10n.all_episodes,
+                                    child: row(
+                                      Broken.gallery,
+                                      isAnime
+                                          ? context.l10n.all_episodes
+                                          : context.l10n.all_chapters,
+                                    ),
+                                  ),
+                                  PopupMenuDivider(),
+                                  PopupMenuItem<int>(
+                                    value: 6,
+                                    child: row(
+                                      Broken.calendar_1,
+                                      context.l10n.download_range,
                                     ),
                                   ),
                                 ];
@@ -567,10 +695,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               onSelected: (value) async {
                                 final chapters =
                                     _getFilteredAndSortedChapters();
-                                if (value == 0 ||
-                                    value == 1 ||
-                                    value == 2 ||
-                                    value == 3) {
+                                if (value >= 0 && value <= 3) {
                                   final lastChapterReadIndex = chapters
                                       .lastIndexWhere(
                                         (element) => element.isRead == true,
@@ -589,71 +714,81 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                       );
                                   await _queueChapters(chaptersToDownload);
                                 } else if (value == 4) {
-                                  final List<Chapter> unreadChapters =
-                                      _getFilteredAndSortedChapters()
-                                          .where(
-                                            (element) =>
-                                                !(element.isRead ?? false),
-                                          )
-                                          .toList();
+                                  final List<Chapter> unreadChapters = chapters
+                                      .where(
+                                        (element) =>
+                                            !(element.isRead ?? false),
+                                      )
+                                      .toList();
                                   await _queueChapters(unreadChapters);
                                 } else if (value == 5) {
-                                  await _queueChapters(
-                                    _getFilteredAndSortedChapters(),
-                                  );
+                                  await _queueChapters(chapters);
+                                } else if (value == 6) {
+                                  await _downloadRange(chapters);
                                 }
                               },
                             ),
-                          ],
-                          IconButton(
-                            splashRadius: 20,
-                            onPressed: () {
-                              _showDraggableMenu();
-                            },
-                            icon: Icon(
-                              Broken.filter,
-                              size: 23,
-                              color: isNotFiltering ? null : Colors.yellow,
+                          AdaptiveOverlayMenuButton(
+                            trigger: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Icon(
+                                Broken.filter,
+                                size: 23,
+                                color: isNotFiltering ? null : Colors.yellow,
+                              ),
                             ),
+                            menuWidth: 280,
+                            contentBuilder: _chapterFilterMenu,
                           ),
-                          ArrowPopupMenuButton(
-                            padding: const EdgeInsets.all(12),
-                            popUpAnimationStyle: popupAnimationStyle,
+                          AdaptiveOverlayMenu<int>(
+                            menuWidth: 240,
                             icon: const Icon(Broken.more_2, size: 23),
                             itemBuilder: (context) {
                               return [
                                 if (!isLocalArchive)
                                   PopupMenuItem<int>(
                                     value: 0,
-                                    child: Text(l10n.refresh),
+                                    child: _menuRow(Broken.refresh, l10n.refresh),
                                   ),
                                 if (widget.manga!.favorite! &&
                                     checkCategoryList)
                                   PopupMenuItem<int>(
                                     value: 1,
-                                    child: Text(l10n.set_categories),
+                                    child: _menuRow(
+                                      Broken.tag,
+                                      l10n.set_categories,
+                                    ),
                                   ),
                                 if (!isLocalArchive)
                                   PopupMenuItem<int>(
                                     value: 2,
-                                    child: Text(l10n.share),
+                                    child: _menuRow(Broken.share, l10n.share),
                                   ),
                                 PopupMenuItem<int>(
                                   value: 3,
-                                  child: Text(l10n.migrate),
+                                  child: _menuRow(Broken.convert, l10n.migrate),
                                 ),
                                 PopupMenuItem<int>(
                                   value: 6,
-                                  child: const Text('Mass migration'),
+                                  child: _menuRow(
+                                    Broken.layer,
+                                    'Mass migration',
+                                  ),
                                 ),
                                 if (!isLocalArchive)
                                   PopupMenuItem<int>(
                                     value: 4,
-                                    child: Text(l10n.extension_settings),
+                                    child: _menuRow(
+                                      Broken.settings,
+                                      l10n.extension_settings,
+                                    ),
                                   ),
                                 PopupMenuItem<int>(
                                   value: 5,
-                                  child: Text(l10n.export_metadata),
+                                  child: _menuRow(
+                                    Broken.export,
+                                    l10n.export_metadata,
+                                  ),
                                 ),
                               ];
                             },
@@ -766,6 +901,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               }
                             },
                           ),
+                          ],
                         ],
                       ),
                     );
@@ -797,9 +933,33 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                           sliver: SuperSliverList.builder(
                             itemCount: _detailSection == _DetailSection.chapters
                                 ? chapters.length + 1
-                                : 2,
+                                : 1,
                             itemBuilder: (context, index) {
                               final l10n = l10nLocalizations(context)!;
+                              if (_detailSection == _DetailSection.similar) {
+                                return SimilarSection(
+                                  name: widget.manga!.name!,
+                                  itemType: widget.manga!.itemType,
+                                  weights: ref.read(
+                                    algorithmWeightsStateProvider,
+                                  ),
+                                );
+                              }
+                              if (_detailSection == _DetailSection.comments) {
+                                final source = getSource(
+                                  widget.manga!.lang!,
+                                  widget.manga!.source!,
+                                  widget.manga!.sourceId,
+                                );
+                                final url = source == null
+                                    ? ''
+                                    : '${source.baseUrl}'
+                                          '${widget.manga!.link?.getUrlWithoutDomain ?? ''}';
+                                return CommentsSection(
+                                  url: url,
+                                  source: source,
+                                );
+                              }
                               if (index == 0) {
                                 return context.isTablet
                                     ? Column(
@@ -912,49 +1072,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                     : _bodyContainer(
                                         chapterLength: chapters.length,
                                       );
-                              }
-                              if (_detailSection == _DetailSection.similar) {
-                                return _DetailInlinePanel(
-                                  icon: Broken.star,
-                                  title: 'Similar',
-                                  subtitle:
-                                      'Retrouvez les titres proches de ce manga.',
-                                  onOpen: () {
-                                    final w = ref.read(algorithmWeightsStateProvider);
-                                    context.push(
-                                      '/recommendationDetail',
-                                      extra: (
-                                        widget.manga!.name,
-                                        widget.manga!.itemType,
-                                        w,
-                                      ),
-                                    );
-                                  },
-                                );
-                              }
-                              if (_detailSection == _DetailSection.comments) {
-                                return _DetailInlinePanel(
-                                  icon: Broken.message,
-                                  title: 'Commentaires',
-                                  subtitle:
-                                      'Ouvrez la page source pour lire et poster des commentaires.',
-                                  onOpen: () {
-                                    final source = getSource(
-                                      widget.manga!.lang!,
-                                      widget.manga!.source!,
-                                      widget.manga!.sourceId,
-                                    );
-                                    if (source == null) return;
-                                    final url =
-                                        '${source.baseUrl}${widget.manga!.link!.getUrlWithoutDomain}';
-                                    context.push('/mangawebview', extra: {
-                                      'url': url,
-                                      'sourceId': source.id.toString(),
-                                      'title':
-                                          '${widget.manga!.name} - Commentaires',
-                                    });
-                                  },
-                                );
                               }
                               final chapterIndex = chapterIndexForListItem(
                                 itemIndex: index,
@@ -1225,19 +1342,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     );
   }
 
-  void _showDraggableMenu() {
+  /// Contenu du panneau de filtre des chapitres, rendu dans la même bulle de
+  /// verre que la bibliothèque et la recherche (AdaptiveOverlayMenuButton).
+  Widget _chapterFilterMenu(VoidCallback close) {
     final manga = widget.manga!;
     final mangaId = manga.id!;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * 0.82,
-          child: Consumer(
+    return Consumer(
             builder: (context, ref, child) {
               final l10n = l10nLocalizations(context)!;
               final scanlators = ref.watch(scanlatorsFilterStateProvider(manga));
@@ -1330,35 +1440,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
               ];
 
               return Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-                    child: Row(
-                      children: [
-                        Icon(Broken.filter, color: context.primaryColor),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            l10n.filter,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: MaterialLocalizations.of(
-                            sheetContext,
-                          ).closeButtonTooltip,
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: FilterWidget(
+                  AdaptiveOverlaySection(title: l10n.filter),
+                  FilterWidget(
                       filterList: filterList,
                       onChanged: (changedFilters) {
                         for (final filter
@@ -1447,7 +1532,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                               .set(sortIndices[filter.state.index]);
                         }
                       },
-                    ),
                   ),
                   const Divider(height: 1),
                   Padding(
@@ -1469,7 +1553,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                           ),
                         const Spacer(),
                         TextButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          onPressed: close,
                           child: Text(l10n.cancel),
                         ),
                         const SizedBox(width: 8),
@@ -1487,7 +1571,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                   )
                                   .set(draft);
                             }
-                            Navigator.of(sheetContext).pop();
+                            close();
                           },
                           child: Text(l10n.filter),
                         ),
@@ -1497,10 +1581,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                 ],
               );
             },
-          ),
-        ),
-      ),
-    );
+          );
   }
 
   String _getSortNameByIndex(int index, BuildContext context) {
@@ -1822,9 +1903,20 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
             child: DetailShimmerBox(width: 180, height: 24, radius: 6),
           )
         else
-          SelectableText(
-            widget.manga!.name!,
-            style: const TextStyle(fontSize: 20),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // Un appui sur le nom copie le titre dans le presse-papiers.
+            onTap: () async {
+              await Clipboard.setData(
+                ClipboardData(text: widget.manga!.name!),
+              );
+              if (!mounted) return;
+              botToast(l10nLocalizations(context)!.copied_to_clipboard);
+            },
+            child: Text(
+              widget.manga!.name!,
+              style: const TextStyle(fontSize: 20),
+            ),
           ),
         widget.titleDescription!,
       ],
@@ -2600,84 +2692,6 @@ class _DetailTabs extends StatelessWidget {
               ),
             ),
         ],
-    );
-  }
-}
-
-// ── Inline panel for non-chapter sections ─────────────────────────────────────
-
-class _DetailInlinePanel extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback onOpen;
-  const _DetailInlinePanel({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    required this.onOpen,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
-      alignment: Alignment.topCenter,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 84,
-            height: 84,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: scheme.primary.withValues(alpha: 0.10),
-              border: Border.all(
-                color: scheme.primary.withValues(alpha: 0.25),
-                width: 1.2,
-              ),
-            ),
-            child: Icon(icon, size: 36, color: scheme.primary),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurface,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              subtitle!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.45,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          FilledButton.tonal(
-            onPressed: onOpen,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Ouvrir'),
-                  SizedBox(width: 6),
-                  Icon(Broken.arrow_right_2, size: 16),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
