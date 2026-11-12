@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
 class ExpandableSearchField extends StatelessWidget {
@@ -59,7 +59,7 @@ class ExpandableSearchButton extends StatelessWidget {
     super.key,
     required this.isFiltering,
     required this.searchFocus,
-    this.icon = const Icon(SpotubeIcons.filter),
+    this.icon = const Icon(MusicIcons.filter),
     this.onPressed,
   });
 

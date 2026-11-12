@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
 class ErrorBox extends StatelessWidget {
@@ -29,7 +29,7 @@ class ErrorBox extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Icon(SpotubeIcons.error),
+                  leading: const Icon(MusicIcons.error),
                   title: Text(context.l10n.an_error_occurred),
                 ),
                 Container(
@@ -68,7 +68,7 @@ class ErrorBox extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(SpotubeIcons.logs),
+                          const Icon(MusicIcons.logs),
                           const SizedBox(width: 8),
                           Text(context.l10n.view_logs),
                         ],
@@ -80,7 +80,7 @@ class ErrorBox extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(SpotubeIcons.refresh),
+                            const Icon(MusicIcons.refresh),
                             const SizedBox(width: 8),
                             Text(context.l10n.retry),
                           ],
@@ -125,7 +125,7 @@ class _LogDialog extends HookWidget {
               // Title row — uses its own fresh context, never the outer one
               Row(
                 children: [
-                  const Icon(SpotubeIcons.logs),
+                  const Icon(MusicIcons.logs),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

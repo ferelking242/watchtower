@@ -3,7 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/lyrics/zoom_controls.dart';
 import 'package:watchtower/modules/music/components/shimmers/shimmer_lyrics.dart';
@@ -83,7 +83,7 @@ class PlainLyrics extends HookConsumerWidget {
                                   textAlign: TextAlign.center,
                                 ),
                                 SizedBox(height: 26),
-                                const Icon(SpotubeIcons.noLyrics),
+                                const Icon(MusicIcons.noLyrics),
                               ],
                             ),
                           );

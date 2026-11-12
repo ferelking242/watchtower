@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -77,7 +77,7 @@ class LastFMLoginPage extends HookConsumerWidget {
                             ),
                             padding: const EdgeInsets.all(12),
                             child: const Icon(
-                              SpotubeIcons.lastFm,
+                              MusicIcons.lastFm,
                               color: Colors.white,
                               size: 60,
                             ),
@@ -125,8 +125,8 @@ class LastFMLoginPage extends HookConsumerWidget {
                                     suffixIcon: IconButton(
                                       icon: Icon(
                                         passwordVisible.value
-                                            ? SpotubeIcons.eye
-                                            : SpotubeIcons.noEye,
+                                            ? MusicIcons.eye
+                                            : MusicIcons.noEye,
                                       ),
                                       onPressed: () => passwordVisible.value =
                                           !passwordVisible.value,

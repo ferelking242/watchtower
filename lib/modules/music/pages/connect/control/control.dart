@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/player/player_queue.dart';
@@ -210,7 +210,7 @@ class ConnectControlPage extends HookConsumerWidget {
                         children: [
                           IconButton(
                             icon: Icon(
-                              SpotubeIcons.shuffle,
+                              MusicIcons.shuffle,
                               color: shuffled
                                   ? colorScheme.primary
                                   : null,
@@ -224,7 +224,7 @@ class ConnectControlPage extends HookConsumerWidget {
                           ),
                           const SizedBox(width: 12),
                           IconButton(
-                            icon: const Icon(SpotubeIcons.skipBack),
+                            icon: const Icon(MusicIcons.skipBack),
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : connectNotifier.previous,
@@ -244,8 +244,8 @@ class ConnectControlPage extends HookConsumerWidget {
                                   )
                                 : Icon(
                                     playing
-                                        ? SpotubeIcons.pause
-                                        : SpotubeIcons.play,
+                                        ? MusicIcons.pause
+                                        : MusicIcons.play,
                                     color: Colors.white,
                                   ),
                             onPressed: playlist.activeTrack == null
@@ -260,7 +260,7 @@ class ConnectControlPage extends HookConsumerWidget {
                           ),
                           const SizedBox(width: 12),
                           IconButton(
-                            icon: const Icon(SpotubeIcons.skipForward),
+                            icon: const Icon(MusicIcons.skipForward),
                             onPressed: playlist.activeTrack == null
                                 ? null
                                 : connectNotifier.next,
@@ -269,8 +269,8 @@ class ConnectControlPage extends HookConsumerWidget {
                           IconButton(
                             icon: Icon(
                               loopMode == PlaylistMode.single
-                                  ? SpotubeIcons.repeatOne
-                                  : SpotubeIcons.repeat,
+                                  ? MusicIcons.repeatOne
+                                  : MusicIcons.repeat,
                               color: loopMode == PlaylistMode.loop
                                   ? colorScheme.primary
                                   : null,
@@ -299,7 +299,7 @@ class ConnectControlPage extends HookConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         sliver: SliverToBoxAdapter(
                           child: OutlinedButton.icon(
-                            icon: const Icon(SpotubeIcons.queue),
+                            icon: const Icon(MusicIcons.queue),
                             label: Text(context.l10n.queue),
                             onPressed: () {
                               final capturedTheme = Theme.of(context);

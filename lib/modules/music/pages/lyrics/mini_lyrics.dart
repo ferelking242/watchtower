@@ -5,7 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/modules/player/player_controls.dart';
 import 'package:watchtower/modules/music/modules/player/player_queue.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -93,8 +93,8 @@ class MiniLyricsPage extends HookConsumerWidget {
                       const Spacer(),
                     IconButton(
                       icon: showLyrics.value
-                          ? const Icon(SpotubeIcons.lyrics)
-                          : const Icon(SpotubeIcons.lyricsOff),
+                          ? const Icon(MusicIcons.lyrics)
+                          : const Icon(MusicIcons.lyricsOff),
                       onPressed: () async {
                         showLyrics.value = !showLyrics.value;
                         areaActive.value = true;
@@ -111,8 +111,8 @@ class MiniLyricsPage extends HookConsumerWidget {
                     ),
                     IconButton(
                       icon: hoverMode.value
-                          ? const Icon(SpotubeIcons.hoverOn)
-                          : const Icon(SpotubeIcons.hoverOff),
+                          ? const Icon(MusicIcons.hoverOn)
+                          : const Icon(MusicIcons.hoverOff),
                       onPressed: () async {
                         areaActive.value = true;
                         hoverMode.value = !hoverMode.value;
@@ -125,8 +125,8 @@ class MiniLyricsPage extends HookConsumerWidget {
                           return IconButton(
                             icon: Icon(
                               snapshot.data == true
-                                  ? SpotubeIcons.pinOn
-                                  : SpotubeIcons.pinOff,
+                                  ? MusicIcons.pinOn
+                                  : MusicIcons.pinOff,
                             ),
                             onPressed: snapshot.data == null
                                 ? null
@@ -180,7 +180,7 @@ class MiniLyricsPage extends HookConsumerWidget {
               firstChild: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(SpotubeIcons.queue),
+                    icon: const Icon(MusicIcons.queue),
                     onPressed: playlistQueue.activeTrack != null
                         ? () {
                             final capturedTheme = Theme.of(context);
@@ -218,7 +218,7 @@ class MiniLyricsPage extends HookConsumerWidget {
                   ),
                   const Flexible(child: PlayerControls(compact: true)),
                   IconButton(
-                    icon: const Icon(SpotubeIcons.maximize),
+                    icon: const Icon(MusicIcons.maximize),
                     onPressed: () async {
                       if (!kIsDesktop) return;
 

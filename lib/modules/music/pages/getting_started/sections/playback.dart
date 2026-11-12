@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/modules/getting_started/blur_card.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -28,7 +28,7 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
           children: [
             Row(
               children: [
-                const Icon(SpotubeIcons.album, size: 16),
+                const Icon(MusicIcons.album, size: 16),
                 const SizedBox(height: 8, width: 8),
                 Text(context.l10n.playback),
               ],
@@ -60,7 +60,7 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(SpotubeIcons.angleLeft),
+                      const Icon(MusicIcons.angleLeft),
                       Text(context.l10n.previous),
                     ],
                   ),
@@ -71,7 +71,7 @@ class GettingStartedPagePlaybackSection extends HookConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(context.l10n.next),
-                      const Icon(SpotubeIcons.angleRight),
+                      const Icon(MusicIcons.angleRight),
                     ],
                   ),
                 ),

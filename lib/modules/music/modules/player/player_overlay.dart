@@ -4,7 +4,7 @@ import 'package:watchtower/modules/music/collections/riverpod_compat.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:watchtower/modules/music/modules/player/player_overlay_collapsed.dart';
 
-import 'package:watchtower/modules/music/modules/root/spotube_navigation_bar.dart';
+import 'package:watchtower/modules/music/modules/root/music_navigation_bar.dart';
 import 'package:watchtower/modules/music/modules/player/player.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 

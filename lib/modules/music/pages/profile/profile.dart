@@ -3,7 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -60,7 +60,7 @@ class ProfilePage extends HookConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton.icon(
-                        icon: const Icon(SpotubeIcons.edit),
+                        icon: const Icon(MusicIcons.edit),
                         label: Text(context.l10n.edit),
                         onPressed: () {
                           launchUrlString(

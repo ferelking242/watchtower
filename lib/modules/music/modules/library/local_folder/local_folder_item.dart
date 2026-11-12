@@ -7,7 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:path/path.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -57,7 +57,7 @@ class LocalFolderItem extends HookConsumerWidget {
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Icon(
-                SpotubeIcons.folder,
+                MusicIcons.folder,
                 size: mediaQuery.smAndDown
                     ? 95
                     : mediaQuery.mdAndDown

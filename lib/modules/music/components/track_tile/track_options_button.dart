@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
     import 'package:flutter/material.dart';
     import 'package:watchtower/modules/music/collections/routes.gr.dart';
-    import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+    import 'package:watchtower/modules/music/collections/music_icons.dart';
     import 'package:watchtower/modules/music/components/image/universal_image.dart';
     import 'package:watchtower/modules/music/components/links/artist_link.dart';
     import 'package:watchtower/modules/music/components/track_tile/track_options.dart';
@@ -125,7 +125,7 @@ import 'package:auto_route/auto_route.dart';
     @override
     Widget build(BuildContext context, ref) {
       return IconButton(
-        icon: const Icon(SpotubeIcons.moreHorizontal),
+        icon: const Icon(MusicIcons.moreHorizontal),
         onPressed: () {
           showOptions(
             context,

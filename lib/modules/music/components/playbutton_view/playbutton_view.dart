@@ -2,7 +2,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_card.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_tile.dart';
 import 'package:watchtower/modules/music/components/waypoint.dart';
@@ -85,7 +85,7 @@ class PlaybuttonView extends StatelessWidget {
                     style: isGrid.value
                         ? IconButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primaryContainer)
                         : null,
-                    icon: const Icon(SpotubeIcons.grid),
+                    icon: const Icon(MusicIcons.grid),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
@@ -96,7 +96,7 @@ class PlaybuttonView extends StatelessWidget {
                     style: !isGrid.value
                         ? IconButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primaryContainer)
                         : null,
-                    icon: const Icon(SpotubeIcons.list),
+                    icon: const Icon(MusicIcons.list),
                   ),
                 ],
               ),

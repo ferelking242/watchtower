@@ -5,7 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/player/player_queue.dart';
@@ -87,7 +87,7 @@ class PlayerActions extends HookConsumerWidget {
       children: [
         if (showQueue)
           IconButton(
-            icon: const Icon(SpotubeIcons.queue),
+            icon: const Icon(MusicIcons.queue),
             tooltip: context.l10n.queue,
             onPressed: playlist.activeTrack != null
                 ? () {
@@ -124,7 +124,7 @@ class PlayerActions extends HookConsumerWidget {
           ),
         if (!isLocalTrack)
           IconButton(
-            icon: const Icon(SpotubeIcons.alternativeRoute),
+            icon: const Icon(MusicIcons.alternativeRoute),
             onPressed: () {
               final screenSize = MediaQuery.sizeOf(context);
               if (screenSize.mdAndUp) {
@@ -156,7 +156,7 @@ class PlayerActions extends HookConsumerWidget {
           else
             IconButton(
               icon: Icon(
-                isDownloaded ? SpotubeIcons.done : SpotubeIcons.download,
+                isDownloaded ? MusicIcons.done : MusicIcons.download,
               ),
               onPressed: playlist.activeTrack != null
                   ? () => downloader.addToQueue(
@@ -174,7 +174,7 @@ class PlayerActions extends HookConsumerWidget {
             Text(context.l10n.sleep_timer),
           ],
           icon: Icon(
-            SpotubeIcons.timer,
+            MusicIcons.timer,
             color: sleepTimer != null ? Colors.red : null,
           ),
           onSelected: (value) {

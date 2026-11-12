@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 
 /// Drop-in replacement for shadcn's SelectItemButton<T>.
@@ -67,9 +67,9 @@ class AdaptiveSelectTile<T> extends HookWidget {
                 return ListTile(
                   iconColor: theme.colorScheme.primary,
                   leading: item.value == value
-                      ? Icon(SpotubeIcons.radioChecked,
+                      ? Icon(MusicIcons.radioChecked,
                           color: theme.colorScheme.primary)
-                      : const Icon(SpotubeIcons.radioUnchecked),
+                      : const Icon(MusicIcons.radioUnchecked),
                   title: item.child,
                   onTap: () {
                     onChanged?.call(item.value);

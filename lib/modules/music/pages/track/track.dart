@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/heart_button/heart_button.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
@@ -135,7 +135,7 @@ class TrackPage extends HookConsumerWidget {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(SpotubeIcons.album),
+                                    const Icon(MusicIcons.album),
                                     SizedBox(height: 5),
                                     Flexible(
                                       child: LinkText(
@@ -153,7 +153,7 @@ class TrackPage extends HookConsumerWidget {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(SpotubeIcons.artist),
+                                    const Icon(MusicIcons.artist),
                                     SizedBox(height: 5),
                                     Flexible(
                                       child: ArtistLink(
@@ -188,7 +188,7 @@ class TrackPage extends HookConsumerWidget {
                                               .containsBy(track, (t) => t.id))
                                         IconButton(
                                           icon: const Icon(
-                                              SpotubeIcons.lightning),
+                                              MusicIcons.lightning),
                                           onPressed: () {
                                             playlistNotifier
                                                 .addTracksAtFirst([track]);
@@ -198,8 +198,8 @@ class TrackPage extends HookConsumerWidget {
                                       IconButton(
                                         icon: Icon(
                                           isActive
-                                              ? SpotubeIcons.pause
-                                              : SpotubeIcons.play,
+                                              ? MusicIcons.pause
+                                              : MusicIcons.play,
                                         ),
                                         onPressed: onPlay,
                                       ),

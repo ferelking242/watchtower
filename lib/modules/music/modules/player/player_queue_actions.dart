@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-    import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+    import 'package:watchtower/modules/music/collections/music_icons.dart';
     import 'package:watchtower/modules/music/extensions/constrains.dart';
 
     class PlayerQueueActionButton extends StatelessWidget {
@@ -55,7 +55,7 @@ import 'package:flutter/material.dart';
             );
           }
         },
-        icon: const Icon(SpotubeIcons.moreHorizontal),
+        icon: const Icon(MusicIcons.moreHorizontal),
       );
     }
     }

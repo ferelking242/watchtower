@@ -7,7 +7,7 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/player/player_actions.dart';
 import 'package:watchtower/modules/music/modules/player/player_controls.dart';
@@ -17,7 +17,7 @@ import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
-import 'package:watchtower/modules/music/modules/root/spotube_navigation_bar.dart';
+import 'package:watchtower/modules/music/modules/root/music_navigation_bar.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/audio_source/quality_label.dart';
 import 'package:watchtower/modules/music/provider/server/active_track_sources.dart';
@@ -96,14 +96,14 @@ class PlayerView extends HookConsumerWidget {
               backgroundColor: Colors.transparent,
               leading: IconButton(
                 iconSize: 24,
-                icon: const Icon(SpotubeIcons.angleDown),
+                icon: const Icon(MusicIcons.angleDown),
                 onPressed: panelController.close,
               ),
               actions: [
                 if (!isLocalTrack)
                   IconButton(
                     iconSize: 24,
-                    icon: const Icon(SpotubeIcons.info),
+                    icon: const Icon(MusicIcons.info),
                     onPressed: currentActiveTrackSource == null
                         ? null
                         : () {
@@ -204,7 +204,7 @@ class PlayerView extends HookConsumerWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: OutlinedButton.icon(
-                        icon: const Icon(SpotubeIcons.queue),
+                        icon: const Icon(MusicIcons.queue),
                         label: Text(context.l10n.queue),
                         onPressed: () {
                           context.pushRoute(const PlayerQueueRoute());
@@ -214,7 +214,7 @@ class PlayerView extends HookConsumerWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: OutlinedButton.icon(
-                        icon: const Icon(SpotubeIcons.music),
+                        icon: const Icon(MusicIcons.music),
                         label: Text(context.l10n.lyrics),
                         onPressed: () {
                           context.pushRoute(const PlayerLyricsRoute());
@@ -251,7 +251,7 @@ class PlayerView extends HookConsumerWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(SpotubeIcons.lightningOutlined, size: 16),
+                      const Icon(MusicIcons.lightningOutlined, size: 16),
                       const SizedBox(width: 4),
                       Text(
                         qualityLabel,

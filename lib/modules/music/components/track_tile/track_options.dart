@@ -2,7 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/collections/routes.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -132,10 +132,10 @@ class TrackOptions extends HookConsumerWidget {
             },
             leading: isLiked
                 ? const Icon(
-                    SpotubeIcons.heartFilled,
+                    MusicIcons.heartFilled,
                     color: Colors.pink,
                   )
-                : const Icon(SpotubeIcons.heart),
+                : const Icon(MusicIcons.heart),
             title: Text(
               isLiked
                   ? context.l10n.remove_from_favorites
@@ -203,7 +203,7 @@ class TrackOptions extends HookConsumerWidget {
                       );
                     },
                   )
-                : const Icon(SpotubeIcons.download),
+                : const Icon(MusicIcons.download),
             title: Text(context.l10n.download_track),
           ),
         if (!isLocalTrack)

@@ -3,7 +3,7 @@ import 'package:auto_route/auto_route.dart';
     import 'package:flutter_hooks/flutter_hooks.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
     import 'package:watchtower/modules/music/collections/routes.gr.dart';
-    import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+    import 'package:watchtower/modules/music/collections/music_icons.dart';
     import 'package:watchtower/modules/music/models/database/database.dart';
     import 'package:watchtower/modules/music/modules/connect/connect_device.dart';
     import 'package:watchtower/modules/music/modules/home/sections/featured.dart';
@@ -55,7 +55,7 @@ import 'package:auto_route/auto_route.dart';
                     // otherwise popping it bubbles up to the outer app
                     // and lands back on the discovery screen).
                     IconButton(
-                      icon: const Icon(SpotubeIcons.settings, size: 20),
+                      icon: const Icon(MusicIcons.settings, size: 20),
                       onPressed: () =>
                           context.navigateTo(const SettingsRoute()),
                     ),

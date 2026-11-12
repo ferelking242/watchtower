@@ -8,7 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/hover_builder.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
@@ -197,11 +197,11 @@ class TrackTile extends HookConsumerWidget {
                                       child: CircularProgressIndicator(),
                                     ),
                                   (_, _, true, _, _) => Icon(
-                                      SpotubeIcons.pause,
+                                      MusicIcons.pause,
                                       color: theme.colorScheme.primary,
                                     ),
                                   (_, _, _, true, _) => const Icon(
-                                      SpotubeIcons.play,
+                                      MusicIcons.play,
                                       color: Colors.white,
                                     ),
                                   _ => const SizedBox.shrink(),

@@ -11,7 +11,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_actions.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
@@ -158,7 +158,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                 icon: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(SpotubeIcons.delete),
+                    const Icon(MusicIcons.delete),
                     Text(context.l10n.clear_cache,
                         style: const TextStyle(fontSize: 10)),
                   ],
@@ -202,7 +202,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                 icon: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(SpotubeIcons.export),
+                    const Icon(MusicIcons.export),
                     Text(context.l10n.export,
                         style: const TextStyle(fontSize: 10)),
                   ],
@@ -261,8 +261,8 @@ class LocalLibraryPage extends HookConsumerWidget {
                           : null,
                       icon: Icon(
                         isPlaylistPlaying
-                            ? SpotubeIcons.stop
-                            : SpotubeIcons.play,
+                            ? MusicIcons.stop
+                            : MusicIcons.play,
                       ),
                       label: const SizedBox.shrink(),
                     ),
@@ -280,7 +280,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                               }
                             }
                           : null,
-                      icon: const Icon(SpotubeIcons.shuffle),
+                      icon: const Icon(MusicIcons.shuffle),
                       label: const SizedBox.shrink(),
                     ),
                     const SizedBox(width: 5),
@@ -298,7 +298,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                               }
                             }
                           : null,
-                      icon: const Icon(SpotubeIcons.queueAdd),
+                      icon: const Icon(MusicIcons.queueAdd),
                       label: const SizedBox.shrink(),
                     ),
                     const Spacer(),
@@ -328,7 +328,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                     ),
                     const SizedBox(width: 5),
                     IconButton(
-                      icon: const Icon(SpotubeIcons.refresh),
+                      icon: const Icon(MusicIcons.refresh),
                       onPressed: () {
                         ref.invalidate(localTracksProvider);
                       },

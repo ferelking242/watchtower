@@ -1,7 +1,7 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/markdown/markdown.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -28,7 +28,7 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
               Expanded(child: Text(message)),
               IconButton(
                 iconSize: 20.0,
-                icon: const Icon(SpotubeIcons.close),
+                icon: const Icon(MusicIcons.close),
                 onPressed: () {
                   ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
                 },

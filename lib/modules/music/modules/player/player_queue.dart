@@ -7,7 +7,7 @@ import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:scroll_to_index/scroll_to_index.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/dialogs/playlist_add_track_dialog.dart';
 import 'package:watchtower/modules/music/components/fallbacks/not_found.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
@@ -136,7 +136,7 @@ class PlayerQueue extends HookConsumerWidget {
                     AppBar(
                       backgroundColor: Colors.transparent,
                       leading: IconButton(
-                        icon: const Icon(SpotubeIcons.close),
+                        icon: const Icon(MusicIcons.close),
                         onPressed: () {
                           selectedTrackIds.value = {};
                           selectionMode.value = false;
@@ -157,7 +157,7 @@ class PlayerQueue extends HookConsumerWidget {
                               const SizedBox(height: 12, width: 12),
                               ButtonTile(
                                 leading: const Icon(
-                                  SpotubeIcons.selectionCheck,
+                                  MusicIcons.selectionCheck,
                                 ),
                                 title: Text(context.l10n.select_all),
                                 onPressed: () {
@@ -168,7 +168,7 @@ class PlayerQueue extends HookConsumerWidget {
                                 },
                               ),
                               ButtonTile(
-                                leading: const Icon(SpotubeIcons.playlistAdd),
+                                leading: const Icon(MusicIcons.playlistAdd),
                                 title: Text(context.l10n.add_to_playlist),
                                 onPressed: () async {
                                   final selected = filteredTracks
@@ -195,7 +195,7 @@ class PlayerQueue extends HookConsumerWidget {
                                 },
                               ),
                               ButtonTile(
-                                leading: const Icon(SpotubeIcons.trash),
+                                leading: const Icon(MusicIcons.trash),
                                 title: Text(context.l10n.remove_from_queue),
                                 onPressed: () async {
                                   final ids = selectedTrackIds.value.toList();
@@ -233,7 +233,7 @@ class PlayerQueue extends HookConsumerWidget {
                           searchBar
                         else
                           IconButton(
-                            icon: const Icon(SpotubeIcons.filter),
+                            icon: const Icon(MusicIcons.filter),
                             onPressed: () {
                               isSearching.value = !isSearching.value;
                             },
@@ -241,7 +241,7 @@ class PlayerQueue extends HookConsumerWidget {
                         if (!isSearching.value) ...[
                           const SizedBox(width: 10),
                           IconButton(
-                            icon: const Icon(SpotubeIcons.playlistRemove),
+                            icon: const Icon(MusicIcons.playlistRemove),
                             onPressed: () {
                               onStop();
                               Navigator.pop(context);
@@ -250,7 +250,7 @@ class PlayerQueue extends HookConsumerWidget {
                           const SizedBox(height: 5, width: 5),
                           if (mediaQuery.smAndDown)
                             IconButton(
-                              icon: const Icon(SpotubeIcons.angleDown),
+                              icon: const Icon(MusicIcons.angleDown),
                               onPressed: () => Navigator.pop(context),
                             ),
                         ],
@@ -333,7 +333,7 @@ class PlayerQueue extends HookConsumerWidget {
                                         child: ReorderableDragStartListener(
                                           index: i,
                                           child: const Icon(
-                                            SpotubeIcons.dragHandle,
+                                            MusicIcons.dragHandle,
                                           ),
                                         ),
                                       ),
@@ -360,7 +360,7 @@ class PlayerQueue extends HookConsumerWidget {
           right: 20,
           bottom: 20,
           child: IconButton(
-            icon: const Icon(SpotubeIcons.angleDown),
+            icon: const Icon(MusicIcons.angleDown),
             style: IconButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
               foregroundColor: Theme.of(

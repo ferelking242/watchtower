@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/pages/library/user_local_tracks/user_local_tracks.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_pop_sheet_list.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -21,7 +21,7 @@ class SortTracksDropdown extends StatelessWidget {
       ],
       onSelected: onChanged,
       tooltip: context.l10n.sort_tracks,
-      icon: const Icon(SpotubeIcons.sort),
+      icon: const Icon(MusicIcons.sort),
       items: (context) => [
         AdaptiveMenuButton(
           value: SortBy.none,

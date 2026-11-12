@@ -1,7 +1,7 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/track_presentation/sort_tracks_dropdown.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_actions.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_props.dart';
@@ -68,7 +68,7 @@ class TrackPresentationModifiersSection extends HookConsumerWidget {
                         decoration: InputDecoration(
                           hintText: context.l10n.search_tracks,
                           prefixIcon: Icon(
-                            SpotubeIcons.search,
+                            MusicIcons.search,
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
@@ -88,7 +88,7 @@ class TrackPresentationModifiersSection extends HookConsumerWidget {
                                   duration: const Duration(milliseconds: 300),
                                   scale: controller.text.isEmpty ? 0 : 1,
                                   child: IconButton(
-                                    icon: const Icon(SpotubeIcons.close),
+                                    icon: const Icon(MusicIcons.close),
                                     onPressed: () {
                                       controller.clear();
                                       notifier.clearFilter();

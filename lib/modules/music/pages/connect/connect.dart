@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/modules/connect/local_devices.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -53,7 +53,7 @@ class ConnectPage extends HookConsumerWidget {
                           device.name;
                   return ButtonTile(
                     selected: selected,
-                    leading: const Icon(SpotubeIcons.monitor),
+                    leading: const Icon(MusicIcons.monitor),
                     title: Text(device.name),
                     subtitle: selected
                         ? Text(
@@ -63,7 +63,7 @@ class ConnectPage extends HookConsumerWidget {
                         : null,
                     trailing: selected
                         ? IconButton(
-                            icon: const Icon(SpotubeIcons.power),
+                            icon: const Icon(MusicIcons.power),
                             onPressed: () =>
                                 connectClientsNotifier.clearResolvedService(),
                           )

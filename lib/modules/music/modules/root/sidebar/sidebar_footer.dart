@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
       import 'package:hooks_riverpod/hooks_riverpod.dart';
       import 'package:flutter/material.dart';
       import 'package:watchtower/modules/music/collections/routes.gr.dart';
-      import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+      import 'package:watchtower/modules/music/collections/music_icons.dart';
       import 'package:watchtower/modules/music/components/image/universal_image.dart';
       import 'package:watchtower/modules/music/extensions/constrains.dart';
       import 'package:watchtower/modules/music/extensions/context.dart';
@@ -48,7 +48,7 @@ import 'package:auto_route/auto_route.dart';
                 isLabelVisible: downloadCount > 0,
                 label: Text(downloadCount.toString()),
                 child: IconButton(
-                  icon: const Icon(SpotubeIcons.download),
+                  icon: const Icon(MusicIcons.download),
                   onPressed: () => context.navigateTo(const UserDownloadsRoute()),
                 ),
               ),
@@ -56,14 +56,14 @@ import 'package:auto_route/auto_route.dart';
               // Login icon — visible only when no plugin account is connected
               if (!isAuthenticated)
                 IconButton(
-                  icon: const Icon(SpotubeIcons.login),
+                  icon: const Icon(MusicIcons.login),
                   tooltip: 'Se connecter',
                   onPressed: () =>
                       context.navigateTo(const SettingsMetadataProviderRoute()),
                 ),
               // Music Hub settings (playback, comptes, etc.)
               IconButton(
-                icon: const Icon(SpotubeIcons.settings),
+                icon: const Icon(MusicIcons.settings),
                 tooltip: 'Paramètres Music Hub',
                 onPressed: () => context.navigateTo(const SettingsRoute()),
               ),
@@ -143,7 +143,7 @@ import 'package:auto_route/auto_route.dart';
                   else
                     // No plugin connected — show login icon
                     IconButton(
-                      icon: const Icon(SpotubeIcons.login),
+                      icon: const Icon(MusicIcons.login),
                       tooltip: 'Se connecter',
                       onPressed: () {
                         context.navigateTo(const SettingsMetadataProviderRoute());
@@ -151,7 +151,7 @@ import 'package:auto_route/auto_route.dart';
                     ),
                   // Music Hub internal settings (playback, comptes, apparence…)
                   IconButton(
-                    icon: const Icon(SpotubeIcons.settings),
+                    icon: const Icon(MusicIcons.settings),
                     tooltip: 'Paramètres Music Hub',
                     onPressed: () {
                       context.navigateTo(const SettingsRoute());

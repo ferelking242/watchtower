@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/player/player_actions.dart';
@@ -72,7 +72,7 @@ class BottomPlayer extends HookConsumerWidget {
               PlayerActions(
                 extraActions: [
                   IconButton(
-                    icon: const Icon(SpotubeIcons.miniPlayer),
+                    icon: const Icon(MusicIcons.miniPlayer),
                     onPressed: () async {
                       if (!kIsDesktop) return;
 

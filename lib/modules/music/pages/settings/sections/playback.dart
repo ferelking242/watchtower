@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_select_tile.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/modules/settings/playback/edit_connect_port_dialog.dart';
@@ -34,7 +34,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
       heading: context.l10n.playback,
       children: [
         AdaptiveSelectTile<YoutubeClientEngine>(
-          secondary: const Icon(SpotubeIcons.engine),
+          secondary: const Icon(MusicIcons.engine),
           title: Text(context.l10n.youtube_engine),
           value: preferences.youtubeClientEngine,
           options: YoutubeClientEngine.values
@@ -63,7 +63,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
         ),
         if (sourcePresets.presets.isNotEmpty) ...[
           AdaptiveSelectTile(
-            secondary: const Icon(SpotubeIcons.plugin),
+            secondary: const Icon(MusicIcons.plugin),
             title: Text(context.l10n.streaming_music_format),
             value: sourcePresets.selectedStreamingContainerIndex,
             options: [
@@ -77,7 +77,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
             },
           ),
           AdaptiveSelectTile(
-            secondary: const Icon(SpotubeIcons.audioQuality),
+            secondary: const Icon(MusicIcons.audioQuality),
             title: Text(context.l10n.streaming_music_quality),
             value: sourcePresets.selectedStreamingQualityIndex,
             options: [
@@ -95,7 +95,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
             },
           ),
           AdaptiveSelectTile(
-            secondary: const Icon(SpotubeIcons.plugin),
+            secondary: const Icon(MusicIcons.plugin),
             title: Text(context.l10n.download_music_format),
             value: sourcePresets.selectedDownloadingContainerIndex,
             options: [
@@ -109,7 +109,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
             },
           ),
           AdaptiveSelectTile(
-            secondary: const Icon(SpotubeIcons.audioQuality),
+            secondary: const Icon(MusicIcons.audioQuality),
             title: Text(context.l10n.download_music_quality),
             value: sourcePresets.selectedStreamingQualityIndex,
             options: [
@@ -182,7 +182,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
                 style: IconButton.styleFrom(
                   side: const BorderSide(),
                 ),
-                icon: const Icon(SpotubeIcons.edit),
+                icon: const Icon(MusicIcons.edit),
                 onPressed: () {
                   showDialog(
                     context: context,

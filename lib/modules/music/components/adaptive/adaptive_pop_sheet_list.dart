@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 
 class AdaptiveMenuButton<T> {
@@ -156,7 +156,7 @@ class AdaptivePopSheetList<T> extends StatelessWidget {
 
     return IconButton(
       tooltip: tooltip,
-      icon: icon ?? const Icon(SpotubeIcons.moreVertical),
+      icon: icon ?? const Icon(MusicIcons.moreVertical),
       onPressed: () => _show(context),
     );
   }

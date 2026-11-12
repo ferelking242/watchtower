@@ -3,7 +3,7 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -90,7 +90,7 @@ class ArtistPageHeader extends HookConsumerWidget {
           const SizedBox(width: 5),
           IconButton(
             icon: Icon(
-              SpotubeIcons.userRemove,
+              MusicIcons.userRemove,
               color: !isBlackListed ? Colors.red[400] : null,
             ),
             onPressed: () async {
@@ -108,7 +108,7 @@ class ArtistPageHeader extends HookConsumerWidget {
             },
           ),
           IconButton(
-            icon: const Icon(SpotubeIcons.share),
+            icon: const Icon(MusicIcons.share),
             onPressed: () async {
               await Clipboard.setData(
                 ClipboardData(

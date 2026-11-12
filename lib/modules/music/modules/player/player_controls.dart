@@ -5,7 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:flutter/material.dart';
 
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/collections/intents.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/duration.dart';
@@ -117,7 +117,7 @@ class PlayerControls extends HookConsumerWidget {
                         ref.watch(audioPlayerProvider.select((s) => s.shuffled));
                     return IconButton(
                       icon: Icon(
-                        SpotubeIcons.shuffle,
+                        MusicIcons.shuffle,
                         color: shuffled ? theme.colorScheme.primary : null,
                         size: iconSize,
                       ),
@@ -133,7 +133,7 @@ class PlayerControls extends HookConsumerWidget {
                     );
                   }),
                   IconButton(
-                    icon: Icon(SpotubeIcons.skipBack, size: iconSize),
+                    icon: Icon(MusicIcons.skipBack, size: iconSize),
                     onPressed:
                         isFetchingActiveTrack ? null : audioPlayer.skipToPrevious,
                   ),
@@ -153,12 +153,12 @@ class PlayerControls extends HookConsumerWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Icon(
-                            playing ? SpotubeIcons.pause : SpotubeIcons.play,
+                            playing ? MusicIcons.pause : MusicIcons.play,
                             size: iconSize,
                           ),
                   ),
                   IconButton(
-                    icon: Icon(SpotubeIcons.skipForward, size: iconSize),
+                    icon: Icon(MusicIcons.skipForward, size: iconSize),
                     onPressed:
                         isFetchingActiveTrack ? null : audioPlayer.skipToNext,
                   ),
@@ -170,8 +170,8 @@ class PlayerControls extends HookConsumerWidget {
                     return IconButton(
                       icon: Icon(
                         loopMode == PlaylistMode.single
-                            ? SpotubeIcons.repeatOne
-                            : SpotubeIcons.repeat,
+                            ? MusicIcons.repeatOne
+                            : MusicIcons.repeat,
                         color: isLooping ? theme.colorScheme.primary : null,
                         size: iconSize,
                       ),

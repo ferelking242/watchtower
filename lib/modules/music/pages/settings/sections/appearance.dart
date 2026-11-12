@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
@@ -31,7 +31,7 @@ class SettingsAppearanceSection extends HookConsumerWidget {
 
     final children = [
       AdaptiveSelectTile<LayoutMode>(
-        secondary: const Icon(SpotubeIcons.dashboard),
+        secondary: const Icon(MusicIcons.dashboard),
         title: Text(context.l10n.layout_mode),
         value: preferences.layoutMode,
         onChanged: (value) {
@@ -53,7 +53,7 @@ class SettingsAppearanceSection extends HookConsumerWidget {
         ],
       ),
       AdaptiveSelectTile<ThemeMode>(
-        secondary: const Icon(SpotubeIcons.darkMode),
+        secondary: const Icon(MusicIcons.darkMode),
         title: Text(context.l10n.theme),
         value: preferences.themeMode,
         options: [

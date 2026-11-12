@@ -15,8 +15,8 @@ import 'package:watchtower/modules/music/provider/user_preferences/user_preferen
 
 final navigationPanelHeight = StateProvider<double>((ref) => 50);
 
-class SpotubeNavigationBar extends HookConsumerWidget {
-  const SpotubeNavigationBar({super.key});
+class MusicNavigationBar extends HookConsumerWidget {
+  const MusicNavigationBar({super.key});
 
   @override
   Widget build(BuildContext context, ref) {

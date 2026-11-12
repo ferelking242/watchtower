@@ -4,7 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/side_bar_tiles.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/download_manager_provider.dart';
@@ -29,7 +29,7 @@ class LibraryPage extends HookConsumerWidget {
           pathPrefix: "library/downloads",
           title: context.l10n.downloads,
           route: const UserDownloadsRoute(),
-          icon: SpotubeIcons.download,
+          icon: MusicIcons.download,
         ),
       ],
       [context.l10n],

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -28,7 +28,7 @@ class LogsPage extends HookConsumerWidget {
           title: Text(context.l10n.logs),
           actions: [
             IconButton(
-              icon: const Icon(SpotubeIcons.clipboard),
+              icon: const Icon(MusicIcons.clipboard),
               onPressed: () async {
                 final logsSnapshot = await ref.read(logsProvider.future);
                 await Clipboard.setData(ClipboardData(text: logsSnapshot));
@@ -43,7 +43,7 @@ class LogsPage extends HookConsumerWidget {
               },
             ),
             IconButton(
-              icon: const Icon(SpotubeIcons.trash),
+              icon: const Icon(MusicIcons.trash),
               onPressed: () async {
                 ref.invalidate(logsProvider);
                 final logsFile = await AppLogger.getLogsPath();
