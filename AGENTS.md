@@ -439,6 +439,23 @@ the failing step name before treating a red `Build Release APK` as a code bug.
 - The name normalizer reads volume/chapter from parent folders for manga
   (`/Manga/Berserk/Vol. 2/page.cbz`) and ignores release-group tokens glued by
   a dash (`...x265-GROUP`). Covered by `test/smart_library_normalizer_test.dart`.
+- `DiscoveryStage` must never do one `Directory.list(recursive: true)`: that
+  stream aborts on the first `FileSystemException`, and
+  `/storage/emulated/0/Android/data` is always unreadable (even with
+  MANAGE_EXTERNAL_STORAGE), so the whole scan yielded nothing and the library
+  stayed empty. `_walk()` lists folder by folder and skips unreadable subtrees.
+- Android 10+ MediaStore rows are `content://…/<id>` URIs: their extension is
+  `''`, which `DiscoveryStage` rejects, so the files vanished. The real
+  extension comes from `AndroidMediaStore.extensionOf()` (displayName, then
+  MIME). `analysisName` is the displayName only for `content://` rows — a real
+  path must keep its full path so the `/Anime/` folder signal survives.
+- `_removeMissingIndexedItems` and `FileCache.purgeOrphans` must skip
+  `content://` paths: `File().existsSync()` can never resolve them, so they
+  looked deleted on every scan.
+- `SmartLibraryScreen._scanRoots()` requests `requestVideoPermission()` /
+  `requestMediaPermission()` (never bare `requestPermission()`), then adds
+  `/storage/emulated/0` or the well-known media folders, and an incremental
+  scan starts automatically when the screen opens.
 
 ## Known non-blocking analyzer noise
 `flutter analyze` reports ~1.6k issues but **0 errors**. The

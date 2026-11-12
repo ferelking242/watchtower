@@ -74,69 +74,91 @@ class DiscoveryStage {
       final dir = Directory(root);
       if (!dir.existsSync()) continue;
 
-      try {
-        await for (final entity in dir.list(
-          recursive: true,
-          followLinks: followLinks,
-        )) {
-          if (entity is! File) continue;
+      // [_walk] skips unreadable subtrees itself; scoped storage may deny the
+      // whole root while MediaStore still supplies the files.
+      await for (final entity in _walk(dir, root)) {
+        if (entity is! File) continue;
 
-          if (_isInExcludedDir(entity.path, root)) continue;
-          if (policy.maximumDepth != null &&
-              _relativeDepth(entity.path, root) > policy.maximumDepth!) {
-            continue;
-          }
-
-          final ext = p.extension(entity.path).toLowerCase();
-          if (!allowed.contains(ext)) continue;
-          if (policy.mode == LocalScanMode.manga &&
-              ext == '.zip' &&
-              !isLikelyMangaPath(entity.path)) {
-            continue;
-          }
-          if (policy.mode == LocalScanMode.manga &&
-              mangaPageExtensions.contains(ext)) {
-            final folder = _mangaFolderKey(entity.path);
-            if (folder == null || !seenMangaFolders.add(folder)) continue;
-          }
-
-          // Lire seulement la stat (taille + mtime), jamais le contenu
-          FileStat stat;
-          try {
-            stat = entity.statSync();
-          } catch (_) {
-            // A single inaccessible file must not abort the whole library scan.
-            continue;
-          }
-          if (stat.size < policy.minimumFileSize || !seen.add(entity.path)) {
-            continue;
-          }
-
-          batch.add(DiscoveredFile(
-            path: entity.path,
-            size: stat.size,
-            modifiedAt: stat.modified.millisecondsSinceEpoch,
-            extension: ext,
-            analysisName: policy.mode == LocalScanMode.manga &&
-                    (mangaPageExtensions.contains(ext) ||
-                        mangaArchiveExtensions.contains(ext))
-                ? mangaAnalysisName(entity.path)
-                : null,
-          ));
-
-          if (batch.length >= batchSize) {
-            yield List.unmodifiable(batch);
-            batch.clear();
-          }
+        if (_isInExcludedDir(entity.path, root)) continue;
+        if (policy.maximumDepth != null &&
+            _relativeDepth(entity.path, root) > policy.maximumDepth!) {
+          continue;
         }
-      } on FileSystemException {
-        // Scoped storage may expose a MediaStore entry while denying a
-        // recursive filesystem walk. Continue with the other roots and with
-        // the files already supplied by MediaStore.
+
+        final ext = p.extension(entity.path).toLowerCase();
+        if (!allowed.contains(ext)) continue;
+        if (policy.mode == LocalScanMode.manga &&
+            ext == '.zip' &&
+            !isLikelyMangaPath(entity.path)) {
+          continue;
+        }
+        if (policy.mode == LocalScanMode.manga &&
+            mangaPageExtensions.contains(ext)) {
+          final folder = _mangaFolderKey(entity.path);
+          if (folder == null || !seenMangaFolders.add(folder)) continue;
+        }
+
+        // Lire seulement la stat (taille + mtime), jamais le contenu
+        FileStat stat;
+        try {
+          stat = entity.statSync();
+        } catch (_) {
+          // A single inaccessible file must not abort the whole library scan.
+          continue;
+        }
+        if (stat.size < policy.minimumFileSize || !seen.add(entity.path)) {
+          continue;
+        }
+
+        batch.add(DiscoveredFile(
+          path: entity.path,
+          size: stat.size,
+          modifiedAt: stat.modified.millisecondsSinceEpoch,
+          extension: ext,
+          analysisName: policy.mode == LocalScanMode.manga &&
+                  (mangaPageExtensions.contains(ext) ||
+                      mangaArchiveExtensions.contains(ext))
+              ? mangaAnalysisName(entity.path)
+              : null,
+        ));
+
+        if (batch.length >= batchSize) {
+          yield List.unmodifiable(batch);
+          batch.clear();
+        }
       }
     }
 
     if (batch.isNotEmpty) yield List.unmodifiable(batch);
+  }
+
+  /// Recursively yields the entries under [dir], skipping unreadable subtrees.
+  ///
+  /// [Directory.list] is a single-subscription stream that aborts the whole
+  /// walk with a [FileSystemException] as soon as one descendant cannot be
+  /// read. On Android `/storage/emulated/0/Android/data` and `/data` always
+  /// raise, even with MANAGE_EXTERNAL_STORAGE, so one recursive walk of shared
+  /// storage ended before yielding any file — the library stayed empty. Listing
+  /// folder by folder keeps every accessible sibling.
+  Stream<FileSystemEntity> _walk(Directory dir, String root) async* {
+    final pending = <Directory>[dir];
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      final List<FileSystemEntity> children;
+      try {
+        children = await current.list(followLinks: followLinks).toList();
+      } on FileSystemException {
+        continue;
+      }
+      for (final child in children) {
+        if (child is Directory) {
+          if (_isInExcludedDir(child.path, root)) continue;
+          pending.add(child);
+        } else {
+          yield child;
+        }
+      }
+    }
   }
 
   /// Vérifie si un chemin contient un dossier exclu.

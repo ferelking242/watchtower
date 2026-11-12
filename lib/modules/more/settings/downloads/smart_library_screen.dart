@@ -33,24 +33,63 @@ class SmartLibraryScreen extends ConsumerStatefulWidget {
 /// Filter applied to the library grid.
 enum _SmartLibraryFilter { all, movies, series, review }
 
+/// Well-known shared-storage folders that hold media. Used as a fallback when
+/// the storage root itself cannot be listed.
+const _androidMediaDirectories = [
+  'Movies',
+  'Download',
+  'Downloads',
+  'DCIM',
+  'Pictures',
+  'Videos',
+  'watchtower',
+  'Watchtower',
+];
+
 class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   _SmartLibraryFilter _filter = _SmartLibraryFilter.all;
   bool _starting = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Opening the library used to leave the grid empty until the user found
+    // the refresh button, which read as "the scan does nothing". Kick off an
+    // incremental scan once on first build; the cache makes it cheap.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_scan(fullRescan: false));
+    });
+  }
+
   bool get _isManga => widget.itemType == ItemType.manga;
 
-  /// Directories that are worth walking for media. On Android the shared
-  /// storage root is used when "all files" access is granted, which is what
-  /// makes a single scan find every movie/series on the device.
+  /// Directories that are worth walking for media.
+  ///
+  /// The scan must not depend on "all files" access: on Android 13+ the app can
+  /// read every video with READ_MEDIA_VIDEO alone, and MediaStore already knows
+  /// where they are. Requesting the video permission and walking the shared
+  /// storage root (plus the well-known media folders) finds the library even
+  /// when MANAGE_EXTERNAL_STORAGE was never granted — the previous code only
+  /// ever added `/storage/emulated/0` in that one case, so without it the scan
+  /// saw just the app's own folder and reported nothing.
   Future<List<String>> _scanRoots() async {
     final storage = StorageProvider();
     final roots = <String>[];
 
     if (!kIsWeb && Platform.isAndroid) {
-      final hasAllFilesAccess = await storage.requestPermission();
-      if (hasAllFilesAccess) {
-        const sharedStorage = '/storage/emulated/0';
-        if (Directory(sharedStorage).existsSync()) roots.add(sharedStorage);
+      if (_isManga) {
+        await storage.requestMediaPermission();
+      } else {
+        await storage.requestVideoPermission();
+      }
+      const sharedStorage = '/storage/emulated/0';
+      if (Directory(sharedStorage).existsSync()) {
+        roots.add(sharedStorage);
+      } else {
+        for (final name in _androidMediaDirectories) {
+          final path = '/storage/emulated/0/$name';
+          if (Directory(path).existsSync()) roots.add(path);
+        }
       }
     }
 

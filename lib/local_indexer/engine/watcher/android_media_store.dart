@@ -106,6 +106,48 @@ class AndroidMediaStore {
 
     return controller.stream;
   }
+
+  /// Extension of a MediaStore entry, lower-cased with the leading dot.
+  ///
+  /// Android 10+ hides the absolute path, so [MediaStoreEntry.path] is a
+  /// `content://` URI ending in the numeric row id. Deriving the extension from
+  /// it returns `''`, and the discovery stage drops every file whose extension
+  /// is not in the allow-list — which is why a MediaStore-only device found
+  /// nothing. The display name (`Movie.2020.mkv`) or the MIME type supplies the
+  /// real extension instead.
+  static String extensionOf(MediaStoreEntry entry) {
+    final fromName = _extension(entry.displayName ?? '');
+    if (fromName.isNotEmpty) return fromName;
+    if (entry.path.startsWith('content://')) {
+      return _extensionFromMime(entry.mimeType);
+    }
+    return _extension(entry.path);
+  }
+
+  static String _extension(String path) {
+    final i = path.lastIndexOf('.');
+    return i >= 0 ? path.substring(i).toLowerCase() : '';
+  }
+
+  static String _extensionFromMime(String? mimeType) {
+    if (mimeType == null || mimeType.isEmpty) return '';
+    final subtype = mimeType.split('/').last.toLowerCase();
+    const aliases = {
+      'x-matroska': 'mkv',
+      'quicktime': 'mov',
+      'x-msvideo': 'avi',
+      'x-ms-wmv': 'wmv',
+      'x-flv': 'flv',
+      'mpeg': 'mpg',
+      'mp2t': 'ts',
+      'x-m4v': 'm4v',
+      '3gpp': '3gp',
+    };
+    final alias = aliases[subtype];
+    if (alias != null) return '.$alias';
+    if (subtype.startsWith('x-')) return '.${subtype.substring(2)}';
+    return '.$subtype';
+  }
 }
 
 /// Entrée MediaStore (côté Dart).

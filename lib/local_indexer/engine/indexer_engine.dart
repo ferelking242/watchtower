@@ -116,7 +116,15 @@ class IndexerEngine {
                 path: entry.path,
                 size: entry.size,
                 modifiedAt: entry.modifiedAt,
-                extension: _ext(entry.path),
+                extension: _mediaStoreExtension(entry),
+                // Android 10+ may expose the file as a content:// URI whose
+                // last path segment is the numeric MediaStore id. Analysing
+                // that would title every entry "1234", so the real filename
+                // stands in for the path — but only there: for a real path the
+                // full path still drives the /Anime/ folder classification.
+                analysisName: entry.path.startsWith('content://')
+                    ? entry.displayName
+                    : null,
               )));
         } on MediaStoreException {
           // The filesystem fallback still works when MediaStore permission
@@ -353,6 +361,9 @@ class IndexerEngine {
     final items = await _isar.localIndexedItems.where().findAll();
     final normalizedRoots = roots.map(_normalizeRoot).toList();
     final missing = items.where((item) {
+      // MediaStore entries can be content:// URIs (Android 10+); File() can
+      // never resolve those, so they would look deleted on every scan.
+      if (item.filePath.startsWith('content://')) return false;
       final path = _normalizeRoot(item.filePath);
       final belongsToScan = normalizedRoots.any(
         (root) => path == root || path.startsWith('$root/'),
@@ -380,6 +391,17 @@ class IndexerEngine {
     final i = path.lastIndexOf('.');
     return i >= 0 ? path.substring(i).toLowerCase() : '';
   }
+
+  /// Extension of a MediaStore entry.
+  ///
+  /// Android 10+ hides the absolute path, so [MediaStoreEntry.path] is a
+  /// `content://` URI ending in the numeric row id and [_ext] returns `''`.
+  /// The discovery stage drops every file whose extension is not in the
+  /// allow-list, so such entries were silently discarded and the scan found
+  /// nothing. [AndroidMediaStore.extensionOf] resolves the real extension from
+  /// the display name or MIME type instead.
+  String _mediaStoreExtension(MediaStoreEntry entry) =>
+      AndroidMediaStore.extensionOf(entry);
 
   void _emit(IndexerStatus status) {
     _lastStatus = status;

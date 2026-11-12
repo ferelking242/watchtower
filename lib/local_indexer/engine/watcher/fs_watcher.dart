@@ -118,8 +118,7 @@ class FsWatcher {
   }
 
   static final _videoExts = RegExp(
-    r'\.(mkv|mp4|avi|mov|flv|wmv|ts|m2ts|mts|webm|m4v'
-    r')$',
+    r'\.(mkv|mp4|avi|mov|flv|wmv|mpeg|mpg|ts|m2ts|mts|webm|m4v|3gp)$',
     caseSensitive: false,
   );
   static final _mangaArchiveExts = RegExp(

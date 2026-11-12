@@ -103,6 +103,9 @@ class FileCache {
     final toDelete = <int>[];
 
     for (final e in all) {
+      // content:// MediaStore rows cannot be checked with File.existsSync();
+      // evicting them here would drop a valid file's cache entry each scan.
+      if (e.filePath.startsWith('content://')) continue;
       final extension = p.extension(e.filePath).toLowerCase();
       if ((extensions == null || extensions.contains(extension)) &&
           !File(e.filePath).existsSync()) {
