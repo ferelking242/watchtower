@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
@@ -164,6 +165,12 @@ class MbGradientProgressBar extends StatefulWidget {
   final bool paused;
   final bool failed;
 
+  /// True only while this download is actually transferring. Idle, queued and
+  /// finished cards pass false so their bar is a static fill instead of running
+  /// the sweep/wave tickers — with dozens of rows in the queue those animations
+  /// are the bulk of the frame cost (and a source of jank/OOM on a phone).
+  final bool active;
+
   /// Golden second pass: the archive is being packed/compressed after the
   /// transfer finished. Uses a golden gradient instead of the green/teal one.
   final bool compressing;
@@ -174,6 +181,7 @@ class MbGradientProgressBar extends StatefulWidget {
     this.height = 4,
     this.paused = false,
     this.failed = false,
+    this.active = true,
     this.compressing = false,
   });
 
@@ -183,8 +191,12 @@ class MbGradientProgressBar extends StatefulWidget {
 
 class _MbGradientProgressBarState extends State<MbGradientProgressBar>
     with TickerProviderStateMixin {
-  // "Snake" sweep that runs across the filled part while a transfer is active.
+  // "Pulse" band travelling from the left edge of the fill to its leading edge
+  // while a transfer is active.
   late final AnimationController _sweep;
+
+  // Drives the up/down wave drawn on the filled region.
+  late final AnimationController _wave;
 
   // Progress is eased towards the latest value instead of snapping, so noisy
   // byte/page counters do not make the bar jitter on every rebuild.
@@ -193,6 +205,12 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
   static const _curve = Curves.easeOutCubic;
   // Ignore sub-pixel target moves; they are pure counter noise.
   static const _deadband = 0.004;
+
+  /// A jump this large is not transfer progress: it is a resume landing at the
+  /// on-disk offset after the counters read 0, or a retry restarting. Easing it
+  /// is the "the bar races from the left to the resume point" glitch, so such a
+  /// move — and any move backwards — snaps straight to the new value.
+  static const _snapThreshold = 0.12;
 
   double _from = 0;
   double _to = 0;
@@ -213,6 +231,10 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
+    _wave = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
     final start = _target ?? 0;
     _from = start;
     _to = start;
@@ -221,12 +243,21 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
       duration: _valueDuration,
       value: 1,
     );
-    if (_sweepEnabled) _sweep.repeat();
+    if (_sweepEnabled) {
+      _sweep.repeat();
+      _wave.repeat();
+    }
   }
 
+  /// Whether the fill runs its wave + pulse animation.
+  ///
+  /// Active transfers animate; a *paused* row keeps animating too, because the
+  /// paused bar is the "we will resume from here" marker — the user asked for
+  /// the wave and the pulse-from-the-left on the saved position, not a frozen
+  /// bar. A failed or compressing row stays static.
   bool get _sweepEnabled =>
+      (widget.active || widget.paused) &&
       _target != null &&
-      !widget.paused &&
       !widget.failed &&
       !widget.compressing;
 
@@ -234,22 +265,39 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
   void didUpdateWidget(covariant MbGradientProgressBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     final target = _target;
-    if (target != null && (target - _to).abs() > _deadband) {
-      _from = _displayed;
-      _to = target;
-      _valueAnim.forward(from: 0);
+    if (target != null) {
+      final delta = target - _to;
+      if (delta.abs() > _snapThreshold || delta < -_deadband) {
+        // Resume jump or a transient counter reset: land immediately instead
+        // of sweeping across the bar.
+        _valueAnim.value = 1;
+        _from = target;
+        _to = target;
+      } else if (delta.abs() > _deadband) {
+        _from = _displayed;
+        _to = target;
+        _valueAnim.forward(from: 0);
+      }
     }
     if (_sweepEnabled) {
       if (!_sweep.isAnimating) _sweep.repeat();
-    } else if (_sweep.isAnimating) {
-      _sweep.stop();
-      _sweep.value = 0;
+      if (!_wave.isAnimating) _wave.repeat();
+    } else {
+      if (_sweep.isAnimating) {
+        _sweep.stop();
+        _sweep.value = 0;
+      }
+      if (_wave.isAnimating) {
+        _wave.stop();
+        _wave.value = 0;
+      }
     }
   }
 
   @override
   void dispose() {
     _sweep.dispose();
+    _wave.dispose();
     _valueAnim.dispose();
     super.dispose();
   }
@@ -267,7 +315,12 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
     final gradient = failed
         ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
         : paused
-        ? const LinearGradient(colors: [mbAmber, Color(0xFFFF8F00)])
+        // A paused row marks where the transfer will resume from: a bright
+        // white fill at the saved position (the user's "barre blanche là où on
+        // s'est arrêté"), not the amber in-progress colour.
+        ? const LinearGradient(
+            colors: [Color(0xFFF5F5F5), Color(0xFFFFFFFF)],
+          )
         : widget.compressing
         ? const LinearGradient(colors: [Color(0xFFF5C518), Color(0xFFE0A800)])
         : const LinearGradient(colors: [mbGreen, mbTeal]);
@@ -302,10 +355,20 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(gradient: gradient),
+                        // The fill ripples (a shallow sine on its top edge)
+                        // while the transfer is active, and is a plain bar
+                        // otherwise.
+                        AnimatedBuilder(
+                          animation: _wave,
+                          builder: (context, _) => CustomPaint(
+                            painter: _FillWavePainter(
+                              gradient: gradient,
+                              phase: _wave.value,
+                              animate: _sweepEnabled,
+                            ),
+                          ),
                         ),
-                        if (_sweepEnabled) _buildSnake(),
+                        if (_sweepEnabled) _buildPulse(),
                       ],
                     ),
                   ),
@@ -318,8 +381,14 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
     );
   }
 
-  // A soft highlight band travelling left to right across the filled region.
-  Widget _buildSnake() {
+  // A soft highlight band travelling from the left of the fill to its leading
+  // edge, so a stalled-looking bar still reads as "alive". On the white paused
+  // fill a white band would be invisible, so the paused pulse is tinted teal.
+  Widget _buildPulse() {
+    final tint = widget.paused ? mbTeal : Colors.white;
+    final peak = widget.paused
+        ? tint.withValues(alpha: 0.55)
+        : tint.withValues(alpha: 0.45);
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -341,9 +410,9 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.white.withValues(alpha: 0.0),
-                            Colors.white.withValues(alpha: 0.45),
-                            Colors.white.withValues(alpha: 0.0),
+                            tint.withValues(alpha: 0.0),
+                            peak,
+                            tint.withValues(alpha: 0.0),
                           ],
                         ),
                       ),
@@ -359,11 +428,60 @@ class _MbGradientProgressBarState extends State<MbGradientProgressBar>
   }
 }
 
+/// Paints the progress fill, optionally with a shallow travelling sine on its
+/// top edge so the filled region visibly ripples while the transfer is active.
+class _FillWavePainter extends CustomPainter {
+  _FillWavePainter({
+    required this.gradient,
+    required this.phase,
+    required this.animate,
+  });
+
+  final LinearGradient gradient;
+  final double phase;
+  final bool animate;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..shader = gradient.createShader(
+      Offset.zero & size,
+    );
+    if (!animate || size.height < 3) {
+      canvas.drawRect(Offset.zero & size, paint);
+      return;
+    }
+    // Two full waves across the fill, bobbing within the bar height.
+    final amplitude = size.height * 0.28;
+    final mid = size.height / 2;
+    final path = Path()..moveTo(0, mid);
+    const step = 2.0;
+    for (double x = 0; x <= size.width; x += step) {
+      final t = (x / size.width) * 2 * 2 * math.pi + phase * 2 * math.pi;
+      path.lineTo(x, mid + math.sin(t) * amplitude);
+    }
+    path
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_FillWavePainter old) =>
+      old.phase != phase ||
+      old.animate != animate ||
+      old.gradient != gradient;
+}
+
 /// Compact circular pause/resume, retry, or open action for grouped rows.
 class MbRowActions extends StatelessWidget {
   final bool isComplete;
   final bool hasFailed;
   final bool isPaused;
+
+  /// Queued behind a concurrency limit or Wi-Fi gate: not transferring yet.
+  /// Shown grey with a clock so the user can tell it apart from an active row.
+  final bool isWaiting;
   final VoidCallback onPauseResume;
   final VoidCallback onRetry;
   final VoidCallback onOpen;
@@ -373,6 +491,7 @@ class MbRowActions extends StatelessWidget {
     required this.isComplete,
     required this.hasFailed,
     required this.isPaused,
+    this.isWaiting = false,
     required this.onPauseResume,
     required this.onRetry,
     required this.onOpen,
@@ -384,6 +503,8 @@ class MbRowActions extends StatelessWidget {
         ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
         : isComplete
         ? const LinearGradient(colors: [mbTeal, mbGreen])
+        : isWaiting
+        ? const LinearGradient(colors: [Color(0xFF9E9E9E), Color(0xFFBDBDBD)])
         : const LinearGradient(colors: [mbGreen, mbTeal]);
     final icon = isComplete
         ? Icons.folder_open_rounded
@@ -391,6 +512,8 @@ class MbRowActions extends StatelessWidget {
         ? Icons.refresh_rounded
         : isPaused
         ? Icons.play_arrow_rounded
+        : isWaiting
+        ? Icons.schedule_rounded
         : Icons.pause_rounded;
     final onTap = hasFailed
         ? onRetry
@@ -415,6 +538,9 @@ class MbPlayPauseButton extends StatelessWidget {
   final bool isComplete;
   final bool hasFailed;
   final bool isPaused;
+
+  /// Queued behind a concurrency limit or Wi-Fi gate: not transferring yet.
+  final bool isWaiting;
   final VoidCallback onPauseResume;
   final VoidCallback onRetry;
   final VoidCallback onOpen;
@@ -425,6 +551,7 @@ class MbPlayPauseButton extends StatelessWidget {
     required this.isComplete,
     required this.hasFailed,
     required this.isPaused,
+    this.isWaiting = false,
     required this.onPauseResume,
     required this.onRetry,
     required this.onOpen,
@@ -437,6 +564,8 @@ class MbPlayPauseButton extends StatelessWidget {
         ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
         : isComplete
         ? const LinearGradient(colors: [mbTeal, mbGreen])
+        : isWaiting
+        ? const LinearGradient(colors: [Color(0xFF9E9E9E), Color(0xFFBDBDBD)])
         : const LinearGradient(colors: [mbGreen, mbTeal]);
     final icon = isComplete
         ? Icons.folder_open_rounded
@@ -444,6 +573,8 @@ class MbPlayPauseButton extends StatelessWidget {
         ? Icons.refresh_rounded
         : isPaused
         ? Icons.play_arrow_rounded
+        : isWaiting
+        ? Icons.schedule_rounded
         : Icons.pause_rounded;
     final onTap = hasFailed
         ? onRetry

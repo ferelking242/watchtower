@@ -273,4 +273,38 @@ segments/0001.m4s
       expect(plan.isComplete, isFalse);
     });
   });
+
+  group('shouldBuildPartialPlaylist', () {
+    test('plays a partially-downloaded episode', () {
+      final plan = buildPartialPlaybackPlan(
+        segments: _segments(4),
+        available: [true, true, false, false],
+      );
+
+      expect(shouldBuildPartialPlaylist(plan), isTrue);
+    });
+
+    test('plays when every fragment is on disk but the merge never ran', () {
+      // A failed merge after a full download (e.g. the >600 MB "File name too
+      // long" case) leaves all fragments present and no merged `.mp4`. The
+      // fragments must still be playable instead of falling back to the
+      // network, so a complete-looking plan is not a reason to bail out.
+      final plan = buildPartialPlaybackPlan(
+        segments: _segments(3),
+        available: [true, true, true],
+      );
+
+      expect(plan.isComplete, isTrue);
+      expect(shouldBuildPartialPlaylist(plan), isTrue);
+    });
+
+    test('nothing to play when no fragment is on disk', () {
+      final plan = buildPartialPlaybackPlan(
+        segments: _segments(3),
+        available: [false, false, false],
+      );
+
+      expect(shouldBuildPartialPlaylist(plan), isFalse);
+    });
+  });
 }

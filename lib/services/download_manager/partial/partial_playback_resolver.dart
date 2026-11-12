@@ -7,9 +7,20 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/services/download_manager/partial/hls_segment_manifest.dart';
 import 'package:watchtower/services/download_manager/partial/partial_playback_plan.dart';
-import 'package:watchtower/utils/extensions/string_extensions.dart';
+
+/// Whether a plan describes an episode worth playing from the fragments on
+/// disk.
+///
+/// Any playable fragment counts — including the case where *every* fragment is
+/// present but the merged `.mp4` is missing, which is what a failed merge after
+/// a full download leaves behind. The merged file is the only real "done"
+/// signal and the caller has already checked for it; a complete-looking plan
+/// with no merged file must still play locally instead of hitting the network.
+bool shouldBuildPartialPlaylist(PartialPlaybackPlan plan) =>
+    plan.hasPlayableContent;
 
 /// A partially-downloaded episode that can be played on its real timeline.
 class PartialPlaybackMedia {
@@ -80,8 +91,13 @@ class PartialPlaybackResolver {
       segments: manifest.segments,
       available: available,
     );
-    if (!plan.hasPlayableContent) return null;
-    if (plan.isComplete) return null;
+    // The merged `.mp4` is the only thing that means "done"; its absence was
+    // checked above. When every fragment is present but the merge never
+    // produced the file — a merge that failed after the whole episode was
+    // fetched (e.g. the >600 MB `File name too long` case) — the fragments are
+    // still perfectly playable, so build the playlist for them too instead of
+    // falling back to a network source that is usually blocked.
+    if (!shouldBuildPartialPlaylist(plan)) return null;
 
     String? initSegmentFileName;
     final initName = manifest.initSegmentName;
@@ -170,20 +186,16 @@ class PartialPlaybackResolver {
     return manga;
   }
 
-  /// Mirrors the name the download provider uses for the merged file:
-  /// `<chapter name with spaces> [<quality>p].mp4`.
-  String _chapterName(Chapter chapter, Download download) {
-    final base = (chapter.name ?? '').replaceForbiddenCharacters(' ');
-    final resolution = _qualityDigits(download.quality ?? '');
-    final suffix = RegExp(r'^\d{3,4}$').hasMatch(resolution)
-        ? ' [${resolution}p]'
-        : '';
-    return '$base$suffix';
-  }
-
-  static String _qualityDigits(String raw) {
-    final match = RegExp(r'(\d{3,4})').firstMatch(raw);
-    if (match != null) return match.group(1)!;
-    return raw.trim().toLowerCase();
-  }
+  /// Mirrors the name the download provider uses for the merged file
+  /// (`animeMp4BaseName`: `<name, truncated to the NAME_MAX budget> [<q>p]`).
+  ///
+  /// The same helper must be used here, otherwise a long episode title makes
+  /// this resolver look for a file the downloader never wrote (it truncated the
+  /// name), conclude the merge is missing and rebuild a playlist for an
+  /// episode that is actually complete.
+  String _chapterName(Chapter chapter, Download download) => animeMp4BaseName(
+    chapterName: chapter.name,
+    chapterId: chapter.id,
+    quality: download.quality,
+  );
 }

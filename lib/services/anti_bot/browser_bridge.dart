@@ -23,6 +23,15 @@ class BrowserBridge {
   static SendPort? _serverSendPort;
   static int _ticket = 0;
 
+  /// Root isolate: called when the browser could not obtain a page, i.e. the
+  /// block needs a human in the bypass panel.
+  ///
+  /// Notifications must be raised from the root isolate — a worker isolate has
+  /// no platform channel (`Background isolates do not support
+  /// setMessageHandler()`), so a challenge first seen while replaying a request
+  /// from an extension or download worker would otherwise be silently dropped.
+  static void Function(String url, int? sourceId)? onBrowserUnavailable;
+
   /// False inside a spawned isolate (extension workers).
   static bool get isRootIsolate => RootIsolateToken.instance != null;
 
@@ -103,6 +112,16 @@ class BrowserBridge {
     );
     try {
       final result = await BrowserCapture.fetch(request);
+      if (result == null) {
+        // The worker asked for a page the browser could not obtain: this is the
+        // only place that runs in the root isolate, so raise the notification
+        // here (a platform channel is unavailable in the worker).
+        try {
+          onBrowserUnavailable?.call(request.url, request.sourceId);
+        } catch (_) {
+          // Notification failures must never break the bridge reply.
+        }
+      }
       reply.send(
         result == null
             ? {'error': 'the browser could not obtain this page'}

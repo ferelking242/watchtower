@@ -17,6 +17,8 @@ import 'package:watchtower/modules/more/download_queue/download_queue_rows.dart'
 import 'package:watchtower/modules/more/download_queue/download_queue_progress.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
+import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/update_notification_service.dart';
@@ -42,17 +44,83 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  /// The chapter the "Battre le challenge" notification asked to reveal. The
+  /// matching tab expands its source/series and scrolls to that row, where the
+  /// inline bypass panel is shown.
+  int? _focusChapterId;
+
+  /// Bumped on every challenge tap so re-tapping the same chapter re-scrolls.
+  int _focusToken = 0;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
-    // Kick off any pending downloads that were left in queue
-    // when the app was closed or the screen was dismissed.
+    // A tapped challenge notification opens this screen *and* queues a focus;
+    // pick it up whether it arrived before or after we mounted.
+    ChallengeInbox.instance.target.addListener(_handleChallengeTarget);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _cleanupOrphanedDownloads();
       ref.read(processDownloadsProvider());
+      _handleChallengeTarget();
     });
+  }
+
+  /// Reveals the download a challenge notification pointed at: switches to its
+  /// tab and hands the row focus to the tab list.
+  void _handleChallengeTarget() {
+    final target = ChallengeInbox.instance.target.value;
+    if (target == null || !mounted) return;
+    ChallengeInbox.instance.clear();
+    setState(() {
+      _focusChapterId = target.chapterId;
+      _focusToken++;
+    });
+    _tabController.animateTo(_tabIndexFor(_itemTypeOfChapter(target.chapterId)));
+  }
+
+  /// Hides the inline bypass panel (the row keeps its normal state).
+  void _closeChallengePanel() {
+    if (!mounted) return;
+    setState(() => _focusChapterId = null);
+  }
+
+  ItemType? _itemTypeOfChapter(int chapterId) {
+    try {
+      return isar.downloads
+          .getSync(chapterId)
+          ?.chapter
+          .value
+          ?.manga
+          .value
+          ?.itemType;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int _tabIndexFor(ItemType? type) {
+    switch (type) {
+      case ItemType.anime:
+        return 0;
+      case ItemType.novel:
+        return 2;
+      case ItemType.music:
+        return 3;
+      case ItemType.game:
+        return 4;
+      case ItemType.manga:
+      default:
+        return 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    ChallengeInbox.instance.target.removeListener(_handleChallengeTarget);
+    _tabController.dispose();
+    super.dispose();
   }
 
   void _cleanupOrphanedDownloads() {
@@ -90,12 +158,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         isar.downloads.deleteSync(id);
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   /// Returns to the page the queue was opened from. `go('/WatchtowerHome')`
@@ -328,6 +390,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      focusChapterId: _focusChapterId,
+                      focusToken: _focusToken,
+                      onChallengeClosed: _closeChallengePanel,
                     ),
                     _GroupedDownloadTabList(
                       entries: mangaEntries,
@@ -341,6 +406,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      focusChapterId: _focusChapterId,
+                      focusToken: _focusToken,
+                      onChallengeClosed: _closeChallengePanel,
                     ),
                     _GroupedDownloadTabList(
                       entries: novelEntries,
@@ -354,6 +422,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      focusChapterId: _focusChapterId,
+                      focusToken: _focusToken,
+                      onChallengeClosed: _closeChallengePanel,
                     ),
                     _GroupedDownloadTabList(
                       entries: musicEntries,
@@ -367,6 +438,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      focusChapterId: _focusChapterId,
+                      focusToken: _focusToken,
+                      onChallengeClosed: _closeChallengePanel,
                     ),
                     _GroupedDownloadTabList(
                       entries: gameEntries,
@@ -380,6 +454,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      focusChapterId: _focusChapterId,
+                      focusToken: _focusToken,
+                      onChallengeClosed: _closeChallengePanel,
                     ),
                   ],
                 ),
@@ -798,21 +875,30 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                           final pausedIds = widget.parentRef
                               .read(downloadQueueStateProvider)
                               .pausedIds;
-                          final ids = entries
-                              .where(
-                                (entry) =>
-                                    _isBulkActionable(entry) &&
-                                    (entry.status == 'paused' ||
-                                        pausedIds.contains(entry.id)),
-                              )
-                              .map((entry) => entry.id!)
-                              .toList();
-                          for (final id in ids) {
+                          // Resume what is paused, and *relaunch* what is
+                          // stopped (failed/cancelled): those rows used to be
+                          // silently skipped by both this button and
+                          // "Réessayer", so neither could restart them.
+                          for (final entry in entries) {
+                            final id = entry.id;
+                            if (id == null || entry.isDownload == true) {
+                              continue;
+                            }
+                            final isPaused =
+                                entry.status == 'paused' ||
+                                pausedIds.contains(id);
+                            final isStopped =
+                                entry.status == 'failed' ||
+                                entry.status == 'cancelled' ||
+                                (entry.failed ?? 0) > 0;
+                            if (!isPaused && !isStopped) continue;
                             unawaited(
                               handleMediaDownloadNotificationAction(
                                 widget.parentRef,
                                 id,
-                                MediaDownloadNotificationAction.resume,
+                                isPaused
+                                    ? MediaDownloadNotificationAction.resume
+                                    : MediaDownloadNotificationAction.retry,
                               ),
                             );
                           }
@@ -870,15 +956,23 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                         onTap: () {
                           Navigator.pop(context);
                           for (final e in entries) {
-                            if ((e.failed ?? 0) > 0 && e.id != null) {
-                              unawaited(
-                                handleMediaDownloadNotificationAction(
-                                  widget.parentRef,
-                                  e.id!,
-                                  MediaDownloadNotificationAction.retry,
-                                ),
-                              );
-                            }
+                            final id = e.id;
+                            if (id == null || e.isDownload == true) continue;
+                            // Match on the durable status too: a row marked
+                            // failed/cancelled must be retryable even when the
+                            // `failed` counter was not incremented.
+                            final isStopped =
+                                e.status == 'failed' ||
+                                e.status == 'cancelled' ||
+                                (e.failed ?? 0) > 0;
+                            if (!isStopped) continue;
+                            unawaited(
+                              handleMediaDownloadNotificationAction(
+                                widget.parentRef,
+                                id,
+                                MediaDownloadNotificationAction.retry,
+                              ),
+                            );
                           }
                         },
                       ),
@@ -1961,6 +2055,16 @@ class _GroupedDownloadTabList extends ConsumerStatefulWidget {
   final void Function(Download) onRetry;
   final void Function(Download) onOpen;
 
+  /// Chapter the "Battre le challenge" notification asked to reveal, or `null`.
+  final int? focusChapterId;
+
+  /// Bumped on every challenge tap so re-tapping the same chapter re-scrolls.
+  final int focusToken;
+
+  /// Called when the inline bypass panel is closed, so the screen can clear the
+  /// focus and hide the panel again.
+  final VoidCallback? onChallengeClosed;
+
   const _GroupedDownloadTabList({
     required this.entries,
     required this.allEntries,
@@ -1973,6 +2077,9 @@ class _GroupedDownloadTabList extends ConsumerStatefulWidget {
     required this.onDelete,
     required this.onRetry,
     required this.onOpen,
+    this.focusChapterId,
+    this.focusToken = 0,
+    this.onChallengeClosed,
   });
 
   @override
@@ -1993,10 +2100,121 @@ class _GroupedDownloadTabListState
   /// visible cards) instead of the whole screen scaffold.
   DownloadQueueStateData _queueState = const DownloadQueueStateData();
 
+  /// Drives the challenge-notification reveal (expand + scroll to the row).
+  final _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _loadOrder();
+    if (widget.focusChapterId != null) {
+      // Deferred: expanding the collapsed sets calls setState, which must not
+      // run during initState.
+      final chapterId = widget.focusChapterId!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _revealChapter(chapterId, animated: false);
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(_GroupedDownloadTabList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusChapterId != null &&
+        (widget.focusChapterId != oldWidget.focusChapterId ||
+            widget.focusToken != oldWidget.focusToken)) {
+      _revealChapter(widget.focusChapterId!, animated: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Expands the source and series that hold [chapterId] and scrolls its row
+  /// into view — the download manager equivalent of the notification tap
+  /// "navigate to the concerned box".
+  void _revealChapter(int chapterId, {required bool animated}) {
+    Download? download;
+    for (final d in widget.entries) {
+      if (d.id == chapterId) {
+        download = d;
+        break;
+      }
+    }
+    if (download == null) return;
+    final source = downloadSourceOf(download);
+    final seriesKey = _seriesKeyOf(download);
+    // Mutate the collapse sets directly and rebuild from a post-frame callback:
+    // this runs from initState/didUpdateWidget, where setState is not allowed.
+    _collapsed.remove(source);
+    if (seriesKey != null) _collapsedSeries.remove(seriesKey);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {});
+      final rows = _flatten(_orderedSources(_groupBySource()));
+      final index = rows.indexWhere(
+        (row) => row is DownloadEntryRow && row.download.id == chapterId,
+      );
+      if (index >= 0) _scrollToRow(index, animated: animated, attempts: 0);
+    });
+  }
+
+  /// The key attached to the focused row, so [Scrollable.ensureVisible] can
+  /// measure its real (variable) height instead of guessing a row pitch.
+  final _focusRowKey = GlobalKey();
+
+  /// Series key of [download]'s parent, matching [groupDownloadsBySeries] so the
+  /// reveal can expand the collapsed series that holds the focused chapter.
+  String? _seriesKeyOf(Download download) {
+    final chapter = download.chapter.value;
+    final manga = chapter?.manga.value;
+    final mangaId = manga?.id ?? chapter?.mangaId;
+    final itemId = download.id ?? chapter?.id;
+    return mangaId != null ? 'manga:$mangaId' : 'chapter:$itemId';
+  }
+
+  /// Scrolls the focused row into view.
+  ///
+  /// A lazy list only builds the rows on screen, so the target may not exist
+  /// yet: this jumps near its estimated offset, then lets [Scrollable
+  /// .ensureVisible] finish once the row has been built. The retry loop covers
+  /// an estimate that landed short, nudging by a viewport at a time.
+  void _scrollToRow(
+    int index, {
+    required bool animated,
+    required int attempts,
+  }) {
+    final controller = _scrollController;
+    if (!controller.hasClients) return;
+    final context = _focusRowKey.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.15,
+        duration: animated
+            ? const Duration(milliseconds: 380)
+            : Duration.zero,
+        curve: Curves.easeOutCubic,
+      );
+      return;
+    }
+    if (attempts >= 12) return;
+    final position = controller.position;
+    const rowPitch = 108.0;
+    final estimate = (index * rowPitch).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    // Jump (never animate) while hunting for the row so retries cannot stack
+    // competing animations; the final `ensureVisible` carries the animation.
+    controller.jumpTo(estimate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToRow(index, animated: animated, attempts: attempts + 1);
+    });
   }
 
   Future<void> _loadOrder() async {
@@ -2081,6 +2299,7 @@ class _GroupedDownloadTabListState
       padding: const EdgeInsets.only(bottom: 80),
       buildDefaultDragHandles: false,
       itemCount: rows.length,
+      scrollController: _scrollController,
       proxyDecorator: (child, _, _) => Material(
         color: Colors.transparent,
         elevation: 6,
@@ -2112,7 +2331,13 @@ class _GroupedDownloadTabListState
             key: ValueKey(
               'dl_${row.download.id ?? identityHashCode(row.download)}',
             ),
-            child: _buildDownloadRow(row),
+            child: KeyedSubtree(
+              key: row.download.id != null &&
+                      row.download.id == widget.focusChapterId
+                  ? _focusRowKey
+                  : null,
+              child: _buildDownloadRow(row),
+            ),
           ),
         };
       },
@@ -2489,6 +2714,15 @@ class _GroupedDownloadTabListState
                                     ? null
                                     : seriesProgress,
                                 height: 4,
+                                // Animate while a child transfers, and keep the
+                                // pulse running when the whole series is paused
+                                // so the saved position reads as a resume marker.
+                                active: unfinishedItems.any(
+                                  (download) =>
+                                      download.status == 'downloading' ||
+                                      download.status == 'initializing',
+                                ),
+                                paused: allUnfinishedPaused,
                               ),
                               const SizedBox(height: 5),
                             ],
@@ -2629,30 +2863,94 @@ class _GroupedDownloadTabListState
       row.download,
       isSeriesChild: row.isSeriesChild,
     );
-    if (!row.isSeriesChild) return dismissible;
-    final connectorColor = Theme.of(
-      context,
-    ).colorScheme.outlineVariant.withValues(alpha: 0.72);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: 20,
-              child: CustomPaint(
-                painter: DownloadQueueTreeConnector(
-                  color: connectorColor,
-                  isLast: row.isLastChild,
-                ),
-                child: const SizedBox.expand(),
+    final body = !row.isSeriesChild
+        ? dismissible
+        : Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    child: CustomPaint(
+                      painter: DownloadQueueTreeConnector(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outlineVariant.withValues(alpha: 0.72),
+                        isLast: row.isLastChild,
+                      ),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                  Expanded(child: dismissible),
+                ],
               ),
             ),
-            Expanded(child: dismissible),
-          ],
+          );
+    return _withChallengePanel(row.download, body);
+  }
+
+  /// Inserts the inline Cloudflare bypass panel under the row the challenge
+  /// notification targeted, so "Battre le challenge" opens the panel on the
+  /// *concerned box* inside the download manager — not on the extension home.
+  Widget _withChallengePanel(Download download, Widget child) {
+    final id = download.id;
+    if (id == null || id != widget.focusChapterId) return child;
+    final target = ChallengeInbox.instance.forChapter(id);
+    if (target == null) return child;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        child,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.shield_outlined,
+                    size: 16,
+                    color: mbTeal,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Challenge Cloudflare — ${target.sourceName ?? 'source'}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    iconSize: 18,
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Masquer',
+                    onPressed: widget.onChallengeClosed,
+                  ),
+                ],
+              ),
+              CloudflareBypassPanel(
+                key: ValueKey('challenge_panel_$id'),
+                url: target.url,
+                sourceId: target.sourceId,
+                compact: true,
+                onRetry: () => widget.onRetry(download),
+                onResolved: () {
+                  botToast('Challenge résolu — reprise du téléchargement');
+                  widget.onRetry(download);
+                },
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -2979,6 +3277,30 @@ class _DownloadCard extends ConsumerWidget {
         isMangaTransferIndeterminate ||
         isIndeterminateTransfer;
 
+    // The bar's sweep/wave tickers run only while bytes are actually moving.
+    // A queued item waiting for a concurrency slot or Wi-Fi, or an item that is
+    // paused/finished, keeps a static fill. With dozens of rows in the queue
+    // those per-card animations are the bulk of the frame cost.
+    final isActivelyTransferring =
+        !isComplete &&
+        !hasFailed &&
+        !isCancelled &&
+        !isPaused &&
+        !isCompressing &&
+        !isProgressIndeterminate &&
+        (download.status == 'downloading' ||
+            download.status == 'initializing');
+
+    // Queued behind a concurrency limit or Wi-Fi gate: nothing is happening yet,
+    // so the card shows a grey "waiting" state instead of an active transfer.
+    final isWaiting =
+        !isComplete &&
+        !hasFailed &&
+        !isCancelled &&
+        !isPaused &&
+        !isCompressing &&
+        (download.status == 'queued' || download.status == 'waiting_wifi');
+
     final String statusText;
     if (isCompressing) {
       // Manga packs its pages into an archive; anime concatenates the HLS
@@ -2992,6 +3314,8 @@ class _DownloadCard extends ConsumerWidget {
       statusText = 'Annulé';
     } else if (isPaused) {
       statusText = 'En pause';
+    } else if (isWaiting) {
+      statusText = 'En attente';
     } else {
       // Keep the queue quiet while idle or transferring. The bar, speed, and
       // byte counters already communicate progress without a repeated label.
@@ -3005,9 +3329,15 @@ class _DownloadCard extends ConsumerWidget {
         ? Colors.redAccent
         : isPaused
         ? Colors.orange
+        : isWaiting
+        ? scheme.onSurfaceVariant
         : scheme.onSurface.withValues(alpha: 0.54);
 
-    final Color actionColor = hasFailed ? Colors.redAccent : scheme.primary;
+    final Color actionColor = hasFailed
+        ? Colors.redAccent
+        : isWaiting
+        ? scheme.onSurfaceVariant
+        : scheme.primary;
 
     var srcBadge = (manga?.source ?? '')
         .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
@@ -3048,6 +3378,7 @@ class _DownloadCard extends ConsumerWidget {
                 : 6,
             paused: isPaused,
             failed: hasFailed,
+            active: isActivelyTransferring,
           )
         : null;
 
@@ -3077,6 +3408,8 @@ class _DownloadCard extends ConsumerWidget {
               ? Icons.replay
               : isPaused
               ? Icons.play_arrow_rounded
+              : isWaiting
+              ? Icons.schedule_rounded
               : Icons.download_rounded,
           color: actionColor,
           size: 16,
@@ -3160,6 +3493,7 @@ class _DownloadCard extends ConsumerWidget {
               isComplete: isComplete,
               hasFailed: hasFailed,
               isPaused: isPaused,
+              isWaiting: isWaiting,
               onPauseResume: onPauseResume,
               onRetry: onRetry,
               onOpen: onOpen,
@@ -3231,6 +3565,8 @@ class _DownloadCard extends ConsumerWidget {
                         ? Icons.replay
                         : isPaused
                         ? Icons.play_arrow_rounded
+                        : isWaiting
+                        ? Icons.schedule_rounded
                         : Icons.download_rounded,
                     color: actionColor,
                     size: 14,
@@ -3499,6 +3835,7 @@ class _DownloadCard extends ConsumerWidget {
             height: 5,
             paused: isPaused,
             failed: hasFailed,
+            active: isActivelyTransferring,
           );
 
     return Padding(
@@ -3557,6 +3894,7 @@ class _DownloadCard extends ConsumerWidget {
                         isComplete: isComplete,
                         hasFailed: hasFailed,
                         isPaused: isPaused,
+                        isWaiting: isWaiting,
                         onPauseResume: onPauseResume,
                         onRetry: onRetry,
                         onOpen: onOpen,

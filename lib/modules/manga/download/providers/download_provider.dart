@@ -16,6 +16,7 @@ import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart';
+import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
@@ -1372,6 +1373,31 @@ Future<void> downloadChapter(
     bool nonM3U8File = false;
     M3u8Downloader? m3u8Downloader;
 
+    // Records every URL this chapter is about to fetch, so a Cloudflare
+    // refusal on one of them can route the notification ("Battre le
+    // challenge") back to *this* download row (see ChallengeInbox).
+    void watchChallengeUrl(String? url) {
+      final id = chapter.id;
+      if (id == null || url == null || url.trim().isEmpty) return;
+      ChallengeInbox.instance.watch(
+        chapterId: id,
+        url: url,
+        sourceId: manga.sourceId,
+        sourceName: manga.source,
+      );
+    }
+
+    // The chapter page the extension reads (e.g. the MissAV episode page): the
+    // request Cloudflare refuses before any media URL is even known.
+    final chapterSource = manga.sourceId == null
+        ? null
+        : getSource(manga.lang ?? '', manga.source ?? '', manga.sourceId);
+    final chapterPageUrl =
+        chapterSource != null && chapter.url != null && chapter.url!.isNotEmpty
+        ? '${chapterSource.baseUrl}${chapter.url!.getUrlWithoutDomain}'
+        : null;
+    watchChallengeUrl(chapterPageUrl);
+
     Future<void> processConvert() async {
       await DownloadSettingsService.instance.load();
       final settings = DownloadSettingsService.instance;
@@ -2125,6 +2151,9 @@ Future<void> downloadChapter(
         if (value.pageUrls.isNotEmpty) {
           pageUrls = value.pageUrls;
           pageUrlsForCache = value.pageUrls;
+          for (final page in pageUrls) {
+            watchChallengeUrl(page.url);
+          }
           AppLogger.log(
             '[ch:' +
                 (chapter.id?.toString() ?? '?') +
@@ -2255,6 +2284,7 @@ Future<void> downloadChapter(
           final videoUri = Uri.tryParse(videosUrls.first.originalUrl);
           final referer = videoUri != null ? '${videoUri.scheme}://${videoUri.host}' : null;
           if (hasM3U8File) {
+            watchChallengeUrl(videosUrls.first.url);
             pageUrlsForCache = [PageUrl(videosUrls.first.url, headers: videosUrls.first.headers)];
             m3u8Downloader = M3u8Downloader(
               m3u8Url: videosUrls.first.url,
@@ -2268,6 +2298,7 @@ Future<void> downloadChapter(
               concurrentDownloads: animeConnections,
             );
           } else {
+            watchChallengeUrl(videosUrls.first.url);
             pageUrls = [PageUrl(videosUrls.first.url)];
             pageUrlsForCache = [PageUrl(videosUrls.first.url, headers: videosUrls.first.headers)];
           }
@@ -2329,6 +2360,20 @@ Future<void> downloadChapter(
       // Rendre l'échec visible : sinon l'icône revenait à son état initial et
       // l'utilisateur croyait que le bouton n'avait rien fait.
       _notifyDownloadFailure(fetchError!);
+      // Route the "Battre le challenge" notification back to this download so
+      // the queue opens on this row with the inline bypass panel.
+      final challengeUrl =
+          chapterPageUrl ??
+          (pageUrls.isNotEmpty ? pageUrls.first.url : null) ??
+          (pageUrlsForCache.isNotEmpty ? pageUrlsForCache.first.url : null);
+      if (chapter.id != null && challengeUrl != null) {
+        ChallengeInbox.instance.record(
+          chapterId: chapter.id!,
+          url: challengeUrl,
+          sourceId: manga.sourceId,
+          sourceName: manga.source,
+        );
+      }
       if (chapter.id != null) {
         unawaited(
           WatchtowerNotificationService.instance.markMediaDownloadFailed(

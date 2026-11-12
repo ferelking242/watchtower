@@ -10,6 +10,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/router/router.dart' show navigatorKey;
 import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_content.dart';
+import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 typedef CloudflareSourceResolver = Source? Function(String url);
@@ -142,10 +143,31 @@ class BypassNotificationService {
   /// No full-screen challenge route: the source page already hosts the panel
   /// and the retry it belongs to, and a separate screen hid the extension the
   /// user was trying to read.
+  ///
+  /// When the blocked URL belongs to a *queued download* the user is sent to
+  /// the download manager instead, focused on that box, where the inline panel
+  /// is shown (see [ChallengeInbox]). That is the surface the download was
+  /// started from, so the retry lands where the user expects it.
   Future<void> openBlockedSource(String url) async {
     if (url.trim().isEmpty) return;
     final context = await _mainContext();
     if (context == null || !context.mounted) return;
+
+    final downloadTarget = ChallengeInbox.instance.forUrl(url);
+    if (downloadTarget != null) {
+      ChallengeInbox.instance.target.value = downloadTarget;
+      try {
+        context.push('/downloadQueue');
+      } catch (error) {
+        AppLogger.log(
+          'Opening the download manager for the challenge failed: $error',
+          logLevel: LogLevel.warning,
+          tag: LogTag.network,
+        );
+      }
+      return;
+    }
+
     Source? source;
     try {
       source = _sourceResolver?.call(url);

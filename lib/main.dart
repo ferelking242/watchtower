@@ -67,6 +67,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:watchtower/modules/onboarding/onboarding_screen.dart';
 import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
+import 'package:watchtower/services/anti_bot/browser_bridge.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/modules/media/widgets/bulk_enqueue_controller.dart';
@@ -761,6 +762,17 @@ class _MyAppState extends ConsumerState<MyApp>
       (chapterId, action) =>
           handleMediaDownloadNotificationAction(ref, chapterId, action),
     );
+    // A Cloudflare refusal first seen while replaying a request from an
+    // extension/download worker is reported to the root isolate (the only one
+    // that can raise a notification) through the browser bridge.
+    BrowserBridge.onBrowserUnavailable = (url, sourceId) {
+      unawaited(
+        BypassNotificationService.instance.notifyChallengeDetected(
+          url: url,
+          sourceId: sourceId,
+        ),
+      );
+    };
     WatchtowerNotificationService.instance.registerDownloadQueueActionHandler(
       BulkEnqueueController.handleNotificationAction,
     );
