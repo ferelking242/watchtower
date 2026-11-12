@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -102,12 +103,28 @@ final navAnimSpeedProvider = NotifierProvider<NavAnimSpeedNotifier, int>(
 class NavDockStyleNotifier extends Notifier<String> {
   static const _valid = {'classic', 'immersive', 'pc_sidebar'};
 
+  /// Desktop platforms get the PC sidebar by default: a phone-style floating
+  /// dock on a wide monitor wastes the width and ignores the mouse/keyboard.
+  /// Mobile keeps the immersive floating dock. Any explicit user choice in
+  /// Affichage › Navigation is stored and always wins.
+  ///
+  /// `defaultTargetPlatform` reports the host OS on desktop and the browser's
+  /// OS on web, so a desktop browser also gets the sidebar while a phone
+  /// browser stays immersive.
+  static String get _default {
+    const desktop = {
+      TargetPlatform.macOS,
+      TargetPlatform.linux,
+      TargetPlatform.windows,
+    };
+    return desktop.contains(defaultTargetPlatform) ? 'pc_sidebar' : 'immersive';
+  }
+
   @override
   String build() {
     final stored =
-        _box?.get('dock_style', defaultValue: 'immersive') as String? ??
-        'immersive';
-    return _valid.contains(stored) ? stored : 'immersive';
+        _box?.get('dock_style', defaultValue: _default) as String? ?? _default;
+    return _valid.contains(stored) ? stored : _default;
   }
 
   /// Valid values: classic, immersive, pc_sidebar

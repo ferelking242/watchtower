@@ -39,6 +39,24 @@ void main() {
       }
     });
 
+    test('the lanes fill a wide desktop window instead of centring', () {
+      // Regression: on a 2560px window the old 5-lane cap left ~1700px of
+      // empty borders with the cards floating in the middle. The lanes must now
+      // tile the full width so there is no dead space at the edges.
+      for (final width in [1440.0, 1920.0, 2560.0, 3840.0]) {
+        expect(
+          OnboardingShowcaseConfig.contentWidthFor(width),
+          width,
+          reason: 'a $width wide window should be filled edge to edge',
+        );
+        // And each lane still stays poster-shaped.
+        expect(
+          OnboardingShowcaseConfig.laneWidthFor(width),
+          lessThanOrEqualTo(OnboardingShowcaseConfig.maxCardWidth),
+        );
+      }
+    });
+
     test('card height follows the poster ratio and stays in range', () {
       for (final width in [320.0, 600.0, 1600.0]) {
         final lane = OnboardingShowcaseConfig.laneWidthFor(width);

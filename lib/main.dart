@@ -73,6 +73,7 @@ import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/modules/media/widgets/bulk_enqueue_controller.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/device_capabilities.dart';
+import 'package:watchtower/ui/widgets/desktop_shortcuts.dart';
 import 'cli/watchtower_cli.dart'
     if (dart.library.js_interop) 'cli/watchtower_cli_stub.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
@@ -310,6 +311,10 @@ void main(List<String> args) async {
       }
       if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
         await windowManager.ensureInitialized();
+        // A PC layout needs room: below this the desktop shell would collapse
+        // into the phone layout and look broken. 800×600 keeps the sidebar and
+        // a two-column grid usable.
+        await windowManager.setMinimumSize(const Size(800, 600));
         // Hide the window immediately so it doesn't flash a blank white frame
         // while Flutter is still building the first widget tree.
         // It is shown again in addPostFrameCallback below, after the first frame.
@@ -932,11 +937,20 @@ class _MyAppState extends ConsumerState<MyApp>
             return const AppLockScreen();
           }
         }
-        if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
+        final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+        // The mouse back button is a desktop-only affordance: on web the
+        // browser already owns Back, so wiring it here would double-navigate.
+        if (!kIsWeb && !isMobile) {
           child = _MouseBackButtonHandler(
             router: router,
             child: child ?? const SizedBox.shrink(),
           );
+        }
+        // Desktop and web get global keyboard shortcuts (sections, search,
+        // settings, back/forward) so the app answers to a keyboard the way a
+        // PC user expects.
+        if (DesktopShortcuts.isEnabled) {
+          child = DesktopShortcuts(router: router, child: child!);
         }
         // Apply UI scale from Advanced Settings
         if (Hive.isBoxOpen('advanced_settings')) {

@@ -1622,7 +1622,7 @@ class _ExpandedRail extends StatelessWidget {
 
 // ── Single sidebar item ───────────────────────────────────────────────────────
 
-class _SidebarItem extends StatelessWidget {
+class _SidebarItem extends StatefulWidget {
   final Widget icon;
   final String? label;
   final bool active;
@@ -1650,113 +1650,132 @@ class _SidebarItem extends StatelessWidget {
   });
 
   @override
+  State<_SidebarItem> createState() => _SidebarItemState();
+}
+
+class _SidebarItemState extends State<_SidebarItem> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final cs = widget.cs;
+    final active = widget.active;
+    final label = widget.label;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: label != null
-                ? EdgeInsets.symmetric(
-                    horizontal: horizontalPadding,
-                    vertical: verticalPadding,
-                  )
-                : EdgeInsets.symmetric(vertical: verticalPadding),
-            constraints: BoxConstraints(minHeight: minHeight),
-            decoration: BoxDecoration(
-              color: active
-                  ? cs.primary.withValues(alpha: isDark ? 0.18 : 0.12)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-              border: active
-                  ? Border.all(
-                      color: cs.primary.withValues(alpha: 0.25),
-                      width: 0.8,
+      child: MouseRegion(
+        // A pointing cursor is the most basic "this is clickable" signal a PC
+        // user expects, and a hover wash tells them which row they are on.
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: label != null
+                  ? EdgeInsets.symmetric(
+                      horizontal: widget.horizontalPadding,
+                      vertical: widget.verticalPadding,
                     )
-                  : null,
-            ),
-            child: Row(
-              mainAxisAlignment: label != null
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    IconTheme(
-                      data: IconThemeData(
-                        color: active
-                            ? cs.primary
-                            : cs.onSurface.withValues(alpha: 0.55),
-                        size: iconSize,
+                  : EdgeInsets.symmetric(vertical: widget.verticalPadding),
+              constraints: BoxConstraints(minHeight: widget.minHeight),
+              decoration: BoxDecoration(
+                color: active
+                    ? cs.primary.withValues(alpha: isDark ? 0.18 : 0.12)
+                    : _hovered
+                    ? cs.onSurface.withValues(alpha: isDark ? 0.08 : 0.06)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: active
+                    ? Border.all(
+                        color: cs.primary.withValues(alpha: 0.25),
+                        width: 0.8,
+                      )
+                    : null,
+              ),
+              child: Row(
+                mainAxisAlignment: label != null
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconTheme(
+                        data: IconThemeData(
+                          color: active
+                              ? cs.primary
+                              : cs.onSurface.withValues(alpha: 0.55),
+                          size: widget.iconSize,
+                        ),
+                        child: widget.icon,
                       ),
-                      child: icon,
-                    ),
-                    if (badge > 0)
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: Container(
-                          constraints: const BoxConstraints(
-                            minWidth: 15,
-                            minHeight: 15,
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade600,
-                            borderRadius: BorderRadius.circular(99),
-                            border: Border.all(color: cs.surface, width: 1.2),
-                          ),
-                          child: Center(
-                            child: Text(
-                              badge > 99 ? '99+' : '$badge',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w800,
-                                height: 1.0,
+                      if (widget.badge > 0)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: Container(
+                            constraints: const BoxConstraints(
+                              minWidth: 15,
+                              minHeight: 15,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade600,
+                              borderRadius: BorderRadius.circular(99),
+                              border: Border.all(color: cs.surface, width: 1.2),
+                            ),
+                            child: Center(
+                              child: Text(
+                                widget.badge > 99 ? '99+' : '${widget.badge}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.0,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-                if (label != null) ...[
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      label!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: labelFontSize,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                        color: active
-                            ? cs.primary
-                            : cs.onSurface.withValues(alpha: 0.70),
-                      ),
-                    ),
+                    ],
                   ),
-                  if (active) ...[
-                    const Spacer(),
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: cs.primary,
-                        shape: BoxShape.circle,
+                  if (label != null) ...[
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: widget.labelFontSize,
+                          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                          color: active
+                              ? cs.primary
+                              : cs.onSurface.withValues(alpha: 0.70),
+                        ),
                       ),
                     ),
+                    if (active) ...[
+                      const Spacer(),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

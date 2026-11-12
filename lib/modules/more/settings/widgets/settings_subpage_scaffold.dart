@@ -125,6 +125,50 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
     final cs = Theme.of(context).colorScheme;
     final globalQuery = _usesLocalFilter ? '' : _pageSearch.text.trim();
 
+    final scrollView = CustomScrollView(
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        _buildAppBar(context, cs),
+        SliverToBoxAdapter(child: _pageHeader(context, cs)),
+        if (_headerSearchActive && !_usesLocalFilter)
+          SliverToBoxAdapter(
+            child: _GlobalSearchResults(
+              query: _headerSearch.text,
+              onDismiss: _closeHeaderSearch,
+            ),
+          )
+        else if (globalQuery.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _GlobalSearchResults(
+              query: globalQuery,
+              onDismiss: () {
+                _pageSearch.clear();
+                setState(() {});
+              },
+            ),
+          )
+        else if (widget.body != null)
+          SliverFillRemaining(hasScrollBody: true, child: widget.body!)
+        else
+          ...widget.slivers,
+      ],
+    );
+
+    // On a wide window a settings list stretched edge to edge is hard to read:
+    // a full-width row of text at 2000px forces the eye to travel. Constrain
+    // the column to a comfortable measure and centre it, the way desktop
+    // preferences panes do. Phones and tablets keep the full width.
+    final isWide = MediaQuery.sizeOf(context).width >= 900;
+    final body = isWide
+        ? Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: scrollView,
+            ),
+          )
+        : scrollView;
+
     return Scaffold(
       floatingActionButton: widget.floatingActionButton,
       body: NotificationListener<ScrollNotification>(
@@ -134,35 +178,7 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
           }
           return false;
         },
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            _buildAppBar(context, cs),
-            SliverToBoxAdapter(child: _pageHeader(context, cs)),
-            if (_headerSearchActive && !_usesLocalFilter)
-              SliverToBoxAdapter(
-                child: _GlobalSearchResults(
-                  query: _headerSearch.text,
-                  onDismiss: _closeHeaderSearch,
-                ),
-              )
-            else if (globalQuery.isNotEmpty)
-              SliverToBoxAdapter(
-                child: _GlobalSearchResults(
-                  query: globalQuery,
-                  onDismiss: () {
-                    _pageSearch.clear();
-                    setState(() {});
-                  },
-                ),
-              )
-            else if (widget.body != null)
-              SliverFillRemaining(hasScrollBody: true, child: widget.body!)
-            else
-              ...widget.slivers,
-          ],
-        ),
+        child: body,
       ),
     );
   }

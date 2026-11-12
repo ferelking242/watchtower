@@ -42,8 +42,12 @@ class OnboardingShowcaseConfig {
   static const double minCardHeight = 132;
   static const double maxCardHeight = 232;
 
-  /// Screens wider than this keep the lanes centred instead of stretching
-  /// three columns across a desktop window.
+  /// Width the bottom text block is allowed to reach before it stops growing.
+  ///
+  /// Text needs a measure cap; the lanes below do not. The lanes spread across
+  /// the whole window (see [contentWidthFor]) so a wide desktop window is
+  /// filled edge to edge instead of showing a narrow column of cards floating
+  /// in the middle with empty borders.
   static const double maxContentWidth = 1100;
 
   // ── Work limits ──────────────────────────────────────────────────────────
@@ -62,29 +66,40 @@ class OnboardingShowcaseConfig {
 
   // ── Layout ───────────────────────────────────────────────────────────────
 
-  /// How many lane columns fit on a screen of [width] logical pixels.
+  /// How many lane columns fill a screen of [width] logical pixels.
+  ///
+  /// Chosen as `ceil(width / maxCardWidth)` so the lanes always tile the whole
+  /// width: each lane stays poster-shaped (never wider than [maxCardWidth]) and
+  /// the block reaches both edges instead of leaving empty borders on a wide
+  /// desktop window. Capped so a very wide window does not build an absurd
+  /// number of columns.
   static int laneCountFor(double width) {
-    if (width < 380) return 2;
-    if (width < 600) return 3;
-    if (width < 900) return 4;
-    return 5;
+    if (width <= 0) return 2;
+    final lanes = (width / maxCardWidth).ceil();
+    return lanes.clamp(2, 32);
   }
 
-  /// Width of one lane, clamped so posters stay poster-shaped on any screen.
+  /// Width actually occupied by the lane block.
   ///
-  /// On a narrow phone the lanes fill the width; on a desktop the width stops
-  /// growing at [maxCardWidth] and [contentWidthFor] centres the block.
-  static double laneWidthFor(double width) {
+  /// Because [laneCountFor] divides the width by [maxCardWidth], the lanes tile
+  /// the full window exactly on every screen that is at least [minCardWidth]
+  /// wide per lane. A degenerate width (a test or a not-yet-measured window can
+  /// report 0) falls back to a min-width block so the cards stay readable and
+  /// never receive negative constraints.
+  static double contentWidthFor(double width) {
+    if (width <= 0) return minCardWidth * laneCountFor(0);
     final lanes = laneCountFor(width);
     final raw = width / lanes;
-    return raw.clamp(minCardWidth, maxCardWidth);
+    if (raw < minCardWidth) {
+      return math.min(width, minCardWidth * lanes);
+    }
+    return width;
   }
 
-  /// Width actually occupied by the lane block, never wider than the screen.
-  static double contentWidthFor(double width) {
-    final lanes = laneCountFor(width);
-    return math.min(width, laneWidthFor(width) * lanes);
-  }
+  /// Width of one lane, derived from the block width so the lanes always add up
+  /// to exactly [contentWidthFor] and never overflow their parent.
+  static double laneWidthFor(double width) =>
+      contentWidthFor(width) / laneCountFor(width);
 
   /// Card height for a lane of [laneWidth], derived from the poster ratio.
   static double cardHeightFor(double laneWidth) {

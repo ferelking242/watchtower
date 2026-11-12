@@ -640,7 +640,13 @@ class _ShowcasePageState extends State<_ShowcasePage>
         Positioned(
           left: 0, right: 0, bottom: 0,
           child: SafeArea(
-            child: Center(
+            child: Align(
+              // On a wide desktop window the hero copy anchors to the left
+              // margin, under the first lane, instead of floating centred over
+              // the middle of the poster wall.
+              alignment: OnboardingShowcaseConfig.laneCountFor(width) > 5
+                  ? Alignment.bottomLeft
+                  : Alignment.bottomCenter,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: OnboardingShowcaseConfig.maxContentWidth,
@@ -1274,13 +1280,17 @@ class _Card extends StatelessWidget {
                     children: [
                       Icon(lane.icon, size: 10, color: lane.color),
                       const SizedBox(width: 4),
-                      Text(
-                        lane.label,
-                        style: TextStyle(
-                          color: lane.color,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.4,
+                      Flexible(
+                        child: Text(
+                          lane.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: lane.color,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.4,
+                          ),
                         ),
                       ),
                     ],

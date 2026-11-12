@@ -976,6 +976,31 @@ must not leak into watch code paths or logs:
   (`main_screen.dart`: `libLocationRegex` → `_enableLibSwitch`), or the previous
   tab stays highlighted when a library page opens.
 
+## Desktop / portable build (mouse-first, wide windows)
+- Default shell on desktop is the **PC sidebar** (`pc_sidebar`), never the
+  phone floating dock. `NavDockStyleNotifier._default` decides from
+  `defaultTargetPlatform` (works on web too, where it reports the browser's OS),
+  and an explicit choice in Affichage › Navigation always wins. `MainScreen`
+  only switches to `_TabletLayout` at ≥ 700px wide, so a narrow desktop window
+  still falls back to the mobile shell.
+- `DesktopShortcuts` (`lib/ui/widgets/desktop_shortcuts.dart`) is wired in
+  `MaterialApp.router`'s `builder`. It takes the `GoRouter` **explicitly**:
+  `GoRouter.maybeOf` cannot resolve above the Navigator, so a shortcut handler
+  that reads it from context silently does nothing. Shortcuts are inert while a
+  text field has focus (the framework consumes the key first) and on touch
+  platforms.
+- Minimum window size is set in `main.dart`'s desktop init block
+  (`windowManager.ensureInitialized()` area); the Windows runner opens at
+  1280×720.
+- Onboarding showcase lanes tile the full window: `laneCountFor` =
+  `ceil(width / maxCardWidth)`, so never re-cap the count to a fixed number or
+  the wall collapses to a centred strip on a 2560px monitor. `contentWidthFor`
+  must return a sane positive width for a degenerate 0-width measurement (a
+  `MediaQueryData` built without a size reports 0) or the cards get negative
+  constraints.
+- Settings sub-pages (`SettingsSubpageScaffold`) constrain their content to
+  980px and centre it above 900px wide; phones keep full width.
+
 ## Volume-key page navigation
 - The native bridge is `com.watchtower.app.volume_keys` (Android
   `MainActivity.dispatchKeyEvent`, iOS `AppDelegate`), surfaced as
