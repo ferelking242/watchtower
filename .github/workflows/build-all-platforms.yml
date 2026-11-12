@@ -150,32 +150,28 @@ jobs:
             --target-platform ${{ matrix.target }} \
             --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
-      - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
+      # Ship the APK itself: a phone user sideloads it straight away, whereas a
+      # recompressed .7z archive first has to be extracted (and often cannot be
+      # opened by the very device it is meant for).
+      - name: Collect APK
         run: |
-          mkdir -p artifacts apk_raw
+          mkdir -p artifacts
           TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
           if [ ! -f "$TARGET_APK" ]; then
             echo "ERROR: $TARGET_APK not found. Available:"
             ls -lh build/app/outputs/flutter-apk/ || true
             exit 1
           fi
-          echo "APK size: $(du -sh $TARGET_APK)"
-          # FITGIRL TRICK: APKs store native .so UNCOMPRESSED for mmap
-          # Extract ZIP → compress raw files → 40-60% gain on libs
-          unzip -q "$TARGET_APK" -d apk_raw/
-          echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
-          7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
-            "artifacts/app-${{ matrix.label }}-debug.7z" apk_raw/
-          rm -rf apk_raw
-          echo "=== Final artifact ==="
+          echo "APK size: $(du -sh "$TARGET_APK")"
+          cp "$TARGET_APK" "artifacts/watchtower-android-${{ matrix.label }}.apk"
           ls -lh artifacts/
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v5
         with:
           name: android-${{ matrix.label }}
-          path: artifacts/*.7z
-          compression-level: 0
+          path: artifacts/*.apk
+          if-no-files-found: error
           retention-days: 30
 
       - name: Notify ntfy (Android build OK)
@@ -294,24 +290,20 @@ jobs:
           ORG_GRADLE_PROJECT_watchtowerCiAllAbis: "true"
         run: flutter build apk --profile --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
-      - name: FitGirl-style repack — extract APK then LZMA2 ultra on raw files
+      # The all-ABI APK is shipped as-is so any phone installs it directly.
+      - name: Collect Universal APK
         run: |
-          mkdir -p apk_raw
           TARGET_APK="build/app/outputs/flutter-apk/app-profile.apk"
-          echo "APK size: $(du -sh $TARGET_APK)"
-          unzip -q "$TARGET_APK" -d apk_raw/
-          echo "Extracted: $(du -sh apk_raw/) | libs: $(du -sh apk_raw/lib/ 2>/dev/null || echo n/a)"
-          7z a -t7z -mx=9 -mmt=2 -mfb=128 -md=64m -ms=on \
-            watchtower-android-universal.7z apk_raw/
-          rm -rf apk_raw
-          ls -lh watchtower-android-universal.7z
+          test -f "$TARGET_APK" || { echo "ERROR: $TARGET_APK not found"; ls -lh build/app/outputs/flutter-apk/ || true; exit 1; }
+          cp "$TARGET_APK" watchtower-android-universal.apk
+          ls -lh watchtower-android-universal.apk
 
       - name: Upload Universal APK artifact
         uses: actions/upload-artifact@v5
         with:
           name: android-universal
-          path: watchtower-android-universal.7z
-          compression-level: 0
+          path: watchtower-android-universal.apk
+          if-no-files-found: error
           retention-days: 30
 
       - name: Notify ntfy (Android Universal OK)
@@ -379,10 +371,18 @@ jobs:
           key: rust-linux-x64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: rust-linux-x64-${{ runner.os }}-
 
+      # The hosted runner intermittently fails to resolve the apt mirror
+      # (Temporary failure resolving 'azure.archive.ubuntu.com'), which left the
+      # build without GTK. Retry the update, then retry the install, and fail
+      # loudly instead of continuing into a confusing CMake error.
       - name: Install Linux build dependencies
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-recommends \
+          for i in 1 2 3; do
+            sudo apt-get update -y && break
+            echo "apt-get update failed (attempt $i), retrying in 10s..."; sleep 10
+          done
+          install_deps() {
+            sudo apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config libunwind-dev \
             libgtk-3-dev libwebkit2gtk-4.0-dev libwpewebkit-1.0-dev libwpebackend-fdo-1.0-dev libsoup-3.0-dev liblzma-dev libblkid-dev libmount-dev \
             libglib2.0-dev libdbus-1-dev \
@@ -395,7 +395,13 @@ jobs:
             gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
             libasound2-dev libpulse-dev libxcb-xfixes0-dev \
             libepoxy-dev libmpv-dev mpv \
-            p7zip-full golang-go xvfb || true
+            p7zip-full golang-go xvfb
+          }
+          for i in 1 2 3; do
+            install_deps && break
+            echo "apt-get install failed (attempt $i), retrying in 15s..."; sleep 15
+          done
+          pkg-config --exists gtk+-3.0 || { echo "ERROR: gtk+-3.0 is missing after apt"; exit 1; }
 
       - name: Ensure Xvfb is installed for CLI smoke tests
         run: sudo apt-get install -y xvfb
@@ -571,6 +577,14 @@ jobs:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: pub-${{ runner.os }}-
+
+      # The runner is arm64 but the app is built universal, so cargokit needs
+      # the x86_64 std too. Install both up front: a mid-build download from
+      # static.rust-lang.org has failed the whole job on a transient DNS error.
+      - name: Install Rust (universal)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       # See the Linux note: the cached package may already be patched, so
       # re-fetch it before the patch step runs.
@@ -1333,10 +1347,10 @@ jobs:
             fi
           }
           echo "Collecting release assets:"
-          copy "$SRC_android_armv7a" "Watchtower-${V}-android-armv7a.7z"
-          copy "$SRC_android_arm64"  "Watchtower-${V}-android-arm64.7z"
-          copy "$SRC_android_x86_64" "Watchtower-${V}-android-x86_64.7z"
-          copy "$SRC_android_universal" "Watchtower-${V}-android-universal.7z"
+          copy "$SRC_android_armv7a" "Watchtower-${V}-android-armv7a.apk"
+          copy "$SRC_android_arm64"  "Watchtower-${V}-android-arm64.apk"
+          copy "$SRC_android_x86_64" "Watchtower-${V}-android-x86_64.apk"
+          copy "$SRC_android_universal" "Watchtower-${V}-android-universal.apk"
           copy_named "$SRC_android_tv" "watchtower-tv-arm64.apk"  "Watchtower-${V}-android-tv-arm64.apk"
           copy_named "$SRC_android_tv" "watchtower-tv-x86_64.apk" "Watchtower-${V}-android-tv-x86_64.apk"
           copy "$SRC_linux"          "Watchtower-${V}-linux-x64.7z"
@@ -1358,10 +1372,10 @@ jobs:
           V="${{ steps.ver.outputs.name }}"
           ASSETS=()
           add() { [ -f "dist/$2" ] && ASSETS+=(--asset "$1:$2"); }
-          add "Android armv7a"        "Watchtower-${V}-android-armv7a.7z"
-          add "Android arm64"         "Watchtower-${V}-android-arm64.7z"
-          add "Android x86_64"        "Watchtower-${V}-android-x86_64.7z"
-          add "Android universal"     "Watchtower-${V}-android-universal.7z"
+          add "Android armv7a"        "Watchtower-${V}-android-armv7a.apk"
+          add "Android arm64"         "Watchtower-${V}-android-arm64.apk"
+          add "Android x86_64"        "Watchtower-${V}-android-x86_64.apk"
+          add "Android universal"     "Watchtower-${V}-android-universal.apk"
           add "Android TV arm64 (APK)"  "Watchtower-${V}-android-tv-arm64.apk"
           add "Android TV x86_64 (APK)" "Watchtower-${V}-android-tv-x86_64.apk"
           add "Linux x64"             "Watchtower-${V}-linux-x64.7z"

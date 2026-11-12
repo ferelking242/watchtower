@@ -1266,6 +1266,18 @@ must not leak into watch code paths or logs:
   `publish-release` ne s'exécute **que si toutes** les builds sont vertes, puis
   publie `v<major>.<minor>.<run_number>` avec des notes propres
   (`scripts/release_notes.py`, style Mihon) et des noms d'assets normalisés.
+- Android téléphone : les jobs `build-android` (matrice armv7a/arm64/x86_64) et
+  `build-android-universal` livrent le **`.apk` tel quel** (pas de repack `.7z`) :
+  un `.7z` n'est pas installable directement sur un téléphone. Les assets de
+  release sont `Watchtower-<v>-android-<abi>.apk` et `-android-universal.apk`.
+- macOS est **universel** (arm64 + x86_64) : le runner est arm64 mais cargokit
+  a besoin des deux `rust-std`, donc `dtolnay/rust-toolchain` doit lister
+  `aarch64-apple-darwin,x86_64-apple-darwin` **avant** le build. Sans ça,
+  cargokit télécharge le std x86_64 en pleine compilation et un DNS flaky
+  (`static.rust-lang.org`) casse tout le job.
+- Fiabilité réseau du runner : `apt-get update/install` (deps Linux) et l'install
+  `xvfb` sont **retentés 3×** puis vérifiés (`pkg-config --exists gtk+-3.0`),
+  car le mirror azure échoue parfois (`Temporary failure resolving`).
 - Le job TV de `build-all-platforms.yml` **construit de vrais APK** signés
   (arm64-v8a et x86_64) via `flutter build apk --release --target-platform …`,
   pas un `.7z` renommé : un utilisateur TV attend un APK installable. L'artifact
