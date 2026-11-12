@@ -55,11 +55,10 @@ jobs:
         uses: actions/cache@v5
         with:
           path: |
-            ~/.gradle/caches/modules-2
+            ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-tv-${{ runner.os }}-v2-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.lock', 'android/gradle.properties') }}
           restore-keys: |
-            gradle-tv-${{ runner.os }}-
             gradle-${{ runner.os }}-
 
       - name: Cache Rust (Android TV ABIs)

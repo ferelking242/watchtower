@@ -1302,14 +1302,22 @@ must not leak into watch code paths or logs:
   échouer si `pseudom` est absent, échouer si un littéral hors-bornes reste, et
   `flutter pub get` doit tourner **avant** le patch.
 - Le budget de cache Actions d'un dépôt public est de **10 Go** ; au-delà GitHub
-  évince des entrées (LRU). Le dépôt en était à ~11 Go, donc l'entrée Gradle de
-  `build-release.yml` (~4,4 Go) disparaissait par intermittence : le run suivant
-  recompilait tout et `assembleRelease` passait de ~420 s à ~1330 s (build total
-  10m51s → 27m27s). Ne cacher que `~/.gradle/caches/modules-2` (le store de
-  dépendances téléchargées), jamais `~/.gradle/caches` entier : `transforms/`,
-  `jars-*` et `build-cache-*` sont régénérables et gonflent l'entrée. Un cache
-  évincé est silencieux — vérifier les lignes `Cache not found for input keys:`
-  dans le log avant de conclure à une régression du code.
+  évince des entrées (LRU), sans erreur. Le dépôt en était à ~11 Go et l'entrée
+  Gradle disparaissait par intermittence : le run suivant recompilait tout et
+  `assembleRelease` passait de ~420 s à ~1330 s (build 10m51s → 27m27s). Cause
+  du volume : chaque job Android (`build-release`, `build-android-tv`,
+  `build-profile`, `build-debug`, `build-all-platforms`) stockait sa **propre**
+  copie quasi identique de `~/.gradle/caches` (~2,5 Go chacune). Ils partagent
+  désormais **une seule clé** `gradle-${{ runner.os }}-v2-…` → une seule entrée
+  (le suffixe `-v2` force une sauvegarde fraîche : un *hit* exact ne re-sauvegarde
+  jamais, l'ancienne entrée grasse resterait sinon à vie).
+- Garder `~/.gradle/caches` **entier** : ses arbres `transforms/` et
+  `build-cache/` sont ce qui rend `assembleRelease` rapide. Ne cacher que
+  `modules-2` a été mesuré **plus lent** (1001 s) : les libs natives
+  (ffmpeg-kit, media-kit, isar) sont re-transformées à chaque run.
+- Un cache évincé est silencieux : vérifier `Cache not found for input keys:`
+  vs `Cache restored from key:` dans le log avant de conclure à une régression
+  du code.
 
 ## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
 - Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
