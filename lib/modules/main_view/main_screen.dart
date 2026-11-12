@@ -38,7 +38,6 @@ import 'package:watchtower/utils/isar_batch.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
-import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
 final libLocationRegex = RegExp(
@@ -569,18 +568,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   if (!isReadingScreen && location != '/MusicLibrary')
                     Consumer(
                       builder: (ctx, r, _) {
-                        // Check both the custom player and the music module player
-                        final hasCustomTrack = r.watch(
-                          musicPlayerProvider.select(
-                            (s) => s.activeTrack != null,
-                          ),
-                        );
                         final hasMusicTrack = r.watch(
                           audioPlayerProvider.select(
                             (s) => s.activeTrack != null,
                           ),
                         );
-                        if (!hasCustomTrack && !hasMusicTrack) {
+                        if (!hasMusicTrack) {
                           return const SizedBox.shrink();
                         }
                         final bottomInset = MediaQuery.of(ctx).padding.bottom;

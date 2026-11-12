@@ -6,7 +6,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
-import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/pages/music_player_sheet.dart';
 
@@ -14,11 +13,10 @@ import 'package:watchtower/modules/music/pages/music_player_sheet.dart';
 enum MiniPinPosition { left, center, right }
 
 /// Collapsed mini-player bar shown above the dock on ALL pages when music
-/// is playing — bridges both the custom MusicPlayerProvider and the main
-/// Spotube AudioPlayerProvider.
+/// is playing. It mirrors the single playback engine [audioPlayerProvider].
 ///
 /// Features:
-///  - tap anywhere on the bar → opens the full player sheet (both players)
+///  - tap anywhere on the bar → opens the full player sheet
 ///  - X button → dismisses the bar and stops playback
 ///  - horizontal drag → pins the bar to the left/right edge as a compact
 ///    round chip (chevron + animated equalizer), music keeps playing
@@ -27,40 +25,18 @@ class MusicMiniPlayer extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final musicState = ref.watch(musicPlayerProvider);
-    final spotubeState = ref.watch(audioPlayerProvider);
+    final state = ref.watch(audioPlayerProvider);
+    final track = state.activeTrack;
 
-    final customTrack = musicState.activeTrack;
-    final spotubeTrack = spotubeState.activeTrack;
+    if (track == null) return const SizedBox.shrink();
 
-    if (customTrack == null && spotubeTrack == null) {
-      return const SizedBox.shrink();
-    }
-
-    // ── Custom music player (MusicPlayerProvider) ─────────────────────────
-    if (customTrack != null) {
-      return _MiniBarHost(
-        imageUrl: customTrack.imageUrl,
-        imagePlaceholder: Assets.images.albumPlaceholder.path,
-        title: customTrack.name,
-        subtitle: customTrack.artistNames,
-        onOpen: () => MusicPlayerSheet.show(context),
-        onPlayPause: () => ref.read(musicPlayerProvider.notifier).playPause(),
-        onPrev: () => ref.read(musicPlayerProvider.notifier).skipToPrevious(),
-        onNext: () => ref.read(musicPlayerProvider.notifier).skipToNext(),
-        onClose: () => ref.read(musicPlayerProvider.notifier).clearQueue(),
-      );
-    }
-
-    // ── Spotube audio player (AudioPlayerProvider) ─────────────────────────
-    final st = spotubeState.activeTrack;
-    if (st == null) return const SizedBox.shrink();
-    final albumArt = st.album.images.isNotEmpty ? st.album.images.last.url : null;
+    final albumArt =
+        track.album.images.isNotEmpty ? track.album.images.last.url : null;
     return _MiniBarHost(
       imageUrl: albumArt,
       imagePlaceholder: Assets.images.albumPlaceholder.path,
-      title: st.name,
-      subtitle: st.artists.map((a) => a.name).join(', '),
+      title: track.name,
+      subtitle: track.artists.map((a) => a.name).join(', '),
       onOpen: () => MusicPlayerSheet.show(context),
       onPlayPause: () => audioPlayer.playOrPause(),
       onPrev: () => audioPlayer.skipToPrevious(),
