@@ -528,19 +528,29 @@ jobs:
           name: watchtower-cli-extension-report
           path: watchtower-cli-report.json
 
-      - name: Package archive (7z LZMA2 max)
+      # Three portable formats: .7z (smallest), .tar.gz (keeps the +x bit that
+      # 7z/zip drop, the usual Linux download) and .zip (double-clickable on
+      # desktop environments that only know archives).
+      - name: Package archives (7z + tar.gz + zip)
         run: |
+          command -v zip >/dev/null || sudo apt-get install -y zip
           cd build/linux/x64/release/bundle
           7z a -t7z -mx=9 -mmt=2 \
             ../../../../../watchtower-linux-x64.7z .
+          tar -czf ../../../../../watchtower-linux-x64.tar.gz .
+          zip -qr9 ../../../../../watchtower-linux-x64.zip .
           cd -
-          ls -lh watchtower-linux-x64.7z
+          ls -lh watchtower-linux-x64.*
 
       - name: Upload Linux bundle
         uses: actions/upload-artifact@v5
         with:
           name: linux-x64
-          path: watchtower-linux-x64.7z
+          path: |
+            watchtower-linux-x64.7z
+            watchtower-linux-x64.tar.gz
+            watchtower-linux-x64.zip
+          if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
@@ -648,14 +658,21 @@ jobs:
           fi
           echo "Found: $APP"
           zip -r9 watchtower-macos.zip "$APP"
-          ls -lh watchtower-macos.zip
+          # A .dmg is what a Mac user expects to double-click; the .zip stays for
+          # anyone who prefers a plain archive.
+          hdiutil create -volname "Watchtower" -srcfolder "$APP" \
+            -ov -format UDZO watchtower-macos.dmg
+          ls -lh watchtower-macos.zip watchtower-macos.dmg
 
       - name: Upload macOS bundle
         uses: actions/upload-artifact@v5
         with:
           name: macos
-          path: watchtower-macos.zip
-          compression-level: 9
+          path: |
+            watchtower-macos.zip
+            watchtower-macos.dmg
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 30
 
   # ────────────────────────────────────────────────────────────
@@ -709,19 +726,27 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release --dart-define=TMDB_READ_TOKEN=${{ secrets.TMDB_READ_TOKEN }}
 
-      - name: Package archive (7z max)
+      # Portable builds: the .zip/.7z hold the whole Release folder (the .exe,
+      # its DLLs and the data/ folder) so it runs without an installer.
+      - name: Package archives (7z + zip)
         shell: pwsh
         run: |
           7z a -t7z -mx=9 -mmt=2 `
             watchtower-windows-x64.7z `
             build\windows\x64\runner\Release\*
-          Get-Item watchtower-windows-x64.7z | Select-Object Name, Length
+          Compress-Archive `
+            -Path build\windows\x64\runner\Release\* `
+            -DestinationPath watchtower-windows-x64.zip -Force
+          Get-ChildItem watchtower-windows-x64.* | Select-Object Name, Length
 
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v5
         with:
           name: windows-x64
-          path: watchtower-windows-x64.7z
+          path: |
+            watchtower-windows-x64.7z
+            watchtower-windows-x64.zip
+          if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
@@ -1337,9 +1362,13 @@ jobs:
           copy "$SRC_android_universal" "Watchtower-${V}-android-universal.apk"
           copy_named "$SRC_android_tv" "watchtower-tv-arm64.apk"  "Watchtower-${V}-android-tv-arm64.apk"
           copy_named "$SRC_android_tv" "watchtower-tv-x86_64.apk" "Watchtower-${V}-android-tv-x86_64.apk"
-          copy "$SRC_linux"          "Watchtower-${V}-linux-x64.7z"
-          copy "$SRC_macos"          "Watchtower-${V}-macos.zip"
-          copy "$SRC_windows"        "Watchtower-${V}-windows-x64.7z"
+          copy_named "$SRC_linux" "watchtower-linux-x64.7z"     "Watchtower-${V}-linux-x64.7z"
+          copy_named "$SRC_linux" "watchtower-linux-x64.tar.gz" "Watchtower-${V}-linux-x64.tar.gz"
+          copy_named "$SRC_linux" "watchtower-linux-x64.zip"    "Watchtower-${V}-linux-x64.zip"
+          copy_named "$SRC_macos" "watchtower-macos.zip"        "Watchtower-${V}-macos.zip"
+          copy_named "$SRC_macos" "watchtower-macos.dmg"        "Watchtower-${V}-macos.dmg"
+          copy_named "$SRC_windows" "watchtower-windows-x64.7z" "Watchtower-${V}-windows-x64.7z"
+          copy_named "$SRC_windows" "watchtower-windows-x64.zip" "Watchtower-${V}-windows-x64.zip"
           copy "$SRC_ios"            "Watchtower-${V}-ios.ipa"
           copy "$SRC_ios_sim"        "Watchtower-${V}-ios-simulator.zip"
           # Web is a directory bundle; zip it for the release.
@@ -1362,9 +1391,13 @@ jobs:
           add "Android universal"     "Watchtower-${V}-android-universal.apk"
           add "Android TV arm64 (APK)"  "Watchtower-${V}-android-tv-arm64.apk"
           add "Android TV x86_64 (APK)" "Watchtower-${V}-android-tv-x86_64.apk"
-          add "Linux x64"             "Watchtower-${V}-linux-x64.7z"
-          add "macOS"                 "Watchtower-${V}-macos.zip"
-          add "Windows x64"           "Watchtower-${V}-windows-x64.7z"
+          add "Linux x64 (7z)"        "Watchtower-${V}-linux-x64.7z"
+          add "Linux x64 (tar.gz)"    "Watchtower-${V}-linux-x64.tar.gz"
+          add "Linux x64 (zip)"       "Watchtower-${V}-linux-x64.zip"
+          add "macOS (zip)"           "Watchtower-${V}-macos.zip"
+          add "macOS (dmg)"           "Watchtower-${V}-macos.dmg"
+          add "Windows x64 (7z)"      "Watchtower-${V}-windows-x64.7z"
+          add "Windows x64 (zip)"     "Watchtower-${V}-windows-x64.zip"
           add "iOS (TrollStore)"      "Watchtower-${V}-ios.ipa"
           add "iOS Simulator"         "Watchtower-${V}-ios-simulator.zip"
           add "Web (PWA)"             "Watchtower-${V}-web.zip"

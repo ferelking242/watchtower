@@ -1275,6 +1275,12 @@ must not leak into watch code paths or logs:
   `aarch64-apple-darwin,x86_64-apple-darwin` **avant** le build. Sans ça,
   cargokit télécharge le std x86_64 en pleine compilation et un DNS flaky
   (`static.rust-lang.org`) casse tout le job.
+- Formats **portables** des PC (pas que des archives uniques) :
+  - Linux : `.7z` + `.tar.gz` (garde le bit +x, format habituel) + `.zip`.
+  - Windows : `.7z` + `.zip` (contient le `.exe`, ses DLL et `data/`).
+  - macOS : `.zip` + `.dmg` (`hdiutil create -srcfolder`, format UDZO).
+  Le job `publish-release` copie chaque variante avec `copy_named` (une par nom)
+  pour ne pas confondre les fichiers d'un même artefact.
 - Fiabilité réseau du runner : `apt-get update/install` (deps Linux) et l'install
   `xvfb` sont **retentés 3×** puis vérifiés (`pkg-config --exists gtk+-3.0`),
   car le mirror azure échoue parfois (`Temporary failure resolving`).
