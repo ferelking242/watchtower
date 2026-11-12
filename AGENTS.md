@@ -835,6 +835,51 @@ per card per rebuild and must stay O(1) after the first call for a source:
   `?? false` / `!= true`, not `!`. A `!` on one entry threw and blanked the
   whole grid.
 
+## Caches d'images : un seul propriétaire (ne pas régresser)
+
+`CacheStorageManager` (`lib/services/cache_storage_manager.dart`) possède
+**tous** les caches d'images disque et les maintient sous un plafond global
+unique, réglable dans Réglages → Avancé (Hive `advanced_settings`,
+clé `cache_limit_bytes`). Défaut selon `DeviceCapabilities.ramTier`.
+
+- Ne pas réintroduire d'éviction locale : `custom_extended_image_provider`
+  avait son propre `_CacheManager` à 500 Mo par dossier, et le cache de
+  couvertures persistant n'en avait aucun. Le plafond est **global** : évincer
+  par dossier laisse chacun des cinq caches atteindre le plafond tout seul.
+- Après toute écriture disque, appeler
+  `CacheStorageManager.instance.noteWritten(bytes)`. La passe complète est
+  throttlée (`scanCooldown`) et n'est forcée que si `overshootBudget` est
+  dépassé, donc c'est bon marché sur le chemin chaud.
+- Trier par **date d'écriture** (`stat.modified`), jamais `stat.accessed` :
+  Android monte `/data` en relatime/noatime, donc `accessed` vaut l'epoch ou
+  l'instant courant selon le montage — l'ordre devient arbitraire et peut
+  supprimer l'entrée qu'on vient d'écrire.
+- Parcourir dossier par dossier (`_listFiles`). Un seul
+  `list(recursive: true)` abandonne tout le flux au premier
+  `FileSystemException` : le cache serait sous-compté et resterait au-dessus du
+  plafond.
+- Les libellés de `CacheLocation` sont l'API : `clearLocations` les reçoit du
+  écran de réglages, donc les littéraux restent des constantes de la classe.
+
+### Clés de cache d'icônes d'extension
+
+`IconCacheService.cacheKeyFor(sourceId, url, version)` inclut la **version
+installée**. Une extension qui change d'icône garde la même URL, donc une clé
+basée sur l'URL seule servirait l'ancienne image indéfiniment. Un bump de
+version écrit un nouveau fichier et orpheline l'ancien, que le manager évince.
+Tout widget qui affiche une icône d'extension passe par `ExtensionIconWidget`
+(avec `version:`) — pas de `Image.network` ni de `cachedNetworkImage` direct,
+sinon le logo est retéléchargé à chaque écran et ne survit pas hors ligne.
+
+### Les identifiants ne font pas partie de la clé de cache des couvertures
+
+`CustomExtendedNetworkImageProvider._headersFingerprint()` exclut les champs
+sensibles (`isSensitiveRequestField`) : un token, un cookie ou une signature
+tourne entre deux requêtes alors que l'image derrière l'URL ne change pas. Les
+inclure faisait manquer à chaque couverture sa propre entrée et la
+retéléchargeait sans fin. Les en-têtes volatils restent envoyés sur le réseau —
+seule la clé est stabilisée.
+
 ## Item naming conventions (do not regress)
 `Manga` is the **shared** Isar model for every medium — manga, watch, novel,
 music, game, plugin (`ItemType`). `MangaReaderDetail` (`/manga-reader/detail`)

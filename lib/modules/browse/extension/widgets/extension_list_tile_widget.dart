@@ -159,6 +159,7 @@ class _ExtensionListTileWidgetState
                           : ExtensionIconWidget(
                               sourceId: widget.source.id,
                               iconUrl: widget.source.iconUrl,
+                              version: widget.source.version,
                               size: 36,
                             ),
                     ),
@@ -414,6 +415,7 @@ class _ExtensionListTileWidgetState
             : ExtensionIconWidget(
                 sourceId: widget.source.id,
                 iconUrl: widget.source.iconUrl,
+                version: widget.source.version,
                 size: 30,
               ),
       ),

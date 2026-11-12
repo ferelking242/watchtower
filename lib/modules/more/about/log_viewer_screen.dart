@@ -18,6 +18,7 @@ import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
@@ -1061,20 +1062,13 @@ class _ExtensionLogo extends StatelessWidget {
     if (url.isEmpty) {
       return const Icon(Broken.global, size: 10, color: Color(0xFF6366F1));
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: Image.network(
-        url,
-        key: ValueKey('extension-logo-${sourceId ?? 0}-$url'),
-        width: 12,
-        height: 12,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => const Icon(
-          Broken.global,
-          size: 10,
-          color: Color(0xFF6366F1),
-        ),
-      ),
+    // Was a bare Image.network: every log session re-downloaded every
+    // extension logo. The icon cache already keys on (sourceId, url) and now
+    // on the installed version, so the logo is read from disk offline.
+    return ExtensionIconWidget(
+      sourceId: sourceId,
+      iconUrl: url,
+      size: 12,
     );
   }
 }

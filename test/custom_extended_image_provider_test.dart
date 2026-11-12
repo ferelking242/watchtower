@@ -99,6 +99,43 @@ void main() {
     },
   );
 
+  test('rotating credentials do not change the cache key', () async {
+    final withToken = CustomExtendedNetworkImageProvider(
+      'https://images.example/cover.jpg',
+      headers: const {
+        'Referer': 'https://example.com',
+        'Authorization': 'Bearer token-one',
+        'Cookie': 'session=abc',
+      },
+    );
+    final rotated = CustomExtendedNetworkImageProvider(
+      'https://images.example/cover.jpg',
+      headers: const {
+        'Referer': 'https://example.com',
+        'Authorization': 'Bearer token-two',
+        'Cookie': 'session=def',
+      },
+    );
+
+    // A rotating token used to make every cover miss its own entry and
+    // re-download forever; the stable parts of the fingerprint are what
+    // identify the image.
+    expect(withToken.cacheKeyForTesting, rotated.cacheKeyForTesting);
+  });
+
+  test('a non-credential header still separates two cache entries', () async {
+    final french = CustomExtendedNetworkImageProvider(
+      'https://images.example/cover.jpg',
+      headers: const {'Referer': 'https://example.com', 'X-Lang': 'fr'},
+    );
+    final english = CustomExtendedNetworkImageProvider(
+      'https://images.example/cover.jpg',
+      headers: const {'Referer': 'https://example.com', 'X-Lang': 'en'},
+    );
+
+    expect(french.cacheKeyForTesting, isNot(english.cacheKeyForTesting));
+  });
+
   test('disk cache bytes are used without an HTTP request', () async {
     final provider = _newProvider();
     final imageBytes = Uint8List.fromList([1, 2, 3, 4]);

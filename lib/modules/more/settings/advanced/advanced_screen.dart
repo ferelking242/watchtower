@@ -19,6 +19,8 @@ import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/cache_storage_manager.dart';
+import 'package:watchtower/services/device_capabilities.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
 import 'package:watchtower/services/download_manager/media_file_name.dart';
@@ -81,6 +83,12 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   // ── Icon cache ───────────────────────────────────────────────────────────────
   String _iconCacheSizeStr = '…';
   String _libCacheSizeStr = '…';
+
+  // ── Global cache ceiling ─────────────────────────────────────────────────────
+  int _cacheLimitBytes = CacheStorageManager.defaultLimitForTier(
+    DeviceCapabilities.ramTier,
+  );
+  String _totalCacheSizeStr = '…';
 
   // ── Remote bypass (FlareSolverr) ────────────────────────────────────────────
   RemoteBypassSettings _remoteBypass = const RemoteBypassSettings();
@@ -602,46 +610,36 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} Go';
   }
 
-  Future<int> _dirSize(Directory dir) async {
-    if (!dir.existsSync()) return 0;
-    int total = 0;
-    try {
-      await for (final f in dir.list(recursive: true, followLinks: false)) {
-        if (f is File) total += await f.length();
-      }
-    } catch (_) {}
-    return total;
-  }
-
   Future<void> _loadCacheSizes() async {
     final storage = StorageProvider();
-    final iconDir = await storage.getPersistentCacheDirectory(
-      'cacheimagecover',
+    final manager = CacheStorageManager.instance;
+    final iconSize =
+        await manager.directorySize(
+          await storage.getPersistentCacheDirectory('cacheimagecover'),
+        ) +
+        await manager.directorySize(
+          await storage.getCacheDirectory('cacheimagecover'),
+        );
+    final libSize = await manager.directorySize(
+      await storage.getCacheDirectory('cacheimagemanga'),
     );
-    final legacyIconDir = await storage.getCacheDirectory('cacheimagecover');
-    final libDir = await storage.getCacheDirectory('cacheimagemanga');
-    final iconSize = await _dirSize(iconDir) + await _dirSize(legacyIconDir);
-    final libSize = await _dirSize(libDir);
+    final limit = await manager.getLimitBytes();
+    final total = await manager.totalSizeBytes();
     if (!mounted) return;
     setState(() {
       _iconCacheSizeStr = _fmtSize(iconSize);
       _libCacheSizeStr = _fmtSize(libSize);
+      _cacheLimitBytes = limit;
+      _totalCacheSizeStr = _fmtSize(total);
     });
   }
 
   Future<void> _clearIconCache() async {
     try {
-      final storage = StorageProvider();
-      final iconDirs = [
-        await storage.getPersistentCacheDirectory('cacheimagecover'),
-        await storage.getCacheDirectory('cacheimagecover'),
-      ];
-      for (final iconDir in iconDirs) {
-        if (iconDir.existsSync()) {
-          await iconDir.delete(recursive: true);
-          await iconDir.create(recursive: true);
-        }
-      }
+      await CacheStorageManager.instance.clearLocations(const [
+        CacheStorageManager.coverLabel,
+        CacheStorageManager.legacyCoverLabel,
+      ]);
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
       _toast('Cache des icônes vidé');
@@ -654,15 +652,47 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   Future<void> _clearLibraryCache() async {
     try {
-      final storage = StorageProvider();
-      final libDir = await storage.getCacheDirectory('cacheimagemanga');
-      if (libDir.existsSync()) {
-        await libDir.delete(recursive: true);
-        await libDir.create(recursive: true);
-      }
+      await CacheStorageManager.instance.clearLocations(const [
+        CacheStorageManager.libraryCoverLabel,
+      ]);
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
       _toast('Cache des couvertures vidé');
+    } catch (e) {
+      _toast('Erreur : $e');
+    } finally {
+      await _loadCacheSizes();
+    }
+  }
+
+  Future<void> _clearAllImageCaches() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Vider tous les caches d\'images ?'),
+        content: const Text(
+          'Les couvertures et les icônes d\'extensions seront rechargées au '
+          'prochain affichage. Vos téléchargements ne sont pas affectés.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Vider'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await CacheStorageManager.instance.clearAll();
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      _toast('Tous les caches d\'images ont été vidés');
     } catch (e) {
       _toast('Erreur : $e');
     } finally {
@@ -1048,6 +1078,55 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
           // ── Section : Cache des icônes ──────────────────────────────────
           _sectionHeader("Cache des icônes et couvertures"),
+          ListTile(
+            title: const Text(
+              "Taille maximale du cache",
+              style: TextStyle(fontSize: 14),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Plafond total de tous les caches d'images. Le plus ancien est "
+                  "supprimé en premier quand la limite est atteinte.",
+                  style: TextStyle(fontSize: 12, color: context.secondaryColor),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: _cacheLimitBytes.toDouble(),
+                        min: CacheStorageManager.minLimitBytes.toDouble(),
+                        max: CacheStorageManager.maxLimitBytes.toDouble(),
+                        divisions: 31,
+                        label: _fmtSize(_cacheLimitBytes),
+                        onChanged: (v) =>
+                            setState(() => _cacheLimitBytes = v.round()),
+                        onChangeEnd: (v) async {
+                          final bytes = v.round();
+                          await CacheStorageManager.instance.setLimitBytes(
+                            bytes,
+                          );
+                          await _loadCacheSizes();
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 64,
+                      child: Text(
+                        _fmtSize(_cacheLimitBytes),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
           _action(
             title: "Vider le cache des icônes d'extensions",
             subtitle: "Taille actuelle : $_iconCacheSizeStr",
@@ -1061,12 +1140,19 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             trailing: Broken.broom,
           ),
           _action(
+            title: "Vider tous les caches d'images",
+            subtitle: "Taille totale actuelle : $_totalCacheSizeStr",
+            onTap: _clearAllImageCaches,
+            trailing: Broken.trash,
+          ),
+          _action(
             title: "Rafraîchir les tailles de cache",
             subtitle: "Recalcule la taille des caches disque",
             onTap: () async {
               setState(() {
                 _iconCacheSizeStr = '…';
                 _libCacheSizeStr = '…';
+                _totalCacheSizeStr = '…';
               });
               await _loadCacheSizes();
             },

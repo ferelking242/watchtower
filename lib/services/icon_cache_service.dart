@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:watchtower/services/cache_storage_manager.dart';
 
 class IconCacheService {
   IconCacheService._();
@@ -17,10 +18,21 @@ class IconCacheService {
   Directory? _cacheDir;
 
   /// A process-independent name lets extension icons survive app restarts.
-  static String cacheKeyFor(int? sourceId, String iconUrl) {
+  ///
+  /// [version] is part of the key on purpose: an extension that ships a new
+  /// icon usually keeps the same URL, so a URL-only key would keep serving the
+  /// old artwork forever. Bumping the version writes a new file and orphans
+  /// the previous one, which the cache storage manager then evicts.
+  static String cacheKeyFor(int? sourceId, String iconUrl, [String? version]) {
     final urlDigest = sha256.convert(utf8.encode(iconUrl.trim()));
-    return 'icon_${sourceId ?? 0}_$urlDigest';
+    final versionTag = (version ?? '').trim();
+    return versionTag.isEmpty
+        ? 'icon_${sourceId ?? 0}_$urlDigest'
+        : 'icon_${sourceId ?? 0}_${_shortHash(versionTag)}_$urlDigest';
   }
+
+  static String _shortHash(String value) =>
+      sha256.convert(utf8.encode(value)).toString().substring(0, 12);
 
   Future<Directory> get cacheDir async {
     _cacheDir ??= Directory(
@@ -30,11 +42,15 @@ class IconCacheService {
     return _cacheDir!;
   }
 
-  Future<Uint8List?> getIcon(int? sourceId, String? iconUrl) async {
+  Future<Uint8List?> getIcon(
+    int? sourceId,
+    String? iconUrl, [
+    String? version,
+  ]) async {
     final url = iconUrl?.trim() ?? '';
     if (url.isEmpty) return null;
 
-    final key = cacheKeyFor(sourceId, url);
+    final key = cacheKeyFor(sourceId, url, version);
     final cached = _mem[key];
     if (cached != null) return cached;
 
@@ -61,6 +77,7 @@ class IconCacheService {
           bytes,
           flush: true,
         );
+        CacheStorageManager.instance.noteWritten(bytes.length);
       } catch (_) {
         // The image still renders if storage is temporarily unavailable.
       }
@@ -116,10 +133,15 @@ class ExtensionIconWidget extends StatefulWidget {
   final String? iconUrl;
   final double size;
 
+  /// Installed extension version. Part of the cache key so an extension that
+  /// updates its icon in place invalidates the cached bytes.
+  final String? version;
+
   const ExtensionIconWidget({
     super.key,
     required this.sourceId,
     required this.iconUrl,
+    this.version,
     this.size = 30,
   });
 
@@ -141,7 +163,9 @@ class _ExtensionIconWidgetState extends State<ExtensionIconWidget> {
   @override
   void didUpdateWidget(ExtensionIconWidget old) {
     super.didUpdateWidget(old);
-    if (old.iconUrl != widget.iconUrl || old.sourceId != widget.sourceId) {
+    if (old.iconUrl != widget.iconUrl ||
+        old.sourceId != widget.sourceId ||
+        old.version != widget.version) {
       _load();
     }
   }
@@ -153,6 +177,7 @@ class _ExtensionIconWidgetState extends State<ExtensionIconWidget> {
     final bytes = await IconCacheService.instance.getIcon(
       widget.sourceId,
       widget.iconUrl,
+      widget.version,
     );
     if (mounted && generation == _loadGeneration) {
       setState(() {

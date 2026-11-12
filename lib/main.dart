@@ -16,6 +16,7 @@ import 'package:watchtower/modules/home/services/home_prewarm.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/services/auto_backup_service.dart';
+import 'package:watchtower/services/cache_storage_manager.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:isar_community/isar.dart';
@@ -629,6 +630,12 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   }
   // Hive is already initialized + nav_display opened in main() before runApp.
   // Nothing more to do here for Hive setup.
+  // Trim the on-disk image caches down to the user's ceiling once per launch.
+  // It runs here (not before runApp) because the walk touches every cache file
+  // and must not delay the first frame.
+  if (!kIsWeb) {
+    unawaited(CacheStorageManager.instance.enforceLimit(force: true));
+  }
   if (!kIsWeb && (Platform.isMacOS || Platform.isLinux || Platform.isWindows)) {
     discordRpc = DiscordRPC(applicationId: "1395040506677039157");
     await discordRpc?.initialize();

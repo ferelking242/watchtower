@@ -10,7 +10,9 @@ import 'package:http_client_helper/http_client_helper.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/anti_bot/browser_fetch.dart';
+import 'package:watchtower/services/cache_storage_manager.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart';
 import 'package:extended_image_library/src/network/extended_network_image_provider.dart'
@@ -139,73 +141,6 @@ bool _looksLikeCloudflareRefusal(StreamedResponse response) {
 /// build gave no way to tell a failed download from an empty `imageUrl`.
 void _imgLog(String message, {LogLevel level = LogLevel.debug}) {
   AppLogger.log(message, logLevel: level, tag: LogTag.image);
-}
-
-/// Cache metadata for LRU eviction
-class _CacheMetadata {
-  final String path;
-  final int size;
-  final DateTime lastAccessed;
-
-  _CacheMetadata({
-    required this.path,
-    required this.size,
-    required this.lastAccessed,
-  });
-}
-
-/// Global cache manager
-class _CacheManager {
-  static const _maxCacheSize = 500 * 1024 * 1024; // 500MB
-
-  static Future<int> getCacheSize(io.Directory cacheDir) async {
-    if (kIsWeb) return 0;
-    if (!await cacheDir.exists()) return 0;
-
-    int totalSize = 0;
-    await for (final entity in cacheDir.list(recursive: true)) {
-      if (entity is io.File) {
-        totalSize += (await (entity as dynamic).length()) as int;
-      }
-    }
-    return totalSize;
-  }
-
-  static Future<void> evictOldestIfNeeded(io.Directory cacheDir) async {
-    if (kIsWeb) return;
-    final size = await getCacheSize(cacheDir);
-    if (size <= _maxCacheSize) return;
-
-    // Collect all cache files with metadata
-    final List<_CacheMetadata> files = [];
-    await for (final entity in cacheDir.list()) {
-      if (entity is io.File) {
-        final stat = await entity.stat();
-        files.add(
-          _CacheMetadata(
-            path: entity.path,
-            size: stat.size,
-            lastAccessed: stat.accessed,
-          ),
-        );
-      }
-    }
-
-    // Sort by last accessed (oldest first)
-    files.sort((a, b) => a.lastAccessed.compareTo(b.lastAccessed));
-
-    // Delete until under limit
-    int currentSize = size;
-    for (final file in files) {
-      if (currentSize <= _maxCacheSize) break;
-      try {
-        await (io.File(file.path) as dynamic).delete();
-        currentSize -= file.size;
-      } catch (e) {
-        if (kDebugMode) print('Failed to delete cache file: $e');
-      }
-    }
-  }
 }
 
 class CustomExtendedNetworkImageProvider
@@ -399,7 +334,14 @@ class CustomExtendedNetworkImageProvider
 
   String _headersFingerprint() {
     if (headers == null || headers!.isEmpty) return '';
-    final entries = headers!.entries.toList()
+    // Credentials are deliberately excluded from the cache key. A token,
+    // cookie or signed query rotates between requests while the image behind
+    // the URL is unchanged, so folding them in made every cover miss its own
+    // cache entry and re-download forever. The volatile headers are still sent
+    // on the wire — only the key is stabilised.
+    final entries = headers!.entries
+        .where((entry) => !isSensitiveRequestField(entry.key))
+        .toList()
       ..sort((a, b) => a.key.compareTo(b.key));
     return entries.map((entry) => '${entry.key}=${entry.value}').join('&');
   }
@@ -513,13 +455,14 @@ class CustomExtendedNetworkImageProvider
       data = await _loadNetwork(key, chunkEvents);
       if (data != null) {
         if (!kIsWeb) {
-          if (!isPersistentCoverCache) {
-            await _CacheManager.evictOldestIfNeeded(cacheImagesDirectory);
-          }
           try {
             await (io.File(
               join(cacheImagesDirectory.path, md5Key),
             ) as dynamic).writeAsBytes(data);
+            // The persistent cover cache has no eviction of its own, so the
+            // shared manager owns the ceiling for every image cache. It is
+            // throttled internally, so this is cheap on the hot path.
+            CacheStorageManager.instance.noteWritten(data.length);
           } catch (error) {
             // A full/read-only disk should not make a successfully loaded
             // cover render as a failed image.

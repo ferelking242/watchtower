@@ -25,6 +25,7 @@ import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/extension_page_cache.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
@@ -37,7 +38,6 @@ import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
-import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/media/extension_image_headers.dart';
@@ -2606,26 +2606,30 @@ class _ExtensionSourceIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = source.iconUrl?.trim() ?? '';
+    if (url.isEmpty) {
+      return _fallback();
+    }
+    // Extension icons are immutable content behind a stable URL, so they go
+    // through the single icon cache rather than the cover cache: that is what
+    // makes them survive an offline launch and invalidate on a version bump.
+    return ExtensionIconWidget(
+      sourceId: source.id,
+      iconUrl: url,
+      version: source.version,
+      size: size,
+    );
+  }
+
+  Widget _fallback() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(size * .28),
       child: SizedBox(
         width: size,
         height: size,
-        child: url.isEmpty
-            ? const ColoredBox(
-                color: Color(0xFF263238),
-                child: Icon(Icons.extension_rounded, color: Colors.white70),
-              )
-            : cachedNetworkImage(
-                imageUrl: url,
-                width: size,
-                height: size,
-                fit: BoxFit.cover,
-                errorWidget: const ColoredBox(
-                  color: Color(0xFF263238),
-                  child: Icon(Icons.extension_rounded, color: Colors.white70),
-                ),
-              ),
+        child: const ColoredBox(
+          color: Color(0xFF263238),
+          child: Icon(Icons.extension_rounded, color: Colors.white70),
+        ),
       ),
     );
   }
