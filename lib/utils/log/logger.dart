@@ -46,9 +46,25 @@ final _logUrlPattern = RegExp(
   caseSensitive: false,
 );
 
+/// Cheap pre-filter for [sanitizeLogText]: matches only if one of the three
+/// redaction patterns below could possibly match.
+///
+/// Every keyword below is a superset of the tokens the three patterns key on
+/// (`http` for the URL scheme, `key`/`cookie`/`token`/`authorization` for the
+/// credential fields, `file`/`path` for the path fields). When this finds
+/// nothing, running the three `replaceAllMapped` passes is guaranteed to return
+/// the input unchanged, so we can skip them entirely. Logging runs on the UI
+/// isolate at up to hundreds of lines per second, and this keeps the common
+/// line — no URL, no credential, no path — at a single scan.
+final _sanitizeHintPattern = RegExp(
+  r'http|key|cookie|token|authorization|file|path',
+  caseSensitive: false,
+);
+
 /// Remove credentials and request-specific URL data before logs reach the
 /// overlay, session file, debug console, or remote error notifications.
 String sanitizeLogText(String input) {
+  if (!_sanitizeHintPattern.hasMatch(input)) return input;
   // URLs are reduced first so signed query strings and fragments disappear
   // as a unit, rather than leaving part of a redaction marker in the URL.
   final withoutUrls = input.replaceAllMapped(_logUrlPattern, (match) {

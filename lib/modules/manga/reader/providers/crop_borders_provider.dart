@@ -49,13 +49,22 @@ class ImageCropIsolate {
   ReceivePort? _receivePort;
   SendPort? _sendPort;
 
-  Future<void> start() async {
-    if (!_isRunning) {
-      try {
-        await _initRustIsolate();
-      } catch (_) {
-        await stop();
-      }
+  /// In-flight start, so the deferred startup call and a first `process()`
+  /// racing it spawn a single isolate instead of two.
+  Future<void>? _startFuture;
+
+  Future<void> start() {
+    if (_isRunning) return Future.value();
+    return _startFuture ??= _start().whenComplete(() {
+      _startFuture = null;
+    });
+  }
+
+  Future<void> _start() async {
+    try {
+      await _initRustIsolate();
+    } catch (_) {
+      await stop();
     }
   }
 

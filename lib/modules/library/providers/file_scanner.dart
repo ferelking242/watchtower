@@ -13,6 +13,7 @@ import 'package:watchtower/models/manga.dart'; // Has Manga model and ItemType e
 import 'package:watchtower/models/chapter.dart'; // Has Chapter model with archivePath
 import 'package:watchtower/providers/storage_provider.dart'; // Provides storage directory selection
 import 'package:riverpod_annotation/riverpod_annotation.dart'; // Annotations for code generation
+import 'package:watchtower/utils/concurrency.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'file_scanner.g.dart';
 
@@ -122,13 +123,26 @@ Future<void> _scanDirectory(Ref ref, Directory? dir) async {
   }
 
   // Iterate over each sub-directory (each representing a title, Manga or Anime)
-  await for (final folder in dir.list()) {
-    if (folder is! Directory) continue;
+  // The per-title `list()` is the expensive part of the scan (one directory
+  // read per entry, serialized before). Resolve every title's children with a
+  // bounded pool first, then walk the results in order: the classification and
+  // `addNewChapters` work below is pure string matching and stays on the
+  // isolate, while the syscalls overlap.
+  final folders = (await dir.list().toList()).whereType<Directory>().toList();
+  final childrenByFolder = await mapParallel<Directory, List<FileSystemEntity>>(
+    folders,
+    kDiskConcurrency,
+    (d) => d.list().toList(),
+    propagateErrors: false,
+  );
+
+  for (var i = 0; i < folders.length; i++) {
+    final folder = folders[i];
+    final children = childrenByFolder[i];
+    if (children == null) continue; // listing failed; skip this title
     final title = p.basename(folder.path); // Anime/Manga title
     String relativePath = _getRelativePath(folder.path);
 
-    // List all folders and files inside a Manga/Anime title
-    final children = await folder.list().toList();
     final subDirs = children.whereType<Directory>().toList();
     final files = children.whereType<File>().toList();
 

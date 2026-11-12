@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
@@ -11,7 +9,6 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:watchtower/utils/isar_batch.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/widgets/bottom_text_widget.dart';
 import 'package:watchtower/modules/widgets/cover_view_widget.dart';
@@ -57,13 +54,16 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
         final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
         final overlay = ref.watch(libraryOverlayProvider);
 
-        // Chapter counts for the badges: one batched query for the whole grid
-        // instead of a synchronous Isar load per visible card.
-        final chaptersByManga = (showUnread || widget.downloadedChapter)
-            ? loadChaptersByMangaIds(
-                widget.entriesManga.map((e) => e.id).whereType<int>(),
-              )
-            : const <int, List<Chapter>>{};
+        // Badge stats come from a provider that re-runs only when a chapter or
+        // download row actually changes — not on every grid rebuild. The old
+        // inline `loadChaptersByMangaIds` read every chapter of the library
+        // synchronously on each rebuild (long-press, overlay toggle, ...).
+        // Nothing subscribes when neither badge is shown, so the whole-library
+        // chapter scan is skipped entirely for users who hide them.
+        final statsByManga = (showUnread || widget.downloadedChapter)
+            ? ref.watch(libraryChapterStatsProvider).asData?.value ??
+                  const <int, MangaChapterStats>{}
+            : const <int, MangaChapterStats>{};
 
         final rawGridSize = ref.watch(
           libraryGridSizeStateProvider(itemType: itemType),
@@ -79,8 +79,8 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
           itemCount: widget.entriesManga.length,
           itemBuilder: (context, index) {
             final entry = widget.entriesManga[index];
-            final entryChapters =
-                chaptersByManga[entry.id] ?? const <Chapter>[];
+            final entryStats = statsByManga[entry.id] ??
+                const MangaChapterStats(total: 0, unread: 0, downloaded: 0);
 
             return Builder(
               builder: (context) {
@@ -135,19 +135,16 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                             source: entry.source!,
                             sourceId: entry.sourceId,
                           );
-                          if (context.mounted) {
-                            ref.invalidate(
-                              getAllMangaWithoutCategoriesStreamProvider(
-                                itemType: widget.itemType,
-                              ),
-                            );
-                            ref.invalidate(
-                              getAllMangaStreamProvider(
-                                categoryId: null,
-                                itemType: widget.itemType,
-                              ),
-                            );
-                          }
+                          // No manual `ref.invalidate` here. Both providers are
+                          // Isar `.watch()` streams and re-emit on every write,
+                          // so the row that just changed already refreshes
+                          // itself. Invalidating forced a full teardown and
+                          // re-subscription of the whole library stream — which
+                          // re-ran `filteredLibraryMangaProvider`, i.e. a
+                          // synchronous read of *every* chapter of the library
+                          // plus a full re-sort — right on the tap, on the UI
+                          // isolate. That is the multi-second stall felt when
+                          // opening a title.
                         }
                       },
                       onLongPress: () {
@@ -208,25 +205,9 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                           ),
                                           child: Consumer(
                                             builder: (context, ref, child) {
-                                              // O(chapters) set lookups instead of
-                                              // one Isar query per chapter, run
-                                              // synchronously on the UI thread
-                                              // for every visible card.
-                                              final downloadedIds = ref.watch(
-                                                downloadedChapterIdsProvider,
-                                              );
                                               final downloadedCount =
                                                   widget.downloadedChapter
-                                                  ? entryChapters
-                                                        .where(
-                                                          (chap) =>
-                                                              chap.id != null &&
-                                                              downloadedIds
-                                                                  .contains(
-                                                                    chap.id,
-                                                                  ),
-                                                        )
-                                                        .length
+                                                  ? entryStats.downloaded
                                                   : 0;
 
                                               return Row(
@@ -268,14 +249,7 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                                           left: 3,
                                                         ),
                                                     child: Text(
-                                                      entryChapters
-                                                          .where(
-                                                            (element) =>
-                                                                element
-                                                                    .isRead !=
-                                                                true,
-                                                          )
-                                                          .length
+                                                      entryStats.unread
                                                           .toString(),
                                                       style: TextStyle(
                                                         color: context

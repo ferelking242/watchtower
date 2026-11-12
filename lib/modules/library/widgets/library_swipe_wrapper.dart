@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/services/library_swipe_actions.dart';
-import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 
 /// Wraps a library entry so the configured left/right swipe actions run.
@@ -29,14 +28,11 @@ class LibrarySwipeWrapper extends ConsumerWidget {
 
     Future<void> run(int action) async {
       await runLibrarySwipeAction(ref, manga, action);
-      if (!context.mounted) return;
-      // Re-read Isar so the card reflects the new read/library state.
-      ref.invalidate(
-        getAllMangaStreamProvider(categoryId: null, itemType: manga.itemType),
-      );
-      ref.invalidate(
-        getAllMangaWithoutCategoriesStreamProvider(itemType: manga.itemType),
-      );
+      // No manual `ref.invalidate` here: the action writes through Isar, and
+      // both providers below are `.watch()` streams that re-emit on that write.
+      // Invalidating them forced a teardown/re-subscription of the whole
+      // library stream — i.e. a synchronous read of every chapter plus a full
+      // re-sort on the UI isolate — on every swipe.
     }
 
     return Dismissible(

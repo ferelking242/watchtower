@@ -42,6 +42,31 @@ void main() {
       expect(result, contains('No space left on device'));
       expect(result, isNot(contains('private title.mp4')));
     });
+
+    test('fast path returns plain lines untouched', () {
+      // No URL, credential field or path field: the three redaction passes are
+      // skipped, so the exact same instance must come back.
+      const line =
+          '[2026-04-21 13:42:43.142][INFO ] [UI] tapped a library title';
+      expect(identical(sanitizeLogText(line), line), isTrue);
+    });
+
+    test('fast path still catches every redaction keyword', () {
+      for (final sample in const [
+        'https://cdn.example/video.m3u8?token=secret',
+        'Authorization: Bearer secret',
+        'api_key=secret',
+        'Cookie: secret',
+        'x-refresh-token: secret',
+        "path = '/data/local/secret.txt'",
+      ]) {
+        expect(
+          sanitizeLogText(sample),
+          isNot(equals(sample)),
+          reason: 'must not fast-path past $sample',
+        );
+      }
+    });
   });
 
   test('AppLogger keeps the complete stack trace in recent entries', () {

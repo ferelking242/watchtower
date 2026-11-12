@@ -113,7 +113,7 @@ void showDeleteMangaDialog({
                               if (!(manga.isLocalArchive ?? false)) {
                                 String mangaDirectory = "";
                                 if (manga.isLocalArchive ?? false) {
-                                  mangaDirectory = _deleteImport(
+                                  mangaDirectory = await _deleteImport(
                                     manga,
                                     mangaDirectory,
                                   );
@@ -128,9 +128,9 @@ void showDeleteMangaDialog({
                                 }
                                 if (mangaDirectory.isNotEmpty) {
                                   final path = Directory(mangaDirectory);
-                                  if (path.existsSync() &&
-                                      path.listSync().isEmpty) {
-                                    path.deleteSync(recursive: true);
+                                  if (await path.exists() &&
+                                      await path.list().isEmpty) {
+                                    await path.delete(recursive: true);
                                   }
                                 }
                               }
@@ -196,7 +196,7 @@ void _removeImport(WidgetRef ref, Manga manga) {
   provider.addChangedPart(ActionType.removeItem, manga.id, "{}", false);
 }
 
-String _deleteImport(Manga manga, String mangaDirectory) {
+Future<String> _deleteImport(Manga manga, String mangaDirectory) async {
   final chapters =
       loadChaptersByMangaIds([manga.id])[manga.id] ?? const <Chapter>[];
   for (var chapter in chapters) {
@@ -207,8 +207,8 @@ String _deleteImport(Manga manga, String mangaDirectory) {
       mangaDirectory = p.dirname(path);
     }
     try {
-      if (chapterFile.existsSync()) {
-        chapterFile.deleteSync();
+      if (await chapterFile.exists()) {
+        await chapterFile.delete();
       }
     } catch (_) {}
   }
@@ -249,11 +249,11 @@ Future<String> _deleteDownload(Manga manga, String mangaDirectory) async {
     }
 
     try {
-      if (file != null && file.existsSync()) {
-        file.deleteSync();
+      if (file != null && await file.exists()) {
+        await file.delete();
       }
-      if (chapterDir!.existsSync()) {
-        chapterDir.deleteSync(recursive: true);
+      if (await chapterDir!.exists()) {
+        await chapterDir.delete(recursive: true);
       }
     } catch (_) {}
     idsToDelete.add(chapter.id!);

@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
@@ -11,7 +9,6 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:watchtower/utils/isar_batch.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/modules/library/widgets/library_swipe_wrapper.dart';
@@ -37,21 +34,20 @@ class LibraryListViewWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // One batched query for the whole list instead of a synchronous Isar load
-    // per visible row (the badge counters used to touch `entry.chapters`, a
-    // lazy backlink that runs its own query on the UI thread). The row always
-    // shows a chapter count (total, or unread when the setting is on), so the
-    // chapters are always needed here.
+    // Badge stats come from a provider that re-runs only on a chapter/download
+    // write, not on every list rebuild. The old inline `loadChaptersByMangaIds`
+    // read every chapter of the library synchronously on each rebuild.
     final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
-    final chaptersByManga = loadChaptersByMangaIds(
-      entriesManga.map((e) => e.id).whereType<int>(),
-    );
+    final statsByManga =
+        ref.watch(libraryChapterStatsProvider).asData?.value ??
+            const <int, MangaChapterStats>{};
 
     return SuperListViewWidget(
       itemCount: entriesManga.length,
       itemBuilder: (context, index) {
         final entry = entriesManga[index];
-        final entryChapters = chaptersByManga[entry.id] ?? const <Chapter>[];
+        final entryStats = statsByManga[entry.id] ??
+            const MangaChapterStats(total: 0, unread: 0, downloaded: 0);
         bool isLocalArchive = entry.isLocalArchive ?? false;
         return Consumer(
           builder: (context, ref, child) {
@@ -62,7 +58,7 @@ class LibraryListViewWidget extends ConsumerWidget {
               child: Material(
                 borderRadius: BorderRadius.circular(5),
                 color: Colors.transparent,
-                clipBehavior: Clip.antiAliasWithSaveLayer,
+                clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: () async {
                     if (isLongPressed) {
@@ -78,17 +74,11 @@ class LibraryListViewWidget extends ConsumerWidget {
                         source: entry.source!,
                         sourceId: entry.sourceId,
                       );
-                      ref.invalidate(
-                        getAllMangaWithoutCategoriesStreamProvider(
-                          itemType: entry.itemType,
-                        ),
-                      );
-                      ref.invalidate(
-                        getAllMangaStreamProvider(
-                          categoryId: null,
-                          itemType: entry.itemType,
-                        ),
-                      );
+                      // Both providers are Isar `.watch()` streams: the write
+                      // performed inside the detail route re-emits them on its
+                      // own. Invalidating here rebuilt the whole library stream
+                      // and re-ran the filter/sort provider — a synchronous
+                      // read of every chapter of the library — on the tap.
                     }
                   },
                   onLongPress: () {
@@ -229,20 +219,8 @@ class LibraryListViewWidget extends ConsumerWidget {
                                           ),
                                           child: Consumer(
                                             builder: (context, ref, child) {
-                                              final downloadedIds = ref.watch(
-                                                downloadedChapterIdsProvider,
-                                              );
                                               final downloadedCount =
-                                                  entryChapters
-                                                      .where(
-                                                        (chap) =>
-                                                            chap.id != null &&
-                                                            downloadedIds
-                                                                .contains(
-                                                                  chap.id,
-                                                                ),
-                                                      )
-                                                      .length;
+                                                  entryStats.downloaded;
                                               if (downloadedCount == 0) {
                                                 return const SizedBox.shrink();
                                               }
@@ -282,13 +260,8 @@ class LibraryListViewWidget extends ConsumerWidget {
                                         ),
                                         child: Text(
                                           (showUnread
-                                                  ? entryChapters
-                                                        .where(
-                                                          (e) =>
-                                                              e.isRead != true,
-                                                        )
-                                                        .length
-                                                  : entryChapters.length)
+                                                  ? entryStats.unread
+                                                  : entryStats.total)
                                               .toString(),
                                           style: const TextStyle(
                                             color: Colors.white,

@@ -392,13 +392,13 @@ class CustomExtendedNetworkImageProvider
     // Older releases stored covers in the OS-purgeable cache directory.
     // Copy legacy entries forward once, but leave the originals untouched.
     if (isPersistentCoverCache &&
-        !((cacheFile as dynamic).existsSync() as bool)) {
+        !(await (cacheFile as dynamic).exists() as bool)) {
       try {
         final legacyDirectory = await storage.getCacheDirectory(
           'cacheimagecover',
         );
         final legacyFile = io.File(join(legacyDirectory.path, md5Key));
-        if ((legacyFile as dynamic).existsSync() as bool) {
+        if (await (legacyFile as dynamic).exists() as bool) {
           data = await (legacyFile as dynamic).readAsBytes() as Uint8List;
           try {
             await (cacheFile as dynamic).writeAsBytes(data);
@@ -414,12 +414,12 @@ class CustomExtendedNetworkImageProvider
     // exist, try to find cache image file
     if (!kIsWeb &&
         data == null &&
-        (cacheFile as dynamic).existsSync() as bool) {
+        (await (cacheFile as dynamic).exists() as bool)) {
       if (!isPersistentCoverCache && key.cacheMaxAge != null) {
         final DateTime now = DateTime.now();
-        final DateTime lastModified = (cacheFile as dynamic).lastModifiedSync() as DateTime;
+        final DateTime lastModified = await (cacheFile as dynamic).lastModified() as DateTime;
         if (now.difference(lastModified) > key.cacheMaxAge!) {
-          (cacheFile as dynamic).deleteSync();
+          await (cacheFile as dynamic).delete();
           _imgLog('DISK-EXPIRED ${_shortUrl(key.url)}');
         } else {
           final t0 = DateTime.now();
@@ -444,7 +444,7 @@ class CustomExtendedNetworkImageProvider
       }
       data = null;
       try {
-        (cacheFile as dynamic).deleteSync();
+        await (cacheFile as dynamic).delete();
       } catch (_) {}
     }
     if (data != null) _memoryCache.put(md5Key, data);

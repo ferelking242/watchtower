@@ -1,4 +1,5 @@
 import 'package:isar_community/isar.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
@@ -269,3 +270,61 @@ bool _isNsfw(Manga manga) {
   }
   return false;
 }
+
+/// Per-manga chapter stats used by the library grid/list badges.
+class MangaChapterStats {
+  const MangaChapterStats({
+    required this.total,
+    required this.unread,
+    required this.downloaded,
+  });
+
+  final int total;
+  final int unread;
+  final int downloaded;
+}
+
+/// Aggregates chapter counts once per Isar write instead of per rebuild.
+///
+/// The grid and list used to call `loadChaptersByMangaIds` directly inside
+/// `build`: that is one synchronous Isar read of **every chapter of the whole
+/// library** on each rebuild — and the grid rebuilds on unrelated state changes
+/// (long-press selection, the overlay toggle). Wrapping the same batched read
+/// in a provider memoises it until an actual chapter or download write, and the
+/// per-row badge becomes a map lookup.
+///
+/// Declared manually (not `@riverpod`) because the checked-in generated files
+/// must stay in sync with a `build_runner` that is currently unusable in this
+/// environment (riverpod_generator 4.0.0 vs analyzer 9.0.0).
+final libraryChapterStatsProvider =
+    StreamProvider<Map<int, MangaChapterStats>>((ref) {
+  return isar.chapters.where().watch(fireImmediately: true).asyncMap((
+    rows,
+  ) async {
+    // A fresh subscription each pass: an Isar watch stream is
+    // single-subscription, so reusing one instance across events would throw.
+    final downloadedIds =
+        (await isar.downloads.where().watch(fireImmediately: true).first)
+            .where((download) => download.isDownload == true)
+            .map((download) => download.id)
+            .whereType<int>()
+            .toSet();
+    final counts = <int, List<int>>{};
+    for (final chapter in rows) {
+      final mangaId = chapter.mangaId;
+      if (mangaId == null) continue;
+      final slot = counts[mangaId] ??= [0, 0, 0];
+      slot[0]++;
+      if (chapter.isRead != true) slot[1]++;
+      if (chapter.id != null && downloadedIds.contains(chapter.id)) slot[2]++;
+    }
+    return {
+      for (final entry in counts.entries)
+        entry.key: MangaChapterStats(
+          total: entry.value[0],
+          unread: entry.value[1],
+          downloaded: entry.value[2],
+        ),
+    };
+  });
+});

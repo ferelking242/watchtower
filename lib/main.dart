@@ -293,15 +293,10 @@ void main(List<String> args) async {
             logLevel: LogLevel.error,
           );
         }
-        try {
-          await imgCropIsolate.start();
-        } catch (e, st) {
-          debugPrint('[main] imgCropIsolate.start() failed: $e\n$st');
-          AppLogger.log(
-            'imgCropIsolate.start failed: $e\n$st',
-            logLevel: LogLevel.error,
-          );
-        }
+        // imgCropIsolate is started lazily in _postLaunchInit(): its
+        // `process()` awaits `start()` on first use, so nothing before the
+        // first frame needs the isolate. Spawning it here only added an
+        // isolate start (plus a second RustLib.init) to the splash.
         // getIsolateService.start() is intentionally called AFTER initDB below.
         // Both the main isolate and the background isolate call StorageProvider().initDB().
         // If a stale DB (schema mismatch from an old build) is on disk, calling them
@@ -632,6 +627,15 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
     // initialize() on first use — this avoids spawning 8–32 isolates at
     // startup when the user may not download anything in this session.
     DownloadIsolatePool.configure(poolSize: poolSize);
+    // The reader's border-crop isolate is not needed before the first frame:
+    // `ImageCropIsolate.process()` awaits `start()` on first use. Kick it off
+    // here so the isolate (and its second RustLib.init) is warm by the time a
+    // reader page asks for a crop, without paying for it during the splash.
+    unawaited(
+      imgCropIsolate.start().catchError((Object e) {
+        debugPrint('[startup] crop isolate start failed: $e');
+      }),
+    );
   }
   // Hive is already initialized + nav_display opened in main() before runApp.
   // Nothing more to do here for Hive setup.

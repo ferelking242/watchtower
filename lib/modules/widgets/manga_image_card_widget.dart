@@ -234,7 +234,7 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
           child: Material(
             borderRadius: BorderRadius.circular(5),
             color: Colors.transparent,
-            clipBehavior: Clip.antiAliasWithSaveLayer,
+            clipBehavior: Clip.antiAlias,
             child: InkWell(
               splashColor: Colors.transparent,
               highlightColor: Colors.transparent,
@@ -283,7 +283,7 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
                         Material(
                           borderRadius: BorderRadius.circular(6),
                           color: Colors.transparent,
-                          clipBehavior: Clip.antiAliasWithSaveLayer,
+                          clipBehavior: Clip.antiAlias,
                           child: Image(
                             height: 90,
                             width: 62,
@@ -509,7 +509,12 @@ Future<void> pushToMangaReaderDetail({
 
   final int mangaId = resolvedId!;
 
-  final mang = isar.mangas.getSync(mangaId)!;
+  // Reuse the caller's entity when it is already the right row: `getSync`
+  // deserializes the whole record, `customCoverImage` blob included, and the
+  // library hands us exactly this instance.
+  final mang = (mangaM != null && mangaM.id == mangaId)
+      ? mangaM
+      : isar.mangas.getSync(mangaId)!;
   if (mang.sourceId == null && !(mang.isLocalArchive ?? false)) {
     isar.writeTxnSync(() {
       isar.mangas.putSync(mang..sourceId = sourceId);

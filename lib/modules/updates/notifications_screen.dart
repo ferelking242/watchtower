@@ -6,6 +6,7 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
+import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -138,7 +139,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     await Future.wait(
       types.map((type) async {
         final repos = ref.read(extensionsRepoStateProvider(type));
-        for (final repo in repos) {
+        // Repositories of one type are independent HTTP catalogue fetches;
+        // run them with a bounded pool instead of one-after-another.
+        await forEachParallel<Repo>(repos, kNetworkConcurrency, (repo) async {
           try {
             await fetchSourcesList(
               repo: repo,
@@ -150,7 +153,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           } catch (error) {
             firstError ??= error;
           }
-        }
+        });
       }),
     );
     return firstError;
