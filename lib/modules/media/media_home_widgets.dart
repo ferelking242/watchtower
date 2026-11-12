@@ -2122,7 +2122,7 @@ abstract final class CatalogBulkDownload {
         );
     final existingChapters = loaded.id == Isar.autoIncrement
         ? <Chapter>[]
-        : isar.chapters.filter().mangaIdEqualTo(loaded.id).findAllSync();
+        : isar.chapters.where().mangaIdEqualTo(loaded.id).findAllSync();
     final chaptersByUrl = <String, Chapter>{
       for (final chapter in existingChapters)
         if (chapter.url?.trim().isNotEmpty == true)

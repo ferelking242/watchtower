@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/components/waypoint.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -77,7 +76,13 @@ class SearchPageArtistsTab extends HookConsumerWidget {
               mainAxisSpacing: 8,
             ),
             itemBuilder: (context, index) {
-              if (searchArtists.isNotEmpty && index == searchArtists.length) {
+              if (index >= searchArtists.length) {
+                final placeholder = MusicCardShimmer(
+                  height: constrains.smAndDown ? 225 : 250,
+                );
+
+                if (searchArtists.isEmpty) return placeholder;
+
                 if (searchArtistsSnapshot.asData?.value.hasMore != true) {
                   return const SizedBox.shrink();
                 }
@@ -86,17 +91,11 @@ class SearchPageArtistsTab extends HookConsumerWidget {
                   controller: controller,
                   isGrid: true,
                   onTouchEdge: searchArtistsNotifier.fetchMore,
-                  child: ShimmerSkeleton(enabled: true,
-                    child: ArtistCard(FakeData.artist),
-                  ),
+                  child: placeholder,
                 );
               }
 
-              return ShimmerSkeleton(enabled: searchArtistsSnapshot.isLoading,
-                child: ArtistCard(
-                  searchArtists.elementAtOrNull(index) ?? FakeData.artist,
-                ),
-              );
+              return ArtistCard(searchArtists[index]);
             },
           );
         }),

@@ -31,7 +31,7 @@ unzip /tmp/dart-sdk.zip -d /opt/
 export PATH="/opt/dart-sdk/bin:$HOME/.pub-cache/bin:$PATH"
 
 # Install Hetu compiler
-dart pub global activate hetu_script_dev_tools
+dart pub global activate hetu_script_dev_tools 0.1.0+2
 ```
 
 ### Build All Plugins

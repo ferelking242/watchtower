@@ -3,8 +3,7 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -23,7 +22,17 @@ class ArtistPageHeader extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final artistQuery = ref.watch(metadataPluginArtistProvider(artistId));
-    final artist = artistQuery.asData?.value ?? FakeData.artist;
+
+    // Never invent an artist: while loading show a shimmer, on failure let the
+    // page-level ErrorBox speak. Only render the header for real data.
+    if (artistQuery.isLoading && artistQuery.asData?.value == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+        child: ShimmerSkeleton(enabled: true, child: _ArtistHeaderSkeleton()),
+      );
+    }
+    final artist = artistQuery.asData?.value;
+    if (artist == null) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
 
@@ -81,8 +90,10 @@ class ArtistPageHeader extends HookConsumerWidget {
           const SizedBox(width: 5),
           IconButton(
             icon: Icon(
-              SpotubeIcons.userRemove,
-              color: !isBlackListed ? Colors.red[400] : null,
+              MusicIcons.userRemove,
+              color: !isBlackListed
+                  ? Theme.of(context).colorScheme.error
+                  : null,
             ),
             onPressed: () async {
               if (isBlackListed) {
@@ -99,7 +110,7 @@ class ArtistPageHeader extends HookConsumerWidget {
             },
           ),
           IconButton(
-            icon: const Icon(SpotubeIcons.share),
+            icon: const Icon(MusicIcons.share),
             onPressed: () async {
               await Clipboard.setData(
                 ClipboardData(
@@ -112,10 +123,8 @@ class ArtistPageHeader extends HookConsumerWidget {
       ),
     );
 
-    return ShimmerSkeleton(
-      enabled: artistQuery.isLoading,
-      child: LayoutBuilder(
-        builder: (context, constrains) {
+    return LayoutBuilder(
+      builder: (context, constrains) {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Card(
@@ -157,9 +166,14 @@ class ArtistPageHeader extends HookConsumerWidget {
                                   const SizedBox(height: 5, width: 5),
                                   Chip(
                                     label: Text(context.l10n.blacklisted),
-                                    backgroundColor: Colors.red.shade100,
-                                    labelStyle: const TextStyle(
-                                        color: Colors.red),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .errorContainer,
+                                    labelStyle: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                    ),
                                     materialTapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
                                     padding: EdgeInsets.zero,
@@ -214,6 +228,54 @@ class ArtistPageHeader extends HookConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Loading placeholder shaped like the artist header card.
+class _ArtistHeaderSkeleton extends StatelessWidget {
+  const _ArtistHeaderSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final block = BoxDecoration(
+      color: cs.onSurface.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 80, height: 24, decoration: block),
+                    const SizedBox(height: 12),
+                    Container(width: 180, height: 26, decoration: block),
+                    const SizedBox(height: 10),
+                    Container(width: 120, height: 16, decoration: block),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

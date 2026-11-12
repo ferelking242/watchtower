@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
@@ -13,6 +14,8 @@ import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugi
 import 'package:watchtower/modules/music/provider/metadata_plugin/search/all.dart';
 import 'package:watchtower/modules/music/services/metadata/errors/exceptions.dart';
 import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
+import 'package:watchtower/ui/widgets/namida_app_bar.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 // ─── Provider : logo du plugin metadata actif ─────────────────────────────────
 
@@ -24,45 +27,7 @@ final _activePluginLogoProvider = FutureProvider<File?>((ref) async {
   return notifier.getLogoPath(pluginConfig);
 });
 
-// ─── Constantes design ────────────────────────────────────────────────────────
-
-// _kBg and _kSearchFill removed — now use theme colors
-// _kGreen removed — now use cs.primary / Theme.of(context).colorScheme.primary
-
-// Palette de couleurs pour les cartes de section (cyclique)
-const _kSectionColors = [
-  Color(0xFF8D67AB),
-  Color(0xFFBA5D07),
-  Color(0xFFE8115B),
-  Color(0xFF1E3264),
-  Color(0xFF056952),
-  Color(0xFF0D73EC),
-  Color(0xFF537AA1),
-  Color(0xFF8C1932),
-  Color(0xFF2E6A59),
-  Color(0xFF6D4C41),
-  Color(0xFF4527A0),
-  Color(0xFF00695C),
-];
-
-// Paires de dégradés pour les mood cards
-const _kMoodGradients = [
-  [Color(0xFF6D4C41), Color(0xFFBF8660)],
-  [Color(0xFF0D1B2A), Color(0xFF1565C0)],
-  [Color(0xFF2C2C2C), Color(0xFF546E7A)],
-  [Color(0xFF1A3A2A), Color(0xFF2E7D52)],
-  [Color(0xFF1A1A2E), Color(0xFF4527A0)],
-  [Color(0xFF8C1932), Color(0xFFE8115B)],
-  [Color(0xFF0D73EC), Color(0xFF1E3264)],
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-Color _sectionColor(int index) =>
-    _kSectionColors[index % _kSectionColors.length];
-
-List<Color> _moodGradient(int index) =>
-    _kMoodGradients[index % _kMoodGradients.length];
 
 String _artistNames(List<SpotubeSimpleArtistObject> artists) =>
     artists.map((a) => a.name).join(', ');
@@ -105,7 +70,6 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   final _ctrl = TextEditingController();
   final _focus = FocusNode();
   final _scroll = ScrollController();
-  final _filterKey = GlobalKey();
   String _query = '';
   String _selectedChip = 'all';
 
@@ -240,17 +204,13 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                 ),
               ),
               if (t > 0.4)
-                IconButton(
-                  icon: Icon(Broken.search_normal_1,
-                      color: cs.onSurface, size: 22),
+                NamidaAppBarIcon(
+                  icon: Broken.search_normal_1,
                   onPressed: _expandAndFocusSearch,
-                  visualDensity: VisualDensity.compact,
                 ),
-              IconButton(
-                icon: Icon(Broken.camera,
-                    color: cs.onSurface, size: 24),
+              NamidaAppBarIcon(
+                icon: Broken.camera,
                 onPressed: () {},
-                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
@@ -338,13 +298,67 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                     const SizedBox(height: 10),
 
                     // Bouton filtre — visible uniquement quand une recherche
-                    // est active. Ouvre un popup box positionné (pas de sheet).
+                    // est active. Ouvre le popup de filtres partagé
+                    // (AdaptiveOverlayMenuButton), pas un sheet en bas.
                     if (_query.isNotEmpty)
-                      _MusicFilterButton(
-                        key: _filterKey,
-                        label: _chipLabel(_selectedChip),
-                        isActive: _selectedChip != 'all',
-                        onTap: () => _openFilterPopup(context),
+                      AdaptiveOverlayMenuButton(
+                        menuWidth: 210,
+                        trigger: _MusicFilterButton(
+                          label: _chipLabel(_selectedChip),
+                          isActive: _selectedChip != 'all',
+                        ),
+                        contentBuilder: (close) {
+                          final chips = ref
+                                  .read(metadataPluginSearchChipsProvider)
+                                  .asData
+                                  ?.value ??
+                              ['all', 'tracks', 'albums', 'artists', 'playlists'];
+                          final cs = Theme.of(context).colorScheme;
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final chip in chips)
+                                InkWell(
+                                  onTap: () {
+                                    setState(() => _selectedChip = chip);
+                                    close();
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 11),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _selectedChip == chip
+                                              ? Broken.tick_circle
+                                              : Broken.record,
+                                          size: 18,
+                                          color: _selectedChip == chip
+                                              ? cs.primary
+                                              : cs.onSurfaceVariant
+                                                  .withValues(alpha: 0.5),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          _chipLabel(chip),
+                                          style: TextStyle(
+                                            color: _selectedChip == chip
+                                                ? cs.onSurface
+                                                : cs.onSurfaceVariant,
+                                            fontWeight: _selectedChip == chip
+                                                ? FontWeight.w600
+                                                : FontWeight.w400,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -354,68 +368,6 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
         ],
       ),
     );
-  }
-
-  // ── Popup box de filtres — s'ouvre depuis le bouton, positionné en dessous ──
-  // Même UX que le Discovery/Watch : une box dropdown, pas un sheet en bas.
-  Future<void> _openFilterPopup(BuildContext context) async {
-    final chips = ref.read(metadataPluginSearchChipsProvider).asData?.value ??
-        ['all', 'tracks', 'albums', 'artists', 'playlists'];
-    final cs = Theme.of(context).colorScheme;
-
-    final RenderBox? button =
-        _filterKey.currentContext?.findRenderObject() as RenderBox?;
-    final RenderBox? overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (button == null || overlay == null) return;
-
-    final Offset topLeft =
-        button.localToGlobal(Offset.zero, ancestor: overlay);
-    final position = RelativeRect.fromLTRB(
-      topLeft.dx,
-      topLeft.dy + button.size.height + 4,
-      overlay.size.width - topLeft.dx - button.size.width,
-      0,
-    );
-
-    final result = await showMenu<String>(
-      context: context,
-      position: position,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      color: cs.surfaceContainerHigh,
-      elevation: 8,
-      items: chips.map((chip) {
-        final isSelected = _selectedChip == chip;
-        return PopupMenuItem<String>(
-          value: chip,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Row(
-            children: [
-              Icon(
-                isSelected
-                    ? Broken.tick_circle
-                    : Broken.record,
-                size: 18,
-                color: isSelected
-                    ? cs.primary
-                    : cs.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                _chipLabel(chip),
-                style: TextStyle(
-                  color: isSelected ? cs.onSurface : cs.onSurfaceVariant,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.w400,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-    if (result != null && mounted) setState(() => _selectedChip = result);
   }
 
   String _chipLabel(String chip) {
@@ -462,17 +414,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
-                child: Text(
-                  'Découvrez de nouveaux horizons',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+              const AppSectionHeader(title: 'Découvrez de nouveaux horizons'),
               SizedBox(
                 height: 148,
                 child: ListView.separated(
@@ -482,7 +424,6 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                   separatorBuilder: (_, _) => const SizedBox(width: 10),
                   itemBuilder: (_, i) => _SectionMoodCard(
                     section: sections[i],
-                    gradient: _moodGradient(i),
                     onTap: () => _toBrowseSection(context, sections[i]),
                   ),
                 ),
@@ -506,35 +447,26 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
         data: (page) {
           if (page.items.isEmpty) return const SizedBox.shrink();
           final sections = page.items;
+          final padding = AppUI.pagePadding(context);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              AppSectionHeader(title: 'Tout parcourir'),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 14),
-                child: Text(
-                  'Tout parcourir',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: padding),
                 child: GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
+                    mainAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
+                    crossAxisSpacing: AppUI.mediaGridCrossAxisSpacing,
                     childAspectRatio: 1.7,
                   ),
                   itemCount: sections.length,
-                  itemBuilder: (_, i) => _SectionGridCard(
-                    section: sections[i],
-                    color: _sectionColor(i),
+                  itemBuilder: (_, i) => AppGenreTile(
+                    label: sections[i].title,
+                    icon: Broken.music_library_2,
                     onTap: () => _toBrowseSection(context, sections[i]),
                   ),
                 ),
@@ -673,17 +605,7 @@ class _TrackResultsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-          child: Text(
-            'Titres',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        const AppSectionHeader(title: 'Titres'),
         ...tracks.take(5).map((track) {
           final isActive = track.id == activeId;
           final cs = Theme.of(context).colorScheme;
@@ -810,17 +732,7 @@ class _HorizontalSection<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-          child: Text(
-            title,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        AppSectionHeader(title: title),
         SizedBox(
           height: 190,
           child: ListView.separated(
@@ -902,149 +814,86 @@ class _HorizontalSection<T> extends StatelessWidget {
 
 class _SectionMoodCard extends StatelessWidget {
   final SpotubeBrowseSectionObject<Object> section;
-  final List<Color> gradient;
   final VoidCallback onTap;
 
   const _SectionMoodCard({
     required this.section,
-    required this.gradient,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppUI.cardRadius + 3),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
         child: SizedBox(
           width: 148,
           height: 148,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Container(
+              // Thème neutre : le dégradé vient des couleurs de surface de
+              // Watchtower, jamais d'une palette propre à l'ancienne app.
+              DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: gradient,
-                  ),
-                ),
-              ),
-              // Cercles décoratifs
-              Positioned(
-                right: -20,
-                top: -20,
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.07),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 10,
-                top: 30,
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.05),
-                  ),
-                ),
-              ),
-              // Dégradé bas
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.5),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              // Titre
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 12,
-                child: Text(
-                  section.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    shadows: [
-                      Shadow(color: Colors.black45, blurRadius: 4),
+                    colors: [
+                      cs.primaryContainer.withValues(alpha: 0.55),
+                      cs.surfaceContainerHighest,
                     ],
                   ),
                 ),
               ),
+              // Dégradé bas pour garder le titre lisible sur n'importe quel
+              // fond de thème.
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xE6000000)],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        section.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 6),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Broken.arrow_right_3,
+                      size: 18,
+                      color: Colors.white70,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Carte grid de section ────────────────────────────────────────────────────
-
-class _SectionGridCard extends StatelessWidget {
-  final SpotubeBrowseSectionObject<Object> section;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _SectionGridCard({
-    required this.section,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              section.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Icon(
-                Broken.music_library_2,
-                color: Colors.white.withValues(alpha: 0.3),
-                size: 28,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -1182,11 +1031,11 @@ class _InitialsAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: Theme.of(context).colorScheme.primary,
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       child: Text(
         initials,
         style: TextStyle(
-          color: Colors.black,
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
           fontWeight: FontWeight.w800,
           fontSize: size * 0.38,
         ),
@@ -1195,112 +1044,49 @@ class _InitialsAvatar extends StatelessWidget {
   }
 }
 
-// ─── Pill de navigation ───────────────────────────────────────────────────────
-
-class _NavPill extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  const _NavPill({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(20),
-          border: selected
-              ? null
-              : Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 14,
-                color: selected
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Bouton "Filtrer" (ouvre le bottom sheet de filtres) ──────────────────────
+// ─── Bouton "Filtrer" (déclencheur du popup de filtres) ───────────────────────
 
 class _MusicFilterButton extends StatelessWidget {
   final String label;
   final bool isActive;
-  final VoidCallback onTap;
 
   const _MusicFilterButton({
-    super.key,
     required this.label,
     required this.isActive,
-    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: isActive
-              ? cs.primaryContainer.withValues(alpha: 0.5)
-              : cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive ? cs.primary : cs.outlineVariant,
-            width: isActive ? 1.2 : 0.8,
-          ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: isActive
+            ? cs.primaryContainer.withValues(alpha: 0.5)
+            : cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isActive ? cs.primary : cs.outlineVariant,
+          width: isActive ? 1.2 : 0.8,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? cs.primary : cs.onSurfaceVariant,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 13,
-              ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: isActive ? cs.primary : cs.onSurfaceVariant,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 13,
             ),
-            const SizedBox(width: 6),
-            Icon(Broken.filter,
-                size: 16,
-                color: isActive ? cs.primary : cs.onSurfaceVariant),
-          ],
-        ),
+          ),
+          const SizedBox(width: 6),
+          Icon(Broken.filter,
+              size: 16,
+              color: isActive ? cs.primary : cs.onSurfaceVariant),
+        ],
       ),
     );
   }

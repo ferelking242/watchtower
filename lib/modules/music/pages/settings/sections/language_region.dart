@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/language_codes.dart';
 import 'package:watchtower/modules/music/collections/markets.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/metadata/market.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_select_tile.dart';
@@ -40,7 +40,7 @@ class SettingsLanguageRegionSection extends HookConsumerWidget {
             preferencesNotifier.setLocale(locale);
           },
           title: Text(context.l10n.language),
-          secondary: const Icon(SpotubeIcons.language),
+          secondary: const Icon(MusicIcons.language),
           options: [
             SelectItemButton(
               value: const Locale("system", "system"),
@@ -52,7 +52,7 @@ class SettingsLanguageRegionSection extends HookConsumerWidget {
         ),
         AdaptiveSelectTile<Market>(
           breakLayout: mediaQuery.lgAndUp,
-          secondary: const Icon(SpotubeIcons.shoppingBag),
+          secondary: const Icon(MusicIcons.shoppingBag),
           title: Text(context.l10n.market_place_region),
           value: preferences.market,
           onChanged: (value) {

@@ -30,7 +30,10 @@ import 'package:flutter/material.dart';
       return SafeArea(
         bottom: false,
         child: Scaffold(
-          appBar: AppBar(leading: MusicBackButton(), title: const Text('Music Hub')),
+          appBar: AppBar(
+              leading: MusicBackButton(),
+              title: Text(context.l10n.about),
+            ),
           body: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -43,7 +46,11 @@ import 'package:flutter/material.dart';
                     child: Icon(Icons.music_note_rounded, size: 56, color: colorScheme.primary),
                   ),
                   const SizedBox(height: 16),
-                  Text('Music Hub', style: theme.textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Musique',
+                    style: theme.textTheme.headlineSmall!
+                        .copyWith(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
                   Text('Intégré dans Watchtower', style: theme.textTheme.bodyMedium!.copyWith(color: colorScheme.onSurfaceVariant)),
                   const SizedBox(height: 24),

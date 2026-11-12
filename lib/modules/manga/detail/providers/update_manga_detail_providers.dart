@@ -191,21 +191,29 @@ Future<dynamic> updateMangaDetail(
       // Insert new chapters oldest-first (extensions typically return newest-first).
       if (newChapters.isNotEmpty) {
         final hasExisting = existingChapters.isNotEmpty;
-        for (final chap in newChapters.reversed) {
-          await isar.chapters.put(chap);
-          await chap.manga.save();
+        final ordered = newChapters.reversed.toList();
 
-          // Only create an Update entry for genuinely new (unread) chapters,
-          // so that pre-read cross-scanlator chapters don't spam the updates feed.
-          if (hasExisting && !(chap.isRead ?? false)) {
-            final update = Update(
-              mangaId: savedMangaId,
-              chapterName: chap.name,
-              date: now.toString(),
-              updatedAt: now,
-            )..chapter.value = chap;
-            await isar.updates.put(update);
-            await update.chapter.save();
+        // One batched write (links included) instead of an awaited
+        // `put` + `manga.save()` per chapter: a title that adds thousands of
+        // chapters used to issue thousands of round-trips inside this
+        // transaction, which is felt as a freeze while opening the detail page.
+        isar.chapters.putAllSync(ordered);
+
+        // Only create Update entries for genuinely new (unread) chapters, so
+        // that pre-read cross-scanlator chapters don't spam the updates feed.
+        if (hasExisting) {
+          final newUpdates = <Update>[
+            for (final chap in ordered)
+              if (!(chap.isRead ?? false))
+                Update(
+                  mangaId: savedMangaId,
+                  chapterName: chap.name,
+                  date: now.toString(),
+                  updatedAt: now,
+                )..chapter.value = chap,
+          ];
+          if (newUpdates.isNotEmpty) {
+            isar.updates.putAllSync(newUpdates);
           }
         }
       }

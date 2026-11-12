@@ -19,6 +19,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/utils/isar_batch.dart';
 import 'package:path/path.dart' as p;
 
 /// Shows a dialog for deleting selected manga from library and/or device.
@@ -36,10 +37,10 @@ void showDeleteMangaDialog({
         builder: (context, ref, child) {
           final mangaIdsList = ref.watch(mangasListStateProvider);
           final l10n = l10nLocalizations(context)!;
-          final List<Manga> mangasList = [];
-          for (var id in mangaIdsList) {
-            mangasList.add(isar.mangas.getSync(id)!);
-          }
+          // One batched read for the whole selection instead of a
+          // synchronous `getSync` per selected id.
+          final List<Manga> mangasList =
+              loadMangasByIds(mangaIdsList).values.toList();
           return StatefulBuilder(
             builder: (context, setState) {
               return AlertDialog(
@@ -161,7 +162,7 @@ void showDeleteMangaDialog({
 void _removeImport(WidgetRef ref, Manga manga) {
   final provider = ref.read(synchingProvider(syncId: 1).notifier);
   final histories = isar.historys
-      .filter()
+      .where()
       .mangaIdEqualTo(manga.id)
       .findAllSync();
   for (var history in histories) {
@@ -169,12 +170,19 @@ void _removeImport(WidgetRef ref, Manga manga) {
     provider.addChangedPart(ActionType.removeHistory, history.id, "{}", false);
   }
 
-  for (var chapter in manga.chapters) {
-    final updates = isar.updates
-        .filter()
-        .mangaIdEqualTo(chapter.mangaId)
-        .chapterNameEqualTo(chapter.name)
-        .findAllSync();
+  // One query for the chapters and one for their updates, instead of a
+  // `manga.chapters` backlink read plus an updates query per chapter.
+  final chapters =
+      loadChaptersByMangaIds([manga.id])[manga.id] ?? const <Chapter>[];
+  final updatesByChapterName = <String?, List<Update>>{};
+  for (final update in isar.updates
+      .where()
+      .mangaIdEqualTo(manga.id)
+      .findAllSync()) {
+    (updatesByChapterName[update.chapterName] ??= <Update>[]).add(update);
+  }
+  for (var chapter in chapters) {
+    final updates = updatesByChapterName[chapter.name] ?? const <Update>[];
     for (var update in updates) {
       isar.updates.deleteSync(update.id!);
       provider.addChangedPart(ActionType.removeUpdate, update.id, "{}", false);
@@ -189,7 +197,9 @@ void _removeImport(WidgetRef ref, Manga manga) {
 }
 
 String _deleteImport(Manga manga, String mangaDirectory) {
-  for (var chapter in manga.chapters) {
+  final chapters =
+      loadChaptersByMangaIds([manga.id])[manga.id] ?? const <Chapter>[];
+  for (var chapter in chapters) {
     final path = chapter.archivePath;
     if (path == null) continue;
     final chapterFile = File(path);
@@ -214,7 +224,9 @@ Future<String> _deleteDownload(Manga manga, String mangaDirectory) async {
 
   if (downloadedIds.isEmpty) return mangaDirectory;
 
-  for (var chapter in manga.chapters) {
+  final chapters =
+      loadChaptersByMangaIds([manga.id])[manga.id] ?? const <Chapter>[];
+  for (var chapter in chapters) {
     if (chapter.id == null || !downloadedIds.contains(chapter.id)) continue;
 
     mangaDir ??= await storageProvider.getMangaMainDirectory(chapter);

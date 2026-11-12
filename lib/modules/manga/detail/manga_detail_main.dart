@@ -88,6 +88,25 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
   }
 
   bool _isLoading = true;
+
+  /// Source row resolved for this page's item type cross-check.
+  ///
+  /// `nameContains` has no Isar index, so the lookup deserializes every
+  /// `Source` (extension JavaScript included). Resolve it once per page instead
+  /// of on every `build`, and never write to Isar from inside `build`.
+  Source? _sourceForTypeCache;
+  bool _sourceForTypeResolved = false;
+  bool _typeCorrectionScheduled = false;
+
+  Source? _resolveSourceForType(Manga manga) {
+    if (_sourceForTypeResolved) return _sourceForTypeCache;
+    _sourceForTypeResolved = true;
+    return _sourceForTypeCache = isar.sources
+        .filter()
+        .nameContains(manga.source!, caseSensitive: false)
+        .findFirstSync();
+  }
+
   @override
   Widget build(BuildContext context) {
     final manga = ref.watch(
@@ -120,19 +139,24 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
               } else {
                 // Cross-check the source's declared itemType (prevents manga-type
                 // extensions from opening in WatchDetailView due to a stale DB entry).
-                final sourceForType = isar.sources
-                    .filter()
-                    .nameContains(manga.source!, caseSensitive: false)
-                    .findFirstSync();
+                final sourceForType = _resolveSourceForType(manga);
                 effectiveType = sourceForType?.itemType ?? manga.itemType;
 
-                // Silently correct the stored type if it disagrees with the source
+                // Silently correct the stored type if it disagrees with the
+                // source. Deferred to a post-frame callback: writing to Isar
+                // inside build() stalls the frame and can re-trigger the
+                // `getMangaDetailStream` watch that is currently building.
                 if (sourceForType != null &&
-                    sourceForType.itemType != manga.itemType) {
-                  isar.writeTxnSync(() {
-                    isar.mangas.putSync(
-                      manga..itemType = sourceForType.itemType,
-                    );
+                    sourceForType.itemType != manga.itemType &&
+                    !_typeCorrectionScheduled) {
+                  _typeCorrectionScheduled = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    isar.writeTxnSync(() {
+                      isar.mangas.putSync(
+                        manga..itemType = sourceForType.itemType,
+                      );
+                    });
                   });
                 }
               }

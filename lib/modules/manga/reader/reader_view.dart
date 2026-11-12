@@ -504,6 +504,18 @@ class _MangaChapterPageGalleryState
       invert: invert,
     );
 
+    if (PageNavigationService.isContinuousMode(readerMode)) {
+      // Continuous readers scroll by a fraction of the viewport and must always
+      // move, even while the first/last visible item has not changed yet (the
+      // index guards in [nextPage]/[previousPage] would swallow the key).
+      if (goNext) {
+        navigationService.scrollForward(animated: _animateTransitions);
+      } else {
+        navigationService.scrollBackward(animated: _animateTransitions);
+      }
+      return;
+    }
+
     if (goNext) {
       navigationService.nextPage(
         readerMode: readerMode,

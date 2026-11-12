@@ -3,7 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/language_codes.dart';
 import 'package:watchtower/modules/music/collections/markets.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/modules/getting_started/blur_card.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/l10n/l10n.dart';
@@ -47,7 +47,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Icon(SpotubeIcons.language, size: 16),
+                  const Icon(MusicIcons.language, size: 16),
                   const SizedBox(width: 8),
                   Text(context.l10n.language_region),
                 ],
@@ -140,7 +140,7 @@ class GettingStartedPageLanguageRegionSection extends HookConsumerWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: FilledButton.icon(
-                  icon: const Icon(SpotubeIcons.angleRight),
+                  icon: const Icon(MusicIcons.angleRight),
                   onPressed: onNext,
                   label: Text(context.l10n.next),
                 ),

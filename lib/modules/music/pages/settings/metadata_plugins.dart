@@ -7,7 +7,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/form/text_form_field.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -118,7 +118,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2),
                               )
-                            : const Icon(SpotubeIcons.download),
+                            : const Icon(MusicIcons.download),
                         onPressed: isLoading.value
                             ? null
                             : () async {
@@ -162,7 +162,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                       );
                     }),
                     IconButton.filled(
-                      icon: const Icon(SpotubeIcons.upload),
+                      icon: const Icon(MusicIcons.upload),
                       onPressed: () async {
                         Uint8List bytes;
                         if (kIsFlatpak) {
@@ -328,7 +328,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                             children: [
                               Row(
                                 children: [
-                                  Icon(SpotubeIcons.warning,
+                                  Icon(MusicIcons.warning,
                                       size: 16,
                                       color: theme.colorScheme.error),
                                   const SizedBox(width: 8),

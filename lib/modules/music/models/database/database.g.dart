@@ -638,13 +638,13 @@ class $PreferencesTableTable extends PreferencesTable
           .withConverter<CloseBehavior>(
               $PreferencesTableTable.$convertercloseBehavior);
   @override
-  late final GeneratedColumnWithTypeConverter<SpotubeColor, String>
+  late final GeneratedColumnWithTypeConverter<MusicAccentColor, String>
       accentColorScheme = GeneratedColumn<String>(
               'accent_color_scheme', aliasedName, false,
               type: DriftSqlType.string,
               requiredDuringInsert: false,
               defaultValue: const Constant("Slate:0xff64748b"))
-          .withConverter<SpotubeColor>(
+          .withConverter<MusicAccentColor>(
               $PreferencesTableTable.$converteraccentColorScheme);
   @override
   late final GeneratedColumnWithTypeConverter<LayoutMode, String> layoutMode =
@@ -967,8 +967,8 @@ class $PreferencesTableTable extends PreferencesTable
   static JsonTypeConverter2<CloseBehavior, String, String>
       $convertercloseBehavior =
       const EnumNameConverter<CloseBehavior>(CloseBehavior.values);
-  static TypeConverter<SpotubeColor, String> $converteraccentColorScheme =
-      const SpotubeColorConverter();
+  static TypeConverter<MusicAccentColor, String> $converteraccentColorScheme =
+      const MusicAccentColorConverter();
   static JsonTypeConverter2<LayoutMode, String, String> $converterlayoutMode =
       const EnumNameConverter<LayoutMode>(LayoutMode.values);
   static TypeConverter<Locale, String> $converterlocale =
@@ -997,7 +997,7 @@ class PreferencesTableData extends DataClass
   final bool systemTitleBar;
   final bool skipNonMusic;
   final CloseBehavior closeBehavior;
-  final SpotubeColor accentColorScheme;
+  final MusicAccentColor accentColorScheme;
   final LayoutMode layoutMode;
   final Locale locale;
   final Market market;
@@ -1145,7 +1145,7 @@ class PreferencesTableData extends DataClass
       closeBehavior: $PreferencesTableTable.$convertercloseBehavior
           .fromJson(serializer.fromJson<String>(json['closeBehavior'])),
       accentColorScheme:
-          serializer.fromJson<SpotubeColor>(json['accentColorScheme']),
+          serializer.fromJson<MusicAccentColor>(json['accentColorScheme']),
       layoutMode: $PreferencesTableTable.$converterlayoutMode
           .fromJson(serializer.fromJson<String>(json['layoutMode'])),
       locale: serializer.fromJson<Locale>(json['locale']),
@@ -1182,7 +1182,7 @@ class PreferencesTableData extends DataClass
       'skipNonMusic': serializer.toJson<bool>(skipNonMusic),
       'closeBehavior': serializer.toJson<String>(
           $PreferencesTableTable.$convertercloseBehavior.toJson(closeBehavior)),
-      'accentColorScheme': serializer.toJson<SpotubeColor>(accentColorScheme),
+      'accentColorScheme': serializer.toJson<MusicAccentColor>(accentColorScheme),
       'layoutMode': serializer.toJson<String>(
           $PreferencesTableTable.$converterlayoutMode.toJson(layoutMode)),
       'locale': serializer.toJson<Locale>(locale),
@@ -1217,7 +1217,7 @@ class PreferencesTableData extends DataClass
           bool? systemTitleBar,
           bool? skipNonMusic,
           CloseBehavior? closeBehavior,
-          SpotubeColor? accentColorScheme,
+          MusicAccentColor? accentColorScheme,
           LayoutMode? layoutMode,
           Locale? locale,
           Market? market,
@@ -1421,7 +1421,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesTableData> {
   final Value<bool> systemTitleBar;
   final Value<bool> skipNonMusic;
   final Value<CloseBehavior> closeBehavior;
-  final Value<SpotubeColor> accentColorScheme;
+  final Value<MusicAccentColor> accentColorScheme;
   final Value<LayoutMode> layoutMode;
   final Value<Locale> locale;
   final Value<Market> market;
@@ -1555,7 +1555,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesTableData> {
       Value<bool>? systemTitleBar,
       Value<bool>? skipNonMusic,
       Value<CloseBehavior>? closeBehavior,
-      Value<SpotubeColor>? accentColorScheme,
+      Value<MusicAccentColor>? accentColorScheme,
       Value<LayoutMode>? layoutMode,
       Value<Locale>? locale,
       Value<Market>? market,
@@ -4491,7 +4491,7 @@ typedef $$PreferencesTableTableCreateCompanionBuilder
   Value<bool> systemTitleBar,
   Value<bool> skipNonMusic,
   Value<CloseBehavior> closeBehavior,
-  Value<SpotubeColor> accentColorScheme,
+  Value<MusicAccentColor> accentColorScheme,
   Value<LayoutMode> layoutMode,
   Value<Locale> locale,
   Value<Market> market,
@@ -4518,7 +4518,7 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder
   Value<bool> systemTitleBar,
   Value<bool> skipNonMusic,
   Value<CloseBehavior> closeBehavior,
-  Value<SpotubeColor> accentColorScheme,
+  Value<MusicAccentColor> accentColorScheme,
   Value<LayoutMode> layoutMode,
   Value<Locale> locale,
   Value<Market> market,
@@ -4578,7 +4578,7 @@ class $$PreferencesTableTableFilterComposer
           column: $table.closeBehavior,
           builder: (column) => ColumnWithTypeConverterFilters(column));
 
-  ColumnWithTypeConverterFilters<SpotubeColor, SpotubeColor, String>
+  ColumnWithTypeConverterFilters<MusicAccentColor, MusicAccentColor, String>
       get accentColorScheme => $composableBuilder(
           column: $table.accentColorScheme,
           builder: (column) => ColumnWithTypeConverterFilters(column));
@@ -4778,7 +4778,7 @@ class $$PreferencesTableTableAnnotationComposer
       $composableBuilder(
           column: $table.closeBehavior, builder: (column) => column);
 
-  GeneratedColumnWithTypeConverter<SpotubeColor, String>
+  GeneratedColumnWithTypeConverter<MusicAccentColor, String>
       get accentColorScheme => $composableBuilder(
           column: $table.accentColorScheme, builder: (column) => column);
 
@@ -4866,7 +4866,7 @@ class $$PreferencesTableTableTableManager extends RootTableManager<
             Value<bool> systemTitleBar = const Value.absent(),
             Value<bool> skipNonMusic = const Value.absent(),
             Value<CloseBehavior> closeBehavior = const Value.absent(),
-            Value<SpotubeColor> accentColorScheme = const Value.absent(),
+            Value<MusicAccentColor> accentColorScheme = const Value.absent(),
             Value<LayoutMode> layoutMode = const Value.absent(),
             Value<Locale> locale = const Value.absent(),
             Value<Market> market = const Value.absent(),
@@ -4919,7 +4919,7 @@ class $$PreferencesTableTableTableManager extends RootTableManager<
             Value<bool> systemTitleBar = const Value.absent(),
             Value<bool> skipNonMusic = const Value.absent(),
             Value<CloseBehavior> closeBehavior = const Value.absent(),
-            Value<SpotubeColor> accentColorScheme = const Value.absent(),
+            Value<MusicAccentColor> accentColorScheme = const Value.absent(),
             Value<LayoutMode> layoutMode = const Value.absent(),
             Value<Locale> locale = const Value.absent(),
             Value<Market> market = const Value.absent(),

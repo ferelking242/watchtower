@@ -2,7 +2,7 @@ import 'package:flutter/gestures.dart';
   import 'package:flutter_hooks/flutter_hooks.dart';
   import 'package:hooks_riverpod/hooks_riverpod.dart';
   import 'package:flutter/material.dart';
-  import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+  import 'package:watchtower/modules/music/collections/music_icons.dart';
   import 'package:watchtower/modules/music/components/markdown/markdown.dart';
   import 'package:watchtower/modules/music/extensions/context.dart';
   import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -11,8 +11,8 @@ import 'package:flutter/gestures.dart';
   import 'package:change_case/change_case.dart';
 
   final validTopics = {
-    "spotube-metadata-plugin": ("Metadata", SpotubeIcons.album),
-    "spotube-audio-source-plugin": ("Audio Source", SpotubeIcons.music),
+    "spotube-metadata-plugin": ("Metadata", MusicIcons.album),
+    "spotube-audio-source-plugin": ("Audio Source", MusicIcons.music),
   };
 
   Widget _badgePrimary(BuildContext context, {required Widget child}) => Container(
@@ -169,7 +169,7 @@ import 'package:flutter/gestures.dart';
                                                                   .circular(8),
                                                         ),
                                                         child: const Icon(
-                                                            SpotubeIcons.plugin),
+                                                            MusicIcons.plugin),
                                                       ),
                                                 title: Text(pluginConfig.name),
                                               );
@@ -224,7 +224,7 @@ import 'package:flutter/gestures.dart';
                         ),
                       )
                     else
-                      const Icon(SpotubeIcons.add, size: 18),
+                      const Icon(MusicIcons.add, size: 18),
                     Text(context.l10n.install),
                   ],
                 ),
@@ -237,8 +237,8 @@ import 'package:flutter/gestures.dart';
                     TextSpan(text: context.l10n.source),
                     TextSpan(
                       text: pluginRepo.repoUrl.replaceAll("https://", ""),
-                      style: const TextStyle(
-                        color: Colors.blue,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         decoration: TextDecoration.underline,
                       ),
                       recognizer: TapGestureRecognizer()
@@ -267,21 +267,27 @@ import 'package:flutter/gestures.dart';
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blue,
+                      color: Theme.of(context).colorScheme.errorContainer,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       spacing: 4,
                       children: [
-                        const Icon(SpotubeIcons.warning, size: 14,
-                            color: Colors.white),
+                        Icon(
+                          MusicIcons.warning,
+                          size: 14,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onErrorContainer,
+                        ),
                         Text(
                           context.l10n.third_party,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall!
-                              .copyWith(color: Colors.white),
+                          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                              ),
                         ),
                       ],
                     ),
@@ -296,7 +302,7 @@ import 'package:flutter/gestures.dart';
                 _badgeSecondary(
                   context,
                   leading: host == "github.com"
-                      ? const Icon(SpotubeIcons.github)
+                      ? const Icon(MusicIcons.github)
                       : null,
                   child: Text(host),
                   onPressed: () {

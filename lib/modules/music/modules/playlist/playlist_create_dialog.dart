@@ -11,7 +11,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart';
 
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/form/checkbox_form_field.dart';
 import 'package:watchtower/modules/music/components/form/text_form_field.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
@@ -191,7 +191,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           TextButton.icon(
-                            icon: const Icon(SpotubeIcons.edit),
+                            icon: const Icon(MusicIcons.edit),
                             label: Text(
                               field.value?.path != null ||
                                       updatingPlaylist?.images != null
@@ -212,7 +212,7 @@ class PlaylistCreateDialog extends HookConsumerWidget {
                           ),
                           const SizedBox(width: 10),
                           IconButton(
-                            icon: const Icon(SpotubeIcons.trash),
+                            icon: const Icon(MusicIcons.trash),
                             color: Theme.of(context).colorScheme.error,
                             onPressed: field.value == null
                                 ? null
@@ -282,7 +282,7 @@ class PlaylistCreateDialogButton extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     return TextButton.icon(
-      icon: const Icon(SpotubeIcons.addFilled),
+      icon: const Icon(MusicIcons.addFilled),
       label: Text(context.l10n.playlist),
       onPressed: () => showPlaylistDialog(context),
     );

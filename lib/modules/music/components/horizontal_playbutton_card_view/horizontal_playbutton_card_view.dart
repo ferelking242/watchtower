@@ -2,9 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/modules/album/album_card.dart';
 import 'package:watchtower/modules/music/modules/artist/artist_card.dart';
 import 'package:watchtower/modules/music/modules/playlist/playlist_card.dart';
@@ -81,13 +80,20 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                   ),
                   child: items.isEmpty
                       ? isLoading
-                          ? ShimmerSkeleton(
-                              enabled: true,
+                          ? SizedBox(
+                              height: isArtist ? 250 : 225,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
                                 itemCount: 5,
-                                itemBuilder: (context, index) =>
-                                    AlbumCard(FakeData.albumSimple),
+                                itemBuilder: (context, index) => Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: MusicCardShimmer(
+                                    height: isArtist ? 250 : 225,
+                                  ),
+                                ),
                               ),
                             )
                           : const SizedBox.shrink()
@@ -97,11 +103,9 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           itemCount: items.length,
                           onFetchData: onFetchMore,
-                          loadingBuilder: (context) => ShimmerSkeleton(enabled: true,
-                                child: isArtist
-                                    ? ArtistCard(FakeData.artist)
-                                    : AlbumCard(FakeData.albumSimple),
-                              ),
+                          loadingBuilder: (context) => MusicCardShimmer(
+                            height: isArtist ? 250 : 225,
+                          ),
                           isLoading: isLoadingNextPage,
                           hasReachedMax: !hasNextPage,
                           separatorBuilder: (context, index) => SizedBox(height: 12 * scale),

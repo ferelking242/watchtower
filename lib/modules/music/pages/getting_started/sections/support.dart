@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
     import 'package:flutter/material.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
     import 'package:watchtower/modules/music/collections/routes.gr.dart';
-    import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+    import 'package:watchtower/modules/music/collections/music_icons.dart';
     import 'package:watchtower/modules/music/modules/getting_started/blur_card.dart';
     import 'package:watchtower/modules/music/extensions/context.dart';
     import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
@@ -23,10 +23,17 @@ import 'package:auto_route/auto_route.dart';
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.music_note_rounded, color: Colors.pink),
+                      Icon(
+                        Icons.music_note_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                       const SizedBox(width: 8),
-                      Text(context.l10n.help_project_grow,
-                          style: const TextStyle(color: Colors.pink)),
+                      Text(
+                        context.l10n.help_project_grow,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -54,7 +61,7 @@ import 'package:auto_route/auto_route.dart';
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(SpotubeIcons.home),
+                        const Icon(MusicIcons.home),
                         const SizedBox(width: 8),
                         Text(context.l10n.get_started),
                       ],
@@ -73,7 +80,7 @@ import 'package:auto_route/auto_route.dart';
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(SpotubeIcons.extensions),
+                        const Icon(MusicIcons.extensions),
                         const SizedBox(width: 8),
                         Text(context.l10n.install_a_metadata_provider),
                       ],

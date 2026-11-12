@@ -4,12 +4,11 @@ import 'package:collection/collection.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/fallbacks/anonymous_fallback.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/fallbacks/no_default_metadata_plugin.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/modules/artist/artist_card.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
 import 'package:watchtower/modules/music/components/waypoint.dart';
@@ -88,7 +87,7 @@ class UserArtistsPage extends HookConsumerWidget {
                       onChanged: (value) => searchText.value = value,
                       decoration: InputDecoration(
                         hintText: context.l10n.filter_artist,
-                        prefixIcon: const Icon(SpotubeIcons.filter),
+                        prefixIcon: const Icon(MusicIcons.filter),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(28),
                           borderSide: BorderSide.none,
@@ -112,8 +111,13 @@ class UserArtistsPage extends HookConsumerWidget {
                         mainAxisSpacing: 8,
                       ),
                       itemBuilder: (context, index) {
-                        if (filteredArtists.isNotEmpty &&
-                            index == filteredArtists.length) {
+                        if (index >= filteredArtists.length) {
+                          final placeholder = MusicCardShimmer(
+                            height: constrains.smAndDown ? 225 : 250,
+                          );
+
+                          if (filteredArtists.isEmpty) return placeholder;
+
                           if (artistQuery.asData?.value.hasMore != true) {
                             return const SizedBox.shrink();
                           }
@@ -121,17 +125,10 @@ class UserArtistsPage extends HookConsumerWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: artistQueryNotifier.fetchMore,
-                            child: ShimmerSkeleton(enabled: true,
-                              child: ArtistCard(FakeData.artist),
-                            ),
+                            child: placeholder,
                           );
                         }
-                        return ShimmerSkeleton(enabled: artistQuery.isLoading,
-                          child: ArtistCard(
-                            filteredArtists.elementAtOrNull(index) ??
-                                FakeData.artist,
-                          ),
-                        );
+                        return ArtistCard(filteredArtists[index]);
                       },
                     );
                   })

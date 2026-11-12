@@ -6,7 +6,6 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart' as paths;
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/models/metadata/market.dart';
-import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';
 import 'package:watchtower/modules/music/provider/database/database.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
@@ -130,7 +129,7 @@ class UserPreferencesNotifier extends Notifier<PreferencesTableData> {
     setData(PreferencesTableCompanion(market: Value(country)));
   }
 
-  void setAccentColorScheme(SpotubeColor color) {
+  void setAccentColorScheme(MusicAccentColor color) {
     setData(PreferencesTableCompanion(accentColorScheme: Value(color)));
   }
 

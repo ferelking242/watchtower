@@ -66,7 +66,7 @@ _MigrationSnapshot _captureMigrationSnapshot({
 
   isar.writeTxnSync(() {
     final histories = isar.historys
-        .filter()
+        .where()
         .mangaIdEqualTo(oldManga.id)
         .sortByDate()
         .findAllSync();
@@ -83,8 +83,9 @@ _MigrationSnapshot _captureMigrationSnapshot({
     for (final chapter in oldManga.chapters) {
       chaptersProgress.add(chapter);
       isar.updates
-          .filter()
+          .where()
           .mangaIdEqualTo(chapter.mangaId)
+          .filter()
           .chapterNameEqualTo(chapter.name)
           .deleteAllSync();
       isar.chapters.deleteSync(chapter.id!);
@@ -199,8 +200,9 @@ void _restoreMigrationProgress({
   isar.writeTxnSync(() {
     for (final oldChapter in snapshot.chaptersProgress) {
       final chapter = isar.chapters
-          .filter()
+          .where()
           .mangaIdEqualTo(oldManga.id)
+          .filter()
           .nameContains(
             extractMigrationChapterNumber(oldChapter.name ?? '') ?? '.....',
             caseSensitive: false,
@@ -215,8 +217,9 @@ void _restoreMigrationProgress({
     }
 
     final historyChapter = isar.chapters
-        .filter()
+        .where()
         .mangaIdEqualTo(oldManga.id)
+        .filter()
         .nameContains(snapshot.historyChapter ?? '.....', caseSensitive: false)
         .findFirstSync();
     if (historyChapter != null) {
@@ -367,7 +370,7 @@ List<String> buildMassMigrationQueries(Manga manga) {
 
   addQuery(manga.name);
   for (final track
-      in isar.tracks.filter().mangaIdEqualTo(manga.id).findAllSync()) {
+      in isar.tracks.where().mangaIdEqualTo(manga.id).findAllSync()) {
     addQuery(track.title);
   }
 

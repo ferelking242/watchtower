@@ -4,7 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/lyrics/zoom_controls.dart';
 import 'package:watchtower/modules/music/components/shimmers/shimmer_lyrics.dart';
@@ -208,7 +208,7 @@ class SyncedLyrics extends HookConsumerWidget {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 26)),
               const SliverToBoxAdapter(
-                child: Icon(SpotubeIcons.noLyrics),
+                child: Icon(MusicIcons.noLyrics),
               ),
             ] else if (lyricsState.asData?.value.static == true)
               SliverFillRemaining(
@@ -246,8 +246,8 @@ class SyncedLyrics extends HookConsumerWidget {
                     ref.read(syncedLyricsDelayProvider.notifier).state = value,
                 interval: 1,
                 unit: "s",
-                increaseIcon: const Icon(SpotubeIcons.add),
-                decreaseIcon: const Icon(SpotubeIcons.remove),
+                increaseIcon: const Icon(MusicIcons.add),
+                decreaseIcon: const Icon(MusicIcons.remove),
                 direction: isModal == true ? Axis.horizontal : Axis.vertical,
               ),
               ZoomControls(

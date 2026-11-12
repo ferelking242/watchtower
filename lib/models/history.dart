@@ -8,6 +8,7 @@ part 'history.g.dart';
 class History {
   Id? id;
 
+  @Index()
   int? mangaId;
 
   int? chapterId;

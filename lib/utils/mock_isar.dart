@@ -259,11 +259,65 @@ class MockIsarCollection<OBJ> extends IsarCollection<OBJ> {
       String? property,
     }) {
       final _f = filter;
+      final _w = whereClauses;
+      // Real Isar unions multiple where clauses (`.or()`); an empty list means
+      // "no restriction".
       List<R> applyFilter() => _store.values
           .whereType<R>()
+          .where((item) =>
+              _w.isEmpty || _w.any((c) => _matchesWhere(item, c)))
           .where((item) => _f == null || _matchesFilter(item, _f))
           .toList();
       return MockQuery<R>(_mockIsar, applyFilter(), _changes.stream, applyFilter);
+    }
+
+    /// Evaluates an Isar [WhereClause] against [obj]. The real Isar traverses an
+    /// index; the mock keeps objects in a map and evaluates the same bounds, so
+    /// `.where()` and `.filter()` agree here as they do on device.
+    static bool _matchesWhere(dynamic obj, WhereClause clause) {
+      Object? fieldValue;
+      try {
+        final Map<String, dynamic>? json =
+            (obj as dynamic).toJson() as Map<String, dynamic>?;
+        if (json == null) return true;
+        if (clause is IdWhereClause) {
+          fieldValue = json['id'];
+        } else if (clause is IndexWhereClause) {
+          fieldValue = json[clause.indexName];
+        } else {
+          return true;
+        }
+      } catch (_) {
+        return true;
+      }
+
+      final lower = (clause as dynamic).lower;
+      final upper = (clause as dynamic).upper;
+      final includeLower = (clause as dynamic).includeLower as bool;
+      final includeUpper = (clause as dynamic).includeUpper as bool;
+
+      // Composite index keys arrive as List; these collections only use single
+      // property indexes, so unwrap the first element when present.
+      final l = (lower is List) ? lower.firstOrNull : lower;
+      final u = (upper is List) ? upper.firstOrNull : upper;
+
+      if (l != null) {
+        final cmp = _compare(fieldValue, l);
+        if (cmp == null || cmp < 0 || (cmp == 0 && !includeLower)) return false;
+      }
+      if (u != null) {
+        final cmp = _compare(fieldValue, u);
+        if (cmp == null || cmp > 0 || (cmp == 0 && !includeUpper)) return false;
+      }
+      return true;
+    }
+
+    static int? _compare(Object? a, Object? b) {
+      if (a == null || b == null) return null;
+      if (a is num && b is num) return a.compareTo(b);
+      if (a is String && b is String) return a.compareTo(b);
+      if (a is bool && b is bool) return (a ? 1 : 0).compareTo(b ? 1 : 0);
+      return null;
     }
 
     /// Evaluates an Isar [FilterOperation] against [obj] via its [toJson] map.

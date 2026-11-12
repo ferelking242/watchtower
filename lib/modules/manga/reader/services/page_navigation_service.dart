@@ -38,26 +38,6 @@ class PageNavigationService {
     this.scrollAxis,
   });
 
-  /// Navigates to a specific page index.
-  ///
-  /// Parameters:
-  /// - [index]: The target page index
-  /// - [readerMode]: Current reader mode
-  /// - [animate]: Whether to animate the transition
-  void navigateToPage({
-    required int index,
-    required ReaderMode readerMode,
-    required bool animate,
-  }) {
-    if (index < 0) return;
-
-    if (_isContinuousMode(readerMode)) {
-      _scrollByPages(1, animate);
-    } else {
-      _navigatePaged(index, animate);
-    }
-  }
-
   /// Navigates to next page.
   void nextPage({
     required ReaderMode readerMode,
@@ -65,12 +45,12 @@ class PageNavigationService {
     required int maxPages,
     required bool animate,
   }) {
+    if (PageNavigationService.isContinuousMode(readerMode)) {
+      scrollForward(animated: animate);
+      return;
+    }
     if (currentIndex >= maxPages - 1) return;
-    navigateToPage(
-      index: currentIndex + 1,
-      readerMode: readerMode,
-      animate: animate,
-    );
+    _navigatePaged(currentIndex + 1, animate);
   }
 
   /// Navigates to previous page.
@@ -79,12 +59,12 @@ class PageNavigationService {
     required int currentIndex,
     required bool animate,
   }) {
+    if (PageNavigationService.isContinuousMode(readerMode)) {
+      scrollBackward(animated: animate);
+      return;
+    }
     if (currentIndex <= 0) return;
-    navigateToPage(
-      index: currentIndex - 1,
-      readerMode: readerMode,
-      animate: animate,
-    );
+    _navigatePaged(currentIndex - 1, animate);
   }
 
   /// Scrolls one page forward in a continuous reader (volume keys, tap zones,
@@ -108,9 +88,17 @@ class PageNavigationService {
     // indices, whatever the axis direction (a reversed list just starts at the
     // far end), so "forward" is always a positive delta.
     final delta = pages * extent * _scrollFraction;
+    // `ScrollOffsetController.animateScroll` forwards to `ScrollController
+    // .animateTo`, which asserts `duration > Duration.zero`. Passing a zero
+    // duration for the "Animer les transitions de page" off case therefore
+    // threw and left the list exactly where it was — the volume key looked
+    // dead. A single frame (1 ms) is indistinguishable from an instant jump
+    // but keeps the assertion happy.
     scrollOffsetController.animateScroll(
       offset: delta,
-      duration: animated ? const Duration(milliseconds: 250) : Duration.zero,
+      duration: animated
+          ? const Duration(milliseconds: 250)
+          : const Duration(milliseconds: 1),
       curve: Curves.ease,
     );
   }
@@ -142,7 +130,10 @@ class PageNavigationService {
     }
   }
 
-  bool _isContinuousMode(ReaderMode mode) {
+  bool _isContinuousMode(ReaderMode mode) => isContinuousMode(mode);
+
+  /// Whether [mode] scrolls continuously (as opposed to paged).
+  static bool isContinuousMode(ReaderMode mode) {
     return mode == ReaderMode.verticalContinuous ||
         mode == ReaderMode.webtoon ||
         mode == ReaderMode.horizontalContinuous ||

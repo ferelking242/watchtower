@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -16,7 +16,7 @@ class LinkOpenPermissionDialog extends StatelessWidget {
         title: Row(
           spacing: 8,
           children: [
-            const Icon(SpotubeIcons.warning),
+            const Icon(MusicIcons.warning),
             Text(context.l10n.open_link_in_browser),
           ],
         ),
@@ -30,7 +30,9 @@ class LinkOpenPermissionDialog extends StatelessWidget {
               if (href != null)
                 TextSpan(
                   text: "$href\n\n",
-                  style: const TextStyle(color: Colors.blue),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               TextSpan(text: context.l10n.unsafe_url_warning),
             ],

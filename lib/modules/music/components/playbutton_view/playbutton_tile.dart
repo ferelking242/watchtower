@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/string.dart';
 
@@ -61,7 +61,7 @@ class PlaybuttonTile extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(SpotubeIcons.queueAdd),
+          icon: const Icon(MusicIcons.queueAdd),
           onPressed: isLoading ? null : onAddToQueuePressed,
         ),
         const SizedBox(width: 8),
@@ -72,8 +72,8 @@ class PlaybuttonTile extends StatelessWidget {
                 height: 22,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            (false, false) => const Icon(SpotubeIcons.play),
-            (false, true) => const Icon(SpotubeIcons.pause)
+            (false, false) => const Icon(MusicIcons.play),
+            (false, true) => const Icon(MusicIcons.pause)
           },
           onPressed: isLoading ? null : onPlaybuttonPressed,
         ),

@@ -3,15 +3,16 @@ import 'package:auto_route/auto_route.dart';
     import 'package:flutter_hooks/flutter_hooks.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
     import 'package:watchtower/modules/music/collections/routes.gr.dart';
-    import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+    import 'package:watchtower/modules/music/collections/music_icons.dart';
     import 'package:watchtower/modules/music/models/database/database.dart';
     import 'package:watchtower/modules/music/modules/connect/connect_device.dart';
-    import 'package:watchtower/modules/music/modules/home/sections/featured.dart';
     import 'package:watchtower/modules/music/modules/home/sections/sections.dart';
     import 'package:watchtower/modules/music/modules/home/sections/new_releases.dart';
     import 'package:watchtower/modules/music/modules/home/sections/recent.dart';
     import 'package:watchtower/modules/music/extensions/constrains.dart';
     import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
+    import 'package:watchtower/ui/widgets/namida_app_bar.dart';
+
 
     class HomePage extends HookConsumerWidget {
     static const name = "home";
@@ -38,13 +39,12 @@ import 'package:auto_route/auto_route.dart';
                   snap: true,
                   backgroundColor: theme.scaffoldBackgroundColor,
                   foregroundColor: theme.colorScheme.onSurface,
-                  title: Text(
-                    "Music Hub",
+                  title: const Text(
+                    'Musique',
                     style: TextStyle(
-                      fontFamily: "Cookie",
-                      fontSize: 30,
-                      letterSpacing: 1.8,
-                      color: theme.colorScheme.primary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   actions: [
@@ -54,8 +54,8 @@ import 'package:auto_route/auto_route.dart';
                     // (must stay inside the music module's own router,
                     // otherwise popping it bubbles up to the outer app
                     // and lands back on the discovery screen).
-                    IconButton(
-                      icon: const Icon(SpotubeIcons.settings, size: 20),
+                    NamidaAppBarIcon(
+                      icon: MusicIcons.settings,
                       onPressed: () =>
                           context.navigateTo(const SettingsRoute()),
                     ),
@@ -66,11 +66,10 @@ import 'package:auto_route/auto_route.dart';
                 const SliverToBoxAdapter(child: SizedBox(height: 10)),
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverList.builder(
-                itemCount: 3,
+                itemCount: 2,
                 itemBuilder: (context, index) {
                   return switch (index) {
                     0 => const HomeRecentlyPlayedSection(),
-                    1 => const HomeFeaturedSection(),
                     _ => const HomeNewReleasesSection(),
                   };
                 },

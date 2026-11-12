@@ -157,6 +157,9 @@ jobs:
             test/onboarding_screen_layout_test.dart \
             test/onboarding_migration_test.dart
 
+      - name: Run library batch query tests
+        run: flutter test test/library_batch_query_test.dart
+
       - name: Run settings navigation tests
         run: |
           flutter test \

@@ -3,7 +3,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
@@ -43,7 +43,7 @@ class SettingsDownloadsSection extends HookConsumerWidget {
               side: const BorderSide(),
             ),
             onPressed: pickDownloadLocation,
-            icon: const Icon(SpotubeIcons.folder),
+            icon: const Icon(MusicIcons.folder),
           ),
           onTap: pickDownloadLocation,
         ),

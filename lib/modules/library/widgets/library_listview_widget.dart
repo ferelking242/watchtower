@@ -1,10 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar_community/isar.dart';
-import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/models/history.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
@@ -14,14 +11,14 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
-import 'package:watchtower/utils/extensions/chapter.dart';
+import 'package:watchtower/utils/isar_batch.dart';
 import 'package:watchtower/utils/headers.dart';
-import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/modules/library/widgets/library_swipe_wrapper.dart';
+import 'package:watchtower/modules/library/widgets/continue_reading_button.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 
-class LibraryListViewWidget extends StatelessWidget {
+class LibraryListViewWidget extends ConsumerWidget {
   final List<Manga> entriesManga;
   final bool language;
   final bool downloadedChapter;
@@ -39,16 +36,26 @@ class LibraryListViewWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // One batched query for the whole list instead of a synchronous Isar load
+    // per visible row (the badge counters used to touch `entry.chapters`, a
+    // lazy backlink that runs its own query on the UI thread). The row always
+    // shows a chapter count (total, or unread when the setting is on), so the
+    // chapters are always needed here.
+    final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
+    final chaptersByManga = loadChaptersByMangaIds(
+      entriesManga.map((e) => e.id).whereType<int>(),
+    );
+
     return SuperListViewWidget(
       itemCount: entriesManga.length,
       itemBuilder: (context, index) {
         final entry = entriesManga[index];
+        final entryChapters = chaptersByManga[entry.id] ?? const <Chapter>[];
         bool isLocalArchive = entry.isLocalArchive ?? false;
         return Consumer(
           builder: (context, ref, child) {
             final isLongPressed = ref.watch(isLongPressedStateProvider);
-            final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
             final overlay = ref.watch(libraryOverlayProvider);
             return LibrarySwipeWrapper(
               manga: entry,
@@ -64,6 +71,7 @@ class LibraryListViewWidget extends StatelessWidget {
                       await pushToMangaReaderDetail(
                         ref: ref,
                         archiveId: isLocalArchive ? entry.id : null,
+                        knownMangaId: entry.id,
                         context: context,
                         lang: entry.lang!,
                         mangaM: entry,
@@ -221,59 +229,50 @@ class LibraryListViewWidget extends StatelessWidget {
                                           ),
                                           child: Consumer(
                                             builder: (context, ref, child) {
-                                              // O(chapters) set lookups instead of
-                                              // one Isar query per chapter, run
-                                              // synchronously on the UI thread
-                                              // for every visible row.
                                               final downloadedIds = ref.watch(
                                                 downloadedChapterIdsProvider,
                                               );
-                                              final downloadedCount = entry
-                                                  .chapters
-                                                  .where(
-                                                    (chap) =>
-                                                        chap.id != null &&
-                                                        downloadedIds.contains(
-                                                          chap.id,
-                                                        ),
-                                                  )
-                                                  .length;
-                                              if (downloadedCount > 0) {
-                                                return Container(
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        const BorderRadius.only(
-                                                          topLeft:
-                                                              Radius.circular(
-                                                                3,
-                                                              ),
-                                                          bottomLeft:
-                                                              Radius.circular(
-                                                                3,
-                                                              ),
-                                                        ),
-                                                    color: Theme.of(
-                                                      context,
-                                                    ).hintColor,
-                                                  ),
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          left: 3,
-                                                          right: 3,
-                                                        ),
-                                                    child: Text(
-                                                      downloadedCount
-                                                          .toString(),
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
+                                              final downloadedCount =
+                                                  entryChapters
+                                                      .where(
+                                                        (chap) =>
+                                                            chap.id != null &&
+                                                            downloadedIds
+                                                                .contains(
+                                                                  chap.id,
+                                                                ),
+                                                      )
+                                                      .length;
+                                              if (downloadedCount == 0) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              return Container(
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      const BorderRadius.only(
+                                                        topLeft:
+                                                            Radius.circular(3),
+                                                        bottomLeft:
+                                                            Radius.circular(3),
                                                       ),
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).hintColor,
+                                                ),
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        left: 3,
+                                                        right: 3,
+                                                      ),
+                                                  child: Text(
+                                                    downloadedCount.toString(),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
                                                     ),
                                                   ),
-                                                );
-                                              } else {
-                                                return Container();
-                                              }
+                                                ),
+                                              );
                                             },
                                           ),
                                         ),
@@ -283,13 +282,13 @@ class LibraryListViewWidget extends StatelessWidget {
                                         ),
                                         child: Text(
                                           (showUnread
-                                                  ? entry.chapters
+                                                  ? entryChapters
                                                         .where(
                                                           (e) =>
                                                               e.isRead != true,
                                                         )
                                                         .length
-                                                  : entry.chapters.length)
+                                                  : entryChapters.length)
                                               .toString(),
                                           style: const TextStyle(
                                             color: Colors.white,
@@ -333,115 +332,7 @@ class LibraryListViewWidget extends StatelessWidget {
                               ),
                             ),
                             if (continueReaderBtn)
-                              Consumer(
-                                builder: (context, ref, child) {
-                                  return StreamBuilder(
-                                    stream: isar.historys
-                                        .filter()
-                                        .chapter(
-                                          (q) => q.manga(
-                                            (q) => q.itemTypeEqualTo(
-                                              entry.itemType,
-                                            ),
-                                          ),
-                                        )
-                                        .watch(fireImmediately: true),
-                                    builder: (context, snapshot) {
-                                      if (snapshot.hasData &&
-                                          snapshot.data!.isNotEmpty) {
-                                        final incognitoMode = ref.watch(
-                                          incognitoModeStateProvider,
-                                        );
-                                        final entries = snapshot.data!
-                                            .where(
-                                              (element) =>
-                                                  element.mangaId == entry.id,
-                                            )
-                                            .toList();
-                                        if (entries.isNotEmpty &&
-                                            !incognitoMode) {
-                                          final chap =
-                                              entries.first.chapter.value!;
-                                          return GestureDetector(
-                                            onTap: () {
-                                              chap.pushToReaderView(context);
-                                            },
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(5),
-                                                color: context.primaryColor
-                                                    .withValues(alpha: 0.9),
-                                              ),
-                                              child: const Padding(
-                                                padding: EdgeInsets.all(7),
-                                                child: Icon(
-                                                  Icons.play_arrow,
-                                                  size: 19,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                        return GestureDetector(
-                                          onTap: () {
-                                            entry.chapters
-                                                .toList()
-                                                .reversed
-                                                .toList()
-                                                .last
-                                                .pushToReaderView(context);
-                                          },
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  BorderRadius.circular(5),
-                                              color: context.primaryColor
-                                                  .withValues(alpha: 0.9),
-                                            ),
-                                            child: const Padding(
-                                              padding: EdgeInsets.all(7),
-                                              child: Icon(
-                                                Icons.play_arrow,
-                                                size: 19,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      return GestureDetector(
-                                        onTap: () {
-                                          entry.chapters
-                                              .toList()
-                                              .reversed
-                                              .toList()
-                                              .last
-                                              .pushToReaderView(context);
-                                        },
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(
-                                              5,
-                                            ),
-                                            color: context.primaryColor
-                                                .withValues(alpha: 0.9),
-                                          ),
-                                          child: const Padding(
-                                            padding: EdgeInsets.all(7),
-                                            child: Icon(
-                                              Icons.play_arrow,
-                                              size: 19,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
+                              ContinueReadingButton(entry: entry),
                           ],
                         ),
                       ),

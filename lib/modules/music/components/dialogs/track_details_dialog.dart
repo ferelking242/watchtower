@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/links/hyper_link.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
@@ -27,7 +27,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
       context.l10n.artist: ArtistLink(
         artists: track.artists,
         mainAxisAlignment: WrapAlignment.start,
-        textStyle: const TextStyle(color: Colors.blue),
+        textStyle: TextStyle(color: theme.colorScheme.primary),
         hideOverflowArtist: false,
       ),
       context.l10n.duration: sourcedTrack.asData != null
@@ -93,7 +93,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
     return AlertDialog(
       title: Row(
         children: [
-          const Icon(SpotubeIcons.info),
+          const Icon(MusicIcons.info),
           const SizedBox(width: 8),
           Text(
             context.l10n.details,

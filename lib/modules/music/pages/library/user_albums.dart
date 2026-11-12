@@ -4,7 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:collection/collection.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/fallbacks/no_default_metadata_plugin.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_view.dart';
@@ -88,7 +88,7 @@ class UserAlbumsPage extends HookConsumerWidget {
                       onChanged: (value) => searchText.value = value,
                       decoration: InputDecoration(
                         hintText: context.l10n.filter_albums,
-                        prefixIcon: const Icon(SpotubeIcons.filter),
+                        prefixIcon: const Icon(MusicIcons.filter),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(28),
                           borderSide: BorderSide.none,

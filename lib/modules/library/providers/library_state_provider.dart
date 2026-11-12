@@ -8,6 +8,7 @@ import 'package:watchtower/modules/manga/reader/providers/reader_controller_prov
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/utils/isar_batch.dart';
 part 'library_state_provider.g.dart';
 
 @riverpod
@@ -201,63 +202,35 @@ class MangaFilterUnreadState extends _$MangaFilterUnreadState {
     state = type;
   }
 
-  List<Manga> getData() {
-    if (getType() == 1) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (!chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.isNotEmpty;
-      }).toList();
-      return data;
-    } else if (getType() == 2) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.length == element.chapters.length;
-      }).toList();
-      return data;
-    } else {
-      return mangaList;
-    }
+  List<Manga> getData() => _filterByRead(getType());
+
+  /// Applies the tri-state isRead filter to the whole library.
+  ///
+  /// Chapters come from one batched query instead of `element.chapters`: that
+  /// backlink is lazy, so reading it per entry ran one synchronous Isar query
+  /// per library item on the UI isolate — the multi-second freeze felt after
+  /// tapping a filter button.
+  List<Manga> _filterByRead(int type) {
+    if (type == 0) return mangaList;
+    final chaptersByManga = loadChaptersByMangaIds(mangaList.map((e) => e.id));
+    return mangaList.where((element) {
+      final chapters = element.id == null
+          ? const <Chapter>[]
+          : (chaptersByManga[element.id] ?? const <Chapter>[]);
+      if (type == 1) return chapters.any((chap) => !(chap.isRead ?? false));
+      return chapters.every((chap) => chap.isRead ?? false);
+    }).toList();
   }
 
   List<Manga> update() {
-    if (state == 0) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (!chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.isNotEmpty;
-      }).toList();
-      setType(1);
-      return data;
-    } else if (state == 1) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.length == element.chapters.length;
-      }).toList();
-      setType(2);
-      return data;
-    } else {
-      setType(0);
-      return mangaList;
-    }
+    final next = state == 0
+        ? 1
+        : state == 1
+        ? 2
+        : 0;
+    final data = _filterByRead(next);
+    setType(next);
+    return data;
   }
 }
 
@@ -304,63 +277,35 @@ class MangaFilterStartedState extends _$MangaFilterStartedState {
     state = type;
   }
 
-  List<Manga> getData() {
-    if (getType() == 1) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (!chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.isNotEmpty;
-      }).toList();
-      return data;
-    } else if (getType() == 2) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.length == element.chapters.length;
-      }).toList();
-      return data;
-    } else {
-      return mangaList;
-    }
+  List<Manga> getData() => _filterByRead(getType());
+
+  /// Applies the tri-state isRead filter to the whole library.
+  ///
+  /// Chapters come from one batched query instead of `element.chapters`: that
+  /// backlink is lazy, so reading it per entry ran one synchronous Isar query
+  /// per library item on the UI isolate — the multi-second freeze felt after
+  /// tapping a filter button.
+  List<Manga> _filterByRead(int type) {
+    if (type == 0) return mangaList;
+    final chaptersByManga = loadChaptersByMangaIds(mangaList.map((e) => e.id));
+    return mangaList.where((element) {
+      final chapters = element.id == null
+          ? const <Chapter>[]
+          : (chaptersByManga[element.id] ?? const <Chapter>[]);
+      if (type == 1) return chapters.any((chap) => !(chap.isRead ?? false));
+      return chapters.every((chap) => chap.isRead ?? false);
+    }).toList();
   }
 
   List<Manga> update() {
-    if (state == 0) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (!chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.isNotEmpty;
-      }).toList();
-      setType(1);
-      return data;
-    } else if (state == 1) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (chap.isRead!) {
-            list.add(true);
-          }
-        }
-        return list.length == element.chapters.length;
-      }).toList();
-      setType(2);
-      return data;
-    } else {
-      setType(0);
-      return mangaList;
-    }
+    final next = state == 0
+        ? 1
+        : state == 1
+        ? 2
+        : 0;
+    final data = _filterByRead(next);
+    setType(next);
+    return data;
   }
 }
 
@@ -407,63 +352,35 @@ class MangaFilterBookmarkedState extends _$MangaFilterBookmarkedState {
     state = type;
   }
 
-  List<Manga> getData() {
-    if (getType() == 1) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (chap.isBookmarked!) {
-            list.add(true);
-          }
-        }
-        return list.isNotEmpty;
-      }).toList();
-      return data;
-    } else if (getType() == 2) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (!chap.isBookmarked!) {
-            list.add(true);
-          }
-        }
-        return list.length == element.chapters.length;
-      }).toList();
-      return data;
-    } else {
-      return mangaList;
-    }
+  List<Manga> getData() => _filterByBookmarked(getType());
+
+  /// Applies the tri-state isBookmarked filter to the whole library.
+  ///
+  /// Chapters come from one batched query instead of `element.chapters`: that
+  /// backlink is lazy, so reading it per entry ran one synchronous Isar query
+  /// per library item on the UI isolate — the multi-second freeze felt after
+  /// tapping a filter button.
+  List<Manga> _filterByBookmarked(int type) {
+    if (type == 0) return mangaList;
+    final chaptersByManga = loadChaptersByMangaIds(mangaList.map((e) => e.id));
+    return mangaList.where((element) {
+      final chapters = element.id == null
+          ? const <Chapter>[]
+          : (chaptersByManga[element.id] ?? const <Chapter>[]);
+      if (type == 1) return chapters.any((chap) => chap.isBookmarked ?? false);
+      return chapters.every((chap) => !(chap.isBookmarked ?? false));
+    }).toList();
   }
 
   List<Manga> update() {
-    if (state == 0) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (chap.isBookmarked!) {
-            list.add(true);
-          }
-        }
-        return list.isNotEmpty;
-      }).toList();
-      setType(1);
-      return data;
-    } else if (state == 1) {
-      final data = mangaList.where((element) {
-        List list = [];
-        for (var chap in element.chapters) {
-          if (!chap.isBookmarked!) {
-            list.add(true);
-          }
-        }
-        return list.length == element.chapters.length;
-      }).toList();
-      setType(2);
-      return data;
-    } else {
-      setType(0);
-      return mangaList;
-    }
+    final next = state == 0
+        ? 1
+        : state == 1
+        ? 2
+        : 0;
+    final data = _filterByBookmarked(next);
+    setType(next);
+    return data;
   }
 }
 
@@ -984,9 +901,15 @@ class MangasSetIsReadState extends _$MangasSetIsReadState {
     final allChapters = <Chapter>[];
     final allMangas = <Manga>[];
     final now = DateTime.now().millisecondsSinceEpoch;
+    // Resolve every manga and its chapters in one query each: `manga.chapters`
+    // is a lazy backlink, so reading it inside the loop used to run a
+    // synchronous Isar query per selected title on the UI isolate.
+    final mangasById = loadMangasByIds(mangaIds);
+    final chaptersByManga = loadChaptersByMangaIds(mangaIds);
     for (var mangaid in mangaIds) {
-      final manga = isar.mangas.getSync(mangaid)!;
-      final chapters = manga.chapters;
+      final manga = mangasById[mangaid];
+      if (manga == null) continue;
+      final chapters = chaptersByManga[mangaid] ?? const <Chapter>[];
       if (chapters.isEmpty) continue;
       if (markAsRead) chapters.last.updateTrackChapterRead(ref);
       for (var chapter in chapters) {

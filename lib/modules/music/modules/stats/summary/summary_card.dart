@@ -31,10 +31,22 @@ class SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final brightness = theme.brightness;
-    final cardColor = brightness == Brightness.dark
-        ? color.withValues(alpha: 0.15)
-        : color.withValues(alpha: 0.08);
-    final textColor = brightness == Brightness.dark ? color.withValues(alpha: 0.9) : color;
+    final hsl = HSLColor.fromColor(color);
+    // Keep the accent hue but clamp lightness so the label stays readable on
+    // both the tinted card and the theme surface (a raw container colour is
+    // near-white in the light theme and would vanish).
+    final readable = hsl
+        .withLightness(
+          brightness == Brightness.dark
+              ? hsl.lightness.clamp(0.72, 0.86)
+              : hsl.lightness.clamp(0.24, 0.42),
+        )
+        .withSaturation(hsl.saturation.clamp(0.35, 0.85))
+        .toColor();
+    final cardColor = Color.alphaBlend(
+      color.withValues(alpha: brightness == Brightness.dark ? 0.15 : 0.08),
+      theme.colorScheme.surface,
+    );
 
     final descriptionNewLines = description.split("").where((s) => s == "\n");
 
@@ -55,12 +67,13 @@ class SummaryCard extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: title,
-                      style: theme.textTheme.headlineMedium?.copyWith(color: textColor),
+                      style: theme.textTheme.headlineMedium
+                          ?.copyWith(color: readable),
                     ),
                     TextSpan(
                       text: " $unit",
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: textColor,
+                        color: readable,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -75,7 +88,7 @@ class SummaryCard extends StatelessWidget {
                     ? descriptionNewLines.length + 1
                     : 1,
                 minFontSize: 9,
-                style: theme.textTheme.bodySmall?.copyWith(color: textColor),
+                style: theme.textTheme.bodySmall?.copyWith(color: readable),
               ),
             ],
           ),

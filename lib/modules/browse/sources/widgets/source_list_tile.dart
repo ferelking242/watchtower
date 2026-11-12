@@ -125,6 +125,7 @@ class SourceListTile extends StatelessWidget {
                     : ExtensionIconWidget(
                         sourceId: source.id,
                         iconUrl: source.iconUrl,
+                        version: source.version,
                         size: 37,
                       ),
               ),

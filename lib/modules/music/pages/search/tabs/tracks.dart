@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/dialogs/prompt_dialog.dart';
 import 'package:watchtower/modules/music/components/dialogs/select_device_dialog.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_tile.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
@@ -47,11 +46,7 @@ class SearchPageTracksTab extends HookConsumerWidget {
         hasReachedMax: searchTracksSnapshot.asData?.value.hasMore != true,
         isLoading: searchTracksSnapshot.isLoading &&
             !searchTracksSnapshot.isLoadingNextPage,
-        loadingBuilder: (context) {
-          return ShimmerSkeleton(enabled: true,
-            child: TrackTile(track: FakeData.track, playlist: playlist),
-          );
-        },
+        loadingBuilder: (context) => const MusicTrackTileShimmer(),
         onFetchData: () {
           searchTracksNotifier.fetchMore();
         },

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/modules/player/player_track_details.dart';
-import 'package:watchtower/modules/music/modules/root/spotube_navigation_bar.dart';
+import 'package:watchtower/modules/music/modules/root/music_navigation_bar.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/audio_player/querying_track_info.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
@@ -97,7 +97,7 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Icon(
-                              playing ? SpotubeIcons.pause : SpotubeIcons.play,
+                              playing ? MusicIcons.pause : MusicIcons.play,
                               size: 24,
                               color: cs.onSurface,
                             ),
@@ -169,7 +169,7 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
                       ),
                       // Prev
                       IconButton(
-                        icon: const Icon(SpotubeIcons.skipBack),
+                        icon: const Icon(MusicIcons.skipBack),
                         iconSize: 20,
                         visualDensity: VisualDensity.compact,
                         onPressed: isFetchingActiveTrack
@@ -207,15 +207,15 @@ class PlayerOverlayCollapsedSection extends HookConsumerWidget {
                                 )
                               : Icon(
                                   playing
-                                      ? SpotubeIcons.pause
-                                      : SpotubeIcons.play,
+                                      ? MusicIcons.pause
+                                      : MusicIcons.play,
                                   size: 20,
                                 ),
                         ),
                       ),
                       // Next
                       IconButton(
-                        icon: const Icon(SpotubeIcons.skipForward),
+                        icon: const Icon(MusicIcons.skipForward),
                         iconSize: 20,
                         visualDensity: VisualDensity.compact,
                         onPressed: isFetchingActiveTrack

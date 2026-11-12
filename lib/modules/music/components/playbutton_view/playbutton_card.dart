@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-  import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+  import 'package:watchtower/modules/music/collections/music_icons.dart';
   import 'package:watchtower/modules/music/components/image/universal_image.dart';
   import 'package:watchtower/modules/music/extensions/string.dart';
   import 'package:watchtower/modules/music/utils/platform.dart';
@@ -81,7 +81,7 @@ import 'package:flutter/material.dart';
                         ),
                         padding: const EdgeInsets.all(4),
                         child: Icon(
-                          SpotubeIcons.user,
+                          MusicIcons.user,
                           size: 12,
                           color: Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
@@ -94,7 +94,7 @@ import 'package:flutter/material.dart';
                       children: [
                         if (kIsMobile || onAddToQueuePressed != null)
                           IconButton(
-                            icon: const Icon(SpotubeIcons.queueAdd, size: 16),
+                            icon: const Icon(MusicIcons.queueAdd, size: 16),
                             onPressed: onAddToQueuePressed,
                             style: IconButton.styleFrom(
                               backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
@@ -111,7 +111,7 @@ import 'package:flutter/material.dart';
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : Icon(
-                                  isPlaying ? SpotubeIcons.pause : SpotubeIcons.play,
+                                  isPlaying ? MusicIcons.pause : MusicIcons.play,
                                   size: 16,
                                 ),
                           onPressed: isLoading ? null : onPlaybuttonPressed,

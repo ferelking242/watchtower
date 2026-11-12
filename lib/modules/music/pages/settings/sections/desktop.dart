@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_select_tile.dart';
@@ -19,7 +19,7 @@ class SettingsDesktopSection extends HookConsumerWidget {
       heading: context.l10n.desktop,
       children: [
         AdaptiveSelectTile<CloseBehavior>(
-          secondary: const Icon(SpotubeIcons.close),
+          secondary: const Icon(MusicIcons.close),
           title: Text(context.l10n.close_behavior),
           value: preferences.closeBehavior,
           options: [

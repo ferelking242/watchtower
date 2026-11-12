@@ -65,7 +65,8 @@ class NoDefaultMetadataPlugin extends ConsumerWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Set default: ${first.name}'),
-                                  backgroundColor: Colors.green,
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
                                 ),
                               );
                             }
@@ -85,7 +86,8 @@ class NoDefaultMetadataPlugin extends ConsumerWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('Error: $e'),
-                                  backgroundColor: Colors.red,
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.error,
                                 ),
                               );
                             }

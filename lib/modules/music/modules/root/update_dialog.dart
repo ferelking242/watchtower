@@ -42,7 +42,9 @@ class RootAppUpdateDialog extends StatelessWidget {
                 Text(context.l10n.read_the_latest),
                 AnchorButton(
                   context.l10n.release_notes,
-                  style: const TextStyle(color: Colors.blue),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   onTap: () => launchUrlString(
                     url,
                     mode: LaunchMode.externalApplication,

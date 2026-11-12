@@ -12,6 +12,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/update.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/more/providers/downloaded_only_state_provider.dart';
@@ -33,10 +34,10 @@ import 'package:watchtower/modules/home/widgets/home_header.dart'
     show showAccountSheet;
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/isar_batch.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
-import 'package:watchtower/modules/music/providers/music_player_provider.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
 final libLocationRegex = RegExp(
@@ -567,18 +568,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   if (!isReadingScreen && location != '/MusicLibrary')
                     Consumer(
                       builder: (ctx, r, _) {
-                        // Check both the custom player and the music module player
-                        final hasCustomTrack = r.watch(
-                          musicPlayerProvider.select(
-                            (s) => s.activeTrack != null,
-                          ),
-                        );
                         final hasMusicTrack = r.watch(
                           audioPlayerProvider.select(
                             (s) => s.activeTrack != null,
                           ),
                         );
-                        if (!hasCustomTrack && !hasMusicTrack) {
+                        if (!hasMusicTrack) {
                           return const SizedBox.shrink();
                         }
                         final bottomInset = MediaQuery.of(ctx).padding.bottom;
@@ -3159,21 +3154,30 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
     if (!ref.watch(libraryUnreadBadgeProvider)) return icon;
 
     return StreamBuilder(
+      // Stream the collection unfiltered: a `chapter(...)` link filter on the
+      // nullable `Chapter.isRead` is rejected at runtime by isar_community
+      // (same reason `downloadedChapterIds` reads without a filter). The real
+      // cost was not the row count but the `chapter.loadSync()` +
+      // `manga.loadSync()` pair the old builder ran per row, on the UI thread,
+      // on every collection change — this badge sits on the always-visible
+      // dock, so that N+1 was felt on every tap.
       stream: isar.updates.where().watch(fireImmediately: true),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return icon;
         }
 
-        final entries = snapshot.data!.where((element) {
-          if (!element.chapter.isLoaded) {
-            element.chapter.loadSync();
-          }
-          final chapter = element.chapter.value;
-          if (chapter != null && !chapter.manga.isLoaded) {
-            chapter.manga.loadSync();
-          }
-          final itemType = chapter?.manga.value?.itemType;
+        // Resolve item types and read flags with two batched queries instead
+        // of walking the `Update.chapter` / `Chapter.manga` links per row
+        // (each is a synchronous Isar query on the UI thread).
+        final rows = snapshot.data!;
+        final mangasById = loadMangasByIds(rows.map((e) => e.mangaId));
+        final chaptersByManga = loadChaptersByMangaIds(
+          rows.map((e) => e.mangaId),
+        );
+        var count = 0;
+        for (final element in rows) {
+          final itemType = mangasById[element.mangaId]?.itemType;
           final hidden =
               (itemType == ItemType.manga &&
                   hideItems.contains("/MangaLibrary")) ||
@@ -3181,14 +3185,18 @@ class _UpdatesBadgeWidget extends ConsumerWidget {
                   hideItems.contains("/AnimeLibrary")) ||
               (itemType == ItemType.novel &&
                   hideItems.contains("/NovelLibrary"));
-          return !hidden && !(chapter?.isRead ?? false);
-        }).toList();
+          if (hidden) continue;
+          final chapter = (chaptersByManga[element.mangaId] ?? const <Chapter>[])
+              .where((c) => c.name == element.chapterName)
+              .firstOrNull;
+          if (!(chapter?.isRead ?? false)) count++;
+        }
 
-        if (entries.isEmpty) {
+        if (count == 0) {
           return icon;
         }
 
-        return Badge(label: Text("${entries.length}"), child: icon);
+        return Badge(label: Text("$count"), child: icon);
       },
     );
   }

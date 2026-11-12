@@ -3,7 +3,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -61,7 +61,7 @@ class DownloadItem extends HookConsumerWidget {
                       const SizedBox(width: 10),
                       const SizedBox(width: 10),
                       IconButton(
-                          icon: const Icon(SpotubeIcons.close),
+                          icon: const Icon(MusicIcons.close),
                           onPressed: () {
                             downloadManager.cancel(task.track);
                           }),
@@ -74,12 +74,12 @@ class DownloadItem extends HookConsumerWidget {
             child: Row(
               children: [
                 Icon(
-                  SpotubeIcons.error,
-                  color: Colors.red[400],
+                  MusicIcons.error,
+                  color: Theme.of(context).colorScheme.error,
                 ),
                 const SizedBox(width: 10),
                 IconButton(
-                  icon: const Icon(SpotubeIcons.refresh),
+                  icon: const Icon(MusicIcons.refresh),
                   onPressed: () {
                     downloadManager.retry(task.track);
                   },
@@ -88,9 +88,10 @@ class DownloadItem extends HookConsumerWidget {
             ),
           ),
         DownloadStatus.completed =>
-          Icon(SpotubeIcons.done, color: Colors.green[400]),
+          Icon(MusicIcons.done,
+              color: Theme.of(context).colorScheme.primary),
         DownloadStatus.queued => IconButton(
-            icon: const Icon(SpotubeIcons.close),
+            icon: const Icon(MusicIcons.close),
             onPressed: () {
               downloadManager.cancel(task.track);
             }),

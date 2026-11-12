@@ -1,6 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/adaptive/adaptive_pop_sheet_list.dart';
 import 'package:watchtower/modules/music/components/dialogs/confirm_download_dialog.dart';
 import 'package:watchtower/modules/music/components/dialogs/playlist_add_track_dialog.dart';
@@ -35,7 +35,7 @@ void showToastForAction(
           Expanded(child: Text(message)),
           IconButton(
             iconSize: 20.0,
-            icon: const Icon(SpotubeIcons.close),
+            icon: const Icon(MusicIcons.close),
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
             },
@@ -164,7 +164,7 @@ class TrackPresentationActionsSection extends HookConsumerWidget {
           default:
         }
       },
-      icon: const Icon(SpotubeIcons.moreVertical),
+      icon: const Icon(MusicIcons.moreVertical),
       items: (context) => [
         AdaptiveMenuButton(
           value: "download",

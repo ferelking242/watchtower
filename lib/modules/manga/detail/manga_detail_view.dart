@@ -208,8 +208,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     final sortChapter =
         ref.read(sortChapterStateProvider(mangaId: widget.manga!.id!)).index
             as int;
+    // `where()` so the `mangaId` index is used; `filter()` would deserialize
+    // every chapter on each call (this runs on every filter/sort rebuild).
     final chapters = isar.chapters
-        .filter()
+        .where()
         .mangaIdEqualTo(widget.manga!.id!)
         .findAllSync();
     return _filterAndSortChapter(
@@ -365,6 +367,21 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     required int sortChapter,
     required List<String> filterScanlator,
   }) {
+    // One Isar query for the whole chapter list instead of one per chapter.
+    // The download filter used to run `isar.downloads...findAllSync()` inside
+    // the `where` predicate, i.e. a synchronous Isar read per chapter, on the
+    // UI isolate, on every rebuild of the detail screen — the freeze reported
+    // when opening a title with hundreds of chapters.
+    final Set<int>? downloadedIds = filterDownloaded == 0
+        ? null
+        : isar.downloads
+              .where()
+              .findAllSync()
+              .where((download) => download.isDownload == true)
+              .map((download) => download.id)
+              .whereType<int>()
+              .toSet();
+
     List<Chapter>? chapterList;
     chapterList = data
         .where(
@@ -382,17 +399,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
               : true,
         )
         .where((element) {
-          final modelChapDownload = isar.downloads
-              .filter()
-              .idEqualTo(element.id)
-              .findAllSync();
-          return filterDownloaded == 1
-              ? modelChapDownload.isNotEmpty &&
-                    modelChapDownload.first.isDownload == true
-              : filterDownloaded == 2
-              ? !(modelChapDownload.isNotEmpty &&
-                    modelChapDownload.first.isDownload == true)
-              : true;
+          if (downloadedIds == null) return true;
+          final isDownloaded =
+              element.id != null && downloadedIds.contains(element.id);
+          return filterDownloaded == 1 ? isDownloaded : !isDownloaded;
         })
         .where((element) => !filterScanlator.contains(element.scanlator))
         .toList();
@@ -1710,7 +1720,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   if (widget.manga!.itemType == ItemType.anime)
                     StreamBuilder(
                       stream: isar.tracks
-                          .filter()
+                          .where()
                           .mangaIdEqualTo(widget.manga!.id!)
                           .watch(fireImmediately: true),
                       builder: (context, snapshot) {
@@ -2046,7 +2056,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
             },
             child: StreamBuilder(
               stream: isar.tracks
-                  .filter()
+                  .where()
                   .mangaIdEqualTo(widget.manga!.id!)
                   .watch(fireImmediately: true),
               builder: (context, snapshot) {
@@ -2494,9 +2504,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   itemBuilder: (context, index) {
                     return StreamBuilder(
                       stream: isar.tracks
+                          .where()
+                          .mangaIdEqualTo(widget.manga!.id!)
                           .filter()
                           .syncIdEqualTo(entries[index].syncId)
-                          .mangaIdEqualTo(widget.manga!.id!)
                           .watch(fireImmediately: true),
                       builder: (context, snapshot) {
                         List<Track>? trackRes = snapshot.hasData

@@ -2,7 +2,7 @@ import 'dart:io';
 
   import 'package:flutter/material.dart';
   import 'package:hooks_riverpod/hooks_riverpod.dart';
-  import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+  import 'package:watchtower/modules/music/collections/music_icons.dart';
   import 'package:watchtower/modules/music/components/markdown/markdown.dart';
   import 'package:watchtower/modules/music/extensions/constrains.dart';
   import 'package:watchtower/modules/music/extensions/context.dart';
@@ -15,8 +15,8 @@ import 'dart:io';
   import 'package:url_launcher/url_launcher.dart';
 
   final validAbilities = {
-    PluginAbilities.metadata: ("Metadata", SpotubeIcons.album),
-    PluginAbilities.audioSource: ("Audio Source", SpotubeIcons.music),
+    PluginAbilities.metadata: ("Metadata", MusicIcons.album),
+    PluginAbilities.audioSource: ("Audio Source", MusicIcons.music),
   };
 
   Widget _withTheme(ThemeData data, Widget child) =>
@@ -212,7 +212,7 @@ import 'dart:io';
                             if (isOfficial)
                               _badgePrimary(
                                 context,
-                                leading: const Icon(SpotubeIcons.done),
+                                leading: const Icon(MusicIcons.done),
                                 child: Text(context.l10n.official),
                               )
                             else ...[
@@ -223,21 +223,32 @@ import 'dart:io';
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .errorContainer,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   spacing: 4,
                                   children: [
-                                    const Icon(SpotubeIcons.warning,
-                                        size: 14, color: Colors.white),
+                                    Icon(
+                                      MusicIcons.warning,
+                                      size: 14,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                    ),
                                     Text(
                                       context.l10n.third_party,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall!
-                                          .copyWith(color: Colors.white),
+                                          .copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onErrorContainer,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -245,7 +256,7 @@ import 'dart:io';
                             ],
                             _badgeSecondary(
                               context,
-                              leading: const Icon(SpotubeIcons.connect),
+                              leading: const Icon(MusicIcons.connect),
                               child: Text(repoUrl.host),
                               onPressed: () {
                                 launchUrl(repoUrl);
@@ -268,9 +279,9 @@ import 'dart:io';
                     onPressed: () async {
                       await pluginsNotifier.removePlugin(plugin);
                     },
-                    icon: const Icon(
-                      SpotubeIcons.trash,
-                      color: Colors.red,
+                    icon: Icon(
+                      MusicIcons.trash,
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
                 );
@@ -292,7 +303,10 @@ import 'dart:io';
                       Row(
                         spacing: 8,
                         children: [
-                          const Icon(SpotubeIcons.warning, color: Colors.yellow),
+                          Icon(
+                            MusicIcons.warning,
+                            color: Theme.of(context).colorScheme.tertiary,
+                          ),
                           Text(context.l10n.plugin_requires_authentication),
                         ],
                       ),
@@ -300,7 +314,7 @@ import 'dart:io';
                       SizedBox(
                         width: double.infinity,
                         child: ListTile(
-                          leading: const Icon(SpotubeIcons.update),
+                          leading: const Icon(MusicIcons.update),
                           title: Text(context.l10n.update_available),
                           subtitle: Text(
                             updateAvailable!.asData!.value!.version,
@@ -326,7 +340,7 @@ import 'dart:io';
                       SizedBox(
                         width: double.infinity,
                         child: ListTile(
-                          leading: const Icon(SpotubeIcons.info),
+                          leading: const Icon(MusicIcons.info),
                           title: Text(context.l10n.supports_scrobbling),
                           subtitle: Text(context.l10n.plugin_scrobbling_info),
                         ),
@@ -421,7 +435,7 @@ import 'dart:io';
                               ),
                             );
                           },
-                          icon: const Icon(SpotubeIcons.info),
+                          icon: const Icon(MusicIcons.info),
                           label: Text(context.l10n.support),
                         );
                       }),
@@ -441,7 +455,7 @@ import 'dart:io';
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(SpotubeIcons.login),
+                            : const Icon(MusicIcons.login),
                         label: Text(context.l10n.login),
                       )
                     else if ((isDefaultMetadata || isDefaultAudioSource) &&
@@ -451,7 +465,7 @@ import 'dart:io';
                         onPressed: () async {
                           await pluginSnapshot?.asData?.value?.auth.logout();
                         },
-                        icon: const Icon(SpotubeIcons.logout),
+                        icon: const Icon(MusicIcons.logout),
                         label: Text(context.l10n.logout),
                       ),
                   ],
@@ -500,7 +514,7 @@ import 'dart:io';
             color: Theme.of(context).colorScheme.secondary,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(SpotubeIcons.plugin, size: 20),
+          child: const Icon(MusicIcons.plugin, size: 20),
         );
 
     @override

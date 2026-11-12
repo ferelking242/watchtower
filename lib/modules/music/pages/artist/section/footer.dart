@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -54,7 +54,7 @@ class ArtistPageFooter extends ConsumerWidget {
           children: [
             const WidgetSpan(
               child: Icon(
-                SpotubeIcons.wikipedia,
+                MusicIcons.wikipedia,
                 color: Colors.white,
                 size: 30,
               ),

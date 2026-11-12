@@ -10,6 +10,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
+import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -34,25 +35,21 @@ class MangaImageCardWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder(
-      stream: isar.mangas
-          .filter()
-          .langEqualTo(source.lang)
-          .nameEqualTo(getMangaDetail!.name)
-          .sourceEqualTo(source.name)
-          .watch(fireImmediately: true),
-      builder: (context, snapshot) {
-        bool hasData = snapshot.hasData;
-        final mangaList = hasData
-            ? snapshot.data!
-                  .where(
-                    (element) => element.sourceId == null
-                        ? true
-                        : element.sourceId == source.id,
-                  )
-                  .toList()
-            : [];
-        hasData = hasData && mangaList.isNotEmpty;
+    // One shared watch over the whole collection instead of a filtered
+    // `.watch()` per card (see [libraryMangaByNameProvider]).
+    final byName = ref
+        .watch(libraryMangaByNameProvider)
+        .maybeWhen(data: (map) => map, orElse: () => null);
+    return Builder(
+      builder: (context) {
+        final mangaList = libraryRowsFor(
+          byName,
+          name: getMangaDetail!.name,
+          source: source.name,
+          lang: source.lang,
+          sourceId: source.id,
+        );
+        bool hasData = mangaList.isNotEmpty;
         return CoverViewWidget(
           bottomTextWidget: BottomTextWidget(
             maxLines: 1,
@@ -195,25 +192,21 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder(
-      stream: isar.mangas
-          .filter()
-          .langEqualTo(source.lang)
-          .nameEqualTo(getMangaDetail!.name)
-          .sourceEqualTo(source.name)
-          .watch(fireImmediately: true),
-      builder: (context, snapshot) {
-        bool hasData = snapshot.hasData;
-        final mangaList = hasData
-            ? snapshot.data!
-                  .where(
-                    (element) => element.sourceId == null
-                        ? true
-                        : element.sourceId == source.id,
-                  )
-                  .toList()
-            : [];
-        hasData = hasData && mangaList.isNotEmpty;
+    // Same shared watch as the grid card — one collection scan for the whole
+    // list instead of one filtered watcher per tile.
+    final byName = ref
+        .watch(libraryMangaByNameProvider)
+        .maybeWhen(data: (map) => map, orElse: () => null);
+    return Builder(
+      builder: (context) {
+        final mangaList = libraryRowsFor(
+          byName,
+          name: getMangaDetail!.name,
+          source: source.name,
+          lang: source.lang,
+          sourceId: source.id,
+        );
+        bool hasData = mangaList.isNotEmpty;
         final _imgUrl = toImgUrl(
           hasData
               ? mangaList.first.customCoverFromTracker ??
@@ -438,13 +431,22 @@ Future<void> pushToMangaReaderDetail({
   required String source,
   required int? sourceId,
   int? archiveId,
+  int? knownMangaId,
   Manga? mangaM,
   ItemType? itemType,
   bool useMaterialRoute = false,
   bool addToFavourite = false,
 }) async {
-  int? mangaId;
-  mangaId = isar.mangas
+  // Fast path: callers that already hold the entry (library grid/list, browse)
+  // pass its primary key. Without it the lookups below fall back to
+  // `isar.mangas.filter()` scans, which deserialize *every* Manga row —
+  // `customCoverImage` blob included — on the UI isolate. That is the
+  // multi-second stall felt when opening a title.
+  int? resolvedId = knownMangaId;
+
+  // Resolve a local-archive entry by name only when the caller did not hand us
+  // an id; keep this off the fast path.
+  resolvedId ??= isar.mangas
       .filter()
       .isLocalArchiveEqualTo(true)
       .sourceEqualTo("local")
@@ -452,7 +454,7 @@ Future<void> pushToMangaReaderDetail({
       .findFirstSync()
       ?.id;
 
-  if (mangaId == null) {
+  if (resolvedId == null) {
     if (archiveId == null) {
       final manga =
           mangaM ??
@@ -471,42 +473,44 @@ Future<void> pushToMangaReaderDetail({
             artist: getManga.artist ?? '',
             sourceId: sourceId,
           );
-      final empty = isar.mangas
+
+      // One scan of `mangas` for the (lang, name, source) predicate. The
+      // previous code ran `isEmptySync()` and then `findAllSync()` for the very
+      // same predicate — two full scans per tap.
+      final existing = isar.mangas
           .filter()
           .langEqualTo(lang)
           .nameEqualTo(manga.name)
           .sourceEqualTo(manga.source)
-          .isEmptySync();
-      if (empty) {
+          .findAllSync();
+      final match = existing
+          .where(
+            (element) =>
+                element.sourceId == null || element.sourceId == sourceId,
+          )
+          .firstOrNull;
+      if (match == null) {
         isar.writeTxnSync(() {
           isar.mangas.putSync(
             manga..updatedAt = DateTime.now().millisecondsSinceEpoch,
           );
         });
+        resolvedId = manga.id;
       } else {
         isar.writeTxnSync(() {
           isar.mangas.putSync(manga);
         });
+        resolvedId = match.id;
       }
-
-      mangaId = isar.mangas
-          .filter()
-          .langEqualTo(lang)
-          .nameEqualTo(manga.name)
-          .sourceEqualTo(manga.source)
-          .findAllSync()
-          .firstWhere(
-            (element) =>
-                element.sourceId == null ? true : element.sourceId == sourceId,
-          )
-          .id!;
     } else {
-      mangaId = archiveId;
+      resolvedId = archiveId;
     }
   }
 
-  final mang = isar.mangas.getSync(mangaId);
-  if (mang!.sourceId == null && !(mang.isLocalArchive ?? false)) {
+  final int mangaId = resolvedId!;
+
+  final mang = isar.mangas.getSync(mangaId)!;
+  if (mang.sourceId == null && !(mang.isLocalArchive ?? false)) {
     isar.writeTxnSync(() {
       isar.mangas.putSync(mang..sourceId = sourceId);
     });
@@ -562,11 +566,12 @@ Future<void> pushToMangaReaderDetail({
       await context.push('/manga-reader/detail', extra: mangaId);
     }
   } else {
-    final getManga = isar.mangas.filter().idEqualTo(mangaId).findFirstSync()!;
+    // `mang` is the row we already fetched by primary key above; reuse it
+    // instead of running another `filter().idEqualTo()` query.
     isar.writeTxnSync(() {
       isar.mangas.putSync(
-        getManga
-          ..favorite = !getManga.favorite!
+        mang
+          ..favorite = !(mang.favorite ?? false)
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       );
     });

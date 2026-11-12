@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/dialogs/select_device_dialog.dart';
+import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/track_tile/track_tile.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
@@ -33,14 +33,21 @@ class ArtistPageTopTracks extends HookConsumerWidget {
 
     if (topTracksQuery.hasError) {
       return SliverToBoxAdapter(
-        child: Center(
-          child: Text(topTracksQuery.error.toString()),
+        child: ErrorBox(
+          error: topTracksQuery.error!,
+          onRetry: () => ref.invalidate(
+            metadataPluginArtistTopTracksProvider(artistId),
+          ),
         ),
       );
     }
 
-    final topTracks = topTracksQuery.asData?.value.items ??
-        List.generate(10, (index) => FakeData.track);
+    final topTracks =
+        topTracksQuery.asData?.value.items ?? <SpotubeFullTrackObject>[];
+
+    if (!topTracksQuery.isLoading && topTracks.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
 
     void playPlaylist(
       List<SpotubeFullTrackObject> tracks, {
@@ -107,7 +114,7 @@ class ArtistPageTopTracks extends HookConsumerWidget {
               ),
               if (!isPlaylistPlaying)
                 IconButton(
-                  icon: const Icon(SpotubeIcons.queueAdd),
+                  icon: const Icon(MusicIcons.queueAdd),
                   style: IconButton.styleFrom(
                     side: BorderSide(
                       color: Theme.of(context).colorScheme.outline,
@@ -136,8 +143,8 @@ class ArtistPageTopTracks extends HookConsumerWidget {
                     : Skeleton.keep(
                         child: Icon(
                           isPlaylistPlaying
-                              ? SpotubeIcons.pause
-                              : SpotubeIcons.play,
+                              ? MusicIcons.pause
+                              : MusicIcons.play,
                         ),
                       ),
               ),

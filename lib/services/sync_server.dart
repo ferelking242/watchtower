@@ -440,8 +440,9 @@ class SyncServer extends _$SyncServer {
         final temp = updates.where((e) => e.id == update.id).firstOrNull;
         if (temp != null) {
           final chapter = await isar.chapters
-              .filter()
+              .where()
               .mangaIdEqualTo(temp.mangaId)
+              .filter()
               .nameEqualTo(temp.chapterName)
               .findFirst();
           if (chapter != null &&
@@ -456,8 +457,9 @@ class SyncServer extends _$SyncServer {
       }
       for (var update in updates) {
         final chapter = await isar.chapters
-            .filter()
+            .where()
             .mangaIdEqualTo(update.mangaId)
+            .filter()
             .nameEqualTo(update.chapterName)
             .findFirst();
         if (chapter != null) {

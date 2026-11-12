@@ -42,8 +42,10 @@ jobs:
         with:
           channel: stable
 
-      - name: Install Hetu compiler
-        run: dart pub global activate hetu_script_dev_tools
+      - name: Install Hetu compiler (pinned)
+        # PINNED: hetu_script_dev_tools >= 0.5 emits bytecode the
+        # hetu_script 0.4.2 runtime bundled in Watchtower cannot load.
+        run: dart pub global activate hetu_script_dev_tools 0.1.0+2
 
       - name: Read plugin metadata
         id: meta

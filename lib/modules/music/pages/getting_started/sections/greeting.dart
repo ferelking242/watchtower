@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
-    import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+    import 'package:watchtower/modules/music/collections/music_icons.dart';
     import 'package:watchtower/modules/music/extensions/context.dart';
     import 'package:watchtower/modules/music/modules/getting_started/blur_card.dart';
     import 'package:watchtower/modules/music/utils/platform.dart';
@@ -28,7 +28,7 @@ import 'package:flutter/material.dart';
               ),
               const SizedBox(height: 24),
               Text(
-                "Music Hub",
+                'Musique',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
               ),
               const SizedBox(height: 4),
@@ -45,7 +45,7 @@ import 'package:flutter/material.dart';
                   children: [
                     Text(context.l10n.get_started),
                     const SizedBox(width: 8),
-                    const Icon(SpotubeIcons.angleRight),
+                    const Icon(MusicIcons.angleRight),
                   ],
                 ),
               ),

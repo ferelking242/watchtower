@@ -4,7 +4,7 @@ import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
@@ -60,7 +60,7 @@ class BlackListPage extends HookConsumerWidget {
                 onChanged: (value) => searchText.value = value,
                 decoration: InputDecoration(
                   hintText: context.l10n.search,
-                  prefixIcon: const Icon(SpotubeIcons.search),
+                  prefixIcon: const Icon(MusicIcons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -81,8 +81,8 @@ class BlackListPage extends HookConsumerWidget {
                       leading: Text("${index + 1}."),
                       title: Text("${item.name} (${item.elementType.name})"),
                       trailing: IconButton(
-                        icon: Icon(SpotubeIcons.trash,
-                            color: Colors.red[400]),
+                        icon: Icon(MusicIcons.trash,
+                            color: Theme.of(context).colorScheme.error),
                         onPressed: () {
                           ref
                               .read(blacklistProvider.notifier)

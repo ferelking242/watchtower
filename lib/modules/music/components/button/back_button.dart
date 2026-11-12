@@ -1,6 +1,6 @@
 import 'package:auto_route/auto_route.dart';
   import 'package:flutter/material.dart';
-  import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+  import 'package:watchtower/modules/music/collections/music_icons.dart';
 
   class MusicBackButton extends StatelessWidget {
     final Color? color;
@@ -8,7 +8,7 @@ import 'package:auto_route/auto_route.dart';
     const MusicBackButton({
       super.key,
       this.color,
-      this.icon = SpotubeIcons.angleLeft,
+      this.icon = MusicIcons.angleLeft,
     });
 
     @override

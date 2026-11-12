@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/connect/clients.dart';
@@ -24,7 +24,7 @@ class ConnectDeviceButton extends HookConsumerWidget {
 
       if (mediaQuery.mdAndDown) {
         return IconButton(
-          icon: const Icon(SpotubeIcons.speaker),
+          icon: const Icon(MusicIcons.speaker),
           onPressed: () {
             context.navigateTo(const ConnectRoute());
           },
@@ -45,7 +45,7 @@ class ConnectDeviceButton extends HookConsumerWidget {
                 "${hasServices ? " (${connectClients.asData?.value.services.length})" : ""}",
               ),
               const SizedBox(width: 8),
-              const Icon(SpotubeIcons.speaker),
+              const Icon(MusicIcons.speaker),
             ],
           ),
         ),
@@ -88,7 +88,7 @@ class ConnectDeviceButton extends HookConsumerWidget {
             padding: EdgeInsets.zero,
             shape: const CircleBorder(),
           ),
-          child: const Icon(SpotubeIcons.speaker),
+          child: const Icon(MusicIcons.speaker),
         ),
       ],
     );

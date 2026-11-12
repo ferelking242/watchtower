@@ -21,6 +21,7 @@ import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/utils/isar_batch.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 /// Main library screen — refactored from 2309 lines to ~350 lines.
@@ -496,9 +497,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
               icon: Icon(Icons.label_outline_rounded, color: color),
               onPressed: () {
                 final mangaIdsList = ref.watch(mangasListStateProvider);
-                final List<Manga> bulkMangas = mangaIdsList
-                    .map((id) => isar.mangas.getSync(id)!)
-                    .toList();
+                // One batched read instead of a `getSync` per selected id.
+                final List<Manga> bulkMangas =
+                    loadMangasByIds(mangaIdsList).values.toList();
                 showCategorySelectionDialog(
                   context: context,
                   ref: ref,
@@ -590,7 +591,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
       final stillEmpty =
-          ref.read(getSettingsStreamProvider).asData?.value?.isEmpty ?? true;
+          ref.read(getSettingsStreamProvider).asData?.value.isEmpty ?? true;
       if (stillEmpty && !_useFallbackSettings) {
         setState(() => _useFallbackSettings = true);
       }

@@ -48,6 +48,28 @@ void main() {
     );
   });
 
+  test('a version bump changes the cache key for the same icon URL', () {
+    const url = 'https://extensions.example/icon.png';
+
+    // An extension that ships new artwork usually keeps its icon URL, so the
+    // installed version has to take part in the key or the old image would be
+    // served forever.
+    expect(
+      IconCacheService.cacheKeyFor(18, url, '1.0.0'),
+      isNot(IconCacheService.cacheKeyFor(18, url, '2.0.0')),
+    );
+    // An absent or blank version falls back to the URL-only key.
+    expect(
+      IconCacheService.cacheKeyFor(18, url),
+      IconCacheService.cacheKeyFor(18, url, '   '),
+    );
+    // Different extensions never collide.
+    expect(
+      IconCacheService.cacheKeyFor(18, url, '1.0.0'),
+      isNot(IconCacheService.cacheKeyFor(19, url, '1.0.0')),
+    );
+  });
+
   test(
     'reads persistent icons offline and migrates old cache filenames',
     () async {

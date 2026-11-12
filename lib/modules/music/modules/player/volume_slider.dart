@@ -2,7 +2,7 @@ import 'package:flutter/gestures.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 
 class VolumeSlider extends HookConsumerWidget {
   final bool fullWidth;
@@ -50,12 +50,12 @@ class VolumeSlider extends HookConsumerWidget {
         IconButton(
           icon: Icon(
             value == 0
-                ? SpotubeIcons.volumeMute
+                ? MusicIcons.volumeMute
                 : value <= 0.2
-                    ? SpotubeIcons.volumeLow
+                    ? MusicIcons.volumeLow
                     : value <= 0.6
-                        ? SpotubeIcons.volumeMedium
-                        : SpotubeIcons.volumeHigh,
+                        ? MusicIcons.volumeMedium
+                        : MusicIcons.volumeHigh,
             size: 16,
           ),
           onPressed: () {

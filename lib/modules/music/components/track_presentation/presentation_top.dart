@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/heart_button/heart_button.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_props.dart';
@@ -41,25 +41,25 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                   width: 20,
                   child: CircularProgressIndicator(),
                 )
-              : const Icon(SpotubeIcons.shuffle),
+              : const Icon(MusicIcons.shuffle),
           onPressed: (!isLoading && !isActive) ? onShuffle : null,
         ),
         const SizedBox(width: 8),
         if (mediaQuery.width <= 320)
           IconButton(
-            icon: const Icon(SpotubeIcons.queueAdd),
+            icon: const Icon(MusicIcons.queueAdd),
             onPressed: (!isLoading && !isActive) ? onAddToQueue : null,
           )
         else
           OutlinedButton.icon(
-            icon: const Icon(SpotubeIcons.add),
+            icon: const Icon(MusicIcons.add),
             label: Text(context.l10n.queue),
             onPressed: (!isLoading && !isActive) ? onAddToQueue : null,
           ),
         const SizedBox(width: 8),
         FilledButton.icon(
           icon: switch ((isActive, isLoading)) {
-            (true, false) => const Icon(SpotubeIcons.pause),
+            (true, false) => const Icon(MusicIcons.pause),
             (false, true) => const SizedBox(
                 height: 18,
                 width: 18,
@@ -68,7 +68,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
                   strokeWidth: 2,
                 ),
               ),
-            _ => const Icon(SpotubeIcons.play),
+            _ => const Icon(MusicIcons.play),
           },
           label:
               isActive ? Text(context.l10n.pause) : Text(context.l10n.play),
@@ -82,7 +82,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
         if (isUserPlaylist)
           IconButton(
             iconSize: 20.0,
-            icon: const Icon(SpotubeIcons.edit),
+            icon: const Icon(MusicIcons.edit),
             onPressed: () {
               showDialog(
                 context: context,
@@ -97,7 +97,7 @@ class TrackPresentationTopSection extends HookConsumerWidget {
           ),
         if (options.shareUrl != null)
           IconButton(
-            icon: const Icon(SpotubeIcons.share),
+            icon: const Icon(MusicIcons.share),
             iconSize: 20.0,
             onPressed: () async {
               await Clipboard.setData(

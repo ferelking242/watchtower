@@ -754,6 +754,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                 ExtensionIconWidget(
                   sourceId: source.id,
                   iconUrl: source.iconUrl,
+                  version: source.version,
                   size: 16,
                 ),
               ],
@@ -1298,6 +1299,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
             ExtensionIconWidget(
               sourceId: source.id,
               iconUrl: source.iconUrl,
+              version: source.version,
               size: 34,
             ),
             const SizedBox(width: 10),

@@ -640,7 +640,7 @@ class StorageProvider {
         r.jsonUrl?.contains(urlFragment) == true;
 
     try {
-      final settings = await isar.settings.filter().idEqualTo(227).findFirst();
+      final settings = await isar.settings.where().idEqualTo(227).findFirst();
       if (settings == null) {
         await isar.writeTxn(
           () async => isar.settings.put(

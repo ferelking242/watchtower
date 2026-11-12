@@ -11,6 +11,7 @@ class Track {
 
   int? mediaId;
 
+  @Index()
   int? mangaId;
 
   int? syncId;

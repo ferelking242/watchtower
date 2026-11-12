@@ -3,7 +3,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/modules/library/local_folder/local_folder_item.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -72,7 +72,7 @@ class UserLocalLibraryPage extends HookConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(SpotubeIcons.folderAdd),
+                    const Icon(MusicIcons.folderAdd),
                     const SizedBox(width: 8),
                     Text(context.l10n.add_library_location),
                   ],

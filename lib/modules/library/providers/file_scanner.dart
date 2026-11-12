@@ -84,7 +84,7 @@ Future<void> _scanDirectory(Ref ref, Directory? dir) async {
   // Fetch all chapters for existing mangas
   final existingMangaIds = existingMangas.map((m) => m.id);
   final existingChapters = await isar.chapters
-      .filter()
+      .where()
       .anyOf(existingMangaIds, (q, id) => q.mangaIdEqualTo(id))
       .findAll();
 

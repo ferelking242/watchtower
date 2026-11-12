@@ -89,11 +89,11 @@ import 'package:auto_route/auto_route.dart';
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Text(
-                            "Music Hub",
+                            "Musique",
                             style: TextStyle(
-                              fontFamily: "Cookie",
-                              fontSize: 28,
-                              letterSpacing: 1.8,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
                               color: colorScheme.primary,
                             ),
                           ),

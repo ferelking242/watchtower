@@ -2,7 +2,7 @@ import 'package:auto_route/auto_route.dart';
     import 'package:flutter/material.dart';
     import 'package:hooks_riverpod/hooks_riverpod.dart';
     import 'package:watchtower/modules/music/collections/routes.gr.dart';
-    import 'package:watchtower/modules/music/collections/spotube_icons.dart';
+    import 'package:watchtower/modules/music/collections/music_icons.dart';
     import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
     import 'package:watchtower/modules/music/extensions/context.dart';
     import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
@@ -25,8 +25,8 @@ import 'package:auto_route/auto_route.dart';
             ),
           ),
           ListTile(
-            title: const Text('Music Hub'),
-            trailing: const Icon(SpotubeIcons.angleRight),
+            title: Text(context.l10n.about),
+            trailing: const Icon(MusicIcons.angleRight),
             onTap: () => context.navigateTo(const AboutSpotubeRoute()),
           ),
         ],
