@@ -295,8 +295,12 @@ import app_links
         let volumeEventStreamHandler = VolumeKeyStreamHandler()
         volumeEventChannel.setStreamHandler(volumeEventStreamHandler)
 
+        // The method channel uses a distinct name from the event channel: on
+        // iOS both install a message handler on the binary messenger under the
+        // channel name, so sharing a name would let the second registration
+        // replace the first and the event stream would never receive events.
         let volumeMethodChannel = FlutterMethodChannel(
-            name: "com.watchtower.app.volume_keys",
+            name: "com.watchtower.app.volume_keys_methods",
             binaryMessenger: controller.binaryMessenger
         )
         volumeMethodChannel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in

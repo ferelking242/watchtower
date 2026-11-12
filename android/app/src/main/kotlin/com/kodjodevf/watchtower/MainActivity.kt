@@ -485,9 +485,15 @@ package com.watchtower.app
               }
           })
 
+          // The method channel must NOT reuse the event channel's name: both
+          // register a message handler under the same key on the Android
+          // binary messenger, so the second registration (this one) would
+          // silently replace the event channel's handler. The event sink then
+          // never receives `onListen`, `dispatchKeyEvent` swallows the volume
+          // key into a null sink, and hardware page navigation does nothing.
           MethodChannel(
               flutterEngine.dartExecutor.binaryMessenger,
-              "com.watchtower.app.volume_keys"
+              "com.watchtower.app.volume_keys_methods"
           ).setMethodCallHandler { call, result ->
               when (call.method) {
                   "setEnabled" -> {

@@ -14,7 +14,12 @@ class VolumeKeyChannel {
   VolumeKeyChannel._();
 
   static const _events = EventChannel('com.watchtower.app.volume_keys');
-  static const _methods = MethodChannel('com.watchtower.app.volume_keys');
+  // Distinct from [_events]: on Android a method channel and an event channel
+  // that share a name both register a handler under the same messenger key, so
+  // the later registration replaces the earlier one and the event stream never
+  // receives its sink.
+  static const _methods =
+      MethodChannel('com.watchtower.app.volume_keys_methods');
 
   static StreamSubscription<dynamic>? _sub;
 
