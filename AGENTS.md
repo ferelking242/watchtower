@@ -1301,6 +1301,15 @@ must not leak into watch code paths or logs:
   `dart2js` échoue. Le patch doit couvrir **toutes** les racines du pub-cache,
   échouer si `pseudom` est absent, échouer si un littéral hors-bornes reste, et
   `flutter pub get` doit tourner **avant** le patch.
+- Le budget de cache Actions d'un dépôt public est de **10 Go** ; au-delà GitHub
+  évince des entrées (LRU). Le dépôt en était à ~11 Go, donc l'entrée Gradle de
+  `build-release.yml` (~4,4 Go) disparaissait par intermittence : le run suivant
+  recompilait tout et `assembleRelease` passait de ~420 s à ~1330 s (build total
+  10m51s → 27m27s). Ne cacher que `~/.gradle/caches/modules-2` (le store de
+  dépendances téléchargées), jamais `~/.gradle/caches` entier : `transforms/`,
+  `jars-*` et `build-cache-*` sont régénérables et gonflent l'entrée. Un cache
+  évincé est silencieux — vérifier les lignes `Cache not found for input keys:`
+  dans le log avant de conclure à une régression du code.
 
 ## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
 - Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
