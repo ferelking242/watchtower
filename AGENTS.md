@@ -1304,13 +1304,18 @@ must not leak into watch code paths or logs:
 - Le budget de cache Actions d'un dépôt public est de **10 Go** ; au-delà GitHub
   évince des entrées (LRU), sans erreur. Le dépôt en était à ~11 Go et l'entrée
   Gradle disparaissait par intermittence : le run suivant recompilait tout et
-  `assembleRelease` passait de ~420 s à ~1330 s (build 10m51s → 27m27s). Cause
-  du volume : chaque job Android (`build-release`, `build-android-tv`,
-  `build-profile`, `build-debug`, `build-all-platforms`) stockait sa **propre**
-  copie quasi identique de `~/.gradle/caches` (~2,5 Go chacune). Ils partagent
-  désormais **une seule clé** `gradle-${{ runner.os }}-v2-…` → une seule entrée
-  (le suffixe `-v2` force une sauvegarde fraîche : un *hit* exact ne re-sauvegarde
-  jamais, l'ancienne entrée grasse resterait sinon à vie).
+  `assembleRelease` passait de ~420 s à ~1330 s (build 10m51s → 27m27s).
+- Le plus gros gaspillage était le cache du **SDK Flutter** : `subosito/flutter-action`
+  avec `cache: true` stocke tout le SDK (1,6 Go Linux + 1,8 Go Windows + 2,1 Go
+  macOS ≈ 5,6 Go) pour ~11 s gagnées, car le runner retélécharge l'archive de
+  1,46 Go à ~220 Mo/s (~7 s). Utiliser `cache: false` + `pub-cache: true` : les
+  dépendances pub restent cachées, le SDK non. C'est ce changement qui a libéré
+  le budget (total ~7,5 Go, l'entrée Gradle de 4,14 Go persiste enfin).
+- `cache: true` cache aussi `~/.pub-cache` : l'étape « Cache pub packages »
+  explicite était donc un doublon (~450 Mo par OS). Supprimée.
+- Gradle : garder `~/.gradle/caches` **entier** et **une seule clé** partagée
+  par tous les jobs Android (`gradle-${{ runner.os }}-…`). Les 5 jobs stockaient
+  5 copies quasi identiques ; il n'y a plus qu'une entrée (~4,15 Go).
 - Garder `~/.gradle/caches` **entier** : ses arbres `transforms/` et
   `build-cache/` sont ce qui rend `assembleRelease` rapide. Ne cacher que
   `modules-2` a été mesuré **plus lent** (1001 s) : les libs natives
@@ -1318,10 +1323,9 @@ must not leak into watch code paths or logs:
 - Un cache évincé est silencieux : vérifier `Cache not found for input keys:`
   vs `Cache restored from key:` dans le log avant de conclure à une régression
   du code.
-- Même piège pour les clés **pub** : `pub-${runner.os}-…` et
-  `${runner.os}-pub-…` désignaient le même contenu sous deux clés → deux
-  entrées de ~450 Mo. Toutes les workflows utilisent désormais
-  `pub-${{ runner.os }}-…`.
+- Quand plusieurs jobs partagent une clé et sauvent en même temps, tous sauf un
+  loguent `Failed to save: Unable to reserve cache … another job may be creating
+  this cache` : c'est bénin, un job frère a déjà sauvegardé.
 
 ## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
 - Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
