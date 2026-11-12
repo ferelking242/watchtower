@@ -10,9 +10,8 @@ import 'package:watchtower/modules/manga/reader/providers/reader_controller_prov
 import 'package:watchtower/modules/manga/reader/widgets/custom_value_indicator_shape.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/more/settings/reader/reader_screen.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/global_style.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 
 /// The bottom bar for the manga reader.
 ///
@@ -324,12 +323,11 @@ class ReaderBottomBar extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           // Reader mode button
-          ArrowPopupMenuButton<ReaderMode>(
-            popUpAnimationStyle: popupAnimationStyle,
-            color: Colors.black,
-            onSelected: (value) {
-              onReaderModeChanged(value, ref);
-            },
+          AdaptiveOverlayMenu<ReaderMode>(
+            menuWidth: 240,
+            padding: const EdgeInsets.all(8),
+            icon: const Icon(Icons.app_settings_alt_outlined),
+            initialValue: readerMode,
             itemBuilder: (context) => [
               for (var mode in ReaderMode.values)
                 PopupMenuItem(
@@ -338,23 +336,23 @@ class ReaderBottomBar extends ConsumerWidget {
                     children: [
                       Icon(
                         Icons.check,
+                        size: 18,
+                        // Inherit the panel's adaptive icon colour; the previous
+                        // hard-coded white was only legible on the old black
+                        // menu and disappears on the light glass panel.
                         color: readerMode == mode
-                            ? Colors.white
+                            ? Theme.of(context).colorScheme.primary
                             : Colors.transparent,
                       ),
                       const SizedBox(width: 7),
-                      Text(
-                        getReaderModeName(mode, context),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
+                      Text(getReaderModeName(mode, context)),
                     ],
                   ),
                 ),
             ],
-            child: const Icon(Icons.app_settings_alt_outlined),
+            onSelected: (value) {
+              onReaderModeChanged(value, ref);
+            },
           ),
 
           // Crop borders button
