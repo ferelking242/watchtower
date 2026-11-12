@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/manga/download/download_page_widget.dart';
@@ -12,16 +13,21 @@ import 'package:watchtower/utils/headers.dart';
 
 class UpdateChapterListTileWidget extends ConsumerWidget {
   final Chapter chapter;
+
+  /// Resolved once for the whole page by [loadMangasByIds]. Reading
+  /// `chapter.manga.value` here would run a synchronous Isar query per row.
+  final Manga? manga;
   final bool sourceExist;
   const UpdateChapterListTileWidget({
     required this.chapter,
+    required this.manga,
     required this.sourceExist,
     super.key,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final manga = chapter.manga.value!;
+    final manga = this.manga!;
     return Material(
       borderRadius: BorderRadius.circular(5),
       color: Colors.transparent,

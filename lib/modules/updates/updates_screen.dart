@@ -19,6 +19,8 @@ import 'package:watchtower/utils/date.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
+import 'package:watchtower/utils/isar_batch.dart';
+import 'package:collection/collection.dart';
 
 class UpdatesScreen extends ConsumerStatefulWidget {
   const UpdatesScreen({super.key});
@@ -187,8 +189,19 @@ class _UpdateTabState extends ConsumerState<UpdateTab>
       children: [
         update.when(
           data: (entries) {
+            // Resolve the mangas and chapters in one query per collection
+            // instead of touching the lazy `Update.chapter` / `Chapter.manga`
+            // links, which each run a synchronous Isar query per row (and
+            // again per row in the builder). `Update` stores `mangaId` +
+            // `chapterName`, so the chapter is matched from the batched list.
+            final mangaIds = entries.map((e) => e.mangaId).toList();
+            final mangasById = loadMangasByIds(mangaIds);
+            final chaptersByManga = loadChaptersByMangaIds(mangaIds);
+            Chapter? chapterOf(Update update) => chaptersByManga[update.mangaId]
+                ?.firstWhereOrNull((c) => c.name == update.chapterName);
             final lastUpdatedList = entries
-                .map((e) => e.chapter.value!.manga.value!.lastUpdate!)
+                .map((e) => mangasById[e.mangaId]?.lastUpdate)
+                .whereType<int>()
                 .toList();
             lastUpdatedList.sort((a, b) => b.compareTo(a));
             final lastUpdated = lastUpdatedList.firstOrNull;
@@ -247,9 +260,11 @@ class _UpdateTabState extends ConsumerState<UpdateTab>
                       ),
                     ),
                     itemBuilder: (context, element) {
-                      final chapter = element.chapter.value!;
+                      final chapter = chapterOf(element);
+                      if (chapter == null) return const SizedBox.shrink();
                       return UpdateChapterListTileWidget(
                         chapter: chapter,
+                        manga: mangasById[element.mangaId],
                         sourceExist: true,
                       );
                     },

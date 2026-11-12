@@ -488,7 +488,10 @@ extension ChapterExtensions on Chapter {
 extension MangaExtensions on Manga {
   List<Chapter> getFilteredChapterList() {
     final data = this.chapters.toList().reversed.toList();
-    final _unreadList = readSettingsSafely(isar: isar).chapterFilterUnreadList;
+    // One synchronous read of the Settings record instead of four: this runs on
+    // every rebuild of the chapter list, on the UI isolate.
+    final settings = readSettingsSafely(isar: isar);
+    final _unreadList = settings.chapterFilterUnreadList;
     final filterUnread =
         (_unreadList?.where((element) => element.mangaId == id)
                     .toList()
@@ -496,14 +499,14 @@ extension MangaExtensions on Manga {
                 ChapterFilterUnread(mangaId: id, type: 0))
             .type!;
 
-    final _bookmarkedList = readSettingsSafely(isar: isar).chapterFilterBookmarkedList;
+    final _bookmarkedList = settings.chapterFilterBookmarkedList;
     final filterBookmarked =
         (_bookmarkedList?.where((element) => element.mangaId == id)
                     .toList()
                     .firstOrNull ??
                 ChapterFilterBookmarked(mangaId: id, type: 0))
             .type!;
-    final _downloadedList = readSettingsSafely(isar: isar).chapterFilterDownloadedList;
+    final _downloadedList = settings.chapterFilterDownloadedList;
     final filterDownloaded =
         (_downloadedList?.where((element) => element.mangaId == id)
                     .toList()
@@ -511,7 +514,7 @@ extension MangaExtensions on Manga {
                 ChapterFilterDownloaded(mangaId: id, type: 0))
             .type!;
 
-    final _sortList = readSettingsSafely(isar: isar).sortChapterList;
+    final _sortList = settings.sortChapterList;
     final sortChapter =
         (_sortList?.where((element) => element.mangaId == id)
                     .toList()
@@ -519,6 +522,18 @@ extension MangaExtensions on Manga {
                 SortChapter(mangaId: id, index: 1, reverse: false))
             .index;
     final filterScanlator = _getFilterScanlator(this) ?? [];
+    // One Isar query for the whole list instead of one per chapter (see
+    // manga_detail_view.dart — the same per-chapter lookup used to run a
+    // synchronous Isar read for every chapter on the UI isolate).
+    final Set<int>? downloadedIds = filterDownloaded == 0
+        ? null
+        : isar.downloads
+              .where()
+              .findAllSync()
+              .where((download) => download.isDownload == true)
+              .map((download) => download.id)
+              .whereType<int>()
+              .toSet();
     List<Chapter>? chapterList;
     chapterList = data
         .where(
@@ -536,17 +551,10 @@ extension MangaExtensions on Manga {
               : true,
         )
         .where((element) {
-          final modelChapDownload = isar.downloads
-              .filter()
-              .idEqualTo(element.id)
-              .findAllSync();
-          return filterDownloaded == 1
-              ? modelChapDownload.isNotEmpty &&
-                    modelChapDownload.first.isDownload == true
-              : filterDownloaded == 2
-              ? !(modelChapDownload.isNotEmpty &&
-                    modelChapDownload.first.isDownload == true)
-              : true;
+          if (downloadedIds == null) return true;
+          final isDownloaded =
+              element.id != null && downloadedIds.contains(element.id);
+          return filterDownloaded == 1 ? isDownloaded : !isDownloaded;
         })
         .where((element) => !filterScanlator.contains(element.scanlator))
         .toList();

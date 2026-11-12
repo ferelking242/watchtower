@@ -477,9 +477,14 @@ Chapter prepareVideoQualityDownloadChapter(
   final sourceManga = resolveChapterManga(source);
   final requestedKey = _qualityDigits(quality);
 
-  for (final candidate in isar.chapters.where().findAllSync()) {
-    if (candidate.mangaId != source.mangaId ||
-        candidate.name != source.name ||
+  // Query by the indexed `mangaId` instead of scanning every chapter row in
+  // the database: this runs on the UI isolate for each episode a user queues.
+  final candidates = isar.chapters
+      .filter()
+      .mangaIdEqualTo(source.mangaId)
+      .findAllSync();
+  for (final candidate in candidates) {
+    if (candidate.name != source.name ||
         candidate.url != source.url ||
         candidate.scanlator != source.scanlator ||
         candidate.id == null) {

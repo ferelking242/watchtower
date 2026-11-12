@@ -218,3 +218,43 @@ final class GetSettingsStreamProvider
 }
 
 String _$getSettingsStreamHash() => r'c5a51e0e3473b25d2365025832a27ed2cc029b27';
+
+@ProviderFor(libraryHistoryByManga)
+final libraryHistoryByMangaProvider = LibraryHistoryByMangaProvider._();
+
+final class LibraryHistoryByMangaProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<Map<int, History>>,
+          Map<int, History>,
+          Stream<Map<int, History>>
+        >
+    with $FutureModifier<Map<int, History>>, $StreamProvider<Map<int, History>> {
+  LibraryHistoryByMangaProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'libraryHistoryByMangaProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$libraryHistoryByMangaHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<Map<int, History>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
+
+  @override
+  Stream<Map<int, History>> create(Ref ref) {
+    return libraryHistoryByManga(ref);
+  }
+}
+
+String _$libraryHistoryByMangaHash() =>
+    r'8e9f02c09614c48e4fcd138187b1385d4f34026d';

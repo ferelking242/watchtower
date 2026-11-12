@@ -10,6 +10,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
+import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -34,25 +35,21 @@ class MangaImageCardWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder(
-      stream: isar.mangas
-          .filter()
-          .langEqualTo(source.lang)
-          .nameEqualTo(getMangaDetail!.name)
-          .sourceEqualTo(source.name)
-          .watch(fireImmediately: true),
-      builder: (context, snapshot) {
-        bool hasData = snapshot.hasData;
-        final mangaList = hasData
-            ? snapshot.data!
-                  .where(
-                    (element) => element.sourceId == null
-                        ? true
-                        : element.sourceId == source.id,
-                  )
-                  .toList()
-            : [];
-        hasData = hasData && mangaList.isNotEmpty;
+    // One shared watch over the whole collection instead of a filtered
+    // `.watch()` per card (see [libraryMangaByNameProvider]).
+    final byName = ref
+        .watch(libraryMangaByNameProvider)
+        .maybeWhen(data: (map) => map, orElse: () => null);
+    return Builder(
+      builder: (context) {
+        final mangaList = libraryRowsFor(
+          byName,
+          name: getMangaDetail!.name,
+          source: source.name,
+          lang: source.lang,
+          sourceId: source.id,
+        );
+        bool hasData = mangaList.isNotEmpty;
         return CoverViewWidget(
           bottomTextWidget: BottomTextWidget(
             maxLines: 1,
@@ -195,25 +192,21 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder(
-      stream: isar.mangas
-          .filter()
-          .langEqualTo(source.lang)
-          .nameEqualTo(getMangaDetail!.name)
-          .sourceEqualTo(source.name)
-          .watch(fireImmediately: true),
-      builder: (context, snapshot) {
-        bool hasData = snapshot.hasData;
-        final mangaList = hasData
-            ? snapshot.data!
-                  .where(
-                    (element) => element.sourceId == null
-                        ? true
-                        : element.sourceId == source.id,
-                  )
-                  .toList()
-            : [];
-        hasData = hasData && mangaList.isNotEmpty;
+    // Same shared watch as the grid card — one collection scan for the whole
+    // list instead of one filtered watcher per tile.
+    final byName = ref
+        .watch(libraryMangaByNameProvider)
+        .maybeWhen(data: (map) => map, orElse: () => null);
+    return Builder(
+      builder: (context) {
+        final mangaList = libraryRowsFor(
+          byName,
+          name: getMangaDetail!.name,
+          source: source.name,
+          lang: source.lang,
+          sourceId: source.id,
+        );
+        bool hasData = mangaList.isNotEmpty;
         final _imgUrl = toImgUrl(
           hasData
               ? mangaList.first.customCoverFromTracker ??

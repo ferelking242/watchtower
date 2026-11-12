@@ -12,6 +12,7 @@ import 'package:isar_community/isar.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/changed.dart';
+import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/history/providers/isar_providers.dart';
@@ -22,6 +23,7 @@ import 'package:watchtower/services/watch_resume_store.dart'
 import 'package:watchtower/modules/more/settings/sync/providers/sync_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/isar_batch.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/date.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
@@ -46,23 +48,32 @@ enum _HistoryFilter { all, today, thisWeek, thisMonth }
 /// `pushToReaderView` used to open. That keeps a single player experience and
 /// lets us resume the exact episode + timestamp. Other types keep the usual
 /// reader behaviour.
-Future<void> openHistoryEntry(BuildContext context, History element) async {
-  final chapter = element.chapter.value!;
-  final manga = chapter.manga.value!;
-  final isVideo =
-      manga.itemType == ItemType.anime || manga.itemType == ItemType.music;
+Future<void> openHistoryEntry(
+  BuildContext context,
+  History element, {
+  Manga? manga,
+}) async {
+  // Resolve by the scalar `chapterId` / `mangaId` the row already carries: the
+  // `chapter.value` / `chapter.manga.value` links would each run a synchronous
+  // Isar query on the UI isolate when tapped.
+  final chapter = loadChaptersByIds([element.chapterId])[element.chapterId];
+  final resolvedManga =
+      manga ?? loadMangasByIds([element.mangaId])[element.mangaId];
+  if (chapter == null || resolvedManga == null) return;
+  final isVideo = resolvedManga.itemType == ItemType.anime ||
+      resolvedManga.itemType == ItemType.music;
   if (!isVideo) {
     await chapter.pushToReaderView(context);
     return;
   }
-  final resume = manga.id == null
+  final resume = resolvedManga.id == null
       ? null
-      : await readWatchResume(manga.name ?? '', chapter.id!);
+      : await readWatchResume(resolvedManga.name ?? '', chapter.id!);
   if (!context.mounted) return;
   context.push(
     '/manga-reader/detail',
     extra: MangaDetailArgs(
-      manga.id!,
+      resolvedManga.id!,
       resumeChapterId: chapter.id,
       resumePosition:
           resume == null ? null : Duration(milliseconds: resume.ms),
@@ -392,12 +403,20 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
           );
         }
 
+        // One query for every referenced manga, instead of one synchronous
+        // Isar read per row each time `chapter.value` / `manga.value` is
+        // touched (see [loadMangasByIds]). `History` already stores `mangaId`.
+        final mangasById = loadMangasByIds(filtered.map((e) => e.mangaId));
+        final chaptersById = loadChaptersByIds(
+          filtered.map((e) => e.chapterId),
+        );
+
         // Sort
         final sorted = filtered;
         if (widget.sort == _HistorySort.title) {
           sorted.sort((a, b) {
-            final n1 = a.chapter.value?.manga.value?.name ?? '';
-            final n2 = b.chapter.value?.manga.value?.name ?? '';
+            final n1 = mangasById[a.mangaId]?.name ?? '';
+            final n2 = mangasById[b.mangaId]?.name ?? '';
             return n1.compareTo(n2);
           });
         } else {
@@ -405,7 +424,11 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
         }
 
         if (widget.layout == _HistoryLayout.grid) {
-          return _HistoryGrid(entries: sorted);
+          return _HistoryGrid(
+            entries: sorted,
+            mangasById: mangasById,
+            chaptersById: chaptersById,
+          );
         }
 
         return CustomScrollView(
@@ -449,8 +472,9 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
               itemBuilder: (context, History element) {
                 return _HistoryListItem(
                   element: element,
-                  onDelete: () =>
-                      _openDeleteDialog(l10n, element.chapter.value!.manga.value!, element.id),
+                  manga: mangasById[element.mangaId],
+                  chapter: chaptersById[element.chapterId],
+                  onDelete: () => _openDeleteDialog(l10n, element.id),
                 );
               },
               itemComparator: (item1, item2) =>
@@ -467,27 +491,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
     );
   }
 
-  Widget _getCoverImage(Manga manga) {
-    return manga.customCoverImage != null
-        ? Image.memory(manga.customCoverImage as Uint8List)
-        : cachedCompressedNetworkImage(
-            headers: ref.watch(
-              headersProvider(
-                source: manga.source!,
-                lang: manga.lang!,
-                sourceId: manga.sourceId,
-              ),
-            ),
-            imageUrl: toImgUrl(
-              manga.customCoverFromTracker ?? manga.imageUrl ?? '',
-            ),
-            width: 60,
-            height: 90,
-            fit: BoxFit.cover,
-          );
-  }
-
-  void _openDeleteDialog(AppLocalizations l10n, Manga manga, int? deleteId) {
+  void _openDeleteDialog(AppLocalizations l10n, int? deleteId) {
     showDialog(
       context: context,
       builder: (context) {
@@ -504,7 +508,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
                 ),
                 const SizedBox(width: 15),
                 TextButton(
-                  onPressed: () async => deleteManga(context, manga, deleteId),
+                  onPressed: () async => deleteManga(context, deleteId),
                   child: Text(l10n.remove),
                 ),
               ],
@@ -517,7 +521,6 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
 
   Future<void> deleteManga(
     BuildContext context,
-    Manga manga,
     int? deleteId,
   ) async {
     isar.writeTxnSync(() {
@@ -536,17 +539,26 @@ class _HistoryTabState extends ConsumerState<HistoryTab>
 
 class _HistoryListItem extends ConsumerWidget {
   final History element;
+
+  /// Resolved once for the whole page by [loadMangasByIds] /
+  /// [loadChaptersByIds]; never read the `element.chapter.value` /
+  /// `chapter.manga.value` links here — each one is a synchronous Isar query on
+  /// the UI isolate.
+  final Manga? manga;
+  final Chapter? chapter;
   final VoidCallback onDelete;
 
   const _HistoryListItem({
     required this.element,
+    required this.manga,
+    required this.chapter,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final chapter = element.chapter.value!;
-    final manga = chapter.manga.value!;
+    final chapter = this.chapter!;
+    final manga = this.manga!;
     final cs = Theme.of(context).colorScheme;
 
     // Type badge
@@ -692,7 +704,7 @@ class _HistoryListItem extends ConsumerWidget {
   /// and lets us resume the exact episode + timestamp. Other types keep the
   /// usual reader behaviour.
   Future<void> _openEntry(BuildContext context) =>
-      openHistoryEntry(context, element);
+      openHistoryEntry(context, element, manga: manga);
 
   Widget _buildCover(Manga manga, WidgetRef ref) {
     if (manga.customCoverImage != null) {
@@ -723,8 +735,14 @@ class _HistoryListItem extends ConsumerWidget {
 
 class _HistoryGrid extends ConsumerWidget {
   final List<History> entries;
+  final Map<int, Manga> mangasById;
+  final Map<int, Chapter> chaptersById;
 
-  const _HistoryGrid({required this.entries});
+  const _HistoryGrid({
+    required this.entries,
+    required this.mangasById,
+    required this.chaptersById,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -739,8 +757,8 @@ class _HistoryGrid extends ConsumerWidget {
       itemCount: entries.length,
       itemBuilder: (context, i) {
         final element = entries[i];
-        final chapter = element.chapter.value!;
-        final manga = chapter.manga.value!;
+        final manga = mangasById[element.mangaId]!;
+        final chapter = chaptersById[element.chapterId]!;
         final cs = Theme.of(context).colorScheme;
 
         IconData typeIcon;
@@ -773,7 +791,7 @@ class _HistoryGrid extends ConsumerWidget {
         }
 
         return GestureDetector(
-          onTap: () => openHistoryEntry(context, element),
+          onTap: () => openHistoryEntry(context, element, manga: manga),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

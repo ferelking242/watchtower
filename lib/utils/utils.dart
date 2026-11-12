@@ -10,7 +10,8 @@ Source? getSource(
   bool installedOnly = false,
 }) {
   try {
-    // Query with indexed filters (id / lang+name) instead of loading the whole
+    // Query by id when we have one (the primary-key index); otherwise filter
+    // natively by lang+name instead of loading the whole
     // source collection: this runs on the UI thread from `headersProvider` for
     // every visible card, and `findAllSync().where(...)` made it O(sources).
     Iterable<Source> candidates;

@@ -365,6 +365,21 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     required int sortChapter,
     required List<String> filterScanlator,
   }) {
+    // One Isar query for the whole chapter list instead of one per chapter.
+    // The download filter used to run `isar.downloads...findAllSync()` inside
+    // the `where` predicate, i.e. a synchronous Isar read per chapter, on the
+    // UI isolate, on every rebuild of the detail screen — the freeze reported
+    // when opening a title with hundreds of chapters.
+    final Set<int>? downloadedIds = filterDownloaded == 0
+        ? null
+        : isar.downloads
+              .where()
+              .findAllSync()
+              .where((download) => download.isDownload == true)
+              .map((download) => download.id)
+              .whereType<int>()
+              .toSet();
+
     List<Chapter>? chapterList;
     chapterList = data
         .where(
@@ -382,17 +397,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
               : true,
         )
         .where((element) {
-          final modelChapDownload = isar.downloads
-              .filter()
-              .idEqualTo(element.id)
-              .findAllSync();
-          return filterDownloaded == 1
-              ? modelChapDownload.isNotEmpty &&
-                    modelChapDownload.first.isDownload == true
-              : filterDownloaded == 2
-              ? !(modelChapDownload.isNotEmpty &&
-                    modelChapDownload.first.isDownload == true)
-              : true;
+          if (downloadedIds == null) return true;
+          final isDownloaded =
+              element.id != null && downloadedIds.contains(element.id);
+          return filterDownloaded == 1 ? isDownloaded : !isDownloaded;
         })
         .where((element) => !filterScanlator.contains(element.scanlator))
         .toList();
