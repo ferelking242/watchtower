@@ -3,9 +3,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_props.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_state.dart';
 import 'package:watchtower/modules/music/components/track_presentation/use_track_tile_play_callback.dart';
@@ -71,25 +70,11 @@ class PresentationListSection extends HookConsumerWidget {
       onFetchData: options.pagination.onFetchMore,
       itemCount: state.presentationTracks.length,
       hasReachedMax: !options.pagination.hasNextPage,
-      loadingBuilder: (context) {
-        return ShimmerSkeleton(enabled: true,
-          child: TrackTile(
-            index: 0,
-            playlist: playlist,
-            track: FakeData.track,
-          ),
-        );
-      },
-      emptyBuilder: (context) => ShimmerSkeleton(enabled: true,
-        child: Column(
-          children: List.generate(
-            10,
-            (index) => TrackTile(
-              track: FakeData.track,
-              index: index,
-              playlist: playlist,
-            ),
-          ),
+      loadingBuilder: (context) => const MusicTrackTileShimmer(),
+      emptyBuilder: (context) => Column(
+        children: List.generate(
+          10,
+          (index) => const MusicTrackTileShimmer(),
         ),
       ),
       itemBuilder: (context, index) => HookBuilder(builder: (context) {

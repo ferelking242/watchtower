@@ -55,7 +55,7 @@ class PreferencesTable extends Table {
   )();
   TextColumn get accentColorScheme => text()
       .withDefault(const Constant("green:0xff4caf50"))
-      .map(const SpotubeColorConverter())();
+      .map(const MusicAccentColorConverter())();
   TextColumn get layoutMode =>
       textEnum<LayoutMode>().withDefault(Constant(LayoutMode.adaptive.name))();
   TextColumn get locale => text()
@@ -96,7 +96,7 @@ class PreferencesTable extends Table {
       systemTitleBar: false,
       skipNonMusic: false,
       closeBehavior: CloseBehavior.close,
-      accentColorScheme: SpotubeColor(Colors.green.toARGB32(), name: "green"),
+      accentColorScheme: MusicAccentColor(Colors.green.toARGB32(), name: "green"),
       layoutMode: LayoutMode.adaptive,
       locale: const Locale("system", "system"),
       market: Market.US,

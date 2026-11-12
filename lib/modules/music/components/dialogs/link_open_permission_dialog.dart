@@ -30,7 +30,9 @@ class LinkOpenPermissionDialog extends StatelessWidget {
               if (href != null)
                 TextSpan(
                   text: "$href\n\n",
-                  style: const TextStyle(color: Colors.blue),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               TextSpan(text: context.l10n.unsafe_url_warning),
             ],

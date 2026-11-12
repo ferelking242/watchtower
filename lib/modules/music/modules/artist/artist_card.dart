@@ -71,9 +71,10 @@ class ArtistCard extends HookConsumerWidget {
                     if (isBlackListed == true) ...[
                       Chip(
                         label: Text(context.l10n.blacklisted.toUpperCase()),
-                        backgroundColor: Colors.red.shade100,
-                        labelStyle: const TextStyle(
-                            color: Colors.red, fontSize: 10),
+                        backgroundColor: theme.colorScheme.errorContainer,
+                        labelStyle: TextStyle(
+                            color: theme.colorScheme.onErrorContainer,
+                            fontSize: 10),
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
                         materialTapTargetSize:

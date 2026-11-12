@@ -15,7 +15,6 @@ import 'package:watchtower/modules/music/services/kv_store/encrypted_kv_store.da
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
 import 'package:flutter/material.dart' show ThemeMode, Colors;
 import 'package:flutter/widgets.dart' hide Table, Key, View;
-import 'package:watchtower/modules/music/modules/settings/color_scheme_picker_dialog.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/modules/music/services/youtube_engine/newpipe_engine.dart';
 import 'package:watchtower/modules/music/services/youtube_engine/youtube_explode_engine.dart';

@@ -131,9 +131,9 @@ class TrackOptions extends HookConsumerWidget {
               onTapItem?.call();
             },
             leading: isLiked
-                ? const Icon(
+                ? Icon(
                     MusicIcons.heartFilled,
-                    color: Colors.pink,
+                    color: Theme.of(context).colorScheme.primary,
                   )
                 : const Icon(MusicIcons.heart),
             title: Text(
@@ -221,7 +221,9 @@ class TrackOptions extends HookConsumerWidget {
                   ? context.l10n.remove_from_blacklist
                   : context.l10n.add_to_blacklist,
               style: TextStyle(
-                color: isBlacklisted != true ? Colors.red[400] : null,
+                color: isBlacklisted != true
+                    ? Theme.of(context).colorScheme.error
+                    : null,
               ),
             ),
           ),

@@ -175,7 +175,9 @@ class PlayerActions extends HookConsumerWidget {
           ],
           icon: Icon(
             MusicIcons.timer,
-            color: sleepTimer != null ? Colors.red : null,
+            color: sleepTimer != null
+                ? Theme.of(context).colorScheme.error
+                : null,
           ),
           onSelected: (value) {
             if (value == Duration.zero) {
@@ -222,7 +224,9 @@ class PlayerActions extends HookConsumerWidget {
               enabled: sleepTimer != Duration.zero && sleepTimer != null,
               child: Text(
                 context.l10n.cancel,
-                style: const TextStyle(color: Colors.green),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
           ],

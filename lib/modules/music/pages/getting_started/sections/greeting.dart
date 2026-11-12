@@ -28,7 +28,7 @@ import 'package:flutter/material.dart';
               ),
               const SizedBox(height: 24),
               Text(
-                "Music Hub",
+                'Musique',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: colorScheme.onSurface),
               ),
               const SizedBox(height: 4),

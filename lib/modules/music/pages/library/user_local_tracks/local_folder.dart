@@ -10,7 +10,7 @@ import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_actions.dart';
@@ -411,11 +411,7 @@ class LocalLibraryPage extends HookConsumerWidget {
                                       : filteredTracks.length,
                                   itemBuilder: (context, index) {
                                     if (trackSnapshot.isLoading) {
-                                      return TrackTile(
-                                        playlist: playlist,
-                                        track: FakeData.track,
-                                        index: index,
-                                      );
+                                      return const MusicTrackTileShimmer();
                                     }
 
                                     final track = filteredTracks[index];
@@ -444,16 +440,10 @@ class LocalLibraryPage extends HookConsumerWidget {
                     );
                   },
                   loading: () => Expanded(
-                    child: ShimmerSkeleton(
-                      enabled: true,
-                      child: ListView.builder(
-                        itemCount: 5,
-                        itemBuilder: (context, index) => TrackTile(
-                          track: FakeData.track,
-                          index: index,
-                          playlist: playlist,
-                        ),
-                      ),
+                    child: ListView.builder(
+                      itemCount: 5,
+                      itemBuilder: (context, index) =>
+                          const MusicTrackTileShimmer(),
                     ),
                   ),
                   error: (error, stackTrace) => ErrorBox(

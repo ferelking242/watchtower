@@ -82,7 +82,7 @@ class BlackListPage extends HookConsumerWidget {
                       title: Text("${item.name} (${item.elementType.name})"),
                       trailing: IconButton(
                         icon: Icon(MusicIcons.trash,
-                            color: Colors.red[400]),
+                            color: Theme.of(context).colorScheme.error),
                         onPressed: () {
                           ref
                               .read(blacklistProvider.notifier)

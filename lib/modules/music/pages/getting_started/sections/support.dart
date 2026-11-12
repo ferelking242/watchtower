@@ -23,10 +23,17 @@ import 'package:auto_route/auto_route.dart';
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.music_note_rounded, color: Colors.pink),
+                      Icon(
+                        Icons.music_note_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                       const SizedBox(width: 8),
-                      Text(context.l10n.help_project_grow,
-                          style: const TextStyle(color: Colors.pink)),
+                      Text(
+                        context.l10n.help_project_grow,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),

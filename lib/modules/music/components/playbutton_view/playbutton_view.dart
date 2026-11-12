@@ -1,32 +1,13 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
-import 'package:watchtower/modules/music/components/playbutton_view/playbutton_card.dart';
-import 'package:watchtower/modules/music/components/playbutton_view/playbutton_tile.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/components/waypoint.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:very_good_infinite_list/very_good_infinite_list.dart';
 
-const _dummyPlaybuttonCard = PlaybuttonCard(
-  imageUrl: 'https://placehold.co/150x150.png',
-  isLoading: false,
-  isPlaying: false,
-  title: "Playbutton",
-  description: "A really cool playbutton",
-  isOwner: false,
-);
-
-const _dummyPlaybuttonTile = PlaybuttonTile(
-  imageUrl: 'https://placehold.co/150x150.png',
-  isLoading: false,
-  isPlaying: false,
-  title: "Playbutton",
-  description: "A really cool playbutton",
-  isOwner: false,
-);
 
 /// A [PlaybuttonCard] grid/list view (selectable) sliver widget
 /// with support for infinite scrolling
@@ -135,9 +116,7 @@ class PlaybuttonView extends StatelessWidget {
                       ),
                       itemBuilder: (context, index) {
                         if (isLoading) {
-                          return const ShimmerSkeleton(enabled: true,
-                            child: _dummyPlaybuttonCard,
-                          );
+                          return const MusicCardShimmer();
                         }
 
                         if (index == itemCount) {
@@ -146,29 +125,22 @@ class PlaybuttonView extends StatelessWidget {
                             controller: controller,
                             isGrid: true,
                             onTouchEdge: onRequestMore,
-                            child: const ShimmerSkeleton(enabled: true,
-                              child: _dummyPlaybuttonCard,
-                            ),
+                            child: const MusicCardShimmer(),
                           );
                         }
 
                         return gridItemBuilder(context, index);
                       },
                     ),
-              (false, true) => ShimmerSkeleton.sliver(
-                  enabled: true,
-                  child: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _dummyPlaybuttonTile,
-                      childCount: 6,
-                    ),
+              (false, true) => SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => const MusicTrackTileShimmer(),
+                    childCount: 6,
                   ),
                 ),
               (false, false) => SliverInfiniteList(
                   itemCount: itemCount,
-                  loadingBuilder: (context) => const ShimmerSkeleton(enabled: true,
-                    child: _dummyPlaybuttonTile,
-                  ),
+                  loadingBuilder: (context) => const MusicTrackTileShimmer(),
                   itemBuilder: listItemBuilder,
                   onFetchData: onRequestMore,
                   hasReachedMax: !hasMore,

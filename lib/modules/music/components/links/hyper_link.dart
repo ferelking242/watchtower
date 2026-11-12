@@ -33,7 +33,7 @@ class Hyperlink extends StatelessWidget {
       key: key,
       overflow: overflow,
       maxLines: maxLines,
-      style: style.copyWith(color: Colors.blue),
+      style: style.copyWith(color: Theme.of(context).colorScheme.primary),
       textAlign: textAlign,
     );
   }

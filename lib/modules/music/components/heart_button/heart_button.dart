@@ -48,7 +48,8 @@ class HeartButton extends HookConsumerWidget {
                   ? Icons.favorite_rounded
                   : Icons.favorite_outline_rounded),
           key: ValueKey(isLiked),
-          color: color ?? (isLiked ? Colors.red : null),
+          color: color ??
+              (isLiked ? Theme.of(context).colorScheme.error : null),
         ),
       ),
       onPressed: onPressed,

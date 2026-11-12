@@ -64,7 +64,7 @@ import 'package:auto_route/auto_route.dart';
               // Music Hub settings (playback, comptes, etc.)
               IconButton(
                 icon: const Icon(MusicIcons.settings),
-                tooltip: 'Paramètres Music Hub',
+                tooltip: context.l10n.settings,
                 onPressed: () => context.navigateTo(const SettingsRoute()),
               ),
             ],
@@ -152,7 +152,7 @@ import 'package:auto_route/auto_route.dart';
                   // Music Hub internal settings (playback, comptes, apparence…)
                   IconButton(
                     icon: const Icon(MusicIcons.settings),
-                    tooltip: 'Paramètres Music Hub',
+                    tooltip: context.l10n.settings,
                     onPressed: () {
                       context.navigateTo(const SettingsRoute());
                     },

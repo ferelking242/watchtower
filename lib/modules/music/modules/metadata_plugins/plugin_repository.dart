@@ -237,8 +237,8 @@ import 'package:flutter/gestures.dart';
                     TextSpan(text: context.l10n.source),
                     TextSpan(
                       text: pluginRepo.repoUrl.replaceAll("https://", ""),
-                      style: const TextStyle(
-                        color: Colors.blue,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         decoration: TextDecoration.underline,
                       ),
                       recognizer: TapGestureRecognizer()
@@ -267,21 +267,27 @@ import 'package:flutter/gestures.dart';
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blue,
+                      color: Theme.of(context).colorScheme.errorContainer,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       spacing: 4,
                       children: [
-                        const Icon(MusicIcons.warning, size: 14,
-                            color: Colors.white),
+                        Icon(
+                          MusicIcons.warning,
+                          size: 14,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onErrorContainer,
+                        ),
                         Text(
                           context.l10n.third_party,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall!
-                              .copyWith(color: Colors.white),
+                          style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                              ),
                         ),
                       ],
                     ),

@@ -25,7 +25,7 @@ import 'package:auto_route/auto_route.dart';
             ),
           ),
           ListTile(
-            title: const Text('Music Hub'),
+            title: Text(context.l10n.about),
             trailing: const Icon(MusicIcons.angleRight),
             onTap: () => context.navigateTo(const AboutSpotubeRoute()),
           ),

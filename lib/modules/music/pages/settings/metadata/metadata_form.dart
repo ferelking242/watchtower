@@ -101,8 +101,12 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                               if (formField.hasError)
                                 Text(
                                   formField.errorText ?? '',
-                                  style: const TextStyle(
-                                      color: Colors.red, fontSize: 12),
+                                  style: TextStyle(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .error,
+                                    fontSize: 12,
+                                  ),
                                 ),
                             ],
                           );

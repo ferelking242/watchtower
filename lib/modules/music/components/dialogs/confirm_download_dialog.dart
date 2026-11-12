@@ -39,8 +39,8 @@ class ConfirmDownloadDialog extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   context.l10n.download_ip_ban_warning,
-                  style: const TextStyle(
-                    color: Colors.red,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.justify,

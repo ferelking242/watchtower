@@ -27,7 +27,7 @@ class TrackDetailsDialog extends HookConsumerWidget {
       context.l10n.artist: ArtistLink(
         artists: track.artists,
         mainAxisAlignment: WrapAlignment.start,
-        textStyle: const TextStyle(color: Colors.blue),
+        textStyle: TextStyle(color: theme.colorScheme.primary),
         hideOverflowArtist: false,
       ),
       context.l10n.duration: sourcedTrack.asData != null

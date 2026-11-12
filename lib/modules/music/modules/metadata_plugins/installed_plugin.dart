@@ -223,21 +223,32 @@ import 'dart:io';
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .errorContainer,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   spacing: 4,
                                   children: [
-                                    const Icon(MusicIcons.warning,
-                                        size: 14, color: Colors.white),
+                                    Icon(
+                                      MusicIcons.warning,
+                                      size: 14,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                    ),
                                     Text(
                                       context.l10n.third_party,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall!
-                                          .copyWith(color: Colors.white),
+                                          .copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onErrorContainer,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -268,9 +279,9 @@ import 'dart:io';
                     onPressed: () async {
                       await pluginsNotifier.removePlugin(plugin);
                     },
-                    icon: const Icon(
+                    icon: Icon(
                       MusicIcons.trash,
-                      color: Colors.red,
+                      color: Theme.of(context).colorScheme.error,
                     ),
                   ),
                 );
@@ -292,7 +303,10 @@ import 'dart:io';
                       Row(
                         spacing: 8,
                         children: [
-                          const Icon(MusicIcons.warning, color: Colors.yellow),
+                          Icon(
+                            MusicIcons.warning,
+                            color: Theme.of(context).colorScheme.tertiary,
+                          ),
                           Text(context.l10n.plugin_requires_authentication),
                         ],
                       ),

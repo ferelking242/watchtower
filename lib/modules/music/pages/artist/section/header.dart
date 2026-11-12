@@ -91,7 +91,9 @@ class ArtistPageHeader extends HookConsumerWidget {
           IconButton(
             icon: Icon(
               MusicIcons.userRemove,
-              color: !isBlackListed ? Colors.red[400] : null,
+              color: !isBlackListed
+                  ? Theme.of(context).colorScheme.error
+                  : null,
             ),
             onPressed: () async {
               if (isBlackListed) {
@@ -164,9 +166,14 @@ class ArtistPageHeader extends HookConsumerWidget {
                                   const SizedBox(height: 5, width: 5),
                                   Chip(
                                     label: Text(context.l10n.blacklisted),
-                                    backgroundColor: Colors.red.shade100,
-                                    labelStyle: const TextStyle(
-                                        color: Colors.red),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .errorContainer,
+                                    labelStyle: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                    ),
                                     materialTapTargetSize:
                                         MaterialTapTargetSize.shrinkWrap,
                                     padding: EdgeInsets.zero,

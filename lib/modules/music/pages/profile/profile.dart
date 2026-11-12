@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -16,7 +16,30 @@ class ProfilePage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final me = ref.watch(metadataPluginUserProvider);
-    final meData = me.asData?.value ?? FakeData.user;
+    final meData = me.asData?.value;
+
+    if (me.hasError) {
+      return SafeArea(
+        child: Scaffold(
+          appBar: AppBar(title: Text(context.l10n.profile)),
+          body: Center(
+            child: ErrorBox(
+              error: me.error!,
+              onRetry: () => ref.invalidate(metadataPluginUserProvider),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (meData == null) {
+      return SafeArea(
+        child: Scaffold(
+          appBar: AppBar(title: Text(context.l10n.profile)),
+          body: const Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
 
     return SafeArea(
       child: Scaffold(

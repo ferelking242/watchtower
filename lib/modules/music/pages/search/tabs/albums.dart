@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/playbutton_view/playbutton_view.dart';
 import 'package:watchtower/modules/music/modules/album/album_card.dart';
@@ -21,9 +20,7 @@ class SearchPageAlbumsTab extends HookConsumerWidget {
         ref.watch(metadataPluginSearchAlbumsProvider(searchTerm));
     final searchAlbumsNotifier =
         ref.read(metadataPluginSearchAlbumsProvider(searchTerm).notifier);
-    final searchAlbums = searchAlbumsSnapshot.isLoading
-        ? [FakeData.albumSimple]
-        : (searchAlbumsSnapshot.asData?.value.items ?? []);
+    final searchAlbums = searchAlbumsSnapshot.asData?.value.items ?? [];
 
     if (searchAlbumsSnapshot.hasError) {
       return ErrorBox(

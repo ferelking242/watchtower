@@ -4,9 +4,9 @@ import 'dart:ui';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/heart_button/heart_button.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/components/links/artist_link.dart';
@@ -41,8 +41,25 @@ class TrackPage extends HookConsumerWidget {
     final isActive = playlist.activeTrack?.id == trackId;
 
     final trackQuery = ref.watch(metadataPluginTrackProvider(trackId));
+    final track = trackQuery.asData?.value;
 
-    final track = trackQuery.asData?.value ?? FakeData.track;
+    if (track == null) {
+      return SafeArea(
+        bottom: false,
+        child: Scaffold(
+          appBar: AppBar(backgroundColor: Colors.transparent),
+          body: Center(
+            child: trackQuery.hasError
+                ? ErrorBox(
+                    error: trackQuery.error!,
+                    onRetry: () =>
+                        ref.invalidate(metadataPluginTrackProvider(trackId)),
+                  )
+                : const CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
 
     void onPlay() async {
       if (isActive) {

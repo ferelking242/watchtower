@@ -34,11 +34,11 @@ class YouTubeEngineNotInstalledDialog extends HookConsumerWidget {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(MusicIcons.error, color: Colors.red),
+          Icon(MusicIcons.error, color: Theme.of(context).colorScheme.error),
           const SizedBox(width: 8),
           Text(
             context.l10n.youtube_engine_not_installed_title(engine.label),
-            style: const TextStyle(color: Colors.red),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ],
       ),
@@ -63,7 +63,9 @@ class YouTubeEngineNotInstalledDialog extends HookConsumerWidget {
                     },
                     child: Text(
                       engineDownloadUrls[engine]!.split("?").first,
-                      style: const TextStyle(color: Colors.blue),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                 ],

@@ -75,7 +75,7 @@ class DownloadItem extends HookConsumerWidget {
               children: [
                 Icon(
                   MusicIcons.error,
-                  color: Colors.red[400],
+                  color: Theme.of(context).colorScheme.error,
                 ),
                 const SizedBox(width: 10),
                 IconButton(
@@ -88,7 +88,8 @@ class DownloadItem extends HookConsumerWidget {
             ),
           ),
         DownloadStatus.completed =>
-          Icon(MusicIcons.done, color: Colors.green[400]),
+          Icon(MusicIcons.done,
+              color: Theme.of(context).colorScheme.primary),
         DownloadStatus.queued => IconButton(
             icon: const Icon(MusicIcons.close),
             onPressed: () {
