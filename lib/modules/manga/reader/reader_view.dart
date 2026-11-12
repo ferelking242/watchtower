@@ -232,6 +232,7 @@ class _MangaChapterPageGalleryState
     _photoViewController.dispose();
     _photoViewScaleStateController.dispose();
     _extendedController.dispose();
+    _keyboardFocusNode.dispose();
     clearGestureDetailsCache();
     if (_isNavigatingToChapter) {
       _isNavigatingToChapter = false;
@@ -575,6 +576,14 @@ class _MangaChapterPageGalleryState
   /// index: prepending a previous chapter shifts every index).
   final Set<UChapDataPreload> _cropBorderCheckList = <UChapDataPreload>{};
 
+  /// Owns the reader's keyboard focus. Created once and disposed with the
+  /// state: building a fresh `FocusNode` on every frame leaked a node per
+  /// rebuild and let the focus drift off the reader (arrow keys, F11 and the
+  /// volume keys then went to whatever grabbed focus next).
+  final FocusNode _keyboardFocusNode = FocusNode(
+    debugLabel: 'manga-reader-keyboard',
+  );
+
   void _onScaleEnd(
     BuildContext context,
     ScaleEndDetails details,
@@ -691,6 +700,7 @@ class _MangaChapterPageGalleryState
       },
     ).wrapWithKeyboardListener(
       isReverseHorizontal: _isReverseHorizontal,
+      focusNode: _keyboardFocusNode,
       child: NotificationListener<UserScrollNotification>(
         onNotification: (notification) {
           if (notification.direction == ScrollDirection.idle) {

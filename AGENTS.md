@@ -1046,6 +1046,17 @@ must not leak into watch code paths or logs:
 - Settings sub-pages (`SettingsSubpageScaffold`) constrain their content to
   980px and centre it above 900px wide; phones keep full width.
 
+## Manga reader keyboard focus (ne pas régresser)
+- `ReaderKeyboardHandler.wrapWithKeyboardListener` exige désormais un
+  `focusNode` fourni par l'appelant. Le lecteur crée `_keyboardFocusNode` dans
+  son `State` et le libère dans `dispose`. Ne jamais revenir à un
+  `FocusNode()` construit dans `build` : chaque frame en créait un nouveau,
+  ce qui fuyait un nœud par rebuild et faisait perdre le focus clavier
+  (flèches, F11, touches volume ne répondaient plus après un re-render).
+- Le handler ne réagit qu'aux `KeyDownEvent` (jamais aux `KeyUpEvent`), pour
+  qu'une touche maintenue ne déclenche pas deux sauts de page. Couvert par
+  `test/reader_keyboard_test.dart`.
+
 ## Volume-key page navigation
 - The native bridge is `com.watchtower.app.volume_keys` (Android
   `MainActivity.dispatchKeyEvent`, iOS `AppDelegate`), surfaced as

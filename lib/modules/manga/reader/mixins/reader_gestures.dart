@@ -196,14 +196,18 @@ class ReaderKeyboardHandler {
   }
 
   /// Creates a KeyboardListener widget with this handler.
+  ///
+  /// [focusNode] must be owned by the caller (created in `initState` and
+  /// disposed with the state). Building one here on every frame would leak a
+  /// node per rebuild and let the reader lose keyboard focus.
   Widget wrapWithKeyboardListener({
     required Widget child,
+    required FocusNode focusNode,
     bool isReverseHorizontal = false,
-    FocusNode? focusNode,
   }) {
     return KeyboardListener(
       autofocus: true,
-      focusNode: focusNode ?? FocusNode(),
+      focusNode: focusNode,
       onKeyEvent: (event) =>
           handleKeyEvent(event, isReverseHorizontal: isReverseHorizontal),
       child: child,
