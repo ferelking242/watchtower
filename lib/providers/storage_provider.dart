@@ -1,5 +1,6 @@
 // ignore_for_file: depend_on_referenced_packages
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'dart:io'
+    if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
@@ -87,10 +88,7 @@ class StorageProvider {
 
     if (!requestIfNeeded) return false;
 
-    final requested = await [
-      Permission.videos,
-      Permission.photos,
-    ].request();
+    final requested = await [Permission.videos, Permission.photos].request();
     if (requested.values.any(
       (status) => status.isGranted || status.isLimited,
     )) {
@@ -170,10 +168,12 @@ class StorageProvider {
   Future<bool> _isWritableDirectory(Directory directory) async {
     try {
       await directory.create(recursive: true);
-      final probe = File(path.join(
-        directory.path,
-        '.watchtower_write_probe_${DateTime.now().microsecondsSinceEpoch}',
-      ));
+      final probe = File(
+        path.join(
+          directory.path,
+          '.watchtower_write_probe_${DateTime.now().microsecondsSinceEpoch}',
+        ),
+      );
       await probe.writeAsString('');
       await probe.delete();
       return true;
@@ -332,9 +332,9 @@ class StorageProvider {
         await _ensureAppStorageLayout(directory);
       } else {
         await directory.create(recursive: true);
-        await Directory(path.join(directory.path, 'download')).create(
-          recursive: true,
-        );
+        await Directory(
+          path.join(directory.path, 'download'),
+        ).create(recursive: true);
       }
     }
     return directory;
@@ -361,12 +361,15 @@ class StorageProvider {
     String scanlator = chapter.scanlator?.isNotEmpty ?? false
         ? "${chapter.scanlator!.replaceForbiddenCharacters('_')}_"
         : "";
-    return Directory(
-      path.join(
-        basedir!.path,
-        scanlator + chapter.name!.replaceForbiddenCharacters('_').trim(),
-      ),
-    );
+    // A blank title must not reach `chapter.name!` ("Null check operator used
+    // on a null value") and abort the download before it starts. Fall back to
+    // the chapter id, the same way the file name does, so the folder is still
+    // findable by the readers that rebuild this path.
+    final title = (chapter.name ?? '').replaceForbiddenCharacters('_').trim();
+    final folderName = title.isNotEmpty
+        ? title
+        : 'chapter_${chapter.id ?? 'unknown'}';
+    return Directory(path.join(basedir!.path, scanlator + folderName));
   }
 
   Future<Directory?> getDatabaseDirectory() async {
@@ -408,103 +411,127 @@ class StorageProvider {
   }
 
   Future<Isar> initDB(String? path, {bool inspector = false}) async {
-      Directory? dir;
-      if (path == null) {
-        dir = await getDatabaseDirectory();
-      } else {
-        dir = Directory(path);
-      }
+    Directory? dir;
+    if (path == null) {
+      dir = await getDatabaseDirectory();
+    } else {
+      dir = Directory(path);
+    }
 
-      // If the DB is already open (e.g. called concurrently from an isolate),
-      // return the existing instance immediately.
-      final existing = Isar.getInstance('watchtowerDb');
-      if (existing != null && existing.isOpen) return existing;
+    // If the DB is already open (e.g. called concurrently from an isolate),
+    // return the existing instance immediately.
+    final existing = Isar.getInstance('watchtowerDb');
+    if (existing != null && existing.isOpen) return existing;
 
-      final schemas = [
-        MangaSchema,
-        ChangedPartSchema,
-        ChapterSchema,
-        CategorySchema,
-        CustomButtonSchema,
-        UpdateSchema,
-        HistorySchema,
-        DownloadSchema,
-        SourceSchema,
-        SettingsSchema,
-        TrackPreferenceSchema,
-        TrackSchema,
-        SyncPreferenceSchema,
-        SourcePreferenceSchema,
-        SourcePreferenceStringValueSchema,
-        // ── Local Indexer ──────────────────────────────────────────────────
-        LocalIndexedItemSchema,
-        LocalFileCacheSchema,
-      ];
+    final schemas = [
+      MangaSchema,
+      ChangedPartSchema,
+      ChapterSchema,
+      CategorySchema,
+      CustomButtonSchema,
+      UpdateSchema,
+      HistorySchema,
+      DownloadSchema,
+      SourceSchema,
+      SettingsSchema,
+      TrackPreferenceSchema,
+      TrackSchema,
+      SyncPreferenceSchema,
+      SourcePreferenceSchema,
+      SourcePreferenceStringValueSchema,
+      // ── Local Indexer ──────────────────────────────────────────────────
+      LocalIndexedItemSchema,
+      LocalFileCacheSchema,
+    ];
 
-      // Helper: purge any broken/partial Isar instance stuck in the global
-      // registry.  When Isar.open() throws, isar_community may still have
-      // registered an empty Isar object (with _collections uninitialised)
-      // under the name 'watchtowerDb'.  Returning that object via
-      // Isar.getInstance() and assigning it to `isar` causes every
-      // subsequent isar.settings access to throw:
-      //   LateInitializationError: Field '_collections@...' has not been
-      //   initialized.
-      // We must close (evict) that zombie before any retry.
-      Future<void> evictBrokenInstance() async {
+    // Helper: purge any broken/partial Isar instance stuck in the global
+    // registry.  When Isar.open() throws, isar_community may still have
+    // registered an empty Isar object (with _collections uninitialised)
+    // under the name 'watchtowerDb'.  Returning that object via
+    // Isar.getInstance() and assigning it to `isar` causes every
+    // subsequent isar.settings access to throw:
+    //   LateInitializationError: Field '_collections@...' has not been
+    //   initialized.
+    // We must close (evict) that zombie before any retry.
+    Future<void> evictBrokenInstance() async {
+      try {
+        final zombie = Isar.getInstance('watchtowerDb');
+        if (zombie != null) await zombie.close(deleteFromDisk: false);
+      } catch (_) {}
+    }
+
+    // Helper: delete the on-disk files so the next open starts fresh.
+    Future<void> deleteDbFiles() async {
+      for (final suffix in ['.isar', '.isar.lock', '.isar.tmp']) {
         try {
-          final zombie = Isar.getInstance('watchtowerDb');
-          if (zombie != null) await zombie.close(deleteFromDisk: false);
+          final f = File('${dir!.path}/watchtowerDb$suffix');
+          if (await f.exists()) await f.delete();
         } catch (_) {}
       }
+    }
 
-      // Helper: delete the on-disk files so the next open starts fresh.
-      Future<void> deleteDbFiles() async {
+    // ── Version-gated DB protection ─────────────────────────────────────
+    // isar_get_offsets crashes with SIGBUS (uncatchable in Dart) when the
+    // on-disk DB was created with a different schema (stale build data).
+    // We store a tiny version file next to the DB and wipe the DB files
+    // before opening if the version doesn't match — guaranteeing a clean slate.
+    const kCurrentDbVersion =
+        '13'; // +plugin ItemType (schema enum change forces wipe)
+    final versionFile = File('${dir!.path}/watchtowerDb.schema_version');
+    try {
+      final storedVersion = await versionFile.exists()
+          ? await versionFile.readAsString()
+          : null;
+      if (storedVersion != kCurrentDbVersion) {
+        debugPrint(
+          '[initDB] DB version mismatch ($storedVersion→$kCurrentDbVersion) — wiping stale files',
+        );
         for (final suffix in ['.isar', '.isar.lock', '.isar.tmp']) {
           try {
             final f = File('${dir!.path}/watchtowerDb$suffix');
             if (await f.exists()) await f.delete();
           } catch (_) {}
         }
+        await versionFile.writeAsString(kCurrentDbVersion);
       }
+    } catch (e) {
+      debugPrint('[initDB] version-check error (non-fatal): $e');
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
-      // ── Version-gated DB protection ─────────────────────────────────────
-        // isar_get_offsets crashes with SIGBUS (uncatchable in Dart) when the
-        // on-disk DB was created with a different schema (stale build data).
-        // We store a tiny version file next to the DB and wipe the DB files
-        // before opening if the version doesn't match — guaranteeing a clean slate.
-        const kCurrentDbVersion = '13'; // +plugin ItemType (schema enum change forces wipe)
-        final versionFile = File('${dir!.path}/watchtowerDb.schema_version');
-        try {
-          final storedVersion = await versionFile.exists()
-              ? await versionFile.readAsString()
-              : null;
-          if (storedVersion != kCurrentDbVersion) {
-            debugPrint('[initDB] DB version mismatch ($storedVersion→$kCurrentDbVersion) — wiping stale files');
-            for (final suffix in ['.isar', '.isar.lock', '.isar.tmp']) {
-              try {
-                final f = File('${dir!.path}/watchtowerDb$suffix');
-                if (await f.exists()) await f.delete();
-              } catch (_) {}
-            }
-            await versionFile.writeAsString(kCurrentDbVersion);
-          }
-        } catch (e) {
-          debugPrint('[initDB] version-check error (non-fatal): $e');
-        }
-        // ─────────────────────────────────────────────────────────────────────
+    // On iPhone 7 and other RAM-constrained iOS devices, Isar's default
+    // 1 GB mmap window causes iOS to evict memory-mapped pages under
+    // pressure.  When Dart then calls isar_get_offsets on an evicted page
+    // the Rust code receives a KERN_PROTECTION_FAILURE → SIGBUS, which
+    // is uncatchable in Dart and kills the process (crash log frame 0:
+    // isar_get_offsets + 112, kernel triage: VM - Fault hit memory
+    // shortage × 5).  Limiting maxSizeMiB to 256 on iOS keeps the mmap
+    // footprint small enough that pages stay resident.  Desktop/Android
+    // keep the default 1024 MB (plenty of RAM, no mmap eviction issue).
+    final maxSizeMiB = Platform.isIOS ? 256 : 1024;
 
-        // On iPhone 7 and other RAM-constrained iOS devices, Isar's default
-        // 1 GB mmap window causes iOS to evict memory-mapped pages under
-        // pressure.  When Dart then calls isar_get_offsets on an evicted page
-        // the Rust code receives a KERN_PROTECTION_FAILURE → SIGBUS, which
-        // is uncatchable in Dart and kills the process (crash log frame 0:
-        // isar_get_offsets + 112, kernel triage: VM - Fault hit memory
-        // shortage × 5).  Limiting maxSizeMiB to 256 on iOS keeps the mmap
-        // footprint small enough that pages stay resident.  Desktop/Android
-        // keep the default 1024 MB (plenty of RAM, no mmap eviction issue).
-        final maxSizeMiB = Platform.isIOS ? 256 : 1024;
+    Isar isar;
+    try {
+      isar = await Isar.open(
+        schemas,
+        directory: dir!.path,
+        name: "watchtowerDb",
+        inspector: inspector,
+        maxSizeMiB: maxSizeMiB,
+      );
+    } catch (e) {
+      final eMsg = e.toString();
+      debugPrint(
+        '[initDB] Isar.open failed ($eMsg) — evicting zombie, deleting stale DB, retrying',
+      );
 
-        Isar isar;
+      // Step 1: evict any zombie Isar registered during the failed open.
+      await evictBrokenInstance();
+
+      // Step 2: delete stale on-disk files (schema mismatch from old build).
+      await deleteDbFiles();
+
+      // Step 3: first retry on a clean slate.
       try {
         isar = await Isar.open(
           schemas,
@@ -513,42 +540,25 @@ class StorageProvider {
           inspector: inspector,
           maxSizeMiB: maxSizeMiB,
         );
-      } catch (e) {
-        final eMsg = e.toString();
-        debugPrint('[initDB] Isar.open failed ($eMsg) — evicting zombie, deleting stale DB, retrying');
+      } catch (e2) {
+        debugPrint(
+          '[initDB] retry-1 failed ($e2) — evicting again, waiting 500ms, final attempt',
+        );
 
-        // Step 1: evict any zombie Isar registered during the failed open.
+        // The open may have registered another zombie — evict it too.
         await evictBrokenInstance();
+        await Future.delayed(const Duration(milliseconds: 500));
 
-        // Step 2: delete stale on-disk files (schema mismatch from old build).
-        await deleteDbFiles();
-
-        // Step 3: first retry on a clean slate.
-        try {
-          isar = await Isar.open(
-            schemas,
-            directory: dir!.path,
-            name: "watchtowerDb",
-            inspector: inspector,
-            maxSizeMiB: maxSizeMiB,
-          );
-        } catch (e2) {
-          debugPrint('[initDB] retry-1 failed ($e2) — evicting again, waiting 500ms, final attempt');
-
-          // The open may have registered another zombie — evict it too.
-          await evictBrokenInstance();
-          await Future.delayed(const Duration(milliseconds: 500));
-
-          // Step 4: final attempt — let it throw if the DB is unrecoverable.
-          isar = await Isar.open(
-            schemas,
-            directory: dir!.path,
-            name: "watchtowerDb",
-            inspector: inspector,
-            maxSizeMiB: maxSizeMiB,
-          );
-        }
+        // Step 4: final attempt — let it throw if the DB is unrecoverable.
+        isar = await Isar.open(
+          schemas,
+          directory: dir!.path,
+          name: "watchtowerDb",
+          inspector: inspector,
+          maxSizeMiB: maxSizeMiB,
+        );
       }
+    }
 
     // raw.githubusercontent — always up-to-date, no CDN staleness issues.
     const _wtBase =
@@ -586,19 +596,28 @@ class StorageProvider {
           changed = true;
         }
         // D — Watchtower: old manga|watch|novel/index.json → index/manga|watch|novel.json
-          if (r.jsonUrl?.contains('ferelking242/watchtower-extensions') == true) {
-            if (r.jsonUrl!.contains('/manga/index.json')) {
-              r.jsonUrl = r.jsonUrl!.replaceFirst('/manga/index.json', '/index/manga.json');
-              changed = true;
-            } else if (r.jsonUrl!.contains('/watch/index.json')) {
-              r.jsonUrl = r.jsonUrl!.replaceFirst('/watch/index.json', '/index/watch.json');
-              changed = true;
-            } else if (r.jsonUrl!.contains('/novel/index.json')) {
-              r.jsonUrl = r.jsonUrl!.replaceFirst('/novel/index.json', '/index/novel.json');
-              changed = true;
-            }
+        if (r.jsonUrl?.contains('ferelking242/watchtower-extensions') == true) {
+          if (r.jsonUrl!.contains('/manga/index.json')) {
+            r.jsonUrl = r.jsonUrl!.replaceFirst(
+              '/manga/index.json',
+              '/index/manga.json',
+            );
+            changed = true;
+          } else if (r.jsonUrl!.contains('/watch/index.json')) {
+            r.jsonUrl = r.jsonUrl!.replaceFirst(
+              '/watch/index.json',
+              '/index/watch.json',
+            );
+            changed = true;
+          } else if (r.jsonUrl!.contains('/novel/index.json')) {
+            r.jsonUrl = r.jsonUrl!.replaceFirst(
+              '/novel/index.json',
+              '/index/novel.json',
+            );
+            changed = true;
           }
-          // C — dead URL guard (reserved)
+        }
+        // C — dead URL guard (reserved)
         if (r.jsonUrl?.contains('LNReader/lnreader-sources') == true) {
           r.jsonUrl = null; // will be filtered below
           changed = true;
@@ -609,7 +628,10 @@ class StorageProvider {
 
     // Remove repos with null or dead URLs left by migration C.
     List<Repo> _cleanRepos(List<Repo>? repos) =>
-        repos?.where((r) => r.jsonUrl != null && r.jsonUrl!.isNotEmpty).toList() ?? [];
+        repos
+            ?.where((r) => r.jsonUrl != null && r.jsonUrl!.isNotEmpty)
+            .toList() ??
+        [];
 
     bool _hasRepo(List<Repo>? repos, String urlFragment) =>
         repos?.any((r) => r.jsonUrl?.contains(urlFragment) == true) == true;
@@ -636,21 +658,36 @@ class StorageProvider {
         if (_migrateRepoUrls(settings.mangaExtensionsRepo)) needsUpdate = true;
         if (_migrateRepoUrls(settings.animeExtensionsRepo)) needsUpdate = true;
         if (_migrateRepoUrls(settings.novelExtensionsRepo)) needsUpdate = true;
-        settings.mangaExtensionsRepo = _cleanRepos(settings.mangaExtensionsRepo);
-        settings.animeExtensionsRepo = _cleanRepos(settings.animeExtensionsRepo);
-        settings.novelExtensionsRepo = _cleanRepos(settings.novelExtensionsRepo);
+        settings.mangaExtensionsRepo = _cleanRepos(
+          settings.mangaExtensionsRepo,
+        );
+        settings.animeExtensionsRepo = _cleanRepos(
+          settings.animeExtensionsRepo,
+        );
+        settings.novelExtensionsRepo = _cleanRepos(
+          settings.novelExtensionsRepo,
+        );
 
         // 2 — Ensure Watchtower base repositories are present.
         if (!_hasRepo(settings.mangaExtensionsRepo, 'index/manga.json')) {
-          settings.mangaExtensionsRepo = [...settings.mangaExtensionsRepo!, mangaRepo];
+          settings.mangaExtensionsRepo = [
+            ...settings.mangaExtensionsRepo!,
+            mangaRepo,
+          ];
           needsUpdate = true;
         }
         if (!_hasRepo(settings.animeExtensionsRepo, 'index/watch.json')) {
-          settings.animeExtensionsRepo = [...settings.animeExtensionsRepo!, watchRepo];
+          settings.animeExtensionsRepo = [
+            ...settings.animeExtensionsRepo!,
+            watchRepo,
+          ];
           needsUpdate = true;
         }
         if (!_hasRepo(settings.novelExtensionsRepo, 'index/novel.json')) {
-          settings.novelExtensionsRepo = [...settings.novelExtensionsRepo!, novelRepo];
+          settings.novelExtensionsRepo = [
+            ...settings.novelExtensionsRepo!,
+            novelRepo,
+          ];
           needsUpdate = true;
         }
 
@@ -663,8 +700,10 @@ class StorageProvider {
         settings.animeExtensionsRepo = settings.animeExtensionsRepo
             ?.where((r) => !_hasRepoUrl(r, 'aniyomiorg/aniyomi-extensions'))
             .toList();
-        if ((settings.mangaExtensionsRepo?.length ?? 0) != prevMangaLen) needsUpdate = true;
-        if ((settings.animeExtensionsRepo?.length ?? 0) != prevAnimeLen) needsUpdate = true;
+        if ((settings.mangaExtensionsRepo?.length ?? 0) != prevMangaLen)
+          needsUpdate = true;
+        if ((settings.animeExtensionsRepo?.length ?? 0) != prevAnimeLen)
+          needsUpdate = true;
 
         if (needsUpdate) {
           await isar.writeTxn(() async => isar.settings.put(settings));
@@ -676,7 +715,9 @@ class StorageProvider {
       // storage permission here makes no sense (Isar uses internal app
       // storage on Android) and could trigger a Settings intent in the middle
       // of startup.  Just retry the write directly.
-      debugPrint('[initDB] Settings init failed ($e) — retrying without permission gate');
+      debugPrint(
+        '[initDB] Settings init failed ($e) — retrying without permission gate',
+      );
       try {
         final settings = await isar.settings
             .filter()
@@ -708,9 +749,7 @@ class StorageProvider {
       }
     });
 
-    final customButton = await isar.customButtons
-        .where()
-        .findFirst();
+    final customButton = await isar.customButtons.where().findFirst();
     if (customButton == null) {
       await isar.writeTxn(() async {
         await isar.customButtons.put(
