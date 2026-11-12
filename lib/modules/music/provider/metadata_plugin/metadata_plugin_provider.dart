@@ -534,12 +534,16 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       throw MetadataPluginException.duplicatePlugin();
     }
 
-    // Query DB directly for existing plugins of each type (state may be stale)
-    final existingMetadataCount = await (database.pluginsTable.select()
-          ..where((tbl) => tbl.abilities.contains('metadata')))
+    // Query DB directly for an existing default of each type (state may be
+    // stale). The rule the user expects: the first metadata plugin installed
+    // becomes the default metadata provider, the first audio source becomes
+    // the default audio source. A later plugin must NOT silently steal the
+    // slot — the user changes it from Hub > Music > Settings > Plugins.
+    final existingDefaultMetadata = await (database.pluginsTable.select()
+          ..where((tbl) => tbl.selectedForMetadata.equals(true)))
         .get();
-    final existingAudioSourceCount = await (database.pluginsTable.select()
-          ..where((tbl) => tbl.abilities.contains('audioSource')))
+    final existingDefaultAudioSource = await (database.pluginsTable.select()
+          ..where((tbl) => tbl.selectedForAudioSource.equals(true)))
         .get();
 
     await database.pluginsTable.insertOne(
@@ -553,13 +557,13 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         abilities: plugin.abilities.map((e) => e.name).toList(),
         pluginApiVersion: Value(plugin.pluginApiVersion),
         repository: Value(plugin.repository),
-        // Auto-set as default if no existing plugin of this type
+        // Auto-set as default when no default of this type is selected yet.
         selectedForMetadata: Value(
-          existingMetadataCount.isEmpty &&
+          existingDefaultMetadata.isEmpty &&
               plugin.abilities.contains(PluginAbilities.metadata),
         ),
         selectedForAudioSource: Value(
-          existingAudioSourceCount.isEmpty &&
+          existingDefaultAudioSource.isEmpty &&
               plugin.abilities.contains(PluginAbilities.audioSource),
         ),
       ),
