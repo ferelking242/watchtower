@@ -163,13 +163,14 @@ class ImageViewWebtoon extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    // Use the *resolved* background: with "Automatique" the raw setting is
+    // null, and a null-coloured Divider falls back to the theme divider colour,
+    // drawing a visible line between two otherwise joined pages.
+    final seam = resolvedReaderBackground(backgroundColor, context);
     if (isHorizontalContinuous) {
-      return VerticalDivider(
-        color: getBackgroundColor(backgroundColor),
-        width: 6,
-      );
+      return VerticalDivider(color: seam, width: 6);
     } else {
-      return Divider(color: getBackgroundColor(backgroundColor), height: 6);
+      return Divider(color: seam, height: 6);
     }
   }
 }

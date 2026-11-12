@@ -791,6 +791,20 @@ Color? getBackgroundColor(BackgroundColor backgroundColor) {
   };
 }
 
+/// The reader's effective background as a solid colour.
+///
+/// [getBackgroundColor] returns `null` for [BackgroundColor.automatic] ("the
+/// app background"). Every place that *fills* an area with the reader
+/// background — the page-gap separators, the letterbox around a wide page —
+/// must use a real colour: a `Divider(color: null)` or `Container(color: null)`
+/// falls back to the theme's divider/surface colour, which does not match the
+/// scaffold behind it. That mismatch is what drew a dark line at the seam
+/// between two joined pages (and around wide pages) on light themes.
+Color resolvedReaderBackground(BackgroundColor backgroundColor, BuildContext context) {
+  return getBackgroundColor(backgroundColor) ??
+      Theme.of(context).scaffoldBackgroundColor;
+}
+
 String getDoubleTapAnimationSpeedName(int index, BuildContext context) {
   return switch (index) {
     0 => context.l10n.no_animation,
