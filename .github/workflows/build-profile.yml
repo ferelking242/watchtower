@@ -37,13 +37,6 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Cache pub packages
-        uses: actions/cache@v5
-        with:
-          path: ~/.pub-cache
-          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: pub-${{ runner.os }}-
-
       # Cache Gradle — timeout + continue-on-error so a hanging restore never
       # kills the entire run; a cold Gradle build is slow but correct.
       - name: Cache Gradle
@@ -74,8 +67,12 @@ jobs:
         with:
           path: |
             /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/ndk/28.2.13676358
             /usr/local/lib/android/sdk/cmake/3.22.1
-          key: android-sdk-extras-ndk27-cmake-${{ runner.os }}
+          key: android-sdk-extras-ndk27-ndk28-cmake-${{ runner.os }}
+          restore-keys: |
+            android-sdk-extras-ndk27-ndk28-cmake-
+            android-sdk-extras-ndk27-cmake-
 
       # Cache .dart_tool/flutter_build uniquement (pas tout .dart_tool — évite les stale metadata).
       # Clé exacte: OS + Flutter version + mode + sources Dart. Sans restore-keys → zéro stale kernel.
