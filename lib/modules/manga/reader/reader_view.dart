@@ -197,6 +197,10 @@ class _MangaChapterPageGalleryState
   /// scrolls by a fraction of this (Mihon's `smoothScrollBy`).
   Size _viewportSize = Size.zero;
 
+  /// Axis the continuous list scrolls along, captured in [build]. A page step
+  /// moves by the viewport's width when horizontal, its height otherwise.
+  Axis _continuousScrollAxis = Axis.vertical;
+
   // ── Volume-button navigation ───────────────────────────────────────────
   bool _volumeListenerActive = false;
 
@@ -329,7 +333,7 @@ class _MangaChapterPageGalleryState
       scrollOffsetController: _pageOffsetController,
       extendedController: _extendedController,
       viewportSize: () => _viewportSize,
-      animate: () => _animateTransitions,
+      scrollAxis: () => _continuousScrollAxis,
     );
     _initCurrentIndex();
     discordRpc?.showChapterDetails(ref, chapter);
@@ -621,6 +625,9 @@ class _MangaChapterPageGalleryState
     final bool isHorizontalContinuaous =
         readerMode == ReaderMode.horizontalContinuous ||
         readerMode == ReaderMode.horizontalContinuousRTL;
+    _continuousScrollAxis = isHorizontalContinuaous
+        ? Axis.horizontal
+        : Axis.vertical;
     if (cropBorders) {
       // Pass a flat [pages] index: the paged view counts double-page spreads
       // (one index = two pages), the continuous list counts pages.
@@ -805,6 +812,12 @@ class _MangaChapterPageGalleryState
                                             ? pageList.reversed.toList()
                                             : pageList,
                                         backgroundColor: backgroundColor,
+                                        zoomStart: ref.watch(
+                                          zoomStartPositionProvider,
+                                        ),
+                                        doubleTapZoomOut: ref.watch(
+                                          doubleTapZoomOutProvider,
+                                        ),
                                         onFailedToLoadImage: (val) {
                                           if (_failedToLoadImage.value != val &&
                                               mounted) {

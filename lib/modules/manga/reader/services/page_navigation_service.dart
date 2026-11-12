@@ -26,17 +26,16 @@ class PageNavigationService {
   /// Reports the current visible viewport size in logical pixels.
   final Size Function()? viewportSize;
 
-  /// Whether page-change transitions animate (the "Animer les transitions de
-  /// page" reader preference). Continuous scrolling honours it like Mihon:
-  /// animated (`smoothScrollBy`) vs instant (`scrollBy`).
-  final bool Function()? animate;
+  /// Reports the axis the continuous list scrolls along, so a page step moves
+  /// by the viewport's *width* in horizontal modes and its *height* otherwise.
+  final Axis Function()? scrollAxis;
 
   const PageNavigationService({
     required this.itemScrollController,
     required this.scrollOffsetController,
     required this.extendedController,
     this.viewportSize,
-    this.animate,
+    this.scrollAxis,
   });
 
   /// Navigates to a specific page index.
@@ -99,12 +98,11 @@ class PageNavigationService {
   /// Scrolls by [pages] viewport extents. Positive = forward (down/right).
   void _scrollByPages(int pages, bool animated) {
     final viewport = viewportSize?.call();
-    final extent = viewport == null
-        ? null
-        : (viewport.height.isFinite && viewport.height > 0
-              ? viewport.height
-              : viewport.width);
-    if (extent == null || !extent.isFinite || extent <= 0) return;
+    if (viewport == null) return;
+
+    final horizontal = scrollAxis?.call() == Axis.horizontal;
+    final extent = horizontal ? viewport.width : viewport.height;
+    if (!extent.isFinite || extent <= 0) return;
 
     // Increasing the scroll offset always advances towards higher page
     // indices, whatever the axis direction (a reversed list just starts at the
@@ -162,14 +160,14 @@ mixin PageNavigationMixin<T extends StatefulWidget> on State<T> {
     required ScrollOffsetController scrollOffsetController,
     required ExtendedPageController extendedController,
     Size Function()? viewportSize,
-    bool Function()? animate,
+    Axis Function()? scrollAxis,
   }) {
     _navigationService = PageNavigationService(
       itemScrollController: itemScrollController,
       scrollOffsetController: scrollOffsetController,
       extendedController: extendedController,
       viewportSize: viewportSize,
-      animate: animate,
+      scrollAxis: scrollAxis,
     );
   }
 

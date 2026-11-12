@@ -40,6 +40,12 @@ class DoublePageView extends StatefulWidget {
   /// Whether to add top padding for the first page (vertical mode only).
   final bool addTopPadding;
 
+  /// "Position du zoom initial": auto (follow the tap) | left | right | center.
+  final String zoomStart;
+
+  /// "Désactiver le zoom arrière": when false a double tap only zooms in.
+  final bool doubleTapZoomOut;
+
   const DoublePageView({
     super.key,
     required this.pages,
@@ -48,6 +54,8 @@ class DoublePageView extends StatefulWidget {
     this.onFailedToLoadImage,
     this.isPagedMode = true,
     this.addTopPadding = true,
+    this.zoomStart = 'auto',
+    this.doubleTapZoomOut = true,
   });
 
   /// Creates a paged mode double page view.
@@ -57,6 +65,8 @@ class DoublePageView extends StatefulWidget {
     required this.backgroundColor,
     this.onLongPressData,
     this.onFailedToLoadImage,
+    this.zoomStart = 'auto',
+    this.doubleTapZoomOut = true,
   }) : isPagedMode = true,
        addTopPadding = false;
 
@@ -68,7 +78,9 @@ class DoublePageView extends StatefulWidget {
     this.onLongPressData,
     this.onFailedToLoadImage,
     this.addTopPadding = true,
-  }) : isPagedMode = false;
+  }) : isPagedMode = false,
+       zoomStart = 'auto',
+       doubleTapZoomOut = true;
 
   @override
   State<DoublePageView> createState() => _DoublePageViewState();
@@ -148,7 +160,7 @@ class _DoublePageViewState extends State<DoublePageView>
       if (_scaleAnimationController.isAnimating) return;
 
       if (_photoViewController.scale == 1.0) {
-        _scalePosition = _computeAlignmentByTapOffset(tapPosition);
+        _scalePosition = _zoomAlignment(tapPosition);
 
         if (_scaleAnimationController.isCompleted) {
           _scaleAnimationController.reset();
@@ -159,12 +171,25 @@ class _DoublePageViewState extends State<DoublePageView>
       }
 
       if (_photoViewController.scale == 2.0) {
+        // "Désactiver le zoom arrière" off → double tap never zooms back out.
+        if (!widget.doubleTapZoomOut) return;
         _scaleAnimationController.reverse();
         return;
       }
 
       _photoViewScaleStateController.reset();
     });
+  }
+
+  /// Resolves the zoom-in alignment, honouring "Position du zoom initial"
+  /// (auto = follow the tap, otherwise a fixed edge).
+  Alignment _zoomAlignment(Offset tapPosition) {
+    return switch (widget.zoomStart) {
+      'left' => Alignment.centerLeft,
+      'right' => Alignment.centerRight,
+      'center' => Alignment.center,
+      _ => _computeAlignmentByTapOffset(tapPosition),
+    };
   }
 
   @override
