@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
+import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/modules/artist/artist_album_list.dart';
 import 'package:watchtower/modules/music/pages/artist/section/footer.dart';
@@ -50,11 +51,10 @@ class ArtistPage extends HookConsumerWidget {
           },
           child: Builder(builder: (context) {
             if (artistQuery.hasError && artistQuery.asData?.value == null) {
-              return Center(
-                child: Text(
-                  artistQuery.error.toString(),
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
+              return ErrorBox(
+                error: artistQuery.error!,
+                onRetry: () =>
+                    ref.invalidate(metadataPluginArtistProvider(artistId)),
               );
             }
             return ShimmerSkeleton(enabled: artistQuery.isLoading,

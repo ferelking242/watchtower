@@ -9,6 +9,7 @@ import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
+import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/collections/fake.dart';
 import 'package:watchtower/modules/music/collections/spotube_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
@@ -455,8 +456,9 @@ class LocalLibraryPage extends HookConsumerWidget {
                       ),
                     ),
                   ),
-                  error: (error, stackTrace) =>
-                      Text(error.toString() + stackTrace.toString()),
+                  error: (error, stackTrace) => ErrorBox(
+                    error: error,
+                  ),
                 );
               }),
             ],
