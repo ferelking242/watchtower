@@ -607,7 +607,12 @@ class _MangaChapterPageGalleryState
         readerMode == ReaderMode.horizontalContinuous ||
         readerMode == ReaderMode.horizontalContinuousRTL;
     if (cropBorders) {
-      _processCropBorders();
+      // Pass a flat [pages] index: the paged view counts double-page spreads
+      // (one index = two pages), the continuous list counts pages.
+      final flatCenter = _isContinuousMode()
+          ? (_currentIndex ?? 0)
+          : _pageViewToActualIndex(_currentIndex ?? 0);
+      _processCropBorders(center: flatCenter);
     }
 
     final l10n = l10nLocalizations(context)!;
@@ -1816,20 +1821,21 @@ class _MangaChapterPageGalleryState
 
   /// Crops a bounded window around [center] instead of the whole chapter.
   ///
-  /// The previous version walked *every* page and awaited each crop in turn.
-  /// On a 100-page chapter that meant 100 full-resolution images decoded, run
-  /// through the Rust isolate and re-uploaded to the UI isolate, which is what
-  /// made the reader stutter and run out of memory. Only the pages the user can
-  /// actually reach soon are worth cropping; the rest are cropped on demand by
-  /// [_processCropBordersByIndex] as they scroll into view.
+  /// [center] is a flat index into [pages]. The previous version walked *every*
+  /// page and awaited each crop in turn. On a 100-page chapter that meant 100
+  /// full-resolution images decoded, run through the Rust isolate and
+  /// re-uploaded to the UI isolate, which is what made the reader stutter and
+  /// run out of memory. Only the pages the user can actually reach soon are
+  /// worth cropping; the rest are cropped on demand by
+  /// [_processCropBordersAt] as they scroll into view.
   void _processCropBorders({int? center}) {
     if (pages.isEmpty) return;
-    final int middle = _pageViewToActualIndex(center ?? _currentIndex ?? 0);
+    final int middle = (center ?? _currentIndex ?? 0).clamp(0, pages.length - 1);
     final int radius = pagePreloadAmount.clamp(2, 6);
     final int from = (middle - radius).clamp(0, pages.length - 1);
     final int to = (middle + radius).clamp(0, pages.length - 1);
     for (var i = from; i <= to; i++) {
-      _processCropBordersByIndex(i);
+      _processCropBordersAt(i);
     }
   }
 
