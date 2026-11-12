@@ -187,6 +187,16 @@ class _MangaChapterPageGalleryState
 
   final Stopwatch _readingStopwatch = Stopwatch();
 
+  /// "Animer les transitions de page" preference, mirrored from the settings
+  /// record read in [build]. Cached so continuous-mode navigation (which runs
+  /// on every volume key / tap) does not re-deserialize the whole settings
+  /// record each time.
+  bool _animateTransitions = true;
+
+  /// Visible viewport size, captured in [build]. Continuous-mode navigation
+  /// scrolls by a fraction of this (Mihon's `smoothScrollBy`).
+  Size _viewportSize = Size.zero;
+
   // ── Volume-button navigation ───────────────────────────────────────────
   bool _volumeListenerActive = false;
 
@@ -316,7 +326,10 @@ class _MangaChapterPageGalleryState
     _itemPositionsListener.itemPositions.addListener(_readProgressListener);
     initPageNavigation(
       itemScrollController: _itemScrollController,
+      scrollOffsetController: _pageOffsetController,
       extendedController: _extendedController,
+      viewportSize: () => _viewportSize,
+      animate: () => _animateTransitions,
     );
     _initCurrentIndex();
     discordRpc?.showChapterDetails(ref, chapter);
@@ -492,13 +505,13 @@ class _MangaChapterPageGalleryState
         readerMode: readerMode,
         currentIndex: index,
         maxPages: _pageViewPageCount,
-        animate: true,
+        animate: _animateTransitions,
       );
     } else {
       navigationService.previousPage(
         readerMode: readerMode,
         currentIndex: index,
-        animate: true,
+        animate: _animateTransitions,
       );
     }
   }
@@ -603,6 +616,8 @@ class _MangaChapterPageGalleryState
     final fullScreenReader = ref.watch(fullScreenReaderStateProvider);
     final cropBorders = ref.watch(cropBordersStateProvider);
     final readerMode = ref.watch(_currentReaderMode);
+    _animateTransitions = ref.watch(animatePageTransitionsStateProvider);
+    _viewportSize = MediaQuery.sizeOf(context);
     final bool isHorizontalContinuaous =
         readerMode == ReaderMode.horizontalContinuous ||
         readerMode == ReaderMode.horizontalContinuousRTL;
@@ -620,13 +635,13 @@ class _MangaChapterPageGalleryState
       onPreviousPage: () => navigationService.previousPage(
         readerMode: readerMode!,
         currentIndex: _currentIndex!,
-        animate: true,
+        animate: _animateTransitions,
       ),
       onNextPage: () => navigationService.nextPage(
         readerMode: readerMode!,
         currentIndex: _currentIndex!,
         maxPages: _pageViewPageCount,
-        animate: true,
+        animate: _animateTransitions,
       ),
       onEscape: () => _goBack(context),
       onFullScreen: () => _setFullScreen(),
@@ -1055,13 +1070,13 @@ class _MangaChapterPageGalleryState
                           onPreviousPage: () => navigationService.previousPage(
                             readerMode: readerMode!,
                             currentIndex: _currentIndex!,
-                            animate: true,
+                            animate: _animateTransitions,
                           ),
                           onNextPage: () => navigationService.nextPage(
                             readerMode: readerMode!,
                             currentIndex: _currentIndex!,
                             maxPages: _pageViewPageCount,
-                            animate: true,
+                            animate: _animateTransitions,
                           ),
                           onDoubleTapDown: (position) => _toggleScale(position),
                           onDoubleTap: () {},

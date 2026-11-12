@@ -8,13 +8,35 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 /// Abstracts the complexity of navigating between different reader modes:
 /// - Paged modes (vertical, LTR, RTL)
 /// - Continuous modes (vertical continuous, webtoon, horizontal continuous)
+///
+/// In continuous modes navigation scrolls by a fraction of the viewport
+/// (Mihon's `smoothScrollBy`), instead of snapping the next item's leading edge
+/// to the top of the screen. The previous snapping behaviour made a volume key
+/// or a tap jump straight to the next page's top, skipping the part of the
+/// current page that was still below the fold.
 class PageNavigationService {
+  /// Fraction of the viewport scrolled per page step. Mihon uses 3/4 of the
+  /// screen height so the tail of the current page stays visible.
+  static const double _scrollFraction = 3 / 4;
+
   final ItemScrollController itemScrollController;
+  final ScrollOffsetController scrollOffsetController;
   final ExtendedPageController extendedController;
+
+  /// Reports the current visible viewport size in logical pixels.
+  final Size Function()? viewportSize;
+
+  /// Whether page-change transitions animate (the "Animer les transitions de
+  /// page" reader preference). Continuous scrolling honours it like Mihon:
+  /// animated (`smoothScrollBy`) vs instant (`scrollBy`).
+  final bool Function()? animate;
 
   const PageNavigationService({
     required this.itemScrollController,
+    required this.scrollOffsetController,
     required this.extendedController,
+    this.viewportSize,
+    this.animate,
   });
 
   /// Navigates to a specific page index.
@@ -31,7 +53,7 @@ class PageNavigationService {
     if (index < 0) return;
 
     if (_isContinuousMode(readerMode)) {
-      _navigateContinuous(index, animate);
+      _scrollByPages(1, animate);
     } else {
       _navigatePaged(index, animate);
     }
@@ -66,6 +88,35 @@ class PageNavigationService {
     );
   }
 
+  /// Scrolls one page forward in a continuous reader (volume keys, tap zones,
+  /// keyboard). Mihon scrolls by ~¾ of the screen instead of snapping the next
+  /// page to the top, so the tail of the current page stays reachable.
+  void scrollForward({bool animated = true}) => _scrollByPages(1, animated);
+
+  /// Scrolls one page backward in a continuous reader.
+  void scrollBackward({bool animated = true}) => _scrollByPages(-1, animated);
+
+  /// Scrolls by [pages] viewport extents. Positive = forward (down/right).
+  void _scrollByPages(int pages, bool animated) {
+    final viewport = viewportSize?.call();
+    final extent = viewport == null
+        ? null
+        : (viewport.height.isFinite && viewport.height > 0
+              ? viewport.height
+              : viewport.width);
+    if (extent == null || !extent.isFinite || extent <= 0) return;
+
+    // Increasing the scroll offset always advances towards higher page
+    // indices, whatever the axis direction (a reversed list just starts at the
+    // far end), so "forward" is always a positive delta.
+    final delta = pages * extent * _scrollFraction;
+    scrollOffsetController.animateScroll(
+      offset: delta,
+      duration: animated ? const Duration(milliseconds: 250) : Duration.zero,
+      curve: Curves.ease,
+    );
+  }
+
   /// Jumps to a page without animation (for slider).
   void jumpToPage({required int index, required ReaderMode readerMode}) {
     if (index < 0) return;
@@ -76,18 +127,6 @@ class PageNavigationService {
       if (extendedController.hasClients) {
         extendedController.jumpToPage(index);
       }
-    }
-  }
-
-  void _navigateContinuous(int index, bool animate) {
-    if (animate) {
-      itemScrollController.scrollTo(
-        curve: Curves.ease,
-        index: index,
-        duration: const Duration(milliseconds: 150),
-      );
-    } else {
-      itemScrollController.jumpTo(index: index);
     }
   }
 
@@ -120,11 +159,17 @@ mixin PageNavigationMixin<T extends StatefulWidget> on State<T> {
   /// Initializes the navigation service with the required controllers.
   void initPageNavigation({
     required ItemScrollController itemScrollController,
+    required ScrollOffsetController scrollOffsetController,
     required ExtendedPageController extendedController,
+    Size Function()? viewportSize,
+    bool Function()? animate,
   }) {
     _navigationService = PageNavigationService(
       itemScrollController: itemScrollController,
+      scrollOffsetController: scrollOffsetController,
       extendedController: extendedController,
+      viewportSize: viewportSize,
+      animate: animate,
     );
   }
 
