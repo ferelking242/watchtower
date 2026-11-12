@@ -208,8 +208,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     final sortChapter =
         ref.read(sortChapterStateProvider(mangaId: widget.manga!.id!)).index
             as int;
+    // `where()` so the `mangaId` index is used; `filter()` would deserialize
+    // every chapter on each call (this runs on every filter/sort rebuild).
     final chapters = isar.chapters
-        .filter()
+        .where()
         .mangaIdEqualTo(widget.manga!.id!)
         .findAllSync();
     return _filterAndSortChapter(
@@ -1718,7 +1720,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   if (widget.manga!.itemType == ItemType.anime)
                     StreamBuilder(
                       stream: isar.tracks
-                          .filter()
+                          .where()
                           .mangaIdEqualTo(widget.manga!.id!)
                           .watch(fireImmediately: true),
                       builder: (context, snapshot) {
@@ -2054,7 +2056,7 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
             },
             child: StreamBuilder(
               stream: isar.tracks
-                  .filter()
+                  .where()
                   .mangaIdEqualTo(widget.manga!.id!)
                   .watch(fireImmediately: true),
               builder: (context, snapshot) {
@@ -2502,9 +2504,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                   itemBuilder: (context, index) {
                     return StreamBuilder(
                       stream: isar.tracks
+                          .where()
+                          .mangaIdEqualTo(widget.manga!.id!)
                           .filter()
                           .syncIdEqualTo(entries[index].syncId)
-                          .mangaIdEqualTo(widget.manga!.id!)
                           .watch(fireImmediately: true),
                       builder: (context, snapshot) {
                         List<Track>? trackRes = snapshot.hasData

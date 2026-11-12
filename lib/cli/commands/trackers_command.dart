@@ -131,9 +131,9 @@ class TrackersCommand extends CliCommand {
     final syncId = _trackerSyncId(context);
     final track =
         context.runtime.isar.tracks
-            .filter()
+            .where()
             .mangaIdEqualTo(manga.id)
-            .and()
+            .filter()
             .syncIdEqualTo(syncId)
             .findFirstSync() ??
         Track(
@@ -159,9 +159,9 @@ class TrackersCommand extends CliCommand {
     final syncId = _trackerSyncId(context);
     final track =
         context.runtime.isar.tracks
-            .filter()
+            .where()
             .mangaIdEqualTo(manga.id)
-            .and()
+            .filter()
             .syncIdEqualTo(syncId)
             .findFirstSync() ??
         Track(

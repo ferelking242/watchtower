@@ -377,7 +377,7 @@ void _showCleanNonLibraryDialog(BuildContext context, dynamic l10n) {
                     isar.writeTxnSync(() {
                       for (var manga in mangasList) {
                         final histories = isar.historys
-                            .filter()
+                            .where()
                             .mangaIdEqualTo(manga.id)
                             .findAllSync();
                         for (var history in histories) {
@@ -392,8 +392,9 @@ void _showCleanNonLibraryDialog(BuildContext context, dynamic l10n) {
 
                         for (var chapter in manga.chapters) {
                           final updates = isar.updates
-                              .filter()
+                              .where()
                               .mangaIdEqualTo(chapter.mangaId)
+                              .filter()
                               .chapterNameEqualTo(chapter.name)
                               .findAllSync();
                           for (var update in updates) {
@@ -512,7 +513,7 @@ void _showClearLibraryDialog(BuildContext context, WidgetRef ref) {
                             isar.writeTxnSync(() {
                               for (var manga in mangasList) {
                                 final histories = isar.historys
-                                    .filter()
+                                    .where()
                                     .mangaIdEqualTo(manga.id)
                                     .findAllSync();
                                 for (var history in histories) {
@@ -527,8 +528,9 @@ void _showClearLibraryDialog(BuildContext context, WidgetRef ref) {
 
                                 for (var chapter in manga.chapters) {
                                   final updates = isar.updates
-                                      .filter()
+                                      .where()
                                       .mangaIdEqualTo(chapter.mangaId)
+                                      .filter()
                                       .chapterNameEqualTo(chapter.name)
                                       .findAllSync();
                                   for (var update in updates) {

@@ -16,7 +16,7 @@ Source? getSource(
     // every visible card, and `findAllSync().where(...)` made it O(sources).
     Iterable<Source> candidates;
     if (sourceId != null) {
-      candidates = isar.sources.filter().idEqualTo(sourceId).findAllSync();
+      candidates = isar.sources.where().idEqualTo(sourceId).findAllSync();
     } else {
       candidates = isar.sources
           .filter()

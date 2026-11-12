@@ -40,9 +40,10 @@ class Tracks extends _$Tracks {
 
   void updateTrackManga(Track track, ItemType itemType) {
     final tra = isar.tracks
+        .where()
+        .mangaIdEqualTo(track.mangaId)
         .filter()
         .syncIdEqualTo(syncId)
-        .mangaIdEqualTo(track.mangaId)
         .findAllSync();
     if (tra.isNotEmpty) {
       if (tra.first.mediaId != track.mangaId) {

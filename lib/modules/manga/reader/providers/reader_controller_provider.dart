@@ -222,7 +222,7 @@ class ReaderController extends _$ReaderController {
     History? history;
 
     final empty = isar.historys
-        .filter()
+        .where()
         .mangaIdEqualTo(getManga().id)
         .isEmptySync();
 
@@ -236,7 +236,7 @@ class ReaderController extends _$ReaderController {
     } else {
       history =
           (isar.historys
-                .filter()
+                .where()
                 .mangaIdEqualTo(getManga().id)
                 .findFirstSync())!
             ..chapterId = chapter.id
@@ -443,9 +443,10 @@ extension ChapterExtensions on Chapter {
     );
 
     final tracks = isar.tracks
+        .where()
+        .mangaIdEqualTo(manga.id!)
         .filter()
         .itemTypeEqualTo(manga.itemType)
-        .mangaIdEqualTo(manga.id!)
         .findAllSync();
 
     if (tracks.isEmpty) return;

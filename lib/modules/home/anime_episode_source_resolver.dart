@@ -419,7 +419,7 @@ class _AnimeEpisodeSourceResolverState
       if (mangaId != null || chapterId != null) {
         await isar.writeTxn(() async {
           if (mangaId != null) {
-            await isar.historys.filter().mangaIdEqualTo(mangaId!).deleteAll();
+            await isar.historys.where().mangaIdEqualTo(mangaId!).deleteAll();
           }
           if (chapterId != null) await isar.chapters.delete(chapterId!);
           if (mangaId != null) await isar.mangas.delete(mangaId!);

@@ -71,7 +71,7 @@ Map<int, List<Chapter>> loadChaptersByMangaIds(Iterable<int?> mangaIds) {
   final result = <int, List<Chapter>>{};
   for (final chunk in _chunks(wanted)) {
     final chapters = isar.chapters
-        .filter()
+        .where()
         .anyOf(chunk, (q, id) => q.mangaIdEqualTo(id))
         .findAllSync();
     for (final chapter in chapters) {

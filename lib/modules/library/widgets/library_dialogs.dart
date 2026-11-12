@@ -162,7 +162,7 @@ void showDeleteMangaDialog({
 void _removeImport(WidgetRef ref, Manga manga) {
   final provider = ref.read(synchingProvider(syncId: 1).notifier);
   final histories = isar.historys
-      .filter()
+      .where()
       .mangaIdEqualTo(manga.id)
       .findAllSync();
   for (var history in histories) {
@@ -176,7 +176,7 @@ void _removeImport(WidgetRef ref, Manga manga) {
       loadChaptersByMangaIds([manga.id])[manga.id] ?? const <Chapter>[];
   final updatesByChapterName = <String?, List<Update>>{};
   for (final update in isar.updates
-      .filter()
+      .where()
       .mangaIdEqualTo(manga.id)
       .findAllSync()) {
     (updatesByChapterName[update.chapterName] ??= <Update>[]).add(update);

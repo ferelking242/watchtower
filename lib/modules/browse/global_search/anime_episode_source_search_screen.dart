@@ -296,9 +296,9 @@ class _AnimeEpisodeSourceSearchScreenState
       await isar.writeTxn(() async {
         final mangaId = await isar.mangas.put(manga);
         final existingChapter = await isar.chapters
-            .filter()
+            .where()
             .mangaIdEqualTo(mangaId)
-            .and()
+            .filter()
             .urlEqualTo(url)
             .findFirst();
         if (existingChapter != null) {

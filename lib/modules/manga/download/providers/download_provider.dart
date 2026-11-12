@@ -480,7 +480,7 @@ Chapter prepareVideoQualityDownloadChapter(
   // Query by the indexed `mangaId` instead of scanning every chapter row in
   // the database: this runs on the UI isolate for each episode a user queues.
   final candidates = isar.chapters
-      .filter()
+      .where()
       .mangaIdEqualTo(source.mangaId)
       .findAllSync();
   for (final candidate in candidates) {

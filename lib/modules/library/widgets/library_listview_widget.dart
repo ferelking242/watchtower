@@ -71,6 +71,7 @@ class LibraryListViewWidget extends ConsumerWidget {
                       await pushToMangaReaderDetail(
                         ref: ref,
                         archiveId: isLocalArchive ? entry.id : null,
+                        knownMangaId: entry.id,
                         context: context,
                         lang: entry.lang!,
                         mangaM: entry,

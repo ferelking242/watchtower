@@ -48,7 +48,21 @@ const HistorySchema = CollectionSchema(
   deserialize: _historyDeserialize,
   deserializeProp: _historyDeserializeProp,
   idName: r'id',
-  indexes: {},
+  indexes: {
+    r'mangaId': IndexSchema(
+      id: 7466570075891278896,
+      name: r'mangaId',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'mangaId',
+          type: IndexType.value,
+          caseSensitive: false,
+        ),
+      ],
+    ),
+  },
   links: {
     r'chapter': LinkSchema(
       id: 4328961867471184172,
@@ -144,13 +158,21 @@ P _historyDeserializeProp<P>(
   }
 }
 
-const _HistoryitemTypeEnumValueMap = {'manga': 0, 'anime': 1, 'novel': 2};
+const _HistoryitemTypeEnumValueMap = {
+  'manga': 0,
+  'anime': 1,
+  'novel': 2,
+  'music': 3,
+  'game': 4,
+  'plugin': 5,
+};
 const _HistoryitemTypeValueEnumMap = {
   0: ItemType.manga,
   1: ItemType.anime,
   2: ItemType.novel,
   3: ItemType.music,
   4: ItemType.game,
+  5: ItemType.plugin,
 };
 
 Id _historyGetId(History object) {
@@ -170,6 +192,14 @@ extension HistoryQueryWhereSort on QueryBuilder<History, History, QWhere> {
   QueryBuilder<History, History, QAfterWhere> anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhere> anyMangaId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'mangaId'),
+      );
     });
   }
 }
@@ -237,6 +267,132 @@ extension HistoryQueryWhere on QueryBuilder<History, History, QWhereClause> {
           lower: lowerId,
           includeLower: includeLower,
           upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhereClause> mangaIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'mangaId', value: [null]),
+      );
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhereClause> mangaIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mangaId',
+          lower: [null],
+          includeLower: false,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhereClause> mangaIdEqualTo(
+    int? mangaId,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'mangaId', value: [mangaId]),
+      );
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhereClause> mangaIdNotEqualTo(
+    int? mangaId,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mangaId',
+                lower: [],
+                upper: [mangaId],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mangaId',
+                lower: [mangaId],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mangaId',
+                lower: [mangaId],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'mangaId',
+                lower: [],
+                upper: [mangaId],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhereClause> mangaIdGreaterThan(
+    int? mangaId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mangaId',
+          lower: [mangaId],
+          includeLower: include,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhereClause> mangaIdLessThan(
+    int? mangaId, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mangaId',
+          lower: [],
+          upper: [mangaId],
+          includeUpper: include,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<History, History, QAfterWhereClause> mangaIdBetween(
+    int? lowerMangaId,
+    int? upperMangaId, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'mangaId',
+          lower: [lowerMangaId],
+          includeLower: includeLower,
+          upper: [upperMangaId],
           includeUpper: includeUpper,
         ),
       );

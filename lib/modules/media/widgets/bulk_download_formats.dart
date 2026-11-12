@@ -190,7 +190,7 @@ Set<String> downloadedResolutionKeysForSource(int? sourceId, String? link) {
     if (mangaId == null) return const {};
     final keys = <String>{};
     for (final chapter
-        in isar.chapters.filter().mangaIdEqualTo(mangaId).findAllSync()) {
+        in isar.chapters.where().mangaIdEqualTo(mangaId).findAllSync()) {
       final chapterId = chapter.id;
       if (chapterId == null) continue;
       final download = isar.downloads.getSync(chapterId);

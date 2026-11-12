@@ -75,7 +75,7 @@ class NovelReaderController extends _$NovelReaderController {
     History? history;
 
     final empty = isar.historys
-        .filter()
+        .where()
         .mangaIdEqualTo(getManga().id)
         .isEmptySync();
 
@@ -89,7 +89,7 @@ class NovelReaderController extends _$NovelReaderController {
     } else {
       history =
           (isar.historys
-                .filter()
+                .where()
                 .mangaIdEqualTo(getManga().id)
                 .findFirstSync())!
             ..chapterId = chapter.id
