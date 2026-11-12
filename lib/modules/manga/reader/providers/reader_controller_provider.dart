@@ -111,6 +111,7 @@ class ReaderController extends _$ReaderController {
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
     );
+    _invalidateSettingsCache();
   }
 
   PageMode getPageMode() {
@@ -144,6 +145,7 @@ class ReaderController extends _$ReaderController {
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
     );
+    _invalidateSettingsCache();
   }
 
   void setPageMode(PageMode newPageMode) {
@@ -165,6 +167,7 @@ class ReaderController extends _$ReaderController {
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       ),
     );
+    _invalidateSettingsCache();
   }
 
   void setShowPageNumber(bool value) {
@@ -176,15 +179,30 @@ class ReaderController extends _$ReaderController {
             ..updatedAt = DateTime.now().millisecondsSinceEpoch,
         ),
       );
+      _invalidateSettingsCache();
     }
   }
+
+  /// Cached snapshot of the `Settings` record for this reader session.
+  ///
+  /// `isar.settings.getSync` deserializes *every* property, including the
+  /// embedded `chapterPageUrlsList` (one entry per chapter whose pages were
+  /// ever cached). The scroll/progress listeners call [getIsarSetting] several
+  /// times per frame — [setPageIndex] alone reads it three times — so the
+  /// reader re-decoded that whole list on every scroll tick. That is what made
+  /// the reader stutter and run out of memory on long chapters. The record is
+  /// only written through this controller, so caching it and invalidating on
+  /// every write keeps the reads free without serving stale values.
+  Settings? _settingsCache;
 
   Settings getIsarSetting() {
     // Lecture auto-réparante : le lecteur lit le même record `Settings`
     // (getPageIndex → chapterPageUrlsList). Un record corrompu ne doit pas
     // tuer l'UI — readSettingsSafely répare et journalise.
-    return readSettingsSafely(isar: isar);
+    return _settingsCache ??= readSettingsSafely(isar: isar);
   }
+
+  void _invalidateSettingsCache() => _settingsCache = null;
 
   bool getShowPageNumber() {
     if (!incognitoMode) {
@@ -388,6 +406,7 @@ class ReaderController extends _$ReaderController {
         chap.updatedAt = DateTime.now().millisecondsSinceEpoch;
         isar.chapters.putSync(chap);
       });
+      _invalidateSettingsCache();
       if (isRead) {
         chapter.updateTrackChapterRead(ref);
         if (ref.read(deleteDownloadAfterReadingStateProvider)) {

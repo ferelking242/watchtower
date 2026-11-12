@@ -1265,6 +1265,12 @@ class _MangaChapterPageGalleryState
     if (_isAdjustingScroll) return;
     final itemPositions = _itemPositionsListener.itemPositions.value;
     if (itemPositions.isNotEmpty) {
+      // Continuous mode reports a new position on every scroll tick while the
+      // first visible item stays the same. Everything below only depends on
+      // that index, so bail out unless it actually changed — otherwise the
+      // reader re-ran the chapter lookup, the preload triggers and the Isar
+      // page-index read dozens of times per second for nothing.
+      if (itemPositions.first.index == _currentIndex) return;
       _currentIndex = itemPositions.first.index;
       int pagesLength =
           (_pageMode == PageMode.doublePage &&
