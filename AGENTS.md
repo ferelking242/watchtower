@@ -1318,6 +1318,10 @@ must not leak into watch code paths or logs:
 - Un cache évincé est silencieux : vérifier `Cache not found for input keys:`
   vs `Cache restored from key:` dans le log avant de conclure à une régression
   du code.
+- Même piège pour les clés **pub** : `pub-${runner.os}-…` et
+  `${runner.os}-pub-…` désignaient le même contenu sous deux clés → deux
+  entrées de ~450 Mo. Toutes les workflows utilisent désormais
+  `pub-${{ runner.os }}-…`.
 
 ## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
 - Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
