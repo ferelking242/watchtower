@@ -1275,6 +1275,13 @@ must not leak into watch code paths or logs:
   `aarch64-apple-darwin,x86_64-apple-darwin` **avant** le build. Sans ça,
   cargokit télécharge le std x86_64 en pleine compilation et un DNS flaky
   (`static.rust-lang.org`) casse tout le job.
+- Piège ABI (résolu) : dans `android/app/build.gradle`, les `excludes` natifs
+  sont **dérivés des ABIs réellement construites** (`watchtowerAllAbis - watchtowerAbis`).
+  Ne jamais les coder en dur : une exclusion fixe `lib/armeabi-v7a/**` retirait
+  l'ABI demandée en build mono-ABI, supprimait `libflutter.so`/`libapp.so` et
+  produisait un APK inutilisable (armv7a et x86_64 étaient identiques).
+- Vérifier un APK : `unzip -l app.apk | grep lib/` doit montrer **une seule** ABI
+  (`lib/<abi>/`) et contenir `libapp.so` + `libflutter.so`.
 - Formats **portables** des PC (pas que des archives uniques) :
   - Linux : `.7z` + `.tar.gz` (garde le bit +x, format habituel) + `.zip`.
   - Windows : `.7z` + `.zip` (contient le `.exe`, ses DLL et `data/`).
