@@ -46,16 +46,8 @@ jobs:
         with:
           flutter-version: '3.47.2'
           channel: stable
-          cache: true
-
-      - name: Cache pub packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-web-flutter-3.47.2-${{ hashFiles('pubspec.lock', 'web_stubs/**/pubspec.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-web-flutter-3.47.2-
-            ${{ runner.os }}-pub-web-
+          cache: false
+          pub-cache: true
 
       - name: Patch pubspec with web stubs
         run: |

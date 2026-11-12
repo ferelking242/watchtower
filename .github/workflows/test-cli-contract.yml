@@ -85,7 +85,8 @@ jobs:
         with:
           flutter-version: '3.47.2'
           channel: stable
-          cache: true
+          cache: false
+          pub-cache: true
 
       - name: Resolve Dart packages
         run: flutter pub get

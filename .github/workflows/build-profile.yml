@@ -35,7 +35,8 @@ jobs:
         with:
           flutter-version: '3.47.2'
           channel: stable
-          cache: true
+          cache: false
+          pub-cache: true
 
       # Cache Gradle — timeout + continue-on-error so a hanging restore never
       # kills the entire run; a cold Gradle build is slow but correct.

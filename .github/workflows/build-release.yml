@@ -36,7 +36,8 @@ jobs:
         with:
           flutter-version: '3.47.2'
           channel: stable
-          cache: true
+          cache: false
+          pub-cache: true
 
       # One shared Gradle cache for every Android job (release / TV / profile /
       # debug / all-platforms). Separate keys used to store several

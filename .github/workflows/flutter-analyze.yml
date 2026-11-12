@@ -44,7 +44,8 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
-          cache: true
+          cache: false
+          pub-cache: true
 
       - name: Prepare reports
         run: mkdir -p ci-reports
