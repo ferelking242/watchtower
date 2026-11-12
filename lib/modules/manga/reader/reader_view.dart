@@ -1285,14 +1285,12 @@ class _MangaChapterPageGalleryState
       // page-index read dozens of times per second for nothing.
       if (itemPositions.first.index == _currentIndex) return;
       _currentIndex = itemPositions.first.index;
-      int pagesLength =
-          (_pageMode == PageMode.doublePage &&
-              !(ref.watch(_currentReaderMode) ==
-                      ReaderMode.horizontalContinuous ||
-                  ref.watch(_currentReaderMode) ==
-                      ReaderMode.horizontalContinuousRTL))
-          ? (pages.length / 2).ceil()
-          : pages.length;
+      // This listener only runs for the continuous list, whose positions are
+      // flat indices into [pages] — even in double-page mode (each list item
+      // holds two pages, so the count is never halved here). Using the halved
+      // paged count made the guard below skip the whole back half of a chapter,
+      // so the page index stopped tracking and the reader appeared to jump.
+      int pagesLength = pages.length;
       if (_currentIndex! >= 0 && _currentIndex! < pagesLength) {
         if (_readerController.chapter.id != pages[_currentIndex!].chapter!.id) {
           if (mounted) {
@@ -1324,6 +1322,14 @@ class _MangaChapterPageGalleryState
         // ── Previous-chapter preloading: trigger when near the start ──
         if (itemPositions.first.index <= pagePreloadAmount) {
           _triggerPrevChapterPreload();
+        }
+
+        // ── "Rogner les bordures" in continuous modes ──
+        // Paged modes crop through onPageChanged; the continuous list never
+        // fires it, so without this the option did nothing while scrolling
+        // (only the handful of pages the initial window covered got cropped).
+        if (ref.read(cropBordersStateProvider)) {
+          _processCropBorders(center: _currentIndex);
         }
 
         final idx = pages[_currentIndex!].index;
@@ -1782,8 +1788,16 @@ class _MangaChapterPageGalleryState
     }
   }
 
-  void _processCropBordersByIndex(int index) async {
-    final actual = _pageViewToActualIndex(index);
+  void _processCropBordersByIndex(int index) {
+    _processCropBordersAt(_pageViewToActualIndex(index));
+  }
+
+  /// Crops one page by its index in the flat [pages] list.
+  ///
+  /// Continuous modes report positions as flat list indices, so they must not
+  /// go through the page-view→actual conversion [processCropBordersByIndex]
+  /// applies for double-page layouts.
+  void _processCropBordersAt(int actual) async {
     if (actual < 0 || actual >= pages.length) return;
     final page = pages[actual];
     if (!_cropBorderCheckList.add(page)) return; // already requested
