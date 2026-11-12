@@ -1326,6 +1326,17 @@ must not leak into watch code paths or logs:
 - Quand plusieurs jobs partagent une clé et sauvent en même temps, tous sauf un
   loguent `Failed to save: Unable to reserve cache … another job may be creating
   this cache` : c'est bénin, un job frère a déjà sauvegardé.
+- Le cache **Rust n'a jamais fonctionné** : il ne sauve que ~64 Mo (juste
+  `~/.cargo/registry` + `~/.cargo/git`). Il cible `rust/target` et
+  `rust_builder/target`, mais cargokit force `--target-dir` à
+  `${project.buildDir}/build` = `build/<plugin>/build` (le sous-projet porte le
+  `name` du pubspec, ex. `rust_lib_watchtower`). Résultat : recompilation Rust
+  **complète** à chaque run (~390-680 s, dans `assembleRelease`). C'est
+  pré-existant (déjà présent dans le run « golden » de 10m51s, ~387 s de Rust)
+  et c'est le principal coût résiduel. Corriger = cacher
+  `build/rust_lib_watchtower` (avec `build/rust_builder` en filet), mais c'est
+  ~1-2 Go par clé et il y a ~9 clés rust : consolider d'abord en **une clé par
+  OS**, sinon l'éviction du budget revient.
 
 ## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
 - Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
