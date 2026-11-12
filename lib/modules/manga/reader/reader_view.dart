@@ -190,6 +190,11 @@ class _MangaChapterPageGalleryState
   // ── Volume-button navigation ───────────────────────────────────────────
   bool _volumeListenerActive = false;
 
+  /// Ownership token returned by [VolumeKeyChannel.enable], handed back on
+  /// dispose so a chapter change cannot have the old reader cancel the new
+  /// reader's subscription.
+  Object? _volumeToken;
+
   /// Flag to prevent fullscreen from being disabled when navigating between
   /// chapters via pushReplacement. The old widget's dispose runs after the new
   /// widget is created, which would clobber the new reader's fullscreen state.
@@ -227,7 +232,8 @@ class _MangaChapterPageGalleryState
     // Tear down volume listener and restore system volume UI
     if (_volumeListenerActive) {
       _volumeListenerActive = false;
-      VolumeKeyChannel.disable();
+      VolumeKeyChannel.disable(_volumeToken);
+      _volumeToken = null;
     }
     _connectivitySub?.cancel();
     _tapZonesOverlayTimer?.cancel();
@@ -452,11 +458,17 @@ class _MangaChapterPageGalleryState
   /// "Inverser les boutons de volume" setting is on). Keys are intercepted by
   /// the host activity, so the system volume never changes.
   Future<void> _initVolumeButtonNavigation() async {
+    if (_volumeListenerActive) return;
     final settings = isar.settings.getSync(kSettingsId) ?? Settings();
     if (!(settings.volumeButtonNavigation ?? false)) return;
 
+    final token = await VolumeKeyChannel.enable(_handleVolumeKey);
+    if (!mounted) {
+      await VolumeKeyChannel.disable(token);
+      return;
+    }
+    _volumeToken = token;
     _volumeListenerActive = true;
-    await VolumeKeyChannel.enable(_handleVolumeKey);
   }
 
   void _handleVolumeKey(int direction) {
@@ -583,7 +595,8 @@ class _MangaChapterPageGalleryState
         _initVolumeButtonNavigation();
       } else if (_volumeListenerActive) {
         _volumeListenerActive = false;
-        VolumeKeyChannel.disable();
+        VolumeKeyChannel.disable(_volumeToken);
+        _volumeToken = null;
       }
     });
     final backgroundColor = ref.watch(backgroundColorStateProvider);

@@ -18,6 +18,10 @@ class VolumeKeyChannel {
 
   static StreamSubscription<dynamic>? _sub;
 
+  /// Owner of the current subscription. Each [enable] mints a fresh token;
+  /// [disable] only tears the listener down when the caller still owns it.
+  static Object? _owner;
+
   /// Whether a hardware volume key turns to the next page.
   ///
   /// [direction] is `1` for volume-up and `-1` for volume-down. By default
@@ -34,24 +38,46 @@ class VolumeKeyChannel {
 
   /// Starts forwarding hardware volume keys, invoking [onDirection] with `1`
   /// (up) or `-1` (down). No-op on platforms without the native handler.
-  static Future<void> enable(void Function(int direction) onDirection) async {
-    await disable();
+  ///
+  /// Returns an ownership token to hand back to [disable]. The reader is
+  /// replaced on every chapter change (`pushReplacement`), and Flutter disposes
+  /// the *old* reader *after* the new one has already subscribed; without the
+  /// token the stale dispose would cancel the live subscription and silently
+  /// kill volume-key navigation from the second chapter onwards.
+  static Future<Object> enable(void Function(int direction) onDirection) async {
+    final token = Object();
+    _owner = token;
+    await _sub?.cancel();
+    _sub = null;
+    // Subscribe *before* flipping the native flag: the EventChannel's
+    // `onListen` (which installs the native sink) is what the host checks
+    // before forwarding a key, so enabling first would open a window where the
+    // activity swallows a volume key into a sink that does not exist yet.
+    _sub = _events.receiveBroadcastStream().listen((event) {
+      if (event is int) {
+        onDirection(event);
+      }
+    });
     try {
       await _methods.invokeMethod<void>('setEnabled', {'enabled': true});
-      _sub = _events.receiveBroadcastStream().listen((event) {
-        if (event is int) {
-          onDirection(event);
-        }
-      });
     } on MissingPluginException {
       // Desktop / web build: the reader falls back to no key navigation.
+      await _sub?.cancel();
+      _sub = null;
     } on PlatformException {
       // Host refused to enable; nothing to do.
     }
+    return token;
   }
 
   /// Stops forwarding and releases the native listener.
-  static Future<void> disable() async {
+  ///
+  /// [token] is the value returned by [enable]. When it is no longer the
+  /// current owner (a newer reader already subscribed) this is a no-op, so a
+  /// late dispose cannot disable the reader that replaced it.
+  static Future<void> disable([Object? token]) async {
+    if (token != null && !identical(token, _owner)) return;
+    _owner = null;
     await _sub?.cancel();
     _sub = null;
     try {
