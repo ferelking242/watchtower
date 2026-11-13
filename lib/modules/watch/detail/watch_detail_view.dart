@@ -1449,12 +1449,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 const SizedBox(width: 8),
                 _SkeletonBox(radius: 8, w: 70, h: 36),
               ] else ...[
-              if (!isMovie) ...[
+              // Only offer a season picker when the episodes actually carry
+              // season info. A multi-episode title with no seasons used to get
+              // a phantom "Saison 1" box that filtered nothing.
+              if (!isMovie && seasons.isNotEmpty) ...[
                 _buildDropdownPill(
-                  label: seasons.isNotEmpty
-                      ? (_selectedSeason ?? seasons.first)
-                      : 'Saison 1',
-                  items: seasons.isNotEmpty ? seasons : ['Saison 1'],
+                  label: _selectedSeason ?? seasons.first,
+                  items: seasons,
                   onSelect: (v) => setState(() => _selectedSeason = v),
                   sheetTitle: 'Choisissez la saison',
                 ),
