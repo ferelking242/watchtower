@@ -10638,4 +10638,292 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get browse_create_extension => 'Créer une extension';
+
+  @override
+  String get webview_offline_title => 'WebView non disponible en version web';
+
+  @override
+  String get webview_offline_desc =>
+      'Les sites ne peuvent pas être affichés dans l’iframe du navigateur en raison des politiques X-Frame-Options. Ouvrez le lien directement.';
+
+  @override
+  String webview_text_size_label(Object size) {
+    return 'Taille du texte : $size';
+  }
+
+  @override
+  String get webview_text_normal => 'Normal';
+
+  @override
+  String get webview_text_large => 'Grand';
+
+  @override
+  String get webview_text_xlarge => 'Très grand';
+
+  @override
+  String get webview_text_normal_full => 'Texte normal';
+
+  @override
+  String get webview_text_large_full => 'Texte grand';
+
+  @override
+  String get webview_text_xlarge_full => 'Texte très grand';
+
+  @override
+  String get webview_incognito_on => 'Mode incognito activé — cookies effacés';
+
+  @override
+  String get webview_incognito_off => 'Mode incognito désactivé';
+
+  @override
+  String get webview_url_copied_clipboard => 'URL copiée dans le presse-papier';
+
+  @override
+  String get webview_qr_hint => 'Ouvrez l’URL dans un générateur QR externe';
+
+  @override
+  String get webview_copy_url => 'Copier URL';
+
+  @override
+  String get webview_close => 'Fermer';
+
+  @override
+  String get webview_no_hidden_elements => 'Aucun élément masqué à restaurer';
+
+  @override
+  String get webview_hidden_elements => 'Éléments masqués';
+
+  @override
+  String get webview_restore_all => 'Tout restaurer';
+
+  @override
+  String get webview_restore => 'Restaurer';
+
+  @override
+  String get webview_element_selected => 'Élément sélectionné';
+
+  @override
+  String get webview_what_to_do => 'Que voulez-vous faire ?';
+
+  @override
+  String webview_hide(Object selector) {
+    return 'Masquer $selector';
+  }
+
+  @override
+  String webview_block_domain(Object domain) {
+    return 'Bloquer $domain';
+  }
+
+  @override
+  String webview_mpv_open_failed(Object error) {
+    return 'Impossible d’ouvrir dans MPV : $error';
+  }
+
+  @override
+  String get webview_address_or_search => 'Adresse ou recherche';
+
+  @override
+  String get webview_clear => 'Effacer';
+
+  @override
+  String get webview_open => 'Ouvrir';
+
+  @override
+  String get webview_no_results_found => 'Aucun résultat trouvé';
+
+  @override
+  String get webview_find_in_page => 'Chercher dans la page';
+
+  @override
+  String get webview_word_or_phrase => 'Mot ou expression';
+
+  @override
+  String get webview_previous => 'Précédent';
+
+  @override
+  String get webview_next => 'Suivant';
+
+  @override
+  String get webview_page_source => 'Code source de la page';
+
+  @override
+  String get webview_no_source => 'Aucun code source disponible.';
+
+  @override
+  String get webview_source_read_failed => 'Impossible de lire le code source';
+
+  @override
+  String get webview_url_copied => 'URL copiée';
+
+  @override
+  String get webview_tap_to_block => 'Tap sur un élément pour le bloquer';
+
+  @override
+  String get webview_cookies_cleared => 'Cookies effacés';
+
+  @override
+  String get webview_site_info => 'Informations sur le site';
+
+  @override
+  String get webview_page_actions => 'Actions de la page';
+
+  @override
+  String get webview_controls => 'Contrôles';
+
+  @override
+  String get webview_copy_link => 'Copier le lien';
+
+  @override
+  String get webview_share => 'Partager';
+
+  @override
+  String get webview_view_source => 'Afficher le code source';
+
+  @override
+  String get webview_clear_cookies => 'Effacer les cookies';
+
+  @override
+  String get webview_translate_page => 'Traduire la page';
+
+  @override
+  String get webview_download => 'Télécharger';
+
+  @override
+  String get webview_create_qr => 'Créer un QR code';
+
+  @override
+  String get webview_change_orientation => 'Changer l’orientation';
+
+  @override
+  String get webview_fullscreen => 'Plein écran';
+
+  @override
+  String get webview_minimize_window => 'Réduire la fenêtre';
+
+  @override
+  String get webview_close_webview => 'Fermer le WebView';
+
+  @override
+  String get webview_adblock => 'Bloqueur de pubs';
+
+  @override
+  String webview_blocked_count(Object count) {
+    return '$count bloqués';
+  }
+
+  @override
+  String get webview_disabled => 'Désactivé';
+
+  @override
+  String get webview_enabled => 'Activé';
+
+  @override
+  String get webview_night_mode => 'Mode nuit';
+
+  @override
+  String get webview_desktop_version => 'Version ordinateur';
+
+  @override
+  String get webview_incognito => 'Navigation privée';
+
+  @override
+  String get webview_tap_to_change => 'Toucher pour modifier';
+
+  @override
+  String get webview_select_element => 'Sélectionner un élément';
+
+  @override
+  String get webview_tap_page_element => 'Touchez un élément de la page';
+
+  @override
+  String get webview_reset_rules => 'Réinitialiser les règles';
+
+  @override
+  String webview_blocked_elements_count(Object count) {
+    return '$count élément(s) bloqué(s)';
+  }
+
+  @override
+  String get webview_refresh => 'Actualiser';
+
+  @override
+  String get webview_protection_active => 'Protection active';
+
+  @override
+  String get webview_protection_off => 'Protection désactivée';
+
+  @override
+  String get webview_pause_site => 'Pause\nce site';
+
+  @override
+  String get webview_pause_30min => 'Pause\n30 min';
+
+  @override
+  String get webview_pick_element_short => 'Sélect.\nélém.';
+
+  @override
+  String webview_restore_short(Object detail) {
+    return 'Restaurer\n$detail';
+  }
+
+  @override
+  String get webview_elem_short => 'élém.';
+
+  @override
+  String get webview_reset_short => 'Remise\nà zéro';
+
+  @override
+  String get webview_blocked_requests => 'Requêtes\nbloquées';
+
+  @override
+  String get webview_hidden_elements_short => 'Éléments\nmasqués';
+
+  @override
+  String get webview_active_rules => 'Règles\nactives';
+
+  @override
+  String get webview_adblock_settings => 'AdBlock – Paramètres';
+
+  @override
+  String get webview_enable_adblock => 'Activer l’AdBlock';
+
+  @override
+  String get webview_adblock_desc =>
+      'Bloque les domaines publicitaires et injecte un filtre CSS/DOM';
+
+  @override
+  String get webview_statistics => 'Statistiques';
+
+  @override
+  String get webview_tools => 'Outils';
+
+  @override
+  String get webview_select_elements => 'Sélectionner des éléments';
+
+  @override
+  String get webview_floating_toolbar => 'Toolbar flottante · touch picker';
+
+  @override
+  String get webview_reset_rules_desc =>
+      'Remet le compteur à 0 et efface les règles personnalisées';
+
+  @override
+  String webview_manually_blocked(Object count) {
+    return 'Éléments bloqués manuellement ($count)';
+  }
+
+  @override
+  String webview_more_elements(Object count) {
+    return '+$count éléments…';
+  }
+
+  @override
+  String get webview_play_in_watchtower => 'Lecture dans Watchtower';
+
+  @override
+  String get webview_back => 'Retour';
+
+  @override
+  String get webview_qr_code => 'QR code';
 }

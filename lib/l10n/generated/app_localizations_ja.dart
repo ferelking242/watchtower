@@ -10465,4 +10465,293 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get browse_create_extension => 'Create an extension';
+
+  @override
+  String get webview_offline_title =>
+      'WebView is not available in the web version';
+
+  @override
+  String get webview_offline_desc =>
+      'Sites cannot be displayed in the browser iframe because of X-Frame-Options policies. Open the link directly.';
+
+  @override
+  String webview_text_size_label(Object size) {
+    return 'Text size: $size';
+  }
+
+  @override
+  String get webview_text_normal => 'Normal';
+
+  @override
+  String get webview_text_large => 'Large';
+
+  @override
+  String get webview_text_xlarge => 'Very large';
+
+  @override
+  String get webview_text_normal_full => 'Normal text';
+
+  @override
+  String get webview_text_large_full => 'Large text';
+
+  @override
+  String get webview_text_xlarge_full => 'Very large text';
+
+  @override
+  String get webview_incognito_on => 'Incognito mode enabled — cookies cleared';
+
+  @override
+  String get webview_incognito_off => 'Incognito mode disabled';
+
+  @override
+  String get webview_url_copied_clipboard => 'URL copied to the clipboard';
+
+  @override
+  String get webview_qr_hint => 'Open the URL in an external QR generator';
+
+  @override
+  String get webview_copy_url => 'Copy URL';
+
+  @override
+  String get webview_close => 'Close';
+
+  @override
+  String get webview_no_hidden_elements => 'No hidden element to restore';
+
+  @override
+  String get webview_hidden_elements => 'Hidden elements';
+
+  @override
+  String get webview_restore_all => 'Restore all';
+
+  @override
+  String get webview_restore => 'Restore';
+
+  @override
+  String get webview_element_selected => 'Element selected';
+
+  @override
+  String get webview_what_to_do => 'What do you want to do?';
+
+  @override
+  String webview_hide(Object selector) {
+    return 'Hide $selector';
+  }
+
+  @override
+  String webview_block_domain(Object domain) {
+    return 'Block $domain';
+  }
+
+  @override
+  String webview_mpv_open_failed(Object error) {
+    return 'Could not open in MPV: $error';
+  }
+
+  @override
+  String get webview_address_or_search => 'Address or search';
+
+  @override
+  String get webview_clear => 'Clear';
+
+  @override
+  String get webview_open => 'Open';
+
+  @override
+  String get webview_no_results_found => 'No results found';
+
+  @override
+  String get webview_find_in_page => 'Find in page';
+
+  @override
+  String get webview_word_or_phrase => 'Word or phrase';
+
+  @override
+  String get webview_previous => 'Previous';
+
+  @override
+  String get webview_next => 'Next';
+
+  @override
+  String get webview_page_source => 'Page source code';
+
+  @override
+  String get webview_no_source => 'No source code available.';
+
+  @override
+  String get webview_source_read_failed => 'Could not read the source code';
+
+  @override
+  String get webview_url_copied => 'URL copied';
+
+  @override
+  String get webview_tap_to_block => 'Tap an element to block it';
+
+  @override
+  String get webview_cookies_cleared => 'Cookies cleared';
+
+  @override
+  String get webview_site_info => 'Site information';
+
+  @override
+  String get webview_page_actions => 'Page actions';
+
+  @override
+  String get webview_controls => 'Controls';
+
+  @override
+  String get webview_copy_link => 'Copy link';
+
+  @override
+  String get webview_share => 'Share';
+
+  @override
+  String get webview_view_source => 'View the source code';
+
+  @override
+  String get webview_clear_cookies => 'Clear cookies';
+
+  @override
+  String get webview_translate_page => 'Translate the page';
+
+  @override
+  String get webview_download => 'Download';
+
+  @override
+  String get webview_create_qr => 'Create a QR code';
+
+  @override
+  String get webview_change_orientation => 'Change the orientation';
+
+  @override
+  String get webview_fullscreen => 'Fullscreen';
+
+  @override
+  String get webview_minimize_window => 'Minimize the window';
+
+  @override
+  String get webview_close_webview => 'Close the WebView';
+
+  @override
+  String get webview_adblock => 'Ad blocker';
+
+  @override
+  String webview_blocked_count(Object count) {
+    return '$count blocked';
+  }
+
+  @override
+  String get webview_disabled => 'Disabled';
+
+  @override
+  String get webview_enabled => 'Enabled';
+
+  @override
+  String get webview_night_mode => 'Night mode';
+
+  @override
+  String get webview_desktop_version => 'Desktop version';
+
+  @override
+  String get webview_incognito => 'Private browsing';
+
+  @override
+  String get webview_tap_to_change => 'Tap to change';
+
+  @override
+  String get webview_select_element => 'Select an element';
+
+  @override
+  String get webview_tap_page_element => 'Tap an element on the page';
+
+  @override
+  String get webview_reset_rules => 'Reset the rules';
+
+  @override
+  String webview_blocked_elements_count(Object count) {
+    return '$count blocked element(s)';
+  }
+
+  @override
+  String get webview_refresh => 'Refresh';
+
+  @override
+  String get webview_protection_active => 'Protection on';
+
+  @override
+  String get webview_protection_off => 'Protection off';
+
+  @override
+  String get webview_pause_site => 'Pause\nthis site';
+
+  @override
+  String get webview_pause_30min => 'Pause\n30 min';
+
+  @override
+  String get webview_pick_element_short => 'Sel.\nelem.';
+
+  @override
+  String webview_restore_short(Object detail) {
+    return 'Restore\n$detail';
+  }
+
+  @override
+  String get webview_elem_short => 'elem.';
+
+  @override
+  String get webview_reset_short => 'Reset\nto zero';
+
+  @override
+  String get webview_blocked_requests => 'Requests\nblocked';
+
+  @override
+  String get webview_hidden_elements_short => 'Hidden\nelements';
+
+  @override
+  String get webview_active_rules => 'Active\nrules';
+
+  @override
+  String get webview_adblock_settings => 'AdBlock – Settings';
+
+  @override
+  String get webview_enable_adblock => 'Enable AdBlock';
+
+  @override
+  String get webview_adblock_desc =>
+      'Blocks ad domains and injects a CSS/DOM filter';
+
+  @override
+  String get webview_statistics => 'Statistics';
+
+  @override
+  String get webview_tools => 'Tools';
+
+  @override
+  String get webview_select_elements => 'Select elements';
+
+  @override
+  String get webview_floating_toolbar => 'Floating toolbar · touch picker';
+
+  @override
+  String get webview_reset_rules_desc =>
+      'Resets the counter to 0 and clears custom rules';
+
+  @override
+  String webview_manually_blocked(Object count) {
+    return 'Manually blocked elements ($count)';
+  }
+
+  @override
+  String webview_more_elements(Object count) {
+    return '+$count elements…';
+  }
+
+  @override
+  String get webview_play_in_watchtower => 'Play in Watchtower';
+
+  @override
+  String get webview_back => 'Back';
+
+  @override
+  String get webview_qr_code => 'QR code';
 }

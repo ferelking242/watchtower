@@ -18670,6 +18670,540 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Create an extension'**
   String get browse_create_extension;
+
+  /// No description provided for @webview_offline_title.
+  ///
+  /// In en, this message translates to:
+  /// **'WebView is not available in the web version'**
+  String get webview_offline_title;
+
+  /// No description provided for @webview_offline_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Sites cannot be displayed in the browser iframe because of X-Frame-Options policies. Open the link directly.'**
+  String get webview_offline_desc;
+
+  /// No description provided for @webview_text_size_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Text size: {size}'**
+  String webview_text_size_label(Object size);
+
+  /// No description provided for @webview_text_normal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get webview_text_normal;
+
+  /// No description provided for @webview_text_large.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get webview_text_large;
+
+  /// No description provided for @webview_text_xlarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Very large'**
+  String get webview_text_xlarge;
+
+  /// No description provided for @webview_text_normal_full.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal text'**
+  String get webview_text_normal_full;
+
+  /// No description provided for @webview_text_large_full.
+  ///
+  /// In en, this message translates to:
+  /// **'Large text'**
+  String get webview_text_large_full;
+
+  /// No description provided for @webview_text_xlarge_full.
+  ///
+  /// In en, this message translates to:
+  /// **'Very large text'**
+  String get webview_text_xlarge_full;
+
+  /// No description provided for @webview_incognito_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Incognito mode enabled — cookies cleared'**
+  String get webview_incognito_on;
+
+  /// No description provided for @webview_incognito_off.
+  ///
+  /// In en, this message translates to:
+  /// **'Incognito mode disabled'**
+  String get webview_incognito_off;
+
+  /// No description provided for @webview_url_copied_clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'URL copied to the clipboard'**
+  String get webview_url_copied_clipboard;
+
+  /// No description provided for @webview_qr_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the URL in an external QR generator'**
+  String get webview_qr_hint;
+
+  /// No description provided for @webview_copy_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy URL'**
+  String get webview_copy_url;
+
+  /// No description provided for @webview_close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get webview_close;
+
+  /// No description provided for @webview_no_hidden_elements.
+  ///
+  /// In en, this message translates to:
+  /// **'No hidden element to restore'**
+  String get webview_no_hidden_elements;
+
+  /// No description provided for @webview_hidden_elements.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden elements'**
+  String get webview_hidden_elements;
+
+  /// No description provided for @webview_restore_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore all'**
+  String get webview_restore_all;
+
+  /// No description provided for @webview_restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get webview_restore;
+
+  /// No description provided for @webview_element_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Element selected'**
+  String get webview_element_selected;
+
+  /// No description provided for @webview_what_to_do.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you want to do?'**
+  String get webview_what_to_do;
+
+  /// No description provided for @webview_hide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide {selector}'**
+  String webview_hide(Object selector);
+
+  /// No description provided for @webview_block_domain.
+  ///
+  /// In en, this message translates to:
+  /// **'Block {domain}'**
+  String webview_block_domain(Object domain);
+
+  /// No description provided for @webview_mpv_open_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open in MPV: {error}'**
+  String webview_mpv_open_failed(Object error);
+
+  /// No description provided for @webview_address_or_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Address or search'**
+  String get webview_address_or_search;
+
+  /// No description provided for @webview_clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get webview_clear;
+
+  /// No description provided for @webview_open.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get webview_open;
+
+  /// No description provided for @webview_no_results_found.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found'**
+  String get webview_no_results_found;
+
+  /// No description provided for @webview_find_in_page.
+  ///
+  /// In en, this message translates to:
+  /// **'Find in page'**
+  String get webview_find_in_page;
+
+  /// No description provided for @webview_word_or_phrase.
+  ///
+  /// In en, this message translates to:
+  /// **'Word or phrase'**
+  String get webview_word_or_phrase;
+
+  /// No description provided for @webview_previous.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous'**
+  String get webview_previous;
+
+  /// No description provided for @webview_next.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get webview_next;
+
+  /// No description provided for @webview_page_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Page source code'**
+  String get webview_page_source;
+
+  /// No description provided for @webview_no_source.
+  ///
+  /// In en, this message translates to:
+  /// **'No source code available.'**
+  String get webview_no_source;
+
+  /// No description provided for @webview_source_read_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read the source code'**
+  String get webview_source_read_failed;
+
+  /// No description provided for @webview_url_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'URL copied'**
+  String get webview_url_copied;
+
+  /// No description provided for @webview_tap_to_block.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap an element to block it'**
+  String get webview_tap_to_block;
+
+  /// No description provided for @webview_cookies_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookies cleared'**
+  String get webview_cookies_cleared;
+
+  /// No description provided for @webview_site_info.
+  ///
+  /// In en, this message translates to:
+  /// **'Site information'**
+  String get webview_site_info;
+
+  /// No description provided for @webview_page_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Page actions'**
+  String get webview_page_actions;
+
+  /// No description provided for @webview_controls.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls'**
+  String get webview_controls;
+
+  /// No description provided for @webview_copy_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get webview_copy_link;
+
+  /// No description provided for @webview_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get webview_share;
+
+  /// No description provided for @webview_view_source.
+  ///
+  /// In en, this message translates to:
+  /// **'View the source code'**
+  String get webview_view_source;
+
+  /// No description provided for @webview_clear_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear cookies'**
+  String get webview_clear_cookies;
+
+  /// No description provided for @webview_translate_page.
+  ///
+  /// In en, this message translates to:
+  /// **'Translate the page'**
+  String get webview_translate_page;
+
+  /// No description provided for @webview_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get webview_download;
+
+  /// No description provided for @webview_create_qr.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a QR code'**
+  String get webview_create_qr;
+
+  /// No description provided for @webview_change_orientation.
+  ///
+  /// In en, this message translates to:
+  /// **'Change the orientation'**
+  String get webview_change_orientation;
+
+  /// No description provided for @webview_fullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get webview_fullscreen;
+
+  /// No description provided for @webview_minimize_window.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize the window'**
+  String get webview_minimize_window;
+
+  /// No description provided for @webview_close_webview.
+  ///
+  /// In en, this message translates to:
+  /// **'Close the WebView'**
+  String get webview_close_webview;
+
+  /// No description provided for @webview_adblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad blocker'**
+  String get webview_adblock;
+
+  /// No description provided for @webview_blocked_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} blocked'**
+  String webview_blocked_count(Object count);
+
+  /// No description provided for @webview_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get webview_disabled;
+
+  /// No description provided for @webview_enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled'**
+  String get webview_enabled;
+
+  /// No description provided for @webview_night_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Night mode'**
+  String get webview_night_mode;
+
+  /// No description provided for @webview_desktop_version.
+  ///
+  /// In en, this message translates to:
+  /// **'Desktop version'**
+  String get webview_desktop_version;
+
+  /// No description provided for @webview_incognito.
+  ///
+  /// In en, this message translates to:
+  /// **'Private browsing'**
+  String get webview_incognito;
+
+  /// No description provided for @webview_tap_to_change.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to change'**
+  String get webview_tap_to_change;
+
+  /// No description provided for @webview_select_element.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an element'**
+  String get webview_select_element;
+
+  /// No description provided for @webview_tap_page_element.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap an element on the page'**
+  String get webview_tap_page_element;
+
+  /// No description provided for @webview_reset_rules.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset the rules'**
+  String get webview_reset_rules;
+
+  /// No description provided for @webview_blocked_elements_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} blocked element(s)'**
+  String webview_blocked_elements_count(Object count);
+
+  /// No description provided for @webview_refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get webview_refresh;
+
+  /// No description provided for @webview_protection_active.
+  ///
+  /// In en, this message translates to:
+  /// **'Protection on'**
+  String get webview_protection_active;
+
+  /// No description provided for @webview_protection_off.
+  ///
+  /// In en, this message translates to:
+  /// **'Protection off'**
+  String get webview_protection_off;
+
+  /// No description provided for @webview_pause_site.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause\nthis site'**
+  String get webview_pause_site;
+
+  /// No description provided for @webview_pause_30min.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause\n30 min'**
+  String get webview_pause_30min;
+
+  /// No description provided for @webview_pick_element_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Sel.\nelem.'**
+  String get webview_pick_element_short;
+
+  /// No description provided for @webview_restore_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore\n{detail}'**
+  String webview_restore_short(Object detail);
+
+  /// No description provided for @webview_elem_short.
+  ///
+  /// In en, this message translates to:
+  /// **'elem.'**
+  String get webview_elem_short;
+
+  /// No description provided for @webview_reset_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset\nto zero'**
+  String get webview_reset_short;
+
+  /// No description provided for @webview_blocked_requests.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests\nblocked'**
+  String get webview_blocked_requests;
+
+  /// No description provided for @webview_hidden_elements_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden\nelements'**
+  String get webview_hidden_elements_short;
+
+  /// No description provided for @webview_active_rules.
+  ///
+  /// In en, this message translates to:
+  /// **'Active\nrules'**
+  String get webview_active_rules;
+
+  /// No description provided for @webview_adblock_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'AdBlock – Settings'**
+  String get webview_adblock_settings;
+
+  /// No description provided for @webview_enable_adblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable AdBlock'**
+  String get webview_enable_adblock;
+
+  /// No description provided for @webview_adblock_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocks ad domains and injects a CSS/DOM filter'**
+  String get webview_adblock_desc;
+
+  /// No description provided for @webview_statistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics'**
+  String get webview_statistics;
+
+  /// No description provided for @webview_tools.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get webview_tools;
+
+  /// No description provided for @webview_select_elements.
+  ///
+  /// In en, this message translates to:
+  /// **'Select elements'**
+  String get webview_select_elements;
+
+  /// No description provided for @webview_floating_toolbar.
+  ///
+  /// In en, this message translates to:
+  /// **'Floating toolbar · touch picker'**
+  String get webview_floating_toolbar;
+
+  /// No description provided for @webview_reset_rules_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Resets the counter to 0 and clears custom rules'**
+  String get webview_reset_rules_desc;
+
+  /// No description provided for @webview_manually_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Manually blocked elements ({count})'**
+  String webview_manually_blocked(Object count);
+
+  /// No description provided for @webview_more_elements.
+  ///
+  /// In en, this message translates to:
+  /// **'+{count} elements…'**
+  String webview_more_elements(Object count);
+
+  /// No description provided for @webview_play_in_watchtower.
+  ///
+  /// In en, this message translates to:
+  /// **'Play in Watchtower'**
+  String get webview_play_in_watchtower;
+
+  /// No description provided for @webview_back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get webview_back;
+
+  /// No description provided for @webview_qr_code.
+  ///
+  /// In en, this message translates to:
+  /// **'QR code'**
+  String get webview_qr_code;
 }
 
 class _AppLocalizationsDelegate

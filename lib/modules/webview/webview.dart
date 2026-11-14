@@ -1788,7 +1788,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   Future<void> _cycleTextSize() async {
     _textSizeStep = (_textSizeStep + 1) % 3;
     final sizes = ['100%', '125%', '150%'];
-    final labels = ['Normal', 'Grand', 'Très grand'];
+    final l10n = context.l10n;
+    final labels = [
+      l10n.webview_text_normal,
+      l10n.webview_text_large,
+      l10n.webview_text_xlarge,
+    ];
     await _webViewController?.evaluateJavascript(source: """
 (function(){
   var s=document.getElementById('__wt_textsize');
@@ -1798,7 +1803,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
 """);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Taille du texte : ${labels[_textSizeStep]}'),
+        content: Text(
+            context.l10n.webview_text_size_label(labels[_textSizeStep])),
         duration: const Duration(seconds: 1),
       ));
     }
@@ -1810,18 +1816,18 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       await CookieManager.instance().deleteAllCookies();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mode incognito activé — cookies effacés'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(context.l10n.webview_incognito_on),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mode incognito désactivé'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(context.l10n.webview_incognito_off),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -1853,9 +1859,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   void _copyUrlAsBookmark() {
     Clipboard.setData(ClipboardData(text: _url));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('URL copiée dans le presse-papier'),
-          duration: Duration(seconds: 2)),
+      SnackBar(
+          content: Text(context.l10n.webview_url_copied_clipboard),
+          duration: const Duration(seconds: 2)),
     );
   }
 
@@ -1879,7 +1885,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 12),
-            Text('Ouvrez l\'URL dans un générateur QR externe',
+            Text(context.l10n.webview_qr_hint,
                 style: TextStyle(
                     fontSize: 11,
                     color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
@@ -1892,11 +1898,12 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               Navigator.pop(context);
               _copyUrlAsBookmark();
             },
-            child: const Text('Copier URL'),
+            child: Text(context.l10n.webview_copy_url),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Fermer', style: TextStyle(color: Colors.grey)),
+            child: Text(context.l10n.webview_close,
+                style: const TextStyle(color: Colors.grey)),
           ),
         ],
       ),
@@ -1970,7 +1977,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
   void _showRestoreDialog() {
     if (_hiddenHistory.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun élément masqué à restaurer'), duration: Duration(seconds: 2)),
+        SnackBar(
+            content: Text(context.l10n.webview_no_hidden_elements),
+            duration: const Duration(seconds: 2)),
       );
       return;
     }
@@ -2006,7 +2015,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                       children: [
                         Icon(Icons.history_rounded, color: isDark ? Colors.white70 : Colors.black54, size: 20),
                         const SizedBox(width: 10),
-                        Text('Éléments masqués',
+                        Text(context.l10n.webview_hidden_elements,
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
                                 color: isDark ? Colors.white : Colors.black87)),
                         const Spacer(),
@@ -2018,7 +2027,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                             }
                             if (mounted) setState(() => _hiddenHistory.clear());
                           },
-                          child: const Text('Tout restaurer', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                          child: Text(context.l10n.webview_restore_all,
+                              style: const TextStyle(
+                                  color: Colors.orange, fontSize: 12)),
                         ),
                       ],
                     ),
@@ -2048,7 +2059,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                                 setModalState(() {});
                               }
                             },
-                            child: const Text('Restaurer', style: TextStyle(color: Colors.green, fontSize: 11)),
+                            child: Text(context.l10n.webview_restore,
+                                style: const TextStyle(
+                                    color: Colors.green, fontSize: 11)),
                           ),
                         );
                       },
@@ -2086,8 +2099,13 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-        title: Text('Élément sélectionné', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 16)),
-        content: Text('Que voulez-vous faire ?', style: TextStyle(color: isDark ? Colors.grey.shade300 : Colors.black54, fontSize: 13)),
+        title: Text(context.l10n.webview_element_selected,
+            style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87, fontSize: 16)),
+        content: Text(context.l10n.webview_what_to_do,
+            style: TextStyle(
+                color: isDark ? Colors.grey.shade300 : Colors.black54,
+                fontSize: 13)),
         actions: [
           if (cssId.isNotEmpty)
             TextButton(
@@ -2096,7 +2114,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                 _injectHideRule('#$cssId', displayName: '#$cssId');
                 setState(() => _blockedElements.add('#$cssId'));
               },
-              child: Text('Masquer #$cssId', style: const TextStyle(color: Colors.orange)),
+              child: Text(context.l10n.webview_hide('#$cssId'),
+                  style: const TextStyle(color: Colors.orange)),
             ),
           if (cssClass.isNotEmpty)
             TextButton(
@@ -2105,7 +2124,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                 _injectHideRule('.$cssClass', displayName: '.$cssClass');
                 setState(() => _blockedElements.add('.$cssClass'));
               },
-              child: Text('Masquer .$cssClass', style: const TextStyle(color: Colors.orange)),
+              child: Text(context.l10n.webview_hide('.$cssClass'),
+                  style: const TextStyle(color: Colors.orange)),
             ),
           if (domain.isNotEmpty)
             TextButton(
@@ -2116,11 +2136,13 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                   _blockedCount++;
                 });
               },
-              child: Text('Bloquer $domain', style: const TextStyle(color: Colors.red)),
+              child: Text(context.l10n.webview_block_domain(domain),
+                  style: const TextStyle(color: Colors.red)),
             ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
+            child: Text(context.l10n.cancel,
+                style: const TextStyle(color: Colors.grey)),
           ),
         ],
       ),
@@ -2358,7 +2380,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Impossible d\'ouvrir dans MPV : $e'),
+            content: Text(context.l10n.webview_mpv_open_failed('$e')),
             duration: const Duration(seconds: 3),
           ),
         );
@@ -2432,7 +2454,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                   ),
                 ),
                 Text(
-                  'Adresse ou recherche',
+                  context.l10n.webview_address_or_search,
                   style: TextStyle(
                     color: foreground,
                     fontSize: 15,
@@ -2452,7 +2474,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                     hintText: 'https://example.com',
                     prefixIcon: const Icon(Icons.search_rounded),
                     suffixIcon: IconButton(
-                      tooltip: 'Effacer',
+                      tooltip: context.l10n.webview_clear,
                       onPressed: controller.clear,
                       icon: const Icon(Icons.close_rounded),
                     ),
@@ -2472,7 +2494,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                   child: FilledButton.icon(
                     onPressed: () => submit(controller.text),
                     icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                    label: const Text('Ouvrir'),
+                    label: Text(context.l10n.webview_open),
                   ),
                 ),
               ],
@@ -2536,7 +2558,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         );
         if ((found == false || found == 'false') && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Aucun résultat trouvé')),
+            SnackBar(content: Text(context.l10n.webview_no_results_found)),
           );
         }
       } catch (error) {
@@ -2552,29 +2574,29 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
     showDialog<void>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('Chercher dans la page'),
+        title: Text(context.l10n.webview_find_in_page),
         content: TextField(
           controller: queryController,
           autofocus: true,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => search(backwards: false),
-          decoration: const InputDecoration(
-            hintText: 'Mot ou expression',
-            prefixIcon: Icon(Icons.search_rounded),
+          decoration: InputDecoration(
+            hintText: context.l10n.webview_word_or_phrase,
+            prefixIcon: const Icon(Icons.search_rounded),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => search(backwards: true),
-            child: const Text('Précédent'),
+            child: Text(context.l10n.webview_previous),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Fermer'),
+            child: Text(context.l10n.webview_close),
           ),
           FilledButton(
             onPressed: () => search(backwards: false),
-            child: const Text('Suivant'),
+            child: Text(context.l10n.webview_next),
           ),
         ],
       ),
@@ -2600,10 +2622,10 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             child: Column(
               children: [
                 ListTile(
-                  title: const Text('Code source de la page'),
+                  title: Text(context.l10n.webview_page_source),
                   trailing: IconButton(
                     onPressed: () => Navigator.of(dialogCtx).pop(),
-                    tooltip: 'Fermer',
+                    tooltip: context.l10n.webview_close,
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ),
@@ -2613,7 +2635,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                       padding: const EdgeInsets.all(16),
                       child: Text(
                         visibleSource.isEmpty
-                            ? 'Aucun code source disponible.'
+                            ? context.l10n.webview_no_source
                             : visibleSource,
                         style: const TextStyle(
                           fontFamily: 'monospace',
@@ -2637,7 +2659,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible de lire le code source')),
+          SnackBar(content: Text(context.l10n.webview_source_read_failed)),
         );
       }
     }
@@ -2676,7 +2698,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: const Text('Fermer'),
+            child: Text(context.l10n.webview_close),
           ),
         ],
       ),
@@ -2755,7 +2777,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                         ),
                         IconButton(
                           onPressed: () => Navigator.of(sheetCtx).pop(),
-                          tooltip: 'Fermer',
+                          tooltip: context.l10n.webview_close,
                           icon: const Icon(Icons.close_rounded),
                         ),
                       ],
@@ -2893,7 +2915,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             dismiss();
             Clipboard.setData(ClipboardData(text: _url));
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('URL copiée'), duration: Duration(seconds: 2)),
+              SnackBar(
+                  content: Text(context.l10n.webview_url_copied),
+                  duration: const Duration(seconds: 2)),
             );
           },
           onShare: () => dismissThen(() {
@@ -2923,7 +2947,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             setState(() => _pickerMode = true);
             _activatePicker();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Tap sur un élément pour le bloquer'), duration: Duration(seconds: 4)),
+              SnackBar(
+                  content: Text(context.l10n.webview_tap_to_block),
+                  duration: const Duration(seconds: 4)),
             );
           }),
           onResetRules: () {
@@ -2935,7 +2961,9 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
             CookieManager.instance().deleteAllCookies();
             MClient.deleteAllCookies(_url);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Cookies effacés'), duration: Duration(seconds: 2)),
+              SnackBar(
+                  content: Text(context.l10n.webview_cookies_cleared),
+                  duration: const Duration(seconds: 2)),
             );
           },
           onFullscreen: () => dismissThen(() {
@@ -3404,7 +3432,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               ),
               const SizedBox(height: 16),
               Text(
-                'WebView non disponible en version web',
+                context.l10n.webview_offline_title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
@@ -3414,8 +3442,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
               ),
               const SizedBox(height: 8),
               Text(
-                "Les sites ne peuvent pas être affichés dans l'iframe du navigateur "
-                "en raison des politiques X-Frame-Options. Ouvrez le lien directement.",
+                context.l10n.webview_offline_desc,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,
@@ -3430,7 +3457,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
                   if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
                 },
                 icon: const Icon(Icons.open_in_new, size: 18),
-                label: const Text('Ouvrir dans le navigateur'),
+                label: Text(context.l10n.open_in_browser),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
@@ -3873,7 +3900,7 @@ class _BrowserDockState extends State<_BrowserDock>
                                   onPressed: widget.onSiteInfo,
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
-                                  tooltip: 'Informations sur le site',
+                                  tooltip: context.l10n.webview_site_info,
                                   icon: Icon(
                                     Icons.info_outline_rounded,
                                     size: 17,
@@ -4171,7 +4198,8 @@ class _MoreSheetState extends State<_MoreSheet> {
     final tileColor = isDark
         ? Colors.white.withValues(alpha: 0.055)
         : Colors.black.withValues(alpha: 0.045);
-    const sectionTitles = ['Actions de la page', 'Contrôles'];
+    final l10n = context.l10n;
+    final sectionTitles = [l10n.webview_page_actions, l10n.webview_controls];
 
     Widget item(
       IconData? icon,
@@ -4332,22 +4360,38 @@ class _MoreSheetState extends State<_MoreSheet> {
     }
 
     final page1 = buildPage([
-      item(null, 'Chercher dans la page', widget.onFindInPage, svgAsset: 'assets/icons/search-in-page.svg'),
-      item(Icons.copy_rounded, 'Copier le lien', widget.onCopyUrl),
-      item(null, 'Partager', widget.onShare, svgAsset: 'assets/icons/share-2.svg'),
-      item(null, 'Ouvrir dans le navigateur', widget.onOpenBrowser, svgAsset: 'assets/icons/globe.svg'),
-      item(null, 'Afficher le code source', widget.onViewSource, svgAsset: 'assets/icons/code.svg'),
-      item(null, 'Effacer les cookies', widget.onClearCookies, svgAsset: 'assets/icons/trash-2.svg'),
-      item(null, 'Traduire la page', widget.onTranslate, svgAsset: 'assets/icons/translate.svg'),
-      item(null, 'Télécharger', widget.onDownload, svgAsset: 'assets/icons/download.svg'),
-      item(null, 'Créer un QR code', widget.onQrCode, svgAsset: 'assets/icons/qr-code.svg'),
-      item(null, 'Changer l’orientation', widget.onOrientation, svgAsset: 'assets/icons/orientation.svg'),
-      item(null, 'Plein écran', widget.onFullscreen, svgAsset: 'assets/icons/maximize.svg'),
-      item(null, 'Réduire la fenêtre', widget.onMinimize, svgAsset: 'assets/icons/minus-circle.svg'),
-      item(Icons.close_rounded, 'Fermer le WebView', widget.onCloseWebView),
+      item(null, l10n.webview_find_in_page, widget.onFindInPage,
+          svgAsset: 'assets/icons/search-in-page.svg'),
+      item(Icons.copy_rounded, l10n.webview_copy_link, widget.onCopyUrl),
+      item(null, l10n.webview_share, widget.onShare,
+          svgAsset: 'assets/icons/share-2.svg'),
+      item(null, l10n.open_in_browser, widget.onOpenBrowser,
+          svgAsset: 'assets/icons/globe.svg'),
+      item(null, l10n.webview_view_source, widget.onViewSource,
+          svgAsset: 'assets/icons/code.svg'),
+      item(null, l10n.webview_clear_cookies, widget.onClearCookies,
+          svgAsset: 'assets/icons/trash-2.svg'),
+      item(null, l10n.webview_translate_page, widget.onTranslate,
+          svgAsset: 'assets/icons/translate.svg'),
+      item(null, l10n.webview_download, widget.onDownload,
+          svgAsset: 'assets/icons/download.svg'),
+      item(null, l10n.webview_create_qr, widget.onQrCode,
+          svgAsset: 'assets/icons/qr-code.svg'),
+      item(null, l10n.webview_change_orientation, widget.onOrientation,
+          svgAsset: 'assets/icons/orientation.svg'),
+      item(null, l10n.webview_fullscreen, widget.onFullscreen,
+          svgAsset: 'assets/icons/maximize.svg'),
+      item(null, l10n.webview_minimize_window, widget.onMinimize,
+          svgAsset: 'assets/icons/minus-circle.svg'),
+      item(Icons.close_rounded, l10n.webview_close_webview,
+          widget.onCloseWebView),
     ]);
 
-    final textSizeLabels = ['Texte normal', 'Texte grand', 'Texte très grand'];
+    final textSizeLabels = [
+      l10n.webview_text_normal_full,
+      l10n.webview_text_large_full,
+      l10n.webview_text_xlarge_full,
+    ];
     final page2 = SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
       child: GridView.count(
@@ -4360,49 +4404,58 @@ class _MoreSheetState extends State<_MoreSheet> {
         children: [
           controlCard(
             icon: Icons.shield_outlined,
-            label: 'Bloqueur de pubs',
-            detail: widget.adEnabled ? '${widget.blockedCount} bloqués' : 'Désactivé',
+            label: l10n.webview_adblock,
+            detail: widget.adEnabled
+                ? l10n.webview_blocked_count('${widget.blockedCount}')
+                : l10n.webview_disabled,
             active: widget.adEnabled,
             onTap: widget.onToggleAdBlock,
           ),
           controlCard(
             icon: Icons.nightlight_round,
-            label: 'Mode nuit',
-            detail: widget.nightMode ? 'Activé' : 'Désactivé',
+            label: l10n.webview_night_mode,
+            detail: widget.nightMode
+                ? l10n.webview_enabled
+                : l10n.webview_disabled,
             active: widget.nightMode,
             onTap: widget.onNightMode,
           ),
           controlCard(
             icon: Icons.desktop_windows_rounded,
-            label: 'Version ordinateur',
-            detail: widget.desktopMode ? 'Activée' : 'Désactivée',
+            label: l10n.webview_desktop_version,
+            detail: widget.desktopMode
+                ? l10n.webview_enabled
+                : l10n.webview_disabled,
             active: widget.desktopMode,
             onTap: widget.onDesktopMode,
           ),
           controlCard(
             icon: Icons.visibility_off_rounded,
-            label: 'Navigation privée',
-            detail: widget.incognito ? 'Activée' : 'Désactivée',
+            label: l10n.webview_incognito,
+            detail: widget.incognito
+                ? l10n.webview_enabled
+                : l10n.webview_disabled,
             active: widget.incognito,
             onTap: widget.onIncognito,
           ),
           controlCard(
             icon: Icons.text_fields_rounded,
             label: textSizeLabels[widget.textSizeStep],
-            detail: 'Toucher pour modifier',
+            detail: l10n.webview_tap_to_change,
             active: widget.textSizeStep > 0,
             onTap: widget.onTextSize,
           ),
           controlCard(
             icon: Icons.touch_app_rounded,
-            label: 'Sélectionner un élément',
-            detail: 'Touchez un élément de la page',
+            label: l10n.webview_select_element,
+            detail: l10n.webview_tap_page_element,
             onTap: widget.onPickElement,
           ),
           controlCard(
             icon: Icons.layers_clear_rounded,
-            label: 'Réinitialiser les règles',
-            detail: '${widget.blockedElements.length} élément(s) bloqué(s)',
+            label: l10n.webview_reset_rules,
+            detail: l10n.webview_blocked_elements_count(
+                '${widget.blockedElements.length}'),
             onTap: widget.onResetRules,
           ),
         ],
@@ -4559,11 +4612,15 @@ class _MoreSheetState extends State<_MoreSheet> {
               padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
               child: Row(
                 children: [
-                  quickAction(Icons.add_rounded, 'Nouvel onglet', widget.onNewTab),
-                  quickAction(Icons.share_rounded, 'Partager', widget.onShare),
-                  quickAction(Icons.copy_rounded, 'Copier URL', widget.onCopyUrl),
-                  quickAction(Icons.download_rounded, 'Télécharger', widget.onDownload),
-                  quickAction(Icons.qr_code_rounded, 'QR code', widget.onQrCode),
+                  quickAction(
+                      Icons.add_rounded, l10n.browser_dock_new_tab, widget.onNewTab),
+                  quickAction(Icons.share_rounded, l10n.share, widget.onShare),
+                  quickAction(
+                      Icons.copy_rounded, l10n.webview_copy_url, widget.onCopyUrl),
+                  quickAction(Icons.download_rounded, l10n.webview_download,
+                      widget.onDownload),
+                  quickAction(
+                      Icons.qr_code_rounded, l10n.webview_qr_code, widget.onQrCode),
                 ],
               ),
             ),
@@ -4625,29 +4682,29 @@ class _MoreSheetState extends State<_MoreSheet> {
                 children: [
                   toolbarAction(
                     Icons.arrow_back_rounded,
-                    'Retour',
+                    l10n.webview_back,
                     widget.onBack,
                     enabled: widget.canGoBack,
                   ),
                   toolbarAction(
                     Icons.arrow_forward_rounded,
-                    'Suivant',
+                    l10n.webview_next,
                     widget.onForward,
                     enabled: widget.canGoForward,
                   ),
                   toolbarAction(
                     Icons.refresh_rounded,
-                    'Actualiser',
+                    l10n.webview_refresh,
                     widget.onReload,
                   ),
                   toolbarAction(
                     Icons.copy_rounded,
-                    'Copier URL',
+                    l10n.webview_copy_url,
                     widget.onCopyUrl,
                   ),
                   toolbarAction(
                     Icons.add_rounded,
-                    'Nouvel onglet',
+                    l10n.browser_dock_new_tab,
                     widget.onNewTab,
                   ),
                 ],
@@ -4828,7 +4885,9 @@ class _AdBlockSheet extends StatelessWidget {
 
           // Status line
           Text(
-            on ? 'Protection active' : 'Protection désactivée',
+            on
+                ? context.l10n.webview_protection_active
+                : context.l10n.webview_protection_off,
             style: TextStyle(
               fontSize: 15, fontWeight: FontWeight.w600,
               color: on ? powerColor : Colors.grey.shade500,
@@ -4852,7 +4911,7 @@ class _AdBlockSheet extends StatelessWidget {
                 Expanded(
                   child: _AdBlockQuickBtn(
                     icon: Icons.pause_circle_outline_rounded,
-                    label: 'Pause\nce site',
+                    label: context.l10n.webview_pause_site,
                     isDark: isDark,
                     textColor: textColor,
                     onTap: () => Navigator.pop(context),
@@ -4862,7 +4921,7 @@ class _AdBlockSheet extends StatelessWidget {
                 Expanded(
                   child: _AdBlockQuickBtn(
                     icon: Icons.timer_outlined,
-                    label: 'Pause\n30 min',
+                    label: context.l10n.webview_pause_30min,
                     isDark: isDark,
                     textColor: textColor,
                     onTap: () => Navigator.pop(context),
@@ -4872,7 +4931,7 @@ class _AdBlockSheet extends StatelessWidget {
                 Expanded(
                   child: _AdBlockQuickBtn(
                     icon: Icons.colorize_rounded,
-                    label: 'Sélect.\nélém.',
+                    label: context.l10n.webview_pick_element_short,
                     isDark: isDark,
                     textColor: textColor,
                     accent: Colors.orange,
@@ -4886,7 +4945,9 @@ class _AdBlockSheet extends StatelessWidget {
                 Expanded(
                   child: _AdBlockQuickBtn(
                     icon: Icons.history_rounded,
-                    label: 'Restaurer\n${hiddenCount > 0 ? "($hiddenCount)" : "élém."}',
+                    label: context.l10n.webview_restore_short(hiddenCount > 0
+                        ? '($hiddenCount)'
+                        : context.l10n.webview_elem_short),
                     isDark: isDark,
                     textColor: textColor,
                     accent: hiddenCount > 0 ? Colors.green.shade400 : null,
@@ -4900,7 +4961,7 @@ class _AdBlockSheet extends StatelessWidget {
                 Expanded(
                   child: _AdBlockQuickBtn(
                     icon: Icons.refresh_rounded,
-                    label: 'Remise\nà zéro',
+                    label: context.l10n.webview_reset_short,
                     isDark: isDark,
                     textColor: textColor,
                     accent: Colors.red.shade400,
@@ -4921,20 +4982,24 @@ class _AdBlockSheet extends StatelessWidget {
               children: [
                 _AdBlockStat(
                   value: '$blockedCount',
-                  label: 'Requêtes\nbloquées',
-                  color: isDark ? Colors.greenAccent.shade400 : Colors.green.shade700,
+                  label: context.l10n.webview_blocked_requests,
+                  color: isDark
+                      ? Colors.greenAccent.shade400
+                      : Colors.green.shade700,
                 ),
                 Container(width: 1, height: 34, color: divColor),
                 _AdBlockStat(
                   value: '${blockedElements.length}',
-                  label: 'Éléments\nmasqués',
+                  label: context.l10n.webview_hidden_elements_short,
                   color: isDark ? Colors.orangeAccent : Colors.orange.shade700,
                 ),
                 Container(width: 1, height: 34, color: divColor),
                 _AdBlockStat(
                   value: '1561',
-                  label: 'Règles\nactives',
-                  color: isDark ? Colors.blueAccent.shade100 : Colors.blue.shade700,
+                  label: context.l10n.webview_active_rules,
+                  color: isDark
+                      ? Colors.blueAccent.shade100
+                      : Colors.blue.shade700,
                 ),
               ],
             ),
@@ -5088,7 +5153,7 @@ class _AdBlockFullPage extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'AdBlock – Paramètres',
+                    context.l10n.webview_adblock_settings,
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
                   ),
                   const Spacer(),
@@ -5107,9 +5172,10 @@ class _AdBlockFullPage extends StatelessWidget {
                 children: [
                   // Enable toggle
                   SwitchListTile(
-                    title: Text("Activer l'AdBlock", style: TextStyle(color: textColor)),
+                    title: Text(context.l10n.webview_enable_adblock,
+                        style: TextStyle(color: textColor)),
                     subtitle: Text(
-                      "Bloque les domaines publicitaires et injecte un filtre CSS/DOM",
+                      context.l10n.webview_adblock_desc,
                       style: TextStyle(fontSize: 12, color: subColor),
                     ),
                     value: enabled,
@@ -5121,17 +5187,39 @@ class _AdBlockFullPage extends StatelessWidget {
                   // Stats cards
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-                    child: Text('Statistiques', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subColor)),
+                    child: Text(context.l10n.webview_statistics,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: subColor)),
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                     child: Row(
                       children: [
-                        Expanded(child: _AdBlockStatCard(value: '$blockedCount', label: 'Requêtes\nbloquées', icon: Icons.block_rounded, color: Colors.green, isDark: isDark)),
+                        Expanded(
+                            child: _AdBlockStatCard(
+                                value: '$blockedCount',
+                                label: context.l10n.webview_blocked_requests,
+                                icon: Icons.block_rounded,
+                                color: Colors.green,
+                                isDark: isDark)),
                         const SizedBox(width: 8),
-                        Expanded(child: _AdBlockStatCard(value: '${blockedElements.length}', label: 'Éléments\nmasqués', icon: Icons.visibility_off_rounded, color: Colors.orange, isDark: isDark)),
+                        Expanded(
+                            child: _AdBlockStatCard(
+                                value: '${blockedElements.length}',
+                                label: context.l10n.webview_hidden_elements_short,
+                                icon: Icons.visibility_off_rounded,
+                                color: Colors.orange,
+                                isDark: isDark)),
                         const SizedBox(width: 8),
-                        Expanded(child: _AdBlockStatCard(value: '1561', label: 'Règles\nactives', icon: Icons.rule_rounded, color: Colors.blue, isDark: isDark)),
+                        Expanded(
+                            child: _AdBlockStatCard(
+                                value: '1561',
+                                label: context.l10n.webview_active_rules,
+                                icon: Icons.rule_rounded,
+                                color: Colors.blue,
+                                isDark: isDark)),
                       ],
                     ),
                   ),
@@ -5141,7 +5229,11 @@ class _AdBlockFullPage extends StatelessWidget {
                   // Tools section
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-                    child: Text('Outils', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subColor)),
+                    child: Text(context.l10n.webview_tools,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: subColor)),
                   ),
                   ListTile(
                     leading: Container(
@@ -5149,8 +5241,10 @@ class _AdBlockFullPage extends StatelessWidget {
                       decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
                       child: const Icon(Icons.colorize_rounded, size: 20, color: Colors.orange),
                     ),
-                    title: Text('Sélectionner des éléments', style: TextStyle(color: textColor, fontSize: 14)),
-                    subtitle: Text('Toolbar flottante · touch picker', style: TextStyle(fontSize: 11, color: subColor)),
+                    title: Text(context.l10n.webview_select_elements,
+                        style: TextStyle(color: textColor, fontSize: 14)),
+                    subtitle: Text(context.l10n.webview_floating_toolbar,
+                        style: TextStyle(fontSize: 11, color: subColor)),
                     trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
                     onTap: onActivatePicker != null
                         ? () { Navigator.pop(context); onActivatePicker!(); }
@@ -5162,8 +5256,10 @@ class _AdBlockFullPage extends StatelessWidget {
                       decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
                       child: Icon(Icons.refresh_rounded, size: 20, color: Colors.red.shade400),
                     ),
-                    title: Text('Réinitialiser les règles', style: TextStyle(color: textColor, fontSize: 14)),
-                    subtitle: Text('Remet le compteur à 0 et efface les règles personnalisées', style: TextStyle(fontSize: 11, color: subColor)),
+                    title: Text(context.l10n.webview_reset_rules,
+                        style: TextStyle(color: textColor, fontSize: 14)),
+                    subtitle: Text(context.l10n.webview_reset_rules_desc,
+                        style: TextStyle(fontSize: 11, color: subColor)),
                     trailing: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: subColor),
                     onTap: () { onReset(); Navigator.pop(context); },
                   ),
@@ -5174,7 +5270,8 @@ class _AdBlockFullPage extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
                       child: Text(
-                        'Éléments bloqués manuellement (${blockedElements.length})',
+                        context.l10n
+                            .webview_manually_blocked('${blockedElements.length}'),
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: subColor),
                       ),
                     ),
@@ -5189,7 +5286,10 @@ class _AdBlockFullPage extends StatelessWidget {
                     if (blockedElements.length > 20)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Text('+${blockedElements.length - 20} éléments…', style: TextStyle(fontSize: 11, color: subColor)),
+                        child: Text(
+                            context.l10n.webview_more_elements(
+                                '${blockedElements.length - 20}'),
+                            style: TextStyle(fontSize: 11, color: subColor)),
                       ),
                   ],
                   const SizedBox(height: 32),
@@ -5361,7 +5461,7 @@ class _WebFloatingPlayerOverlay extends StatefulWidget {
   final String type;
   final String? thumbnailUrl;
   final Rect? targetRect;
-  final String playbackLabel;
+  final String? playbackLabel;
   final VoidCallback onFullscreen;
   final VoidCallback onDismiss;
 
@@ -5372,7 +5472,7 @@ class _WebFloatingPlayerOverlay extends StatefulWidget {
     this.type = '',
     this.thumbnailUrl,
     this.targetRect,
-    this.playbackLabel = 'Lecture dans Watchtower',
+    this.playbackLabel,
     required this.onFullscreen,
     required this.onDismiss,
   });
@@ -5744,7 +5844,8 @@ class _WebFloatingPlayerOverlayState extends State<_WebFloatingPlayerOverlay>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    widget.playbackLabel,
+                    widget.playbackLabel ??
+                        context.l10n.webview_play_in_watchtower,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
