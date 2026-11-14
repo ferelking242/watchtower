@@ -11,3 +11,4 @@
 - [Legacy extension removal](legacy-extension-removal.md) — retire le runtime APK, mais préserve le schéma Isar et l’import Neko.
 - [AniList studio browsing](anilist-studio-browsing.md) — query studio catalogs through `Studio.media`; `Page.media` has no `studioId` filter.
 - [Web build compatibility](web-build-compatibility.md) — the Pages workflow restores legacy web stubs; keep generated shims aligned with current source APIs.
+- [Music plugin verification](music-plugin-verification.md) — les plugins Hetu viennent du dépôt catalogue `watchtower-extensions`; vérifier en live, pas seulement à la compilation.
