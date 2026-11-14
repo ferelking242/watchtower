@@ -3268,5 +3268,20 @@
   "episode_sources_audio": "Audio",
   "episode_sources_subtitles": "Subtitles",
   "episode_sources_subtitles_none": "Not indicated",
-  "episode_sources_play": "Play this episode"
+  "episode_sources_play": "Play this episode",
+  "download_sheet_title": "Download",
+  "download_sheet_resources": "Resources",
+  "download_sheet_added_by": "Added by",
+  "download_sheet_audio_original": "Original audio",
+  "download_sheet_select_all": "Select all",
+  "download_sheet_website": "Website",
+  "download_sheet_source_code": "Source code",
+  "download_sheet_no_resource": "No resource available",
+  "download_sheet_all_downloaded": "All the qualities are already downloaded.",
+  "download_sheet_no_link": "No link available.",
+  "download_sheet_no_episode": "No episode available.",
+  "download_sheet_no_link_for": "No link for {name}",
+  "download_sheet_open_failed": "Could not open {app} — check that it is installed.",
+  "download_sheet_season": "Season {number}",
+  "download_sheet_season_word": "Season"
 }

@@ -2990,5 +2990,20 @@
   "episode_sources_audio": "Audio",
   "episode_sources_subtitles": "Sous-titres",
   "episode_sources_subtitles_none": "Non indiqués",
-  "episode_sources_play": "Lire cet épisode"
+  "episode_sources_play": "Lire cet épisode",
+  "download_sheet_title": "Télécharger",
+  "download_sheet_resources": "Ressources",
+  "download_sheet_added_by": "Ajouté par",
+  "download_sheet_audio_original": "Audio original",
+  "download_sheet_select_all": "Tout sélectionner",
+  "download_sheet_website": "Site web",
+  "download_sheet_source_code": "Code source",
+  "download_sheet_no_resource": "Aucune ressource disponible",
+  "download_sheet_all_downloaded": "Toutes les qualités sont déjà téléchargées.",
+  "download_sheet_no_link": "Aucun lien disponible.",
+  "download_sheet_no_episode": "Aucun épisode disponible.",
+  "download_sheet_no_link_for": "Aucun lien pour {name}",
+  "download_sheet_open_failed": "Impossible d’ouvrir {app} — vérifiez qu’il est installé.",
+  "download_sheet_season": "Saison {number}",
+  "download_sheet_season_word": "Saison"
 }

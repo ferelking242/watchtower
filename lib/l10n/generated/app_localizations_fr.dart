@@ -9986,4 +9986,56 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get episode_sources_play => 'Lire cet épisode';
+
+  @override
+  String get download_sheet_title => 'Télécharger';
+
+  @override
+  String get download_sheet_resources => 'Ressources';
+
+  @override
+  String get download_sheet_added_by => 'Ajouté par';
+
+  @override
+  String get download_sheet_audio_original => 'Audio original';
+
+  @override
+  String get download_sheet_select_all => 'Tout sélectionner';
+
+  @override
+  String get download_sheet_website => 'Site web';
+
+  @override
+  String get download_sheet_source_code => 'Code source';
+
+  @override
+  String get download_sheet_no_resource => 'Aucune ressource disponible';
+
+  @override
+  String get download_sheet_all_downloaded =>
+      'Toutes les qualités sont déjà téléchargées.';
+
+  @override
+  String get download_sheet_no_link => 'Aucun lien disponible.';
+
+  @override
+  String get download_sheet_no_episode => 'Aucun épisode disponible.';
+
+  @override
+  String download_sheet_no_link_for(Object name) {
+    return 'Aucun lien pour $name';
+  }
+
+  @override
+  String download_sheet_open_failed(Object app) {
+    return 'Impossible d’ouvrir $app — vérifiez qu’il est installé.';
+  }
+
+  @override
+  String download_sheet_season(Object number) {
+    return 'Saison $number';
+  }
+
+  @override
+  String get download_sheet_season_word => 'Saison';
 }

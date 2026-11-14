@@ -3057,6 +3057,33 @@ HOME_L10N = [
 ]
 
 
+# ── Watch download sheet ──────────────────────────────────────────────────────
+
+DOWNLOAD_SHEET = [
+    ("download_sheet_title", "Download", "Télécharger"),
+    ("download_sheet_resources", "Resources", "Ressources"),
+    ("download_sheet_added_by", "Added by", "Ajouté par"),
+    ("download_sheet_audio_original", "Original audio", "Audio original"),
+    ("download_sheet_select_all", "Select all", "Tout sélectionner"),
+    ("download_sheet_website", "Website", "Site web"),
+    ("download_sheet_source_code", "Source code", "Code source"),
+    ("download_sheet_no_resource", "No resource available",
+     "Aucune ressource disponible"),
+    ("download_sheet_all_downloaded",
+     "All the qualities are already downloaded.",
+     "Toutes les qualités sont déjà téléchargées."),
+    ("download_sheet_no_link", "No link available.", "Aucun lien disponible."),
+    ("download_sheet_no_episode", "No episode available.",
+     "Aucun épisode disponible."),
+    ("download_sheet_no_link_for", "No link for {name}", "Aucun lien pour {name}"),
+    ("download_sheet_open_failed",
+     "Could not open {app} — check that it is installed.",
+     "Impossible d’ouvrir {app} — vérifiez qu’il est installé."),
+    ("download_sheet_season", "Season {number}", "Saison {number}"),
+    ("download_sheet_season_word", "Season", "Saison"),
+]
+
+
 # ── Anime episode source search ───────────────────────────────────────────────
 
 EPISODE_SOURCES = [
@@ -3229,6 +3256,8 @@ en_entries += [(key, en) for key, en, _ in SEARCH_HUB]
 fr_entries += [(key, fr) for key, _, fr in SEARCH_HUB]
 en_entries += [(key, en) for key, en, _ in EPISODE_SOURCES]
 fr_entries += [(key, fr) for key, _, fr in EPISODE_SOURCES]
+en_entries += [(key, en) for key, en, _ in DOWNLOAD_SHEET]
+fr_entries += [(key, fr) for key, _, fr in DOWNLOAD_SHEET]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

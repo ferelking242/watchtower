@@ -14,6 +14,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/media/widgets/bulk_download_formats.dart';
 import 'package:watchtower/modules/watch/detail/download/video_file_meta.dart';
 import 'package:watchtower/modules/watch/detail/download/video_meta_cache.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -357,11 +358,13 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     return s.toList()..sort();
   }
 
+  /// Raw season numbers, never a formatted label: [_selectedSeason] is parsed
+  /// back out of these, so localizing them here would break the selection.
   List<String> get _seasons {
     final s = <String>{};
     for (final ch in widget.chapters) {
       final m = _seasonRe.firstMatch(ch.name ?? '');
-      if (m != null) s.add('Saison ${m.group(1)}');
+      if (m != null) s.add(m.group(1)!);
     }
     return s.toList()..sort();
   }
@@ -376,8 +379,8 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     return m == null ? 0 : int.tryParse(m.group(1)!) ?? 0;
   }
 
-  static String _normQ(String raw) {
-    if (raw.trim().isEmpty) return 'Auto';
+  String _normQ(String raw) {
+    if (raw.trim().isEmpty) return context.l10n.player_auto;
     final s = raw.toLowerCase();
     if (s.contains('8k') || s.contains('4320')) return '8K';
     if (s.contains('4k') || s.contains('2160')) return '4K';
@@ -441,7 +444,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     if (_selectedSeason == null) {
       base = widget.chapters;
     } else {
-      final num = _selectedSeason!.replaceAll('Saison ', '');
+      final num = _selectedSeason;
       base = widget.chapters.where((ch) {
         final m = _seasonRe.firstMatch(ch.name ?? '');
         return m != null && m.group(1) == num;
@@ -507,7 +510,9 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
   String _audioLabel() {
     final langs = _langs;
     if (_selectedLang != null) return _prettyLang(_selectedLang!);
-    return langs.isEmpty ? 'Audio original' : _prettyLang(langs.first);
+    return langs.isEmpty
+        ? context.l10n.download_sheet_audio_original
+        : _prettyLang(langs.first);
   }
 
   static String _prettyLang(String raw) => raw.isEmpty
@@ -519,7 +524,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     // Film dont toutes les résolutions sont déjà en bibliothèque : il n'y a
     // rien de neuf à télécharger, et le moteur refuserait le doublon.
     if (_isFilm && _downloadedKeys.isNotEmpty && _filmRows.isEmpty) {
-      botToast('Toutes les qualités sont déjà téléchargées.');
+      botToast(context.l10n.download_sheet_all_downloaded);
       return;
     }
     // ── Film : pas de sélection d'épisode, le choix porte sur les qualités. ──
@@ -536,7 +541,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
 
       if (_downloader == _Downloader.external) {
         if (picked.isEmpty) {
-          botToast('Aucun lien disponible.');
+          botToast(context.l10n.download_sheet_no_link);
           return;
         }
         if (mounted) Navigator.pop(context);
@@ -549,7 +554,8 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
             );
             if (!launched && mounted) {
               botToast(
-                  'Impossible d\'ouvrir $_externalApp — vérifiez qu\'il est installé.');
+                context.l10n.download_sheet_open_failed(_externalApp),
+              );
             }
           } catch (e) {
             if (mounted) botToast(e.toString().split('\n').first);
@@ -577,7 +583,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     // « télécharger tous les épisodes affichés ».
     final chapters = _selected.isEmpty ? _displayChapters : _selected.toList();
     if (chapters.isEmpty) {
-      botToast('Aucun épisode disponible.');
+      botToast(context.l10n.download_sheet_no_episode);
       return;
     }
 
@@ -588,7 +594,9 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
           final result = await ref.read(getVideoListProvider(episode: ch).future);
           var videos = result.$1;
           if (videos.isEmpty) {
-            botToast('Aucun lien pour ${ch.name ?? '?'}');
+            botToast(
+              context.l10n.download_sheet_no_link_for(ch.name ?? '?'),
+            );
             continue;
           }
           if (_selectedLang != null && _langs.length > 1) {
@@ -612,8 +620,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
             headers: best.headers,
           );
           if (!launched && mounted) {
-            botToast(
-                'Impossible d\'ouvrir $_externalApp — vérifiez qu\'il est installé.');
+            botToast(context.l10n.download_sheet_open_failed(_externalApp));
           }
         } catch (e) {
           if (mounted) botToast(e.toString().split('\n').first);
@@ -701,7 +708,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
       child: Row(
         children: [
-          Text('Télécharger',
+          Text(context.l10n.download_sheet_title,
               style: TextStyle(
                   color: _kText, fontSize: 17, fontWeight: FontWeight.w700)),
           const Spacer(),
@@ -739,13 +746,13 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
           // ── Titre + « ajouté par (logo + nom) » TOUT À DROITE + aide ──
           Row(
             children: [
-              Text('Ressources',
+              Text(context.l10n.download_sheet_resources,
                   style: TextStyle(
                       color: _kText,
                       fontSize: 16,
                       fontWeight: FontWeight.w700)),
               const Spacer(),
-              Text('Ajouté par',
+              Text(context.l10n.download_sheet_added_by,
                   style: TextStyle(color: _kMuted, fontSize: 12.5)),
               if (source != null) ...[
                 const SizedBox(width: 6),
@@ -798,7 +805,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                   _buildFieldButton(
                     label: _audioLabel(),
                     onTap: () => _showOptionSheet(
-                      'Audio',
+                      context.l10n.episode_sources_audio,
                       _langs,
                       _selectedLang ?? _langs.first,
                       (l) {
@@ -815,16 +822,21 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                   ),
                 if (!isFilm && seasons.length > 1)
                   _buildFieldButton(
-                    label: _selectedSeason ??
-                        'Saison ${_twoDigits(seasons.first.replaceAll(RegExp(r'[^0-9]'), ''))}',
+                    label: context.l10n.download_sheet_season(
+                      _twoDigits(_selectedSeason ?? seasons.first),
+                    ),
                     onTap: () => _showOptionSheet(
-                      'Saison',
+                      context.l10n.download_sheet_season_word,
                       seasons
-                          .map((s) =>
-                              'Saison ${_twoDigits(s.replaceAll(RegExp(r'[^0-9]'), ''))}')
+                          .map(
+                            (s) => context.l10n.download_sheet_season(
+                              _twoDigits(s),
+                            ),
+                          )
                           .toList(),
-                      _selectedSeason ??
-                          'Saison ${_twoDigits(seasons.first.replaceAll(RegExp(r'[^0-9]'), ''))}',
+                      context.l10n.download_sheet_season(
+                        _twoDigits(_selectedSeason ?? seasons.first),
+                      ),
                       (s) => setState(() {
                         _selectedSeason = _selectedSeason == s ? null : s;
                         _selected.clear();
@@ -976,7 +988,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
   Widget _buildFilmRows() {
     if (_videos.isEmpty && !_loading) {
       return Center(
-        child: Text('Aucune ressource disponible',
+        child: Text(context.l10n.download_sheet_no_resource,
             style: TextStyle(color: _kMuted, fontSize: 13)),
       );
     }
@@ -1240,7 +1252,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                       const SizedBox(width: 12),
                       Flexible(
                         child: Text(
-                          'Tout sélectionner',
+                          context.l10n.download_sheet_select_all,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(color: _kText, fontSize: 14),
@@ -1262,14 +1274,14 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
                     gradient: _kActionGradient,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.download_rounded,
+                      const Icon(Icons.download_rounded,
                           color: Colors.black, size: 18),
-                      SizedBox(width: 7),
-                      Text('Télécharger',
+                      const SizedBox(width: 7),
+                      Text(context.l10n.download_sheet_title,
                           style: TextStyle(
                               color: Colors.black,
                               fontSize: 14,
@@ -1307,7 +1319,7 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
               child: Text(
                 source.name?.trim().isNotEmpty == true
                     ? source.name!.trim()
-                    : 'Extension',
+                    : context.l10n.episode_sources_extension,
                 style: TextStyle(
                     color: Theme.of(dialogContext).colorScheme.onSurface,
                     fontSize: 17,
@@ -1320,20 +1332,22 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sourceDetailRow(dialogContext, 'Site web', source.baseUrl,
+            _sourceDetailRow(dialogContext, context.l10n.download_sheet_website,
+                source.baseUrl,
                 launchTarget: source.baseUrl),
-            _sourceDetailRow(dialogContext, 'Code source', source.sourceCodeUrl,
+            _sourceDetailRow(dialogContext,
+                context.l10n.download_sheet_source_code, source.sourceCodeUrl,
                 launchTarget: source.sourceCodeUrl),
             _sourceDetailRow(
-                dialogContext, 'Langue', source.lang?.toUpperCase()),
-            _sourceDetailRow(dialogContext, 'Version', source.version),
-            _sourceDetailRow(dialogContext, 'Type', source.typeSource),
+                dialogContext, context.l10n.language, source.lang?.toUpperCase()),
+            _sourceDetailRow(dialogContext, context.l10n.version, source.version),
+            _sourceDetailRow(dialogContext, context.l10n.media_type, source.typeSource),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Fermer',
+            child: Text(context.l10n.general_close,
                 style: TextStyle(
                     color: context.primaryColor, fontWeight: FontWeight.w600)),
           ),

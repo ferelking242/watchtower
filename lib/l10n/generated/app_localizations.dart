@@ -17548,6 +17548,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Play this episode'**
   String get episode_sources_play;
+
+  /// No description provided for @download_sheet_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get download_sheet_title;
+
+  /// No description provided for @download_sheet_resources.
+  ///
+  /// In en, this message translates to:
+  /// **'Resources'**
+  String get download_sheet_resources;
+
+  /// No description provided for @download_sheet_added_by.
+  ///
+  /// In en, this message translates to:
+  /// **'Added by'**
+  String get download_sheet_added_by;
+
+  /// No description provided for @download_sheet_audio_original.
+  ///
+  /// In en, this message translates to:
+  /// **'Original audio'**
+  String get download_sheet_audio_original;
+
+  /// No description provided for @download_sheet_select_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get download_sheet_select_all;
+
+  /// No description provided for @download_sheet_website.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get download_sheet_website;
+
+  /// No description provided for @download_sheet_source_code.
+  ///
+  /// In en, this message translates to:
+  /// **'Source code'**
+  String get download_sheet_source_code;
+
+  /// No description provided for @download_sheet_no_resource.
+  ///
+  /// In en, this message translates to:
+  /// **'No resource available'**
+  String get download_sheet_no_resource;
+
+  /// No description provided for @download_sheet_all_downloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'All the qualities are already downloaded.'**
+  String get download_sheet_all_downloaded;
+
+  /// No description provided for @download_sheet_no_link.
+  ///
+  /// In en, this message translates to:
+  /// **'No link available.'**
+  String get download_sheet_no_link;
+
+  /// No description provided for @download_sheet_no_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'No episode available.'**
+  String get download_sheet_no_episode;
+
+  /// No description provided for @download_sheet_no_link_for.
+  ///
+  /// In en, this message translates to:
+  /// **'No link for {name}'**
+  String download_sheet_no_link_for(Object name);
+
+  /// No description provided for @download_sheet_open_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open {app} — check that it is installed.'**
+  String download_sheet_open_failed(Object app);
+
+  /// No description provided for @download_sheet_season.
+  ///
+  /// In en, this message translates to:
+  /// **'Season {number}'**
+  String download_sheet_season(Object number);
+
+  /// No description provided for @download_sheet_season_word.
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get download_sheet_season_word;
 }
 
 class _AppLocalizationsDelegate

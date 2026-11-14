@@ -9888,4 +9888,56 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get episode_sources_play => 'Play this episode';
+
+  @override
+  String get download_sheet_title => 'Download';
+
+  @override
+  String get download_sheet_resources => 'Resources';
+
+  @override
+  String get download_sheet_added_by => 'Added by';
+
+  @override
+  String get download_sheet_audio_original => 'Original audio';
+
+  @override
+  String get download_sheet_select_all => 'Select all';
+
+  @override
+  String get download_sheet_website => 'Website';
+
+  @override
+  String get download_sheet_source_code => 'Source code';
+
+  @override
+  String get download_sheet_no_resource => 'No resource available';
+
+  @override
+  String get download_sheet_all_downloaded =>
+      'All the qualities are already downloaded.';
+
+  @override
+  String get download_sheet_no_link => 'No link available.';
+
+  @override
+  String get download_sheet_no_episode => 'No episode available.';
+
+  @override
+  String download_sheet_no_link_for(Object name) {
+    return 'No link for $name';
+  }
+
+  @override
+  String download_sheet_open_failed(Object app) {
+    return 'Could not open $app — check that it is installed.';
+  }
+
+  @override
+  String download_sheet_season(Object number) {
+    return 'Season $number';
+  }
+
+  @override
+  String get download_sheet_season_word => 'Season';
 }
