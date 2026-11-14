@@ -295,10 +295,10 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                   );
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     behavior: SnackBarBehavior.floating,
-                    content: Text('Sauvegardé'),
-                    duration: Duration(seconds: 1),
+                    content: Text(context.l10n.browse_edit_code_saved),
+                    duration: const Duration(seconds: 1),
                   ),
                 );
               }

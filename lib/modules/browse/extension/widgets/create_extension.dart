@@ -120,7 +120,7 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
               child: Icon(Icons.extension_rounded, size: 18, color: cs.primary),
             ),
             const SizedBox(width: 10),
-            const Text('Créer une extension'),
+            Text(context.l10n.browse_create_extension),
           ],
         ),
       ),

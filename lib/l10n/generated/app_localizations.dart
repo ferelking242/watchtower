@@ -18352,6 +18352,324 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'⚠ Debug mode active – high RAM usage'**
   String get log_viewer_mode_debug_warn;
+
+  /// No description provided for @browse_diag2_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get browse_diag2_actions;
+
+  /// No description provided for @browse_diag2_status_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get browse_diag2_status_ok;
+
+  /// No description provided for @browse_diag2_status_errors.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors'**
+  String get browse_diag2_status_errors;
+
+  /// No description provided for @browse_diag2_status_running.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get browse_diag2_status_running;
+
+  /// No description provided for @browse_diag2_status_idle.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get browse_diag2_status_idle;
+
+  /// No description provided for @browse_diag2_paused_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused — {done} / {total}'**
+  String browse_diag2_paused_progress(Object done, Object total);
+
+  /// No description provided for @browse_diag2_running_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Running — {done} / {total}'**
+  String browse_diag2_running_progress(Object done, Object total);
+
+  /// No description provided for @browse_diag2_interrupted_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Interrupted — {done} / {total}'**
+  String browse_diag2_interrupted_progress(Object done, Object total);
+
+  /// No description provided for @browse_diag2_complete_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Done · {ok} OK · {fail} error(s)'**
+  String browse_diag2_complete_progress(Object fail, Object ok);
+
+  /// No description provided for @browse_diag2_sources_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} extensions · {selected} selected'**
+  String browse_diag2_sources_selected(Object count, Object selected);
+
+  /// No description provided for @browse_diag2_cancel_interrupt.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel / interrupt'**
+  String get browse_diag2_cancel_interrupt;
+
+  /// No description provided for @browse_diag2_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get browse_diag2_reset;
+
+  /// No description provided for @browse_diag2_copy_report.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the report {format}'**
+  String browse_diag2_copy_report(Object format);
+
+  /// No description provided for @browse_diag2_interrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'Interrupted'**
+  String get browse_diag2_interrupted;
+
+  /// No description provided for @browse_diag2_steps_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'{ok}/{total} steps OK'**
+  String browse_diag2_steps_ok(Object ok, Object total);
+
+  /// No description provided for @browse_diag2_step_errors.
+  ///
+  /// In en, this message translates to:
+  /// **' · {count} error(s)'**
+  String browse_diag2_step_errors(Object count);
+
+  /// No description provided for @browse_diag2_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get browse_diag2_search;
+
+  /// No description provided for @browse_diag2_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search an extension…'**
+  String get browse_diag2_search_hint;
+
+  /// No description provided for @browse_diag2_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get browse_diag2_status;
+
+  /// No description provided for @browse_diag2_sort.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get browse_diag2_sort;
+
+  /// No description provided for @browse_diag2_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get browse_diag2_language;
+
+  /// No description provided for @browse_diag2_selected_for_diag.
+  ///
+  /// In en, this message translates to:
+  /// **'{selected} / {total} extensions selected for the diagnostic'**
+  String browse_diag2_selected_for_diag(Object selected, Object total);
+
+  /// No description provided for @browse_diag2_select_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get browse_diag2_select_all;
+
+  /// No description provided for @browse_diag2_deselect_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect all'**
+  String get browse_diag2_deselect_all;
+
+  /// No description provided for @browse_diag2_reset_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset the filters'**
+  String get browse_diag2_reset_filters;
+
+  /// No description provided for @browse_diag2_sort_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get browse_diag2_sort_name;
+
+  /// No description provided for @browse_diag2_sort_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get browse_diag2_sort_status;
+
+  /// No description provided for @browse_diag2_sort_duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get browse_diag2_sort_duration;
+
+  /// No description provided for @browse_diag2_hint_run.
+  ///
+  /// In en, this message translates to:
+  /// **'Run the analysis to test each step (Popular · Latest · Detail · Media).'**
+  String get browse_diag2_hint_run;
+
+  /// No description provided for @browse_diag2_unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get browse_diag2_unknown;
+
+  /// No description provided for @browse_diag2_video_preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Video preview'**
+  String get browse_diag2_video_preview;
+
+  /// No description provided for @browse_diag2_page_preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Page preview'**
+  String get browse_diag2_page_preview;
+
+  /// No description provided for @browse_diag2_all_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'All OK'**
+  String get browse_diag2_all_ok;
+
+  /// No description provided for @browse_diag2_log_lines_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} log lines — open the detail to read them'**
+  String browse_diag2_log_lines_hint(Object count);
+
+  /// No description provided for @browse_diag2_progress_body.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} / {total} — {name}'**
+  String browse_diag2_progress_body(Object done, Object name, Object total);
+
+  /// No description provided for @browse_diag2_restart_diag.
+  ///
+  /// In en, this message translates to:
+  /// **'Relaunch the diagnostic'**
+  String get browse_diag2_restart_diag;
+
+  /// No description provided for @browse_source_pref_setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting'**
+  String get browse_source_pref_setting;
+
+  /// No description provided for @browse_source_pref_saved_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved value'**
+  String get browse_source_pref_saved_value;
+
+  /// No description provided for @browse_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get browse_save;
+
+  /// No description provided for @browse_layout_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No layout JSON is available for this extension.'**
+  String get browse_layout_none;
+
+  /// No description provided for @browse_layout_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the layout: {error}'**
+  String browse_layout_load_failed(Object error);
+
+  /// No description provided for @browse_layout_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout saved on this device.'**
+  String get browse_layout_saved;
+
+  /// No description provided for @browse_layout_line_numbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Line numbers'**
+  String get browse_layout_line_numbers;
+
+  /// No description provided for @browse_edit_code_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get browse_edit_code_saved;
+
+  /// No description provided for @browse_layout_invalid_json.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid JSON: {error}'**
+  String browse_layout_invalid_json(Object error);
+
+  /// No description provided for @browse_layout_save_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save: {error}'**
+  String browse_layout_save_failed(Object error);
+
+  /// No description provided for @browse_layout_view.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get browse_layout_view;
+
+  /// No description provided for @browse_layout_alignment.
+  ///
+  /// In en, this message translates to:
+  /// **'Alignment'**
+  String get browse_layout_alignment;
+
+  /// No description provided for @browse_layout_schema.
+  ///
+  /// In en, this message translates to:
+  /// **'The layout does not match the expected schema.'**
+  String get browse_layout_schema;
+
+  /// No description provided for @browse_layout_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout JSON · {name}'**
+  String browse_layout_title(Object name);
+
+  /// No description provided for @browse_layout_align_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get browse_layout_align_left;
+
+  /// No description provided for @browse_layout_align_center.
+  ///
+  /// In en, this message translates to:
+  /// **'Center'**
+  String get browse_layout_align_center;
+
+  /// No description provided for @browse_create_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an extension'**
+  String get browse_create_extension;
 }
 
 class _AppLocalizationsDelegate

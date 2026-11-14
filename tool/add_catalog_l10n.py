@@ -3057,6 +3057,103 @@ HOME_L10N = [
 ]
 
 
+# ── Extension source preferences + layout JSON editor ─────────────────────────
+
+BROWSE_EXTRA = [
+    ("browse_source_pref_setting", "Setting", "Réglage"),
+    ("browse_source_pref_saved_value", "Saved value", "Valeur enregistrée"),
+    ("browse_save", "Save", "Enregistrer"),
+    ("browse_layout_none", "No layout JSON is available for this extension.",
+     "Aucun layout JSON n’est disponible pour cette extension."),
+    ("browse_layout_load_failed", "Could not load the layout: {error}",
+     "Impossible de charger le layout : {error}"),
+    ("browse_layout_saved", "Layout saved on this device.",
+     "Layout enregistré sur cet appareil."),
+    ("browse_layout_format", "Format (indented)", "Formater (indenté)"),
+    ("browse_layout_save", "Save the layout", "Enregistrer le layout"),
+    ("browse_layout_placeholder", "The layout JSON will appear here",
+     "Le JSON du layout apparaîtra ici"),
+    ("browse_layout_wrap", "Word wrap", "Retour à la ligne"),
+    ("browse_layout_line_numbers", "Line numbers", "Numéros"),
+    ("browse_edit_code_saved", "Saved", "Sauvegardé"),
+    ("browse_layout_invalid_json", "Invalid JSON: {error}",
+     "JSON invalide : {error}"),
+    ("browse_layout_save_failed", "Could not save: {error}",
+     "Enregistrement impossible : {error}"),
+    ("browse_layout_view", "View", "Vue"),
+    ("browse_layout_alignment", "Alignment", "Alignement"),
+    ("browse_layout_minify", "Minify", "Minifier"),
+    ("browse_layout_saving", "Saving…", "Enregistrement…"),
+    ("browse_layout_root_object", "The JSON root must be an object.",
+     "La racine JSON doit être un objet."),
+    ("browse_layout_schema", "The layout does not match the expected schema.",
+     "Le layout ne respecte pas le schéma attendu."),
+    ("browse_layout_title", "Layout JSON · {name}", "Layout JSON · {name}"),
+    ("browse_layout_align_left", "Left", "Gauche"),
+    ("browse_layout_align_center", "Center", "Centre"),
+    ("browse_create_extension", "Create an extension", "Créer une extension"),
+]
+
+
+# ── Extension diagnostic screen ───────────────────────────────────────────────
+
+DIAG2 = [
+    ("browse_diag2_actions", "Actions", "Actions"),
+    ("browse_diag2_restart_diag", "Relaunch the diagnostic",
+     "Relancer le diagnostic"),
+    ("browse_diag2_status_ok", "OK", "OK"),
+    ("browse_diag2_status_errors", "Errors", "Erreurs"),
+    ("browse_diag2_status_running", "Running", "En cours"),
+    ("browse_diag2_status_idle", "Waiting", "En attente"),
+    ("browse_diag2_paused_progress", "Paused — {done} / {total}",
+     "En pause — {done} / {total}"),
+    ("browse_diag2_running_progress", "Running — {done} / {total}",
+     "En cours — {done} / {total}"),
+    ("browse_diag2_interrupted_progress", "Interrupted — {done} / {total}",
+     "Interrompu — {done} / {total}"),
+    ("browse_diag2_complete_progress", "Done · {ok} OK · {fail} error(s)",
+     "Terminé · {ok} OK · {fail} erreur(s)"),
+    ("browse_diag2_sources_selected", "{count} extensions · {selected} selected",
+     "{count} extensions · {selected} sélectionnées"),
+    ("browse_diag2_cancel_interrupt", "Cancel / interrupt",
+     "Annuler / interrompre"),
+    ("browse_diag2_reset", "Reset", "Réinitialiser"),
+    ("browse_diag2_copy_report", "Copy the report {format}",
+     "Copier le rapport {format}"),
+    ("browse_diag2_interrupted", "Interrupted", "Interrompu"),
+    ("browse_diag2_steps_ok", "{ok}/{total} steps OK", "{ok}/{total} étapes OK"),
+    ("browse_diag2_step_errors", " · {count} error(s)", " · {count} erreur(s)"),
+    ("browse_diag2_search", "Search", "Recherche"),
+    ("browse_diag2_search_hint", "Search an extension…",
+     "Rechercher une extension…"),
+    ("browse_diag2_status", "Status", "Statut"),
+    ("browse_diag2_sort", "Sort", "Trier"),
+    ("browse_diag2_language", "Language", "Langue"),
+    ("browse_diag2_selected_for_diag",
+     "{selected} / {total} extensions selected for the diagnostic",
+     "{selected} / {total} extensions sélectionnées pour le diagnostic"),
+    ("browse_diag2_select_all", "Select all", "Tout sélectionner"),
+    ("browse_diag2_deselect_all", "Deselect all", "Tout désélectionner"),
+    ("browse_diag2_reset_filters", "Reset the filters",
+     "Réinitialiser les filtres"),
+    ("browse_diag2_sort_name", "Name", "Nom"),
+    ("browse_diag2_sort_status", "Status", "Statut"),
+    ("browse_diag2_sort_duration", "Duration", "Durée"),
+    ("browse_diag2_hint_run",
+     "Run the analysis to test each step (Popular · Latest · Detail · Media).",
+     "Lancez l’analyse pour tester chaque étape (Popular · Latest · Détail · Médias)."),
+    ("browse_diag2_unknown", "Unknown", "Inconnue"),
+    ("browse_diag2_video_preview", "Video preview", "Prévisualisation vidéo"),
+    ("browse_diag2_page_preview", "Page preview", "Prévisualisation pages"),
+    ("browse_diag2_all_ok", "All OK", "Tout OK"),
+    ("browse_diag2_log_lines_hint",
+     "{count} log lines — open the detail to read them",
+     "{count} lignes de log — ouvrez le détail pour les consulter"),
+    ("browse_diag2_progress_body", "{done} / {total} — {name}",
+     "{done} / {total} — {name}"),
+]
+
+
 # ── Log viewer ────────────────────────────────────────────────────────────────
 
 LOG_VIEWER = [
@@ -3484,6 +3581,10 @@ en_entries += [(key, en) for key, en, _ in ABOUT]
 fr_entries += [(key, fr) for key, _, fr in ABOUT]
 en_entries += [(key, en) for key, en, _ in LOG_VIEWER]
 fr_entries += [(key, fr) for key, _, fr in LOG_VIEWER]
+en_entries += [(key, en) for key, en, _ in DIAG2]
+fr_entries += [(key, fr) for key, _, fr in DIAG2]
+en_entries += [(key, en) for key, en, _ in BROWSE_EXTRA]
+fr_entries += [(key, fr) for key, _, fr in BROWSE_EXTRA]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

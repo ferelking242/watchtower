@@ -103,9 +103,13 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
         caseSensitive: false,
       ).hasMatch(preference.key ?? '');
       return _expandableSetting(
-        title: pref.title ?? preference.key ?? 'Réglage',
+        title: pref.title ??
+            preference.key ??
+            l10nLocalizations(context)!.browse_source_pref_setting,
         subtitle: controller.text.isNotEmpty
-            ? (sensitive ? 'Valeur enregistrée' : controller.text)
+            ? (sensitive
+                ? l10nLocalizations(context)!.browse_source_pref_saved_value
+                : controller.text)
             : (pref.summary ?? ''),
         children: [
           TextField(
@@ -136,7 +140,7 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
                 setState(() {});
               },
               icon: const Icon(Icons.save_outlined, size: 18),
-              label: const Text('Enregistrer'),
+              label: Text(l10nLocalizations(context)!.browse_save),
             ),
           ),
         ],

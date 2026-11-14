@@ -257,7 +257,7 @@ class ExtensionDetail extends StatelessWidget {
       const SizedBox(width: 12),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(src.name ?? 'Inconnue',
+          Text(src.name ?? context.l10n.browse_diag2_unknown,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               overflow: TextOverflow.ellipsis),
           const SizedBox(height: 3),
@@ -294,9 +294,9 @@ class ExtensionDetail extends StatelessWidget {
           ),
           child: Text(
             cancelled
-                ? 'Interrompu'
+                ? context.l10n.browse_diag2_interrupted
                 : allOk
-                    ? '✓ OK'
+                    ? '✓ ${context.l10n.browse_diag2_status_ok}'
                     : '✗ ${r!.failCount}',
             style: TextStyle(
                 fontWeight: FontWeight.w800,
@@ -559,7 +559,9 @@ class MediaPreviewSectionState extends State<MediaPreviewSection> {
                   color: cs.primary),
               const SizedBox(width: 8),
               Text(
-                  isAnime ? 'Prévisualisation vidéo' : 'Prévisualisation pages',
+                  isAnime
+                      ? context.l10n.browse_diag2_video_preview
+                      : context.l10n.browse_diag2_page_preview,
                   style: TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 12.5)),
               const SizedBox(width: 8),
@@ -811,7 +813,7 @@ class ResultCardState extends State<ResultCard> {
               ),
               Text(
                 r.okCount == r.steps.length && r.steps.isNotEmpty
-                    ? 'Tout OK'
+                    ? context.l10n.browse_diag2_all_ok
                     : '${r.okCount}/${r.steps.length}',
                 style: TextStyle(
                     fontSize: 11,
@@ -872,7 +874,8 @@ class ResultCardState extends State<ResultCard> {
                         if (e.value.hasLogs) ...[
                           const SizedBox(height: 4),
                           Text(
-                              '${e.value.logs.length} lignes de log — ouvrez le détail pour les consulter',
+                              context.l10n.browse_diag2_log_lines_hint(
+                                  '${e.value.logs.length}'),
                               style: TextStyle(
                                   fontSize: 9.5, color: cs.onSurfaceVariant)),
                         ],

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/layout_downloader.dart';
 import 'package:watchtower/services/layout_registry.dart';
 
@@ -77,7 +78,7 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
       setState(() {
         _loading = false;
         if (formatted == null) {
-          _message = 'Aucun layout JSON n’est disponible pour cette extension.';
+          _message = l10nLocalizations(context)!.browse_layout_none;
           _messageIsError = true;
         } else {
           _controller.text = formatted;
@@ -89,7 +90,7 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _message = 'Impossible de charger le layout : $error';
+        _message = l10nLocalizations(context)!.browse_layout_load_failed('$error');
         _messageIsError = true;
       });
     }
@@ -108,12 +109,14 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
     try {
       final decoded = jsonDecode(_controller.text);
       if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('La racine JSON doit être un objet.');
+        throw FormatException(
+            l10nLocalizations(context)!.browse_layout_root_object);
       }
       final formatted = const JsonEncoder.withIndent('  ').convert(decoded);
       final saved = await LayoutRegistry.instance.save(widget.source, formatted);
       if (!saved) {
-        throw const FormatException('Le layout ne respecte pas le schéma attendu.');
+        throw FormatException(
+            l10nLocalizations(context)!.browse_layout_schema);
       }
       if (!mounted) return;
       setState(() {
@@ -121,7 +124,7 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
           text: formatted,
           selection: TextSelection.collapsed(offset: formatted.length),
         );
-        _message = 'Layout enregistré sur cet appareil.';
+        _message = l10nLocalizations(context)!.browse_layout_saved;
         _messageIsError = false;
       });
       final onSaved = widget.onSaved;
@@ -129,13 +132,15 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
     } on FormatException catch (error) {
       if (!mounted) return;
       setState(() {
-        _message = 'JSON invalide : ${error.message}';
+        _message =
+            l10nLocalizations(context)!.browse_layout_invalid_json(error.message);
         _messageIsError = true;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _message = 'Enregistrement impossible : $error';
+        _message =
+            l10nLocalizations(context)!.browse_layout_save_failed('$error');
         _messageIsError = true;
       });
     } finally {
@@ -157,7 +162,8 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
       });
     } catch (error) {
       setState(() {
-        _message = 'JSON invalide : $error';
+        _message =
+            l10nLocalizations(context)!.browse_layout_invalid_json('$error');
         _messageIsError = true;
       });
     }
@@ -177,7 +183,8 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
       });
     } catch (error) {
       setState(() {
-        _message = 'JSON invalide : $error';
+        _message =
+            l10nLocalizations(context)!.browse_layout_invalid_json('$error');
         _messageIsError = true;
       });
     }
@@ -191,23 +198,24 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0B0B11),
         title: Text(
-          'Layout JSON · ${widget.source.name ?? ''}',
+          l10nLocalizations(context)!
+              .browse_layout_title(widget.source.name ?? ''),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
           IconButton(
-            tooltip: 'Formater (indenté)',
+            tooltip: l10nLocalizations(context)!.browse_layout_format,
             onPressed: _loading ? null : _reformat,
             icon: const Icon(Icons.data_object_rounded),
           ),
           IconButton(
-            tooltip: 'Minifier',
+            tooltip: l10nLocalizations(context)!.browse_layout_minify,
             onPressed: _loading ? null : _minify,
             icon: const Icon(Icons.code_rounded),
           ),
           IconButton(
-            tooltip: 'Enregistrer le layout',
+            tooltip: l10nLocalizations(context)!.browse_layout_save,
             onPressed: _loading || _saving ? null : _saveLayout,
             icon: _saving
                 ? const SizedBox(
@@ -304,7 +312,8 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
                                     borderRadius: BorderRadius.circular(14),
                                     borderSide: BorderSide.none,
                                   ),
-                                  hintText: 'Le JSON du layout apparaîtra ici',
+                                  hintText: l10nLocalizations(context)!
+                                      .browse_layout_placeholder,
                                   hintStyle: const TextStyle(color: Colors.white24),
                                 ),
                               ),
@@ -319,7 +328,9 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
               child: FilledButton.icon(
                 onPressed: _loading || _saving ? null : _saveLayout,
                 icon: const Icon(Icons.save_outlined),
-                label: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
+                label: Text(_saving
+                    ? l10nLocalizations(context)!.browse_layout_saving
+                    : l10nLocalizations(context)!.browse_save),
               ),
             ),
           ],
@@ -366,7 +377,7 @@ class _EditorOptionsBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _OptionLabel('Vue'),
+            _OptionLabel(l10nLocalizations(context)!.browse_layout_view),
             const SizedBox(width: 6),
             for (final size in _JsonTextSize.values)
               Padding(
@@ -385,7 +396,7 @@ class _EditorOptionsBar extends StatelessWidget {
             _VerticalDivider(),
             _OptionToggle(
               icon: Icons.subject_rounded,
-              label: 'Retour à la ligne',
+              label: l10nLocalizations(context)!.browse_layout_wrap,
               selected: wrapLines,
               accent: accent,
               onTap: () => onWrapLinesChanged(!wrapLines),
@@ -393,17 +404,17 @@ class _EditorOptionsBar extends StatelessWidget {
             _VerticalDivider(),
             _OptionToggle(
               icon: Icons.format_list_numbered_rounded,
-              label: 'Numéros',
+              label: l10nLocalizations(context)!.browse_layout_line_numbers,
               selected: showLineNumbers,
               accent: accent,
               onTap: () => onShowLineNumbersChanged(!showLineNumbers),
             ),
             _VerticalDivider(),
-            _OptionLabel('Alignement'),
+            _OptionLabel(l10nLocalizations(context)!.browse_layout_alignment),
             const SizedBox(width: 6),
             _OptionToggle(
               icon: Icons.subject_rounded,
-              label: 'Gauche',
+              label: l10nLocalizations(context)!.browse_layout_align_left,
               selected: alignment == _JsonAlignment.left,
               accent: accent,
               onTap: () => onAlignmentChanged(_JsonAlignment.left),
@@ -411,7 +422,7 @@ class _EditorOptionsBar extends StatelessWidget {
             const SizedBox(width: 5),
             _OptionToggle(
               icon: Icons.subject_rounded,
-              label: 'Centre',
+              label: l10nLocalizations(context)!.browse_layout_align_center,
               selected: alignment == _JsonAlignment.center,
               accent: accent,
               onTap: () => onAlignmentChanged(_JsonAlignment.center),

@@ -421,7 +421,8 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
               done: _done,
               total: _total,
               title: context.l10n.browse_diag_notify_title(_typeLabel),
-              body: '$_done / $_total — ${result.source.name}',
+              body: context.l10n.browse_diag2_progress_body(
+                  '$_done', '$_total', result.source.name ?? ''),
             )
             .ignore();
       },
@@ -647,13 +648,16 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
         ReportFormat.csv => 'CSV',
       };
 
-  String _statusFilterLabel(_StatusFilter f) => switch (f) {
-        _StatusFilter.all => 'Toutes',
-        _StatusFilter.ok => 'OK',
-        _StatusFilter.failed => 'Erreurs',
-        _StatusFilter.running => 'En cours',
-        _StatusFilter.idle => 'En attente',
-      };
+  String _statusFilterLabel(_StatusFilter f) {
+    final l10n = l10nLocalizations(context)!;
+    return switch (f) {
+      _StatusFilter.all => l10n.browse_diag_all,
+      _StatusFilter.ok => l10n.browse_diag2_status_ok,
+      _StatusFilter.failed => l10n.browse_diag2_status_errors,
+      _StatusFilter.running => l10n.browse_diag2_status_running,
+      _StatusFilter.idle => l10n.browse_diag2_status_idle,
+    };
+  }
 
   // ── Build ──────────────────────────────────────────────────────────────────
 
@@ -696,6 +700,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
   // ── Toolbar ────────────────────────────────────────────────────────────────
 
   Widget _buildTopBar(ColorScheme cs) {
+    final l10n = context.l10n;
     final canReset = !_running && _started;
     final showStart = _allSources.isNotEmpty && !_running;
 
@@ -728,13 +733,19 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
               Text(
                 _running
                     ? (_paused
-                        ? 'En pause — $_done / $_total'
-                        : 'En cours — $_done / $_total')
+                        ? l10n.browse_diag2_paused_progress(
+                            '$_done', '$_total')
+                        : l10n.browse_diag2_running_progress(
+                            '$_done', '$_total'))
                     : _isInterrupted
-                        ? 'Interrompu — $_done / $_total'
+                        ? l10n.browse_diag2_interrupted_progress(
+                            '$_done', '$_total')
                         : _isComplete
-                            ? 'Terminé · $_okCount OK · $_failCount erreur(s)'
-                            : '${_allSources.length} extensions · $_selectedScopeCountOfAll sélectionnées',
+                            ? l10n.browse_diag2_complete_progress(
+                                '$_okCount', '$_failCount')
+                            : l10n.browse_diag2_sources_selected(
+                                '${_allSources.length}',
+                                '$_selectedScopeCountOfAll'),
                 style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -754,43 +765,47 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                         strokeWidth: 2, color: cs.primary)),
           ),
         PopupMenuButton<_ToolAction>(
-          tooltip: 'Actions',
+          tooltip: l10n.browse_diag2_actions,
           icon: const Icon(Icons.more_vert_rounded, size: 20),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           onSelected: _onToolAction,
           itemBuilder: (_) => [
             if (showStart && !_started)
-              const PopupMenuItem(
+              PopupMenuItem(
                   value: _ToolAction.start,
-                  child: _MenuTile('Lancer le diagnostic', Icons.play_arrow_rounded)),
+                  child: _MenuTile(
+                      l10n.browse_diag_start, Icons.play_arrow_rounded)),
             if (_running) ...[
               PopupMenuItem(
                   value: _ToolAction.pause,
                   child: _MenuTile(
-                      _paused ? 'Reprendre' : 'Mettre en pause',
+                      _paused ? l10n.browse_diag_resume : l10n.browse_diag_pause,
                       _paused
                           ? Icons.play_arrow_rounded
                           : Icons.pause_rounded)),
-              const PopupMenuItem(
+              PopupMenuItem(
                   value: _ToolAction.cancel,
-                  child:
-                      _MenuTile('Annuler / interrompre', Icons.stop_circle_outlined)),
+                  child: _MenuTile(l10n.browse_diag2_cancel_interrupt,
+                      Icons.stop_circle_outlined)),
             ],
             if (canReset)
-              const PopupMenuItem(
+              PopupMenuItem(
                   value: _ToolAction.reset,
-                  child: _MenuTile('Réinitialiser', Icons.restart_alt_rounded)),
+                  child: _MenuTile(
+                      l10n.browse_diag2_reset, Icons.restart_alt_rounded)),
             if (showStart && _started)
               PopupMenuItem(
                   value: _ToolAction.relaunch,
-                  child: _MenuTile('Relancer le diagnostic', Icons.replay_rounded)),
+                  child: _MenuTile(
+                      l10n.browse_diag2_restart_diag, Icons.replay_rounded)),
             if (_reports.isNotEmpty) ...[
               const PopupMenuDivider(),
               PopupMenuItem(
                   value: _ToolAction.copy,
                   child: _MenuTile(
-                      'Copier le rapport ${_formatLabel(_format)}', Icons.copy_rounded)),
+                      l10n.browse_diag2_copy_report(_formatLabel(_format)),
+                      Icons.copy_rounded)),
             ],
           ],
         ),
@@ -1057,9 +1072,9 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
         if (r != null) {
           final dur = _fmtDuration(r.totalMs);
           subtitle = r.cancelled
-              ? 'Interrompu'
-              : '${r.okCount}/${r.steps.length} étapes OK'
-                  '${r.failCount > 0 ? ' · ${r.failCount} erreur(s)' : ''}'
+              ? context.l10n.browse_diag2_interrupted
+              : '${context.l10n.browse_diag2_steps_ok('${r.okCount}', '${r.steps.length}')}'
+                  '${r.failCount > 0 ? context.l10n.browse_diag2_step_errors('${r.failCount}') : ''}'
                   '${dur.isNotEmpty ? ' · $dur' : ''}';
         } else if (_running && _inCurrentRun(s)) {
           subtitle = status == ExtStatus.running
@@ -1255,12 +1270,12 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
           children: [
-            _panelSectionTitle(cs, 'Recherche'),
+            _panelSectionTitle(cs, context.l10n.browse_diag2_search),
             TextField(
               onChanged: (v) => setState(() => _search = v),
               style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Rechercher une extension…',
+                hintText: context.l10n.browse_diag2_search_hint,
                 hintStyle: const TextStyle(fontSize: 13),
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
                 suffixIcon: _search.isEmpty
@@ -1280,13 +1295,14 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            _panelSectionTitle(cs, 'Statut'),
+            _panelSectionTitle(cs, context.l10n.browse_diag2_status),
             _statusChips(cs),
             const SizedBox(height: 14),
-            _panelSectionTitle(cs, 'Trier'),
+            _panelSectionTitle(cs, context.l10n.browse_diag2_sort),
             _sortChips(cs),
             const SizedBox(height: 14),
-            if (_availableLangCodes.isNotEmpty) ...[_panelSectionTitle(cs, 'Langue'),
+            if (_availableLangCodes.isNotEmpty) ...[_panelSectionTitle(
+                cs, context.l10n.browse_diag2_language),
               SizedBox(
                 height: 30,
                 child: ListView(
@@ -1376,18 +1392,19 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              '$_selectedScopeCountOfAll / ${_allSources.length} extensions sélectionnées pour le diagnostic',
+              context.l10n.browse_diag2_selected_for_diag(
+                  '$_selectedScopeCountOfAll', '${_allSources.length}'),
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 14),
-            _panelSectionTitle(cs, 'Actions'),
+            _panelSectionTitle(cs, context.l10n.browse_diag2_actions),
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _running ? null : () => _setAllScope(true),
                   icon: const Icon(Icons.done_all_rounded, size: 15),
-                  label: const Text('Tout sélectionner',
-                      style: TextStyle(fontSize: 12)),
+                  label: Text(context.l10n.browse_diag2_select_all,
+                      style: const TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact),
                 ),
@@ -1397,7 +1414,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _running ? null : () => _setAllScope(false),
                   icon: const Icon(Icons.deselect_rounded, size: 15),
-                  label: const Text('Tout désélectionner',
+                  label: Text(context.l10n.browse_diag2_deselect_all,
                       style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact),
@@ -1414,8 +1431,8 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                   size: 17),
               label: Text(
                   _isComplete
-                      ? 'Relancer le diagnostic'
-                      : 'Lancer le diagnostic',
+                      ? context.l10n.browse_diag2_restart_diag
+                      : context.l10n.browse_diag_start,
                   style: const TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 13)),
               style: FilledButton.styleFrom(
@@ -1434,7 +1451,10 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                             ? Icons.play_arrow_rounded
                             : Icons.pause_rounded,
                         size: 16),
-                    label: Text(_paused ? 'Reprendre' : 'Pause',
+                    label: Text(
+                        _paused
+                            ? context.l10n.browse_diag_resume
+                            : context.l10n.browse_diag_pause,
                         style: const TextStyle(fontSize: 12.5)),
                     style: OutlinedButton.styleFrom(
                         visualDensity: VisualDensity.compact),
@@ -1461,7 +1481,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
             TextButton.icon(
               onPressed: _running ? null : _resetFilters,
               icon: const Icon(Icons.restart_alt_rounded, size: 15),
-              label: const Text('Réinitialiser les filtres'),
+              label: Text(context.l10n.browse_diag2_reset_filters),
               style: TextButton.styleFrom(
                   foregroundColor: cs.onSurfaceVariant,
                   visualDensity: VisualDensity.compact),
@@ -1522,9 +1542,9 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
         for (final m in _SortMode.values)
           MiniChip(
             label: switch (m) {
-              _SortMode.name => 'Nom',
-              _SortMode.status => 'Statut',
-              _SortMode.duration => 'Durée',
+              _SortMode.name => context.l10n.browse_diag2_sort_name,
+              _SortMode.status => context.l10n.browse_diag2_sort_status,
+              _SortMode.duration => context.l10n.browse_diag2_sort_duration,
             },
             selected: _sortMode == m,
             cs: cs,
@@ -1802,7 +1822,7 @@ class _StatusCard extends StatelessWidget {
                   ),
                 ] else
                   Text(
-                    'Lancez l’analyse pour tester chaque étape (Popular · Latest · Détail · Médias).',
+                    context.l10n.browse_diag2_hint_run,
                     style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
               ],
@@ -1919,7 +1939,9 @@ class _StatusCard extends StatelessWidget {
               onPressed: onStart,
               icon: const Icon(Icons.play_arrow_rounded, size: 17),
               label: Text(
-                  started ? 'Relancer le diagnostic' : 'Lancer le diagnostic',
+                  started
+                      ? context.l10n.browse_diag2_restart_diag
+                      : context.l10n.browse_diag_start,
                   style: const TextStyle(
                       fontWeight: FontWeight.w700, fontSize: 13)),
               style: FilledButton.styleFrom(

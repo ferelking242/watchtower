@@ -10446,4 +10446,196 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get log_viewer_mode_debug_warn =>
       '⚠ Mode Debug actif – consommation RAM élevée';
+
+  @override
+  String get browse_diag2_actions => 'Actions';
+
+  @override
+  String get browse_diag2_status_ok => 'OK';
+
+  @override
+  String get browse_diag2_status_errors => 'Erreurs';
+
+  @override
+  String get browse_diag2_status_running => 'En cours';
+
+  @override
+  String get browse_diag2_status_idle => 'En attente';
+
+  @override
+  String browse_diag2_paused_progress(Object done, Object total) {
+    return 'En pause — $done / $total';
+  }
+
+  @override
+  String browse_diag2_running_progress(Object done, Object total) {
+    return 'En cours — $done / $total';
+  }
+
+  @override
+  String browse_diag2_interrupted_progress(Object done, Object total) {
+    return 'Interrompu — $done / $total';
+  }
+
+  @override
+  String browse_diag2_complete_progress(Object fail, Object ok) {
+    return 'Terminé · $ok OK · $fail erreur(s)';
+  }
+
+  @override
+  String browse_diag2_sources_selected(Object count, Object selected) {
+    return '$count extensions · $selected sélectionnées';
+  }
+
+  @override
+  String get browse_diag2_cancel_interrupt => 'Annuler / interrompre';
+
+  @override
+  String get browse_diag2_reset => 'Réinitialiser';
+
+  @override
+  String browse_diag2_copy_report(Object format) {
+    return 'Copier le rapport $format';
+  }
+
+  @override
+  String get browse_diag2_interrupted => 'Interrompu';
+
+  @override
+  String browse_diag2_steps_ok(Object ok, Object total) {
+    return '$ok/$total étapes OK';
+  }
+
+  @override
+  String browse_diag2_step_errors(Object count) {
+    return ' · $count erreur(s)';
+  }
+
+  @override
+  String get browse_diag2_search => 'Recherche';
+
+  @override
+  String get browse_diag2_search_hint => 'Rechercher une extension…';
+
+  @override
+  String get browse_diag2_status => 'Statut';
+
+  @override
+  String get browse_diag2_sort => 'Trier';
+
+  @override
+  String get browse_diag2_language => 'Langue';
+
+  @override
+  String browse_diag2_selected_for_diag(Object selected, Object total) {
+    return '$selected / $total extensions sélectionnées pour le diagnostic';
+  }
+
+  @override
+  String get browse_diag2_select_all => 'Tout sélectionner';
+
+  @override
+  String get browse_diag2_deselect_all => 'Tout désélectionner';
+
+  @override
+  String get browse_diag2_reset_filters => 'Réinitialiser les filtres';
+
+  @override
+  String get browse_diag2_sort_name => 'Nom';
+
+  @override
+  String get browse_diag2_sort_status => 'Statut';
+
+  @override
+  String get browse_diag2_sort_duration => 'Durée';
+
+  @override
+  String get browse_diag2_hint_run =>
+      'Lancez l’analyse pour tester chaque étape (Popular · Latest · Détail · Médias).';
+
+  @override
+  String get browse_diag2_unknown => 'Inconnue';
+
+  @override
+  String get browse_diag2_video_preview => 'Prévisualisation vidéo';
+
+  @override
+  String get browse_diag2_page_preview => 'Prévisualisation pages';
+
+  @override
+  String get browse_diag2_all_ok => 'Tout OK';
+
+  @override
+  String browse_diag2_log_lines_hint(Object count) {
+    return '$count lignes de log — ouvrez le détail pour les consulter';
+  }
+
+  @override
+  String browse_diag2_progress_body(Object done, Object name, Object total) {
+    return '$done / $total — $name';
+  }
+
+  @override
+  String get browse_diag2_restart_diag => 'Relancer le diagnostic';
+
+  @override
+  String get browse_source_pref_setting => 'Réglage';
+
+  @override
+  String get browse_source_pref_saved_value => 'Valeur enregistrée';
+
+  @override
+  String get browse_save => 'Enregistrer';
+
+  @override
+  String get browse_layout_none =>
+      'Aucun layout JSON n’est disponible pour cette extension.';
+
+  @override
+  String browse_layout_load_failed(Object error) {
+    return 'Impossible de charger le layout : $error';
+  }
+
+  @override
+  String get browse_layout_saved => 'Layout enregistré sur cet appareil.';
+
+  @override
+  String get browse_layout_line_numbers => 'Numéros';
+
+  @override
+  String get browse_edit_code_saved => 'Sauvegardé';
+
+  @override
+  String browse_layout_invalid_json(Object error) {
+    return 'JSON invalide : $error';
+  }
+
+  @override
+  String browse_layout_save_failed(Object error) {
+    return 'Enregistrement impossible : $error';
+  }
+
+  @override
+  String get browse_layout_view => 'Vue';
+
+  @override
+  String get browse_layout_alignment => 'Alignement';
+
+  @override
+  String get browse_layout_schema =>
+      'Le layout ne respecte pas le schéma attendu.';
+
+  @override
+  String browse_layout_title(Object name) {
+    return 'Layout JSON · $name';
+  }
+
+  @override
+  String get browse_layout_align_left => 'Gauche';
+
+  @override
+  String get browse_layout_align_center => 'Centre';
+
+  @override
+  String get browse_create_extension => 'Créer une extension';
 }
