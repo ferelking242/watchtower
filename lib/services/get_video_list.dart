@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
+import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
@@ -31,11 +33,10 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
   (List<Video>, bool, List<String>, Directory?) result;
   final keepAlive = ref.keepAlive();
 
-  final epManga = episode.manga.value;
+  final epManga = _resolveEpisodeManga(episode);
   final srcLabel =
       '${epManga?.source ?? "?"}[${epManga?.lang ?? "?"}]';
   final epLabel = 'ep:${episode.id}';
-
   AppLogger.log(
     '[$epLabel] getVideoList START  source=$srcLabel  '
     'origin=${episode.url == null ? "n/a" : safeUrlOriginForLog(episode.url!)}  '
@@ -47,7 +48,10 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
   // ── Web: all video resolution goes through the remote server ────────────
   if (kIsWeb) {
     try {
-      if (epManga == null) throw StateError('Episode has no linked manga');
+      if (epManga == null) {
+        throw StateError('Episode ${episode.id} has no linked title '
+            '(mangaId=${episode.mangaId})');
+      }
       final episodeUrl = episode.url ?? '';
       final sourceId = epManga.sourceId;
 
@@ -95,7 +99,10 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
   }
 
   try {
-    if (epManga == null) throw StateError('Episode has no linked manga');
+    if (epManga == null) {
+      throw StateError('Episode ${episode.id} has no linked title '
+          '(mangaId=${episode.mangaId})');
+    }
 
     // ── Local/demo source — episode.url IS the direct video URL ──────────
     // Sources flagged isLocal=true (e.g. the FrenchStream Démo web demo
@@ -463,6 +470,28 @@ Future<String?> _fetchHlsPlaylistViaBrowser(
   } catch (_) {
     return null;
   }
+}
+
+/// The manga (watch title) linked to [episode], tolerating an unloaded or
+/// dangling IsarLink.
+///
+/// `episode.manga.value` is only populated when the link has been loaded, and
+/// the watch detail screen gets its episodes from the `getChaptersStream`
+/// query (which does not load the link). Relying on `.value` alone therefore
+/// threw "Episode has no linked manga" and the player found no stream at all.
+/// Fall back to `mangaId` (always set, never cleared) so playback works.
+Manga? _resolveEpisodeManga(Chapter episode) {
+  var manga = episode.manga.value;
+  if (manga == null && !episode.manga.isLoaded) {
+    try {
+      episode.manga.loadSync();
+      manga = episode.manga.value;
+    } catch (_) {}
+  }
+  if (manga == null && episode.mangaId != null) {
+    manga = isar.mangas.getSync(episode.mangaId!);
+  }
+  return manga;
 }
 
 List<Video> _applySourcePreferences(Source? source, List<Video> videos) {
