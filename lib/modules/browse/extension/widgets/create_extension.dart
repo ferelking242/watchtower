@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 class CreateExtension extends ConsumerStatefulWidget {
   const CreateExtension({super.key});
@@ -29,9 +30,10 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
   final List<String> _sourceTypes = ["single", "multi", "torrent"];
   final List<String> _itemTypes = ["Manga", "Anime", "Novel"];
 
-  static const _langOptions = [
-    (lang: SourceCodeLanguage.dart,       label: 'Dart',          subtitle: 'Native · Recommandé', emoji: '🎯', color: Color(0xFF54C5F8)),
-    (lang: SourceCodeLanguage.javascript, label: 'JavaScript',    subtitle: 'JS universel',         emoji: '𝐉𝐒', color: Color(0xFFF7DF1E)),
+  List<( {SourceCodeLanguage lang, String label, String subtitle, String emoji, Color color} )>
+      _langOptions(BuildContext context) => [
+    (lang: SourceCodeLanguage.dart,       label: 'Dart',          subtitle: context.l10n.browse_create_native_recommended, emoji: '🎯', color: const Color(0xFF54C5F8)),
+    (lang: SourceCodeLanguage.javascript, label: 'JavaScript',    subtitle: context.l10n.browse_create_js_universal,       emoji: '𝐉𝐒', color: const Color(0xFFF7DF1E)),
   ];
 
   static const _commonFlags = {
@@ -131,18 +133,25 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
               _InfoBanner(cs: cs),
               const SizedBox(height: 16),
 
-              _SectionHeader(label: 'LANGAGE', icon: Icons.code_rounded),
+              _SectionHeader(
+                  label: context.l10n.browse_create_language,
+                  icon: Icons.code_rounded),
               const SizedBox(height: 8),
               _LanguagePicker(
                 selected: _sourceCodeLanguage,
-                options: _langOptions,
+                options: _langOptions(context),
                 onChanged: (l) => setState(() => _sourceCodeLanguage = l),
               ),
               const SizedBox(height: 20),
 
-              _SectionHeader(label: 'INFORMATIONS', icon: Icons.info_outline_rounded),
+              _SectionHeader(
+                  label: context.l10n.browse_create_information,
+                  icon: Icons.info_outline_rounded),
               const SizedBox(height: 8),
-              _FieldRow(label: 'Nom', hint: 'ex: myAnime', onChanged: (v) => setState(() => _name = v)),
+              _FieldRow(
+                  label: context.l10n.browse_create_name,
+                  hint: context.l10n.browse_create_name_hint,
+                  onChanged: (v) => setState(() => _name = v)),
               const SizedBox(height: 10),
 
               _LangField(
@@ -151,15 +160,21 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
               ),
               const SizedBox(height: 10),
 
-              _FieldRow(label: 'URL de base', hint: 'https://exemple.com', onChanged: (v) => setState(() => _baseUrl = v)),
+              _FieldRow(
+                  label: context.l10n.browse_create_base_url,
+                  hint: 'https://exemple.com',
+                  onChanged: (v) => setState(() => _baseUrl = v)),
               const SizedBox(height: 10),
-              _FieldRow(label: 'API URL (optionnel)', hint: 'https://api.exemple.com', onChanged: (v) => setState(() => _apiUrl = v)),
+              _FieldRow(
+                  label: context.l10n.browse_create_api_url,
+                  hint: 'https://api.exemple.com',
+                  onChanged: (v) => setState(() => _apiUrl = v)),
               const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: _FieldRow(
-                      label: 'URL icône',
+                      label: context.l10n.browse_create_icon_url,
                       hint: 'https://exemple.com/icon.png',
                       onChanged: _onIconUrlChanged,
                     ),
@@ -206,13 +221,18 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                 ],
               ),
               const SizedBox(height: 10),
-              _FieldRow(label: 'Notes', hint: 'ex: nécessite une connexion', onChanged: (v) => setState(() => _notes = v)),
+              _FieldRow(
+                  label: context.l10n.browse_create_notes,
+                  hint: context.l10n.browse_create_notes_hint,
+                  onChanged: (v) => setState(() => _notes = v)),
               const SizedBox(height: 20),
 
-              _SectionHeader(label: 'TYPE', icon: Icons.category_outlined),
+              _SectionHeader(
+                  label: context.l10n.browse_create_type,
+                  icon: Icons.category_outlined),
               const SizedBox(height: 8),
               _DropdownRow(
-                label: 'Source',
+                label: context.l10n.browse_create_source,
                 items: _sourceTypes,
                 value: _sourceTypeIndex,
                 onChanged: (v) => setState(() => _sourceTypeIndex = v),
@@ -220,7 +240,7 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
               ),
               const SizedBox(height: 10),
               _DropdownRow(
-                label: 'Contenu',
+                label: context.l10n.browse_diag_panel_content,
                 items: _itemTypes,
                 value: _itemTypeIndex,
                 onChanged: (v) => setState(() => _itemTypeIndex = v),
@@ -252,9 +272,9 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                             context.push('/codeEditor', extra: src.id);
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 behavior: SnackBarBehavior.floating,
-                                content: Text('Ce nom d\'extension existe déjà.'),
+                                content: Text(context.l10n.browse_create_exists),
                               ),
                             );
                           }
@@ -431,8 +451,8 @@ class _LangFieldState extends State<_LangField> {
                   widget.onChanged(v.toLowerCase());
                 },
                 decoration: InputDecoration(
-                  labelText: 'Langue (code ISO)',
-                  hintText: 'ex: fr, en, ja',
+                  labelText: context.l10n.browse_create_lang_iso,
+                  hintText: context.l10n.browse_create_lang_hint,
                   isDense: true,
                   filled: true,
                   fillColor: cs.surfaceContainerLow,

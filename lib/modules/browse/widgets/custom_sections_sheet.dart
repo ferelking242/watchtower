@@ -6,6 +6,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/providers/custom_sections_provider.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/language.dart';
 
 /// Opens the "Mes sections" manager: create a named section, rename or delete
@@ -104,6 +105,7 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final sections = ref.watch(customSectionsProvider);
     final cs = Theme.of(context).colorScheme;
     final open = _open == null
@@ -134,7 +136,7 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      open?.name ?? 'Mes sections',
+                      open?.name ?? l10n.browse_custom_sections,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -145,7 +147,7 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
                     TextButton.icon(
                       onPressed: () => _promptCreate(context),
                       icon: const Icon(Broken.add_square, size: 18),
-                      label: const Text('Créer'),
+                      label: Text(l10n.create),
                     )
                   else
                     PopupMenuButton<String>(
@@ -154,9 +156,15 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
                         if (value == 'rename') _promptRename(context, open);
                         if (value == 'delete') _confirmDelete(context, open);
                       },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'rename', child: Text('Renommer')),
-                        PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'rename',
+                          child: Text(l10n.browse_section_rename_short),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text(l10n.delete),
+                        ),
                       ],
                     ),
                 ],
@@ -175,6 +183,7 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
   }
 
   Widget _buildList(List<CustomSection> sections, ColorScheme cs) {
+    final l10n = l10nLocalizations(context)!;
     if (sections.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
@@ -182,14 +191,13 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
           children: [
             Icon(Broken.folder_open, size: 42, color: cs.primary.withValues(alpha: 0.4)),
             const SizedBox(height: 12),
-            const Text(
-              'Aucune section',
-              style: TextStyle(fontWeight: FontWeight.w600),
+            Text(
+              l10n.browse_section_empty_title,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              'Crée une section (par ex. « Hentai ») puis ajoute-lui les '
-              'extensions que tu veux y regrouper.',
+              l10n.browse_section_empty_body,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -207,7 +215,8 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
           ListTile(
             leading: const Icon(Broken.folder_2),
             title: Text(section.name),
-            subtitle: Text('${section.sourceIds.length} extension(s)'),
+            subtitle:
+                Text(l10n.browse_section_extension_count(section.sourceIds.length)),
             trailing: const Icon(Broken.arrow_right_2, size: 16),
             onTap: () => setState(() => _open = section),
           ),
@@ -217,6 +226,7 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
   }
 
   Widget _buildDetail(CustomSection section, ColorScheme cs) {
+    final l10n = l10nLocalizations(context)!;
     final sources = _installedSources(widget.itemType);
     final members = sources
         .where((s) => s.id != null && section.sourceIds.contains(s.id))
@@ -230,15 +240,14 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
           child: OutlinedButton.icon(
             onPressed: () => _openPicker(section, sources),
             icon: const Icon(Broken.add_square, size: 18),
-            label: const Text('Ajouter des extensions'),
+            label: Text(l10n.browse_section_add_extensions),
           ),
         ),
         if (members.isEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
             child: Text(
-              'Cette section est vide. Ajoute des extensions pour les '
-              'retrouver ici.',
+              l10n.browse_section_detail_empty,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -258,7 +267,7 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
                 style: const TextStyle(fontSize: 11),
               ),
               trailing: IconButton(
-                tooltip: 'Retirer',
+                tooltip: l10n.browse_remove_tooltip,
                 icon: const Icon(Broken.trash, size: 17),
                 onPressed: source.id == null
                     ? null
@@ -283,15 +292,17 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
   }
 
   Future<void> _promptCreate(BuildContext context) async {
-    final name = await _promptName(context, title: 'Nouvelle section', initial: '');
+    final l10n = l10nLocalizations(context)!;
+    final name = await _promptName(context, title: l10n.browse_section_new, initial: '');
     if (name == null) return;
     ref.read(customSectionsProvider.notifier).create(name);
   }
 
   Future<void> _promptRename(BuildContext context, CustomSection section) async {
+    final l10n = l10nLocalizations(context)!;
     final name = await _promptName(
       context,
-      title: 'Renommer la section',
+      title: l10n.browse_section_rename,
       initial: section.name,
     );
     if (name == null) return;
@@ -300,17 +311,16 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
   }
 
   void _confirmDelete(BuildContext context, CustomSection section) {
+    final l10n = l10nLocalizations(context)!;
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Supprimer « ${section.name} » ?'),
-        content: const Text(
-          'La section est supprimée. Les extensions restent installées.',
-        ),
+        title: Text(l10n.browse_section_delete_title(section.name)),
+        content: Text(l10n.browse_section_delete_body),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -318,7 +328,7 @@ class _CustomSectionsSheetState extends ConsumerState<_CustomSectionsSheet> {
               ref.read(customSectionsProvider.notifier).remove(section.id);
               setState(() => _open = null);
             },
-            child: const Text('Supprimer'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -331,6 +341,7 @@ Future<String?> _promptName(
   required String title,
   required String initial,
 }) {
+  final l10n = l10nLocalizations(context)!;
   final controller = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
@@ -340,17 +351,17 @@ Future<String?> _promptName(
         controller: controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'Nom de la section'),
+        decoration: InputDecoration(hintText: l10n.browse_section_name_hint),
         onSubmitted: (value) => Navigator.of(dialogContext).pop(value),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Annuler'),
+          child: Text(l10n.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-          child: const Text('Valider'),
+          child: Text(l10n.browse_validate),
         ),
       ],
     ),
@@ -366,6 +377,7 @@ class _SectionSourcePicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nLocalizations(context)!;
     final sections = ref.watch(customSectionsProvider);
     final section = sections.where((s) => s.id == sectionId).firstOrNull;
     final members = section?.sourceIds ?? const <int>{};
@@ -385,9 +397,9 @@ class _SectionSourcePicker extends ConsumerWidget {
                 children: [
                   const Icon(Broken.element_3, size: 19),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Extensions de la section',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  Text(
+                    l10n.browse_section_picker_title,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -398,10 +410,10 @@ class _SectionSourcePicker extends ConsumerWidget {
                 shrinkWrap: true,
                 children: [
                   if (sources.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Text(
-                        'Aucune extension installée pour ce type.',
+                        l10n.browse_section_no_extensions,
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -439,6 +451,7 @@ class _AddToSectionSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nLocalizations(context)!;
     final sections = ref.watch(customSectionsProvider);
     final cs = Theme.of(context).colorScheme;
 
@@ -459,7 +472,7 @@ class _AddToSectionSheet extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Ajouter « ${source.name ?? ''} » à une section',
+                      l10n.browse_section_add_to(source.name ?? ''),
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -478,8 +491,7 @@ class _AddToSectionSheet extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        'Crée d’abord une section depuis le menu ⋮ de '
-                        'l’Explorateur.',
+                        l10n.browse_section_create_first,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,

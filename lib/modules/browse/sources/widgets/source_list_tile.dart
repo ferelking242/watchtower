@@ -229,7 +229,7 @@ class SourceListTile extends StatelessWidget {
                 children: [
                   if (source.sourceCode?.isNotEmpty ?? false)
                     IconButton(
-                      tooltip: 'Paramètres de l’extension',
+                      tooltip: context.l10n.browse_extension_settings,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
@@ -244,8 +244,8 @@ class SourceListTile extends StatelessWidget {
                     ),
                   IconButton(
                     tooltip: (source.isPinned ?? false)
-                        ? 'Désépingler'
-                        : 'Épingler',
+                        ? context.l10n.browse_unpin
+                        : context.l10n.browse_pin,
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(

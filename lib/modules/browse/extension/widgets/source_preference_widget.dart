@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/eval/model/source_preference.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';

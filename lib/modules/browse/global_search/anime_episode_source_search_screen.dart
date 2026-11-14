@@ -10,6 +10,7 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -307,7 +308,9 @@ class _AnimeEpisodeSourceSearchScreenState
         }
 
         final chapter = Chapter(
-          name: extensionEpisode.name ?? 'Episode ${widget.episode.episodeNumber}',
+          name: extensionEpisode.name ??
+              context.l10n.browse_anime_episode(
+                  '${widget.episode.episodeNumber}'),
           url: url,
           mangaId: mangaId,
           dateUpload: extensionEpisode.dateUpload ?? '',
@@ -324,7 +327,7 @@ class _AnimeEpisodeSourceSearchScreenState
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lecture impossible : $error')),
+        SnackBar(content: Text(context.l10n.browse_anime_play_failed('$error'))),
       );
     }
   }

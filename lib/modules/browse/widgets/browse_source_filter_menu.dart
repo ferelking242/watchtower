@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 enum BrowseNsfwFilter { all, sfw, nsfw }
@@ -18,16 +20,16 @@ enum BrowseSourceTag {
 }
 
 extension BrowseSourceTagLabel on BrowseSourceTag {
-  String get label => switch (this) {
-        BrowseSourceTag.cloudflare => 'Cloudflare',
-        BrowseSourceTag.account => 'Compte requis',
-        BrowseSourceTag.drm => 'DRM',
-        BrowseSourceTag.aggregator => 'Agrégateur',
-        BrowseSourceTag.comments => 'Commentaires',
-        BrowseSourceTag.torrent => 'Torrent',
-        BrowseSourceTag.update => 'Mise à jour disponible',
-        BrowseSourceTag.javascript => 'JavaScript',
-        BrowseSourceTag.dart => 'Dart',
+  String label(AppLocalizations l10n) => switch (this) {
+        BrowseSourceTag.cloudflare => l10n.browse_tag_cloudflare,
+        BrowseSourceTag.account => l10n.browse_tag_account,
+        BrowseSourceTag.drm => l10n.browse_tag_drm,
+        BrowseSourceTag.aggregator => l10n.browse_tag_aggregator,
+        BrowseSourceTag.comments => l10n.browse_tag_comments,
+        BrowseSourceTag.torrent => l10n.browse_tag_torrent,
+        BrowseSourceTag.update => l10n.browse_tag_update,
+        BrowseSourceTag.javascript => l10n.browse_tag_javascript,
+        BrowseSourceTag.dart => l10n.browse_tag_dart,
       };
 
   IconData get icon => switch (this) {
@@ -218,15 +220,15 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   Widget _backHeader(String title) {
     return InkWell(
       onTap: () => setState(() => _level = _BrowseFilterLevel.root),
-      child: const Padding(
-        padding: EdgeInsets.fromLTRB(10, 10, 16, 6),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 16, 6),
         child: Row(
           children: [
-            Icon(Broken.arrow_left_2, size: 16),
-            SizedBox(width: 6),
+            const Icon(Broken.arrow_left_2, size: 16),
+            const SizedBox(width: 6),
             Text(
-              'Retour',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              title,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -245,14 +247,15 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   }
 
   Widget _buildRoot() {
+    final l10n = context.l10n;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AdaptiveOverlaySection(title: 'Extensions installées'),
+        AdaptiveOverlaySection(title: l10n.browse_filter_installed),
         AdaptiveOverlayItem(
           icon: Icons.check_circle_outline_rounded,
-          label: 'Sources actives uniquement',
+          label: l10n.browse_filter_active_only,
           selected: _filters.onlyActive,
           onTap: () => _update(
             _filters.copyWith(onlyActive: !_filters.onlyActive),
@@ -260,23 +263,24 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
         ),
         AdaptiveOverlayItem(
           icon: Icons.visibility_off_outlined,
-          label: 'Contenu et NSFW',
+          label: l10n.browse_filter_content_nsfw,
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => setState(() => _level = _BrowseFilterLevel.nsfw),
         ),
         AdaptiveOverlayItem(
           icon: Icons.language_rounded,
           label: _filters.language == null
-              ? 'Toutes les langues'
-              : 'Langue : ${_filters.language!.toUpperCase()}',
+              ? l10n.browse_filter_all_languages
+              : l10n.browse_filter_language_prefix(
+                  _filters.language!.toUpperCase()),
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => setState(() => _level = _BrowseFilterLevel.languages),
         ),
         AdaptiveOverlayItem(
           icon: Broken.tag,
           label: _filters.tags.isEmpty
-              ? 'Tags des extensions'
-              : '${_filters.tags.length} tag(s) sélectionné(s)',
+              ? l10n.browse_filter_tags
+              : l10n.browse_filter_tags_count(_filters.tags.length),
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => setState(() => _level = _BrowseFilterLevel.tags),
         ),
@@ -284,7 +288,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           const AdaptiveOverlayDivider(),
           AdaptiveOverlayItem(
             icon: Broken.refresh_left_square,
-            label: 'Réinitialiser les filtres',
+            label: l10n.browse_reset_filters,
             onTap: () => _update(const BrowseSourceFilters()),
           ),
         ],
@@ -293,12 +297,13 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   }
 
   Widget _buildNsfw() {
+    final l10n = context.l10n;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _backHeader('Contenu et NSFW'),
+        _backHeader(l10n.browse_filter_content_nsfw),
         AdaptiveOverlayItem(
-          label: 'Tout le contenu',
+          label: l10n.browse_all_content,
           selected: _filters.nsfw == BrowseNsfwFilter.all,
           onTap: () {
             _update(_filters.copyWith(nsfw: BrowseNsfwFilter.all));
@@ -306,7 +311,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           },
         ),
         AdaptiveOverlayItem(
-          label: 'SFW uniquement',
+          label: l10n.browse_sfw_only,
           selected: _filters.nsfw == BrowseNsfwFilter.sfw,
           onTap: () {
             _update(_filters.copyWith(nsfw: BrowseNsfwFilter.sfw));
@@ -314,7 +319,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           },
         ),
         AdaptiveOverlayItem(
-          label: 'NSFW uniquement',
+          label: l10n.browse_nsfw_only,
           selected: _filters.nsfw == BrowseNsfwFilter.nsfw,
           onTap: () {
             _update(_filters.copyWith(nsfw: BrowseNsfwFilter.nsfw));
@@ -326,12 +331,13 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   }
 
   Widget _buildLanguages() {
+    final l10n = context.l10n;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _backHeader('Langue'),
+        _backHeader(l10n.language),
         AdaptiveOverlayItem(
-          label: 'Toutes les langues',
+          label: l10n.browse_filter_all_languages,
           selected: _filters.language == null,
           onTap: () {
             _update(_filters.copyWith(clearLanguage: true));
@@ -352,20 +358,21 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   }
 
   Widget _buildTags() {
+    final l10n = context.l10n;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _backHeader('Tags des extensions'),
+        _backHeader(l10n.browse_filter_tags),
         for (final tag in BrowseSourceTag.values)
           AdaptiveOverlayItem(
             icon: tag.icon,
-            label: tag.label,
+            label: tag.label(l10n),
             selected: _filters.tags.contains(tag),
             onTap: () => _update(_filters.toggleTag(tag)),
           ),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
-          label: 'Terminé',
+          label: l10n.browse_filter_done,
           icon: Broken.tick_circle,
           onTap: () => setState(() => _level = _BrowseFilterLevel.root),
         ),
@@ -374,6 +381,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
   }
 
   Widget _buildSearchField() {
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
       child: TextField(
@@ -385,7 +393,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           suffixIcon: _searchController.text.isEmpty
               ? null
               : IconButton(
-                  tooltip: 'Effacer la recherche',
+                  tooltip: l10n.browse_filter_clear_search,
                   icon: const Icon(Icons.close_rounded, size: 18),
                   onPressed: () {
                     _searchController.clear();
@@ -393,7 +401,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
                     setState(() {});
                   },
                 ),
-          hintText: 'Rechercher une extension installée',
+          hintText: l10n.browse_filter_search_installed,
           isDense: true,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),

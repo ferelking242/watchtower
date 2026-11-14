@@ -105,8 +105,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Future<void> _launchInBrowser(Uri url) async {
+    final l10n = context.l10n;
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      throw 'Could not launch $url';
+      throw l10n.browse_launch_failed('$url');
     }
   }
 
@@ -114,10 +115,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     final url = source.baseUrl ?? '';
     if (url.isEmpty) return;
     Clipboard.setData(ClipboardData(text: url));
-    botToast('URL copiée !');
+    botToast(context.l10n.browse_url_copied);
   }
 
   Future<void> _editSearchResultCard() async {
+    final l10n = context.l10n;
     final component = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
         builder: (_) => ComponentGalleryScreen(
@@ -136,13 +138,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         content = await LayoutRegistry.instance.readJson(source);
       }
       if (content == null) {
-        botToast('Aucun layout local disponible pour cette extension.');
+        botToast(l10n.browse_no_local_layout);
         return;
       }
 
       final decoded = jsonDecode(content);
       if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('La racine du layout doit être un objet.');
+        throw FormatException(l10n.browse_layout_root_object);
       }
       final layout = Map<String, dynamic>.from(decoded);
       final browse = _copyLayoutObject(layout['browse'], 'browse');
@@ -162,22 +164,23 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       );
       if (!mounted) return;
       if (!saved) {
-        botToast('Impossible d’enregistrer la carte de recherche.');
+        botToast(l10n.browse_save_card_failed);
         return;
       }
       setState(() {});
-      botToast('Carte de recherche enregistrée.');
+      botToast(l10n.browse_search_card_saved);
     } catch (error) {
-      if (mounted) botToast('Layout de recherche invalide : $error');
+      if (mounted) botToast(l10n.browse_search_layout_invalid('$error'));
     }
   }
 
   Future<void> _signInToSite() async {
     if (_isSiteSessionActionInProgress) return;
+    final l10n = context.l10n;
     final url = Uri.tryParse(source.loginUrl ?? source.baseUrl ?? '');
     if (url == null || !url.hasAuthority ||
         (url.scheme != 'https' && url.scheme != 'http')) {
-      botToast('URL du site invalide.');
+      botToast(l10n.browse_invalid_site_url);
       return;
     }
     ++_siteSessionRefreshRevision;
@@ -186,10 +189,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       await context.push('/mangawebview', extra: {
         'url': url.toString(),
         'sourceId': source.id.toString(),
-        'title': '${source.name ?? 'Extension'} — connexion',
+        'title': '${source.name ?? l10n.browse_extension_word} — '
+            '${l10n.browse_sign_in.toLowerCase()}',
       });
     } catch (_) {
-      if (mounted) botToast('Impossible d’ouvrir la page de connexion.');
+      if (mounted) botToast(l10n.browse_login_open_failed);
     } finally {
       if (mounted) await _refreshSiteSessionStatus();
     }
@@ -210,10 +214,10 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         _extensionSubscription = null;
         _extensionPremiumStatus = null;
       });
-      botToast('Session effacée pour cette extension.');
+      botToast(context.l10n.browse_session_cleared);
     } catch (_) {
       if (mounted) {
-        botToast('Impossible d’effacer la session de cette extension.');
+        botToast(context.l10n.browse_session_clear_failed);
       }
     } finally {
       if (mounted) await _refreshSiteSessionStatus();
@@ -298,44 +302,46 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Widget _buildSiteSessionStatus(ColorScheme colors) {
+    final l10n = context.l10n;
     late final String label;
     late final IconData? icon;
     late final Color color;
     switch (_siteSessionStatus) {
       case _SiteSessionStatus.checking:
-        label = 'Vérification de la connexion…';
+        label = l10n.browse_session_checking;
         icon = null;
         color = colors.onSurfaceVariant;
         break;
       case _SiteSessionStatus.loggingIn:
-        label = 'Connexion en cours…';
+        label = l10n.browse_session_logging_in;
         icon = Icons.check_circle_rounded;
         color = colors.onSurfaceVariant;
         break;
       case _SiteSessionStatus.loggingOut:
-        label = 'Déconnexion en cours…';
+        label = l10n.browse_session_logging_out;
         icon = Icons.check_circle_rounded;
         color = colors.onSurfaceVariant;
         break;
       case _SiteSessionStatus.sessionSaved:
-        label = 'Session du site enregistrée';
+        label = l10n.browse_session_saved;
         icon = Icons.cookie_outlined;
         color = colors.primary;
         break;
       case _SiteSessionStatus.authenticated:
-        final identity =
-            _accountInfo?.displayName ?? _accountInfo?.username ?? 'Compte';
-        label = 'Connecté : $identity';
+        final identity = _accountInfo?.displayName ??
+            _accountInfo?.username ??
+            l10n.browse_account_fallback;
+        label = l10n.browse_session_connected(identity);
         icon = Icons.verified_user_rounded;
         color = colors.primary;
         break;
       case _SiteSessionStatus.notConnected:
-        label = 'Non connecté';
+        label = l10n.browse_session_not_connected;
         icon = Icons.info_outline_rounded;
         color = colors.onSurfaceVariant;
         break;
       case _SiteSessionStatus.unavailable:
-        label = 'État de connexion indisponible';
+        label = l10n.browse_session_unavailable;
         icon = Icons.warning_amber_rounded;
         color = colors.error;
         break;
@@ -366,7 +372,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           ),
         ),
         IconButton(
-          tooltip: 'Vérifier la connexion',
+          tooltip: context.l10n.browse_check_connection_short,
           visualDensity: VisualDensity.compact,
           onPressed: _isSiteSessionBusy ? null : _refreshSiteSessionStatus,
           icon: const Icon(Icons.refresh_rounded, size: 19),
@@ -407,7 +413,9 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  account.displayName ?? account.username ?? 'Compte connecté',
+                  account.displayName ??
+                      account.username ??
+                      context.l10n.browse_account_connected,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w700),
@@ -431,6 +439,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Widget _buildAccountCapabilities(ColorScheme colors) {
+    final l10n = context.l10n;
     final sections = <Widget>[];
     if (source.favoritesAvailable) {
       sections.add(
@@ -438,15 +447,15 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-            const _SectionHeader(
-              label: 'Favoris',
+            _SectionHeader(
+              label: l10n.browse_favorites,
               icon: Icons.favorite_outline_rounded,
             ),
             if (_extensionFavorites.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8, left: 4),
                 child: Text(
-                  'Aucun favori disponible.',
+                  l10n.browse_no_favorites,
                   style: TextStyle(color: colors.onSurfaceVariant),
                 ),
               )
@@ -454,7 +463,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               ..._extensionFavorites.take(5).map((favorite) {
                 final title = favorite['name']?.toString() ??
                     favorite['title']?.toString() ??
-                    'Sans titre';
+                    l10n.browse_untitled;
                 final imageUrl = favorite['imageUrl']?.toString() ??
                     favorite['coverUrl']?.toString();
                 final imageUri = Uri.tryParse(imageUrl ?? '');
@@ -492,7 +501,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               Padding(
                 padding: const EdgeInsets.only(left: 4, top: 4),
                 child: Text(
-                  '+${_extensionFavorites.length - 5} autres favoris',
+                  l10n.browse_more_favorites(_extensionFavorites.length - 5),
                   style: TextStyle(color: colors.onSurfaceVariant),
                 ),
               ),
@@ -504,7 +513,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       final subscription = _extensionSubscription;
       final plan = subscription?['plan']?.toString() ??
           subscription?['name']?.toString() ??
-          'Abonnement';
+          l10n.browse_premium_status;
       final status = subscription?['status']?.toString();
       final expiresAt = subscription?['expiresAt']?.toString() ??
           subscription?['expires_at']?.toString();
@@ -517,8 +526,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
             [
               if (status != null && status.isNotEmpty) status,
               if (expiresAt != null && expiresAt.isNotEmpty)
-                'Expire le $expiresAt',
-              if (subscription == null) 'Détails indisponibles',
+                l10n.browse_expires_on(expiresAt),
+              if (subscription == null) l10n.browse_details_unavailable,
             ].join(' · '),
           ),
         ),
@@ -533,13 +542,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
             status == true ? Icons.workspace_premium : Icons.stars_outlined,
             color: status == true ? colors.tertiary : colors.onSurfaceVariant,
           ),
-          title: const Text('Statut Premium'),
+          title: Text(l10n.browse_premium_status),
           subtitle: Text(
             status == null
-                ? 'Statut indisponible'
+                ? l10n.browse_status_unavailable
                 : status
-                ? 'Actif'
-                : 'Inactif',
+                ? l10n.browse_status_active
+                : l10n.browse_status_inactive,
           ),
         ),
       );
@@ -551,25 +560,26 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Future<void> _editBaseUrl() async {
+    final l10n = context.l10n;
     final controller = TextEditingController(text: source.baseUrl ?? '');
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.edit_rounded, size: 20),
-            SizedBox(width: 8),
-            Text('Modifier l\'URL de base'),
+            const Icon(Icons.edit_rounded, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.browse_edit_base_url),
           ],
         ),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'URL de base',
+          decoration: InputDecoration(
+            labelText: l10n.browse_base_url,
             hintText: 'https://exemple.com',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.link_rounded),
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.link_rounded),
           ),
           keyboardType: TextInputType.url,
           autofocus: true,
@@ -577,14 +587,14 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
               final val = controller.text.trim();
               Navigator.pop(ctx, val.isEmpty ? null : val);
             },
-            child: const Text('Enregistrer'),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -597,14 +607,15 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     setState(() {
       source = isar.sources.getSync(widget.source.id!)!;
     });
-    botToast('URL mise à jour !');
+    botToast(l10n.browse_base_url_updated);
   }
 
   Future<void> _importCookies() async {
+    final l10n = context.l10n;
     final controller = TextEditingController();
     final url = source.baseUrl ?? '';
     if (url.isEmpty) {
-      botToast('URL de base non définie.');
+      botToast(l10n.browse_base_url_undefined);
       return;
     }
 
@@ -612,11 +623,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.cookie_rounded, size: 20),
-            SizedBox(width: 8),
-            Text('Importer des cookies'),
+            const Icon(Icons.cookie_rounded, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.browse_import_cookies),
           ],
         ),
         content: Column(
@@ -624,7 +635,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Collez les cookies au format: clé=valeur; clé2=valeur2',
+              l10n.browse_cookies_format,
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(ctx).colorScheme.onSurfaceVariant,
@@ -633,11 +644,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
             const SizedBox(height: 12),
             TextField(
               controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Cookies',
-                hintText: 'session=abc123; token=xyz789',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.cookie_outlined),
+              decoration: InputDecoration(
+                labelText: l10n.browse_cookies,
+                hintText: l10n.browse_cookies_hint,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.cookie_outlined),
               ),
               maxLines: 4,
               autofocus: true,
@@ -647,14 +658,14 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
               final val = controller.text.trim();
               Navigator.pop(ctx, val.isEmpty ? null : val);
             },
-            child: const Text('Importer'),
+            child: Text(l10n.import),
           ),
         ],
       ),
@@ -664,21 +675,22 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
 
     try {
       await MClient.setCookie(url, '', null, cookie: result);
-      botToast('Cookies importés !');
+      botToast(l10n.browse_cookies_imported);
     } catch (e) {
-      botToast('Erreur lors de l\'import des cookies.');
+      botToast(l10n.browse_cookies_import_failed);
     }
   }
 
   Future<void> _exportCookies() async {
+    final l10n = context.l10n;
     final url = source.baseUrl ?? '';
     if (url.isEmpty) {
-      botToast('URL de base non définie.');
+      botToast(l10n.browse_base_url_undefined);
       return;
     }
     final cookies = MClient.getCookiesPref(url);
     if (cookies.isEmpty) {
-      botToast('Aucun cookie disponible pour cette extension.');
+      botToast(l10n.browse_cookies_none_available);
       return;
     }
     final cookieStr = cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
@@ -686,11 +698,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.upload_rounded, size: 20),
-            SizedBox(width: 8),
-            Text('Exporter les cookies'),
+            const Icon(Icons.upload_rounded, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.browse_export_cookies),
           ],
         ),
         content: SelectableText(
@@ -700,15 +712,15 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Fermer'),
+            child: Text(l10n.browse_close),
           ),
           FilledButton.icon(
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copier'),
+            label: Text(l10n.browse_copy),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: cookieStr));
               Navigator.pop(ctx);
-              botToast('Cookies copiés !');
+              botToast(l10n.browse_cookies_copied);
             },
           ),
         ],
@@ -717,14 +729,15 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Future<void> _viewCurrentCookies() async {
+    final l10n = context.l10n;
     final url = source.baseUrl ?? '';
     if (url.isEmpty) {
-      botToast('URL de base non définie.');
+      botToast(l10n.browse_base_url_undefined);
       return;
     }
     final cookies = MClient.getCookiesPref(url);
     if (cookies.isEmpty) {
-      botToast('Aucun cookie stocké pour cette extension.');
+      botToast(l10n.browse_cookies_none_stored);
       return;
     }
     await showDialog(
@@ -733,11 +746,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         final cs = Theme.of(ctx).colorScheme;
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.cookie_rounded, size: 20),
-              SizedBox(width: 8),
-              Text('Cookies stockés'),
+              const Icon(Icons.cookie_rounded, size: 20),
+              const SizedBox(width: 8),
+              Text(l10n.browse_stored_cookies),
             ],
           ),
           content: SizedBox(
@@ -784,7 +797,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Fermer'),
+              child: Text(l10n.browse_close),
             ),
           ],
         );
@@ -793,17 +806,18 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
   }
 
   Future<void> _changeUserAgent() async {
+    final l10n = context.l10n;
     final current = source.customUserAgent ?? '';
     final controller = TextEditingController(text: current);
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.device_hub_rounded, size: 20),
-            SizedBox(width: 8),
-            Text('User-Agent'),
+            const Icon(Icons.device_hub_rounded, size: 20),
+            const SizedBox(width: 8),
+            Text(l10n.browse_user_agent),
           ],
         ),
         content: Column(
@@ -811,17 +825,17 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Laissez vide pour utiliser le User-Agent par défaut.',
+              l10n.browse_user_agent_help,
               style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'User-Agent',
-                hintText: 'Mozilla/5.0 ...',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.device_hub_rounded),
+              decoration: InputDecoration(
+                labelText: l10n.browse_user_agent,
+                hintText: l10n.browse_user_agent_hint,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.device_hub_rounded),
               ),
               maxLines: 3,
               autofocus: true,
@@ -829,14 +843,14 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
           TextButton(
             onPressed: () => Navigator.pop(ctx, ''),
-            child: const Text('Réinitialiser'),
+            child: Text(l10n.browse_reset),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Enregistrer'),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -847,27 +861,30 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       isar.sources.putSync(source..customUserAgent = result.isEmpty ? null : result);
     });
     setState(() { source = isar.sources.getSync(source.id!)!; });
-    botToast(result.isEmpty ? 'User-Agent réinitialisé.' : 'User-Agent mis à jour !');
+    botToast(result.isEmpty
+        ? l10n.browse_user_agent_reset
+        : l10n.browse_user_agent_updated);
   }
 
   Future<void> _clearData() async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Effacer les données ?'),
-        content: const Text(
-          'Cela supprimera toutes les préférences, cookies et données '
-          'associés à cette extension.',
-        ),
+        title: Text(l10n.browse_clear_data_title),
+        content: Text(l10n.browse_clear_data_body),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Effacer'),
+            child: Text(l10n.browse_clear_data_confirm),
           ),
         ],
       ),
@@ -892,28 +909,25 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       isar.sourcePreferenceStringValues.deleteAllSync(prefsStrIds);
     });
     setState(() { sourcePreference = _loadPreferences(); });
-    botToast('Données effacées !');
+    botToast(l10n.browse_data_cleared);
   }
 
   Future<void> _clearCache() async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Vider le cache ?'),
-        content: const Text(
-          'Cela rechargera les préférences de l\u2019extension depuis la base locale '
-          'et tentera d\u2019invalider le cache HTTP de cette source. '
-          'Les cookies ne sont pas affectés.',
-        ),
+        title: Text(l10n.browse_clear_cache_title),
+        content: Text(l10n.browse_clear_cache_body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Vider'),
+            child: Text(l10n.browse_cache_emptied),
           ),
         ],
       ),
@@ -928,10 +942,11 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         sourcePreference = _loadPreferences();
       });
     }
-    botToast('Préférences rechargées. Rouvrez la source pour actualiser le cache.');
+    botToast(l10n.browse_prefs_reloaded);
   }
 
   Future<void> _viewHeaders() async {
+    final l10n = context.l10n;
     final rawHeaders = source.headers ?? '';
     await showDialog(
       context: context,
@@ -939,15 +954,15 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
         final cs = Theme.of(ctx).colorScheme;
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.http_rounded, size: 20),
-              SizedBox(width: 8),
-              Text('En-têtes HTTP'),
+              const Icon(Icons.http_rounded, size: 20),
+              const SizedBox(width: 8),
+              Text(l10n.browse_http_headers),
             ],
           ),
           content: rawHeaders.isEmpty
-              ? const Text('Aucun en-tête défini.')
+              ? Text(l10n.browse_no_headers)
               : SelectableText(
                   rawHeaders,
                   style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
@@ -955,16 +970,16 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Fermer'),
+              child: Text(l10n.browse_close),
             ),
             if (rawHeaders.isNotEmpty)
               FilledButton.icon(
                 icon: const Icon(Icons.copy, size: 16),
-                label: const Text('Copier'),
+                label: Text(l10n.browse_copy),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: rawHeaders));
                   Navigator.pop(ctx);
-                  botToast('En-têtes copiés !');
+                  botToast(l10n.browse_headers_copied);
                 },
               ),
           ],
@@ -1008,7 +1023,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     final current = await isar.sources.get(source.id!);
     if (current == null) {
       if (mounted) {
-        botToast('Cette extension n’existe plus dans le stockage local.');
+        botToast(l10n.browse_extension_missing);
         Navigator.pop(context);
       }
       return;
@@ -1049,18 +1064,19 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
       });
       await LayoutDownloader.instance.remove(current);
       if (mounted) {
-        botToast('Extension désinstallée.');
+        botToast(l10n.browse_extension_uninstalled);
         Navigator.pop(context, current);
       }
     } catch (error) {
       if (mounted) {
-        botToast('Erreur lors de la désinstallation : $error');
+        botToast(l10n.browse_uninstall_failed('$error'));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -1078,13 +1094,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     String? typeBadge;
     IconData typeIcon = Icons.extension_rounded;
     if (source.itemType == ItemType.anime) {
-      typeBadge = 'Watch';
+      typeBadge = l10n.watch;
       typeIcon = Icons.play_circle_outline_rounded;
     } else if (source.itemType == ItemType.manga) {
-      typeBadge = 'Manga';
+      typeBadge = l10n.manga;
       typeIcon = Icons.menu_book_outlined;
     } else if (source.itemType == ItemType.novel) {
-      typeBadge = 'Novel';
+      typeBadge = l10n.novel;
       typeIcon = Icons.auto_stories_outlined;
     }
 
@@ -1140,7 +1156,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
               ),
               // Supprimer l'extension
               IconButton(
-                tooltip: 'Désinstaller l\'extension',
+                tooltip: l10n.browse_uninstall_extension,
                 icon: Icon(Broken.trash, color: cs.error),
                 onPressed: _confirmUninstall,
               ),
@@ -1158,7 +1174,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       if (baseUrl.isNotEmpty) {
                         await MClient.deleteAllCookies(baseUrl);
                         if (mounted) await _refreshSiteSessionStatus();
-                        botToast('Cookies supprimés !');
+                        botToast(l10n.browse_cookies_deleted);
                       }
                     case 'view_cookies':
                       await _viewCurrentCookies();
@@ -1176,21 +1192,22 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                 },
                 itemBuilder: (ctx) => [
                   _popItem('import_cookie', Icons.cookie_rounded,
-                      'Importer cookie'),
+                      l10n.browse_import_cookie),
                   _popItem('view_cookies', Icons.manage_search_rounded,
-                      'Voir cookies'),
+                      l10n.browse_view_cookies),
                   _popItem('clear_cookies', Icons.cookie_outlined,
-                      'Effacer cookies'),
+                      l10n.browse_clear_cookies),
                   _popItem('clear_cache', Icons.cleaning_services_rounded,
-                      'Effacer le cache'),
+                      l10n.browse_clear_cache_short),
                   _popItem('clear_data', Icons.delete_sweep_rounded,
-                      'Effacer les données'),
+                      l10n.browse_clear_data_short),
                   const PopupMenuDivider(),
-                  _popItem('edit_url', Icons.link_rounded, 'Modifier l\'URL'),
+                  _popItem('edit_url', Icons.link_rounded,
+                      l10n.browse_edit_url),
                   _popItem('view_headers', Icons.http_rounded,
-                      'Voir les en-têtes'),
+                      l10n.browse_view_headers),
                   _popItem('user_agent', Icons.device_hub_rounded,
-                      'Modifier User-Agent'),
+                      l10n.browse_edit_user_agent),
                 ],
               ),
             ],
@@ -1270,38 +1287,40 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                           ),
                           _Chip(
                             icon: Icons.info_outline_rounded,
-                            label: 'v${source.version ?? '?'}',
+                            label: l10n.browse_version_short(
+                                '${source.version ?? '?'}'),
                             color: cs.secondary,
                           ),
                           if (isObsolete)
                             _Chip(
                               icon: Icons.warning_amber_rounded,
-                              label: 'Obsolète',
+                              label: l10n.browse_obsolete,
                               color: cs.error,
                             ),
                           if (!isAdded)
                             _Chip(
                               icon: Icons.download_done_rounded,
-                              label: 'Non installée',
+                              label: l10n.browse_not_installed,
                               color: cs.onSurfaceVariant,
                             ),
                           // B5: show manifest-declared metadata
                           if (source.requiresAccount == true)
                             _Chip(
                               icon: Icons.account_circle_rounded,
-                              label: 'Compte requis',
+                              label: l10n.browse_account_required,
                               color: const Color(0xFF5C6BC0),
                             ),
                           if (source.hasCloudflare == true)
                             _Chip(
                               icon: Icons.cloud_rounded,
-                              label: 'Cloudflare',
+                              label: l10n.browse_cloudflare,
                               color: const Color(0xFFFF9800),
                             ),
                           if (hasCodeUpdate)
                             _Chip(
                               icon: Icons.system_update_rounded,
-                              label: 'v${source.versionLast}',
+                              label: l10n.browse_version_short(
+                                  '${source.versionLast}'),
                               color: cs.error,
                             ),
                         ],
@@ -1328,19 +1347,19 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       if (baseUrl.isNotEmpty)
                         _EditableInfoRow(
                           icon: Icons.link_rounded,
-                          label: 'URL de base',
+                          label: l10n.browse_base_url,
                           value: baseUrl,
                           monospace: true,
                           onEdit: _editBaseUrl,
                           onCopy: () {
                             Clipboard.setData(ClipboardData(text: baseUrl));
-                            botToast('URL copiée !');
+                            botToast(l10n.browse_url_copied);
                           },
                         ),
                       if (source.repo?.name != null)
                         _InfoRow(
                           icon: Icons.source_rounded,
-                          label: 'Dépôt',
+                          label: l10n.browse_repository,
                           value: source.repo!.name!,
                         ),
                       if (source.version != null)
@@ -1352,13 +1371,13 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       if (hasCodeUpdate)
                         _InfoRow(
                           icon: Icons.system_update_rounded,
-                          label: 'Disponible',
+                          label: l10n.browse_available,
                           value: source.versionLast!,
                         ),
                       if (source.lang != null)
                         _InfoRow(
                           icon: Icons.language_rounded,
-                          label: 'Langue',
+                          label: l10n.language,
                           value: '$langFlag $langName',
                         ),
                     ],
@@ -1458,7 +1477,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                       source.premiumAvailable) ...[
                     const SizedBox(height: 24),
                     _SectionHeader(
-                      label: 'Compte et fonctionnalités',
+                      label: l10n.browse_account_and_features,
                       icon: Icons.manage_accounts_outlined,
                     ),
                     const SizedBox(height: 4),
@@ -1469,9 +1488,8 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         children: [
                           Text(
                             source.loginAvailable
-                                ? 'La connexion et les informations affichées sont propres à cette extension. '
-                                    'Les données de session utilisées par ses requêtes restent séparées.'
-                                : 'Les informations affichées sont fournies par les méthodes déclarées par cette extension.',
+                                ? l10n.browse_account_desc
+                                : l10n.browse_account_desc_generic,
                             style: TextStyle(
                               fontSize: 12,
                               color: cs.onSurfaceVariant,
@@ -1496,7 +1514,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                                     Icons.login_rounded,
                                     size: 18,
                                   ),
-                                  label: const Text('Se connecter'),
+                                  label: Text(l10n.browse_sign_in),
                                 ),
                               if (source.loginAvailable ||
                                   source.accountAvailable)
@@ -1511,7 +1529,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                                     Icons.logout_rounded,
                                     size: 18,
                                   ),
-                                  label: const Text('Effacer la session'),
+                                  label: Text(l10n.browse_clear_session),
                                 ),
                             ],
                           ),
@@ -1524,7 +1542,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   if (sourcePreference != null && sourcePreference!.isNotEmpty) ...[
                     const SizedBox(height: 24),
                     _SectionHeader(
-                      label: 'Paramètres de l\'extension',
+                      label: l10n.browse_extension_settings,
                       icon: Icons.tune_rounded,
                     ),
                     const SizedBox(height: 8),
@@ -1537,7 +1555,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   if (source.providesHome) ...[
                     const SizedBox(height: 24),
                     _SectionHeader(
-                      label: 'Disposition de l’accueil',
+                      label: l10n.browse_home_layout,
                       icon: Icons.dashboard_customize_outlined,
                     ),
                     const SizedBox(height: 8),
@@ -1556,7 +1574,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                             );
                           },
                           icon: const Icon(Icons.dashboard_customize_outlined),
-                          label: const Text('Éditer visuellement'),
+                          label: Text(l10n.browse_edit_visually),
                         ),
                       ],
                     ),
@@ -1565,14 +1583,14 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                   if (source.providesHome) ...[
                     const SizedBox(height: 24),
                     _SectionHeader(
-                      label: 'Résultats de recherche',
+                      label: l10n.browse_search_results,
                       icon: Icons.search_rounded,
                     ),
                     const SizedBox(height: 8),
                     FilledButton.tonalIcon(
                       onPressed: _editSearchResultCard,
                       icon: const Icon(Icons.style_outlined),
-                      label: const Text('Choisir une carte de résultat'),
+                      label: Text(l10n.browse_choose_result_card),
                     ),
                   ],
                 ],

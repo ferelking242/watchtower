@@ -7462,6 +7462,2044 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No comments yet'**
   String get no_comments;
+
+  /// No description provided for @plugins_ffmpeg_ready.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified binary available for HLS files.'**
+  String get plugins_ffmpeg_ready;
+
+  /// No description provided for @plugins_ffmpeg_optional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional: direct concatenation is used automatically.'**
+  String get plugins_ffmpeg_optional;
+
+  /// No description provided for @browse_global_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search extensions…'**
+  String get browse_global_search_hint;
+
+  /// No description provided for @browse_intelligent_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Intelligent search'**
+  String get browse_intelligent_search;
+
+  /// No description provided for @browse_intelligent_search_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'What is intelligent search?'**
+  String get browse_intelligent_search_tooltip;
+
+  /// No description provided for @browse_intelligent_search_help.
+  ///
+  /// In en, this message translates to:
+  /// **'An extension has its own search: when it does not have the exact title, it often returns near results that are not relevant.\n\nIntelligent search keeps what the extension found, but only shows the results whose name really matches your search. The algorithm is tolerant: “Narufo” finds “Naruto”, and searching by another title works too (for example “Attack on Titan” for “Shingeki no Kyojin”).'**
+  String get browse_intelligent_search_help;
+
+  /// No description provided for @browse_pinned_sources.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned sources'**
+  String get browse_pinned_sources;
+
+  /// No description provided for @browse_clear_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get browse_clear_filters;
+
+  /// No description provided for @browse_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'FILTERS'**
+  String get browse_filters;
+
+  /// No description provided for @browse_clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get browse_clear;
+
+  /// No description provided for @browse_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Content'**
+  String get browse_content;
+
+  /// No description provided for @browse_all_content.
+  ///
+  /// In en, this message translates to:
+  /// **'All content'**
+  String get browse_all_content;
+
+  /// No description provided for @browse_sfw_only.
+  ///
+  /// In en, this message translates to:
+  /// **'SFW only'**
+  String get browse_sfw_only;
+
+  /// No description provided for @browse_nsfw_only.
+  ///
+  /// In en, this message translates to:
+  /// **'NSFW only'**
+  String get browse_nsfw_only;
+
+  /// No description provided for @browse_source_type.
+  ///
+  /// In en, this message translates to:
+  /// **'Source type'**
+  String get browse_source_type;
+
+  /// No description provided for @browse_no_source_found.
+  ///
+  /// In en, this message translates to:
+  /// **'No source found'**
+  String get browse_no_source_found;
+
+  /// No description provided for @browse_no_source_matches_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'No source matches\nthe active filters'**
+  String get browse_no_source_matches_filters;
+
+  /// No description provided for @browse_try_another_term.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another search term'**
+  String get browse_try_another_term;
+
+  /// No description provided for @browse_reset_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset filters'**
+  String get browse_reset_filters;
+
+  /// No description provided for @browse_retry_intelligently.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry intelligently'**
+  String get browse_retry_intelligently;
+
+  /// No description provided for @browse_got_it.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get browse_got_it;
+
+  /// No description provided for @browse_understood.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get browse_understood;
+
+  /// No description provided for @browse_download_what.
+  ///
+  /// In en, this message translates to:
+  /// **'What to download?'**
+  String get browse_download_what;
+
+  /// No description provided for @browse_download_options.
+  ///
+  /// In en, this message translates to:
+  /// **'Download options'**
+  String get browse_download_options;
+
+  /// No description provided for @browse_download_prompt_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Run a search to see the titles you can download.'**
+  String get browse_download_prompt_search;
+
+  /// No description provided for @browse_from.
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get browse_from;
+
+  /// No description provided for @browse_to.
+  ///
+  /// In en, this message translates to:
+  /// **'To'**
+  String get browse_to;
+
+  /// No description provided for @browse_wifi_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi-Fi only'**
+  String get browse_wifi_only;
+
+  /// No description provided for @browse_cbz_archive.
+  ///
+  /// In en, this message translates to:
+  /// **'CBZ archive'**
+  String get browse_cbz_archive;
+
+  /// No description provided for @browse_cbz_archive_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Package each chapter in a .cbz'**
+  String get browse_cbz_archive_subtitle;
+
+  /// No description provided for @browse_connections_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} connection(s)'**
+  String browse_connections_count(Object count);
+
+  /// No description provided for @browse_download_queued.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} chapter queued for download} other{{count} chapters queued for download}}'**
+  String browse_download_queued(num count);
+
+  /// No description provided for @browse_download_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed: {error}'**
+  String browse_download_failed(Object error);
+
+  /// No description provided for @browse_chapter_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter'**
+  String get browse_chapter_label;
+
+  /// No description provided for @browse_download_no_link.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry has no usable link.'**
+  String get browse_download_no_link;
+
+  /// No description provided for @browse_download_no_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'No chapter available for this title.'**
+  String get browse_download_no_chapters;
+
+  /// No description provided for @browse_download_no_valid_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'No valid chapter to download.'**
+  String get browse_download_no_valid_chapter;
+
+  /// No description provided for @browse_section_new.
+  ///
+  /// In en, this message translates to:
+  /// **'New section'**
+  String get browse_section_new;
+
+  /// No description provided for @browse_section_rename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename section'**
+  String get browse_section_rename;
+
+  /// No description provided for @browse_section_rename_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get browse_section_rename_short;
+
+  /// No description provided for @browse_section_delete_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete “{name}”?'**
+  String browse_section_delete_title(Object name);
+
+  /// No description provided for @browse_section_delete_body.
+  ///
+  /// In en, this message translates to:
+  /// **'The section is deleted. The extensions stay installed.'**
+  String get browse_section_delete_body;
+
+  /// No description provided for @browse_section_name_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Section name'**
+  String get browse_section_name_hint;
+
+  /// No description provided for @browse_section_empty_title.
+  ///
+  /// In en, this message translates to:
+  /// **'No section'**
+  String get browse_section_empty_title;
+
+  /// No description provided for @browse_section_empty_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a section (e.g. “Hentai”) then add the extensions you want to group in it.'**
+  String get browse_section_empty_body;
+
+  /// No description provided for @browse_section_extension_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} extension(s)'**
+  String browse_section_extension_count(Object count);
+
+  /// No description provided for @browse_section_add_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Add extensions'**
+  String get browse_section_add_extensions;
+
+  /// No description provided for @browse_section_detail_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'This section is empty. Add extensions to find them here.'**
+  String get browse_section_detail_empty;
+
+  /// No description provided for @browse_section_picker_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Section extensions'**
+  String get browse_section_picker_title;
+
+  /// No description provided for @browse_section_no_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension installed for this type.'**
+  String get browse_section_no_extensions;
+
+  /// No description provided for @browse_section_add_to.
+  ///
+  /// In en, this message translates to:
+  /// **'Add “{name}” to a section'**
+  String browse_section_add_to(Object name);
+
+  /// No description provided for @browse_section_create_first.
+  ///
+  /// In en, this message translates to:
+  /// **'First create a section from the ⋮ menu of the Explorer.'**
+  String get browse_section_create_first;
+
+  /// No description provided for @browse_section_default_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Section'**
+  String get browse_section_default_name;
+
+  /// No description provided for @browse_validate.
+  ///
+  /// In en, this message translates to:
+  /// **'Validate'**
+  String get browse_validate;
+
+  /// No description provided for @browse_remove_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get browse_remove_tooltip;
+
+  /// No description provided for @browse_section_options.
+  ///
+  /// In en, this message translates to:
+  /// **'Section options'**
+  String get browse_section_options;
+
+  /// No description provided for @browse_section_enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable section'**
+  String get browse_section_enable;
+
+  /// No description provided for @browse_section_disable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable section'**
+  String get browse_section_disable;
+
+  /// No description provided for @browse_section_pin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin section'**
+  String get browse_section_pin;
+
+  /// No description provided for @browse_section_unpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin section'**
+  String get browse_section_unpin;
+
+  /// No description provided for @browse_load_extensions_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load extensions'**
+  String get browse_load_extensions_failed;
+
+  /// No description provided for @browse_check_connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry after checking your connection.'**
+  String get browse_check_connection;
+
+  /// No description provided for @browse_install_from_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Install an extension from the Marketplace'**
+  String get browse_install_from_marketplace;
+
+  /// No description provided for @browse_go_to_market.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to Marketplace'**
+  String get browse_go_to_market;
+
+  /// No description provided for @browse_no_matching_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension matches the search or the filters.'**
+  String get browse_no_matching_extension;
+
+  /// No description provided for @browse_scanning_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning extensions…'**
+  String get browse_scanning_extensions;
+
+  /// No description provided for @browse_extension_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension settings'**
+  String get browse_extension_settings;
+
+  /// No description provided for @browse_pin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin'**
+  String get browse_pin;
+
+  /// No description provided for @browse_unpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin'**
+  String get browse_unpin;
+
+  /// No description provided for @browse_filter_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed extensions'**
+  String get browse_filter_installed;
+
+  /// No description provided for @browse_filter_active_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Active sources only'**
+  String get browse_filter_active_only;
+
+  /// No description provided for @browse_filter_content_nsfw.
+  ///
+  /// In en, this message translates to:
+  /// **'Content and NSFW'**
+  String get browse_filter_content_nsfw;
+
+  /// No description provided for @browse_filter_all_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'All languages'**
+  String get browse_filter_all_languages;
+
+  /// No description provided for @browse_filter_language_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Language: {code}'**
+  String browse_filter_language_prefix(Object code);
+
+  /// No description provided for @browse_filter_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension tags'**
+  String get browse_filter_tags;
+
+  /// No description provided for @browse_filter_tags_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tag(s) selected'**
+  String browse_filter_tags_count(Object count);
+
+  /// No description provided for @browse_filter_done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get browse_filter_done;
+
+  /// No description provided for @browse_filter_clear_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get browse_filter_clear_search;
+
+  /// No description provided for @browse_filter_search_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Search an installed extension'**
+  String get browse_filter_search_installed;
+
+  /// No description provided for @browse_tag_cloudflare.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloudflare'**
+  String get browse_tag_cloudflare;
+
+  /// No description provided for @browse_tag_account.
+  ///
+  /// In en, this message translates to:
+  /// **'Account required'**
+  String get browse_tag_account;
+
+  /// No description provided for @browse_tag_drm.
+  ///
+  /// In en, this message translates to:
+  /// **'DRM'**
+  String get browse_tag_drm;
+
+  /// No description provided for @browse_tag_aggregator.
+  ///
+  /// In en, this message translates to:
+  /// **'Aggregator'**
+  String get browse_tag_aggregator;
+
+  /// No description provided for @browse_tag_comments.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get browse_tag_comments;
+
+  /// No description provided for @browse_tag_torrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Torrent'**
+  String get browse_tag_torrent;
+
+  /// No description provided for @browse_tag_update.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get browse_tag_update;
+
+  /// No description provided for @browse_tag_javascript.
+  ///
+  /// In en, this message translates to:
+  /// **'JavaScript'**
+  String get browse_tag_javascript;
+
+  /// No description provided for @browse_tag_dart.
+  ///
+  /// In en, this message translates to:
+  /// **'Dart'**
+  String get browse_tag_dart;
+
+  /// No description provided for @browse_url_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'URL copied!'**
+  String get browse_url_copied;
+
+  /// No description provided for @browse_launch_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not launch {url}'**
+  String browse_launch_failed(Object url);
+
+  /// No description provided for @browse_no_local_layout.
+  ///
+  /// In en, this message translates to:
+  /// **'No local layout available for this extension.'**
+  String get browse_no_local_layout;
+
+  /// No description provided for @browse_layout_root_object.
+  ///
+  /// In en, this message translates to:
+  /// **'The layout root must be an object.'**
+  String get browse_layout_root_object;
+
+  /// No description provided for @browse_save_card_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the search card.'**
+  String get browse_save_card_failed;
+
+  /// No description provided for @browse_search_card_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Search card saved.'**
+  String get browse_search_card_saved;
+
+  /// No description provided for @browse_search_layout_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid search layout: {error}'**
+  String browse_search_layout_invalid(Object error);
+
+  /// No description provided for @browse_invalid_site_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid site URL.'**
+  String get browse_invalid_site_url;
+
+  /// No description provided for @browse_login_open_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the login page.'**
+  String get browse_login_open_failed;
+
+  /// No description provided for @browse_session_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Session cleared for this extension.'**
+  String get browse_session_cleared;
+
+  /// No description provided for @browse_session_clear_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not clear this extension’s session.'**
+  String get browse_session_clear_failed;
+
+  /// No description provided for @browse_session_checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking connection…'**
+  String get browse_session_checking;
+
+  /// No description provided for @browse_session_logging_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in…'**
+  String get browse_session_logging_in;
+
+  /// No description provided for @browse_session_logging_out.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing out…'**
+  String get browse_session_logging_out;
+
+  /// No description provided for @browse_session_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Site session saved'**
+  String get browse_session_saved;
+
+  /// No description provided for @browse_session_connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected: {identity}'**
+  String browse_session_connected(Object identity);
+
+  /// No description provided for @browse_session_not_connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not connected'**
+  String get browse_session_not_connected;
+
+  /// No description provided for @browse_session_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection status unavailable'**
+  String get browse_session_unavailable;
+
+  /// No description provided for @browse_check_connection_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Check connection'**
+  String get browse_check_connection_short;
+
+  /// No description provided for @browse_account_connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected account'**
+  String get browse_account_connected;
+
+  /// No description provided for @browse_account_fallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get browse_account_fallback;
+
+  /// No description provided for @browse_no_favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorite available.'**
+  String get browse_no_favorites;
+
+  /// No description provided for @browse_untitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get browse_untitled;
+
+  /// No description provided for @browse_more_favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'+{count} more favorites'**
+  String browse_more_favorites(Object count);
+
+  /// No description provided for @browse_expires_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires {date}'**
+  String browse_expires_on(Object date);
+
+  /// No description provided for @browse_details_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Details unavailable'**
+  String get browse_details_unavailable;
+
+  /// No description provided for @browse_premium_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium status'**
+  String get browse_premium_status;
+
+  /// No description provided for @browse_status_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Status unavailable'**
+  String get browse_status_unavailable;
+
+  /// No description provided for @browse_status_active.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get browse_status_active;
+
+  /// No description provided for @browse_status_inactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive'**
+  String get browse_status_inactive;
+
+  /// No description provided for @browse_favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get browse_favorites;
+
+  /// No description provided for @browse_edit_base_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit base URL'**
+  String get browse_edit_base_url;
+
+  /// No description provided for @browse_base_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Base URL'**
+  String get browse_base_url;
+
+  /// No description provided for @browse_base_url_updated.
+  ///
+  /// In en, this message translates to:
+  /// **'URL updated!'**
+  String get browse_base_url_updated;
+
+  /// No description provided for @browse_base_url_undefined.
+  ///
+  /// In en, this message translates to:
+  /// **'Base URL not set.'**
+  String get browse_base_url_undefined;
+
+  /// No description provided for @browse_import_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'Import cookies'**
+  String get browse_import_cookies;
+
+  /// No description provided for @browse_cookies_format.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste cookies as: key=value; key2=value2'**
+  String get browse_cookies_format;
+
+  /// No description provided for @browse_cookies_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'session=abc123; token=xyz789'**
+  String get browse_cookies_hint;
+
+  /// No description provided for @browse_cookies_imported.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookies imported!'**
+  String get browse_cookies_imported;
+
+  /// No description provided for @browse_cookies_import_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Error importing cookies.'**
+  String get browse_cookies_import_failed;
+
+  /// No description provided for @browse_cookies_none_available.
+  ///
+  /// In en, this message translates to:
+  /// **'No cookie available for this extension.'**
+  String get browse_cookies_none_available;
+
+  /// No description provided for @browse_cookies_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookies copied!'**
+  String get browse_cookies_copied;
+
+  /// No description provided for @browse_cookies_none_stored.
+  ///
+  /// In en, this message translates to:
+  /// **'No stored cookie for this extension.'**
+  String get browse_cookies_none_stored;
+
+  /// No description provided for @browse_export_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'Export cookies'**
+  String get browse_export_cookies;
+
+  /// No description provided for @browse_stored_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'Stored cookies'**
+  String get browse_stored_cookies;
+
+  /// No description provided for @browse_user_agent.
+  ///
+  /// In en, this message translates to:
+  /// **'User-Agent'**
+  String get browse_user_agent;
+
+  /// No description provided for @browse_user_agent_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty to use the default User-Agent.'**
+  String get browse_user_agent_help;
+
+  /// No description provided for @browse_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get browse_reset;
+
+  /// No description provided for @browse_user_agent_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'User-Agent reset.'**
+  String get browse_user_agent_reset;
+
+  /// No description provided for @browse_user_agent_updated.
+  ///
+  /// In en, this message translates to:
+  /// **'User-Agent updated!'**
+  String get browse_user_agent_updated;
+
+  /// No description provided for @browse_clear_data_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear data?'**
+  String get browse_clear_data_title;
+
+  /// No description provided for @browse_clear_data_body.
+  ///
+  /// In en, this message translates to:
+  /// **'This will delete all preferences, cookies and data associated with this extension.'**
+  String get browse_clear_data_body;
+
+  /// No description provided for @browse_clear_data_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get browse_clear_data_confirm;
+
+  /// No description provided for @browse_data_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Data cleared!'**
+  String get browse_data_cleared;
+
+  /// No description provided for @browse_clear_cache_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear cache?'**
+  String get browse_clear_cache_title;
+
+  /// No description provided for @browse_clear_cache_body.
+  ///
+  /// In en, this message translates to:
+  /// **'This reloads the extension preferences from the local database and tries to invalidate this source’s HTTP cache. Cookies are not affected.'**
+  String get browse_clear_cache_body;
+
+  /// No description provided for @browse_cache_emptied.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty'**
+  String get browse_cache_emptied;
+
+  /// No description provided for @browse_prefs_reloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences reloaded. Reopen the source to refresh the cache.'**
+  String get browse_prefs_reloaded;
+
+  /// No description provided for @browse_http_headers.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP headers'**
+  String get browse_http_headers;
+
+  /// No description provided for @browse_no_headers.
+  ///
+  /// In en, this message translates to:
+  /// **'No header defined.'**
+  String get browse_no_headers;
+
+  /// No description provided for @browse_headers_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Headers copied!'**
+  String get browse_headers_copied;
+
+  /// No description provided for @browse_extension_missing.
+  ///
+  /// In en, this message translates to:
+  /// **'This extension no longer exists in local storage.'**
+  String get browse_extension_missing;
+
+  /// No description provided for @browse_extension_uninstalled.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension uninstalled.'**
+  String get browse_extension_uninstalled;
+
+  /// No description provided for @browse_uninstall_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Error while uninstalling: {error}'**
+  String browse_uninstall_failed(Object error);
+
+  /// No description provided for @browse_uninstall_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall extension'**
+  String get browse_uninstall_extension;
+
+  /// No description provided for @browse_cookies_deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookies deleted!'**
+  String get browse_cookies_deleted;
+
+  /// No description provided for @browse_import_cookie.
+  ///
+  /// In en, this message translates to:
+  /// **'Import cookie'**
+  String get browse_import_cookie;
+
+  /// No description provided for @browse_view_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'View cookies'**
+  String get browse_view_cookies;
+
+  /// No description provided for @browse_clear_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear cookies'**
+  String get browse_clear_cookies;
+
+  /// No description provided for @browse_clear_cache_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear cache'**
+  String get browse_clear_cache_short;
+
+  /// No description provided for @browse_clear_data_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear data'**
+  String get browse_clear_data_short;
+
+  /// No description provided for @browse_edit_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit URL'**
+  String get browse_edit_url;
+
+  /// No description provided for @browse_view_headers.
+  ///
+  /// In en, this message translates to:
+  /// **'View headers'**
+  String get browse_view_headers;
+
+  /// No description provided for @browse_edit_user_agent.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit User-Agent'**
+  String get browse_edit_user_agent;
+
+  /// No description provided for @browse_obsolete.
+  ///
+  /// In en, this message translates to:
+  /// **'Outdated'**
+  String get browse_obsolete;
+
+  /// No description provided for @browse_not_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not installed'**
+  String get browse_not_installed;
+
+  /// No description provided for @browse_account_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Account required'**
+  String get browse_account_required;
+
+  /// No description provided for @browse_repository.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository'**
+  String get browse_repository;
+
+  /// No description provided for @browse_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get browse_available;
+
+  /// No description provided for @browse_account_and_features.
+  ///
+  /// In en, this message translates to:
+  /// **'Account and features'**
+  String get browse_account_and_features;
+
+  /// No description provided for @browse_account_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'The connection and displayed information are specific to this extension. The session data used by its requests stays separate.'**
+  String get browse_account_desc;
+
+  /// No description provided for @browse_account_desc_generic.
+  ///
+  /// In en, this message translates to:
+  /// **'The displayed information is provided by the methods declared by this extension.'**
+  String get browse_account_desc_generic;
+
+  /// No description provided for @browse_sign_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get browse_sign_in;
+
+  /// No description provided for @browse_clear_session.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear session'**
+  String get browse_clear_session;
+
+  /// No description provided for @browse_home_layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Home layout'**
+  String get browse_home_layout;
+
+  /// No description provided for @browse_edit_visually.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit visually'**
+  String get browse_edit_visually;
+
+  /// No description provided for @browse_search_results.
+  ///
+  /// In en, this message translates to:
+  /// **'Search results'**
+  String get browse_search_results;
+
+  /// No description provided for @browse_choose_result_card.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a result card'**
+  String get browse_choose_result_card;
+
+  /// No description provided for @browse_extension_word.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension'**
+  String get browse_extension_word;
+
+  /// No description provided for @browse_open_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get browse_open_settings;
+
+  /// No description provided for @browse_diag_export_report.
+  ///
+  /// In en, this message translates to:
+  /// **'Export report'**
+  String get browse_diag_export_report;
+
+  /// No description provided for @browse_diag_files_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} files'**
+  String browse_diag_files_count(Object count);
+
+  /// No description provided for @browse_diag_summary_view.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary view'**
+  String get browse_diag_summary_view;
+
+  /// No description provided for @browse_diag_view_raw.
+  ///
+  /// In en, this message translates to:
+  /// **'View raw report'**
+  String get browse_diag_view_raw;
+
+  /// No description provided for @browse_diag_copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get browse_diag_copy;
+
+  /// No description provided for @browse_diag_raw_report.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw report — {format}'**
+  String browse_diag_raw_report(Object format);
+
+  /// No description provided for @browse_diag_chars_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} characters'**
+  String browse_diag_chars_count(Object count);
+
+  /// No description provided for @browse_diag_tab_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension'**
+  String get browse_diag_tab_extension;
+
+  /// No description provided for @browse_diag_tab_detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Detail'**
+  String get browse_diag_tab_detail;
+
+  /// No description provided for @browse_diag_in_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic in progress…'**
+  String get browse_diag_in_progress;
+
+  /// No description provided for @browse_diag_waiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for diagnostic'**
+  String get browse_diag_waiting;
+
+  /// No description provided for @browse_diag_test_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Test this extension'**
+  String get browse_diag_test_extension;
+
+  /// No description provided for @browse_diag_interrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic interrupted — some steps could not run.'**
+  String get browse_diag_interrupted;
+
+  /// No description provided for @browse_diag_retest.
+  ///
+  /// In en, this message translates to:
+  /// **'Retest this extension'**
+  String get browse_diag_retest;
+
+  /// No description provided for @browse_diag_results_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} results'**
+  String browse_diag_results_count(Object count);
+
+  /// No description provided for @browse_diag_logs.
+  ///
+  /// In en, this message translates to:
+  /// **'LOGS — {label}'**
+  String browse_diag_logs(Object label);
+
+  /// No description provided for @browse_diag_no_trace.
+  ///
+  /// In en, this message translates to:
+  /// **'No trace for this step.'**
+  String get browse_diag_no_trace;
+
+  /// No description provided for @browse_diag_sources_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} sources'**
+  String browse_diag_sources_count(Object count);
+
+  /// No description provided for @browse_diag_page_of.
+  ///
+  /// In en, this message translates to:
+  /// **'Page {page} / {total}'**
+  String browse_diag_page_of(Object page, Object total);
+
+  /// No description provided for @browse_diag_image_unreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Image unreachable'**
+  String get browse_diag_image_unreachable;
+
+  /// No description provided for @browse_diag_open_detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Open detail'**
+  String get browse_diag_open_detail;
+
+  /// No description provided for @browse_diag_no_errors.
+  ///
+  /// In en, this message translates to:
+  /// **'No error detected on the steps.'**
+  String get browse_diag_no_errors;
+
+  /// No description provided for @browse_diag_running.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic {label} in progress…'**
+  String browse_diag_running(Object label);
+
+  /// No description provided for @browse_diag_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic {label}'**
+  String browse_diag_title(Object label);
+
+  /// No description provided for @browse_diag_no_extension_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension installed'**
+  String get browse_diag_no_extension_installed;
+
+  /// No description provided for @browse_diag_change_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Change the search or the filters from the Panel.'**
+  String get browse_diag_change_filters;
+
+  /// No description provided for @browse_diag_no_extension_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension selected'**
+  String get browse_diag_no_extension_selected;
+
+  /// No description provided for @browse_diag_no_results_yet.
+  ///
+  /// In en, this message translates to:
+  /// **'No results yet'**
+  String get browse_diag_no_results_yet;
+
+  /// No description provided for @browse_diag_no_report.
+  ///
+  /// In en, this message translates to:
+  /// **'No report'**
+  String get browse_diag_no_report;
+
+  /// No description provided for @browse_diag_control_panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Control panel'**
+  String get browse_diag_control_panel;
+
+  /// No description provided for @browse_diag_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get browse_diag_all;
+
+  /// No description provided for @browse_diag_everything.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything'**
+  String get browse_diag_everything;
+
+  /// No description provided for @browse_diag_sfw.
+  ///
+  /// In en, this message translates to:
+  /// **'SFW'**
+  String get browse_diag_sfw;
+
+  /// No description provided for @browse_diag_only_errors.
+  ///
+  /// In en, this message translates to:
+  /// **'Show only errors'**
+  String get browse_diag_only_errors;
+
+  /// No description provided for @browse_diag_only_tested.
+  ///
+  /// In en, this message translates to:
+  /// **'Show only tested extensions'**
+  String get browse_diag_only_tested;
+
+  /// No description provided for @browse_diag_canceling.
+  ///
+  /// In en, this message translates to:
+  /// **'Canceling…'**
+  String get browse_diag_canceling;
+
+  /// No description provided for @browse_diag_panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Panel'**
+  String get browse_diag_panel;
+
+  /// No description provided for @browse_diag_results.
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get browse_diag_results;
+
+  /// No description provided for @browse_diag_all_respond.
+  ///
+  /// In en, this message translates to:
+  /// **'All sources respond ✓'**
+  String get browse_diag_all_respond;
+
+  /// No description provided for @browse_diag_unanalyzed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} not analyzed'**
+  String browse_diag_unanalyzed(Object count);
+
+  /// No description provided for @browse_diag_remaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} remaining'**
+  String browse_diag_remaining(Object count);
+
+  /// No description provided for @browse_diag_restart.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart'**
+  String get browse_diag_restart;
+
+  /// No description provided for @browse_diag_err_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Err.'**
+  String get browse_diag_err_short;
+
+  /// No description provided for @browse_diag_tested.
+  ///
+  /// In en, this message translates to:
+  /// **'Tested'**
+  String get browse_diag_tested;
+
+  /// No description provided for @browse_create_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an extension'**
+  String get browse_create_title;
+
+  /// No description provided for @browse_create_language.
+  ///
+  /// In en, this message translates to:
+  /// **'LANGUAGE'**
+  String get browse_create_language;
+
+  /// No description provided for @browse_create_information.
+  ///
+  /// In en, this message translates to:
+  /// **'INFORMATION'**
+  String get browse_create_information;
+
+  /// No description provided for @browse_create_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get browse_create_name;
+
+  /// No description provided for @browse_create_name_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. myAnime'**
+  String get browse_create_name_hint;
+
+  /// No description provided for @browse_create_api_url.
+  ///
+  /// In en, this message translates to:
+  /// **'API URL (optional)'**
+  String get browse_create_api_url;
+
+  /// No description provided for @browse_create_icon_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon URL'**
+  String get browse_create_icon_url;
+
+  /// No description provided for @browse_create_notes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get browse_create_notes;
+
+  /// No description provided for @browse_create_notes_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. requires a connection'**
+  String get browse_create_notes_hint;
+
+  /// No description provided for @browse_create_type.
+  ///
+  /// In en, this message translates to:
+  /// **'TYPE'**
+  String get browse_create_type;
+
+  /// No description provided for @browse_create_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get browse_create_source;
+
+  /// No description provided for @browse_create_lang_iso.
+  ///
+  /// In en, this message translates to:
+  /// **'Language (ISO code)'**
+  String get browse_create_lang_iso;
+
+  /// No description provided for @browse_create_lang_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. fr, en, ja'**
+  String get browse_create_lang_hint;
+
+  /// No description provided for @browse_create_exists.
+  ///
+  /// In en, this message translates to:
+  /// **'This extension name already exists.'**
+  String get browse_create_exists;
+
+  /// No description provided for @browse_create_native_recommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Native · Recommended'**
+  String get browse_create_native_recommended;
+
+  /// No description provided for @browse_create_js_universal.
+  ///
+  /// In en, this message translates to:
+  /// **'Universal JS'**
+  String get browse_create_js_universal;
+
+  /// No description provided for @browse_layout_format.
+  ///
+  /// In en, this message translates to:
+  /// **'Format (indented)'**
+  String get browse_layout_format;
+
+  /// No description provided for @browse_layout_minify.
+  ///
+  /// In en, this message translates to:
+  /// **'Minify'**
+  String get browse_layout_minify;
+
+  /// No description provided for @browse_layout_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save layout'**
+  String get browse_layout_save;
+
+  /// No description provided for @browse_layout_placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'The layout JSON will appear here'**
+  String get browse_layout_placeholder;
+
+  /// No description provided for @browse_layout_saving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving…'**
+  String get browse_layout_saving;
+
+  /// No description provided for @browse_layout_wrap.
+  ///
+  /// In en, this message translates to:
+  /// **'Word wrap'**
+  String get browse_layout_wrap;
+
+  /// No description provided for @browse_layout_numbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Numbers'**
+  String get browse_layout_numbers;
+
+  /// No description provided for @browse_layout_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get browse_layout_left;
+
+  /// No description provided for @browse_layout_center.
+  ///
+  /// In en, this message translates to:
+  /// **'Center'**
+  String get browse_layout_center;
+
+  /// No description provided for @browse_code_import_file.
+  ///
+  /// In en, this message translates to:
+  /// **'Import a file'**
+  String get browse_code_import_file;
+
+  /// No description provided for @browse_code_file_imported.
+  ///
+  /// In en, this message translates to:
+  /// **'File imported: {name}'**
+  String browse_code_file_imported(Object name);
+
+  /// No description provided for @browse_code_import_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Import error: {error}'**
+  String browse_code_import_error(Object error);
+
+  /// No description provided for @browse_code_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get browse_code_save;
+
+  /// No description provided for @browse_code_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get browse_code_saved;
+
+  /// No description provided for @browse_code_clear_logs.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear logs'**
+  String get browse_code_clear_logs;
+
+  /// No description provided for @browse_pref_setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting'**
+  String get browse_pref_setting;
+
+  /// No description provided for @browse_pref_choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Choice'**
+  String get browse_pref_choice;
+
+  /// No description provided for @browse_pref_multi_choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiple choice'**
+  String get browse_pref_multi_choice;
+
+  /// No description provided for @browse_anime_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number}'**
+  String browse_anime_episode(Object number);
+
+  /// No description provided for @browse_anime_play_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback failed: {error}'**
+  String browse_anime_play_failed(Object error);
+
+  /// No description provided for @browse_anime_episode_sources.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode sources'**
+  String get browse_anime_episode_sources;
+
+  /// No description provided for @browse_anime_play_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Play this episode'**
+  String get browse_anime_play_episode;
+
+  /// No description provided for @browse_local_how_to_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Local {type} — How to use'**
+  String browse_local_how_to_title(Object type);
+
+  /// No description provided for @browse_alternative.
+  ///
+  /// In en, this message translates to:
+  /// **'Alternative'**
+  String get browse_alternative;
+
+  /// No description provided for @browse_close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get browse_close;
+
+  /// No description provided for @browse_copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get browse_copy;
+
+  /// No description provided for @browse_diag_steps_header.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps — Popular · Latest · Detail · {media}'**
+  String browse_diag_steps_header(Object media);
+
+  /// No description provided for @browse_diag_videos.
+  ///
+  /// In en, this message translates to:
+  /// **'Videos'**
+  String get browse_diag_videos;
+
+  /// No description provided for @browse_diag_pages.
+  ///
+  /// In en, this message translates to:
+  /// **'Pages'**
+  String get browse_diag_pages;
+
+  /// No description provided for @browse_diag_not_tested.
+  ///
+  /// In en, this message translates to:
+  /// **'not tested'**
+  String get browse_diag_not_tested;
+
+  /// No description provided for @browse_diag_lang_filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Language: {name}'**
+  String browse_diag_lang_filter(Object name);
+
+  /// No description provided for @browse_diag_type_filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Type: {name}'**
+  String browse_diag_type_filter(Object name);
+
+  /// No description provided for @browse_diag_nsfw_only.
+  ///
+  /// In en, this message translates to:
+  /// **'NSFW only'**
+  String get browse_diag_nsfw_only;
+
+  /// No description provided for @browse_diag_sfw_only.
+  ///
+  /// In en, this message translates to:
+  /// **'SFW only'**
+  String get browse_diag_sfw_only;
+
+  /// No description provided for @browse_diag_all_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'All extensions'**
+  String get browse_diag_all_extensions;
+
+  /// No description provided for @browse_diag_notify_running.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic {label} in progress…'**
+  String browse_diag_notify_running(Object label);
+
+  /// No description provided for @browse_diag_notify_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic {label}'**
+  String browse_diag_notify_title(Object label);
+
+  /// No description provided for @browse_diag_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic cancelled — {done} / {total} analyzed.'**
+  String browse_diag_cancelled(Object done, Object total);
+
+  /// No description provided for @browse_diag_finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic finished — {ok} OK · {failed} failed.'**
+  String browse_diag_finished(Object failed, Object ok);
+
+  /// No description provided for @browse_diag_cancelling_snack.
+  ///
+  /// In en, this message translates to:
+  /// **'Canceling the diagnostic…'**
+  String get browse_diag_cancelling_snack;
+
+  /// No description provided for @browse_diag_retest_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Retest cancelled for {name}.'**
+  String browse_diag_retest_cancelled(Object name);
+
+  /// No description provided for @browse_diag_retest_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'✅ {name} now responds correctly.'**
+  String browse_diag_retest_ok(Object name);
+
+  /// No description provided for @browse_diag_retest_fail.
+  ///
+  /// In en, this message translates to:
+  /// **'❌ {name} still fails — see the step logs.'**
+  String browse_diag_retest_fail(Object name);
+
+  /// No description provided for @browse_diag_no_report_available.
+  ///
+  /// In en, this message translates to:
+  /// **'No report available — run a diagnostic.'**
+  String get browse_diag_no_report_available;
+
+  /// No description provided for @browse_diag_report_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'{format} report copied ✓'**
+  String browse_diag_report_copied(Object format);
+
+  /// No description provided for @browse_diag_no_extension_selected_snack.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension selected — enable at least one.'**
+  String get browse_diag_no_extension_selected_snack;
+
+  /// No description provided for @browse_diag_no_extension_filter.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension for this filter.'**
+  String get browse_diag_no_extension_filter;
+
+  /// No description provided for @browse_diag_ready.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to diagnose'**
+  String get browse_diag_ready;
+
+  /// No description provided for @browse_diag_paused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get browse_diag_paused;
+
+  /// No description provided for @browse_diag_running_state.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic in progress'**
+  String get browse_diag_running_state;
+
+  /// No description provided for @browse_diag_interrupted_state.
+  ///
+  /// In en, this message translates to:
+  /// **'Interrupted'**
+  String get browse_diag_interrupted_state;
+
+  /// No description provided for @browse_diag_complete.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic finished'**
+  String get browse_diag_complete;
+
+  /// No description provided for @browse_diag_complete_errors.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished with errors'**
+  String get browse_diag_complete_errors;
+
+  /// No description provided for @browse_diag_ready_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get browse_diag_ready_short;
+
+  /// No description provided for @browse_diag_extensions_analyzed.
+  ///
+  /// In en, this message translates to:
+  /// **'{done} / {total} extensions analyzed · {elapsed}'**
+  String browse_diag_extensions_analyzed(
+    Object done,
+    Object elapsed,
+    Object total,
+  );
+
+  /// No description provided for @browse_diag_select_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the extensions to test · {count} selected'**
+  String browse_diag_select_hint(Object count);
+
+  /// No description provided for @browse_diag_panel_type.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get browse_diag_panel_type;
+
+  /// No description provided for @browse_diag_panel_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Content'**
+  String get browse_diag_panel_content;
+
+  /// No description provided for @browse_diag_panel_options.
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get browse_diag_panel_options;
+
+  /// No description provided for @browse_diag_resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get browse_diag_resume;
+
+  /// No description provided for @browse_diag_pause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get browse_diag_pause;
+
+  /// No description provided for @browse_diag_start.
+  ///
+  /// In en, this message translates to:
+  /// **'Start the diagnostic'**
+  String get browse_diag_start;
+
+  /// No description provided for @browse_diag_view_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'View extensions'**
+  String get browse_diag_view_extensions;
+
+  /// No description provided for @browse_diag_open_panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the Panel'**
+  String get browse_diag_open_panel;
+
+  /// No description provided for @browse_diag_back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get browse_diag_back;
+
+  /// No description provided for @browse_diag_add_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Add extensions from the Marketplace before running a diagnostic.'**
+  String get browse_diag_add_extensions;
+
+  /// No description provided for @browse_diag_no_extension_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension for these filters'**
+  String get browse_diag_no_extension_filters;
+
+  /// No description provided for @browse_diag_touch_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap an extension in the list to show its steps, logs and detailed errors.'**
+  String get browse_diag_touch_extension;
+
+  /// No description provided for @browse_diag_results_appear.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzed extensions will appear here with their steps and logs.'**
+  String get browse_diag_results_appear;
+
+  /// No description provided for @browse_diag_run_for_report.
+  ///
+  /// In en, this message translates to:
+  /// **'Run a diagnostic to get a detailed, exportable report (Markdown, JSON, TXT, CSV).'**
+  String get browse_diag_run_for_report;
+
+  /// No description provided for @browse_diag_step_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} step(s) failed — open each step for the logs.'**
+  String browse_diag_step_failed(Object count);
+
+  /// No description provided for @browse_diag_extension_word.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension'**
+  String get browse_diag_extension_word;
+
+  /// No description provided for @browse_diag_analyzing.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzing…'**
+  String get browse_diag_analyzing;
+
+  /// No description provided for @browse_diag_waiting_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting…'**
+  String get browse_diag_waiting_short;
+
+  /// No description provided for @browse_local_folder.
+  ///
+  /// In en, this message translates to:
+  /// **'📁 Local folder'**
+  String get browse_local_folder;
+
+  /// No description provided for @browse_local_formats.
+  ///
+  /// In en, this message translates to:
+  /// **'🗂️ Supported formats'**
+  String get browse_local_formats;
+
+  /// No description provided for @browse_local_organization.
+  ///
+  /// In en, this message translates to:
+  /// **'🗃️ Folder organization'**
+  String get browse_local_organization;
+
+  /// No description provided for @browse_local_recommended_structure.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended structure:'**
+  String get browse_local_recommended_structure;
+
+  /// No description provided for @browse_local_tips.
+  ///
+  /// In en, this message translates to:
+  /// **'Tips'**
+  String get browse_local_tips;
+
+  /// No description provided for @browse_local_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get browse_local_default;
+
+  /// No description provided for @browse_local_alt.
+  ///
+  /// In en, this message translates to:
+  /// **'Alternative'**
+  String get browse_local_alt;
+
+  /// No description provided for @browse_local_default_path.
+  ///
+  /// In en, this message translates to:
+  /// **'On my iPhone → Watchtower → Local/{type}'**
+  String browse_local_default_path(Object type);
+
+  /// No description provided for @browse_local_alt_path.
+  ///
+  /// In en, this message translates to:
+  /// **'On my iPhone → Watchtower → {type}'**
+  String browse_local_alt_path(Object type);
+
+  /// No description provided for @browse_local_scan_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Watchtower will scan this folder automatically when the local source opens.'**
+  String get browse_local_scan_note;
+
+  /// No description provided for @browse_local_hero_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Local source {type}'**
+  String browse_local_hero_title(Object type);
+
+  /// No description provided for @browse_local_hero_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Read your local files directly from your device, without an internet connection.'**
+  String get browse_local_hero_subtitle;
+
+  /// No description provided for @browse_local_tip_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the \"{type} Local\" source in Browse → Sources to see your files.'**
+  String browse_local_tip_source(Object type);
+
+  /// No description provided for @browse_local_tip_subfolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a subfolder per title for better organization.'**
+  String get browse_local_tip_subfolder;
+
+  /// No description provided for @browse_local_tip_cover.
+  ///
+  /// In en, this message translates to:
+  /// **'A cover.jpg file in the title folder will be used as the cover.'**
+  String get browse_local_tip_cover;
+
+  /// No description provided for @browse_local_tip_pull.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull down on the local library to rescan the files.'**
+  String get browse_local_tip_pull;
+
+  /// No description provided for @browse_local_type_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get browse_local_type_music;
+
+  /// No description provided for @browse_local_type_game.
+  ///
+  /// In en, this message translates to:
+  /// **'Game'**
+  String get browse_local_type_game;
+
+  /// No description provided for @browse_local_type_plugin.
+  ///
+  /// In en, this message translates to:
+  /// **'Plugin'**
+  String get browse_local_type_plugin;
+
+  /// No description provided for @browse_create_base_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Base URL'**
+  String get browse_create_base_url;
+
+  /// No description provided for @browse_account_required_chip.
+  ///
+  /// In en, this message translates to:
+  /// **'🔐 Account required'**
+  String get browse_account_required_chip;
+
+  /// No description provided for @browse_drm_chip.
+  ///
+  /// In en, this message translates to:
+  /// **'🔒 DRM'**
+  String get browse_drm_chip;
+
+  /// No description provided for @browse_version_up.
+  ///
+  /// In en, this message translates to:
+  /// **'↑ v{version}'**
+  String browse_version_up(Object version);
+
+  /// No description provided for @browse_version_short.
+  ///
+  /// In en, this message translates to:
+  /// **'v{version}'**
+  String browse_version_short(Object version);
+
+  /// No description provided for @browse_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookies'**
+  String get browse_cookies;
+
+  /// No description provided for @browse_user_agent_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Mozilla/5.0 ...'**
+  String get browse_user_agent_hint;
+
+  /// No description provided for @browse_cloudflare.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloudflare'**
+  String get browse_cloudflare;
 }
 
 class _AppLocalizationsDelegate

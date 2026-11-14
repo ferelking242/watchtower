@@ -103,6 +103,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   /// shared [BrowseSourceFilterMenu] (same overlay as the Library) scoped to
   /// the group's sources; the icon turns primary when that group is filtered.
   Widget _sectionTrailing(String lang, List<Source> entries) {
+    final l10n = l10nLocalizations(context)!;
     final theme = Theme.of(context);
     final filters = _sectionFilters[lang] ?? const BrowseSourceFilters();
     final active = filters.hasAny;
@@ -128,7 +129,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
           ),
         ),
         AdaptiveOverlayMenu<_SectionMenuAction>(
-          tooltip: 'Options de la section',
+          tooltip: l10n.browse_section_options,
           icon: Icon(Broken.more_2, size: 18, color: theme.hintColor),
           menuWidth: 240,
           onSelected: (action) {
@@ -150,14 +151,14 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               value: _SectionMenuAction.enableAll,
               child: _SectionMenuRow(
                 icon: Broken.play,
-                label: 'Activer la section',
+                label: l10n.browse_section_enable,
               ),
             ),
             PopupMenuItem(
               value: _SectionMenuAction.disableAll,
               child: _SectionMenuRow(
                 icon: Broken.pause,
-                label: 'Désactiver la section',
+                label: l10n.browse_section_disable,
               ),
             ),
             const PopupMenuDivider(),
@@ -165,14 +166,14 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
               value: _SectionMenuAction.pinAll,
               child: _SectionMenuRow(
                 icon: Broken.bookmark,
-                label: 'Épingler la section',
+                label: l10n.browse_section_pin,
               ),
             ),
             PopupMenuItem(
               value: _SectionMenuAction.unpinAll,
               child: _SectionMenuRow(
                 icon: Broken.bookmark_2,
-                label: 'Désépingler la section',
+                label: l10n.browse_section_unpin,
               ),
             ),
             if (active) ...[
@@ -181,7 +182,7 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                 value: _SectionMenuAction.clearFilter,
                 child: _SectionMenuRow(
                   icon: Broken.filter_remove,
-                  label: 'Effacer les filtres',
+                  label: l10n.browse_clear_filters,
                 ),
               ),
             ],
@@ -595,6 +596,7 @@ class _SourcesLoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final colors = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
@@ -609,13 +611,13 @@ class _SourcesLoadError extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Impossible de charger les extensions',
+              l10n.browse_load_extensions_failed,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Réessaie après avoir vérifié la connexion.',
+              l10n.browse_check_connection,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -623,7 +625,7 @@ class _SourcesLoadError extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Réessayer'),
+              label: Text(l10n.retry),
             ),
           ],
         ),
@@ -642,6 +644,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     return Column(
       children: [
         Expanded(
@@ -660,7 +663,7 @@ class _EmptyState extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    context.l10n.no_sources_installed,
+                    l10n.no_sources_installed,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: Theme.of(
@@ -671,7 +674,7 @@ class _EmptyState extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Installe une extension depuis le Marketplace',
+                    l10n.browse_install_from_marketplace,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(
                         context,
@@ -683,14 +686,14 @@ class _EmptyState extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: onShowExtensions,
                     icon: const Icon(Icons.storefront_rounded, size: 18),
-                    label: const Text('Go to Market'),
+                    label: Text(l10n.browse_go_to_market),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
                     onPressed: () =>
                         context.push('/localHowTo', extra: itemType),
                     icon: const Icon(Icons.help_outline_rounded, size: 18),
-                    label: const Text('How To — Source Locale'),
+                    label: Text(l10n.browse_how_to_local_source),
                   ),
                 ],
               ),
@@ -707,6 +710,7 @@ class _NoMatchingSources extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final colors = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
@@ -721,7 +725,7 @@ class _NoMatchingSources extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              context.l10n.no_result,
+              l10n.no_result,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -729,7 +733,7 @@ class _NoMatchingSources extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Aucune extension ne correspond à la recherche ou aux filtres.',
+              l10n.browse_no_matching_extension,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colors.onSurface.withValues(alpha: 0.55),
                   ),
@@ -825,7 +829,7 @@ class _ScanStatusBar extends ConsumerWidget {
           ),
           const SizedBox(width: 10),
           Text(
-            'Scanning extensions…',
+            l10nLocalizations(context)!.browse_scanning_extensions,
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

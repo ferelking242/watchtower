@@ -11,6 +11,7 @@ import 'package:watchtower/modules/browse/diag_detail_widgets.dart';
 import 'package:watchtower/modules/browse/diag_ui_widgets.dart';
 import 'package:watchtower/services/diag_notification_service.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/language.dart';
 
 // ─── View model enums ─────────────────────────────────────────────────────────
@@ -221,26 +222,28 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
       _started && _total > 0 && (_controls?.isCancelled ?? false);
 
   String get _scopeLabel {
+    final l10n = context.l10n;
     if (_filterLangCode != null) {
-      return 'Langue: ${completeLanguageName(_filterLangCode!)}';
+      return l10n.browse_diag_lang_filter(
+          completeLanguageName(_filterLangCode!));
     }
-    if (_filterType != null) return 'Type: ${_filterType!.name}';
-    if (_filterNsfw == true) return 'NSFW seulement';
-    if (_filterNsfw == false) return 'SFW seulement';
-    return 'Toutes les extensions';
+    if (_filterType != null) return l10n.browse_diag_type_filter(_filterType!.name);
+    if (_filterNsfw == true) return l10n.browse_diag_nsfw_only;
+    if (_filterNsfw == false) return l10n.browse_diag_sfw_only;
+    return l10n.browse_diag_all_extensions;
   }
 
   ExtDiagResult? get _selectedResult =>
       _selectedSource != null ? _resultMap[_selectedSource!.id] : null;
 
   String get _typeLabel => switch (widget.itemType) {
-        ItemType.anime => 'Anime',
-        ItemType.manga => 'Manga',
-        ItemType.novel => 'Novel',
+        ItemType.anime => context.l10n.anime,
+        ItemType.manga => context.l10n.manga,
+        ItemType.novel => context.l10n.novel,
         _ => widget.itemType.name,
       };
 
-  String get _title => 'Diagnostic $_typeLabel';
+  String get _title => context.l10n.browse_diag_notify_title(_typeLabel);
 
   // ── Status helpers ─────────────────────────────────────────────────────────
 
@@ -352,8 +355,8 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
     final sources = _runSources;
     if (sources.isEmpty) {
       _showSnack(_allSources.isNotEmpty
-          ? 'Aucune extension sélectionnée — activez-en au moins une.'
-          : 'Aucune extension pour ce filtre.');
+          ? context.l10n.browse_diag_no_extension_selected_snack
+          : context.l10n.browse_diag_no_extension_filter);
       return;
     }
     if (_running) return;
@@ -392,7 +395,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
     unawaited(DiagNotificationService.instance.showProgress(
       done: 0,
       total: sources.length,
-      title: 'Diagnostic $_typeLabel en cours…',
+      title: context.l10n.browse_diag_notify_running(_typeLabel),
       force: true,
     ));
 
@@ -417,7 +420,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
             .showProgress(
               done: _done,
               total: _total,
-              title: 'Diagnostic $_typeLabel',
+              title: context.l10n.browse_diag_notify_title(_typeLabel),
               body: '$_done / $_total — ${result.source.name}',
             )
             .ignore();
@@ -437,7 +440,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
           _paused = false;
           _cancelling = false;
         });
-        _showSnack('Diagnostic annulé — $_done / $_total analysée(s).');
+        _showSnack(context.l10n.browse_diag_cancelled('$_done', '$_total'));
       }
       return;
     }
@@ -502,7 +505,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
         if (csv != null) _reports[ReportFormat.csv] = csv;
         _savedPaths = saved;
       });
-      _showSnack('Diagnostic terminé — $ok OK · $failed échec(s).');
+      _showSnack(context.l10n.browse_diag_finished('$ok', '$failed'));
     }
   }
 
@@ -524,7 +527,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
     if (c == null) return;
     setState(() => _cancelling = true);
     c.cancel();
-    _showSnack('Annulation du diagnostic…');
+    _showSnack(context.l10n.browse_diag_cancelling_snack);
   }
 
   /// Retries a single extension (manual retry or post-Cloudflare).
@@ -550,11 +553,11 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
       }
     });
     if (result == null) {
-      _showSnack('Retest annulé pour ${s.name}.');
+      _showSnack(context.l10n.browse_diag_retest_cancelled(s.name ?? ''));
     } else if (result.allOk) {
-      _showSnack('✅ ${s.name} répond correctement maintenant.');
+      _showSnack(context.l10n.browse_diag_retest_ok(s.name ?? ''));
     } else {
-      _showSnack('❌ ${s.name} échoue toujours — voir les logs de l’étape.');
+      _showSnack(context.l10n.browse_diag_retest_fail(s.name ?? ''));
     }
   }
 
@@ -627,13 +630,14 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
   }
 
   Future<void> _copyActiveReport() async {
+    final l10n = context.l10n;
     final content = _reports[_format];
     if (content == null) {
-      _showSnack('Aucun rapport disponible — lancez un diagnostic.');
+      _showSnack(l10n.browse_diag_no_report_available);
       return;
     }
     await Clipboard.setData(ClipboardData(text: content));
-    _showSnack('Rapport ${_formatLabel(_format)} copié ✓');
+    _showSnack(l10n.browse_diag_report_copied(_formatLabel(_format)));
   }
 
   String _formatLabel(ReportFormat f) => switch (f) {
@@ -1018,10 +1022,9 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
     if (_allSources.isEmpty) {
       return EmptyHero(
         icon: Icons.extension_off_outlined,
-        title: 'Aucune extension installée',
-        subtitle:
-            'Ajoutez des extensions depuis le Marketplace avant de lancer un diagnostic.',
-        actionLabel: 'Retour',
+        title: context.l10n.browse_diag_no_extension_installed,
+        subtitle: context.l10n.browse_diag_add_extensions,
+        actionLabel: context.l10n.browse_diag_back,
         onAction: _handleBack,
         cs: cs,
       );
@@ -1030,10 +1033,10 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
       return EmptyHero(
         icon: Icons.filter_alt_off_outlined,
         title: forDiagnostic
-            ? 'Aucune extension pour ces filtres'
-            : 'Aucun résultat',
-        subtitle: 'Modifiez la recherche ou les filtres depuis le panneau Panel.',
-        actionLabel: 'Ouvrir le Panel',
+            ? context.l10n.browse_diag_no_extension_filters
+            : context.l10n.no_result,
+        subtitle: context.l10n.browse_diag_change_filters,
+        actionLabel: context.l10n.browse_diag_open_panel,
         onAction: () => setState(() => _panelOpen = true),
         cs: cs,
       );
@@ -1060,8 +1063,8 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                   '${dur.isNotEmpty ? ' · $dur' : ''}';
         } else if (_running && _inCurrentRun(s)) {
           subtitle = status == ExtStatus.running
-              ? 'Analyse en cours…'
-              : 'En attente…';
+              ? context.l10n.browse_diag_analyzing
+              : context.l10n.browse_diag_waiting_short;
         } else {
           final parts = <String>[];
           parts.add(s.sourceCodeLanguage!.name);
@@ -1149,10 +1152,9 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
   Widget _detailEmpty(ColorScheme cs) {
     return EmptyHero(
       icon: Icons.touch_app_outlined,
-      title: 'Aucune extension sélectionnée',
-      subtitle:
-          'Touchez une extension dans la liste pour afficher ses étapes, logs et erreurs détaillées.',
-      actionLabel: 'Voir les extensions',
+      title: context.l10n.browse_diag_no_extension_selected,
+      subtitle: context.l10n.browse_diag_touch_extension,
+      actionLabel: context.l10n.browse_diag_view_extensions,
       onAction: () => _switchView(_DiagView.extensions),
       cs: cs,
     );
@@ -1164,11 +1166,13 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
     if (_resultMap.isEmpty) {
       return EmptyHero(
         icon: Icons.assessment_outlined,
-        title: _started ? 'Pas encore de résultats' : 'Aucun rapport',
+        title: _started
+            ? context.l10n.browse_diag_no_results_yet
+            : context.l10n.browse_diag_no_report,
         subtitle: _started
-            ? 'Les extensions analysées apparaîtront ici avec leurs étapes et logs.'
-            : 'Lancez un diagnostic pour obtenir un rapport détaillé exportable (Markdown, JSON, TXT, CSV).',
-        actionLabel: _started ? null : 'Lancer le diagnostic',
+            ? context.l10n.browse_diag_results_appear
+            : context.l10n.browse_diag_run_for_report,
+        actionLabel: _started ? null : context.l10n.browse_diag_start,
         onAction: _started ? null : () => unawaited(_startDiagnostics()),
         cs: cs,
       );
@@ -1235,8 +1239,9 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
         child: Row(children: [
           Icon(Icons.tune_rounded, size: 17, color: cs.primary),
           const SizedBox(width: 8),
-          const Text('Panel de contrôle',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          Text(context.l10n.browse_diag_control_panel,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 13.5)),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.close_rounded, size: 18),
@@ -1288,7 +1293,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                   scrollDirection: Axis.horizontal,
                   children: [
                     MiniChip(
-                        label: 'Toutes',
+                        label: context.l10n.browse_diag_all,
                         selected: _filterLangCode == null,
                         cs: cs,
                         onTap: () => setState(() => _filterLangCode = null)),
@@ -1304,13 +1309,13 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
               ),
               const SizedBox(height: 14),
             ],
-            _panelSectionTitle(cs, 'Type'),
+            _panelSectionTitle(cs, context.l10n.browse_diag_panel_type),
             Wrap(
               spacing: 4,
               runSpacing: 4,
               children: [
                 MiniChip(
-                    label: 'Tout',
+                    label: context.l10n.browse_diag_everything,
                     selected: _filterType == null,
                     cs: cs,
                     onTap: () => setState(() => _filterType = null)),
@@ -1324,18 +1329,18 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            _panelSectionTitle(cs, 'Contenu'),
+            _panelSectionTitle(cs, context.l10n.browse_diag_panel_content),
             Wrap(
               spacing: 4,
               runSpacing: 4,
               children: [
                 MiniChip(
-                    label: 'Tout',
+                    label: context.l10n.browse_diag_everything,
                     selected: _filterNsfw == null,
                     cs: cs,
                     onTap: () => setState(() => _filterNsfw = null)),
                 MiniChip(
-                    label: 'SFW',
+                    label: context.l10n.browse_diag_sfw,
                     selected: _filterNsfw == false,
                     cs: cs,
                     onTap: () => setState(
@@ -1350,12 +1355,12 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            _panelSectionTitle(cs, 'Options'),
+            _panelSectionTitle(cs, context.l10n.browse_diag_panel_options),
             SwitchListTile.adaptive(
               value: _onlyErrors,
               onChanged: (v) => setState(() => _onlyErrors = v),
-              title: const Text('Afficher uniquement les erreurs',
-                  style: TextStyle(fontSize: 12.5)),
+              title: Text(context.l10n.browse_diag_only_errors,
+                  style: const TextStyle(fontSize: 12.5)),
               dense: true,
               contentPadding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
@@ -1363,8 +1368,8 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
             SwitchListTile.adaptive(
               value: _onlyTested,
               onChanged: (v) => setState(() => _onlyTested = v),
-              title: const Text('Afficher uniquement les extensions testées',
-                  style: TextStyle(fontSize: 12.5)),
+              title: Text(context.l10n.browse_diag_only_tested,
+                  style: const TextStyle(fontSize: 12.5)),
               dense: true,
               contentPadding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
@@ -1440,7 +1445,10 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _cancelling ? null : _cancelDiagnostics,
                     icon: const Icon(Icons.stop_rounded, size: 16),
-                    label: Text(_cancelling ? 'Annulation…' : 'Annuler',
+                    label: Text(
+                        _cancelling
+                            ? context.l10n.browse_diag_canceling
+                            : context.l10n.cancel,
                         style: const TextStyle(fontSize: 12.5)),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: cs.error,
@@ -1568,7 +1576,7 @@ class _NavBar extends StatelessWidget {
         // Panel opener — controls only, never a page.
         _NavPill(
           icon: Icons.tune_rounded,
-          label: 'Panel',
+          label: context.l10n.browse_diag_panel,
           active: panelOpen,
           cs: cs,
           onTap: onPanel,
@@ -1586,7 +1594,7 @@ class _NavBar extends StatelessWidget {
             child: Row(children: [
               _NavPill(
                 icon: Icons.science_outlined,
-                label: 'Diagnostic',
+                label: context.l10n.browse_diagnostic,
                 count: diagCount,
                 active: view == _DiagView.diag,
                 cs: cs,
@@ -1595,7 +1603,7 @@ class _NavBar extends StatelessWidget {
               const SizedBox(width: 6),
               _NavPill(
                 icon: Icons.extension_outlined,
-                label: 'Extensions',
+                label: context.l10n.extensions,
                 count: extCount,
                 active: view == _DiagView.extensions,
                 cs: cs,
@@ -1604,7 +1612,7 @@ class _NavBar extends StatelessWidget {
               const SizedBox(width: 6),
               _NavPill(
                 icon: Icons.assessment_outlined,
-                label: 'Résultats',
+                label: context.l10n.browse_diag_results,
                 count: resCount,
                 active: view == _DiagView.results,
                 cs: cs,
@@ -1731,16 +1739,19 @@ class _StatusCard extends StatelessWidget {
     required this.onCancel,
   });
 
-  String get _stateLabel {
-    if (!started) return 'Prêt à diagnostiquer';
-    if (cancelling) return 'Annulation…';
-    if (paused) return 'En pause';
-    if (running) return 'Diagnostic en cours';
-    if (interrupted) return 'Interrompu';
+  String _stateLabel(BuildContext context) {
+    final l10n = context.l10n;
+    if (!started) return l10n.browse_diag_ready;
+    if (cancelling) return l10n.browse_diag_canceling;
+    if (paused) return l10n.browse_diag_paused;
+    if (running) return l10n.browse_diag_running_state;
+    if (interrupted) return l10n.browse_diag_interrupted_state;
     if (complete) {
-      return failCount == 0 ? 'Diagnostic terminé' : 'Terminé avec erreurs';
+      return failCount == 0
+          ? l10n.browse_diag_complete
+          : l10n.browse_diag_complete_errors;
     }
-    return 'Prêt';
+    return l10n.browse_diag_ready_short;
   }
 
   int get _pct => total == 0 ? 0 : (progress * 100).round();
@@ -1767,7 +1778,7 @@ class _StatusCard extends StatelessWidget {
               children: [
                 Row(children: [
                   Flexible(
-                    child: Text(_stateLabel,
+                    child: Text(_stateLabel(context),
                         style: const TextStyle(
                             fontSize: 13.5, fontWeight: FontWeight.w700),
                         overflow: TextOverflow.ellipsis),
@@ -1785,7 +1796,8 @@ class _StatusCard extends StatelessWidget {
                 ]),
                 if (showProgress) ...[const SizedBox(height: 2),
                   Text(
-                    '$done / $total extensions analysées · $elapsedLabel',
+                    context.l10n.browse_diag_extensions_analyzed(
+                        '$done', '$total', elapsedLabel),
                     style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
                 ] else
@@ -1842,14 +1854,16 @@ class _StatusCard extends StatelessWidget {
                 cs: cs),
             const Spacer(),
             if (complete && okCount == total)
-              Text('Toutes les sources répondent ✓',
+              Text(context.l10n.browse_diag_all_respond,
                   style:
                       TextStyle(fontSize: 10.5, color: Colors.green.shade700))
             else if (interrupted)
-              Text('${total - done} non analysée(s)',
+              Text(context.l10n.browse_diag_unanalyzed('${total - done}'),
                   style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant))
             else
-              Text('${(done - okCount - failCount).clamp(0, 999)} restantes',
+              Text(
+                  context.l10n.browse_diag_remaining(
+                      '${(done - okCount - failCount).clamp(0, 999)}'),
                   style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant)),
           ]),
         ],
@@ -1863,7 +1877,10 @@ class _StatusCard extends StatelessWidget {
                   icon: Icon(
                       paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
                       size: 16),
-                  label: Text(paused ? 'Reprendre' : 'Pause',
+                  label: Text(
+                      paused
+                          ? context.l10n.browse_diag_resume
+                          : context.l10n.browse_diag_pause,
                       style: const TextStyle(fontSize: 12.5)),
                   style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact),
@@ -1874,7 +1891,10 @@ class _StatusCard extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: cancelling ? null : onCancel,
                   icon: const Icon(Icons.stop_rounded, size: 16),
-                  label: Text(cancelling ? 'Annulation…' : 'Annuler',
+                  label: Text(
+                      cancelling
+                          ? context.l10n.browse_diag_canceling
+                          : context.l10n.cancel,
                       style: const TextStyle(fontSize: 12.5)),
                   style: OutlinedButton.styleFrom(
                       foregroundColor: cs.error,
@@ -1887,7 +1907,7 @@ class _StatusCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onStart,
                   icon: const Icon(Icons.replay_rounded, size: 16),
-                  label: Text(interrupted ? 'Relancer' : 'Relancer',
+                  label: Text(context.l10n.browse_diag_restart,
                       style: const TextStyle(fontSize: 12.5)),
                   style: FilledButton.styleFrom(
                       visualDensity: VisualDensity.compact),
@@ -2014,17 +2034,24 @@ class _StatusLegend extends StatelessWidget {
       child: Row(children: [
         Expanded(
           child: Text(
-            'Cochez les extensions à tester · $scopeSelected sélectionnées',
+            context.l10n.browse_diag_select_hint('$scopeSelected'),
             style: const TextStyle(fontSize: 11.5),
             overflow: TextOverflow.ellipsis,
           ),
         ),
         _DotLegend(label: 'OK', color: Colors.green.shade500, value: ok, cs: cs),
         const SizedBox(width: 8),
-        _DotLegend(label: 'Err.', color: cs.error, value: fail, cs: cs),
+        _DotLegend(
+            label: context.l10n.browse_diag_err_short,
+            color: cs.error,
+            value: fail,
+            cs: cs),
         const SizedBox(width: 8),
         _DotLegend(
-            label: 'Testées', color: cs.onSurfaceVariant, value: tested, cs: cs),
+            label: context.l10n.browse_diag_tested,
+            color: cs.onSurfaceVariant,
+            value: tested,
+            cs: cs),
       ]),
     );
   }

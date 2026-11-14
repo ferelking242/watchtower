@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart'
     show isCloudflareError;
@@ -69,7 +70,7 @@ class ExtensionDetail extends StatelessWidget {
                       child: CircularProgressIndicator(
                           strokeWidth: 2.4, color: cs.primary)),
                   const SizedBox(height: 10),
-                  Text('Diagnostic en cours…',
+                  Text(context.l10n.browse_diag_in_progress,
                       style: TextStyle(color: cs.onSurfaceVariant)),
                 ]),
               ),
@@ -78,13 +79,13 @@ class ExtensionDetail extends StatelessWidget {
             Column(children: [
               Icon(Icons.schedule_rounded, size: 42, color: cs.outlineVariant),
               const SizedBox(height: 10),
-              Text('En attente du diagnostic',
+              Text(context.l10n.browse_diag_waiting,
                   style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
               if (onRetry != null) ...[const SizedBox(height: 14),
                 FilledButton.tonalIcon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                  label: const Text('Tester cette extension'),
+                  label: Text(context.l10n.browse_diag_test_extension),
                 ),
               ],
             ]),
@@ -104,7 +105,7 @@ class ExtensionDetail extends StatelessWidget {
           const SizedBox(height: 10),
           _noticeRow(
             icon: Icons.stop_circle_outlined,
-            text: 'Diagnostic interrompu — certaines étapes n’ont pas pu être exécutées.',
+            text: context.l10n.browse_diag_interrupted,
           ),
         ] else if (!allOk) ...[const SizedBox(height: 10), _errorSummary(context)],
         // Inline Cloudflare resolution — rendered here, no separate webview.
@@ -124,7 +125,9 @@ class ExtensionDetail extends StatelessWidget {
         ],
         const SizedBox(height: 18),
         Text(
-          'Étapes — Popular · Latest · Détail · ${itemType == ItemType.anime ? "Vidéos" : "Pages"}',
+          context.l10n.browse_diag_steps_header(itemType == ItemType.anime
+              ? context.l10n.browse_diag_videos
+              : context.l10n.browse_diag_pages),
           style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
@@ -158,8 +161,8 @@ class ExtensionDetail extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: running || onRetry == null ? null : onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Retester cette extension',
-                  style: TextStyle(fontSize: 12.5)),
+              label: Text(context.l10n.browse_diag_retest,
+                  style: const TextStyle(fontSize: 12.5)),
               style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact),
             ),
@@ -195,7 +198,7 @@ class ExtensionDetail extends StatelessWidget {
         : r.failedWithReason.first;
     final reason = first != null && first.value.error != null
         ? '${diagStepLabel(first.key, itemType)} — ${first.value.error}'
-        : '${r.failCount} étape(s) en échec — ouvrez chaque étape pour les logs.';
+        : context.l10n.browse_diag_step_failed('${r.failCount}');
     return Container(
       padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
       decoration: BoxDecoration(
@@ -423,7 +426,9 @@ class StepTileState extends State<StepTile> {
                               fontSize: 12.5,
                               color: cs.onSurface)),
                       const SizedBox(width: 6),
-                      Text(r.count != null ? '${r.count} résultats' : '…',
+                      Text(r.count != null
+                          ? context.l10n.browse_diag_results_count('${r.count}')
+                          : '…',
                           style: TextStyle(
                               fontSize: 10, color: cs.onSurfaceVariant)),
                     ]),
@@ -475,7 +480,9 @@ class StepTileState extends State<StepTile> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('LOGS — ${widget.label.toUpperCase()}',
+                Text(
+                    context.l10n
+                        .browse_diag_logs(widget.label.toUpperCase()),
                     style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
@@ -493,7 +500,7 @@ class StepTileState extends State<StepTile> {
                             height: 1.35)),
                   ),
                 if (r.logs.isEmpty)
-                  Text('Aucune trace pour cette étape.',
+                  Text(context.l10n.browse_diag_no_trace,
                       style:
                           TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
               ],
@@ -563,7 +570,8 @@ class MediaPreviewSectionState extends State<MediaPreviewSection> {
                   color: cs.primaryContainer,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text('${widget.mediaCount} sources',
+                child: Text(
+                    context.l10n.browse_diag_sources_count('${widget.mediaCount}'),
                     style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w700,
@@ -640,7 +648,9 @@ class _PagePreviewState extends State<_PagePreview> {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
-          Text('Page ${_currentPage + 1} / ${urls.length}',
+          Text(
+              context.l10n.browse_diag_page_of(
+                  '${_currentPage + 1}', '${urls.length}'),
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -691,7 +701,7 @@ class _PagePreviewState extends State<_PagePreview> {
                   Icon(Icons.broken_image_rounded,
                       size: 36, color: cs.outlineVariant),
                   const SizedBox(height: 6),
-                  Text('Image inaccessible',
+                  Text(context.l10n.browse_diag_image_unreachable,
                       style:
                           TextStyle(color: cs.onSurfaceVariant, fontSize: 11)),
                 ])),
@@ -819,7 +829,7 @@ class ResultCardState extends State<ResultCard> {
                 icon: Icon(Icons.chevron_right_rounded,
                     size: 18, color: cs.primary),
                 onPressed: widget.onOpen,
-                tooltip: 'Ouvrir le détail',
+                tooltip: context.l10n.browse_diag_open_detail,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
@@ -848,7 +858,7 @@ class ResultCardState extends State<ResultCard> {
                       children: [
                         Text(
                             '${diagStepLabel(e.key, widget.itemType)} — '
-                            '${e.value.ms > 0 ? _fmtMs(e.value.ms) : "non testé"}',
+                            '${e.value.ms > 0 ? _fmtMs(e.value.ms) : context.l10n.browse_diag_not_tested}',
                             style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w800,
@@ -877,7 +887,7 @@ class ResultCardState extends State<ResultCard> {
                     Icon(Icons.check_circle_rounded,
                         size: 14, color: Colors.green.shade500),
                     const SizedBox(width: 6),
-                    Text('Aucune erreur détectée sur les étapes.',
+                    Text(context.l10n.browse_diag_no_errors,
                         style: TextStyle(
                             fontSize: 11, color: cs.onSurfaceVariant)),
                   ]),

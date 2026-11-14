@@ -235,7 +235,7 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
         actions: [
           // ── Import file ─────────────────────────────────────────────────
           IconButton(
-            tooltip: 'Importer un fichier',
+            tooltip: context.l10n.browse_code_import_file,
             icon: const Icon(Icons.file_upload_outlined),
             onPressed: () async {
               try {
@@ -261,7 +261,8 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           behavior: SnackBarBehavior.floating,
-                          content: Text('Fichier importé : ${result.files.first.name}'),
+                          content: Text(context.l10n
+                              .browse_code_file_imported(result.files.first.name)),
                           duration: const Duration(seconds: 2),
                         ),
                       );
@@ -273,7 +274,7 @@ class _CodeEditorPageState extends ConsumerState<CodeEditorPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       behavior: SnackBarBehavior.floating,
-                      content: Text('Erreur import : $e'),
+                      content: Text(context.l10n.browse_code_import_error('$e')),
                       backgroundColor: Colors.red.shade700,
                     ),
                   );

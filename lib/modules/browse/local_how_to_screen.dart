@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -10,22 +11,26 @@ class LocalHowToScreen extends StatelessWidget {
   final ItemType itemType;
   const LocalHowToScreen({required this.itemType, super.key});
 
-  String get _typeName => switch (itemType) {
-        ItemType.manga => 'Manga',
-        ItemType.anime => 'Watch',
-        ItemType.novel => 'Novel',
-        ItemType.music => 'Music',
-        ItemType.game => 'Game',
-        ItemType.plugin => 'Plugin',
-      };
+  String _typeName(BuildContext context) {
+    final l10n = context.l10n;
+    return switch (itemType) {
+      ItemType.manga => l10n.manga,
+      ItemType.anime => l10n.watch,
+      ItemType.novel => l10n.novel,
+      ItemType.music => l10n.browse_local_type_music,
+      ItemType.game => l10n.browse_local_type_game,
+      ItemType.plugin => l10n.browse_local_type_plugin,
+    };
+  }
 
-  String get _defaultPath {
-      if (!kIsWeb && Platform.isIOS) {
-        // iOS sandbox: Fichiers > Sur mon iPhone > Watchtower > Local/TypeName
-        return 'Sur mon iPhone → Watchtower → Local/$_typeName';
-      }
-      return 'Watchtower/Local/$_typeName';
+  String _defaultPath(BuildContext context) {
+    final typeName = _typeName(context);
+    if (!kIsWeb && Platform.isIOS) {
+      // iOS sandbox: Files > On My iPhone > Watchtower > Local/<type>
+      return context.l10n.browse_local_default_path(typeName);
     }
+    return 'Watchtower/Local/$typeName';
+  }
 
   List<String> get _supportedFormats => switch (itemType) {
         ItemType.manga => ['CBZ', 'ZIP'],
@@ -98,7 +103,7 @@ class LocalHowToScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: Text('Local $_typeName — Comment utiliser'),
+        title: Text(context.l10n.browse_local_how_to_title(_typeName(context))),
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -108,28 +113,31 @@ class LocalHowToScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           // ── Hero ──────────────────────────────────────────────────────────
-          _HeroCard(icon: _typeIcon, typeName: _typeName, cs: cs),
+          _HeroCard(icon: _typeIcon, typeName: _typeName(context), cs: cs),
           const SizedBox(height: 24),
 
           // ── Dossier ───────────────────────────────────────────────────────
-          _SectionTitle('📁 Dossier local'),
+          _SectionTitle(context.l10n.browse_local_folder),
           const SizedBox(height: 10),
           _InfoCard(
             cs: cs,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _PathRow(label: 'Par défaut', path: _defaultPath),
+                _PathRow(
+                    label: context.l10n.browse_local_default,
+                    path: _defaultPath(context)),
                 const SizedBox(height: 8),
                 _PathRow(
-                    label: 'Alternatif',
+                    label: context.l10n.browse_local_alt,
                     path: !kIsWeb && Platform.isIOS
-                        ? 'Sur mon iPhone → Watchtower → $_typeName'
-                        : 'Download/$_typeName',
+                        ? context.l10n
+                            .browse_local_alt_path(_typeName(context))
+                        : 'Download/${_typeName(context)}',
                   ),
                 const SizedBox(height: 12),
                 Text(
-                  'Watchtower scannera ce dossier automatiquement à l\'ouverture de la source locale.',
+                  context.l10n.browse_local_scan_note,
                   style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
                 ),
               ],
@@ -138,7 +146,7 @@ class LocalHowToScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // ── Formats supportés ─────────────────────────────────────────────
-          _SectionTitle('🗂️ Formats supportés'),
+          _SectionTitle(context.l10n.browse_local_formats),
           const SizedBox(height: 10),
           _InfoCard(
             cs: cs,
@@ -153,7 +161,7 @@ class LocalHowToScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // ── Organisation ──────────────────────────────────────────────────
-          _SectionTitle('🗃️ Organisation des dossiers'),
+          _SectionTitle(context.l10n.browse_local_organization),
           const SizedBox(height: 10),
           _InfoCard(
             cs: cs,
@@ -161,7 +169,7 @@ class LocalHowToScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Structure recommandée :',
+                  context.l10n.browse_local_recommended_structure,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -198,7 +206,7 @@ class LocalHowToScreen extends StatelessWidget {
                     Icon(Icons.lightbulb_rounded, size: 16, color: cs.primary),
                     const SizedBox(width: 6),
                     Text(
-                      'Astuces',
+                      context.l10n.browse_local_tips,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -209,19 +217,19 @@ class LocalHowToScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _BulletPoint(
-                  'Ouvre la source "$_typeName Local" dans Browse → Sources pour voir tes fichiers.',
+                  context.l10n.browse_local_tip_source(_typeName(context)),
                 ),
                 const SizedBox(height: 4),
                 _BulletPoint(
-                  'Crée un sous-dossier par titre pour une meilleure organisation.',
+                  context.l10n.browse_local_tip_subfolder,
                 ),
                 const SizedBox(height: 4),
                 _BulletPoint(
-                  'Un fichier cover.jpg dans le dossier du titre sera utilisé comme couverture.',
+                  context.l10n.browse_local_tip_cover,
                 ),
                 const SizedBox(height: 4),
                 _BulletPoint(
-                  'Tire vers le bas sur la bibliothèque locale pour rescanner les fichiers.',
+                  context.l10n.browse_local_tip_pull,
                 ),
               ],
             ),
@@ -268,7 +276,7 @@ class _HeroCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Source Locale $typeName',
+                  context.l10n.browse_local_hero_title(typeName),
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -277,7 +285,7 @@ class _HeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Lis tes fichiers locaux directement depuis ton appareil, sans connexion internet.',
+                  context.l10n.browse_local_hero_subtitle,
                   style: TextStyle(
                     fontSize: 12,
                     color: cs.onPrimaryContainer.withValues(alpha: 0.8),

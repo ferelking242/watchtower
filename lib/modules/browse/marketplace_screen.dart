@@ -2778,7 +2778,7 @@ class _PlayStoreCard extends StatelessWidget {
                   ),
                 if (hasUpdate)
                   _TagChip(
-                    label: '↑ v${entry.version}',
+                    label: context.l10n.browse_version_up(entry.version),
                     cs: cs,
                     color: Colors.orange.shade400,
                   ),
@@ -2787,13 +2787,13 @@ class _PlayStoreCard extends StatelessWidget {
                     .map((c) => _TagChip(label: c, cs: cs, color: cs.primary)),
                 if (entry.requiresAccount)
                   _TagChip(
-                    label: '🔐 Compte requis',
+                    label: context.l10n.browse_account_required_chip,
                     cs: cs,
                     color: Colors.blue.shade400,
                   ),
                 if (entry.hasDRM)
                   _TagChip(
-                    label: '🔒 DRM',
+                    label: context.l10n.browse_drm_chip,
                     cs: cs,
                     color: Colors.orange.shade600,
                   ),

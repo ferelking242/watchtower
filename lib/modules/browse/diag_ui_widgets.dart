@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 // ─── Shared enums ────────────────────────────────────────────────────────────
 
@@ -329,13 +330,13 @@ class DetailBar extends StatelessWidget {
           constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
         ),
         Flexible(
-          child: Text(source.name ?? 'Extension',
+          child: Text(source.name ?? context.l10n.browse_extension_word,
               style:
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
               overflow: TextOverflow.ellipsis),
         ),
         const Spacer(),
-        Text('Détail',
+        Text(context.l10n.browse_diag_tab_detail,
             style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
       ]),
     );
@@ -451,13 +452,13 @@ class ExportBar extends StatelessWidget {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Text('Exporter le rapport',
+          Text(context.l10n.browse_diag_export_report,
               style: TextStyle(
                   fontSize: 12, fontWeight: FontWeight.w700, color: cs.onSurface)),
           if (savedCount > 0) ...[
             const SizedBox(width: 8),
             Icon(Icons.folder_rounded, size: 13, color: cs.onSurfaceVariant),
-            Text('$savedCount fichiers',
+            Text(context.l10n.browse_diag_files_count('$savedCount'),
                 style: TextStyle(fontSize: 10.5, color: cs.onSurfaceVariant)),
           ],
           const Spacer(),
@@ -467,7 +468,9 @@ class ExportBar extends StatelessWidget {
                 size: 17,
                 color: cs.onSurfaceVariant),
             onPressed: canCopy ? onToggleRaw : null,
-            tooltip: rawReport ? 'Vue synthèse' : 'Voir le rapport brut',
+            tooltip: rawReport
+                ? context.l10n.browse_diag_summary_view
+                : context.l10n.browse_diag_view_raw,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
@@ -475,7 +478,8 @@ class ExportBar extends StatelessWidget {
           TextButton.icon(
             onPressed: canCopy ? onCopy : null,
             icon: const Icon(Icons.copy_rounded, size: 14),
-            label: const Text('Copier', style: TextStyle(fontSize: 11.5)),
+            label: Text(context.l10n.browse_diag_copy,
+                style: const TextStyle(fontSize: 11.5)),
             style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
           ),
         ]),
@@ -530,13 +534,13 @@ class RawReportView extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         children: [
           Row(children: [
-            Text('Rapport brut — $format',
+            Text(context.l10n.browse_diag_raw_report(format),
                 style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: cs.onSurfaceVariant)),
             const Spacer(),
-            Text('${content.length} caractères',
+            Text(context.l10n.browse_diag_chars_count('${content.length}'),
                 style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant)),
           ]),
           const SizedBox(height: 8),

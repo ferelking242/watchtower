@@ -8,6 +8,7 @@ import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
@@ -310,6 +311,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   @override
   Widget build(BuildContext context) {
     _sections = ref.watch(customSectionsProvider);
+    final l10n = l10nLocalizations(context)!;
     final query = _query;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -325,7 +327,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             Expanded(
               child: SharedSearchHeader(
                 controller: _textEditingController,
-                hint: 'Rechercher dans les extensions…',
+                hint: l10n.browse_global_search_hint,
                 onBack: () {
                   if (context.canPop()) {
                     context.pop();
@@ -346,7 +348,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
             ),
             _buildFilterButton(context, cs),
             AdaptiveOverlayMenu<_GlobalSearchMenuAction>(
-              tooltip: 'Plus d’options',
+              tooltip: l10n.browse_more_options,
               icon: Icon(
                 Broken.more_2,
                 size: 20,
@@ -382,11 +384,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               itemBuilder: (context) => [
                 PopupMenuItem<_GlobalSearchMenuAction>(
                   value: _GlobalSearchMenuAction.refresh,
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Broken.refresh_2, size: 18),
-                      SizedBox(width: 10),
-                      Text('Rafraîchir'),
+                      const Icon(Broken.refresh_2, size: 18),
+                      const SizedBox(width: 10),
+                      Text(l10n.refresh),
                     ],
                   ),
                 ),
@@ -399,9 +401,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                         size: 18,
                       ),
                       const SizedBox(width: 10),
-                      const Expanded(child: Text('Recherche intelligente')),
+                      Expanded(child: Text(l10n.browse_intelligent_search)),
                       IconButton(
-                        tooltip: 'Qu’est-ce que la recherche intelligente ?',
+                        tooltip: l10n.browse_intelligent_search_tooltip,
                         iconSize: 16,
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _showIntelligentSearchHelp(context),
@@ -414,11 +416,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 ),
                 PopupMenuItem<_GlobalSearchMenuAction>(
                   value: _GlobalSearchMenuAction.download,
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Broken.document_download, size: 18),
-                      SizedBox(width: 10),
-                      Text('Télécharger'),
+                      const Icon(Broken.document_download, size: 18),
+                      const SizedBox(width: 10),
+                      Text(l10n.download),
                     ],
                   ),
                 ),
@@ -428,19 +430,19 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                     children: [
                       const Icon(Broken.bookmark_2, size: 18),
                       const SizedBox(width: 10),
-                      const Expanded(child: Text('Sources épinglées')),
+                      Expanded(child: Text(l10n.browse_pinned_sources)),
                       if (_pinnedOnly) const Icon(Broken.tick_circle, size: 16),
                     ],
                   ),
                 ),
                 if (_hasActiveFilters)
-                  const PopupMenuItem<_GlobalSearchMenuAction>(
+                  PopupMenuItem<_GlobalSearchMenuAction>(
                     value: _GlobalSearchMenuAction.clearFilters,
                     child: Row(
                       children: [
-                        Icon(Broken.filter_remove, size: 18),
-                        SizedBox(width: 10),
-                        Text('Effacer les filtres'),
+                        const Icon(Broken.filter_remove, size: 18),
+                        const SizedBox(width: 10),
+                        Text(l10n.browse_clear_filters),
                       ],
                     ),
                   ),
@@ -585,32 +587,27 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
 
   /// Explains, in a small box, what intelligent search does.
   void _showIntelligentSearchHelp(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         final cs = Theme.of(context).colorScheme;
         return AlertDialog(
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Broken.magicpen, size: 20),
-              SizedBox(width: 10),
-              Text('Recherche intelligente'),
+              const Icon(Broken.magicpen, size: 20),
+              const SizedBox(width: 10),
+              Text(l10n.browse_intelligent_search),
             ],
           ),
-          content: const Text(
-            'Une extension a sa propre recherche : quand elle n’a pas le titre '
-            'exact, elle renvoie souvent des résultats proches mais non '
-            'pertinents.\n\n'
-            'La recherche intelligente garde ce que l’extension a trouvé, mais '
-            'ne montre que les résultats dont le nom correspond vraiment à '
-            'votre recherche. L’algorithme est tolérant : « Narufo » retrouve '
-            '« Naruto », et une recherche par un autre titre fonctionne aussi '
-            '(par exemple « Attaque des Titans » pour « Shingeki no Kyojin »).',
-          ),
+          content: Text(l10n.browse_intelligent_search_help),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text('Compris', style: TextStyle(color: cs.primary)),
+              child: Text(
+                l10n.browse_got_it,
+                style: TextStyle(color: cs.primary),
+              ),
             ),
           ],
         );
@@ -871,6 +868,7 @@ class _EmptyFiltersState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -884,7 +882,7 @@ class _EmptyFiltersState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            hasFilters ? 'Aucune source trouvée' : 'Aucun résultat',
+            hasFilters ? l10n.browse_no_source_found : l10n.no_result,
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
@@ -894,8 +892,8 @@ class _EmptyFiltersState extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             hasFilters
-                ? 'Aucune source ne correspond\naux filtres actifs'
-                : 'Essayez un autre terme de recherche',
+                ? l10n.browse_no_source_matches_filters
+                : l10n.browse_try_another_term,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -906,7 +904,7 @@ class _EmptyFiltersState extends StatelessWidget {
             const SizedBox(height: 20),
             FilledButton.tonal(
               onPressed: onClear,
-              child: const Text('Réinitialiser les filtres'),
+              child: Text(l10n.browse_reset_filters),
             ),
           ],
         ],
@@ -1165,6 +1163,7 @@ class _NoResultActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final cs = Theme.of(context).colorScheme;
     return Center(
       child: Column(
@@ -1185,12 +1184,12 @@ class _NoResultActions extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: retrying ? null : onRetry,
                 icon: const Icon(Broken.refresh_2, size: 16),
-                label: const Text('Réessayer'),
+                label: Text(l10n.retry),
               ),
               FilledButton.tonalIcon(
                 onPressed: retrying ? null : onIntelligentRetry,
                 icon: const Icon(Broken.magicpen, size: 16),
-                label: const Text('Réessayer intelligemment'),
+                label: Text(l10n.browse_retry_intelligently),
               ),
             ],
           ),
@@ -1375,6 +1374,7 @@ class _GlobalSearchFilterOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final base = isDark ? Colors.white : Colors.black87;
@@ -1393,7 +1393,7 @@ class _GlobalSearchFilterOverlay extends StatelessWidget {
                   Icon(Broken.slider_horizontal, size: 16, color: cs.primary),
                   const SizedBox(width: 8),
                   Text(
-                    'FILTRES',
+                    l10n.browse_filters,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -1406,7 +1406,7 @@ class _GlobalSearchFilterOverlay extends StatelessWidget {
                     GestureDetector(
                       onTap: onClearAll,
                       child: Text(
-                        'Effacer',
+                        l10n.browse_clear,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1419,24 +1419,24 @@ class _GlobalSearchFilterOverlay extends StatelessWidget {
             ),
             _FilterToggleRow(
               icon: Broken.bookmark_2,
-              label: 'Sources épinglées',
+              label: l10n.browse_pinned_sources,
               selected: pinnedOnly,
               onTap: onPinnedOnlyToggled,
             ),
             _FilterToggleRow(
               icon: Broken.magicpen,
-              label: 'Recherche intelligente',
+              label: l10n.browse_intelligent_search,
               selected: intelligentSearch,
               onTap: onIntelligentToggled,
             ),
 
             // ── NSFW ───────────────────────────────────────────────────────
             const AdaptiveOverlayDivider(),
-            const AdaptiveOverlaySection(title: 'Contenu'),
-            for (final option in const [
-              (BrowseNsfwFilter.all, 'Tout le contenu', Broken.global),
-              (BrowseNsfwFilter.sfw, 'SFW uniquement', Broken.shield_tick),
-              (BrowseNsfwFilter.nsfw, 'NSFW uniquement', Broken.warning_2),
+            AdaptiveOverlaySection(title: l10n.browse_content),
+            for (final option in [
+              (BrowseNsfwFilter.all, l10n.browse_all_content, Broken.global),
+              (BrowseNsfwFilter.sfw, l10n.browse_sfw_only, Broken.shield_tick),
+              (BrowseNsfwFilter.nsfw, l10n.browse_nsfw_only, Broken.warning_2),
             ])
               AdaptiveOverlayItem(
                 icon: option.$3,
@@ -1448,7 +1448,7 @@ class _GlobalSearchFilterOverlay extends StatelessWidget {
             // ── Custom sections ────────────────────────────────────────────
             if (availableSections.isNotEmpty) ...[
               const AdaptiveOverlayDivider(),
-              const AdaptiveOverlaySection(title: 'Mes sections'),
+              AdaptiveOverlaySection(title: l10n.browse_custom_sections),
               for (final section in availableSections)
                 AdaptiveOverlayItem(
                   icon: Broken.folder_2,
@@ -1461,7 +1461,7 @@ class _GlobalSearchFilterOverlay extends StatelessWidget {
 
             if (availableTypes.isNotEmpty) ...[
               const AdaptiveOverlayDivider(),
-              const AdaptiveOverlaySection(title: 'Type de source'),
+              AdaptiveOverlaySection(title: l10n.browse_source_type),
               for (final type in availableTypes)
                 AdaptiveOverlayItem(
                   icon: Broken.code,
@@ -1472,7 +1472,7 @@ class _GlobalSearchFilterOverlay extends StatelessWidget {
             ],
             if (availableLangs.isNotEmpty) ...[
               const AdaptiveOverlayDivider(),
-              const AdaptiveOverlaySection(title: 'Langue'),
+              AdaptiveOverlaySection(title: l10n.language),
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
                 child: Wrap(
@@ -1656,6 +1656,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
     // Capture the container before the awaits: `context` must not be used
     // across an async gap.
     final container = ProviderScope.containerOf(context, listen: false);
+    final l10n = l10nLocalizations(context)!;
     setState(() => _busy = true);
     try {
       // The download engine reads these from the app-wide settings, so the
@@ -1681,19 +1682,26 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
         endChapter: end,
         wifiOnly: _wifiOnly,
         addToLibrary: _addToLibrary,
+        messages: GlobalSearchDownloadMessages(
+          noLink: l10n.browse_download_no_link,
+          noChapters: l10n.browse_download_no_chapters,
+          noValidChapter: l10n.browse_download_no_valid_chapter,
+          chapterFallback: l10n.browse_chapter_label,
+        ),
       );
       if (!mounted) return;
       Navigator.of(context).pop();
-      botToast('${result.queued} chapitre(s) en file de téléchargement');
+      botToast(l10n.browse_download_queued(result.queued));
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      botToast('Téléchargement impossible : $e');
+      botToast(l10n.browse_download_failed('$e'));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final cs = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
@@ -1707,7 +1715,9 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
                 Icon(Broken.document_download, size: 18, color: cs.primary),
                 const SizedBox(width: 8),
                 Text(
-                  _item == null ? 'Que télécharger ?' : 'Options de téléchargement',
+                  _item == null
+                      ? l10n.browse_download_what
+                      : l10n.browse_download_options,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -1721,7 +1731,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: Text(
-                    'Lancez une recherche pour voir les titres à télécharger.',
+                    l10n.browse_download_prompt_search,
                     style: TextStyle(
                       fontSize: 13,
                       color: cs.onSurfaceVariant,
@@ -1732,7 +1742,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
             else if (_item == null)
               _buildPicker(cs)
             else
-              _buildOptions(cs),
+              _buildOptions(cs, l10n),
           ],
         ),
       ),
@@ -1788,7 +1798,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
     );
   }
 
-  Widget _buildOptions(ColorScheme cs) {
+  Widget _buildOptions(ColorScheme cs, AppLocalizations l10n) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1808,7 +1818,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
           dense: true,
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Broken.layer, size: 18),
-          title: const Text('Tous les chapitres', style: TextStyle(fontSize: 13)),
+          title: Text(l10n.all_chapters, style: const TextStyle(fontSize: 13)),
           value: _allChapters,
           onChanged: (v) => setState(() => _allChapters = v),
         ),
@@ -1819,8 +1829,8 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
                 child: TextField(
                   controller: _startController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'De',
+                  decoration: InputDecoration(
+                    labelText: l10n.browse_from,
                     isDense: true,
                   ),
                 ),
@@ -1830,8 +1840,8 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
                 child: TextField(
                   controller: _endController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'À',
+                  decoration: InputDecoration(
+                    labelText: l10n.browse_to,
                     isDense: true,
                   ),
                 ),
@@ -1842,7 +1852,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
           dense: true,
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Broken.wifi, size: 18),
-          title: const Text('Wi-Fi uniquement', style: TextStyle(fontSize: 13)),
+          title: Text(l10n.browse_wifi_only, style: const TextStyle(fontSize: 13)),
           value: _wifiOnly,
           onChanged: (v) => setState(() => _wifiOnly = v),
         ),
@@ -1850,8 +1860,8 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
           dense: true,
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Broken.bookmark_2, size: 18),
-          title: const Text('Ajouter à la bibliothèque',
-              style: TextStyle(fontSize: 13)),
+          title: Text(l10n.add_to_library,
+              style: const TextStyle(fontSize: 13)),
           value: _addToLibrary,
           onChanged: (v) => setState(() => _addToLibrary = v),
         ),
@@ -1859,10 +1869,11 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
           dense: true,
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Broken.document, size: 18),
-          title: const Text('Archive CBZ', style: TextStyle(fontSize: 13)),
-          subtitle: const Text(
-            'Empaqueter chaque chapitre dans un .cbz',
-            style: TextStyle(fontSize: 11),
+          title: Text(l10n.browse_cbz_archive,
+              style: const TextStyle(fontSize: 13)),
+          subtitle: Text(
+            l10n.browse_cbz_archive_subtitle,
+            style: const TextStyle(fontSize: 11),
           ),
           value: _cbzArchive,
           onChanged: (v) => setState(() => _cbzArchive = v),
@@ -1871,8 +1882,8 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
           dense: true,
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Broken.trash, size: 18),
-          title: const Text('Supprimer après lecture',
-              style: TextStyle(fontSize: 13)),
+          title: Text(l10n.delete_download_after_reading,
+              style: const TextStyle(fontSize: 13)),
           value: _deleteAfterReading,
           onChanged: (v) => setState(() => _deleteAfterReading = v),
         ),
@@ -1880,12 +1891,12 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
           dense: true,
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Broken.hierarchy, size: 18),
-          title: const Text(
-            'Téléchargements simultanés',
-            style: TextStyle(fontSize: 13),
+          title: Text(
+            l10n.concurrent_downloads,
+            style: const TextStyle(fontSize: 13),
           ),
           subtitle: Text(
-            '$_connections connexion(s)',
+            l10n.browse_connections_count(_connections),
             style: const TextStyle(fontSize: 11),
           ),
           trailing: SizedBox(
@@ -1906,7 +1917,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
             TextButton.icon(
               onPressed: _busy ? null : () => setState(() => _item = null),
               icon: const Icon(Broken.arrow_left_2, size: 16),
-              label: const Text('Retour'),
+              label: Text(l10n.catalog_back),
             ),
             const Spacer(),
             FilledButton.icon(
@@ -1918,7 +1929,7 @@ class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Broken.document_download, size: 16),
-              label: const Text('Télécharger'),
+              label: Text(l10n.download),
             ),
           ],
         ),

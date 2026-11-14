@@ -4175,4 +4175,1170 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get no_comments => 'No comments yet';
+
+  @override
+  String get plugins_ffmpeg_ready => 'Verified binary available for HLS files.';
+
+  @override
+  String get plugins_ffmpeg_optional =>
+      'Optional: direct concatenation is used automatically.';
+
+  @override
+  String get browse_global_search_hint => 'Search extensions…';
+
+  @override
+  String get browse_intelligent_search => 'Intelligent search';
+
+  @override
+  String get browse_intelligent_search_tooltip => 'What is intelligent search?';
+
+  @override
+  String get browse_intelligent_search_help =>
+      'An extension has its own search: when it does not have the exact title, it often returns near results that are not relevant.\n\nIntelligent search keeps what the extension found, but only shows the results whose name really matches your search. The algorithm is tolerant: “Narufo” finds “Naruto”, and searching by another title works too (for example “Attack on Titan” for “Shingeki no Kyojin”).';
+
+  @override
+  String get browse_pinned_sources => 'Pinned sources';
+
+  @override
+  String get browse_clear_filters => 'Clear filters';
+
+  @override
+  String get browse_filters => 'FILTERS';
+
+  @override
+  String get browse_clear => 'Clear';
+
+  @override
+  String get browse_content => 'Content';
+
+  @override
+  String get browse_all_content => 'All content';
+
+  @override
+  String get browse_sfw_only => 'SFW only';
+
+  @override
+  String get browse_nsfw_only => 'NSFW only';
+
+  @override
+  String get browse_source_type => 'Source type';
+
+  @override
+  String get browse_no_source_found => 'No source found';
+
+  @override
+  String get browse_no_source_matches_filters =>
+      'No source matches\nthe active filters';
+
+  @override
+  String get browse_try_another_term => 'Try another search term';
+
+  @override
+  String get browse_reset_filters => 'Reset filters';
+
+  @override
+  String get browse_retry_intelligently => 'Retry intelligently';
+
+  @override
+  String get browse_got_it => 'Got it';
+
+  @override
+  String get browse_understood => 'Got it';
+
+  @override
+  String get browse_download_what => 'What to download?';
+
+  @override
+  String get browse_download_options => 'Download options';
+
+  @override
+  String get browse_download_prompt_search =>
+      'Run a search to see the titles you can download.';
+
+  @override
+  String get browse_from => 'From';
+
+  @override
+  String get browse_to => 'To';
+
+  @override
+  String get browse_wifi_only => 'Wi-Fi only';
+
+  @override
+  String get browse_cbz_archive => 'CBZ archive';
+
+  @override
+  String get browse_cbz_archive_subtitle => 'Package each chapter in a .cbz';
+
+  @override
+  String browse_connections_count(Object count) {
+    return '$count connection(s)';
+  }
+
+  @override
+  String browse_download_queued(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapters queued for download',
+      one: '$count chapter queued for download',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String browse_download_failed(Object error) {
+    return 'Download failed: $error';
+  }
+
+  @override
+  String get browse_chapter_label => 'Chapter';
+
+  @override
+  String get browse_download_no_link => 'This entry has no usable link.';
+
+  @override
+  String get browse_download_no_chapters =>
+      'No chapter available for this title.';
+
+  @override
+  String get browse_download_no_valid_chapter =>
+      'No valid chapter to download.';
+
+  @override
+  String get browse_section_new => 'New section';
+
+  @override
+  String get browse_section_rename => 'Rename section';
+
+  @override
+  String get browse_section_rename_short => 'Rename';
+
+  @override
+  String browse_section_delete_title(Object name) {
+    return 'Delete “$name”?';
+  }
+
+  @override
+  String get browse_section_delete_body =>
+      'The section is deleted. The extensions stay installed.';
+
+  @override
+  String get browse_section_name_hint => 'Section name';
+
+  @override
+  String get browse_section_empty_title => 'No section';
+
+  @override
+  String get browse_section_empty_body =>
+      'Create a section (e.g. “Hentai”) then add the extensions you want to group in it.';
+
+  @override
+  String browse_section_extension_count(Object count) {
+    return '$count extension(s)';
+  }
+
+  @override
+  String get browse_section_add_extensions => 'Add extensions';
+
+  @override
+  String get browse_section_detail_empty =>
+      'This section is empty. Add extensions to find them here.';
+
+  @override
+  String get browse_section_picker_title => 'Section extensions';
+
+  @override
+  String get browse_section_no_extensions =>
+      'No extension installed for this type.';
+
+  @override
+  String browse_section_add_to(Object name) {
+    return 'Add “$name” to a section';
+  }
+
+  @override
+  String get browse_section_create_first =>
+      'First create a section from the ⋮ menu of the Explorer.';
+
+  @override
+  String get browse_section_default_name => 'Section';
+
+  @override
+  String get browse_validate => 'Validate';
+
+  @override
+  String get browse_remove_tooltip => 'Remove';
+
+  @override
+  String get browse_section_options => 'Section options';
+
+  @override
+  String get browse_section_enable => 'Enable section';
+
+  @override
+  String get browse_section_disable => 'Disable section';
+
+  @override
+  String get browse_section_pin => 'Pin section';
+
+  @override
+  String get browse_section_unpin => 'Unpin section';
+
+  @override
+  String get browse_load_extensions_failed => 'Could not load extensions';
+
+  @override
+  String get browse_check_connection => 'Retry after checking your connection.';
+
+  @override
+  String get browse_install_from_marketplace =>
+      'Install an extension from the Marketplace';
+
+  @override
+  String get browse_go_to_market => 'Go to Marketplace';
+
+  @override
+  String get browse_no_matching_extension =>
+      'No extension matches the search or the filters.';
+
+  @override
+  String get browse_scanning_extensions => 'Scanning extensions…';
+
+  @override
+  String get browse_extension_settings => 'Extension settings';
+
+  @override
+  String get browse_pin => 'Pin';
+
+  @override
+  String get browse_unpin => 'Unpin';
+
+  @override
+  String get browse_filter_installed => 'Installed extensions';
+
+  @override
+  String get browse_filter_active_only => 'Active sources only';
+
+  @override
+  String get browse_filter_content_nsfw => 'Content and NSFW';
+
+  @override
+  String get browse_filter_all_languages => 'All languages';
+
+  @override
+  String browse_filter_language_prefix(Object code) {
+    return 'Language: $code';
+  }
+
+  @override
+  String get browse_filter_tags => 'Extension tags';
+
+  @override
+  String browse_filter_tags_count(Object count) {
+    return '$count tag(s) selected';
+  }
+
+  @override
+  String get browse_filter_done => 'Done';
+
+  @override
+  String get browse_filter_clear_search => 'Clear search';
+
+  @override
+  String get browse_filter_search_installed => 'Search an installed extension';
+
+  @override
+  String get browse_tag_cloudflare => 'Cloudflare';
+
+  @override
+  String get browse_tag_account => 'Account required';
+
+  @override
+  String get browse_tag_drm => 'DRM';
+
+  @override
+  String get browse_tag_aggregator => 'Aggregator';
+
+  @override
+  String get browse_tag_comments => 'Comments';
+
+  @override
+  String get browse_tag_torrent => 'Torrent';
+
+  @override
+  String get browse_tag_update => 'Update available';
+
+  @override
+  String get browse_tag_javascript => 'JavaScript';
+
+  @override
+  String get browse_tag_dart => 'Dart';
+
+  @override
+  String get browse_url_copied => 'URL copied!';
+
+  @override
+  String browse_launch_failed(Object url) {
+    return 'Could not launch $url';
+  }
+
+  @override
+  String get browse_no_local_layout =>
+      'No local layout available for this extension.';
+
+  @override
+  String get browse_layout_root_object => 'The layout root must be an object.';
+
+  @override
+  String get browse_save_card_failed => 'Could not save the search card.';
+
+  @override
+  String get browse_search_card_saved => 'Search card saved.';
+
+  @override
+  String browse_search_layout_invalid(Object error) {
+    return 'Invalid search layout: $error';
+  }
+
+  @override
+  String get browse_invalid_site_url => 'Invalid site URL.';
+
+  @override
+  String get browse_login_open_failed => 'Could not open the login page.';
+
+  @override
+  String get browse_session_cleared => 'Session cleared for this extension.';
+
+  @override
+  String get browse_session_clear_failed =>
+      'Could not clear this extension’s session.';
+
+  @override
+  String get browse_session_checking => 'Checking connection…';
+
+  @override
+  String get browse_session_logging_in => 'Signing in…';
+
+  @override
+  String get browse_session_logging_out => 'Signing out…';
+
+  @override
+  String get browse_session_saved => 'Site session saved';
+
+  @override
+  String browse_session_connected(Object identity) {
+    return 'Connected: $identity';
+  }
+
+  @override
+  String get browse_session_not_connected => 'Not connected';
+
+  @override
+  String get browse_session_unavailable => 'Connection status unavailable';
+
+  @override
+  String get browse_check_connection_short => 'Check connection';
+
+  @override
+  String get browse_account_connected => 'Connected account';
+
+  @override
+  String get browse_account_fallback => 'Account';
+
+  @override
+  String get browse_no_favorites => 'No favorite available.';
+
+  @override
+  String get browse_untitled => 'Untitled';
+
+  @override
+  String browse_more_favorites(Object count) {
+    return '+$count more favorites';
+  }
+
+  @override
+  String browse_expires_on(Object date) {
+    return 'Expires $date';
+  }
+
+  @override
+  String get browse_details_unavailable => 'Details unavailable';
+
+  @override
+  String get browse_premium_status => 'Premium status';
+
+  @override
+  String get browse_status_unavailable => 'Status unavailable';
+
+  @override
+  String get browse_status_active => 'Active';
+
+  @override
+  String get browse_status_inactive => 'Inactive';
+
+  @override
+  String get browse_favorites => 'Favorites';
+
+  @override
+  String get browse_edit_base_url => 'Edit base URL';
+
+  @override
+  String get browse_base_url => 'Base URL';
+
+  @override
+  String get browse_base_url_updated => 'URL updated!';
+
+  @override
+  String get browse_base_url_undefined => 'Base URL not set.';
+
+  @override
+  String get browse_import_cookies => 'Import cookies';
+
+  @override
+  String get browse_cookies_format =>
+      'Paste cookies as: key=value; key2=value2';
+
+  @override
+  String get browse_cookies_hint => 'session=abc123; token=xyz789';
+
+  @override
+  String get browse_cookies_imported => 'Cookies imported!';
+
+  @override
+  String get browse_cookies_import_failed => 'Error importing cookies.';
+
+  @override
+  String get browse_cookies_none_available =>
+      'No cookie available for this extension.';
+
+  @override
+  String get browse_cookies_copied => 'Cookies copied!';
+
+  @override
+  String get browse_cookies_none_stored =>
+      'No stored cookie for this extension.';
+
+  @override
+  String get browse_export_cookies => 'Export cookies';
+
+  @override
+  String get browse_stored_cookies => 'Stored cookies';
+
+  @override
+  String get browse_user_agent => 'User-Agent';
+
+  @override
+  String get browse_user_agent_help =>
+      'Leave empty to use the default User-Agent.';
+
+  @override
+  String get browse_reset => 'Reset';
+
+  @override
+  String get browse_user_agent_reset => 'User-Agent reset.';
+
+  @override
+  String get browse_user_agent_updated => 'User-Agent updated!';
+
+  @override
+  String get browse_clear_data_title => 'Clear data?';
+
+  @override
+  String get browse_clear_data_body =>
+      'This will delete all preferences, cookies and data associated with this extension.';
+
+  @override
+  String get browse_clear_data_confirm => 'Clear';
+
+  @override
+  String get browse_data_cleared => 'Data cleared!';
+
+  @override
+  String get browse_clear_cache_title => 'Clear cache?';
+
+  @override
+  String get browse_clear_cache_body =>
+      'This reloads the extension preferences from the local database and tries to invalidate this source’s HTTP cache. Cookies are not affected.';
+
+  @override
+  String get browse_cache_emptied => 'Empty';
+
+  @override
+  String get browse_prefs_reloaded =>
+      'Preferences reloaded. Reopen the source to refresh the cache.';
+
+  @override
+  String get browse_http_headers => 'HTTP headers';
+
+  @override
+  String get browse_no_headers => 'No header defined.';
+
+  @override
+  String get browse_headers_copied => 'Headers copied!';
+
+  @override
+  String get browse_extension_missing =>
+      'This extension no longer exists in local storage.';
+
+  @override
+  String get browse_extension_uninstalled => 'Extension uninstalled.';
+
+  @override
+  String browse_uninstall_failed(Object error) {
+    return 'Error while uninstalling: $error';
+  }
+
+  @override
+  String get browse_uninstall_extension => 'Uninstall extension';
+
+  @override
+  String get browse_cookies_deleted => 'Cookies deleted!';
+
+  @override
+  String get browse_import_cookie => 'Import cookie';
+
+  @override
+  String get browse_view_cookies => 'View cookies';
+
+  @override
+  String get browse_clear_cookies => 'Clear cookies';
+
+  @override
+  String get browse_clear_cache_short => 'Clear cache';
+
+  @override
+  String get browse_clear_data_short => 'Clear data';
+
+  @override
+  String get browse_edit_url => 'Edit URL';
+
+  @override
+  String get browse_view_headers => 'View headers';
+
+  @override
+  String get browse_edit_user_agent => 'Edit User-Agent';
+
+  @override
+  String get browse_obsolete => 'Outdated';
+
+  @override
+  String get browse_not_installed => 'Not installed';
+
+  @override
+  String get browse_account_required => 'Account required';
+
+  @override
+  String get browse_repository => 'Repository';
+
+  @override
+  String get browse_available => 'Available';
+
+  @override
+  String get browse_account_and_features => 'Account and features';
+
+  @override
+  String get browse_account_desc =>
+      'The connection and displayed information are specific to this extension. The session data used by its requests stays separate.';
+
+  @override
+  String get browse_account_desc_generic =>
+      'The displayed information is provided by the methods declared by this extension.';
+
+  @override
+  String get browse_sign_in => 'Sign in';
+
+  @override
+  String get browse_clear_session => 'Clear session';
+
+  @override
+  String get browse_home_layout => 'Home layout';
+
+  @override
+  String get browse_edit_visually => 'Edit visually';
+
+  @override
+  String get browse_search_results => 'Search results';
+
+  @override
+  String get browse_choose_result_card => 'Choose a result card';
+
+  @override
+  String get browse_extension_word => 'Extension';
+
+  @override
+  String get browse_open_settings => 'Open settings';
+
+  @override
+  String get browse_diag_export_report => 'Export report';
+
+  @override
+  String browse_diag_files_count(Object count) {
+    return '$count files';
+  }
+
+  @override
+  String get browse_diag_summary_view => 'Summary view';
+
+  @override
+  String get browse_diag_view_raw => 'View raw report';
+
+  @override
+  String get browse_diag_copy => 'Copy';
+
+  @override
+  String browse_diag_raw_report(Object format) {
+    return 'Raw report — $format';
+  }
+
+  @override
+  String browse_diag_chars_count(Object count) {
+    return '$count characters';
+  }
+
+  @override
+  String get browse_diag_tab_extension => 'Extension';
+
+  @override
+  String get browse_diag_tab_detail => 'Detail';
+
+  @override
+  String get browse_diag_in_progress => 'Diagnostic in progress…';
+
+  @override
+  String get browse_diag_waiting => 'Waiting for diagnostic';
+
+  @override
+  String get browse_diag_test_extension => 'Test this extension';
+
+  @override
+  String get browse_diag_interrupted =>
+      'Diagnostic interrupted — some steps could not run.';
+
+  @override
+  String get browse_diag_retest => 'Retest this extension';
+
+  @override
+  String browse_diag_results_count(Object count) {
+    return '$count results';
+  }
+
+  @override
+  String browse_diag_logs(Object label) {
+    return 'LOGS — $label';
+  }
+
+  @override
+  String get browse_diag_no_trace => 'No trace for this step.';
+
+  @override
+  String browse_diag_sources_count(Object count) {
+    return '$count sources';
+  }
+
+  @override
+  String browse_diag_page_of(Object page, Object total) {
+    return 'Page $page / $total';
+  }
+
+  @override
+  String get browse_diag_image_unreachable => 'Image unreachable';
+
+  @override
+  String get browse_diag_open_detail => 'Open detail';
+
+  @override
+  String get browse_diag_no_errors => 'No error detected on the steps.';
+
+  @override
+  String browse_diag_running(Object label) {
+    return 'Diagnostic $label in progress…';
+  }
+
+  @override
+  String browse_diag_title(Object label) {
+    return 'Diagnostic $label';
+  }
+
+  @override
+  String get browse_diag_no_extension_installed => 'No extension installed';
+
+  @override
+  String get browse_diag_change_filters =>
+      'Change the search or the filters from the Panel.';
+
+  @override
+  String get browse_diag_no_extension_selected => 'No extension selected';
+
+  @override
+  String get browse_diag_no_results_yet => 'No results yet';
+
+  @override
+  String get browse_diag_no_report => 'No report';
+
+  @override
+  String get browse_diag_control_panel => 'Control panel';
+
+  @override
+  String get browse_diag_all => 'All';
+
+  @override
+  String get browse_diag_everything => 'Everything';
+
+  @override
+  String get browse_diag_sfw => 'SFW';
+
+  @override
+  String get browse_diag_only_errors => 'Show only errors';
+
+  @override
+  String get browse_diag_only_tested => 'Show only tested extensions';
+
+  @override
+  String get browse_diag_canceling => 'Canceling…';
+
+  @override
+  String get browse_diag_panel => 'Panel';
+
+  @override
+  String get browse_diag_results => 'Results';
+
+  @override
+  String get browse_diag_all_respond => 'All sources respond ✓';
+
+  @override
+  String browse_diag_unanalyzed(Object count) {
+    return '$count not analyzed';
+  }
+
+  @override
+  String browse_diag_remaining(Object count) {
+    return '$count remaining';
+  }
+
+  @override
+  String get browse_diag_restart => 'Restart';
+
+  @override
+  String get browse_diag_err_short => 'Err.';
+
+  @override
+  String get browse_diag_tested => 'Tested';
+
+  @override
+  String get browse_create_title => 'Create an extension';
+
+  @override
+  String get browse_create_language => 'LANGUAGE';
+
+  @override
+  String get browse_create_information => 'INFORMATION';
+
+  @override
+  String get browse_create_name => 'Name';
+
+  @override
+  String get browse_create_name_hint => 'e.g. myAnime';
+
+  @override
+  String get browse_create_api_url => 'API URL (optional)';
+
+  @override
+  String get browse_create_icon_url => 'Icon URL';
+
+  @override
+  String get browse_create_notes => 'Notes';
+
+  @override
+  String get browse_create_notes_hint => 'e.g. requires a connection';
+
+  @override
+  String get browse_create_type => 'TYPE';
+
+  @override
+  String get browse_create_source => 'Source';
+
+  @override
+  String get browse_create_lang_iso => 'Language (ISO code)';
+
+  @override
+  String get browse_create_lang_hint => 'e.g. fr, en, ja';
+
+  @override
+  String get browse_create_exists => 'This extension name already exists.';
+
+  @override
+  String get browse_create_native_recommended => 'Native · Recommended';
+
+  @override
+  String get browse_create_js_universal => 'Universal JS';
+
+  @override
+  String get browse_layout_format => 'Format (indented)';
+
+  @override
+  String get browse_layout_minify => 'Minify';
+
+  @override
+  String get browse_layout_save => 'Save layout';
+
+  @override
+  String get browse_layout_placeholder => 'The layout JSON will appear here';
+
+  @override
+  String get browse_layout_saving => 'Saving…';
+
+  @override
+  String get browse_layout_wrap => 'Word wrap';
+
+  @override
+  String get browse_layout_numbers => 'Numbers';
+
+  @override
+  String get browse_layout_left => 'Left';
+
+  @override
+  String get browse_layout_center => 'Center';
+
+  @override
+  String get browse_code_import_file => 'Import a file';
+
+  @override
+  String browse_code_file_imported(Object name) {
+    return 'File imported: $name';
+  }
+
+  @override
+  String browse_code_import_error(Object error) {
+    return 'Import error: $error';
+  }
+
+  @override
+  String get browse_code_save => 'Save';
+
+  @override
+  String get browse_code_saved => 'Saved';
+
+  @override
+  String get browse_code_clear_logs => 'Clear logs';
+
+  @override
+  String get browse_pref_setting => 'Setting';
+
+  @override
+  String get browse_pref_choice => 'Choice';
+
+  @override
+  String get browse_pref_multi_choice => 'Multiple choice';
+
+  @override
+  String browse_anime_episode(Object number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String browse_anime_play_failed(Object error) {
+    return 'Playback failed: $error';
+  }
+
+  @override
+  String get browse_anime_episode_sources => 'Episode sources';
+
+  @override
+  String get browse_anime_play_episode => 'Play this episode';
+
+  @override
+  String browse_local_how_to_title(Object type) {
+    return 'Local $type — How to use';
+  }
+
+  @override
+  String get browse_alternative => 'Alternative';
+
+  @override
+  String get browse_close => 'Close';
+
+  @override
+  String get browse_copy => 'Copy';
+
+  @override
+  String browse_diag_steps_header(Object media) {
+    return 'Steps — Popular · Latest · Detail · $media';
+  }
+
+  @override
+  String get browse_diag_videos => 'Videos';
+
+  @override
+  String get browse_diag_pages => 'Pages';
+
+  @override
+  String get browse_diag_not_tested => 'not tested';
+
+  @override
+  String browse_diag_lang_filter(Object name) {
+    return 'Language: $name';
+  }
+
+  @override
+  String browse_diag_type_filter(Object name) {
+    return 'Type: $name';
+  }
+
+  @override
+  String get browse_diag_nsfw_only => 'NSFW only';
+
+  @override
+  String get browse_diag_sfw_only => 'SFW only';
+
+  @override
+  String get browse_diag_all_extensions => 'All extensions';
+
+  @override
+  String browse_diag_notify_running(Object label) {
+    return 'Diagnostic $label in progress…';
+  }
+
+  @override
+  String browse_diag_notify_title(Object label) {
+    return 'Diagnostic $label';
+  }
+
+  @override
+  String browse_diag_cancelled(Object done, Object total) {
+    return 'Diagnostic cancelled — $done / $total analyzed.';
+  }
+
+  @override
+  String browse_diag_finished(Object failed, Object ok) {
+    return 'Diagnostic finished — $ok OK · $failed failed.';
+  }
+
+  @override
+  String get browse_diag_cancelling_snack => 'Canceling the diagnostic…';
+
+  @override
+  String browse_diag_retest_cancelled(Object name) {
+    return 'Retest cancelled for $name.';
+  }
+
+  @override
+  String browse_diag_retest_ok(Object name) {
+    return '✅ $name now responds correctly.';
+  }
+
+  @override
+  String browse_diag_retest_fail(Object name) {
+    return '❌ $name still fails — see the step logs.';
+  }
+
+  @override
+  String get browse_diag_no_report_available =>
+      'No report available — run a diagnostic.';
+
+  @override
+  String browse_diag_report_copied(Object format) {
+    return '$format report copied ✓';
+  }
+
+  @override
+  String get browse_diag_no_extension_selected_snack =>
+      'No extension selected — enable at least one.';
+
+  @override
+  String get browse_diag_no_extension_filter => 'No extension for this filter.';
+
+  @override
+  String get browse_diag_ready => 'Ready to diagnose';
+
+  @override
+  String get browse_diag_paused => 'Paused';
+
+  @override
+  String get browse_diag_running_state => 'Diagnostic in progress';
+
+  @override
+  String get browse_diag_interrupted_state => 'Interrupted';
+
+  @override
+  String get browse_diag_complete => 'Diagnostic finished';
+
+  @override
+  String get browse_diag_complete_errors => 'Finished with errors';
+
+  @override
+  String get browse_diag_ready_short => 'Ready';
+
+  @override
+  String browse_diag_extensions_analyzed(
+    Object done,
+    Object elapsed,
+    Object total,
+  ) {
+    return '$done / $total extensions analyzed · $elapsed';
+  }
+
+  @override
+  String browse_diag_select_hint(Object count) {
+    return 'Check the extensions to test · $count selected';
+  }
+
+  @override
+  String get browse_diag_panel_type => 'Type';
+
+  @override
+  String get browse_diag_panel_content => 'Content';
+
+  @override
+  String get browse_diag_panel_options => 'Options';
+
+  @override
+  String get browse_diag_resume => 'Resume';
+
+  @override
+  String get browse_diag_pause => 'Pause';
+
+  @override
+  String get browse_diag_start => 'Start the diagnostic';
+
+  @override
+  String get browse_diag_view_extensions => 'View extensions';
+
+  @override
+  String get browse_diag_open_panel => 'Open the Panel';
+
+  @override
+  String get browse_diag_back => 'Back';
+
+  @override
+  String get browse_diag_add_extensions =>
+      'Add extensions from the Marketplace before running a diagnostic.';
+
+  @override
+  String get browse_diag_no_extension_filters =>
+      'No extension for these filters';
+
+  @override
+  String get browse_diag_touch_extension =>
+      'Tap an extension in the list to show its steps, logs and detailed errors.';
+
+  @override
+  String get browse_diag_results_appear =>
+      'Analyzed extensions will appear here with their steps and logs.';
+
+  @override
+  String get browse_diag_run_for_report =>
+      'Run a diagnostic to get a detailed, exportable report (Markdown, JSON, TXT, CSV).';
+
+  @override
+  String browse_diag_step_failed(Object count) {
+    return '$count step(s) failed — open each step for the logs.';
+  }
+
+  @override
+  String get browse_diag_extension_word => 'Extension';
+
+  @override
+  String get browse_diag_analyzing => 'Analyzing…';
+
+  @override
+  String get browse_diag_waiting_short => 'Waiting…';
+
+  @override
+  String get browse_local_folder => '📁 Local folder';
+
+  @override
+  String get browse_local_formats => '🗂️ Supported formats';
+
+  @override
+  String get browse_local_organization => '🗃️ Folder organization';
+
+  @override
+  String get browse_local_recommended_structure => 'Recommended structure:';
+
+  @override
+  String get browse_local_tips => 'Tips';
+
+  @override
+  String get browse_local_default => 'Default';
+
+  @override
+  String get browse_local_alt => 'Alternative';
+
+  @override
+  String browse_local_default_path(Object type) {
+    return 'On my iPhone → Watchtower → Local/$type';
+  }
+
+  @override
+  String browse_local_alt_path(Object type) {
+    return 'On my iPhone → Watchtower → $type';
+  }
+
+  @override
+  String get browse_local_scan_note =>
+      'Watchtower will scan this folder automatically when the local source opens.';
+
+  @override
+  String browse_local_hero_title(Object type) {
+    return 'Local source $type';
+  }
+
+  @override
+  String get browse_local_hero_subtitle =>
+      'Read your local files directly from your device, without an internet connection.';
+
+  @override
+  String browse_local_tip_source(Object type) {
+    return 'Open the \"$type Local\" source in Browse → Sources to see your files.';
+  }
+
+  @override
+  String get browse_local_tip_subfolder =>
+      'Create a subfolder per title for better organization.';
+
+  @override
+  String get browse_local_tip_cover =>
+      'A cover.jpg file in the title folder will be used as the cover.';
+
+  @override
+  String get browse_local_tip_pull =>
+      'Pull down on the local library to rescan the files.';
+
+  @override
+  String get browse_local_type_music => 'Music';
+
+  @override
+  String get browse_local_type_game => 'Game';
+
+  @override
+  String get browse_local_type_plugin => 'Plugin';
+
+  @override
+  String get browse_create_base_url => 'Base URL';
+
+  @override
+  String get browse_account_required_chip => '🔐 Account required';
+
+  @override
+  String get browse_drm_chip => '🔒 DRM';
+
+  @override
+  String browse_version_up(Object version) {
+    return '↑ v$version';
+  }
+
+  @override
+  String browse_version_short(Object version) {
+    return 'v$version';
+  }
+
+  @override
+  String get browse_cookies => 'Cookies';
+
+  @override
+  String get browse_user_agent_hint => 'Mozilla/5.0 ...';
+
+  @override
+  String get browse_cloudflare => 'Cloudflare';
 }

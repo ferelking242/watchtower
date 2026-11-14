@@ -20,6 +20,22 @@ class GlobalSearchDownloadResult {
   });
 }
 
+/// Localised strings this service needs. The service has no [BuildContext], so
+/// the caller passes the resolved strings in rather than the service holding
+/// hard-coded user-facing text.
+class GlobalSearchDownloadMessages {
+  final String noLink;
+  final String noChapters;
+  final String noValidChapter;
+  final String chapterFallback;
+  const GlobalSearchDownloadMessages({
+    required this.noLink,
+    required this.noChapters,
+    required this.noValidChapter,
+    required this.chapterFallback,
+  });
+}
+
 /// Queues [startChapter]..[endChapter] (1-based, inclusive; `0` = all) of
 /// [item] from [source] into Watchtower's normal download pipeline.
 ///
@@ -34,12 +50,13 @@ Future<GlobalSearchDownloadResult> downloadMangaFromGlobalSearch({
   required MManga item,
   required int startChapter,
   required int endChapter,
+  required GlobalSearchDownloadMessages messages,
   bool wifiOnly = true,
   bool addToLibrary = false,
 }) async {
   final link = item.link;
   if (link == null || link.isEmpty) {
-    throw StateError('Cette entrée n’a pas de lien exploitable.');
+    throw StateError(messages.noLink);
   }
 
   final detail = await container.read(
@@ -47,7 +64,7 @@ Future<GlobalSearchDownloadResult> downloadMangaFromGlobalSearch({
   );
   final chapters = detail.chapters ?? const [];
   if (chapters.isEmpty) {
-    throw StateError('Aucun chapitre disponible pour ce titre.');
+    throw StateError(messages.noChapters);
   }
 
   final mangaId = _persistManga(source: source, item: item, addToLibrary: addToLibrary);
@@ -74,7 +91,7 @@ Future<GlobalSearchDownloadResult> downloadMangaFromGlobalSearch({
     }
     final chapter = Chapter(
       mangaId: mangaId,
-      name: c.name ?? 'Chapitre',
+      name: c.name ?? messages.chapterFallback,
       url: url,
       dateUpload: c.dateUpload ?? '',
       scanlator: c.scanlator ?? '',
@@ -89,7 +106,7 @@ Future<GlobalSearchDownloadResult> downloadMangaFromGlobalSearch({
   }
 
   if (persisted.isEmpty) {
-    throw StateError('Aucun chapitre valide à télécharger.');
+    throw StateError(messages.noValidChapter);
   }
 
   await isar.writeTxn(() async {
