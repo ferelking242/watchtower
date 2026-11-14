@@ -8,6 +8,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:watchtower/modules/music/extensions/list.dart';
 import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/provider/audio_player/playback_streams.dart';
 import 'package:watchtower/modules/music/provider/audio_player/state.dart';
 import 'package:watchtower/modules/music/provider/blacklist_provider.dart';
 import 'package:watchtower/modules/music/provider/database/database.dart';
@@ -131,6 +132,11 @@ class AudioPlayerNotifier extends Notifier<AudioPlayerState> {
 
   @override
   build() {
+    // Scrobbling and per-track history hang off the audio engine's own
+    // streams so they always follow the real playback state instead of
+    // every call site re-implementing its own trigger.
+    ref.watch(playbackStreamListenersProvider);
+
     final subscriptions = [
       audioPlayer.playingStream.listen((playing) async {
         try {
