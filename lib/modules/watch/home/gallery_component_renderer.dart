@@ -85,6 +85,16 @@ class GalleryComponentContext {
   /// `#AARRGGBB`. Renvoie `null` pour laisser la carte utiliser le thème.
   Color? color(String key) => parseLayoutColor(params[key]);
 
+  /// Écart horizontal demandé par le layout (`spacingX` prime sur `spacing`).
+  /// Les cartes qui exposent un espacement interne le lisent ici pour que le
+  /// même paramètre pilote la carte composite et la rangée de cartes.
+  double spacing(double fallback) =>
+      decimal('spacingX') ?? decimal('horizontalSpacing') ?? decimal('spacing') ?? fallback;
+
+  /// Écart vertical demandé par le layout (`spacingY` prime sur `spacing`).
+  double spacingY(double fallback) =>
+      decimal('spacingY') ?? decimal('verticalSpacing') ?? decimal('spacing') ?? fallback;
+
   /// Effective section title: explicit param wins over the layout title.
   String? get header => text('title') ?? title;
 
@@ -206,6 +216,7 @@ class GalleryComponentRenderer {
   /// Composants « bloc » dont l'en-tête est désormais rendu par la section :
   /// la carte n'en affiche plus aucun.
   static bool _sectionOwnsHeader(String id) => const {
+    'poster-row',
     'similar-media',
     'trending',
     'trending-card',
@@ -402,6 +413,7 @@ class GalleryComponentRenderer {
       'home-hero-banner',
       // Cartes « bloc » sans en-tête propre : elles remplissent la largeur de
       // la section au lieu de défiler horizontalement.
+      'poster-row',
       'similar-media',
       'trending',
       'trending-card',
@@ -703,22 +715,91 @@ class GalleryComponentRenderer {
         );
 
       // ── Collection rails ──
+      // Sept cartes « rangée de posters » identiques, une seule carte : la
+      // variante (rang, grand rang, note, vues) vient des params du layout.
+      // `poster-row` est la carte unique ; les variantes historiques ne
+      // changent que la pastille par défaut, que le layout peut surcharger
+      // avec `showRank`, `showBigRank`, `showRating`, `showViews`, `showMeta`.
+      case 'poster-row':
       case 'similar-media':
-        return SimilarMediaCard(items: _entries(ctx, items), width: w ?? 430);
+        return PosterRowCard(
+          items: _entries(ctx, items),
+          width: w ?? 430,
+          spacing: ctx.spacing(10),
+          showRank: ctx.flag('showRank'),
+          showBigRank: ctx.flag('showBigRank'),
+          showRating: ctx.flag('showRating'),
+          showViews: ctx.flag('showViews'),
+          showMeta: ctx.flag('showMeta', fallback: true),
+        );
       case 'trending':
       case 'trending-card':
-        return TrendingCard(items: _entries(ctx, items), width: w ?? 430);
+        return PosterRowCard(
+          items: _entries(ctx, items),
+          width: w ?? 430,
+          spacing: ctx.spacing(10),
+          showRank: ctx.flag('showRank', fallback: true),
+          showBigRank: ctx.flag('showBigRank'),
+          showRating: ctx.flag('showRating'),
+          showViews: ctx.flag('showViews'),
+          showMeta: ctx.flag('showMeta', fallback: true),
+        );
       case 'popular':
       case 'popular-card':
-        return PopularCard(items: _entries(ctx, items), width: w ?? 430);
+        return PosterRowCard(
+          items: _entries(ctx, items),
+          width: w ?? 430,
+          spacing: ctx.spacing(10),
+          showRank: ctx.flag('showRank'),
+          showBigRank: ctx.flag('showBigRank'),
+          showRating: ctx.flag('showRating'),
+          showViews: ctx.flag('showViews', fallback: true),
+          showMeta: ctx.flag('showMeta', fallback: true),
+        );
       case 'top-rated':
-        return TopRatedCard(items: _entries(ctx, items), width: w ?? 430);
+        return PosterRowCard(
+          items: _entries(ctx, items),
+          width: w ?? 430,
+          spacing: ctx.spacing(10),
+          showRank: ctx.flag('showRank'),
+          showBigRank: ctx.flag('showBigRank'),
+          showRating: ctx.flag('showRating', fallback: true),
+          showViews: ctx.flag('showViews'),
+          showMeta: ctx.flag('showMeta', fallback: true),
+        );
       case 'ranked-media':
-        return RankedMediaCard(items: _entries(ctx, items), width: w ?? 430);
+        return PosterRowCard(
+          items: _entries(ctx, items),
+          width: w ?? 430,
+          spacing: ctx.spacing(10),
+          showRank: ctx.flag('showRank'),
+          showBigRank: ctx.flag('showBigRank', fallback: true),
+          showRating: ctx.flag('showRating'),
+          showViews: ctx.flag('showViews'),
+          showMeta: ctx.flag('showMeta', fallback: true),
+        );
       case 'numbered':
-        return NumberedCard(items: _entries(ctx, items), width: w ?? 400);
+        return PosterRowCard(
+          items: _entries(ctx, items),
+          width: w ?? 400,
+          spacing: ctx.spacing(10),
+          showRank: ctx.flag('showRank', fallback: true),
+          showBigRank: ctx.flag('showBigRank'),
+          showRating: ctx.flag('showRating'),
+          showViews: ctx.flag('showViews'),
+          showMeta: ctx.flag('showMeta'),
+        );
       case 'recommendation':
-        return RecommendationCard(items: _entries(ctx, items), width: w ?? 430);
+        return PosterRowCard(
+          items: _entries(ctx, items),
+          width: w ?? 430,
+          spacing: ctx.spacing(10),
+          showRank: ctx.flag('showRank'),
+          showBigRank: ctx.flag('showBigRank'),
+          showRating: ctx.flag('showRating'),
+          showViews: ctx.flag('showViews'),
+          showMeta: ctx.flag('showMeta', fallback: true),
+        );
       case 'carousel-card':
         return UniverseCarouselCard(
           universes: _entries(ctx, items),
@@ -765,31 +846,26 @@ class GalleryComponentRenderer {
         return MangaChapterReleaseCard(
           items: _chapters(ctx, items),
           width: w ?? 300,
-          onSeeAll: seeAll,
         );
       case 'manga-chapter-list':
         return MangaChapterListCard(
           items: _chapters(ctx, items),
           width: w ?? 300,
-          onSeeAll: seeAll,
         );
       case 'manga-latest-release':
         return MangaLatestReleaseCard(
           items: _chapters(ctx, items),
           width: w ?? 300,
-          onSeeAll: seeAll,
         );
       case 'manga-release-timeline':
         return MangaReleaseTimelineCard(
           items: _chapters(ctx, items),
           width: w ?? 340,
-          onSeeAll: seeAll,
         );
       case 'manga-chapter-timeline':
         return MangaChapterTimelineCard(
           items: _chapters(ctx, items),
           width: w ?? 300,
-          onSeeAll: seeAll,
         );
       case 'manga-chapter-badge':
         return MangaChapterBadge(badges: _badges(ctx, items), width: w ?? 330);
@@ -808,7 +884,6 @@ class GalleryComponentRenderer {
         return MangaUpcomingVolumeCard(
           items: _volumes(ctx, items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-chapter-search':
         return MangaChapterSearchCard(
@@ -822,37 +897,27 @@ class GalleryComponentRenderer {
         return MangaGenresCard(
           items: _genreEntries(ctx, items),
           width: w ?? 400,
-          title: title,
           columns: ctx.number('columns') ?? 2,
-          onSeeAll: seeAll,
         );
       case 'manga-demographics':
         return MangaDemographicsCard(
           items: _genreEntries(ctx, items),
           width: w ?? 400,
-          onSeeAll: seeAll,
         );
       case 'manga-themes':
         return MangaThemesCard(
           items: _genreEntries(ctx, items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-universe-showcase':
         return MangaUniverseShowcaseCard(
           items: _showcase(ctx, items),
           width: w ?? 430,
-          title: title,
-          onSeeAll: seeAll,
         );
       case 'manga-tags':
         return MangaTagsCard(
           tags: _tags(ctx, items),
           width: w ?? 430,
-          onSeeAll: seeAll,
-          title: ctx.header ?? 'Tags',
-          subtitle:
-              ctx.text('subtitle') ?? 'Affinez vos recherches avec les tags.',
         );
       case 'manga-languages':
         return MangaLanguagesCard(
@@ -865,67 +930,56 @@ class GalleryComponentRenderer {
         return MangaPublishersCard(
           publishers: _publishers(ctx, items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-language-news':
         return MangaLanguageNewsCard(
           entries: _langs(ctx, items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-global-stats':
         return MangaGlobalStatsCard(
           tiles: _statTiles(items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-stats-grid':
         return MangaStatsGridCard(
           tiles: _statTiles(items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-status':
         return MangaStatusCard(
           items: _statusTuples(items),
           width: w ?? 400,
-          onSeeAll: seeAll,
         );
       case 'manga-frequency':
         return MangaFrequencyCard(
           items: _freqTuples(items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-popularity':
         return MangaPopularityCard(
           items: _rankEntries(items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-category-ranking':
         return MangaCategoryRankingCard(
           items: _rankEntries(items),
           width: w ?? 400,
-          onSeeAll: seeAll,
         );
       case 'manga-followers':
         return MangaFollowersCard(
           items: _relations(items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-reports':
         return MangaReportsCard(
           items: _statRows(items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-serialization':
         return MangaSerializationCard(
           items: _showcase(ctx, items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-item-stats':
         return MangaItemStatsCard(
@@ -948,7 +1002,6 @@ class GalleryComponentRenderer {
           items: _relationEntries(ctx, items),
           width: w ?? 430,
           columns: ctx.number('columns') ?? 4,
-          onSeeAll: seeAll,
         );
       case 'manga-universe-timeline':
         return MangaUniverseTimelineCard(
@@ -956,20 +1009,17 @@ class GalleryComponentRenderer {
           backdropUrl: items.first.backdropUrl,
           series: _relationEntries(ctx, items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-linked-series':
         return MangaLinkedSeriesCard(
           items: _relationEntries(ctx, items),
           width: w ?? 360,
           columns: ctx.number('columns') ?? 3,
-          onSeeAll: seeAll,
         );
       case 'manga-relation-list':
         return MangaRelationListCard(
           items: _relationEntries(ctx, items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-same-universe':
         return MangaSameUniverseCard(
@@ -977,32 +1027,27 @@ class GalleryComponentRenderer {
           backdropUrl: items.first.backdropUrl,
           entries: _relationEntries(ctx, items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
       case 'manga-universe-chronology':
         return MangaUniverseChronologyCard(
           points: _points(items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-franchise-universes':
         return MangaFranchiseUniversesCard(
           items: _relationEntries(ctx, items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'manga-character-relations':
         return MangaCharacterRelationsCard(
           items: _relationEntries(ctx, items),
           width: w ?? 430,
           columns: ctx.number('columns') ?? 4,
-          onSeeAll: seeAll,
         );
       case 'manga-universe-map':
         return MangaUniverseMapCard(
           nodes: _relationEntries(ctx, items),
           width: w ?? 430,
-          onSeeAll: seeAll,
         );
 
       // ── Home hero rails ──
@@ -1068,19 +1113,16 @@ class GalleryComponentRenderer {
           icon: Icons.view_carousel_outlined,
           items: _landscape(ctx, items),
           width: w ?? 900,
-          onSeeAll: seeAll,
         );
       case 'landscape-playlist':
         return LandscapePlaylistCard(
           playlists: _playlists(ctx, items),
           width: w ?? 900,
-          onSeeAll: seeAll,
         );
       case 'landscape-genre-row':
         return LandscapeGenreRow(
           tiles: _genreTiles(ctx, items),
           width: w ?? 900,
-          onSeeAll: seeAll,
         );
 
       // ── Streaming rails ──
@@ -1671,7 +1713,6 @@ class GalleryComponentRenderer {
         return MangaReaderHistoryCard(
           items: _history(items),
           width: w ?? 300,
-          onSeeAll: ctx.onSeeAll,
         );
 
       // ── Manga home single cards ──

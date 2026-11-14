@@ -107,13 +107,11 @@ class MangaRelationTypeCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.columns = 4,
-    this.onSeeAll,
   });
 
   final List<MangaRelationEntry> items;
   final double width;
   final int columns;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -231,14 +229,12 @@ class MangaUniverseTimelineCard extends StatelessWidget {
     required this.backdropUrl,
     required this.series,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final String title;
   final String? backdropUrl;
   final List<MangaRelationEntry> series;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -394,13 +390,11 @@ class MangaLinkedSeriesCard extends StatelessWidget {
     required this.items,
     this.width = 360,
     this.columns = 3,
-    this.onSeeAll,
   });
 
   final List<MangaRelationEntry> items;
   final double width;
   final int columns;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -511,12 +505,10 @@ class MangaRelationListCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<MangaRelationEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -616,7 +608,6 @@ class MangaSameUniverseCard extends StatelessWidget {
     required this.entries,
     this.others = const [],
     this.width = 430,
-    this.onSeeAll,
   });
 
   final String title;
@@ -628,7 +619,6 @@ class MangaSameUniverseCard extends StatelessWidget {
   /// Miniatures « autres œuvres de l'univers ».
   final List<String> others;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -797,12 +787,10 @@ class MangaUniverseChronologyCard extends StatelessWidget {
     super.key,
     required this.points,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<MangaUniversePoint> points;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -921,12 +909,10 @@ class MangaFranchiseUniversesCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<MangaRelationEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -1011,13 +997,11 @@ class MangaCharacterRelationsCard extends StatelessWidget {
     required this.items,
     this.width = 430,
     this.columns = 4,
-    this.onSeeAll,
   });
 
   final List<MangaRelationEntry> items;
   final double width;
   final int columns;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -1125,12 +1109,10 @@ class MangaUniverseMapCard extends StatelessWidget {
     super.key,
     required this.nodes,
     this.width = 430,
-    this.onSeeAll,
   });
 
   final List<MangaRelationEntry> nodes;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {

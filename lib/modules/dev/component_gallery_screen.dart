@@ -116,14 +116,8 @@ enum _PreviewKind {
   streamProgressMedia,
   collCollection,
   collSimilar,
-  collTrending,
-  collPopular,
-  collTopRated,
-  collRanked,
-  collNumbered,
   collFeatured,
   collSpotlight,
-  collRecommendation,
   collCarousel,
   epCompact,
   epThumbnail,
@@ -2033,17 +2027,8 @@ class _CardSkeleton extends StatelessWidget {
       // ── Collections & franchises ──
       _PreviewKind.collCollection => const _CollectionSkeleton(),
       _PreviewKind.collSimilar => const _PosterRowSkeleton(),
-      _PreviewKind.collTrending => const _PosterRowSkeleton(count: 5),
-      _PreviewKind.collPopular => const _PosterRowSkeleton(),
-      _PreviewKind.collTopRated => const _PosterRowSkeleton(),
-      _PreviewKind.collRanked => const _PosterRowSkeleton(count: 5),
-      _PreviewKind.collNumbered => const _PosterRowSkeleton(
-        count: 5,
-        withHeader: false,
-      ),
       _PreviewKind.collFeatured => const WallpaperSkeleton(),
       _PreviewKind.collSpotlight => const WallpaperSkeleton(),
-      _PreviewKind.collRecommendation => const _PosterRowSkeleton(),
       _PreviewKind.collCarousel => const _PosterRowSkeleton(width: 420),
       // ── Épisodes & saisons ──
       _PreviewKind.epCompact => const ListRowSkeleton(width: 340, thumb: 70),
@@ -5345,47 +5330,19 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    title: 'Contenus similaires',
-    className: 'SimilarMediaCard',
+    title: 'Rangée de posters',
+    className: 'PosterRowCard',
     path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Même genre, même ambiance',
+    usage:
+        'Une seule carte pour similar / tendance / populaire / mieux notés / '
+        'Top 10 / numérotée / recommandations : rang, grand rang, note et vues '
+        'se règlent par params',
     section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.recommend_outlined,
+    icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.collSimilar,
-    result: (_) => SimilarMediaCard(
-      items: [
-        _collectionEntry(
-          'Shadow and Bone',
-          meta: 'S1 · Fantaisie',
-          thumbUrl: _posterArcane,
-        ),
-        _collectionEntry(
-          'The 100',
-          meta: 'S7 · Drame',
-          thumbUrl: _posterThrones,
-        ),
-        _collectionEntry(
-          'The Vampire Diaries',
-          meta: 'S9 · Fantastique',
-          thumbUrl: _posterDune,
-        ),
-        _collectionEntry(
-          'Supernatural',
-          meta: 'S15 · Fantastique',
-          thumbUrl: _posterInterstellar,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Contenu tendance',
-    className: 'TrendingCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Top actuel avec rangs',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.trending_up_rounded,
-    kind: _PreviewKind.collTrending,
-    result: (_) => TrendingCard(
+    layoutComponent: 'poster-row',
+    result: (_) => PosterRowCard(
+      showBigRank: true,
       items: [
         _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
         _collectionEntry(
@@ -5412,140 +5369,6 @@ List<_ComponentSpec> _buildComponents() => [
           thumbUrl: _posterInterstellar,
           rank: 5,
         ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Contenu populaire',
-    className: 'PopularCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Le plus de vues',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.visibility_rounded,
-    kind: _PreviewKind.collPopular,
-    result: (_) => PopularCard(
-      items: [
-        _collectionEntry(
-          'One Piece',
-          meta: 'Animé',
-          thumbUrl: _posterThrones,
-          viewsLabel: '9.8M',
-        ),
-        _collectionEntry(
-          'Stranger Things',
-          meta: 'Série',
-          thumbUrl: _posterArcane,
-          viewsLabel: '8.2M',
-        ),
-        _collectionEntry(
-          'L’Attaque des Titans',
-          meta: 'Animé',
-          thumbUrl: _posterDune,
-          viewsLabel: '7.5M',
-        ),
-        _collectionEntry(
-          'Squid Game',
-          meta: 'Série',
-          thumbUrl: _posterOppenheimer,
-          viewsLabel: '6.9M',
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Mieux notés',
-    className: 'TopRatedCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Notes IMDb / TMDB',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.star_rounded,
-    kind: _PreviewKind.collTopRated,
-    result: (_) => TopRatedCard(
-      items: [
-        _collectionEntry(
-          'Breaking Bad',
-          meta: 'Série',
-          thumbUrl: _posterThrones,
-          rating: 9.5,
-        ),
-        _collectionEntry(
-          'Planète Terre',
-          meta: 'Documentaire',
-          thumbUrl: _posterArcane,
-          rating: 9.4,
-        ),
-        _collectionEntry(
-          'Le Parrain',
-          meta: 'Film',
-          thumbUrl: _posterOppenheimer,
-          rating: 9.3,
-        ),
-        _collectionEntry(
-          'Interstellar',
-          meta: 'Film',
-          thumbUrl: _posterInterstellar,
-          rating: 9.2,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Classement Top 10',
-    className: 'RankedMediaCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Top 10 / top 50 avec grands numéros',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.leaderboard_outlined,
-    kind: _PreviewKind.collRanked,
-    result: (_) => RankedMediaCard(
-      items: [
-        _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
-        _collectionEntry(
-          'The Last of Us',
-          meta: 'Série',
-          thumbUrl: _posterThrones,
-          rank: 2,
-        ),
-        _collectionEntry(
-          'Spider-Man',
-          meta: 'Film',
-          thumbUrl: _posterOppenheimer,
-          rank: 3,
-        ),
-        _collectionEntry(
-          'Stranger Things',
-          meta: 'Série',
-          thumbUrl: _posterArcane,
-          rank: 4,
-        ),
-        _collectionEntry(
-          'Breaking Bad',
-          meta: 'Série',
-          thumbUrl: _posterInterstellar,
-          rank: 5,
-        ),
-      ],
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Carte numérotée',
-    className: 'NumberedCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Top 10 compact, sans en-tête',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.format_list_numbered_rounded,
-    kind: _PreviewKind.collNumbered,
-    result: (_) => NumberedCard(
-      items: [
-        _collectionEntry('Dune', thumbUrl: _posterDune, rank: 1),
-        _collectionEntry('The Batman', thumbUrl: _posterThrones, rank: 2),
-        _collectionEntry(
-          'Interstellar',
-          thumbUrl: _posterInterstellar,
-          rank: 3,
-        ),
-        _collectionEntry('Inception', thumbUrl: _posterOppenheimer, rank: 4),
-        _collectionEntry('The Witcher', thumbUrl: _posterArcane, rank: 5),
       ],
     ),
   ),
@@ -5589,39 +5412,6 @@ List<_ComponentSpec> _buildComponents() => [
         stats: 'S1 · Drame · 2023',
         actionLabel: 'Voir',
       ),
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Recommandations',
-    className: 'RecommendationCard',
-    path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Parce que vous avez aimé…',
-    section: 'COLLECTIONS & FRANCHISES',
-    icon: Icons.thumb_up_alt_outlined,
-    kind: _PreviewKind.collRecommendation,
-    result: (_) => RecommendationCard(
-      items: [
-        _collectionEntry(
-          'Arcane',
-          meta: 'S1 · Animation',
-          thumbUrl: _posterArcane,
-        ),
-        _collectionEntry(
-          'L’Attaque des Titans',
-          meta: 'S4 · Action',
-          thumbUrl: _posterDune,
-        ),
-        _collectionEntry(
-          'The Boys',
-          meta: 'S3 · Action',
-          thumbUrl: _posterThrones,
-        ),
-        _collectionEntry(
-          'Interstellar',
-          meta: 'S2 · Animation',
-          thumbUrl: _posterInterstellar,
-        ),
-      ],
     ),
   ),
   _ComponentSpec(
@@ -6271,7 +6061,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.update_rounded,
     kind: _PreviewKind.mgLatest,
     result: (_) => MangaLatestReleaseCard(
-      onSeeAll: () {},
       items: [
         _mgChapterItem(
           'Chainsaw Man',
@@ -6682,7 +6471,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.event_rounded,
     kind: _PreviewKind.volUpcoming,
     result: (_) => MangaUpcomingVolumeCard(
-      onSeeAll: () {},
       items: [
         _mgVolumeItem(
           'One Piece · Tome 111',
@@ -6721,7 +6509,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.category_rounded,
     kind: _PreviewKind.genGenres,
     result: (_) => MangaGenresCard(
-      onSeeAll: () {},
       items: [
         MangaGenreEntry(
           title: 'Action',
@@ -6763,7 +6550,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.group_rounded,
     kind: _PreviewKind.genDemo,
     result: (_) => MangaDemographicsCard(
-      onSeeAll: () {},
       items: [
         MangaGenreEntry(
           title: 'Shōnen',
@@ -6807,7 +6593,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.auto_awesome_outlined,
     kind: _PreviewKind.genThemes,
     result: (_) => MangaThemesCard(
-      onSeeAll: () {},
       items: [
         MangaGenreEntry(
           title: 'École',
@@ -6851,7 +6636,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.collections_outlined,
     kind: _PreviewKind.genShowcase,
     result: (_) => MangaUniverseShowcaseCard(
-      onSeeAll: () {},
       items: [
         MangaShowcaseEntry(
           title: 'One Piece',
@@ -6904,7 +6688,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.local_offer_outlined,
     kind: _PreviewKind.genTags,
     result: (_) => MangaTagsCard(
-      onSeeAll: () {},
       tags: [
         MangaTagEntry(
           label: 'Action',
@@ -7028,7 +6811,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.business_rounded,
     kind: _PreviewKind.genPublishers,
     result: (_) => MangaPublishersCard(
-      onSeeAll: () {},
       publishers: const [
         MangaPublisherEntry(
           name: 'Shueisha',
@@ -7072,7 +6854,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.language_rounded,
     kind: _PreviewKind.genLangNews,
     result: (_) => const MangaLanguageNewsCard(
-      onSeeAll: null,
       entries: [
         MangaLangEntry(
           name: 'Français',
@@ -7463,7 +7244,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.history_rounded,
     kind: _PreviewKind.rdHistory,
     result: (_) => MangaReaderHistoryCard(
-      onSeeAll: () {},
       items: [
         MangaReaderHistoryEntry(
           title: 'One Piece',
@@ -7506,7 +7286,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.hub_outlined,
     kind: _PreviewKind.uniTypes,
     result: (_) => MangaRelationTypeCard(
-      onSeeAll: () {},
       items: [
         MangaRelationEntry(
           title: 'Main story',
@@ -7568,7 +7347,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.public_rounded,
     kind: _PreviewKind.uniTimeline,
     result: (_) => MangaUniverseTimelineCard(
-      onSeeAll: () {},
       title: 'Attack on Titan',
       backdropUrl: _backdropOppenheimer,
       series: [
@@ -7604,7 +7382,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.travel_explore_rounded,
     kind: _PreviewKind.uniLinked,
     result: (_) => MangaLinkedSeriesCard(
-      onSeeAll: () {},
       items: [
         MangaRelationEntry(
           title: 'Naruto',
@@ -7648,7 +7425,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.hub_outlined,
     kind: _PreviewKind.uniRelationList,
     result: (_) => MangaRelationListCard(
-      onSeeAll: () {},
       items: [
         MangaRelationEntry(
           title: 'Crossover',
@@ -7710,7 +7486,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.public_rounded,
     kind: _PreviewKind.uniSame,
     result: (_) => MangaSameUniverseCard(
-      onSeeAll: () {},
       title: 'Tokyo Revengers',
       backdropUrl: _backdropDune,
       entries: [
@@ -7750,7 +7525,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.event_available_rounded,
     kind: _PreviewKind.uniChrono,
     result: (_) => MangaUniverseChronologyCard(
-      onSeeAll: () {},
       points: [
         MangaUniversePoint(
           year: '2005',
@@ -7788,7 +7562,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.verified_rounded,
     kind: _PreviewKind.uniFranchise,
     result: (_) => MangaFranchiseUniversesCard(
-      onSeeAll: () {},
       items: [
         MangaRelationEntry(
           title: 'Naruto',
@@ -7832,7 +7605,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.group_rounded,
     kind: _PreviewKind.uniChars,
     result: (_) => MangaCharacterRelationsCard(
-      onSeeAll: () {},
       items: [
         MangaRelationEntry(
           title: 'Amis',
@@ -7866,7 +7638,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.travel_explore_rounded,
     kind: _PreviewKind.uniMap,
     result: (_) => MangaUniverseMapCard(
-      onSeeAll: () {},
       nodes: [
         MangaRelationEntry(
           title: 'One Piece',
@@ -7911,7 +7682,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.person_outline,
     kind: _PreviewKind.stStatus,
     result: (_) => const MangaStatusCard(
-      onSeeAll: null,
       items: [
         (
           'En cours',
@@ -7940,7 +7710,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.auto_stories_outlined,
     kind: _PreviewKind.stSerial,
     result: (_) => MangaSerializationCard(
-      onSeeAll: () {},
       items: [
         MangaShowcaseEntry(
           title: 'Weekly Shonen Jump',
@@ -7979,7 +7748,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.event_rounded,
     kind: _PreviewKind.stFrequency,
     result: (_) => const MangaFrequencyCard(
-      onSeeAll: null,
       items: [
         ('Quotidienne', '342 mangas', Color(0xFF2ED573)),
         ('Hebdomadaire', '1 247 mangas', Color(0xFF8E7CFF)),
@@ -7998,7 +7766,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.speed_rounded,
     kind: _PreviewKind.stGlobal,
     result: (_) => const MangaGlobalStatsCard(
-      onSeeAll: null,
       tiles: [
         MangaStatTile(
           value: '285 742',
@@ -8036,7 +7803,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.whatshot_rounded,
     kind: _PreviewKind.stPopularity,
     result: (_) => MangaPopularityCard(
-      onSeeAll: () {},
       items: [
         MangaRankEntry(
           title: 'One Piece',
@@ -8085,7 +7851,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.group_rounded,
     kind: _PreviewKind.stFollowers,
     result: (_) => MangaFollowersCard(
-      onSeeAll: () {},
       items: [
         MangaRelationEntry(
           title: 'One Piece',
@@ -8144,7 +7909,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.grid_view_rounded,
     kind: _PreviewKind.stGrid,
     result: (_) => const MangaStatsGridCard(
-      onSeeAll: null,
       tiles: [
         MangaStatTile(
           value: '285 742',
@@ -8194,7 +7958,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.emoji_events_outlined,
     kind: _PreviewKind.stRanking,
     result: (_) => MangaCategoryRankingCard(
-      onSeeAll: () {},
       onFilterChanged: (_) {},
       items: [
         MangaRankEntry(
@@ -8244,7 +8007,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.insights_rounded,
     kind: _PreviewKind.stReports,
     result: (_) => const MangaReportsCard(
-      onSeeAll: null,
       items: [
         (
           Icons.group_rounded,
@@ -8279,7 +8041,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.lsShowcase,
     result: (_) => LandscapeShowcaseSection(
-      onSeeAll: () {},
       title: 'Rail paysage',
       subtitle: 'Format horizontal immersif.',
       icon: Icons.view_carousel_outlined,
@@ -8317,7 +8078,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.music_note_rounded,
     kind: _PreviewKind.lsPlaylist,
     result: (_) => LandscapePlaylistCard(
-      onSeeAll: () {},
       playlists: [
         LandscapePlaylist(
           title: 'Lo-fi Beats',
@@ -8359,7 +8119,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.explore_outlined,
     kind: _PreviewKind.lsGenres,
     result: (_) => LandscapeGenreRow(
-      onSeeAll: () {},
       tiles: [
         LandscapeGenreTile(
           title: 'Action',
@@ -9728,7 +9487,7 @@ List<_ComponentSpec> _buildComponents() => [
   _ComponentSpec(
     section: 'SECTIONS PRÉFABRIQUÉES',
     title: 'Classement Top 10',
-    className: 'AppSectionHeader + RankedMediaCard',
+    className: 'AppSectionHeader + PosterRowCard',
     path: 'lib/modules/media/collection_cards.dart',
     usage: 'En-tête « Top 10 » + carte classée nue',
     icon: Icons.leaderboard_outlined,
@@ -9737,7 +9496,8 @@ List<_ComponentSpec> _buildComponents() => [
       title: 'Top 10 cette semaine',
       subtitle: 'Les plus regardés',
       icon: Icons.leaderboard_outlined,
-      child: RankedMediaCard(
+      child: PosterRowCard(
+        showBigRank: true,
         items: [
           _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
           _collectionEntry(
@@ -9984,6 +9744,226 @@ List<_ComponentSpec> _buildComponents() => [
             availableLabel: 'Dans 5 min',
           ),
       ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Nouveaux chapitres',
+    className: 'AppSectionHeader + MangaChapterCard',
+    path: 'lib/modules/media/manga_chapter_cards.dart',
+    usage: 'En-tête « Chapitres récents » + rangée de chapitres nus',
+    icon: Icons.menu_book_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Chapitres récents',
+      subtitle: 'Mis à jour aujourd\'hui',
+      icon: Icons.menu_book_outlined,
+      child: _prefabRow([
+        for (final item in _tmdbItems.take(5))
+          MangaChapterCard(
+            item: _mgChapterItem(
+              item.displayTitle,
+              subtitle: 'Chapitre 42',
+              timeAgo: 'il y a 2 h',
+              thumbUrl: item.bestCover,
+              number: '42',
+            ),
+            width: 260,
+          ),
+      ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Saisons de la série',
+    className: 'AppSectionHeader + SeasonBannerCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'En-tête « Saisons » + bannières de saison nues',
+    icon: Icons.collections_bookmark_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Saisons',
+      subtitle: '3 saisons',
+      icon: Icons.collections_bookmark_outlined,
+      child: _prefabRow([
+        for (final entry in [
+          ('Saison 3', 'Dernière diffusion', _backdropDune),
+          ('Saison 2', '8 épisodes', _backdropArcane),
+          ('Saison 1', '10 épisodes', _backdropOppenheimer),
+        ])
+          SeasonBannerCard(
+            season: _seasonEntry(
+              entry.$1,
+              seasonLabel: entry.$2,
+              thumbUrl: entry.$3,
+            ),
+            width: 380,
+          ),
+      ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Collection (univers)',
+    className: 'AppSectionHeader + CollectionCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'En-tête + carte composite nue (tuile principale + mini-tuiles)',
+    icon: Icons.auto_awesome_motion_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Même univers',
+      subtitle: 'À explorer',
+      icon: Icons.auto_awesome_motion_outlined,
+      child: _prefabRow([
+        CollectionCard(
+          data: CollectionCardData(
+            item: ContentItem.fromTmdb(_tmdbItems.first),
+            subtitle: 'Même univers',
+            stats: '32 films · 18 séries · 1 franchise',
+            actionLabel: 'Voir la collection',
+          ),
+          sideEntries: [
+            _collectionEntry('Star Wars', thumbUrl: _posterThrones),
+            _collectionEntry('Harry Potter', thumbUrl: _posterInterstellar),
+            _collectionEntry('DC', thumbUrl: _posterArcane),
+          ],
+          width: 460,
+        ),
+      ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Rangée Top 10',
+    className: 'AppSectionHeader + PosterRowCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'En-tête « Top 10 » + rangée de posters à grands numéros',
+    icon: Icons.format_list_numbered_rounded,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Top 10 cette semaine',
+      subtitle: 'Les plus regardés',
+      icon: Icons.format_list_numbered_rounded,
+      child: _prefabRow([
+        SizedBox(
+          width: 560,
+          child: PosterRowCard(
+            showBigRank: true,
+            items: [
+              for (var i = 0; i < 5; i++)
+                _collectionEntry(
+                  _tmdbItems[i].displayTitle,
+                  meta: 'S${i + 1} · Série',
+                  thumbUrl: _tmdbItems[i].bestCover,
+                  rank: i + 1,
+                ),
+            ],
+          ),
+        ),
+      ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Genres du manga',
+    className: 'AppSectionHeader + MangaGenresCard',
+    path: 'lib/modules/media/manga_genre_cards.dart',
+    usage: 'En-tête « Genres » + grille de genres nus',
+    icon: Icons.category_rounded,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Genres',
+      subtitle: 'Retrouve tes genres préférés',
+      icon: Icons.category_rounded,
+      child: SizedBox(
+        width: 460,
+        child: MangaGenresCard(
+          columns: 2,
+          items: [
+            for (final entry in [
+              ('Action', '1 248 mangas', _backdropDune, Color(0xFFFF6B81)),
+              ('Aventure', '986 mangas', _backdropInterstellar, Color(0xFF1E90FF)),
+              ('Comédie', '1 532 mangas', _backdropOppenheimer, Color(0xFFFFA502)),
+              ('Drame', '842 mangas', _backdropArcane, Color(0xFF6C5CE7)),
+            ])
+              MangaGenreEntry(
+                title: entry.$1,
+                countLabel: entry.$2,
+                thumbUrl: entry.$3,
+                color: entry.$4,
+                icon: Icons.star_rounded,
+              ),
+          ],
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Volumes à venir',
+    className: 'AppSectionHeader + MangaUpcomingVolumeCard',
+    path: 'lib/modules/media/manga_volume_cards.dart',
+    usage: 'En-tête « Prochaines sorties » + rangée de volumes nus',
+    icon: Icons.auto_stories_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Prochaines sorties',
+      subtitle: 'Volumes à paraître',
+      icon: Icons.auto_stories_outlined,
+      child: _prefabRow([
+        for (final item in _tmdbItems.take(4))
+          MangaUpcomingVolumeCard(
+            width: 360,
+            items: [
+              _mgVolumeItem(
+                item.displayTitle,
+                author: 'Auteur',
+                tomeLabel: 'Tome 12',
+                countLabel: 'Dans 6 jours',
+                coverUrl: item.bestCover,
+              ),
+            ],
+          ),
+      ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Statistiques de la communauté',
+    className: 'AppSectionHeader + MangaGlobalStatsCard',
+    path: 'lib/modules/media/manga_stats_cards.dart',
+    usage: 'En-tête « Statistiques » + tuiles de stats nues',
+    icon: Icons.insights_rounded,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Statistiques',
+      subtitle: 'La communauté en chiffres',
+      icon: Icons.insights_rounded,
+      child: const SizedBox(
+        width: 460,
+        child: MangaGlobalStatsCard(
+          tiles: [
+            MangaStatTile(
+              value: '285 742',
+              label: 'Chapitres',
+              icon: Icons.visibility_outlined,
+              color: Color(0xFF8E7CFF),
+            ),
+            MangaStatTile(
+              value: '62 481',
+              label: 'Volumes',
+              icon: Icons.auto_stories_outlined,
+              color: Color(0xFF1E90FF),
+            ),
+            MangaStatTile(
+              value: '1 248',
+              label: 'Séries',
+              icon: Icons.menu_book_outlined,
+              color: Color(0xFFFF6B81),
+            ),
+          ],
+        ),
+      ),
     ),
   ),
 ];

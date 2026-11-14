@@ -227,7 +227,6 @@ class LandscapeShowcaseSection extends StatelessWidget {
     required this.icon,
     required this.items,
     this.width = 900,
-    this.onSeeAll,
   });
 
   final String title;
@@ -235,7 +234,6 @@ class LandscapeShowcaseSection extends StatelessWidget {
   final IconData icon;
   final List<LandscapeEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -263,12 +261,10 @@ class LandscapePlaylistCard extends StatelessWidget {
     super.key,
     required this.playlists,
     this.width = 900,
-    this.onSeeAll,
   });
 
   final List<LandscapePlaylist> playlists;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -398,12 +394,10 @@ class LandscapeGenreRow extends StatelessWidget {
     super.key,
     required this.tiles,
     this.width = 900,
-    this.onSeeAll,
   });
 
   final List<LandscapeGenreTile> tiles;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {

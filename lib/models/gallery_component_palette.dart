@@ -501,6 +501,53 @@ class GalleryComponentPalette {
         defaultValue: 'Top 10',
       ),
     ],
+    GalleryComponentFamily.collections: [
+      GalleryComponentParameter(
+        key: 'showRank',
+        label: 'Pastille de rang',
+        kind: GalleryParameterKind.boolean,
+        description:
+            'Affiche une pastille de rang compacte sur chaque poster '
+            '(variante « tendance »).',
+        group: GalleryParameterGroup.content,
+      ),
+      GalleryComponentParameter(
+        key: 'showBigRank',
+        label: 'Grand numéro de rang',
+        kind: GalleryParameterKind.boolean,
+        description:
+            'Incruste le grand numéro de classement en bas du poster '
+            '(variante « Top 10 / Top 50 »).',
+        aliases: ['bigRank'],
+        group: GalleryParameterGroup.content,
+      ),
+      GalleryComponentParameter(
+        key: 'showRating',
+        label: 'Pastille de note',
+        kind: GalleryParameterKind.boolean,
+        description: 'Affiche la note (★ 8.8) sur le poster.',
+        aliases: ['rating'],
+        group: GalleryParameterGroup.content,
+      ),
+      GalleryComponentParameter(
+        key: 'showViews',
+        label: 'Pastille de vues',
+        kind: GalleryParameterKind.boolean,
+        description: 'Affiche le compteur de vues (9.8M) sur le poster.',
+        aliases: ['views'],
+        group: GalleryParameterGroup.content,
+      ),
+      GalleryComponentParameter(
+        key: 'showMeta',
+        label: 'Sous-titre du poster',
+        kind: GalleryParameterKind.boolean,
+        defaultValue: 'true',
+        description:
+            'Affiche le sous-titre de chaque poster sous son titre.',
+        aliases: ['meta'],
+        group: GalleryParameterGroup.content,
+      ),
+    ],
     GalleryComponentFamily.landscape: [
       GalleryComponentParameter(key: 'genres', label: 'Sous-titre des cartes'),
     ],

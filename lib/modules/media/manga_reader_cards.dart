@@ -1847,12 +1847,10 @@ class MangaReaderHistoryCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 300,
-    this.onSeeAll,
   });
 
   final List<MangaReaderHistoryEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {

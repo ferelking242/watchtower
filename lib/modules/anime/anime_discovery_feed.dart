@@ -696,7 +696,6 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
               ),
               sliver: SliverToBoxAdapter(
                 child: MangaTagsCard(
-                  title: '',
                   width: fullCardWidth,
                   compact: true,
                   columns: 3,

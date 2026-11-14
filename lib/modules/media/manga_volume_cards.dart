@@ -929,12 +929,10 @@ class MangaUpcomingVolumeCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<MangaVolumeItem> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {

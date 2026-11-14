@@ -189,19 +189,18 @@ class _CompositeCollectionCard extends StatelessWidget {
           final available = constraints.maxWidth.isFinite
               ? constraints.maxWidth
               : width;
-          // Hauteur et colonne latérale dérivées de la largeur : la carte
-          // reste lisible du téléphone (320 px) à la TV (1900 px). La carte
-          // principale cède de la place à la colonne latérale (≈ 54 %) pour
-          // que les trois mini-tuiles gardent une vraie taille au lieu d'être
-          // écrasées en bandes.
-          final height = (available * 0.44).clamp(150.0, 268.0);
+          // Carte plus haute et colonne latérale plus large : les trois
+          // mini-tuiles gagnent en surface, la tuile principale se resserre
+          // d'autant. Les bornes gardent le tout lisible du téléphone (320 px)
+          // au téléviseur (1900 px).
+          final height = (available * 0.52).clamp(176.0, 320.0);
           // `sideWidth` sert de plancher ; le plafond évite que la colonne ne
           // dévore la tuile principale sur très grand écran. La colonne latérale
           // est volontairement généreuse (mini-tuiles lisibles) : la tuile
           // principale se resserre d'autant.
           final side = sideAsRows
-              ? (available * 0.56).clamp(sideWidth, 380.0)
-              : (available * 0.54).clamp(sideWidth, 360.0);
+              ? (available * 0.60).clamp(sideWidth, 400.0)
+              : (available * 0.58).clamp(sideWidth, 380.0);
           return Row(
             children: [
               Expanded(
@@ -240,100 +239,63 @@ class _CompositeCollectionCard extends StatelessWidget {
 /// 12 → 17 & 20 · Cartes « rangée de posters »
 /// ─────────────────────────────────────────────────────────────────────────
 
-/// ── 12. SimilarMediaCard ────────────────────────────────────────────────
-/// Contenus similaires (ex : même genre, même ambiance…).
-class SimilarMediaCard extends StatelessWidget {
-  const SimilarMediaCard({super.key, required this.items, this.width = 430});
+/// ── 12 · PosterRowCard ──────────────────────────────────────────────────
+/// Une seule carte « rangée de posters », toutes les variantes par paramètres.
+///
+/// `SimilarMediaCard`, `TrendingCard`, `PopularCard`, `TopRatedCard`,
+/// `RankedMediaCard`, `NumberedCard` et `RecommendationCard` étaient sept
+/// widgets identiques qui ne différaient que par une pastille (rang, vues,
+/// note). Il n'en reste qu'un : la variante se choisit avec [showRank],
+/// [showBigRank], [showRating], [showViews] et [showMeta], depuis le layout
+/// JSON.
+///
+/// Carte nue : aucun en-tête et aucun panneau. Le titre, le sous-titre,
+/// l'icône et le « Tout voir » appartiennent à la section qui l'héberge.
+class PosterRowCard extends StatelessWidget {
+  const PosterRowCard({
+    super.key,
+    required this.items,
+    this.width = 430,
+    this.showRank = false,
+    this.showBigRank = false,
+    this.showRating = false,
+    this.showViews = false,
+    this.showMeta = true,
+    this.spacing = 10,
+  });
 
   final List<CollectionEntry> items;
   final double width;
 
-  @override
-  Widget build(BuildContext context) =>
-      _PosterRowCard(items: items, width: width);
-}
+  /// Écart gauche-droite entre deux posters.
+  final double spacing;
 
-/// ── 13. TrendingCard ────────────────────────────────────────────────────
-/// Contenu tendance (ex : top actuellement).
-class TrendingCard extends StatelessWidget {
-  const TrendingCard({super.key, required this.items, this.width = 430});
+  /// Pastille de rang compacte en haut à gauche de chaque poster.
+  final bool showRank;
 
-  final List<CollectionEntry> items;
-  final double width;
+  /// Grand numéro de classement incrusté en bas du poster (Top 10 / Top 50).
+  final bool showBigRank;
 
-  @override
-  Widget build(BuildContext context) =>
-      _PosterRowCard(items: items, width: width, showRank: true);
-}
+  /// Pastille de note (★ 8.8) en bas du poster.
+  final bool showRating;
 
-/// ── 14. PopularCard ─────────────────────────────────────────────────────
-/// Contenu populaire (ex : plus de vues).
-class PopularCard extends StatelessWidget {
-  const PopularCard({super.key, required this.items, this.width = 430});
+  /// Pastille de vues (9.8M) en bas du poster.
+  final bool showViews;
 
-  final List<CollectionEntry> items;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) =>
-      _PosterRowCard(items: items, width: width, showViews: true);
-}
-
-/// ── 15. TopRatedCard ────────────────────────────────────────────────────
-/// Mieux notés (ex : IMDb / TMDB).
-class TopRatedCard extends StatelessWidget {
-  const TopRatedCard({super.key, required this.items, this.width = 430});
-
-  final List<CollectionEntry> items;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) =>
-      _PosterRowCard(items: items, width: width, showRating: true);
-}
-
-/// ── 16. RankedMediaCard ─────────────────────────────────────────────────
-/// Classement (ex : top 10, top 50…). `RankedCard` étant déjà utilisé par
-/// content_cards.dart, cette variante « section Top » se nomme RankedMediaCard.
-class RankedMediaCard extends StatelessWidget {
-  const RankedMediaCard({super.key, required this.items, this.width = 430});
-
-  final List<CollectionEntry> items;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) =>
-      _PosterRowCard(items: items, width: width, showBigRank: true);
-}
-
-/// ── 17. NumberedCard ────────────────────────────────────────────────────
-/// Carte numérotée (ex : top 10, classement).
-class NumberedCard extends StatelessWidget {
-  const NumberedCard({super.key, required this.items, this.width = 400});
-
-  final List<CollectionEntry> items;
-  final double width;
+  /// Affiche le sous-titre de chaque entrée sous le titre.
+  final bool showMeta;
 
   @override
   Widget build(BuildContext context) => _PosterRowCard(
     items: items,
     width: width,
-    showRank: true,
-    showMeta: false,
+    spacing: spacing,
+    showRank: showRank,
+    showBigRank: showBigRank,
+    showRating: showRating,
+    showViews: showViews,
+    showMeta: showMeta,
   );
-}
-
-/// ── 20. RecommendationCard ──────────────────────────────────────────────
-/// Recommandations personnalisées.
-class RecommendationCard extends StatelessWidget {
-  const RecommendationCard({super.key, required this.items, this.width = 430});
-
-  final List<CollectionEntry> items;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) =>
-      _PosterRowCard(items: items, width: width);
 }
 
 /// Socle commun des cartes « rangée de posters ».
@@ -345,6 +307,7 @@ class _PosterRowCard extends StatelessWidget {
   const _PosterRowCard({
     required this.items,
     required this.width,
+    this.spacing = 10,
     this.showRank = false,
     this.showBigRank = false,
     this.showRating = false,
@@ -354,6 +317,7 @@ class _PosterRowCard extends StatelessWidget {
 
   final List<CollectionEntry> items;
   final double width;
+  final double spacing;
   final bool showRank;
   final bool showBigRank;
   final bool showRating;
@@ -370,7 +334,7 @@ class _PosterRowCard extends StatelessWidget {
       child: Row(
         children: [
           for (var i = 0; i < visible.length; i++) ...[
-            if (i > 0) const SizedBox(width: 10),
+            if (i > 0) SizedBox(width: spacing),
             Expanded(
               child: _PosterTile(
                 entry: visible[i],
@@ -633,6 +597,9 @@ class UniverseCarouselCard extends StatelessWidget {
           // Le décalage vertical laisse la place au visuel le plus haut, qui
           // dépasse de la hauteur de tuile quand il est incliné.
           final lift = tileHeight * tilt * 2;
+          // Un seul visuel n'a pas de voisin à dépasser : on évite une
+          // division par zéro (offset `NaN`) qui ferait planter le rendu.
+          final steps = visible.length > 1 ? visible.length - 1 : 1;
           return SizedBox(
             height: tileHeight + lift,
             child: Row(
@@ -644,7 +611,7 @@ class UniverseCarouselCard extends StatelessWidget {
                     child: Transform.translate(
                       // Chaque visuel monte un peu plus que le précédent :
                       // la rangée « penche » vers le haut à droite.
-                      offset: Offset(0, -lift * i / (visible.length - 1)),
+                      offset: Offset(0, -lift * i / steps),
                       child: Transform.rotate(
                         angle: tilt * i,
                         child: _UniverseTile(

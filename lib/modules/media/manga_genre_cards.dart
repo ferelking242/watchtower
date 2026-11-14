@@ -169,17 +169,11 @@ class MangaGenresCard extends StatelessWidget {
     required this.items,
     this.width = 400,
     this.columns = 2,
-    this.title = 'Genres',
-    this.subtitle = 'Retrouve tes genres préférés.',
-    this.onSeeAll,
   });
 
   final List<MangaGenreEntry> items;
   final double width;
   final int columns;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -299,12 +293,10 @@ class MangaDemographicsCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 400,
-    this.onSeeAll,
   });
 
   final List<MangaGenreEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -400,12 +392,10 @@ class MangaThemesCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<MangaGenreEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -439,14 +429,10 @@ class MangaUniverseShowcaseCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
-    this.title = 'Collections / Univers',
-    this.onSeeAll,
   });
 
   final List<MangaShowcaseEntry> items;
   final double width;
-  final String title;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -577,18 +563,12 @@ class MangaTagsCard extends StatelessWidget {
     super.key,
     required this.tags,
     this.width = 430,
-    this.onSeeAll,
-    this.title = 'Tags',
-    this.subtitle = 'Affinez vos recherches avec les tags.',
     this.columns = 2,
     this.compact = false,
   });
 
   final List<MangaTagEntry> tags;
   final double width;
-  final VoidCallback? onSeeAll;
-  final String title;
-  final String subtitle;
   final int columns;
   final bool compact;
 
@@ -1106,12 +1086,10 @@ class MangaPublishersCard extends StatelessWidget {
     super.key,
     required this.publishers,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<MangaPublisherEntry> publishers;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -1214,12 +1192,10 @@ class MangaLanguageNewsCard extends StatelessWidget {
     super.key,
     required this.entries,
     this.width = 430,
-    this.onSeeAll,
   });
 
   final List<MangaLangEntry> entries;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {

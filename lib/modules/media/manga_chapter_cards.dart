@@ -358,12 +358,10 @@ class MangaChapterReleaseCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 300,
-    this.onSeeAll,
   });
 
   final List<MangaChapterItem> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -463,13 +461,11 @@ class MangaChapterListCard extends StatelessWidget {
     required this.items,
     this.width = 300,
     this.countLabel,
-    this.onSeeAll,
   });
 
   final List<MangaChapterItem> items;
   final double width;
   final String? countLabel;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -688,12 +684,10 @@ class MangaLatestReleaseCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 300,
-    this.onSeeAll,
   });
 
   final List<MangaChapterItem> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -787,13 +781,11 @@ class MangaReleaseTimelineCard extends StatelessWidget {
     required this.items,
     this.width = 340,
     this.monthLabel = 'Mai 2025',
-    this.onSeeAll,
   });
 
   final List<MangaChapterItem> items;
   final double width;
   final String monthLabel;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -1201,12 +1193,10 @@ class MangaChapterTimelineCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 300,
-    this.onSeeAll,
   });
 
   final List<MangaChapterItem> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {

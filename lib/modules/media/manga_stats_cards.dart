@@ -71,13 +71,11 @@ class MangaStatusCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 400,
-    this.onSeeAll,
   });
 
   /// Tuiles (label, compteur, icône, couleur).
   final List<(String, String, IconData, Color)> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -154,12 +152,10 @@ class MangaSerializationCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
-    this.onSeeAll,
   });
 
   final List<MangaShowcaseEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -241,13 +237,11 @@ class MangaFrequencyCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
-    this.onSeeAll,
   });
 
   /// Tuiles (label, compteur, couleur).
   final List<(String, String, Color)> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -318,12 +312,10 @@ class MangaGlobalStatsCard extends StatelessWidget {
     super.key,
     required this.tiles,
     this.width = 430,
-    this.onSeeAll,
   });
 
   final List<MangaStatTile> tiles;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -401,12 +393,10 @@ class MangaPopularityCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<MangaRankEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -512,12 +502,10 @@ class MangaFollowersCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 430,
-    this.onSeeAll,
   });
 
   final List<MangaRelationEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -714,12 +702,10 @@ class MangaStatsGridCard extends StatelessWidget {
     super.key,
     required this.tiles,
     this.width = 430,
-    this.onSeeAll,
   });
 
   final List<MangaStatTile> tiles;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -823,7 +809,6 @@ class MangaCategoryRankingCard extends StatelessWidget {
     this.filters = const ['Populaire', 'Note', 'Nouveautés', 'Followers'],
     this.selectedFilter = 0,
     this.width = 400,
-    this.onSeeAll,
     this.onFilterChanged,
   });
 
@@ -831,7 +816,6 @@ class MangaCategoryRankingCard extends StatelessWidget {
   final List<String> filters;
   final int selectedFilter;
   final double width;
-  final VoidCallback? onSeeAll;
   final ValueChanged<int>? onFilterChanged;
 
   @override
@@ -965,13 +949,11 @@ class MangaReportsCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 360,
-    this.onSeeAll,
   });
 
   /// Lignes (icône, titre, sous-titre).
   final List<(IconData, String, String)> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {

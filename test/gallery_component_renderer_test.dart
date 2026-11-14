@@ -144,6 +144,55 @@ void main() {
     );
   });
 
+  test('poster row variants collapse to a single selectable descriptor', () {
+    // SimilarMediaCard, TrendingCard, PopularCard, TopRatedCard,
+    // RankedMediaCard, NumberedCard and RecommendationCard were seven widgets
+    // that only differed by a badge. They are now aliases of `poster-row`: old
+    // layouts keep resolving, but the picker offers one entry.
+    const variants = [
+      'similar-media',
+      'trending',
+      'trending-card',
+      'popular',
+      'popular-card',
+      'top-rated',
+      'ranked-media',
+      'numbered',
+      'recommendation',
+    ];
+    for (final id in variants) {
+      expect(
+        GalleryComponentCatalog.canonical(id),
+        'poster-row',
+        reason: '$id must resolve to the single poster row card',
+      );
+    }
+    expect(
+      GalleryComponentCatalog.descriptors
+          .where((d) => d.className == 'PosterRowCard')
+          .length,
+      1,
+      reason: 'only one descriptor may render PosterRowCard',
+    );
+  });
+
+  testWidgets('poster-row variant parameters toggle the badges', (tester) async {
+    final context = GalleryComponentContext(
+      componentId: 'poster-row',
+      items: _items,
+      params: const {'showBigRank': true, 'showViews': true},
+      onOpen: (_) {},
+    );
+    await tester.pumpWidget(_app(GalleryComponentRenderer.section(context)));
+    await tester.pump(const Duration(milliseconds: 20));
+
+    final card = tester.widget<PosterRowCard>(find.byType(PosterRowCard));
+    expect(card.showBigRank, isTrue);
+    expect(card.showViews, isTrue);
+    expect(card.showRank, isFalse);
+    expect(card.showRating, isFalse);
+  });
+
   testWidgets('poster aliases use the shared poster with media metadata', (
     tester,
   ) async {
@@ -404,7 +453,12 @@ void main() {
       'scrollDirection',
       'seeAll',
       'seriesMeta',
+      'showBigRank',
       'showCount',
+      'showMeta',
+      'showRank',
+      'showRating',
+      'showViews',
       'spacing',
       'spacingX',
       'spacingY',
