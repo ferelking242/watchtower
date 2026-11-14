@@ -193,11 +193,18 @@ Future<dynamic> updateMangaDetail(
         final hasExisting = existingChapters.isNotEmpty;
         final ordered = newChapters.reversed.toList();
 
-        // One batched write (links included) instead of an awaited
+        // Batched write (links included) instead of an awaited
         // `put` + `manga.save()` per chapter: a title that adds thousands of
         // chapters used to issue thousands of round-trips inside this
         // transaction, which is felt as a freeze while opening the detail page.
-        isar.chapters.putAllSync(ordered);
+        //
+        // `putAll` and not `putAllSync`: this callback runs inside
+        // `await isar.writeTxn()`, whose transaction only lives in the async
+        // zone. `putAllSync` needs a synchronous write transaction and threw
+        // "Write operations require an explicit transaction", which aborted
+        // the whole transaction and left the title with zero chapters (so the
+        // watch player had no episode to play).
+        await isar.chapters.putAll(ordered);
 
         // Only create Update entries for genuinely new (unread) chapters, so
         // that pre-read cross-scanlator chapters don't spam the updates feed.
@@ -213,7 +220,7 @@ Future<dynamic> updateMangaDetail(
                 )..chapter.value = chap,
           ];
           if (newUpdates.isNotEmpty) {
-            isar.updates.putAllSync(newUpdates);
+            await isar.updates.putAll(newUpdates);
           }
         }
       }
