@@ -3,7 +3,15 @@
 /// The main Settings screen and every settings sub-page search this index, so
 /// a query such as "général" or "don't kill" finds the entry wherever it
 /// lives — the search is not limited to the rows of the page that is open.
+///
+/// Page names and row titles are l10n getters, not literals: the results list
+/// renders in the active locale, while the matching also considers the raw
+/// [keywords] so a French query still finds an English-titled row and vice
+/// versa.
 library;
+
+
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 
 /// One searchable settings entry.
 class SettingsSearchEntry {
@@ -14,11 +22,11 @@ class SettingsSearchEntry {
     this.keywords = const [],
   });
 
-  /// Human-readable name of the page that owns the entry (Général, Affichage…).
-  final String page;
+  /// Localised name of the page that owns the entry (Général, Affichage…).
+  final String Function(AppLocalizations l10n) page;
 
-  /// Label shown in the results list.
-  final String title;
+  /// Localised label shown in the results list.
+  final String Function(AppLocalizations l10n) title;
 
   /// Route opened when the result is tapped.
   final String route;
@@ -26,460 +34,443 @@ class SettingsSearchEntry {
   /// Extra terms the entry should match on (French and English spellings).
   final List<String> keywords;
 
-  bool matches(String query) {
+  bool matches(String query, AppLocalizations l10n) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return true;
-    if (title.toLowerCase().contains(q)) return true;
-    if (page.toLowerCase().contains(q)) return true;
+    if (title(l10n).toLowerCase().contains(q)) return true;
+    if (page(l10n).toLowerCase().contains(q)) return true;
     return keywords.any((k) => k.toLowerCase().contains(q));
   }
 }
 
 /// Every searchable settings entry, grouped by owning page.
-const List<SettingsSearchEntry> kSettingsSearchIndex = [
-  // ── Général ───────────────────────────────────────────────────────────────
+final List<SettingsSearchEntry> kSettingsSearchIndex = [
+
+  // ── Général ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Général',
-    title: 'DNS over HTTPS',
+    page: (l10n) => l10n.general,
+    title: (l10n) => l10n.settings_idx_title_dns_over_https,
     route: '/general',
     keywords: ['dns', 'doh', 'réseau', 'network', 'chiffrement'],
   ),
   SettingsSearchEntry(
-    page: 'Général',
-    title: 'DNS personnalisé',
+    page: (l10n) => l10n.general,
+    title: (l10n) => l10n.settings_idx_title_dns_personnalise,
     route: '/general',
     keywords: ['dns', 'custom', 'réseau', 'network'],
   ),
   SettingsSearchEntry(
-    page: 'Général',
-    title: 'User-Agent par défaut',
+    page: (l10n) => l10n.general,
+    title: (l10n) => l10n.settings_idx_title_user_agent_par_defaut,
     route: '/general',
     keywords: ['user agent', 'ua', 'navigateur', 'browser'],
   ),
   SettingsSearchEntry(
-    page: 'Général',
-    title: 'Recommandations',
+    page: (l10n) => l10n.general,
+    title: (l10n) => l10n.recommendations,
     route: '/recommendations',
     keywords: ['recommandation', 'algorithme', 'similarité', 'poids'],
   ),
   SettingsSearchEntry(
-    page: 'Général',
-    title: 'Discord Rich Presence',
+    page: (l10n) => l10n.general,
+    title: (l10n) => l10n.settings_idx_title_discord_rich_presence,
     route: '/general',
     keywords: ['discord', 'rpc', 'activité', 'activity'],
   ),
   SettingsSearchEntry(
-    page: 'Général',
-    title: 'Afficher la progression Discord',
+    page: (l10n) => l10n.general,
+    title: (l10n) => l10n.settings_idx_title_afficher_la_progression_discord,
     route: '/general',
     keywords: ['discord', 'rpc', 'progression', 'progress'],
   ),
-
-  // ── Affichage ─────────────────────────────────────────────────────────────
+  // ── Affichage ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: "Langue de l'application",
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.app_language,
     route: '/appLanguage',
     keywords: ['langue', 'language', 'locale', 'traduction'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Mode tablette',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.settings_idx_title_mode_tablette,
     route: '/appearance',
     keywords: ['tablette', 'tablet', 'auto', 'toujours', 'paysage', 'jamais'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Format de date',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.date_format,
     route: '/appearance',
     keywords: ['date', 'format'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Durées relatives',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.settings_idx_title_durees_relatives,
     route: '/appearance',
     keywords: ['durée', 'relative', 'timestamp', 'horodatage', 'aujourd’hui'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Rendre les images dans les descriptions de mangas',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.settings_idx_title_rendre_les_images_dans_les_descriptions_de_mangas,
     route: '/appearance',
     keywords: ['image', 'description', 'manga', 'synopsis'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Thème',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.theme,
     route: '/appearance',
     keywords: ['thème', 'theme', 'couleur', 'color', 'clair', 'sombre', 'dark'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Mode sombre pur',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.settings_idx_title_mode_sombre_pur,
     route: '/appearance',
     keywords: ['sombre', 'noir', 'pure black', 'amoled', 'dark'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Niveau de mélange des couleurs',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.settings_idx_title_niveau_de_melange_des_couleurs,
     route: '/appearance',
     keywords: ['mélange', 'blend', 'couleur', 'color'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Police',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.font,
     route: '/appearance',
     keywords: ['police', 'font', 'écriture'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Réorganiser la navigation',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.settings_idx_title_reorganiser_la_navigation,
     route: '/customNavigationSettings',
     keywords: ['navigation', 'réorganiser', 'reorder', 'barre'],
   ),
   SettingsSearchEntry(
-    page: 'Affichage',
-    title: 'Interface & Effets',
+    page: (l10n) => l10n.display,
+    title: (l10n) => l10n.settings_idx_title_interface_effets,
     route: '/uiSettings',
     keywords: ['interface', 'effets', 'carousel', 'flou', 'blur', 'animation'],
   ),
-
-  // ── Bibliothèque ──────────────────────────────────────────────────────────
+  // ── Bibliothèque ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Catégories',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.categories,
     route: '/librarySettings',
     keywords: ['catégorie', 'category', 'rangement'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Modifier les catégories',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.edit_categories,
     route: '/categories',
     keywords: ['catégorie', 'modifier', 'edit', 'category'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Catégorie par défaut',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_categorie_par_defaut,
     route: '/librarySettings',
     keywords: ['catégorie', 'défaut', 'default'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Réglages de tri par catégorie',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_reglages_de_tri_par_categorie,
     route: '/librarySettings',
     keywords: ['tri', 'sort', 'catégorie', 'per-category'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Mises à jour automatiques',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_mises_a_jour_automatiques,
     route: '/librarySettings',
     keywords: ['mise à jour', 'update', 'automatique', 'auto'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Restrictions matérielles pour les mises à jour',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_restrictions_materielles_pour_les_mises_a_jour,
     route: '/librarySettings',
     keywords: ['restriction', 'batterie', 'wifi', 'réseau', 'mise à jour'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Catégories des mises à jour (inclure / exclure)',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_categories_des_mises_a_jour_inclure_exclure,
     route: '/librarySettings',
     keywords: ['catégorie', 'inclure', 'exclure', 'mise à jour'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Actualiser automatiquement les métadonnées',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_actualiser_automatiquement_les_metadonnees,
     route: '/librarySettings',
     keywords: ['métadonnées', 'metadata', 'actualiser', 'refresh'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Vérifier s’il y a une nouvelle couverture ou synopsis',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_verifier_sil_y_a_une_nouvelle_couverture_ou_synopsis,
     route: '/librarySettings',
     keywords: ['couverture', 'cover', 'synopsis', 'métadonnées'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Mise à jour intelligente',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_mise_a_jour_intelligente,
     route: '/librarySettings',
     keywords: ['mise à jour', 'intelligente', 'smart update'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Afficher le nombre de chapitres non lus',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_afficher_le_nombre_de_chapitres_non_lus,
     route: '/librarySettings',
     keywords: ['badge', 'chapitres', 'non lus', 'unread', 'icône'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Action de glisser à gauche',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_action_de_glisser_a_gauche,
     route: '/librarySettings',
     keywords: ['glisser', 'swipe', 'gauche', 'left', 'comportement'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Action de glisser à droite',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_action_de_glisser_a_droite,
     route: '/librarySettings',
     keywords: ['glisser', 'swipe', 'droite', 'right', 'comportement'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Marquer un chapitre dupliqué comme lu',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_marquer_un_chapitre_duplique_comme_lu,
     route: '/librarySettings',
     keywords: ['dupliqué', 'duplicate', 'lu', 'read'],
   ),
   SettingsSearchEntry(
-    page: 'Bibliothèque',
-    title: 'Masquer les indicateurs de chapitre manquants',
+    page: (l10n) => l10n.library,
+    title: (l10n) => l10n.settings_idx_title_masquer_les_indicateurs_de_chapitre_manquants,
     route: '/librarySettings',
     keywords: ['manquant', 'missing', 'indicateur', 'chapitre'],
   ),
-
-  // ── Lecteur (manga) ───────────────────────────────────────────────────────
+  // ── Lecteur manga ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Mode de lecture par défaut',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.default_reading_mode,
     route: '/readerMode',
     keywords: ['lecture', 'reading mode', 'vertical', 'webtoon'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: "Vitesse d'animation du double-clic",
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.double_tap_animation_speed,
     route: '/readerMode',
     keywords: ['animation', 'double-clic', 'double tap'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Couleur de fond',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.background_color,
     route: '/readerMode',
     keywords: ['fond', 'background', 'couleur', 'noir'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Nombre de pages à précharger',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.reader_pages_preload,
     route: '/readerMode',
     keywords: ['précharger', 'preload', 'cache', 'pages'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Type de mise à l’échelle',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.settings_idx_title_type_de_mise_a_lechelle,
     route: '/readerMode',
     keywords: ['échelle', 'scale', 'zoom', 'adapter'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Activer les transitions',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.animate_page_transitions,
     route: '/readerMode',
     keywords: ['transitions', 'animation', 'page'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Rogner les bordures',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.crop_borders,
     route: '/readerMode',
     keywords: ['rogner', 'crop', 'bordures', 'borders'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Utiliser les zones tactiles',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.use_page_tap_zones,
     route: '/readerMode',
     keywords: ['zones tactiles', 'tap zones', 'tactile'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Garder l’écran allumé',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.settings_idx_title_garder_lecran_allume,
     route: '/readerMode',
     keywords: ['écran', 'screen on', 'wakelock', 'allumé'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Navigation par boutons de volume',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.settings_idx_title_navigation_par_boutons_de_volume,
     route: '/readerMode',
     keywords: ['volume', 'boutons', 'navigation', 'page'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Afficher les écarts entre les pages',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.show_page_gaps,
     route: '/readerMode',
     keywords: ['écarts', 'gaps', 'pages'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Remplissage latéral Webtoon',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.webtoon_side_padding,
     route: '/readerMode',
     keywords: ['webtoon', 'padding', 'latéral', 'side'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur manga',
-    title: 'Disposition de navigation',
+    page: (l10n) => l10n.reader_manga,
+    title: (l10n) => l10n.navigation_layout,
     route: '/readerMode',
     keywords: ['navigation', 'disposition', 'layout'],
   ),
-
   // ── Lecteur Vidéo ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Lecteur interne',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.internal_player,
     route: '/playerMode',
     keywords: ['lecteur', 'player', 'progression', 'contrôles', 'orientation'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Décodeur',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.decoder,
     route: '/playerDecoderScreen',
     keywords: ['décodeur', 'decoder', 'décodage matériel', 'pixel', 'debanding'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Audio',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.video_audio,
     route: '/playerAudioScreen',
     keywords: ['audio', 'langues', 'hauteur', 'canaux', 'pitch'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Boutons personnalisés',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.custom_buttons,
     route: '/customButtonScreen',
     keywords: ['boutons', 'custom', 'lua', 'scripts'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Gestes',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.settings_idx_title_gestes,
     route: '/playerGestureScreen',
-    keywords: [
-      'gestes',
-      'gesture',
-      'double tap',
-      'chercher',
-      'seek',
-      'balayage',
-      'swipe',
-    ],
+    keywords: ['gestes', 'gesture', 'double tap', 'chercher', 'seek', 'balayage', 'swipe'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Sous-titres',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.settings_idx_title_sous_titres,
     route: '/playerSubtitleScreen',
-    keywords: [
-      'sous-titres',
-      'subtitle',
-      'langues',
-      'liste blanche',
-      'liste noire',
-    ],
+    keywords: ['sous-titres', 'subtitle', 'langues', 'liste blanche', 'liste noire'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Éditeur de scripts',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.settings_idx_title_editeur_de_scripts,
     route: '/playerScriptEditor',
     keywords: ['scripts', 'script', 'lua', 'éditeur', 'editor'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Torrent',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.settings_idx_title_torrent,
     route: '/playerTorrentScreen',
     keywords: ['torrent', 'torrserver', 'streaming'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Fichiers utilisateur',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.settings_idx_title_fichiers_utilisateur,
     route: '/playerAdvancedScreen',
     keywords: ['fichiers', 'user files', 'shaders', 'polices', 'fonts'],
   ),
   SettingsSearchEntry(
-    page: 'Lecteur Vidéo',
-    title: 'Avancé',
+    page: (l10n) => l10n.settings_idx_page_lecteur_video,
+    title: (l10n) => l10n.settings_advanced,
     route: '/playerAdvancedScreen',
     keywords: ['avancé', 'mpv', 'configuration'],
   ),
-
-  // ── Autres pages ──────────────────────────────────────────────────────────
+  // ── Téléchargements ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Téléchargements',
-    title: 'Téléchargements',
+    page: (l10n) => l10n.downloads,
+    title: (l10n) => l10n.downloads,
     route: '/downloads',
     keywords: ['téléchargement', 'download'],
   ),
+  // ── Sauvegarde automatique ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Sauvegarde automatique',
-    title: 'Sauvegarde automatique',
+    page: (l10n) => l10n.settings_auto_backup,
+    title: (l10n) => l10n.settings_auto_backup,
     route: '/autoBackup',
-    keywords: [
-      'sauvegarde',
-      'backup',
-      'restauration',
-      'restore',
-      'cache',
-      'réglages',
-      'settings',
-      'bibliothèque',
-      'library',
-      'désinstallation',
-      'uninstall',
-    ],
+    keywords: ['sauvegarde', 'backup', 'restauration', 'restore', 'cache', 'réglages', 'settings', 'bibliothèque', 'library', 'désinstallation', 'uninstall'],
   ),
+  // ── Suivi ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Suivi',
-    title: 'Suivi',
+    page: (l10n) => l10n.tracking,
+    title: (l10n) => l10n.tracking,
     route: '/track',
     keywords: ['suivi', 'tracking', 'anilist', 'myanimelist', 'mal'],
   ),
+  // ── Synchronisation ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Synchronisation',
-    title: 'Synchronisation',
+    page: (l10n) => l10n.syncing,
+    title: (l10n) => l10n.syncing,
     route: '/sync',
     keywords: ['sync', 'synchronisation', 'cloud'],
   ),
+  // ── Explorer ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Explorer',
-    title: 'Explorer',
+    page: (l10n) => l10n.browse,
+    title: (l10n) => l10n.browse,
     route: '/browseS',
     keywords: ['explorer', 'browse', 'source', 'extension'],
   ),
+  // ── Sécurité ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Sécurité',
-    title: 'Sécurité',
+    page: (l10n) => l10n.security,
+    title: (l10n) => l10n.security,
     route: '/security',
     keywords: ['sécurité', 'security', 'mot de passe', 'biométrie'],
   ),
+  // ── Sources locales ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Sources locales',
-    title: 'Sources locales',
+    page: (l10n) => l10n.settings_idx_page_sources_locales,
+    title: (l10n) => l10n.settings_idx_title_sources_locales,
     route: '/localSources',
     keywords: ['local', 'dossier', 'folder', 'fichier'],
   ),
+  // ── Avancé ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Avancé',
-    title: 'Avancé',
+    page: (l10n) => l10n.settings_advanced,
+    title: (l10n) => l10n.settings_advanced,
     route: '/advanced',
     keywords: ['avancé', 'advanced', 'debug', 'cache', 'logs'],
   ),
   SettingsSearchEntry(
-    page: 'Avancé',
-    title: "Don't kill my app!",
+    page: (l10n) => l10n.settings_advanced,
+    title: (l10n) => l10n.settings_idx_title_dont_kill_my_app,
     route: '/advanced',
-    keywords: ['kill', "don't kill", 'batterie', 'arrière-plan', 'background'],
+    keywords: ['kill', 'don\'t kill', 'batterie', 'arrière-plan', 'background'],
   ),
+  // ── Music Hub ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Music Hub',
-    title: 'Music Hub',
+    page: (l10n) => l10n.settings_music_hub,
+    title: (l10n) => l10n.settings_music_hub,
     route: '/MusicLibrary',
     keywords: ['musique', 'music', 'audio'],
   ),
+  // ── Mode distant ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'Mode distant',
-    title: 'Mode distant',
+    page: (l10n) => l10n.settings_idx_page_mode_distant,
+    title: (l10n) => l10n.settings_idx_title_mode_distant,
     route: '/remoteMode',
     keywords: ['distant', 'remote', 'wifi'],
   ),
+  // ── À propos ─────────────────────────────────────────────────────────
   SettingsSearchEntry(
-    page: 'À propos',
-    title: 'À propos',
+    page: (l10n) => l10n.about,
+    title: (l10n) => l10n.about,
     route: '/about',
     keywords: ['à propos', 'about', 'version', 'info'],
   ),
 ];
 
 /// Entries matching [query], or every entry when the query is empty.
-List<SettingsSearchEntry> searchSettings(String query) {
+List<SettingsSearchEntry> searchSettings(
+  String query,
+  AppLocalizations l10n,
+) {
   if (query.trim().isEmpty) return kSettingsSearchIndex;
-  return kSettingsSearchIndex.where((e) => e.matches(query)).toList();
+  return kSettingsSearchIndex.where((e) => e.matches(query, l10n)).toList();
 }

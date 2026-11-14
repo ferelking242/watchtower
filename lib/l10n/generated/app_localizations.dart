@@ -10760,6 +10760,626 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'High'**
   String get reader_option_high;
+
+  /// No description provided for @settings_general_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Language, DNS, recommendations, Discord'**
+  String get settings_general_subtitle;
+
+  /// No description provided for @settings_display_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme, colors, fonts, dark mode'**
+  String get settings_display_subtitle;
+
+  /// No description provided for @settings_library_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories, sorting, automatic updates'**
+  String get settings_library_subtitle;
+
+  /// No description provided for @settings_reader_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga reader: pages, zoom, reading direction'**
+  String get settings_reader_subtitle;
+
+  /// No description provided for @settings_player_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Video player: quality, gestures, subtitles'**
+  String get settings_player_subtitle;
+
+  /// No description provided for @settings_downloads_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder, queue, Wi-Fi only'**
+  String get settings_downloads_subtitle;
+
+  /// No description provided for @settings_auto_backup.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic backup'**
+  String get settings_auto_backup;
+
+  /// No description provided for @settings_auto_backup_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Library, settings and cache — survives a reinstall'**
+  String get settings_auto_backup_subtitle;
+
+  /// No description provided for @settings_tracking_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AniList, MyAnimeList, progress sync'**
+  String get settings_tracking_subtitle;
+
+  /// No description provided for @settings_sync_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud backup and synchronization'**
+  String get settings_sync_subtitle;
+
+  /// No description provided for @settings_browse_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension repositories, installed sources'**
+  String get settings_browse_subtitle;
+
+  /// No description provided for @settings_security_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock, password, biometrics'**
+  String get settings_security_subtitle;
+
+  /// No description provided for @settings_local_sources.
+  ///
+  /// In en, this message translates to:
+  /// **'Local Sources'**
+  String get settings_local_sources;
+
+  /// No description provided for @settings_local_sources_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import files from a local folder'**
+  String get settings_local_sources_subtitle;
+
+  /// No description provided for @settings_advanced_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Logging, cache, technical options'**
+  String get settings_advanced_subtitle;
+
+  /// No description provided for @settings_music_hub.
+  ///
+  /// In en, this message translates to:
+  /// **'Music Hub'**
+  String get settings_music_hub;
+
+  /// No description provided for @settings_music_hub_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio player and music library'**
+  String get settings_music_hub_subtitle;
+
+  /// No description provided for @settings_remote_connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote Connection'**
+  String get settings_remote_connection;
+
+  /// No description provided for @settings_remote_connection_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Access the library from a browser'**
+  String get settings_remote_connection_subtitle;
+
+  /// No description provided for @settings_remote_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote Mode'**
+  String get settings_remote_mode;
+
+  /// No description provided for @settings_remote_mode_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the library on the local network'**
+  String get settings_remote_mode_subtitle;
+
+  /// No description provided for @settings_about_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Version, credits, license'**
+  String get settings_about_subtitle;
+
+  /// No description provided for @settings_search_no_results.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for “{query}”'**
+  String settings_search_no_results(Object query);
+
+  /// No description provided for @settings_search_results.
+  ///
+  /// In en, this message translates to:
+  /// **'Results in the settings'**
+  String get settings_search_results;
+
+  /// No description provided for @downloads_section_per_media.
+  ///
+  /// In en, this message translates to:
+  /// **'Per media'**
+  String get downloads_section_per_media;
+
+  /// No description provided for @downloads_watch_engine_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Engine, connections, episodes, fillers'**
+  String get downloads_watch_engine_subtitle;
+
+  /// No description provided for @downloads_manga_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive format, compression, chapters'**
+  String get downloads_manga_subtitle;
+
+  /// No description provided for @downloads_wifi_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connections, Wi-Fi downloads'**
+  String get downloads_wifi_subtitle;
+
+  /// No description provided for @downloads_simultaneous.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous downloads (max)'**
+  String get downloads_simultaneous;
+
+  /// No description provided for @downloads_speed_limit.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed limit'**
+  String get downloads_speed_limit;
+
+  /// No description provided for @downloads_disk_write_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Disk write mode'**
+  String get downloads_disk_write_mode;
+
+  /// No description provided for @downloads_cards_gestures.
+  ///
+  /// In en, this message translates to:
+  /// **'Cards & Gestures'**
+  String get downloads_cards_gestures;
+
+  /// No description provided for @downloads_cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Download cards'**
+  String get downloads_cards;
+
+  /// No description provided for @downloads_cards_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Buttons shown and swipe actions'**
+  String get downloads_cards_subtitle;
+
+  /// No description provided for @downloads_auto_delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete automatically after reading'**
+  String get downloads_auto_delete;
+
+  /// No description provided for @downloads_quick_nav.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick navigation (dock)'**
+  String get downloads_quick_nav;
+
+  /// No description provided for @downloads_dock_history.
+  ///
+  /// In en, this message translates to:
+  /// **'History in the dock'**
+  String get downloads_dock_history;
+
+  /// No description provided for @downloads_dock_updates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates in the dock'**
+  String get downloads_dock_updates;
+
+  /// No description provided for @downloads_folder_structure.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder Structure'**
+  String get downloads_folder_structure;
+
+  /// No description provided for @downloads_delete_folder.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the folder'**
+  String get downloads_delete_folder;
+
+  /// No description provided for @downloads_watchtower_folders.
+  ///
+  /// In en, this message translates to:
+  /// **'Watchtower folders'**
+  String get downloads_watchtower_folders;
+
+  /// No description provided for @downloads_allow_access.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow access'**
+  String get downloads_allow_access;
+
+  /// No description provided for @settings_idx_title_dns_over_https.
+  ///
+  /// In en, this message translates to:
+  /// **'DNS over HTTPS'**
+  String get settings_idx_title_dns_over_https;
+
+  /// No description provided for @settings_idx_title_dns_personnalise.
+  ///
+  /// In en, this message translates to:
+  /// **'DNS personnalisé'**
+  String get settings_idx_title_dns_personnalise;
+
+  /// No description provided for @settings_idx_title_user_agent_par_defaut.
+  ///
+  /// In en, this message translates to:
+  /// **'User-Agent par défaut'**
+  String get settings_idx_title_user_agent_par_defaut;
+
+  /// No description provided for @settings_idx_title_discord_rich_presence.
+  ///
+  /// In en, this message translates to:
+  /// **'Discord Rich Presence'**
+  String get settings_idx_title_discord_rich_presence;
+
+  /// No description provided for @settings_idx_title_afficher_la_progression_discord.
+  ///
+  /// In en, this message translates to:
+  /// **'Afficher la progression Discord'**
+  String get settings_idx_title_afficher_la_progression_discord;
+
+  /// No description provided for @settings_idx_title_mode_tablette.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode tablette'**
+  String get settings_idx_title_mode_tablette;
+
+  /// No description provided for @settings_idx_title_durees_relatives.
+  ///
+  /// In en, this message translates to:
+  /// **'Durées relatives'**
+  String get settings_idx_title_durees_relatives;
+
+  /// No description provided for @settings_idx_title_rendre_les_images_dans_les_descriptions_de_mangas.
+  ///
+  /// In en, this message translates to:
+  /// **'Rendre les images dans les descriptions de mangas'**
+  String
+  get settings_idx_title_rendre_les_images_dans_les_descriptions_de_mangas;
+
+  /// No description provided for @settings_idx_title_mode_sombre_pur.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode sombre pur'**
+  String get settings_idx_title_mode_sombre_pur;
+
+  /// No description provided for @settings_idx_title_niveau_de_melange_des_couleurs.
+  ///
+  /// In en, this message translates to:
+  /// **'Niveau de mélange des couleurs'**
+  String get settings_idx_title_niveau_de_melange_des_couleurs;
+
+  /// No description provided for @settings_idx_title_reorganiser_la_navigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Réorganiser la navigation'**
+  String get settings_idx_title_reorganiser_la_navigation;
+
+  /// No description provided for @settings_idx_title_interface_effets.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface & Effets'**
+  String get settings_idx_title_interface_effets;
+
+  /// No description provided for @settings_idx_title_categorie_par_defaut.
+  ///
+  /// In en, this message translates to:
+  /// **'Catégorie par défaut'**
+  String get settings_idx_title_categorie_par_defaut;
+
+  /// No description provided for @settings_idx_title_reglages_de_tri_par_categorie.
+  ///
+  /// In en, this message translates to:
+  /// **'Réglages de tri par catégorie'**
+  String get settings_idx_title_reglages_de_tri_par_categorie;
+
+  /// No description provided for @settings_idx_title_mises_a_jour_automatiques.
+  ///
+  /// In en, this message translates to:
+  /// **'Mises à jour automatiques'**
+  String get settings_idx_title_mises_a_jour_automatiques;
+
+  /// No description provided for @settings_idx_title_restrictions_materielles_pour_les_mises_a_jour.
+  ///
+  /// In en, this message translates to:
+  /// **'Restrictions matérielles pour les mises à jour'**
+  String get settings_idx_title_restrictions_materielles_pour_les_mises_a_jour;
+
+  /// No description provided for @settings_idx_title_categories_des_mises_a_jour_inclure_exclure.
+  ///
+  /// In en, this message translates to:
+  /// **'Catégories des mises à jour (inclure / exclure)'**
+  String get settings_idx_title_categories_des_mises_a_jour_inclure_exclure;
+
+  /// No description provided for @settings_idx_title_actualiser_automatiquement_les_metadonnees.
+  ///
+  /// In en, this message translates to:
+  /// **'Actualiser automatiquement les métadonnées'**
+  String get settings_idx_title_actualiser_automatiquement_les_metadonnees;
+
+  /// No description provided for @settings_idx_title_verifier_sil_y_a_une_nouvelle_couverture_ou_synopsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Vérifier s’il y a une nouvelle couverture ou synopsis'**
+  String
+  get settings_idx_title_verifier_sil_y_a_une_nouvelle_couverture_ou_synopsis;
+
+  /// No description provided for @settings_idx_title_mise_a_jour_intelligente.
+  ///
+  /// In en, this message translates to:
+  /// **'Mise à jour intelligente'**
+  String get settings_idx_title_mise_a_jour_intelligente;
+
+  /// No description provided for @settings_idx_title_afficher_le_nombre_de_chapitres_non_lus.
+  ///
+  /// In en, this message translates to:
+  /// **'Afficher le nombre de chapitres non lus'**
+  String get settings_idx_title_afficher_le_nombre_de_chapitres_non_lus;
+
+  /// No description provided for @settings_idx_title_action_de_glisser_a_gauche.
+  ///
+  /// In en, this message translates to:
+  /// **'Action de glisser à gauche'**
+  String get settings_idx_title_action_de_glisser_a_gauche;
+
+  /// No description provided for @settings_idx_title_action_de_glisser_a_droite.
+  ///
+  /// In en, this message translates to:
+  /// **'Action de glisser à droite'**
+  String get settings_idx_title_action_de_glisser_a_droite;
+
+  /// No description provided for @settings_idx_title_marquer_un_chapitre_duplique_comme_lu.
+  ///
+  /// In en, this message translates to:
+  /// **'Marquer un chapitre dupliqué comme lu'**
+  String get settings_idx_title_marquer_un_chapitre_duplique_comme_lu;
+
+  /// No description provided for @settings_idx_title_masquer_les_indicateurs_de_chapitre_manquants.
+  ///
+  /// In en, this message translates to:
+  /// **'Masquer les indicateurs de chapitre manquants'**
+  String get settings_idx_title_masquer_les_indicateurs_de_chapitre_manquants;
+
+  /// No description provided for @settings_idx_title_type_de_mise_a_lechelle.
+  ///
+  /// In en, this message translates to:
+  /// **'Type de mise à l’échelle'**
+  String get settings_idx_title_type_de_mise_a_lechelle;
+
+  /// No description provided for @settings_idx_title_garder_lecran_allume.
+  ///
+  /// In en, this message translates to:
+  /// **'Garder l’écran allumé'**
+  String get settings_idx_title_garder_lecran_allume;
+
+  /// No description provided for @settings_idx_title_navigation_par_boutons_de_volume.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation par boutons de volume'**
+  String get settings_idx_title_navigation_par_boutons_de_volume;
+
+  /// No description provided for @settings_idx_page_lecteur_video.
+  ///
+  /// In en, this message translates to:
+  /// **'Lecteur Vidéo'**
+  String get settings_idx_page_lecteur_video;
+
+  /// No description provided for @settings_idx_title_gestes.
+  ///
+  /// In en, this message translates to:
+  /// **'Gestes'**
+  String get settings_idx_title_gestes;
+
+  /// No description provided for @settings_idx_title_sous_titres.
+  ///
+  /// In en, this message translates to:
+  /// **'Sous-titres'**
+  String get settings_idx_title_sous_titres;
+
+  /// No description provided for @settings_idx_title_editeur_de_scripts.
+  ///
+  /// In en, this message translates to:
+  /// **'Éditeur de scripts'**
+  String get settings_idx_title_editeur_de_scripts;
+
+  /// No description provided for @settings_idx_title_torrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Torrent'**
+  String get settings_idx_title_torrent;
+
+  /// No description provided for @settings_idx_title_fichiers_utilisateur.
+  ///
+  /// In en, this message translates to:
+  /// **'Fichiers utilisateur'**
+  String get settings_idx_title_fichiers_utilisateur;
+
+  /// No description provided for @settings_idx_page_sources_locales.
+  ///
+  /// In en, this message translates to:
+  /// **'Sources locales'**
+  String get settings_idx_page_sources_locales;
+
+  /// No description provided for @settings_idx_title_sources_locales.
+  ///
+  /// In en, this message translates to:
+  /// **'Sources locales'**
+  String get settings_idx_title_sources_locales;
+
+  /// No description provided for @settings_idx_title_dont_kill_my_app.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t kill my app!'**
+  String get settings_idx_title_dont_kill_my_app;
+
+  /// No description provided for @settings_idx_page_mode_distant.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode distant'**
+  String get settings_idx_page_mode_distant;
+
+  /// No description provided for @settings_idx_title_mode_distant.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode distant'**
+  String get settings_idx_title_mode_distant;
+
+  /// No description provided for @settings_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in the settings…'**
+  String get settings_search_hint;
+
+  /// No description provided for @downloads_simultaneous_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous downloads'**
+  String get downloads_simultaneous_title;
+
+  /// No description provided for @downloads_simultaneous_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} download at a time} other{{count} downloads at a time}}'**
+  String downloads_simultaneous_subtitle(num count);
+
+  /// No description provided for @downloads_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get downloads_disabled;
+
+  /// No description provided for @downloads_write_part.
+  ///
+  /// In en, this message translates to:
+  /// **'.part + resume'**
+  String get downloads_write_part;
+
+  /// No description provided for @downloads_write_part_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Writes to a .part file then renames it at the end. Resumes automatically after an interruption; the partial file stays readable.'**
+  String get downloads_write_part_desc;
+
+  /// No description provided for @downloads_write_prealloc.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-allocation'**
+  String get downloads_write_prealloc;
+
+  /// No description provided for @downloads_write_prealloc_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Reserves the final file size before downloading. Avoids fragmentation on large files.'**
+  String get downloads_write_prealloc_desc;
+
+  /// No description provided for @downloads_write_direct.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct'**
+  String get downloads_write_direct;
+
+  /// No description provided for @downloads_write_direct_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Writes straight to the final path (legacy behaviour). The file may be corrupted if the download is interrupted.'**
+  String get downloads_write_direct_desc;
+
+  /// No description provided for @downloads_section_deletion.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletion'**
+  String get downloads_section_deletion;
+
+  /// No description provided for @downloads_auto_delete_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes the file once the content has been read or watched'**
+  String get downloads_auto_delete_subtitle;
+
+  /// No description provided for @downloads_allow_bookmarked_delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow deleting bookmarked chapters'**
+  String get downloads_allow_bookmarked_delete;
+
+  /// No description provided for @downloads_allow_bookmarked_delete_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Lets a chapter with a bookmark be deleted'**
+  String get downloads_allow_bookmarked_delete_subtitle;
+
+  /// No description provided for @downloads_dock_history_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the History tab in the navigation bar'**
+  String get downloads_dock_history_subtitle;
+
+  /// No description provided for @downloads_dock_updates_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the Updates tab in the navigation bar'**
+  String get downloads_dock_updates_subtitle;
+
+  /// No description provided for @downloads_default_folder.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get downloads_default_folder;
+
+  /// No description provided for @downloads_storage_unavailable_snack.
+  ///
+  /// In en, this message translates to:
+  /// **'The download folder is not accessible. Check the storage space and try again.'**
+  String get downloads_storage_unavailable_snack;
+
+  /// No description provided for @downloads_no_folder.
+  ///
+  /// In en, this message translates to:
+  /// **'No download folder is available.'**
+  String get downloads_no_folder;
+
+  /// No description provided for @downloads_folder_prepare_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not prepare the download folder.'**
+  String get downloads_folder_prepare_failed;
+
+  /// No description provided for @downloads_file_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} file} other{{count} files}}'**
+  String downloads_file_count(num count);
+
+  /// No description provided for @downloads_folder_not_created.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder not created yet'**
+  String get downloads_folder_not_created;
 }
 
 class _AppLocalizationsDelegate

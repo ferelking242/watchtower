@@ -6189,4 +6189,383 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get reader_option_high => 'Haute';
+
+  @override
+  String get settings_general_subtitle =>
+      'Langue, DNS, recommandations, Discord';
+
+  @override
+  String get settings_display_subtitle =>
+      'Thème, couleurs, polices, mode sombre';
+
+  @override
+  String get settings_library_subtitle =>
+      'Catégories, tri, mises à jour automatiques';
+
+  @override
+  String get settings_reader_subtitle =>
+      'Lecteur manga : page, zoom, sens de lecture';
+
+  @override
+  String get settings_player_subtitle =>
+      'Lecteur vidéo : qualité, gestes, sous-titres';
+
+  @override
+  String get settings_downloads_subtitle =>
+      'Dossier, file d’attente, Wi-Fi uniquement';
+
+  @override
+  String get settings_auto_backup => 'Sauvegarde automatique';
+
+  @override
+  String get settings_auto_backup_subtitle =>
+      'Bibliothèque, réglages et cache — survit à la désinstallation';
+
+  @override
+  String get settings_tracking_subtitle =>
+      'AniList, MyAnimeList, synchronisation du suivi';
+
+  @override
+  String get settings_sync_subtitle => 'Sauvegarde cloud et synchronisation';
+
+  @override
+  String get settings_browse_subtitle =>
+      'Dépôts d’extensions, sources installées';
+
+  @override
+  String get settings_security_subtitle =>
+      'Verrouillage, mot de passe, biométrie';
+
+  @override
+  String get settings_local_sources => 'Sources Locales';
+
+  @override
+  String get settings_local_sources_subtitle =>
+      'Importer des fichiers depuis un dossier local';
+
+  @override
+  String get settings_advanced_subtitle =>
+      'Journalisation, cache, options techniques';
+
+  @override
+  String get settings_music_hub => 'Music Hub';
+
+  @override
+  String get settings_music_hub_subtitle =>
+      'Lecteur audio et bibliothèque musicale';
+
+  @override
+  String get settings_remote_connection => 'Connexion Distante';
+
+  @override
+  String get settings_remote_connection_subtitle =>
+      'Accéder à la bibliothèque depuis un navigateur';
+
+  @override
+  String get settings_remote_mode => 'Mode Distant';
+
+  @override
+  String get settings_remote_mode_subtitle =>
+      'Partager la bibliothèque sur le réseau local';
+
+  @override
+  String get settings_about_subtitle => 'Version, crédits, licence';
+
+  @override
+  String settings_search_no_results(Object query) {
+    return 'Aucun résultat pour « $query »';
+  }
+
+  @override
+  String get settings_search_results => 'Résultats dans les paramètres';
+
+  @override
+  String get downloads_section_per_media => 'Par média';
+
+  @override
+  String get downloads_watch_engine_subtitle =>
+      'Moteur, connexions, épisodes, fillers';
+
+  @override
+  String get downloads_manga_subtitle =>
+      'Format d’archive, compression, chapitres';
+
+  @override
+  String get downloads_wifi_subtitle => 'Connexions, téléchargements Wi-Fi';
+
+  @override
+  String get downloads_simultaneous => 'Téléchargements simultanés (max)';
+
+  @override
+  String get downloads_speed_limit => 'Limite de vitesse';
+
+  @override
+  String get downloads_disk_write_mode => 'Mode d’écriture disque';
+
+  @override
+  String get downloads_cards_gestures => 'Cartes & Gestes';
+
+  @override
+  String get downloads_cards => 'Cartes de téléchargement';
+
+  @override
+  String get downloads_cards_subtitle =>
+      'Boutons affichés et actions de balayage';
+
+  @override
+  String get downloads_auto_delete => 'Suppression automatique après lecture';
+
+  @override
+  String get downloads_quick_nav => 'Navigation rapide (dock)';
+
+  @override
+  String get downloads_dock_history => 'Historique dans le dock';
+
+  @override
+  String get downloads_dock_updates => 'Mises à jour dans le dock';
+
+  @override
+  String get downloads_folder_structure => 'Folder Structure';
+
+  @override
+  String get downloads_delete_folder => 'Supprimer le dossier';
+
+  @override
+  String get downloads_watchtower_folders => 'Dossiers Watchtower';
+
+  @override
+  String get downloads_allow_access => 'Autoriser l’accès';
+
+  @override
+  String get settings_idx_title_dns_over_https => 'DNS over HTTPS';
+
+  @override
+  String get settings_idx_title_dns_personnalise => 'DNS personnalisé';
+
+  @override
+  String get settings_idx_title_user_agent_par_defaut =>
+      'User-Agent par défaut';
+
+  @override
+  String get settings_idx_title_discord_rich_presence =>
+      'Discord Rich Presence';
+
+  @override
+  String get settings_idx_title_afficher_la_progression_discord =>
+      'Afficher la progression Discord';
+
+  @override
+  String get settings_idx_title_mode_tablette => 'Mode tablette';
+
+  @override
+  String get settings_idx_title_durees_relatives => 'Durées relatives';
+
+  @override
+  String
+  get settings_idx_title_rendre_les_images_dans_les_descriptions_de_mangas =>
+      'Rendre les images dans les descriptions de mangas';
+
+  @override
+  String get settings_idx_title_mode_sombre_pur => 'Mode sombre pur';
+
+  @override
+  String get settings_idx_title_niveau_de_melange_des_couleurs =>
+      'Niveau de mélange des couleurs';
+
+  @override
+  String get settings_idx_title_reorganiser_la_navigation =>
+      'Réorganiser la navigation';
+
+  @override
+  String get settings_idx_title_interface_effets => 'Interface & Effets';
+
+  @override
+  String get settings_idx_title_categorie_par_defaut => 'Catégorie par défaut';
+
+  @override
+  String get settings_idx_title_reglages_de_tri_par_categorie =>
+      'Réglages de tri par catégorie';
+
+  @override
+  String get settings_idx_title_mises_a_jour_automatiques =>
+      'Mises à jour automatiques';
+
+  @override
+  String
+  get settings_idx_title_restrictions_materielles_pour_les_mises_a_jour =>
+      'Restrictions matérielles pour les mises à jour';
+
+  @override
+  String get settings_idx_title_categories_des_mises_a_jour_inclure_exclure =>
+      'Catégories des mises à jour (inclure / exclure)';
+
+  @override
+  String get settings_idx_title_actualiser_automatiquement_les_metadonnees =>
+      'Actualiser automatiquement les métadonnées';
+
+  @override
+  String
+  get settings_idx_title_verifier_sil_y_a_une_nouvelle_couverture_ou_synopsis =>
+      'Vérifier s’il y a une nouvelle couverture ou synopsis';
+
+  @override
+  String get settings_idx_title_mise_a_jour_intelligente =>
+      'Mise à jour intelligente';
+
+  @override
+  String get settings_idx_title_afficher_le_nombre_de_chapitres_non_lus =>
+      'Afficher le nombre de chapitres non lus';
+
+  @override
+  String get settings_idx_title_action_de_glisser_a_gauche =>
+      'Action de glisser à gauche';
+
+  @override
+  String get settings_idx_title_action_de_glisser_a_droite =>
+      'Action de glisser à droite';
+
+  @override
+  String get settings_idx_title_marquer_un_chapitre_duplique_comme_lu =>
+      'Marquer un chapitre dupliqué comme lu';
+
+  @override
+  String get settings_idx_title_masquer_les_indicateurs_de_chapitre_manquants =>
+      'Masquer les indicateurs de chapitre manquants';
+
+  @override
+  String get settings_idx_title_type_de_mise_a_lechelle =>
+      'Type de mise à l’échelle';
+
+  @override
+  String get settings_idx_title_garder_lecran_allume => 'Garder l’écran allumé';
+
+  @override
+  String get settings_idx_title_navigation_par_boutons_de_volume =>
+      'Navigation par boutons de volume';
+
+  @override
+  String get settings_idx_page_lecteur_video => 'Lecteur Vidéo';
+
+  @override
+  String get settings_idx_title_gestes => 'Gestes';
+
+  @override
+  String get settings_idx_title_sous_titres => 'Sous-titres';
+
+  @override
+  String get settings_idx_title_editeur_de_scripts => 'Éditeur de scripts';
+
+  @override
+  String get settings_idx_title_torrent => 'Torrent';
+
+  @override
+  String get settings_idx_title_fichiers_utilisateur => 'Fichiers utilisateur';
+
+  @override
+  String get settings_idx_page_sources_locales => 'Sources locales';
+
+  @override
+  String get settings_idx_title_sources_locales => 'Sources locales';
+
+  @override
+  String get settings_idx_title_dont_kill_my_app => 'Don\'t kill my app!';
+
+  @override
+  String get settings_idx_page_mode_distant => 'Mode distant';
+
+  @override
+  String get settings_idx_title_mode_distant => 'Mode distant';
+
+  @override
+  String get settings_search_hint => 'Rechercher dans les paramètres…';
+
+  @override
+  String get downloads_simultaneous_title => 'Téléchargements simultanés';
+
+  @override
+  String downloads_simultaneous_subtitle(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count téléchargements en parallèle',
+      one: '$count téléchargement en parallèle',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get downloads_disabled => 'Désactivée';
+
+  @override
+  String get downloads_write_part => '.part + reprise';
+
+  @override
+  String get downloads_write_part_desc =>
+      'Écrit dans un fichier .part puis renomme à la fin. Reprise automatique après interruption ; le partiel reste lisible.';
+
+  @override
+  String get downloads_write_prealloc => 'Pré-allocation';
+
+  @override
+  String get downloads_write_prealloc_desc =>
+      'Réserve la taille finale du fichier avant de télécharger. Évite la fragmentation sur les gros fichiers.';
+
+  @override
+  String get downloads_write_direct => 'Direct';
+
+  @override
+  String get downloads_write_direct_desc =>
+      'Écrit directement au chemin final (ancien comportement). Risque de fichier corrompu si interruption.';
+
+  @override
+  String get downloads_section_deletion => 'Suppression';
+
+  @override
+  String get downloads_auto_delete_subtitle =>
+      'Supprime le fichier une fois le contenu lu/visionné';
+
+  @override
+  String get downloads_allow_bookmarked_delete =>
+      'Autoriser la suppression des chapitres marqués';
+
+  @override
+  String get downloads_allow_bookmarked_delete_subtitle =>
+      'Permet de supprimer les chapitres avec un marque-page';
+
+  @override
+  String get downloads_dock_history_subtitle =>
+      'Affiche l’onglet Historique dans la barre de navigation';
+
+  @override
+  String get downloads_dock_updates_subtitle =>
+      'Affiche l’onglet Mises à jour dans la barre de navigation';
+
+  @override
+  String get downloads_default_folder => 'Par défaut';
+
+  @override
+  String get downloads_storage_unavailable_snack =>
+      'Le dossier de téléchargement n’est pas accessible. Vérifiez l’espace de stockage puis réessayez.';
+
+  @override
+  String get downloads_no_folder =>
+      'Aucun dossier de téléchargement n’est disponible.';
+
+  @override
+  String get downloads_folder_prepare_failed =>
+      'Impossible de préparer le dossier de téléchargement.';
+
+  @override
+  String downloads_file_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fichiers',
+      one: '$count fichier',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get downloads_folder_not_created => 'Dossier non encore créé';
 }

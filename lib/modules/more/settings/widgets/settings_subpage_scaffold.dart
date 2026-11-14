@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/settings/settings_subpage_route.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_search_index.dart';
 
 /// Collapsing header shared by every settings page.
@@ -26,7 +27,7 @@ class SettingsSubpageScaffold extends StatefulWidget {
     this.floatingActionButton,
     this.leading,
     this.showSearch = true,
-    this.searchHint = 'Rechercher dans les paramètres…',
+    this.searchHint,
     this.onSearchChanged,
     this.expandedHeight,
   }) : assert(
@@ -52,7 +53,7 @@ class SettingsSubpageScaffold extends StatefulWidget {
 
   /// Set to false on pages where a free-text filter makes no sense.
   final bool showSearch;
-  final String searchHint;
+  final String? searchHint;
 
   /// When provided, the on-page field is a local filter instead of the global
   /// cross-page search. The page owns the filtering.
@@ -204,7 +205,7 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
             BareSearchBarTransition(
               child: _searchField(
                 controller: _pageSearch,
-                hint: widget.searchHint,
+                hint: widget.searchHint ?? context.l10n.settings_search_hint,
                 onChanged: _onPageQuery,
                 onClear: () {
                   _pageSearch.clear();
@@ -345,9 +346,10 @@ class _GlobalSearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final q = query.trim();
     if (q.isEmpty) return const SizedBox.shrink();
-    final entries = searchSettings(q);
+    final entries = searchSettings(q, l10n);
 
     if (entries.isEmpty) {
       return Padding(
@@ -361,7 +363,7 @@ class _GlobalSearchResults extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Aucun résultat pour « $q »',
+              l10n.settings_search_no_results(q),
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6)),
             ),
@@ -376,7 +378,7 @@ class _GlobalSearchResults extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            'Résultats dans les paramètres',
+            l10n.settings_search_results,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -389,9 +391,9 @@ class _GlobalSearchResults extends StatelessWidget {
           (e) => ListTile(
             dense: true,
             leading: Icon(Broken.setting_5, color: cs.primary, size: 20),
-            title: Text(e.title),
+            title: Text(e.title(l10n)),
             subtitle: Text(
-              e.page,
+              e.page(l10n),
               style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
             ),
             onTap: () {

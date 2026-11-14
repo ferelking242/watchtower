@@ -47,56 +47,56 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final writeMode = DownloadSettingsService.instance.downloadWriteMode;
 
     return SettingsSubpageScaffold(
-      title: 'Téléchargements',
+      title: l10n.downloads,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Par média ─────────────────────────────────────────────────
-            _SectionHeader(title: 'Par média'),
+            _SectionHeader(title: l10n.downloads_section_per_media),
             _NavTile(
               icon: Broken.play_circle,
-              label: 'Watch',
-              subtitle: 'Moteur, connexions, épisodes, fillers',
+              label: l10n.watch,
+              subtitle: l10n.downloads_watch_engine_subtitle,
               iconColor: scheme.primary,
               onTap: () => _push(context, const WatchDownloadScreen()),
             ),
             _NavTile(
               icon: Broken.book,
-              label: 'Manga',
-              subtitle: 'Format d\'archive, compression, chapitres',
+              label: l10n.manga,
+              subtitle: l10n.downloads_manga_subtitle,
               iconColor: scheme.secondary,
               onTap: () => _push(context, const MangaDownloadScreen()),
             ),
             _NavTile(
               icon: Broken.book,
-              label: 'Roman',
-              subtitle: 'Connexions, téléchargements Wi-Fi',
+              label: l10n.novel,
+              subtitle: l10n.downloads_wifi_subtitle,
               iconColor: scheme.tertiary,
               onTap: () => _push(context, const NovelDownloadScreen()),
             ),
             _NavTile(
               icon: Broken.music,
-              label: 'Musique',
-              subtitle: 'Connexions, téléchargements Wi-Fi',
+              label: l10n.catalog_tag_music,
+              subtitle: l10n.downloads_wifi_subtitle,
               iconColor: scheme.primary,
               onTap: () => _push(context, const MusicDownloadScreen()),
             ),
             _NavTile(
               icon: Broken.game,
-              label: 'Jeu',
-              subtitle: 'Connexions, téléchargements Wi-Fi',
+              label: l10n.catalog_tag_game,
+              subtitle: l10n.downloads_wifi_subtitle,
               iconColor: scheme.secondary,
               onTap: () => _push(context, const GameDownloadScreen()),
             ),
 
             // ── Général ───────────────────────────────────────────────────
-            _SectionHeader(title: 'Général'),
+            _SectionHeader(title: l10n.general),
             ListTile(
               leading: const Icon(Broken.document_download),
-              title: const Text('Téléchargements simultanés (max)'),
+              title: Text(l10n.downloads_simultaneous),
               subtitle: Text(
-                '$concurrentDownloads téléchargement(s) en parallèle',
+                l10n.downloads_simultaneous_subtitle(concurrentDownloads),
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
               trailing: _BadgeChip(
@@ -105,7 +105,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
               ),
               onTap: () => _showNumberPickerDialog(
                 context,
-                title: 'Téléchargements simultanés',
+                title: l10n.downloads_simultaneous_title,
                 current: concurrentDownloads,
                 min: 1,
                 max: 10,
@@ -115,10 +115,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ),
             ListTile(
               leading: const Icon(Broken.timer),
-              title: const Text('Limite de vitesse'),
+              title: Text(l10n.downloads_speed_limit),
               subtitle: Text(
                 speedLimit == 0
-                    ? 'Désactivée'
+                    ? l10n.downloads_disabled
                     : speedLimit < 1024
                     ? '$speedLimit KB/s'
                     : '${(speedLimit / 1024).toStringAsFixed(0)} MB/s',
@@ -132,11 +132,11 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ),
             ListTile(
               leading: const Icon(Broken.save_2),
-              title: const Text('Mode d\'écriture disque'),
+              title: Text(l10n.downloads_disk_write_mode),
               subtitle: Text(switch (writeMode) {
-                0 => '.part + reprise automatique (recommandé)',
-                1 => 'Pré-allocation de l\'espace fichier',
-                _ => 'Direct (risqué si interruption)',
+                0 => l10n.downloads_write_part,
+                1 => l10n.downloads_write_prealloc,
+                _ => l10n.downloads_write_direct,
               }, style: TextStyle(fontSize: 11, color: context.secondaryColor)),
               trailing: _BadgeChip(
                 label: switch (writeMode) {
@@ -158,23 +158,23 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ),
 
             // ── Cartes & Gestes ───────────────────────────────────────────
-            _SectionHeader(title: 'Cartes & Gestes'),
+            _SectionHeader(title: l10n.downloads_cards_gestures),
             _NavTile(
               icon: Broken.card,
-              label: 'Cartes de téléchargement',
-              subtitle: 'Boutons affichés et actions de balayage',
+              label: l10n.downloads_cards,
+              subtitle: l10n.downloads_cards_subtitle,
               iconColor: scheme.primary,
               onTap: () => _push(context, const DownloadCardsScreen()),
             ),
 
             // ── Suppression ───────────────────────────────────────────────
-            _SectionHeader(title: 'Suppression'),
+            _SectionHeader(title: l10n.downloads_section_deletion),
             SwitchListTile(
               secondary: const Icon(Broken.trash),
-              title: const Text('Suppression automatique après lecture'),
-              subtitle: const Text(
-                'Supprime le fichier une fois le contenu lu/visionné',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_auto_delete),
+              subtitle: Text(
+                l10n.downloads_auto_delete_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: ref.watch(deleteDownloadAfterReadingStateProvider),
               onChanged: (v) => ref
@@ -183,12 +183,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ),
             SwitchListTile(
               secondary: const Icon(Broken.bookmark),
-              title: const Text(
-                'Autoriser la suppression des chapitres marqués',
-              ),
-              subtitle: const Text(
-                'Permet de supprimer les chapitres avec un marque-page',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_allow_bookmarked_delete),
+              subtitle: Text(
+                l10n.downloads_allow_bookmarked_delete_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: ref.watch(allowDeletingBookmarkedChaptersStateProvider),
               onChanged: (v) => ref
@@ -197,7 +195,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
             ),
 
             // ── Navigation rapide (dock) ───────────────────────────────────
-            _SectionHeader(title: 'Navigation rapide (dock)'),
+            _SectionHeader(title: l10n.downloads_quick_nav),
             Builder(
               builder: (context) {
                 final hideItems = ref.watch(hideItemsStateProvider);
@@ -205,10 +203,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                   children: [
                     SwitchListTile(
                       secondary: const Icon(Broken.clock),
-                      title: const Text('Historique dans le dock'),
-                      subtitle: const Text(
-                        'Affiche l\'onglet Historique dans la barre de navigation',
-                        style: TextStyle(fontSize: 11),
+                      title: Text(l10n.downloads_dock_history),
+                      subtitle: Text(
+                        l10n.downloads_dock_history_subtitle,
+                        style: const TextStyle(fontSize: 11),
                       ),
                       value: !hideItems.contains('/history'),
                       onChanged: (v) {
@@ -223,10 +221,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     ),
                     SwitchListTile(
                       secondary: const Icon(Broken.magic_star),
-                      title: const Text('Mises à jour dans le dock'),
-                      subtitle: const Text(
-                        'Affiche l\'onglet Mises à jour dans la barre de navigation',
-                        style: TextStyle(fontSize: 11),
+                      title: Text(l10n.downloads_dock_updates),
+                      subtitle: Text(
+                        l10n.downloads_dock_updates_subtitle,
+                        style: const TextStyle(fontSize: 11),
                       ),
                       value: !hideItems.contains('/updates'),
                       onChanged: (v) {
@@ -273,7 +271,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: () => _showHelpDialog(context),
                       label: const Icon(Broken.message_question),
-                      icon: const Text('Folder Structure'),
+                      icon: Text(l10n.downloads_folder_structure),
                     ),
                   ),
                   FutureBuilder(
@@ -373,12 +371,12 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Limite de vitesse'),
+        title: Text(context.l10n.downloads_speed_limit),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: options.map((kb) {
             final label = kb == 0
-                ? 'Désactivée'
+                ? context.l10n.downloads_disabled
                 : kb < 1024
                 ? '$kb KB/s'
                 : '${(kb / 1024).toStringAsFixed(0)} MB/s';
@@ -399,27 +397,16 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   }
 
   Future<int?> _pickWriteMode(BuildContext context, int current) {
-    const options = [
-      (
-        0,
-        '.part + reprise',
-        'Écrit dans un fichier .part puis renomme à la fin. Reprise automatique après interruption ; le partiel reste lisible.',
-      ),
-      (
-        1,
-        'Pré-allocation',
-        'Réserve la taille finale du fichier avant de télécharger. Évite la fragmentation sur les gros fichiers.',
-      ),
-      (
-        2,
-        'Direct',
-        'Écrit directement au chemin final (ancien comportement). Risque de fichier corrompu si interruption.',
-      ),
+    final l10n = context.l10n;
+    final options = [
+      (0, l10n.downloads_write_part, l10n.downloads_write_part_desc),
+      (1, l10n.downloads_write_prealloc, l10n.downloads_write_prealloc_desc),
+      (2, l10n.downloads_write_direct, l10n.downloads_write_direct_desc),
     ];
     return showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Mode d\'écriture disque'),
+        title: Text(l10n.downloads_disk_write_mode),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: options.map((o) {
@@ -582,7 +569,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        'Default',
+                        l10n.downloads_default_folder,
                         style: TextStyle(fontSize: 10, color: scheme.primary),
                       ),
                     ),
@@ -621,12 +608,12 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                       );
                     },
                     icon: const Icon(Broken.trash),
-                    tooltip: 'Supprimer le dossier',
+                    tooltip: l10n.downloads_delete_folder,
                   ),
                 ],
               ),
             // ── Dossiers Watchtower ───────────────────────────────────────
-            _SectionHeader(title: 'Dossiers Watchtower'),
+            _SectionHeader(title: l10n.downloads_watchtower_folders),
             _WatchtowerDossiersSection(),
           ],
         ),
@@ -774,12 +761,7 @@ class _WatchtowerDossiersSectionState
       await _load();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Le dossier de téléchargement n’est pas accessible. '
-            'Vérifiez l’espace de stockage puis réessayez.',
-          ),
-        ),
+        SnackBar(content: Text(context.l10n.downloads_storage_unavailable_snack)),
       );
     }
   }
@@ -829,7 +811,7 @@ class _WatchtowerDossiersSectionState
                     color: scheme.primary,
                   ),
                   onPressed: _load,
-                  tooltip: 'Actualiser',
+                  tooltip: context.l10n.refresh,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
                     minWidth: 32,
@@ -851,15 +833,15 @@ class _WatchtowerDossiersSectionState
               children: [
                 Text(
                   WatchtowerFolderService.instance.lastError == null
-                      ? 'Aucun dossier de téléchargement n’est disponible.'
-                      : 'Impossible de préparer le dossier de téléchargement.',
+                      ? context.l10n.downloads_no_folder
+                      : context.l10n.downloads_folder_prepare_failed,
                   style: const TextStyle(fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 FilledButton.icon(
                   onPressed: _requestPerms,
                   icon: const Icon(Broken.folder_open, size: 16),
-                  label: const Text('Autoriser l\'accès'),
+                  label: Text(context.l10n.downloads_allow_access),
                 ),
               ],
             ),
@@ -886,8 +868,8 @@ class _WatchtowerDossiersSectionState
               ),
               subtitle: Text(
                 f.exists
-                    ? '${f.fileCount} fichier${f.fileCount != 1 ? "s" : ""} · ${f.formattedSize}'
-                    : 'Dossier non encore créé',
+                    ? '${context.l10n.downloads_file_count(f.fileCount)} · ${f.formattedSize}'
+                    : context.l10n.downloads_folder_not_created,
                 style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
               ),
               trailing: f.exists

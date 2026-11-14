@@ -43,14 +43,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return [
       _SettingItem(
         title: l10n.general,
-        subtitle: 'Langue, DNS, recommandations, Discord',
+        subtitle: l10n.settings_general_subtitle,
         icon: Broken.setting_2,
         route: '/general',
         keywords: ['général', 'general'],
       ),
       _SettingItem(
         title: l10n.display,
-        subtitle: 'Thème, couleurs, polices, mode sombre',
+        subtitle: l10n.settings_display_subtitle,
         icon: Broken.monitor,
         route: '/appearance',
         keywords: [
@@ -72,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       _SettingItem(
         title: l10n.library,
-        subtitle: 'Catégories, tri, mises à jour automatiques',
+        subtitle: l10n.settings_library_subtitle,
         icon: Broken.book_1,
         route: '/librarySettings',
         keywords: [
@@ -88,14 +88,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       _SettingItem(
         title: l10n.reader_manga,
-        subtitle: 'Lecteur manga : page, zoom, sens de lecture',
+        subtitle: l10n.settings_reader_subtitle,
         icon: Broken.chrome,
         route: '/readerMode',
         keywords: ['lecture', 'reader', 'manga', 'page', 'lecteur manga'],
       ),
       _SettingItem(
         title: l10n.player_video,
-        subtitle: 'Lecteur vidéo : qualité, gestes, sous-titres',
+        subtitle: l10n.settings_player_subtitle,
         icon: Broken.play_circle,
         route: '/playerOverview',
         keywords: [
@@ -109,14 +109,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       _SettingItem(
         title: l10n.downloads,
-        subtitle: "Dossier, file d'attente, Wi-Fi uniquement",
+        subtitle: l10n.settings_downloads_subtitle,
         icon: Broken.document_download,
         route: '/downloads',
         keywords: ['téléchargement', 'download'],
       ),
       _SettingItem(
-        title: 'Sauvegarde automatique',
-        subtitle: 'Bibliothèque, réglages et cache — survit à la désinstallation',
+        title: l10n.settings_auto_backup,
+        subtitle: l10n.settings_auto_backup_subtitle,
         icon: Broken.document_download,
         route: '/autoBackup',
         keywords: [
@@ -132,21 +132,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       _SettingItem(
         title: l10n.tracking,
-        subtitle: 'AniList, MyAnimeList, synchronisation du suivi',
+        subtitle: l10n.settings_tracking_subtitle,
         icon: Broken.refresh_circle,
         route: '/track',
         keywords: ['tracking', 'suivi', 'anilist', 'myanimelist', 'mal'],
       ),
       _SettingItem(
         title: l10n.syncing,
-        subtitle: 'Sauvegarde cloud et synchronisation',
+        subtitle: l10n.settings_sync_subtitle,
         icon: Broken.cloud_connection,
         route: '/sync',
         keywords: ['sync', 'synchronisation', 'cloud'],
       ),
       _SettingItem(
         title: l10n.browse,
-        subtitle: "Dépôts d'extensions, sources installées",
+        subtitle: l10n.settings_browse_subtitle,
         icon: Broken.global_search,
         route: '/browseS',
         keywords: ['browse', 'explorer', 'source', 'extension'],
@@ -154,51 +154,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (kIsWeb || !Platform.isLinux)
         _SettingItem(
           title: l10n.security,
-          subtitle: 'Verrouillage, mot de passe, biométrie',
+          subtitle: l10n.settings_security_subtitle,
           icon: Broken.shield_tick,
           route: '/security',
           keywords: ['sécurité', 'security', 'mdp', 'mot de passe', 'biométrie'],
         ),
       _SettingItem(
-        title: 'Sources Locales',
-        subtitle: 'Importer des fichiers depuis un dossier local',
+        title: l10n.settings_local_sources,
+        subtitle: l10n.settings_local_sources_subtitle,
         icon: Broken.folder_open,
         route: '/localSources',
         keywords: ['local', 'dossier', 'folder', 'fichier', 'file'],
       ),
       _SettingItem(
         title: l10n.advanced,
-        subtitle: 'Journalisation, cache, options techniques',
+        subtitle: l10n.settings_advanced_subtitle,
         icon: Broken.setting_4,
         route: '/advanced',
         keywords: ['avancé', 'advanced', 'debug', 'cache', 'logs'],
       ),
       _SettingItem(
-        title: 'Music Hub',
-        subtitle: 'Lecteur audio et bibliothèque musicale',
+        title: l10n.settings_music_hub,
+        subtitle: l10n.settings_music_hub_subtitle,
         icon: Broken.music_playlist,
         route: '/MusicLibrary',
         keywords: ['musique', 'music', 'audio', 'namida'],
       ),
       if (kIsWeb)
         _SettingItem(
-          title: 'Connexion Distante',
-          subtitle: 'Accéder à la bibliothèque depuis un navigateur',
+          title: l10n.settings_remote_connection,
+          subtitle: l10n.settings_remote_connection_subtitle,
           icon: Broken.link,
           route: '/remoteSetup',
           keywords: ['remote', 'distant', 'connexion', 'web'],
         )
       else
         _SettingItem(
-          title: 'Mode Distant',
-          subtitle: 'Partager la bibliothèque sur le réseau local',
+          title: l10n.settings_remote_mode,
+          subtitle: l10n.settings_remote_mode_subtitle,
           icon: Broken.wifi_square,
           route: '/remoteMode',
           keywords: ['remote', 'distant', 'wifi', 'tethering'],
         ),
       _SettingItem(
         title: l10n.about,
-        subtitle: 'Version, crédits, licence',
+        subtitle: l10n.settings_about_subtitle,
         icon: Broken.info_circle,
         route: '/about',
         keywords: ['à propos', 'about', 'version', 'info'],
