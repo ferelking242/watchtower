@@ -112,6 +112,42 @@ void main() {
       expect(byManga[0]!.single.name, 'c0');
       expect(byManga[total - 1]!.single.name, 'c${total - 1}');
     });
+
+    test('large id sets group through the range walk', () {
+      // Above `_kIndexSeekThreshold` the helper switches from one `anyOf`
+      // index seek per id to a single `mangaIdBetween` walk. Grouping and
+      // per-manga order must stay identical to the per-manga backlink.
+      const mangaCount = 40; // > the 25-id threshold.
+      for (var m = 0; m < mangaCount; m++) {
+        for (var c = 0; c < 5; c++) {
+          mock.seed<Chapter>(
+            m * 10 + c,
+            _chapter(m * 10 + c, m, 'm$m-c$c'),
+          );
+        }
+      }
+      final byManga = loadChaptersByMangaIds(
+        List<int>.generate(mangaCount, (i) => i),
+      );
+      expect(byManga.length, mangaCount);
+      for (var m = 0; m < mangaCount; m++) {
+        expect(
+          byManga[m]!.map((c) => c.name),
+          ['m$m-c0', 'm$m-c1', 'm$m-c2', 'm$m-c3', 'm$m-c4'],
+        );
+      }
+    });
+
+    test('range walk ignores ids outside the requested set', () {
+      // Chapters exist for manga 0..40, but only a sparse subset is requested;
+      // the range walk must not leak the in-between manga into the result.
+      for (var m = 0; m < 41; m++) {
+        mock.seed<Chapter>(m, _chapter(m, m, 'm$m'));
+      }
+      final byManga = loadChaptersByMangaIds([0, 40, 3, 17, 29, 8, 33, 12, 25, 1, 39, 2, 7, 11, 19, 21, 23, 27, 31, 35, 37, 5, 9, 13, 15, 20]);
+      expect(byManga.keys.toSet(), {0, 40, 3, 17, 29, 8, 33, 12, 25, 1, 39, 2, 7, 11, 19, 21, 23, 27, 31, 35, 37, 5, 9, 13, 15, 20});
+      expect(byManga[4], isNull);
+    });
   });
 
   group('libraryRowsFor', () {
