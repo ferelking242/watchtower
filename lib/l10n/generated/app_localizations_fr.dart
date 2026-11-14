@@ -8877,4 +8877,197 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_back => 'Retour';
+
+  @override
+  String get media_all_episodes_queued => 'Tous les épisodes mis en file';
+
+  @override
+  String media_start_failed(Object error) {
+    return 'Impossible de démarrer : $error';
+  }
+
+  @override
+  String get media_reel_mode => 'Mode Reel';
+
+  @override
+  String media_season_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count saisons',
+      one: '$count saison',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_season_n(Object number) {
+    return 'Saison $number';
+  }
+
+  @override
+  String get media_synopsis => 'Synopsis';
+
+  @override
+  String get media_crew_info => 'Équipe & Infos';
+
+  @override
+  String get media_country => 'Pays';
+
+  @override
+  String get media_director => 'Réalisateur';
+
+  @override
+  String get media_cast => 'Distribution';
+
+  @override
+  String get media_unknown => 'Inconnu';
+
+  @override
+  String get media_licenced => 'Licencié';
+
+  @override
+  String get media_add_to_library => 'Ajouter à la library';
+
+  @override
+  String get media_resources => 'Ressources';
+
+  @override
+  String get media_provided_by => 'Fourni par';
+
+  @override
+  String get media_source_options => 'Options de la source';
+
+  @override
+  String get media_refresh => 'Actualiser';
+
+  @override
+  String get media_choose_season => 'Choisissez la saison';
+
+  @override
+  String get media_choose_language => 'Choisissez la langue';
+
+  @override
+  String get media_choose_resolution => 'Choisissez la résolution';
+
+  @override
+  String get media_no_episode_available => 'Aucun épisode disponible';
+
+  @override
+  String get media_watch_now => 'Regarder';
+
+  @override
+  String get media_year => 'Année';
+
+  @override
+  String get media_no_details => 'Aucun détail disponible';
+
+  @override
+  String get media_previews => 'Aperçus';
+
+  @override
+  String media_episodes_label(Object count) {
+    return 'Épisodes ($count)';
+  }
+
+  @override
+  String get media_status_ongoing_label => 'En cours';
+
+  @override
+  String get media_status_completed_label => 'Terminé';
+
+  @override
+  String get media_status_cancelled_label => 'Annulé';
+
+  @override
+  String get media_status_on_hold_label => 'En pause';
+
+  @override
+  String get media_film => 'Film';
+
+  @override
+  String get media_casting => 'Distribution';
+
+  @override
+  String get media_no_recommendation => 'Aucune recommandation';
+
+  @override
+  String get media_suggestions_here => 'Les suggestions apparaîtront ici.';
+
+  @override
+  String get media_anonymous => 'Anonyme';
+
+  @override
+  String get media_loading_comments => 'Chargement des commentaires…';
+
+  @override
+  String media_reply_to(Object author) {
+    return 'Répondre à $author…';
+  }
+
+  @override
+  String get media_your_comment => 'Votre commentaire…';
+
+  @override
+  String get media_add_comment => 'Ajouter un commentaire…';
+
+  @override
+  String get media_me => 'Moi';
+
+  @override
+  String get media_just_now => 'à l’instant';
+
+  @override
+  String get media_reply => 'Répondre';
+
+  @override
+  String media_time_ago_hours(Object count) {
+    return 'il y a ${count}h';
+  }
+
+  @override
+  String media_time_ago_days(Object count) {
+    return 'il y a ${count}j';
+  }
+
+  @override
+  String get media_sample_comment_1 =>
+      'Excellent film ! La scène de parkour du début m’a coupé le souffle.';
+
+  @override
+  String get media_sample_comment_2 =>
+      'D’accord, et la chorégraphie est clairement réelle, pas du CGI.';
+
+  @override
+  String get media_sample_comment_3 =>
+      'Exactement ! On ressent chaque réception.';
+
+  @override
+  String get media_sample_comment_4 =>
+      'Une performance qui nous manque encore aujourd’hui.';
+
+  @override
+  String get media_sample_comment_5 =>
+      'L’original avec l’autre acteur principal est encore meilleur !';
+
+  @override
+  String get media_sample_comment_6 => 'Le cinéma d’action français au sommet.';
+
+  @override
+  String get media_sample_comment_7 =>
+      'L’action est bonne mais le scénario est assez prévisible. 3,5/5 pour moi.';
+
+  @override
+  String get media_sample_comment_8 =>
+      'Je viens de le finir. La fin est satisfaisante même si on la voit venir.';
+
+  @override
+  String get media_sample_comment_9 =>
+      'Pareil, parfait pour une soirée détente.';
+
+  @override
+  String get media_not_available => 'N/D';
+
+  @override
+  String get media_webview => 'WebView';
 }

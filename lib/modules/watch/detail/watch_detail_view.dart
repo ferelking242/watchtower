@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -265,9 +266,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
         }
       }
-      botToast('Tous les épisodes mis en file');
+      botToast(context.l10n.media_all_episodes_queued);
     } catch (e) {
-      botToast('Impossible de démarrer : ${friendlyErrorMessage(e)}');
+      botToast(
+        context.l10n.media_start_failed(friendlyErrorMessage(e)),
+      );
     } finally {
       ref.read(processDownloadsProvider());
     }
@@ -409,14 +412,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     unselectedLabelStyle: const TextStyle(
                         fontSize: 13.5, fontWeight: FontWeight.w400),
                     dividerColor: Colors.transparent,
-                    tabs: const [
+                    tabs: [
                       Tab(
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Broken.star, size: 15),
-                            SizedBox(width: 6),
-                            Text('Pour vous'),
+                            const Icon(Broken.star, size: 15),
+                            const SizedBox(width: 6),
+                            Text(context.l10n.for_you),
                           ],
                         ),
                       ),
@@ -424,9 +427,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Broken.messages_2, size: 15),
-                            SizedBox(width: 6),
-                            Text('Commentaires'),
+                            const Icon(Broken.messages_2, size: 15),
+                            const SizedBox(width: 6),
+                            Text(context.l10n.watch_home_reel_comments),
                           ],
                         ),
                       ),
@@ -519,12 +522,23 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.white24, width: 0.8),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.smart_display_rounded, color: Colors.white, size: 14),
-                      SizedBox(width: 5),
-                      Text('Mode Reel', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                      const Icon(
+                        Icons.smart_display_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        context.l10n.media_reel_mode,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -622,7 +636,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         GestureDetector(
           onTap: () => _showInfoSheet(context),
           child: Text(
-            'Info ›',
+            '${context.l10n.plugins_action_info} ›',
             style: TextStyle(
               color: _accent,
               fontSize: 14,
@@ -670,10 +684,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     if (!isMovie) {
       final seasons = _detectSeasons(chapters);
       if (seasons.isNotEmpty) {
-        parts.add('${seasons.length} saison${seasons.length > 1 ? 's' : ''}');
+        parts.add(context.l10n.media_season_count(seasons.length));
       }
     } else {
-      parts.add('Film');
+      parts.add(context.l10n.media_film);
     }
 
     Widget vbar() => Padding(
@@ -696,7 +710,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         Builder(builder: (_) {
           final rawDesc = widget.manga.description ?? '';
           final imdbM = RegExp(r'IMDb\s+([\d.]+)').firstMatch(rawDesc);
-          return Text(imdbM != null ? imdbM.group(1)! : 'N/A',
+          return Text(
+              imdbM != null ? imdbM.group(1)! : context.l10n.media_not_available,
               style: TextStyle(color: _grey, fontSize: 12));
         }),
         if (parts.isNotEmpty) ...[
@@ -855,7 +870,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
                       // ── Synopsis ─────────────────────────────────────────
                       if (desc.isNotEmpty) ...[
-                        _sheetSectionLabel('Synopsis'),
+                        _sheetSectionLabel(context.l10n.media_synopsis),
                         const SizedBox(height: 8),
                         StatefulBuilder(
                           builder: (c, setSt) => GestureDetector(
@@ -880,8 +895,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                                 const SizedBox(height: 4),
                                 Text(
                                   _isDescriptionExpanded
-                                      ? 'Voir moins'
-                                      : 'Voir plus',
+                                      ? context.l10n.catalog_card_see_less
+                                      : context.l10n.catalog_card_see_more,
                                   style: TextStyle(
                                       color: _accent, fontSize: 12),
                                 ),
@@ -894,7 +909,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
                       // ── Genres ───────────────────────────────────────────
                       if (genres.isNotEmpty) ...[
-                        _sheetSectionLabel('Genres'),
+                        _sheetSectionLabel(context.l10n.media_genres),
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 8,
@@ -923,28 +938,46 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
                       // ── Cast / Crew ───────────────────────────────────────
                       if (dirSheet != null || castSheet != null || countrySheet != null) ...[
-                        _sheetSectionLabel('Équipe & Infos'),
+                        _sheetSectionLabel(context.l10n.media_crew_info),
                         const SizedBox(height: 12),
                         if (countrySheet != null) ...[
-                          _castRow(Icons.public_outlined, 'Pays', countrySheet),
+                          _castRow(
+                            Icons.public_outlined,
+                            context.l10n.media_country,
+                            countrySheet,
+                          ),
                           const SizedBox(height: 10),
                         ],
                         if (dirSheet != null) ...[
-                          _castRow(Icons.movie_creation_outlined, 'Réalisateur', dirSheet),
+                          _castRow(
+                            Icons.movie_creation_outlined,
+                            context.l10n.media_director,
+                            dirSheet,
+                          ),
                           const SizedBox(height: 10),
                         ],
                         if (castSheet != null)
-                          _castRow(Icons.people_outlined, 'Distribution', castSheet),
+                          _castRow(
+                            Icons.people_outlined,
+                            context.l10n.media_cast,
+                            castSheet,
+                          ),
                         const SizedBox(height: 22),
                       ],
 
                       // ── Info table ───────────────────────────────────────
-                      _sheetSectionLabel('Details'),
+                      _sheetSectionLabel(context.l10n.media_details),
                       const SizedBox(height: 12),
-                      _infoRow('Langue', lang.isNotEmpty ? lang : '—'),
-                      _infoRow('Statut', _statusLabel(manga.status)),
+                      _infoRow(
+                        context.l10n.media_language,
+                        lang.isNotEmpty ? lang : '—',
+                      ),
+                      _infoRow(
+                        context.l10n.media_status,
+                        _statusLabel(manga.status),
+                      ),
                       if ((manga.source ?? '').isNotEmpty)
-                        _infoRow('Source', manga.source!),
+                        _infoRow(context.l10n.browse_create_source, manga.source!),
                     ],
                   ),
                 ),
@@ -1037,12 +1070,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   String _statusLabel(dynamic status) {
     switch (status?.toString()) {
-      case '0': return 'En cours';
-      case '1': return 'Terminé';
-      case '2': return 'Licencié';
-      case '3': return 'Annulé';
-      case '4': return 'En pause';
-      default:  return 'Inconnu';
+      case '0':
+        return context.l10n.media_status_ongoing_label;
+      case '1':
+        return context.l10n.media_status_completed_label;
+      case '2':
+        return context.l10n.media_licenced;
+      case '3':
+        return context.l10n.media_status_cancelled_label;
+      case '4':
+        return context.l10n.media_status_on_hold_label;
+      default:
+        return context.l10n.media_unknown;
     }
   }
 
@@ -1060,32 +1099,34 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         children: [
           _chip(
             icon: isFav ? Icons.bookmark : Icons.bookmark_border_outlined,
-            label: isFav ? 'Dans la library' : 'Ajouter à la library',
+            label: isFav
+                ? context.l10n.in_library
+                : context.l10n.media_add_to_library,
             onTap: _toggleFavorite,
             active: isFav,
           ),
           const SizedBox(width: 8),
           _chip(
               icon: Icons.drive_file_move_outlined,
-              label: 'Migrer',
+              label: context.l10n.migrate,
               onTap: () => context.pushNamed('migrate', extra: widget.manga)),
           const SizedBox(width: 8),
           _chip(
               icon: Icons.share_outlined,
-              label: 'Partager',
+              label: context.l10n.media_share,
               onTap: () => _share(context)),
           const SizedBox(width: 8),
           // Télécharger : affiche la progression quand un téléchargement de
           // cette page est actif, et ouvre toujours le sheet de téléchargement.
           _chip(
               icon: Icons.download_outlined,
-              label: 'Télécharger',
+              label: context.l10n.download,
               onTap: () => _showDownloadSheet(context, chapters),
               progress: dlProgress),
           const SizedBox(width: 8),
           _chip(
               icon: Icons.language_outlined,
-              label: 'WebView',
+              label: context.l10n.media_webview,
               onTap: _openInBrowser),
         ],
       ),
@@ -1227,7 +1268,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       final m = seasonRegex.firstMatch(ch.name ?? '');
       if (m != null) {
         final num = m.group(1) ?? m.group(2) ?? '1';
-        seen.add('Saison $num');
+        // Locale-independent key: the raw season number is the only stable
+        // identity, and the label is built at render time by _seasonLabel.
+        seen.add('S$num');
       }
     }
     if (seen.isEmpty) return [];
@@ -1239,6 +1282,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             int.tryParse(b.replaceAll(RegExp(r'\D'), '')) ?? 0;
         return na.compareTo(nb);
       });
+  }
+
+  String _seasonLabel(String key) {
+    final num = int.tryParse(RegExp(r'\d+').firstMatch(key)?.group(0) ?? '');
+    return num == null ? key : context.l10n.media_season_n(num);
   }
 
   // Clé interne utilisée pour le filtrage (code ISO en minuscule si connu,
@@ -1330,7 +1378,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 size: 16, color: _textPrimary),
             const SizedBox(width: 6),
             Text(
-              'Ressources',
+              context.l10n.media_resources,
               style: TextStyle(
                   color: _textPrimary,
                   fontSize: 15,
@@ -1339,7 +1387,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             const Spacer(),
             if (source != null) ...[
               Text(
-                'Fourni par',
+                context.l10n.media_provided_by,
                 style: TextStyle(color: _grey, fontSize: 11),
               ),
               const SizedBox(width: 5),
@@ -1358,7 +1406,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 child: Text(
                   source.name?.trim().isNotEmpty == true
                       ? source.name!.trim()
-                      : 'Extension',
+                      : context.l10n.watch_home_extension,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1369,7 +1417,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ),
             ],
             ArrowPopupMenuButton<_ResourceMenuAction>(
-              tooltip: 'Options de la source',
+              tooltip: context.l10n.media_source_options,
               icon: Icon(Broken.more, size: 20, color: _grey),
               color: _surface,
               shape: RoundedRectangleBorder(
@@ -1397,38 +1445,38 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               itemBuilder: (_) => [
                 PopupMenuItem(
                   value: _ResourceMenuAction.refresh,
-                  child: const _ResourceMenuItem(
+                  child: _ResourceMenuItem(
                     icon: Broken.refresh,
-                    label: 'Actualiser',
+                    label: context.l10n.media_refresh,
                   ),
                 ),
                 PopupMenuItem(
                   value: _ResourceMenuAction.openInBrowser,
-                  child: const _ResourceMenuItem(
+                  child: _ResourceMenuItem(
                     icon: Broken.export,
-                    label: 'Ouvrir dans le navigateur',
+                    label: context.l10n.open_in_browser,
                   ),
                 ),
                 if (source != null)
                   PopupMenuItem(
                     value: _ResourceMenuAction.extensionSettings,
-                    child: const _ResourceMenuItem(
+                    child: _ResourceMenuItem(
                       icon: Broken.setting_2,
-                      label: "Paramètres de l'extension",
+                      label: context.l10n.extension_settings,
                     ),
                   ),
                 PopupMenuItem(
                   value: _ResourceMenuAction.share,
-                  child: const _ResourceMenuItem(
+                  child: _ResourceMenuItem(
                     icon: Broken.share,
-                    label: 'Partager',
+                    label: context.l10n.media_share,
                   ),
                 ),
                 PopupMenuItem(
                   value: _ResourceMenuAction.downloadAll,
-                  child: const _ResourceMenuItem(
+                  child: _ResourceMenuItem(
                     icon: Broken.document_download,
-                    label: 'Tout télécharger',
+                    label: context.l10n.media_download_all,
                   ),
                 ),
               ],
@@ -1457,7 +1505,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   label: _selectedSeason ?? seasons.first,
                   items: seasons,
                   onSelect: (v) => setState(() => _selectedSeason = v),
-                  sheetTitle: 'Choisissez la saison',
+                  sheetTitle: context.l10n.media_choose_season,
+                  displayLabel: _seasonLabel,
                 ),
                 if (languages.isNotEmpty) const SizedBox(width: 8),
               ],
@@ -1468,7 +1517,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   onSelect: (v) => setState(() => _selectedLanguage = v),
                   displayLabel: (key) => localizedLanguageLabel(
                       key, Localizations.localeOf(context).languageCode),
-                  sheetTitle: 'Choisissez la langue',
+                  sheetTitle: context.l10n.media_choose_language,
                 ),
               if (_player.loadedVideos.length > 1) ...[
                 const SizedBox(width: 8),
@@ -1485,7 +1534,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                     });
                     setState(() {});
                   },
-                  sheetTitle: 'Choisissez la résolution',
+                  sheetTitle: context.l10n.media_choose_resolution,
                   selectedValue: _player.selectedQuality,
                 ),
               ],
@@ -1516,7 +1565,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               children: [
                 Icon(Icons.video_library_outlined, color: _grey, size: 40),
                 const SizedBox(height: 8),
-                Text('Aucun épisode disponible',
+                Text(context.l10n.media_no_episode_available,
                     style: TextStyle(color: _grey)),
               ],
             ),
@@ -1698,7 +1747,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             border: Border.all(color: _accent.withValues(alpha: 0.30), width: 0.8),
           ),
           child: Text(
-            title.isNotEmpty ? title : 'Regarder',
+            title.isNotEmpty ? title : context.l10n.media_watch_now,
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1778,7 +1827,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   border: Border.all(color: _faint, width: 0.6),
                 ),
                 child: Center(
-                  child: Text('Tous',
+                  child: Text(context.l10n.media_all,
                       style: TextStyle(
                           color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
                 ),
@@ -2038,7 +2087,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                               ),
                             ] else
                               Text(
-                                'Épisodes (${display.length})',
+                                context.l10n.media_episodes_label(display.length),
                                 style: TextStyle(
                                   color: onSurface,
                                   fontSize: 15,
@@ -2155,20 +2204,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     Color statusColor = _grey;
     switch (manga.status) {
       case Status.ongoing:
-        statusLabel = 'En cours';
+        statusLabel = context.l10n.media_status_ongoing_label;
         statusColor = const Color(0xFF22C55E);
         break;
       case Status.completed:
       case Status.publishingFinished:
-        statusLabel = 'Terminé';
+        statusLabel = context.l10n.media_status_completed_label;
         statusColor = _accent;
         break;
       case Status.canceled:
-        statusLabel = 'Annulé';
+        statusLabel = context.l10n.media_status_cancelled_label;
         statusColor = const Color(0xFFEF4444);
         break;
       case Status.onHiatus:
-        statusLabel = 'En pause';
+        statusLabel = context.l10n.media_status_on_hold_label;
         statusColor = const Color(0xFFF59E0B);
         break;
       default:
@@ -2192,22 +2241,28 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     final infoRows = <_DetailInfoRow>[];
     // Année (uniquement si c'est vraiment une année numérique)
     if (year.isNotEmpty && RegExp(r'^\d{4}$').hasMatch(year)) {
-      infoRows.add(_DetailInfoRow(label: 'Année', value: year));
+      infoRows.add(
+        _DetailInfoRow(label: context.l10n.media_year, value: year),
+      );
     }
     if (country != null && country.isNotEmpty) {
-      infoRows.add(_DetailInfoRow(label: 'Pays', value: country));
+      infoRows.add(
+        _DetailInfoRow(label: context.l10n.media_country, value: country),
+      );
     }
     if (imdbRating != null) {
       infoRows.add(_DetailInfoRow(label: 'IMDb', value: '★ ' + imdbRating));
     }
     if (director != null && director.isNotEmpty) {
-      infoRows.add(_DetailInfoRow(label: 'Réalisateur', value: director));
+      infoRows.add(
+        _DetailInfoRow(label: context.l10n.media_director, value: director),
+      );
     }
     // Nb épisodes / type
     if (chapters.isNotEmpty) {
       infoRows.add(_DetailInfoRow(
-        label: isMovie ? 'Type' : 'Épisodes',
-        value: isMovie ? 'Film' : '${chapters.length}',
+        label: isMovie ? context.l10n.media_type : context.l10n.media_episodes,
+        value: isMovie ? context.l10n.media_film : '${chapters.length}',
         accent: true,
         accentColor: _accent,
       ));
@@ -2215,7 +2270,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     // Statut
     if (statusLabel.isNotEmpty) {
       infoRows.add(_DetailInfoRow(
-        label: 'Statut',
+        label: context.l10n.media_status,
         value: statusLabel,
         accent: true,
         accentColor: statusColor,
@@ -2223,15 +2278,27 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     }
     // Langue
     if (manga.lang?.isNotEmpty ?? false) {
-      infoRows.add(_DetailInfoRow(label: 'Langue', value: manga.lang!.toUpperCase()));
+      infoRows.add(
+        _DetailInfoRow(
+          label: context.l10n.media_language,
+          value: manga.lang!.toUpperCase(),
+        ),
+      );
     }
     // Format
     if (typeTag != null) {
-      infoRows.add(_DetailInfoRow(label: 'Format', value: typeTag));
+      infoRows.add(
+        _DetailInfoRow(label: context.l10n.media_format, value: typeTag),
+      );
     }
     // Source
     if (manga.source?.isNotEmpty ?? false) {
-      infoRows.add(_DetailInfoRow(label: 'Source', value: manga.source!));
+      infoRows.add(
+        _DetailInfoRow(
+          label: context.l10n.browse_create_source,
+          value: manga.source!,
+        ),
+      );
     }
 
 
@@ -2261,7 +2328,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ),
               const SizedBox(height: 16),
               Text(
-                'Aucun détail disponible',
+                context.l10n.media_no_details,
                 style: TextStyle(
                   color: _textPrimary,
                   fontSize: 15,
@@ -2287,7 +2354,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         children: [
           // ── Synopsis ──────────────────────────────────────────────────────
           if (description.isNotEmpty) ...[
-            _sectionLabel('Synopsis'),
+            _sectionLabel(context.l10n.media_synopsis),
             const SizedBox(height: 10),
             StatefulBuilder(
               builder: (ctx, setSt) => Column(
@@ -2318,7 +2385,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _isDescriptionExpanded ? 'Voir moins' : 'Voir plus',
+                          _isDescriptionExpanded
+                              ? context.l10n.catalog_card_see_less
+                              : context.l10n.catalog_card_see_more,
                           style: TextStyle(
                             color: _accent,
                             fontSize: 13,
@@ -2346,7 +2415,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
           // ── Aperçus / galerie ─────────────────────────────────────────────
           if (galleryUrls.isNotEmpty) ...[
-            _sectionLabel('Aperçus'),
+            _sectionLabel(context.l10n.media_previews),
             const SizedBox(height: 10),
             SizedBox(
               height: 148,
@@ -2370,7 +2439,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
           // ── Informations — grid 2 colonnes ────────────────────────────────
           if (infoRows.isNotEmpty) ...[
-            _sectionLabel('Informations'),
+            _sectionLabel(context.l10n.media_information),
             const SizedBox(height: 12),
             _buildInfoGrid(infoRows),
             const SizedBox(height: 26),
@@ -2378,7 +2447,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
           // ── Genres ────────────────────────────────────────────────────────
           if (genres.isNotEmpty) ...[
-            _sectionLabel('Genres'),
+            _sectionLabel(context.l10n.media_genres),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -2409,7 +2478,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
           // ── Casting ───────────────────────────────────────────────────────
           if (castNames.isNotEmpty) ...[
-            _sectionLabel('Casting'),
+            _sectionLabel(context.l10n.media_casting),
             const SizedBox(height: 12),
             SizedBox(
               height: 102,
@@ -2663,11 +2732,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   child: Icon(Icons.movie_filter_outlined, color: _grey, size: 26),
                 ),
                 const SizedBox(height: 14),
-                Text('Aucune recommandation',
+                Text(context.l10n.media_no_recommendation,
                     style: TextStyle(color: _onSurface.withValues(alpha: 0.7),
                         fontSize: 14, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 6),
-                Text('Les suggestions apparaîtront ici.',
+                Text(context.l10n.media_suggestions_here,
                     style: TextStyle(color: _grey, fontSize: 12),
                     textAlign: TextAlign.center),
               ],
@@ -2900,6 +2969,10 @@ class _ResourceMenuItem extends StatelessWidget {
 
 /// One media attachment inside a comment body (image or short video). The
 /// extension hands these over as plain URLs plus an optional type hint.
+/// Sentinel stored when an extension comment carries no author. Kept as a
+/// marker (not a word) so the fallback label is localized at render time.
+const _anonymousAuthor = '\u0000anonymous';
+
 class _CommentMedia {
   final String url;
   /// `image` or `video`; anything else falls back to `image`.
@@ -2940,7 +3013,7 @@ class _Comment {
   /// by an extension `getComments()`. Accepts the common key spellings so a
   /// source that names its fields differently still renders fully.
   factory _Comment.fromJson(Map<String, dynamic> m, {int depth = 0}) {
-    final author = (m['author'] ?? m['name'] ?? m['user'] ?? 'Anonyme')
+    final author = (m['author'] ?? m['name'] ?? m['user'] ?? '')
         .toString()
         .trim();
     final avatar = (m['avatar'] ?? m['avatarUrl'] ?? m['image'] ?? m['userImage'])
@@ -2991,7 +3064,7 @@ class _Comment {
 
     return _Comment(
       id: '$author$date${m['id'] ?? ''}',
-      author: author.isEmpty ? 'Anonyme' : author,
+      author: author.isEmpty ? _anonymousAuthor : author,
       avatarUrl: (avatar == null || avatar.isEmpty) ? null : avatar,
       timeAgo: date,
       body: (m['content'] ?? m['message'] ?? m['body'] ?? '').toString().trim(),
@@ -3046,7 +3119,7 @@ class _CommentsSectionState extends State<_CommentsSection> {
   String? _replyingToId;
   final _replyController = TextEditingController();
   final _commentController = TextEditingController();
-  String _sortMode = 'Meilleures';
+  bool _sortByBest = true;
   @override
   void initState() {
     super.initState();
@@ -3093,80 +3166,6 @@ class _CommentsSectionState extends State<_CommentsSection> {
     }
   }
 
-  List<_Comment> _mockComments() => [
-    _Comment(
-      id: 'c1',
-      author: 'AlexDupont',
-      timeAgo: 'il y a 3h',
-      body: 'Excellent film ! Paul Walker était vraiment incroyable dans ce rôle. La scène de parkour au début m\'a coupé le souffle.',
-      likes: 142,
-      replies: [
-        _Comment(
-          id: 'c1r1',
-          author: 'MarieF',
-          timeAgo: 'il y a 2h',
-          body: 'Complètement d\'accord, David Belle aussi ! Le fondateur du parkour en personne, ça change tout.',
-          likes: 67,
-          replies: [
-            _Comment(
-              id: 'c1r1r1',
-              author: 'AlexDupont',
-              timeAgo: 'il y a 1h',
-              body: 'Exactement ! Et la chorégraphie est clairement réelle, pas du CGI.',
-              likes: 29,
-            ),
-          ],
-        ),
-        _Comment(
-          id: 'c1r2',
-          author: 'FilmFan75',
-          timeAgo: 'il y a 2h',
-          body: 'Paul Walker R.I.P. 🙏 Un acteur qui nous manque encore.',
-          likes: 201,
-        ),
-      ],
-    ),
-    _Comment(
-      id: 'c2',
-      author: 'CineClub_Paris',
-      timeAgo: 'il y a 5h',
-      body: 'Le remake américain de "Banlieue 13". Si vous aimez, regardez l\'original avec Cyril Raffaelli, il est encore meilleur !',
-      likes: 88,
-      replies: [
-        _Comment(
-          id: 'c2r1',
-          author: 'OriginalFan',
-          timeAgo: 'il y a 4h',
-          body: 'Oui ! B13 est un chef-d\'œuvre du cinéma d\'action français. Luc Besson au top.',
-          likes: 54,
-        ),
-      ],
-    ),
-    _Comment(
-      id: 'c3',
-      author: 'NightOwl_42',
-      timeAgo: 'il y a 8h',
-      body: 'L\'action est bonne mais le scénario est assez prévisible. 3.5/5 pour moi.',
-      likes: 31,
-      replies: [],
-    ),
-    _Comment(
-      id: 'c4',
-      author: 'StreamAddict',
-      timeAgo: 'il y a 1j',
-      body: 'Je viens de finir. La fin est satisfaisante même si on la voit venir dès le début. Bon divertissement du vendredi soir.',
-      likes: 19,
-      replies: [
-        _Comment(
-          id: 'c4r1',
-          author: 'WeekendVibes',
-          timeAgo: 'il y a 20h',
-          body: 'Pareil, parfait pour ne pas trop se prendre la tête !',
-          likes: 8,
-        ),
-      ],
-    ),
-  ];
 
   void _toggleLike(_Comment comment) {
     setState(() {
@@ -3192,7 +3191,7 @@ class _CommentsSectionState extends State<_CommentsSection> {
               color: widget.accent,
             ),
             const SizedBox(height: 12),
-            Text('Chargement des commentaires…',
+            Text(context.l10n.media_loading_comments,
                 style: TextStyle(color: widget.grey, fontSize: 13)),
           ],
         ),
@@ -3210,7 +3209,7 @@ class _CommentsSectionState extends State<_CommentsSection> {
           child: Row(
             children: [
               Text(
-                '$total commentaires',
+                context.l10n.media_comments_count(total),
                 style: TextStyle(
                   color: widget.textPrimary,
                   fontSize: 14,
@@ -3221,11 +3220,11 @@ class _CommentsSectionState extends State<_CommentsSection> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _sortMode = _sortMode == 'Meilleures' ? 'Récents' : 'Meilleures';
-                    if (_sortMode == 'Récents') {
-                      _comments.sort((a, b) => b.timeAgo.compareTo(a.timeAgo));
-                    } else {
+                    _sortByBest = !_sortByBest;
+                    if (_sortByBest) {
                       _comments.sort((a, b) => b.likes.compareTo(a.likes));
+                    } else {
+                      _comments.sort((a, b) => b.timeAgo.compareTo(a.timeAgo));
                     }
                   });
                 },
@@ -3242,7 +3241,9 @@ class _CommentsSectionState extends State<_CommentsSection> {
                       Icon(Icons.sort_rounded, size: 13, color: widget.grey),
                       const SizedBox(width: 4),
                       Text(
-                        _sortMode,
+                        _sortByBest
+                            ? context.l10n.media_best
+                            : context.l10n.media_recent,
                         style: TextStyle(color: widget.grey, fontSize: 12),
                       ),
                     ],
@@ -3267,14 +3268,14 @@ class _CommentsSectionState extends State<_CommentsSection> {
               child: Row(
                 children: [
                   _CommentAvatar(
-                    author: 'Moi',
+                    author: context.l10n.media_me,
                     size: 26,
                     accent: widget.accent,
                     isLight: false,
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Ajouter un commentaire…',
+                    context.l10n.media_add_comment,
                     style: TextStyle(color: widget.grey, fontSize: 13),
                   ),
                 ],
@@ -3373,7 +3374,12 @@ class _CommentsSectionState extends State<_CommentsSection> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    _CommentAvatar(author: 'Moi', size: 32, accent: widget.accent, isLight: false),
+                    _CommentAvatar(
+                      author: context.l10n.media_me,
+                      size: 32,
+                      accent: widget.accent,
+                      isLight: false,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
@@ -3384,8 +3390,8 @@ class _CommentsSectionState extends State<_CommentsSection> {
                         style: TextStyle(color: widget.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: replyTo != null
-                              ? 'Répondre à ${replyTo.author}…'
-                              : 'Votre commentaire…',
+                              ? context.l10n.media_reply_to(replyTo.author)
+                              : context.l10n.media_your_comment,
                           hintStyle: TextStyle(color: widget.grey),
                           border: InputBorder.none,
                         ),
@@ -3400,15 +3406,15 @@ class _CommentsSectionState extends State<_CommentsSection> {
                           if (replyTo != null) {
                             replyTo.replies.add(_Comment(
                               id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-                              author: 'Moi',
-                              timeAgo: 'à l\'instant',
+                              author: context.l10n.media_me,
+                              timeAgo: context.l10n.media_just_now,
                               body: text,
                             ));
                           } else {
                             _comments.insert(0, _Comment(
                               id: 'new_${DateTime.now().millisecondsSinceEpoch}',
-                              author: 'Moi',
-                              timeAgo: 'à l\'instant',
+                              author: context.l10n.media_me,
+                              timeAgo: context.l10n.media_just_now,
                               body: text,
                             ));
                           }
@@ -3478,6 +3484,9 @@ class _CommentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final indent = depth * 16.0;
+    final authorName = comment.author == _anonymousAuthor
+        ? context.l10n.media_anonymous
+        : comment.author;
     return Padding(
       padding: EdgeInsets.only(left: indent, top: depth == 0 ? 12 : 8),
       child: Column(
@@ -3518,7 +3527,7 @@ class _CommentTile extends StatelessWidget {
                         Row(
                           children: [
                             _CommentAvatar(
-                              author: comment.author,
+                              author: authorName,
                               avatarUrl: comment.avatarUrl,
                               size: depth == 0 ? 30 : 24,
                               accent: _threadColor,
@@ -3529,7 +3538,7 @@ class _CommentTile extends StatelessWidget {
                               child: Row(
                                 children: [
                                   Text(
-                                    comment.author,
+                                    authorName,
                                     style: TextStyle(
                                       color: textPrimary,
                                       fontSize: depth == 0 ? 13 : 12,
@@ -3623,7 +3632,7 @@ class _CommentTile extends StatelessWidget {
                                     Icon(Icons.reply_rounded, color: grey, size: 14),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Répondre',
+                                      context.l10n.media_reply,
                                       style: TextStyle(color: grey, fontSize: 12),
                                     ),
                                   ],
@@ -3640,7 +3649,9 @@ class _CommentTile extends StatelessWidget {
                                     border: Border.all(color: _threadColor.withValues(alpha: 0.30), width: 0.7),
                                   ),
                                   child: Text(
-                                    '${comment.replies.length} réponse${comment.replies.length > 1 ? 's' : ''}',
+                                    context.l10n.media_replies_count(
+                                      comment.replies.length,
+                                    ),
                                     style: TextStyle(
                                       color: _threadColor,
                                       fontSize: 11,
@@ -3658,7 +3669,9 @@ class _CommentTile extends StatelessWidget {
                         ] else ...[
                           const SizedBox(height: 4),
                           Text(
-                            '${comment.replies.length} réponse${comment.replies.length > 1 ? 's' : ''} cachée${comment.replies.length > 1 ? 's' : ''}',
+                            context.l10n.media_replies_hidden(
+                              comment.replies.length,
+                            ),
                             style: TextStyle(color: grey, fontSize: 11),
                           ),
                         ],
@@ -3815,8 +3828,8 @@ class _CommentMediaThumb extends StatelessWidget {
                   Icon(Icons.play_circle_outline_rounded,
                       color: Colors.white, size: 64),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Vidéo du commentaire',
+                  Text(
+                    context.l10n.media_comment_video,
                     style: TextStyle(color: Colors.white, fontSize: 14),
                   ),
                   const SizedBox(height: 4),
