@@ -20,6 +20,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final formKey = useMemoized(() => GlobalKey<FormBuilderState>(), []);
+    final obscuredPasswords = useState<Map<String, bool>>({});
 
     return SafeArea(
       bottom: false,
@@ -62,7 +63,7 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                         validator: FormBuilderValidators.compose([
                           if (field.required == true)
                             FormBuilderValidators.required(
-                              errorText: 'This field is required',
+                              errorText: context.l10n.field_is_required,
                             ),
                           if (field.regex != null)
                             FormBuilderValidators.match(
@@ -72,6 +73,10 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                             ),
                         ]),
                         builder: (formField) {
+                          final isPassword =
+                              field.variant == FormFieldVariant.password;
+                          final isObscured =
+                              obscuredPasswords.value[field.id] ?? true;
                           return Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,18 +86,26 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                                   hintText: field.placeholder,
                                   border: const OutlineInputBorder(),
                                   isDense: true,
-                                  suffixIcon: field.variant == FormFieldVariant.password
+                                  suffixIcon: isPassword
                                       ? IconButton(
-                                          icon: const Icon(Icons.visibility),
-                                          onPressed: () {},
+                                          icon: Icon(
+                                            isObscured
+                                                ? Icons.visibility
+                                                : Icons.visibility_off,
+                                          ),
+                                          onPressed: () {
+                                            obscuredPasswords.value = {
+                                              ...obscuredPasswords.value,
+                                              field.id: !isObscured,
+                                            };
+                                          },
                                         )
                                       : null,
                                 ),
                                 onChanged: (value) {
                                   formField.didChange(value);
                                 },
-                                obscureText:
-                                    field.variant == FormFieldVariant.password,
+                                obscureText: isPassword && isObscured,
                                 keyboardType:
                                     field.variant == FormFieldVariant.number
                                         ? TextInputType.number

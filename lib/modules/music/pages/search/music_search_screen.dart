@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
+import 'package:watchtower/modules/music/components/fallbacks/no_default_metadata_plugin.dart';
+import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/browse/sections.dart';
@@ -191,7 +192,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                 child: Opacity(
                   opacity: (1 - t * 1.4).clamp(0.0, 1.0),
                   child: Text(
-                    'Rechercher',
+                    context.l10n.search,
                     style: TextStyle(
                       color: cs.onSurface,
                       fontSize: 22,
@@ -208,10 +209,6 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                   icon: Broken.search_normal_1,
                   onPressed: _expandAndFocusSearch,
                 ),
-              NamidaAppBarIcon(
-                icon: Broken.camera,
-                onPressed: () {},
-              ),
             ],
           ),
 
@@ -261,7 +258,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
                                   fontSize: 15,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Que souhaitez-vous écouter ?',
+                                  hintText: context.l10n.search_to_get_results,
                                   hintStyle: TextStyle(
                                     color: cs.onSurfaceVariant
                                         .withValues(alpha: 0.6),
@@ -373,15 +370,15 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
   String _chipLabel(String chip) {
     switch (chip) {
       case 'all':
-        return 'Tout';
+        return context.l10n.all;
       case 'tracks':
-        return 'Titres';
+        return context.l10n.tracks;
       case 'albums':
-        return 'Albums';
+        return context.l10n.albums;
       case 'artists':
-        return 'Artistes';
+        return context.l10n.artists;
       case 'playlists':
-        return 'Playlists';
+        return context.l10n.playlists;
       default:
         return chip[0].toUpperCase() + chip.substring(1);
     }
@@ -414,7 +411,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppSectionHeader(title: 'Découvrez de nouveaux horizons'),
+              AppSectionHeader(title: context.l10n.discover_new_horizons),
               SizedBox(
                 height: 148,
                 child: ListView.separated(
@@ -451,7 +448,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppSectionHeader(title: 'Tout parcourir'),
+              AppSectionHeader(title: context.l10n.browse_all),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: padding),
                 child: GridView.builder(
@@ -499,9 +496,9 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
           if (err is MetadataPluginException &&
               err.errorCode ==
                   MetadataPluginErrorCode.noDefaultMetadataPlugin) {
-            return _NoPluginPlaceholder(query: _query);
+            return const _NoPluginPlaceholder();
           }
-          return _NoPluginPlaceholder(query: _query);
+          return const _NoPluginPlaceholder();
         },
         data: (results) {
           final showTracks = _selectedChip == 'all' ||
@@ -541,7 +538,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               // ── Albums ─────────────────────────────────────────────────
               if (showAlbums && results.albums.isNotEmpty)
                 _HorizontalSection<SpotubeSimpleAlbumObject>(
-                  title: 'Albums',
+                  title: context.l10n.albums,
                   items: results.albums,
                   imageUrl: (a) => a.images.isEmpty
                       ? ''
@@ -555,13 +552,13 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               // ── Artistes ───────────────────────────────────────────────
               if (showArtists && results.artists.isNotEmpty)
                 _HorizontalSection<SpotubeFullArtistObject>(
-                  title: 'Artistes',
+                  title: context.l10n.artists,
                   items: results.artists,
                   imageUrl: (a) => a.images.isEmpty
                       ? ''
                       : a.images.first.url,
                   label: (a) => a.name,
-                  sublabel: (a) => 'Artiste',
+                  sublabel: (a) => context.l10n.artist,
                   onTap: (a) => _toArtist(context, a),
                   circular: true,
                 ),
@@ -569,7 +566,7 @@ class _MusicSearchScreenState extends ConsumerState<MusicSearchScreen> {
               // ── Playlists ──────────────────────────────────────────────
               if (showPlaylists && results.playlists.isNotEmpty)
                 _HorizontalSection<SpotubeSimplePlaylistObject>(
-                  title: 'Playlists',
+                  title: context.l10n.playlists,
                   items: results.playlists,
                   imageUrl: (p) => p.images.isEmpty
                       ? ''
@@ -605,7 +602,7 @@ class _TrackResultsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AppSectionHeader(title: 'Titres'),
+        AppSectionHeader(title: context.l10n.tracks),
         ...tracks.take(5).map((track) {
           final isActive = track.id == activeId;
           final cs = Theme.of(context).colorScheme;
@@ -903,53 +900,11 @@ class _SectionMoodCard extends StatelessWidget {
 // ─── Placeholder "aucun plugin" ───────────────────────────────────────────────
 
 class _NoPluginPlaceholder extends StatelessWidget {
-  final String query;
-  const _NoPluginPlaceholder({required this.query});
+  const _NoPluginPlaceholder();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 48, 32, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Broken.element_plus,
-              size: 56, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18)),
-          const SizedBox(height: 16),
-          Text(
-            'Aucune extension music installée',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Installe une extension depuis le\nMarketplace pour chercher "$query"',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.primary,
-              side: BorderSide(color: Theme.of(context).colorScheme.outline),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-            ),
-            onPressed: () => GoRouter.of(rootNavigatorKey.currentContext!).push('/marketplace'),
-            icon: const Icon(Broken.shop),
-            label: const Text('Marketplace'),
-          ),
-        ],
-      ),
-    );
+    return const NoDefaultMetadataPlugin();
   }
 }
 
@@ -961,25 +916,10 @@ class _EmptyResults extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 48, 32, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Broken.search_zoom_in,
-              size: 56, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.18)),
-          const SizedBox(height: 16),
-          Text(
-            'Aucun résultat pour\n"$query"',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+    return AppEmptyState(
+      icon: Broken.search_zoom_in,
+      title: context.l10n.nothing_found_for_query(query),
+      message: context.l10n.search_to_get_results,
     );
   }
 }

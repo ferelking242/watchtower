@@ -23,7 +23,8 @@ class SearchArtistsSection extends HookConsumerWidget {
       hasNextPage: false,
       items: artists,
       onFetchMore: () {},
-      title: Text(context.l10n.artists),
+      title: context.l10n.artists,
+      leadingIcon: Icons.person_outline_rounded,
     );
   }
 }

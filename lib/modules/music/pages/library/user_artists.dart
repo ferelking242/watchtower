@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
@@ -140,18 +141,10 @@ class UserArtistsPage extends HookConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(height: 10),
-                        Undraw(
-                          height: 200,
-                          illustration: UndrawIllustration.followMeDrone,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          context.l10n.not_following_artists,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                        AppEmptyState(
+                          icon: Broken.user_search,
+                          title: context.l10n.not_following_artists,
+                          message: context.l10n.search_to_get_results,
                         ),
                       ],
                     ),
@@ -162,18 +155,10 @@ class UserArtistsPage extends HookConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(height: 10),
-                        Undraw(
-                          height: 200,
-                          illustration: UndrawIllustration.taken,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          context.l10n.nothing_found,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+                        AppEmptyState(
+                          icon: Broken.user_search,
+                          title: context.l10n.nothing_found,
+                          message: context.l10n.search_to_get_results,
                         ),
                       ],
                     ),

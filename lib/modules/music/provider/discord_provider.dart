@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter_discord_rpc_fork/flutter_discord_rpc.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/music/l10n/l10n.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 class DiscordNotifier extends AsyncNotifier<void> {
   @override
@@ -16,6 +18,7 @@ class DiscordNotifier extends AsyncNotifier<void> {
 
     final enabled = ref.watch(
         userPreferencesProvider.select((s) => s.discordPresence && kIsDesktop));
+    final l10n = lookupAppLocalizations(ref.watch(l10nLocaleStateProvider));
 
     var lastPosition = audioPlayer.position;
 
@@ -24,7 +27,7 @@ class DiscordNotifier extends AsyncNotifier<void> {
         try {
           final playback = ref.read(audioPlayerProvider);
           if (connected && playback.activeTrack != null) {
-            await updatePresence(playback.activeTrack!);
+            await updatePresence(playback.activeTrack!, l10n.open_track);
           }
         } catch (e, stack) {
           AppLogger.reportError(e, stack);
@@ -35,7 +38,10 @@ class DiscordNotifier extends AsyncNotifier<void> {
           final playback = ref.read(audioPlayerProvider);
           if (playback.activeTrack == null) return;
 
-          await updatePresence(ref.read(audioPlayerProvider).activeTrack!);
+          await updatePresence(
+            ref.read(audioPlayerProvider).activeTrack!,
+            l10n.open_track,
+          );
         } catch (e, stack) {
           AppLogger.reportError(e, stack);
         }
@@ -46,7 +52,10 @@ class DiscordNotifier extends AsyncNotifier<void> {
           if (playback.activeTrack != null) {
             final diff = position.inMilliseconds - lastPosition.inMilliseconds;
             if (diff > 500 || diff < -500) {
-              await updatePresence(ref.read(audioPlayerProvider).activeTrack!);
+              await updatePresence(
+                ref.read(audioPlayerProvider).activeTrack!,
+                l10n.open_track,
+              );
             }
           }
           lastPosition = position;
@@ -73,7 +82,7 @@ class DiscordNotifier extends AsyncNotifier<void> {
     }
   }
 
-  Future<void> updatePresence(SpotubeTrackObject track) async {
+  Future<void> updatePresence(SpotubeTrackObject track, String openTrackLabel) async {
     if (!kIsDesktop) return;
     if (FlutterDiscordRPC.instance.isConnected == false) return;
     final artistNames = track.artists.asString();
@@ -93,7 +102,7 @@ class DiscordNotifier extends AsyncNotifier<void> {
         ),
         buttons: [
           RPCButton(
-            label: "Ouvrir le titre",
+            label: openTrackLabel,
             url: track.externalUri,
           ),
         ],

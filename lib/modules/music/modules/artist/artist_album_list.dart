@@ -27,10 +27,8 @@ class ArtistAlbumList extends HookConsumerWidget {
       hasNextPage: albumsQuery.asData?.value.hasMore ?? false,
       items: albums,
       onFetchMore: albumsQueryNotifier.fetchMore,
-      title: Text(
-        context.l10n.albums,
-        style: Theme.of(context).textTheme.titleLarge!,
-      ),
+      title: context.l10n.albums,
+      leadingIcon: Icons.album_outlined,
     );
   }
 }

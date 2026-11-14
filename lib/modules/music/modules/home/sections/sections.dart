@@ -1,6 +1,8 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:very_good_infinite_list/very_good_infinite_list.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/fallbacks/no_default_metadata_plugin.dart';
@@ -9,8 +11,6 @@ import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/browse/sections.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/common.dart';
 import 'package:watchtower/modules/music/services/metadata/errors/exceptions.dart';
-import 'package:very_good_infinite_list/very_good_infinite_list.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 
 class HomePageBrowseSection extends HookConsumerWidget {
   const HomePageBrowseSection({super.key});
@@ -19,31 +19,9 @@ class HomePageBrowseSection extends HookConsumerWidget {
   Widget build(BuildContext context, ref) {
     final browseSections = ref.watch(metadataPluginBrowseSectionsProvider);
     final sections = browseSections.asData?.value.items;
-    final ThemeData(:colorScheme) = Theme.of(context);
 
     if (browseSections.isLoading) {
-      return SliverToBoxAdapter(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: 16,
-          children: [
-            Undraw(
-              height: 200,
-              illustration: UndrawIllustration.process,
-              color: colorScheme.primary,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              spacing: 8,
-              children: [
-                const CircularProgressIndicator(),
-                Opacity(opacity: 0.6, child: Text(context.l10n.building_your_timeline)),
-              ],
-            ),
-            SizedBox(height: 16),
-          ],
-        ),
-      );
+      return const SliverToBoxAdapter(child: AppMediaRowShimmer());
     }
 
     if (browseSections.error
@@ -51,69 +29,37 @@ class HomePageBrowseSection extends HookConsumerWidget {
           errorCode: MetadataPluginErrorCode.noDefaultMetadataPlugin,
           message: _,
         )) {
-      // Show the actionable fallback with force-reset button instead of a
-      // perpetual spinner that makes the whole music screen appear black.
-      return SliverFillRemaining(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 16,
-            children: [
-              const NoDefaultMetadataPlugin(),
-            ],
-          ),
-        ),
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: NoDefaultMetadataPlugin(),
       );
     }
 
     if (browseSections.hasError) {
       return SliverFillRemaining(
+        hasScrollBody: false,
         child: Center(
           child: ErrorBox(
             error: browseSections.error!,
-            onRetry: () {
-              ref.invalidate(metadataPluginBrowseSectionsProvider);
-            },
+            onRetry: () =>
+                ref.invalidate(metadataPluginBrowseSectionsProvider),
           ),
         ),
       );
     }
 
-    // Plugin is configured and the request succeeded, but there is simply
-    // nothing to show (e.g. a fresh/empty catalog). Without this branch the
-    // sliver renders zero items and — combined with the other home sections
-    // also being empty — the whole Music Hub screen appears as a blank/black
-    // page with no error ever logged. Always surface *something* instead.
-    if ((sections?.isEmpty ?? true)) {
+    // Plugin configured and the request succeeded, but the catalogue is
+    // empty. Render an explicit empty state instead of a silent black page.
+    if (sections?.isEmpty ?? true) {
       return SliverFillRemaining(
         hasScrollBody: false,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 12,
-              children: [
-                Icon(
-                  Icons.library_music_outlined,
-                  size: 56,
-                  color: colorScheme.onSurface.withValues(alpha: 0.3),
-                ),
-                Text(
-                  context.l10n.nothing_found,
-                  style: Theme.of(context).textTheme.titleMedium,
-                  textAlign: TextAlign.center,
-                ),
-                FilledButton.icon(
-                  onPressed: () {
-                    ref.invalidate(metadataPluginBrowseSectionsProvider);
-                  },
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(context.l10n.retry),
-                ),
-              ],
-            ),
-          ),
+        child: AppEmptyState(
+          icon: Icons.library_music_outlined,
+          title: context.l10n.music,
+          message: context.l10n.nothing_found,
+          actionLabel: context.l10n.retry,
+          onAction: () =>
+              ref.invalidate(metadataPluginBrowseSectionsProvider),
         ),
       );
     }
@@ -131,22 +77,20 @@ class HomePageBrowseSection extends HookConsumerWidget {
 
         return HorizontalPlaybuttonCardView(
           items: section.items,
-          title: Text(section.title),
+          title: section.title,
           hasNextPage: false,
           isLoadingNextPage: false,
           onFetchMore: () {},
-          titleTrailing: section.browseMore
-              ? TextButton(
-                  child: Text(context.l10n.browse_all),
-                  onPressed: () {
-                    context.navigateTo(
-                      HomeBrowseSectionItemsRoute(
-                        sectionId: section.id,
-                        section: section,
-                      ),
-                    );
-                  },
-                )
+          actionLabel: section.browseMore ? context.l10n.browse_all : null,
+          onAction: section.browseMore
+              ? () {
+                  context.navigateTo(
+                    HomeBrowseSectionItemsRoute(
+                      sectionId: section.id,
+                      section: section,
+                    ),
+                  );
+                }
               : null,
         );
       },

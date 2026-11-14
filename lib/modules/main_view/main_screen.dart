@@ -562,7 +562,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       incognitoMode: incognitoMode,
                       l10n: l10n,
                     ),
-                  // Music mini-player — shown above the dock when a track is active
                   // Music mini-player — shown on ALL pages above the dock when
                   // music is playing, except inside the music module itself
                   // where the music module's BottomPlayer/PlayerOverlay already shows.

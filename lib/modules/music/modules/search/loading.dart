@@ -1,6 +1,7 @@
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/pages/search/search.dart';
@@ -22,19 +23,10 @@ class SearchPlaceholder extends HookConsumerWidget {
     final searchTerm = ref.watch(searchTermStateProvider);
 
     return switch ((searchTerm.isEmpty, snapshot.isLoading)) {
-      (true, false) => Column(
-          children: [
-            SizedBox(
-              height: mediaQuery.height * 0.2,
-            ),
-            Undraw(
-              illustration: UndrawIllustration.explore,
-              color: theme.colorScheme.primary,
-              height: 200,
-            ),
-            const SizedBox(height: 20),
-            Text(context.l10n.search_to_get_results),
-          ],
+      (true, false) => AppEmptyState(
+          icon: Broken.search_normal_1,
+          title: context.l10n.search,
+          message: context.l10n.search_to_get_results,
         ),
       (false, true) => Container(
           constraints: BoxConstraints(

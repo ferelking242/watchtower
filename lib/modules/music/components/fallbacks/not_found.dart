@@ -1,26 +1,18 @@
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 
+/// Empty-result state for the music module, rendered with the shared
+/// [AppEmptyState] so it matches the movie/series/manga empty screens.
 class NotFound extends StatelessWidget {
   const NotFound({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Undraw(
-          illustration: UndrawIllustration.empty,
-          height: 200 * 1.0,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        SizedBox(height: 10),
-        Text(
-          context.l10n.nothing_found,
-          textAlign: TextAlign.center,
-        )
-      ],
+    return AppEmptyState(
+      icon: Icons.music_off_outlined,
+      title: context.l10n.nothing_found,
+      message: context.l10n.search_to_get_results,
     );
   }
 }

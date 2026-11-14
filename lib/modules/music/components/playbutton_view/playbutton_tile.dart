@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/modules/music/collections/assets.gen.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/string.dart';
 
+/// Compact list row used for albums, playlists and artists when the rail is
+/// rendered as a list. Mirrors the native media list-tile geometry and uses
+/// only theme typography and colours.
 class PlaybuttonTile extends StatelessWidget {
   final void Function()? onTap;
   final void Function()? onPlaybuttonPressed;
@@ -34,56 +38,30 @@ class PlaybuttonTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cleanDescription = description?.unescapeHtml().cleanHtml() ?? "";
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final cleanDescription = description?.unescapeHtml().cleanHtml() ?? '';
 
-    final leadingWidget = imageUrl != null
-        ? Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(8)),
-              image: DecorationImage(
-                image: UniversalImage.imageProvider(imageUrl!),
+    final leadingWidget = ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: imageUrl != null
+            ? UniversalImage(
+                path: imageUrl!,
+                placeholder: Assets.images.albumPlaceholder.path,
                 fit: BoxFit.cover,
-              ),
-            ),
-          )
-        : SizedBox(
-            width: 50,
-            height: 50,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.all(Radius.circular(8)),
-              child: image,
-            ),
-          );
-
-    final trailingWidget = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(MusicIcons.queueAdd),
-          onPressed: isLoading ? null : onAddToQueuePressed,
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: switch ((isLoading, isPlaying)) {
-            (true, _) => const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            (false, false) => const Icon(MusicIcons.play),
-            (false, true) => const Icon(MusicIcons.pause)
-          },
-          onPressed: isLoading ? null : onPlaybuttonPressed,
-        ),
-      ],
+              )
+            : image,
+      ),
     );
 
     return InkWell(
       onTap: isLoading ? null : onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
             leadingWidget,
@@ -93,18 +71,47 @@ class PlaybuttonTile extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title),
-                  if (cleanDescription.isNotEmpty)
-                    Text(
-                      description!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
+                  ),
+                  if (cleanDescription.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      cleanDescription,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-            trailingWidget,
+            if (onAddToQueuePressed != null)
+              IconButton(
+                icon: const Icon(MusicIcons.queueAdd),
+                onPressed: isLoading ? null : onAddToQueuePressed,
+                color: cs.onSurfaceVariant,
+              ),
+            IconButton(
+              icon: switch ((isLoading, isPlaying)) {
+                (true, _) => const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                (false, false) => const Icon(MusicIcons.play),
+                (false, true) => const Icon(MusicIcons.pause),
+              },
+              onPressed: isLoading ? null : onPlaybuttonPressed,
+              color: cs.primary,
+            ),
           ],
         ),
       ),

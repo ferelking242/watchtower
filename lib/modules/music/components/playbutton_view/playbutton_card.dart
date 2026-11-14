@@ -1,152 +1,189 @@
 import 'package:flutter/material.dart';
-  import 'package:watchtower/modules/music/collections/music_icons.dart';
-  import 'package:watchtower/modules/music/components/image/universal_image.dart';
-  import 'package:watchtower/modules/music/extensions/string.dart';
-  import 'package:watchtower/modules/music/utils/platform.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/modules/music/collections/assets.gen.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/modules/music/components/image/universal_image.dart';
+import 'package:watchtower/modules/music/extensions/string.dart';
 
-  class PlaybuttonCard extends StatelessWidget {
-    final void Function()? onTap;
-    final void Function()? onPlaybuttonPressed;
-    final void Function()? onAddToQueuePressed;
-    final String? description;
+/// Square artwork card used for albums, playlists and artists in a rail.
+///
+/// Follows the shared Watchtower card language: [AppUI.cardRadius], the
+/// theme's title/body typography, a [TvPressable] tap target and a single
+/// primary-tinted play button. No bespoke colours or radii.
+class PlaybuttonCard extends StatelessWidget {
+  final void Function()? onTap;
+  final void Function()? onPlaybuttonPressed;
+  final void Function()? onAddToQueuePressed;
+  final String? description;
 
-    final String? imageUrl;
-    final Widget? image;
-    final bool isPlaying;
-    final bool isLoading;
-    final String title;
-    final bool isOwner;
+  final String? imageUrl;
+  final Widget? image;
+  final bool isPlaying;
+  final bool isLoading;
+  final String title;
+  final bool isOwner;
 
-    const PlaybuttonCard({
-      required this.isPlaying,
-      required this.isLoading,
-      required this.title,
-      this.description,
-      this.onPlaybuttonPressed,
-      this.onAddToQueuePressed,
-      this.onTap,
-      this.isOwner = false,
-      this.imageUrl,
-      this.image,
-      super.key,
-    }) : assert(
-            imageUrl != null || image != null,
-            "imageUrl and image can't be null at the same time",
-          );
+  /// Card width. When null the card fills its parent (grid cells).
+  final double? width;
 
-    @override
-    Widget build(BuildContext context) {
-      final unescapeHtml = description?.unescapeHtml().cleanHtml() ?? "";
-      const double cardSize = 150.0;
-      final borderRadius = BorderRadius.circular(8);
+  const PlaybuttonCard({
+    required this.isPlaying,
+    required this.isLoading,
+    required this.title,
+    this.description,
+    this.onPlaybuttonPressed,
+    this.onAddToQueuePressed,
+    this.onTap,
+    this.isOwner = false,
+    this.imageUrl,
+    this.image,
+    this.width,
+    super.key,
+  }) : assert(
+          imageUrl != null || image != null,
+          "imageUrl and image can't be null at the same time",
+        );
 
-      final imageWidget = ClipRRect(
-        borderRadius: borderRadius,
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final cleanDescription = description?.unescapeHtml().cleanHtml() ?? '';
+    final radius = BorderRadius.circular(AppUI.cardRadius);
+
+    final imageWidget = ClipRRect(
+      borderRadius: radius,
+      child: AspectRatio(
+        aspectRatio: 1,
         child: imageUrl != null
-            ? Image(
-                image: UniversalImage.imageProvider(
-                  imageUrl!,
-                  height: cardSize,
-                  width: cardSize,
-                ),
-                width: cardSize,
-                height: cardSize,
+            ? UniversalImage(
+                path: imageUrl!,
+                placeholder: Assets.images.albumPlaceholder.path,
                 fit: BoxFit.cover,
               )
-            : SizedBox(
-                width: cardSize,
-                height: cardSize,
-                child: image!,
-              ),
-      );
+            : image,
+      ),
+    );
 
-      return GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: cardSize,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                children: [
-                  imageWidget,
-                  if (isOwner)
-                    Positioned(
-                      right: 5,
-                      top: 5,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primaryContainer,
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          MusicIcons.user,
-                          size: 12,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+    return TvPressable(
+      onTap: onTap,
+      borderRadius: AppUI.cardRadius,
+      child: SizedBox(
+        width: width,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              children: [
+                imageWidget,
+                if (isOwner)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: cs.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        MusicIcons.user,
+                        size: 12,
+                        color: cs.onPrimaryContainer,
                       ),
                     ),
-                  Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: Column(
-                      children: [
-                        if (kIsMobile || onAddToQueuePressed != null)
-                          IconButton(
-                            icon: const Icon(MusicIcons.queueAdd, size: 16),
-                            onPressed: onAddToQueuePressed,
-                            style: IconButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
-                              padding: const EdgeInsets.all(6),
-                              minimumSize: const Size(28, 28),
-                            ),
-                          ),
-                        const SizedBox(height: 4),
-                        IconButton(
-                          icon: isLoading
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : Icon(
-                                  isPlaying ? MusicIcons.pause : MusicIcons.play,
-                                  size: 16,
-                                ),
-                          onPressed: isLoading ? null : onPlaybuttonPressed,
-                          style: IconButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.8),
-                            padding: const EdgeInsets.all(6),
-                            minimumSize: const Size(28, 28),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              if (unescapeHtml.isNotEmpty)
-                Text(
-                  unescapeHtml,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onAddToQueuePressed != null) ...[
+                        _OverlayButton(
+                          icon: MusicIcons.queueAdd,
+                          onPressed: isLoading ? null : onAddToQueuePressed,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      _OverlayButton(
+                        icon: isPlaying ? MusicIcons.pause : MusicIcons.play,
+                        loading: isLoading,
+                        filled: true,
+                        onPressed: isLoading ? null : onPlaybuttonPressed,
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ],
+            ),
+            const SizedBox(height: AppUI.mediaGridTitleGap),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (cleanDescription.isNotEmpty)
+              Text(
+                cleanDescription,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+          ],
         ),
-      );
-    }
+      ),
+    );
   }
-  
+}
+
+/// Small circular overlay action drawn on top of artwork.
+class _OverlayButton extends StatelessWidget {
+  const _OverlayButton({
+    required this.icon,
+    required this.onPressed,
+    this.loading = false,
+    this.filled = false,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool loading;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: filled ? cs.primary : cs.surface.withValues(alpha: 0.85),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: loading
+              ? Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: filled ? cs.onPrimary : cs.primary,
+                  ),
+                )
+              : Icon(
+                  icon,
+                  size: 18,
+                  color: filled ? cs.onPrimary : cs.onSurface,
+                ),
+        ),
+      ),
+    );
+  }
+}

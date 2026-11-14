@@ -56,7 +56,7 @@ import 'package:auto_route/auto_route.dart';
               if (!isAuthenticated)
                 IconButton(
                   icon: const Icon(MusicIcons.login),
-                  tooltip: 'Se connecter',
+                  tooltip: context.l10n.login,
                   onPressed: () =>
                       context.navigateTo(const SettingsMetadataProviderRoute()),
                 ),
@@ -143,7 +143,7 @@ import 'package:auto_route/auto_route.dart';
                     // No plugin connected — show login icon
                     IconButton(
                       icon: const Icon(MusicIcons.login),
-                      tooltip: 'Se connecter',
+                      tooltip: context.l10n.login,
                       onPressed: () {
                         context.navigateTo(const SettingsMetadataProviderRoute());
                       },

@@ -1,23 +1,31 @@
 import 'dart:ui';
 
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:very_good_infinite_list/very_good_infinite_list.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
+import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/album/album_card.dart';
 import 'package:watchtower/modules/music/modules/artist/artist_card.dart';
 import 'package:watchtower/modules/music/modules/playlist/playlist_card.dart';
-import 'package:very_good_infinite_list/very_good_infinite_list.dart';
 
+/// Horizontal shelf of music cards.
+///
+/// Uses the shared Watchtower design system ([AppSectionHeader] for the title
+/// row and [AppUI] for every dimension) so a music shelf reads exactly like
+/// the movie/series/manga shelves instead of carrying a second visual language.
 class HorizontalPlaybuttonCardView<T> extends HookWidget {
-  final Widget title;
+  final String title;
   final List<T> items;
   final Widget? error;
   final VoidCallback onFetchMore;
   final bool isLoadingNextPage;
   final bool hasNextPage;
   final bool isLoading;
-  final Widget? titleTrailing;
+  final IconData? leadingIcon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   HorizontalPlaybuttonCardView({
     required this.title,
@@ -26,7 +34,9 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
     required this.onFetchMore,
     required this.isLoadingNextPage,
     this.isLoading = false,
-    this.titleTrailing,
+    this.leadingIcon,
+    this.actionLabel,
+    this.onAction,
     this.error,
     super.key,
   }) : assert(
@@ -42,91 +52,85 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
   Widget build(BuildContext context) {
     final scrollController = useScrollController();
     final isArtist = items.every((s) => s is SpotubeFullArtistObject);
-    final scale = 1.0;
+    final cardWidth = AppUI.horizontalCardWidth(context);
+    final railHeight = isArtist ? cardWidth * 1.6 : cardWidth * 1.5;
+    final padding = AppUI.pagePadding(context);
 
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: DefaultTextStyle(
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  child: title,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: title,
+          leadingIcon: leadingIcon,
+          actionLabel: actionLabel,
+          onAction: onAction,
+        ),
+        if (error != null)
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: padding),
+            child: error,
+          )
+        else
+          SizedBox(
+            height: railHeight,
+            child: NotificationListener(
+              // This rail owns its own gesture stream — keep a single scrollbar.
+              onNotification: (notification) => true,
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(
+                  dragDevices: PointerDeviceKind.values.toSet(),
                 ),
-              ),
-              ?titleTrailing,
-            ],
-          ),
-          if (error != null)
-            error!
-          else
-            SizedBox(
-              height: isArtist ? 250 : 225,
-              child: NotificationListener(
-                // disable multiple scrollbar to use this
-                onNotification: (notification) => true,
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context).copyWith(
-                    dragDevices: PointerDeviceKind.values.toSet(),
-                  ),
-                  child: items.isEmpty
-                      ? isLoading
-                          ? SizedBox(
-                              height: isArtist ? 250 : 225,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                                itemCount: 5,
-                                itemBuilder: (context, index) => Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: MusicCardShimmer(
-                                    height: isArtist ? 250 : 225,
-                                  ),
-                                ),
+                child: items.isEmpty
+                    ? isLoading
+                        ? ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.symmetric(horizontal: padding),
+                            itemCount: 5,
+                            itemBuilder: (context, index) => Padding(
+                              padding: const EdgeInsets.only(
+                                right: AppUI.mediaGridCrossAxisSpacing,
                               ),
-                            )
-                          : const SizedBox.shrink()
-                      : InfiniteList(
-                          scrollController: scrollController,
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          itemCount: items.length,
-                          onFetchData: onFetchMore,
-                          loadingBuilder: (context) => MusicCardShimmer(
-                            height: isArtist ? 250 : 225,
-                          ),
-                          isLoading: isLoadingNextPage,
-                          hasReachedMax: !hasNextPage,
-                          separatorBuilder: (context, index) => SizedBox(height: 12 * scale),
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-
-                            return switch (item) {
+                              child: MusicCardShimmer(height: railHeight - 16),
+                            ),
+                          )
+                        : const SizedBox.shrink()
+                    : InfiniteList(
+                        scrollController: scrollController,
+                        scrollDirection: Axis.horizontal,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: padding,
+                          vertical: 8,
+                        ),
+                        itemCount: items.length,
+                        onFetchData: onFetchMore,
+                        loadingBuilder: (context) =>
+                            MusicCardShimmer(height: railHeight - 16),
+                        isLoading: isLoadingNextPage,
+                        hasReachedMax: !hasNextPage,
+                        separatorBuilder: (context, index) => const SizedBox(
+                          width: AppUI.mediaGridCrossAxisSpacing,
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          return SizedBox(
+                            width: cardWidth,
+                            child: switch (item) {
                               SpotubeSimplePlaylistObject() => PlaylistCard(
-                                  item as SpotubeSimplePlaylistObject),
+                                  item as SpotubeSimplePlaylistObject,
+                                ),
                               SpotubeSimpleAlbumObject() =>
                                 AlbumCard(item as SpotubeSimpleAlbumObject),
                               SpotubeFullArtistObject() =>
                                 ArtistCard(item as SpotubeFullArtistObject),
                               _ => const SizedBox.shrink(),
-                            };
-                          }),
-                ),
+                            },
+                          );
+                        }),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

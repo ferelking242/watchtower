@@ -2,10 +2,11 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
@@ -374,20 +375,10 @@ class LocalLibraryPage extends HookConsumerWidget {
 
                     if (!trackSnapshot.isLoading && filteredTracks.isEmpty) {
                       return Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Undraw(
-                              illustration: UndrawIllustration.empty,
-                              height: 200,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              context.l10n.nothing_found,
-                              textAlign: TextAlign.center,
-                            )
-                          ],
+                        child: AppEmptyState(
+                          icon: Broken.folder_open,
+                          title: context.l10n.nothing_found,
+                          message: context.l10n.search_to_get_results,
                         ),
                       );
                     }

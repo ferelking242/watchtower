@@ -1,6 +1,7 @@
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/collections/formatters.dart';
 import 'package:watchtower/modules/music/modules/stats/common/track_item.dart';
@@ -34,23 +35,10 @@ class TopTracks extends HookConsumerWidget {
         isLoading: topTracks.isLoading && !topTracks.isLoadingNextPage,
         hasReachedMax: topTracks.asData?.value.hasMore ?? true,
         itemCount: tracksData.length,
-        emptyBuilder: (context) => Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 50),
-              Undraw(
-                illustration: UndrawIllustration.happyMusic,
-                color: Theme.of(context).colorScheme.primary,
-                height: 200 * 1.0,
-              ),
-              Text(
-                context.l10n.no_tracks_listened_yet,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+        emptyBuilder: (context) => AppEmptyState(
+          icon: Broken.chart,
+          title: context.l10n.no_tracks_listened_yet,
+          message: context.l10n.search_to_get_results,
         ),
         itemBuilder: (context, index) {
           final track = tracksData[index];

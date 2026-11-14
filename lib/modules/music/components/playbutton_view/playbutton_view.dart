@@ -1,11 +1,11 @@
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/modules/music/components/fallbacks/not_found.dart';
 import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/components/waypoint.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
-import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:very_good_infinite_list/very_good_infinite_list.dart';
 
 
@@ -87,23 +87,11 @@ class PlaybuttonView extends StatelessWidget {
             switch ((isGrid.value, isLoading)) {
               (true, _) => !isLoading && itemCount == 0
                   ? SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppUI.pagePadding(context),
+                      ),
                       sliver: SliverToBoxAdapter(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          spacing: 10,
-                          children: [
-                            Undraw(
-                              height: 200 * 1.0,
-                              illustration: UndrawIllustration.taken,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            Text(
-                              context.l10n.nothing_found,
-                              textAlign: TextAlign.center,
-                            )
-                          ],
-                        ),
+                        child: NotFound(),
                       ),
                     )
                   : SliverGrid.builder(
@@ -145,23 +133,7 @@ class PlaybuttonView extends StatelessWidget {
                   onFetchData: onRequestMore,
                   hasReachedMax: !hasMore,
                   isLoading: isLoading,
-                  emptyBuilder: (context) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: 10,
-                      children: [
-                        Undraw(
-                          height: 200 * 1.0,
-                          illustration: UndrawIllustration.taken,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        Text(
-                          context.l10n.nothing_found,
-                          textAlign: TextAlign.center,
-                        )
-                      ],
-                    );
-                  },
+                  emptyBuilder: (context) => NotFound(),
                 ),
             }
           ],

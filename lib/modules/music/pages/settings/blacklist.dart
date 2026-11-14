@@ -9,6 +9,7 @@ import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
+import 'package:watchtower/modules/music/models/database/database.dart';
 import 'package:watchtower/modules/music/provider/blacklist_provider.dart';
 
 class BlackListPage extends HookConsumerWidget {
@@ -79,7 +80,12 @@ class BlackListPage extends HookConsumerWidget {
                     final item = filteredBlacklist.elementAt(index);
                     return ButtonTile(
                       leading: Text("${index + 1}."),
-                      title: Text("${item.name} (${item.elementType.name})"),
+                      title: Text(
+                        "${item.name} (${switch (item.elementType) {
+                          BlacklistedType.artist => context.l10n.artist,
+                          BlacklistedType.track => context.l10n.track,
+                        }})",
+                      ),
                       trailing: IconButton(
                         icon: Icon(MusicIcons.trash,
                             color: Theme.of(context).colorScheme.error),

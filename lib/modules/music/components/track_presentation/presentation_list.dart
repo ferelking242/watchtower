@@ -1,8 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/components/track_presentation/presentation_props.dart';
@@ -43,24 +44,12 @@ class PresentationListSection extends HookConsumerWidget {
         );
       }
       return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Undraw(
-                illustration: UndrawIllustration.dreamer,
-                color: Theme.of(context).colorScheme.primary,
-                height: 200 * 1.0,
-              ),
-              Text(
-                isUserPlaylist
-                    ? context.l10n.no_tracks_added_yet
-                    : context.l10n.no_tracks,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+        child: AppEmptyState(
+          icon: Broken.musicnote,
+          title: isUserPlaylist
+              ? context.l10n.no_tracks_added_yet
+              : context.l10n.no_tracks,
+          message: context.l10n.search_to_get_results,
         ),
       );
     }

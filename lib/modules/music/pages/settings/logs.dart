@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
@@ -63,17 +64,10 @@ class LogsPage extends HookConsumerWidget {
                 ),
               ),
             AsyncError(:final error) => switch (error) {
-                StateError() => Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Undraw(
-                        illustration: UndrawIllustration.noData,
-                        height: 200,
-                        width: 200,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      Text(context.l10n.no_logs_found),
-                    ],
+                StateError() => AppEmptyState(
+                    icon: Broken.document_text,
+                    title: context.l10n.no_logs_found,
+                    message: context.l10n.search_to_get_results,
                   ),
                 _ => Center(child: Text(error.toString())),
               },

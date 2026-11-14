@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_undraw/flutter_undraw.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
@@ -25,7 +26,6 @@ class SearchPageArtistsTab extends HookConsumerWidget {
     final searchArtistsNotifier =
         ref.read(metadataPluginSearchArtistsProvider(searchTerm).notifier);
     final searchArtists = searchArtistsSnapshot.asData?.value.items ?? [];
-    final theme = Theme.of(context);
 
     if (searchArtistsSnapshot.hasError) {
       return ErrorBox(
@@ -48,18 +48,10 @@ class SearchPageArtistsTab extends HookConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(height: 10),
-                  Undraw(
-                    height: 200,
-                    illustration: UndrawIllustration.taken,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    context.l10n.nothing_found,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  AppEmptyState(
+                    icon: Broken.user_search,
+                    title: context.l10n.nothing_found,
+                    message: context.l10n.search_to_get_results,
                   ),
                 ],
               ),

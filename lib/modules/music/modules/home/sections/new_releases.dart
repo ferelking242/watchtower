@@ -1,5 +1,5 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -15,11 +15,12 @@ class HomeNewReleasesSection extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final authenticated = ref.watch(metadataPluginAuthenticatedProvider);
-
     final newReleases = ref.watch(metadataPluginAlbumReleasesProvider);
     final newReleasesNotifier =
         ref.read(metadataPluginAlbumReleasesProvider.notifier);
 
+    // New releases are an authenticated feature: hide the shelf entirely when
+    // signed out, still loading, or genuinely empty.
     if (authenticated.asData?.value != true ||
         newReleases.isLoading ||
         newReleases.asData?.value.items.isEmpty == true) {
@@ -36,18 +37,17 @@ class HomeNewReleasesSection extends HookConsumerWidget {
 
     return HorizontalPlaybuttonCardView<SpotubeSimpleAlbumObject>(
       items: newReleases.asData?.value.items ?? [],
-      title: Text(context.l10n.new_releases),
+      title: context.l10n.new_releases,
+      leadingIcon: Icons.fiber_new_rounded,
       isLoadingNextPage: newReleases.isLoadingNextPage,
       hasNextPage: newReleases.asData?.value.hasMore ?? false,
       onFetchMore: newReleasesNotifier.fetchMore,
       error: newReleases.hasError
-          ? Center(
-              child: ErrorBox(
-                error: newReleases.error!,
-                onRetry: () {
-                  ref.invalidate(metadataPluginAlbumReleasesProvider);
-                },
-              ),
+          ? ErrorBox(
+              error: newReleases.error!,
+              onRetry: () {
+                ref.invalidate(metadataPluginAlbumReleasesProvider);
+              },
             )
           : null,
     );

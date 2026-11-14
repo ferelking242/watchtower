@@ -6,6 +6,7 @@ import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/form/text_form_field.dart';
@@ -178,9 +179,9 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                         if (kIsFlatpak) {
                           final result = await openFile(
                             acceptedTypeGroups: [
-                              const XTypeGroup(
-                                label: 'Watchtower Music Plugin',
-                                extensions: ['smplug'],
+                              XTypeGroup(
+                                label: context.l10n.music_plugin,
+                                extensions: const ['smplug'],
                               ),
                             ],
                           );
@@ -215,8 +216,11 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      for (final (i, label)
-                          in ["All", "Metadata", "Audio Source"].indexed) ...[
+                      for (final (i, label) in [
+                        context.l10n.all,
+                        context.l10n.metadata,
+                        context.l10n.audio_source,
+                      ].indexed) ...[
                         FilterChip(
                           label: Text(label),
                           selected: tabState.value == i,
@@ -234,20 +238,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
               // Installed heading
               if (plugins.asData?.value.plugins.isNotEmpty ?? false)
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        Text(
-                          context.l10n.installed,
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                  ),
+                  child: AppSectionHeader(title: context.l10n.installed),
                 ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
@@ -275,19 +266,8 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
 
               // Available plugins heading
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    children: [
-                      Text(
-                        context.l10n.available_plugins,
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(child: Divider()),
-                    ],
-                  ),
+                child: AppSectionHeader(
+                  title: context.l10n.available_plugins,
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -303,8 +283,8 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                   return ShimmerSkeleton(enabled: true,
                     child: MetadataPluginRepositoryItem(
                       pluginRepo: MetadataPluginRepository(
-                        name: "Loading...",
-                        description: "Loading...",
+                        name: context.l10n.loading,
+                        description: context.l10n.loading,
                         repoUrl: "",
                         owner: "",
                         topics: [],

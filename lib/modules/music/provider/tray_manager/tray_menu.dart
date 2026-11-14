@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:watchtower/modules/music/l10n/l10n.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
@@ -26,11 +28,14 @@ final trayMenuProvider = Provider((ref) {
       ref.watch(audioPlayerLoopMode).asData?.value == PlaylistMode.single;
   final isShuffled = ref.watch(audioPlayerShuffleMode).asData?.value ?? false;
   final isPlaying = ref.watch(audioPlayerPlaying).asData?.value ?? false;
+  final l10n = lookupAppLocalizations(
+    ref.watch(l10nLocaleStateProvider),
+  );
 
   return Menu(
     items: [
       MenuItem(
-        label: "Show/Hide Window",
+        label: l10n.show_hide_window,
         onClick: (menuItem) async {
           if (await windowManager.isVisible()) {
             await windowManager.hide();
@@ -42,7 +47,7 @@ final trayMenuProvider = Provider((ref) {
       ),
       MenuItem.separator(),
       MenuItem(
-        label: isPlaying ? "Pause" : "Play",
+        label: isPlaying ? l10n.pause : l10n.play,
         disabled: !isPlaybackPlaying,
         onClick: (menuItem) async {
           if (audioPlayer.isPlaying) {
@@ -53,25 +58,25 @@ final trayMenuProvider = Provider((ref) {
         },
       ),
       MenuItem(
-        label: "Next",
+        label: l10n.next,
         disabled: !isPlaybackPlaying,
         onClick: (menuItem) {
           audioPlayer.skipToNext();
         },
       ),
       MenuItem(
-        label: "Previous",
+        label: l10n.previous,
         disabled: !isPlaybackPlaying,
         onClick: (menuItem) {
           audioPlayer.skipToPrevious();
         },
       ),
       MenuItem.submenu(
-        label: "Playback",
+        label: l10n.playback,
         submenu: Menu(
           items: [
             MenuItem(
-              label: "Repeat",
+              label: l10n.repeat,
               checked: isLoopOne,
               onClick: (menuItem) {
                 audioPlayer.setLoopMode(
@@ -80,7 +85,7 @@ final trayMenuProvider = Provider((ref) {
               },
             ),
             MenuItem(
-              label: "Shuffle",
+              label: l10n.shuffle,
               checked: isShuffled,
               onClick: (menuItem) {
                 audioPlayer.setShuffle(!isShuffled);
@@ -88,7 +93,7 @@ final trayMenuProvider = Provider((ref) {
             ),
             MenuItem.separator(),
             MenuItem(
-              label: "Stop",
+              label: l10n.stop,
               onClick: (menuItem) {
                 playlistNotifier.stop();
               },
@@ -98,7 +103,7 @@ final trayMenuProvider = Provider((ref) {
       ),
       MenuItem.separator(),
       MenuItem(
-        label: "Quit",
+        label: l10n.quit,
         onClick: (menuItem) {
           exit(0);
         },

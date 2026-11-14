@@ -2,6 +2,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/components/markdown/markdown.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
@@ -40,17 +41,17 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
     }
 
     return AlertDialog(
-      title: const Text('Plugin update available'),
+      title: Text(context.l10n.update_available),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${plugin.name} (${update.version}) available.'),
+          Text('${plugin.name} (${update.version})'),
           if (update.changelog != null && update.changelog!.isNotEmpty)
             const SizedBox(height: 8),
           if (update.changelog != null && update.changelog!.isNotEmpty)
             AppMarkdown(
-              data: '### Changelog: \n\n${update.changelog}',
+              data: '### ${context.l10n.changelog}\n\n${update.changelog}',
             ),
         ],
       ),
@@ -59,7 +60,7 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
           onPressed: () {
             Navigator.of(context).pop();
           },
-          child: const Text('Dismiss'),
+          child: Text(context.l10n.dismiss),
         ),
         FilledButton(
           onPressed: isUpdating.value
@@ -83,7 +84,7 @@ class MetadataPluginUpdateAvailableDialog extends HookConsumerWidget {
                     }
                   }
                 },
-          child: const Text('Update'),
+          child: Text(context.l10n.update),
         ),
       ],
     );

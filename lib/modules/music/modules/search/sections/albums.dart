@@ -22,7 +22,8 @@ class SearchAlbumsSection extends HookConsumerWidget {
       hasNextPage: false,
       items: albums,
       onFetchMore: () {},
-      title: Text(context.l10n.albums),
+      title: context.l10n.albums,
+      leadingIcon: Icons.album_outlined,
     );
   }
 }

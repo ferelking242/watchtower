@@ -22,7 +22,8 @@ class SearchPlaylistsSection extends HookConsumerWidget {
       hasNextPage: false,
       items: playlists,
       onFetchMore: () {},
-      title: Text(context.l10n.playlists),
+      title: context.l10n.playlists,
+      leadingIcon: Icons.queue_music_rounded,
     );
   }
 }
