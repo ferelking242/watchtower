@@ -11,6 +11,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
+import 'package:watchtower/modules/more/settings/advanced/providers/ui_scale_provider.dart';
+import 'package:watchtower/ui/widgets/desktop_zoom.dart';
 import 'package:watchtower/modules/home/services/home_prewarm.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/services/settings_store.dart';
@@ -980,26 +982,17 @@ class _MyAppState extends ConsumerState<MyApp>
           );
         }
         // Desktop and web get global keyboard shortcuts (sections, search,
-        // settings, back/forward) so the app answers to a keyboard the way a
-        // PC user expects.
+        // settings, back/forward, zoom) so the app answers to a keyboard the
+        // way a PC user expects.
         if (DesktopShortcuts.isEnabled) {
           child = DesktopShortcuts(router: router, child: child!);
         }
-        // Apply UI scale from Advanced Settings
-        if (Hive.isBoxOpen('advanced_settings')) {
-          final box = Hive.box('advanced_settings');
-          final uiScale = (box.get('ui_scale', defaultValue: 1.0) as num)
-              .toDouble();
-          if (uiScale != 1.0) {
-            child = MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaler.linear(uiScale)),
-              child: child!,
-            );
-          }
-        }
-        return child ?? const SizedBox.shrink();
+        // Ctrl/Cmd + wheel zooms the interface (live, no restart needed).
+        child = DesktopZoom(child: child!);
+        // Apply the UI scale from Advanced Settings / the zoom gesture. This is
+        // watched as a provider so the tree rebuilds the moment it changes.
+        child = UiScaleScope(child: child!);
+        return child;
       },
       routeInformationParser: router.routeInformationParser,
       routerDelegate: router.routerDelegate,

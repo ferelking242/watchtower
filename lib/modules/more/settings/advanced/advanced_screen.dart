@@ -16,6 +16,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
+import 'package:watchtower/modules/more/settings/advanced/providers/ui_scale_provider.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/providers/storage_provider.dart';
@@ -39,7 +40,6 @@ const _kDetailedReportsKey = 'detailed_reports';
 const _kOldDecoderKey = 'old_decoder';
 const _kNonAsciiKey = 'no_non_ascii';
 const _kBitmapThresholdKey = 'bitmap_threshold';
-const _kUiScaleKey = 'ui_scale';
 
 Future<Box> _openBox() => Hive.openBox(_kBoxName);
 
@@ -308,7 +308,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       // Load UI scale separately
       final advBox = await _openBox();
       final loadedScale =
-          (advBox.get(_kUiScaleKey, defaultValue: 1.0) as num).toDouble();
+          (advBox.get(kUiScaleKey, defaultValue: 1.0) as num).toDouble();
       if (mounted) setState(() => _uiScale = loadedScale);
     }
   }
@@ -1378,8 +1378,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   label: '${(_uiScale * 100).round()}%',
                   onChanged: (v) async {
                     setState(() => _uiScale = v);
-                    final box = await _openBox();
-                    await box.put(_kUiScaleKey, v);
+                    ref.read(uiScaleProvider.notifier).set(v);
                   },
                 ),
                 Row(
@@ -1419,8 +1418,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                     ),
                     onPressed: () async {
                       setState(() => _uiScale = 1.0);
-                      final box = await _openBox();
-                      await box.put(_kUiScaleKey, 1.0);
+                      ref.read(uiScaleProvider.notifier).reset();
                     },
                   ),
                 ),

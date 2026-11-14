@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:watchtower/modules/more/settings/advanced/providers/ui_scale_provider.dart';
 
 /// Global keyboard shortcuts for the desktop and web builds.
 ///
@@ -11,7 +14,7 @@ import 'package:go_router/go_router.dart';
 /// opens the settings. This wraps the whole app so the shortcuts work no matter
 /// which page is focused, and it is a no-op on mobile (no hardware keyboard)
 /// and inside text fields (where the keys must type).
-class DesktopShortcuts extends StatelessWidget {
+class DesktopShortcuts extends ConsumerWidget {
   const DesktopShortcuts({super.key, required this.router, required this.child});
 
   /// The app router. Passed explicitly because this widget sits above the
@@ -77,24 +80,48 @@ class DesktopShortcuts extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (!isEnabled) return child;
 
     final isMac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+    final ctrlOrCmd = <ShortcutActivator, Intent>{
+      SingleActivator(
+        LogicalKeyboardKey.keyK,
+        control: !isMac,
+        meta: isMac,
+      ): const _OpenSearchIntent(),
+      // Ctrl/Cmd+, → settings, the platform convention for preferences.
+      SingleActivator(
+        LogicalKeyboardKey.comma,
+        control: !isMac,
+        meta: isMac,
+      ): const _OpenSettingsIntent(),
+      // Ctrl/Cmd + / - / 0 → zoom in / out / reset, like a browser.
+      SingleActivator(
+        LogicalKeyboardKey.equal,
+        control: !isMac,
+        meta: isMac,
+      ): const _ZoomInIntent(),
+      SingleActivator(
+        LogicalKeyboardKey.add,
+        control: !isMac,
+        meta: isMac,
+      ): const _ZoomInIntent(),
+      SingleActivator(
+        LogicalKeyboardKey.minus,
+        control: !isMac,
+        meta: isMac,
+      ): const _ZoomOutIntent(),
+      SingleActivator(
+        LogicalKeyboardKey.digit0,
+        control: !isMac,
+        meta: isMac,
+      ): const _ZoomResetIntent(),
+    };
 
     return Shortcuts(
       shortcuts: <ShortcutActivator, Intent>{
-        SingleActivator(
-          LogicalKeyboardKey.keyK,
-          control: !isMac,
-          meta: isMac,
-        ): const _OpenSearchIntent(),
-        // Ctrl/Cmd+, → settings, the platform convention for preferences.
-        SingleActivator(
-          LogicalKeyboardKey.comma,
-          control: !isMac,
-          meta: isMac,
-        ): const _OpenSettingsIntent(),
+        ...ctrlOrCmd,
         // Alt+Left / Alt+Right → back / forward, like a browser.
         const SingleActivator(
           LogicalKeyboardKey.arrowLeft,
@@ -120,6 +147,24 @@ class DesktopShortcuts extends StatelessWidget {
             onInvoke: (_) {
               if (_inTextField()) return null;
               router.go('/settings');
+              return null;
+            },
+          ),
+          _ZoomInIntent: CallbackAction<_ZoomInIntent>(
+            onInvoke: (_) {
+              ref.read(uiScaleProvider.notifier).step(1);
+              return null;
+            },
+          ),
+          _ZoomOutIntent: CallbackAction<_ZoomOutIntent>(
+            onInvoke: (_) {
+              ref.read(uiScaleProvider.notifier).step(-1);
+              return null;
+            },
+          ),
+          _ZoomResetIntent: CallbackAction<_ZoomResetIntent>(
+            onInvoke: (_) {
+              ref.read(uiScaleProvider.notifier).reset();
               return null;
             },
           ),
@@ -159,6 +204,18 @@ class _OpenSearchIntent extends Intent {
 
 class _OpenSettingsIntent extends Intent {
   const _OpenSettingsIntent();
+}
+
+class _ZoomInIntent extends Intent {
+  const _ZoomInIntent();
+}
+
+class _ZoomOutIntent extends Intent {
+  const _ZoomOutIntent();
+}
+
+class _ZoomResetIntent extends Intent {
+  const _ZoomResetIntent();
 }
 
 class _BackIntent extends Intent {
