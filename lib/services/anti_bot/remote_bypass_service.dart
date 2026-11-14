@@ -12,19 +12,7 @@ const _kModeKey = 'remote_mode';
 
 enum RemoteBypassMode {
   auto,
-  onDemand;
-
-  String get label => switch (this) {
-        RemoteBypassMode.auto => 'Automatique',
-        RemoteBypassMode.onDemand => 'Sur demande',
-      };
-
-  String get description => switch (this) {
-        RemoteBypassMode.auto =>
-          'Utilise le serveur distant dès que les 2 tentatives locales échouent',
-        RemoteBypassMode.onDemand =>
-          'Utilise le serveur distant uniquement quand vous appuyez sur "Contourner via serveur distant"',
-      };
+  onDemand,
 }
 
 class RemoteBypassSettings {

@@ -5413,4 +5413,552 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get browse_cloudflare => 'Cloudflare';
+
+  @override
+  String get settings_remote_bypass_title => 'Remote bypass server';
+
+  @override
+  String get settings_remote_bypass_help =>
+      'Enter the URL of your FlareSolverr instance (e.g. http://192.168.1.10:8191)';
+
+  @override
+  String get settings_remote_server_url => 'Server URL';
+
+  @override
+  String get settings_remote_api_key => 'API key (optional)';
+
+  @override
+  String get settings_remote_timeout => 'Timeout (ms)';
+
+  @override
+  String get settings_remote_trigger_mode => 'Trigger mode';
+
+  @override
+  String get settings_remote_mode_auto => 'Automatic';
+
+  @override
+  String get settings_remote_mode_auto_desc =>
+      'Uses the remote server as soon as the 2 local attempts fail';
+
+  @override
+  String get settings_remote_mode_on_demand => 'On demand';
+
+  @override
+  String get settings_remote_mode_on_demand_desc =>
+      'Uses the remote server only when you tap \"Bypass via remote server\"';
+
+  @override
+  String get settings_save => 'Save';
+
+  @override
+  String get settings_clear_database => 'Clear the database';
+
+  @override
+  String settings_clear_database_body(Object count) {
+    return '$count series not saved in your library will be deleted.\n\nThis action cannot be undone.';
+  }
+
+  @override
+  String get settings_clear_image_caches_title => 'Clear all image caches?';
+
+  @override
+  String get settings_clear_image_caches_body =>
+      'Covers and extension icons will be downloaded again the next time they are shown. Your downloads are not affected.';
+
+  @override
+  String get settings_share_crash_reports => 'Share crash reports';
+
+  @override
+  String get settings_share_crash_reports_desc =>
+      'Writes crash reports to a file so you can share them with the developers';
+
+  @override
+  String get settings_detailed_reports => 'Detailed reports';
+
+  @override
+  String get settings_detailed_reports_desc =>
+      'Adds detailed reports to the system traces (reduces app performance)';
+
+  @override
+  String get settings_onboarding_guide => 'First-launch guide';
+
+  @override
+  String get settings_onboarding_guide_desc => 'Restart the startup tutorial';
+
+  @override
+  String get settings_manage_notifications => 'Manage the app alerts';
+
+  @override
+  String get settings_disable_battery_optimisation =>
+      'Disable battery optimisation';
+
+  @override
+  String get settings_disable_battery_optimisation_desc =>
+      'Makes background library updates and backups easier';
+
+  @override
+  String get settings_dont_kill_my_app_desc =>
+      'Some manufacturers add extra restrictions on apps that kill background services. This website has more information on how to fix it.';
+
+  @override
+  String get settings_remote_enable => 'Enable the remote server';
+
+  @override
+  String settings_remote_connected(Object url) {
+    return 'Connected to $url';
+  }
+
+  @override
+  String get settings_remote_none_configured =>
+      'No server configured — Tap Configure';
+
+  @override
+  String get settings_remote_configure => 'Configure the remote server';
+
+  @override
+  String get settings_remote_configure_desc =>
+      'URL, API key, timeout, trigger mode';
+
+  @override
+  String get settings_flaresolverr_help =>
+      'FlareSolverr is a proxy server that uses a headless browser to solve Cloudflare challenges. Install it on your machine or a local server and enter its URL here.';
+
+  @override
+  String get settings_reindex_downloads => 'Reindex the downloads';
+
+  @override
+  String get settings_reindex_downloads_desc =>
+      'Scans the files already on disk and fixes the missing entries';
+
+  @override
+  String get settings_downloads_not_in_library =>
+      'Downloads not in the library';
+
+  @override
+  String get settings_downloads_not_in_library_desc =>
+      'Automatically adds to the library every series with a downloaded chapter';
+
+  @override
+  String get settings_clear_database_desc =>
+      'Delete the history of the series that are not saved in your library';
+
+  @override
+  String get settings_clear_cookies => 'Clear cookies';
+
+  @override
+  String get settings_clear_webview_data => 'Clear the WebView data';
+
+  @override
+  String get settings_doh => 'DNS over HTTPS (DoH)';
+
+  @override
+  String get settings_default_user_agent_list => 'Default user-agent list';
+
+  @override
+  String get settings_reset_user_agent => 'Reset the user-agent list';
+
+  @override
+  String get settings_icon_cover_cache => 'Icon and cover cache';
+
+  @override
+  String get settings_max_cache_size => 'Maximum cache size';
+
+  @override
+  String get settings_max_cache_size_desc =>
+      'Total ceiling for every image cache. The oldest entry is removed first when the limit is reached.';
+
+  @override
+  String get settings_clear_icon_cache => 'Clear the extension icon cache';
+
+  @override
+  String get settings_clear_cover_cache => 'Clear the library cover cache';
+
+  @override
+  String get settings_clear_all_image_caches => 'Clear all image caches';
+
+  @override
+  String get settings_refresh_cache_sizes => 'Refresh the cache sizes';
+
+  @override
+  String get settings_refresh_cache_sizes_desc =>
+      'Recalculates the disk cache sizes';
+
+  @override
+  String settings_current_size(Object size) {
+    return 'Current size: $size';
+  }
+
+  @override
+  String settings_current_total_size(Object size) {
+    return 'Current total size: $size';
+  }
+
+  @override
+  String get settings_refresh_library_covers => 'Refresh the library covers';
+
+  @override
+  String get settings_refreshing_covers => 'Refreshing covers…';
+
+  @override
+  String get settings_reset_reader_per_series =>
+      'Reset the reader settings per series';
+
+  @override
+  String get settings_reset_reader_per_series_desc =>
+      'Resets the reading mode and orientation of every series';
+
+  @override
+  String get settings_reset_reader_title => 'Reset the reader settings';
+
+  @override
+  String get settings_reader_reset_done => 'Reader settings reset';
+
+  @override
+  String get settings_error => 'Error';
+
+  @override
+  String get settings_update_library_titles =>
+      'Update the library series titles';
+
+  @override
+  String get settings_update_library_titles_desc =>
+      'Warning: if a series is renamed, it will be removed from the download queue.';
+
+  @override
+  String get settings_updating_titles => 'Updating titles…';
+
+  @override
+  String get settings_no_non_ascii => 'Forbid non-ASCII file names';
+
+  @override
+  String get settings_no_non_ascii_desc =>
+      'Keeps compatibility with some storage media that do not support Unicode';
+
+  @override
+  String get settings_bitmap_threshold => 'Custom hardware bitmap threshold';
+
+  @override
+  String get settings_bitmap_threshold_desc =>
+      'If the reader shows a blank image, lower the threshold gradually.';
+
+  @override
+  String get settings_old_decoder =>
+      'Use the old decoder for the long-strip reader';
+
+  @override
+  String get settings_old_decoder_desc =>
+      'Affects performance. Only enable it if lowering the bitmap threshold does not fix the blank image issues';
+
+  @override
+  String get settings_custom_display_profile => 'Custom display profile';
+
+  @override
+  String get settings_installer => 'Installer';
+
+  @override
+  String get settings_revoke_extra_repo_extensions =>
+      'Revoke extensions from an additional repository';
+
+  @override
+  String get settings_revoke_extensions_title => 'Revoke the extensions';
+
+  @override
+  String get settings_revoke_extensions_body =>
+      'Every extension coming from additional repositories will be revoked.';
+
+  @override
+  String get settings_revoke => 'Revoke';
+
+  @override
+  String get settings_extensions_revoked => 'Extensions revoked';
+
+  @override
+  String get settings_interface_scale => 'Interface scale';
+
+  @override
+  String get settings_interface_scale_desc =>
+      'Adapts the interface size (text + spacing). Useful for small screens like the iPhone 7.';
+
+  @override
+  String settings_default_suffix(Object value) {
+    return '$value (default)';
+  }
+
+  @override
+  String get settings_logs_enable_hint =>
+      'Enable logs in About > Developer to configure these options.';
+
+  @override
+  String get settings_log_mode => 'Logging mode';
+
+  @override
+  String get settings_log_suppress_images => 'Suppress image errors';
+
+  @override
+  String get settings_log_suppress_images_desc =>
+      'Do not record 404 logo errors';
+
+  @override
+  String get settings_log_active_categories => 'Active categories';
+
+  @override
+  String get settings_log_customisable => 'customisable';
+
+  @override
+  String get settings_log_tag_ext => 'Extensions [EXT]';
+
+  @override
+  String get settings_log_tag_ext_desc =>
+      'Extension installation, update and errors';
+
+  @override
+  String get settings_log_tag_install => 'Detailed install [INSTALL]';
+
+  @override
+  String get settings_log_tag_install_desc => 'Every install/uninstall step';
+
+  @override
+  String get settings_log_tag_dl => 'Downloads [DL]';
+
+  @override
+  String get settings_log_tag_dl_desc => 'Download progress, resume and errors';
+
+  @override
+  String get settings_log_tag_hls => 'HLS streaming [HLS]';
+
+  @override
+  String get settings_log_tag_hls_desc =>
+      'HLS segments, manifest and stream errors';
+
+  @override
+  String get settings_log_tag_net => 'Network [NET]';
+
+  @override
+  String get settings_log_tag_net_desc =>
+      'HTTP requests, redirects and network errors';
+
+  @override
+  String get settings_log_tag_manga => 'Manga [MANGA]';
+
+  @override
+  String get settings_log_tag_manga_desc =>
+      'Series, chapters and metadata loading';
+
+  @override
+  String get settings_log_tag_reader => 'Reader [READER]';
+
+  @override
+  String get settings_log_tag_reader_desc =>
+      'Reader navigation, zoom and orientation';
+
+  @override
+  String get settings_log_tag_page => 'Manga pages [PAGE]';
+
+  @override
+  String get settings_log_tag_page_desc => '⚡ Every loaded page (very verbose)';
+
+  @override
+  String get settings_log_tag_watch => 'Video playback [WATCH]';
+
+  @override
+  String get settings_log_tag_watch_desc =>
+      'Episode opening, buffering, 60 s watchdog';
+
+  @override
+  String get settings_log_tag_maint => 'Maintenance [MAINT]';
+
+  @override
+  String get settings_log_tag_maint_desc =>
+      'Cookie cleanup, database, reindexing and background tasks';
+
+  @override
+  String get settings_log_tag_ui => 'Interface [UI]';
+
+  @override
+  String get settings_log_tag_ui_desc => 'Interface events and errors';
+
+  @override
+  String get settings_log_tag_img => 'Images [IMG]';
+
+  @override
+  String get settings_log_tag_img_desc =>
+      'Cover downloads: cache, network and failures';
+
+  @override
+  String get settings_silent_updates => 'Silent updates';
+
+  @override
+  String get settings_silent_active =>
+      'Active — updates install automatically without confirmation.';
+
+  @override
+  String get settings_silent_shizuku_required =>
+      'Shizuku is required for a one-time setup. Tap to configure.';
+
+  @override
+  String get settings_silent_shizuku_not_running =>
+      'Shizuku is not running. Open Shizuku and come back here.';
+
+  @override
+  String get settings_silent_checking => 'Checking…';
+
+  @override
+  String get settings_auto_install => 'Automatic install';
+
+  @override
+  String get settings_data => 'Data';
+
+  @override
+  String get settings_network => 'Network';
+
+  @override
+  String get settings_reader => 'Reader';
+
+  @override
+  String get settings_display => 'Display';
+
+  @override
+  String get settings_advanced_logs => 'Advanced logs';
+
+  @override
+  String get settings_background_activity => 'Background activity';
+
+  @override
+  String get settings_advanced => 'Advanced';
+
+  @override
+  String get settings_remote_section => 'Remote Cloudflare bypass';
+
+  @override
+  String get settings_library => 'Library';
+
+  @override
+  String get settings_cookies_cleared => 'Cookies cleared';
+
+  @override
+  String get settings_webview_data_cleared => 'WebView data cleared';
+
+  @override
+  String get settings_cookies_clear_failed => 'Could not delete the cookies';
+
+  @override
+  String get settings_webview_clear_failed =>
+      'Could not delete the WebView data';
+
+  @override
+  String settings_db_cleared(Object count) {
+    return 'Database cleaned ($count deleted)';
+  }
+
+  @override
+  String get settings_clear => 'Clear';
+
+  @override
+  String get settings_empty => 'Empty';
+
+  @override
+  String get settings_reindexing => 'Reindexing…';
+
+  @override
+  String settings_reindex_done(Object fixed, Object total) {
+    return '$fixed of $total chapter(s) reindexed';
+  }
+
+  @override
+  String get settings_checking => 'Checking…';
+
+  @override
+  String settings_added_to_library(Object count) {
+    return '$count series added to the library';
+  }
+
+  @override
+  String settings_bytes_o(Object bytes) {
+    return '$bytes B';
+  }
+
+  @override
+  String settings_bytes_ko(Object value) {
+    return '$value KB';
+  }
+
+  @override
+  String settings_bytes_mo(Object value) {
+    return '$value MB';
+  }
+
+  @override
+  String settings_bytes_go(Object value) {
+    return '$value GB';
+  }
+
+  @override
+  String get settings_icon_cache_cleared => 'Icon cache cleared';
+
+  @override
+  String get settings_cover_cache_cleared => 'Cover cache cleared';
+
+  @override
+  String get settings_all_caches_cleared => 'All image caches cleared';
+
+  @override
+  String get settings_user_agent_reset => 'User agent reset';
+
+  @override
+  String get settings_user_agent_reset_failed => 'Could not reset';
+
+  @override
+  String get settings_battery_settings_failed =>
+      'Could not open the battery optimisation settings.\nGo to Settings > Battery > Battery optimisation.';
+
+  @override
+  String get settings_notifications_hint_android =>
+      'Open Settings > Notifications to manage the alerts.';
+
+  @override
+  String get settings_notifications_hint_ios =>
+      'Open the system Settings to manage the notifications.';
+
+  @override
+  String get settings_extreme_warning =>
+      '⚡ Extreme – everything is logged. RAM +++. Use with caution.';
+
+  @override
+  String get settings_debug_warning => '⚠ Debug mode active – high RAM usage';
+
+  @override
+  String get settings_log_mode_normal => 'Normal';
+
+  @override
+  String get settings_log_mode_normal_desc =>
+      'INFO+ · extensions and installs only';
+
+  @override
+  String get settings_log_mode_verbose => 'Verbose';
+
+  @override
+  String get settings_log_mode_verbose_desc =>
+      'DEBUG+ · network, downloads, manga, HLS';
+
+  @override
+  String get settings_log_mode_debug => 'Debug';
+
+  @override
+  String get settings_log_mode_debug_desc =>
+      'DEBUG+ · everything except page-by-page reads';
+
+  @override
+  String get settings_log_mode_extreme => 'Extreme';
+
+  @override
+  String get settings_log_mode_extreme_desc =>
+      '⚡ Log EVERYTHING – every page, HLS segment, reader event';
+
+  @override
+  String get settings_scale_default => '100% (default)';
+
+  @override
+  String settings_percent(Object value) {
+    return '$value%';
+  }
 }

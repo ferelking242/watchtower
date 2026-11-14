@@ -28,6 +28,8 @@ import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/models/download.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -161,46 +163,46 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setInner) => AlertDialog(
-          title: const Text('Serveur de contournement distant'),
+          title: Text(context.l10n.settings_remote_bypass_title),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Entrez l\'URL de votre instance FlareSolverr (ex: http://192.168.1.10:8191)',
-                  style: TextStyle(fontSize: 12),
+                Text(
+                  context.l10n.settings_remote_bypass_help,
+                  style: const TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _rbUrlCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'URL du serveur',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.settings_remote_server_url,
                     hintText: 'http://localhost:8191',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.url,
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _rbKeyCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Clé API (optionnel)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.settings_remote_api_key,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _rbTimeoutCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Délai d\'attente (ms)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.settings_remote_timeout,
+                    border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Mode de déclenchement',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                Text(
+                  context.l10n.settings_remote_trigger_mode,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 8),
                 ...RemoteBypassMode.values.map(
@@ -215,11 +217,16 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                     child: RadioListTile<RemoteBypassMode>(
                       dense: true,
                       title: Text(
-                        m.label,
+                        m == RemoteBypassMode.auto
+                            ? context.l10n.settings_remote_mode_auto
+                            : context.l10n.settings_remote_mode_on_demand,
                         style: const TextStyle(fontSize: 13),
                       ),
                       subtitle: Text(
-                        m.description,
+                        m == RemoteBypassMode.auto
+                            ? context.l10n.settings_remote_mode_auto_desc
+                            : context.l10n
+                                .settings_remote_mode_on_demand_desc,
                         style: const TextStyle(fontSize: 11),
                       ),
                       value: m,
@@ -232,7 +239,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () async {
@@ -250,7 +257,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                 await _saveRemoteBypass();
                 if (ctx.mounted) Navigator.pop(ctx);
               },
-              child: const Text('Enregistrer'),
+              child: Text(context.l10n.settings_save),
             ),
           ],
         ),
@@ -320,6 +327,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   }
 
   Future<void> _applyMode(LogMode mode) async {
+    final l10n = context.l10n;
     final tags = mode.defaultTags;
     setState(() {
       _logMode = mode.index;
@@ -346,8 +354,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     if (mode.isHeavy) {
       botToast(
         mode == LogMode.extreme
-            ? '⚡ Extreme – tout est logué. RAM +++. À utiliser avec précaution.'
-            : '⚠ Mode Debug actif – consommation RAM élevée',
+            ? l10n.settings_extreme_warning
+            : l10n.settings_debug_warning,
         second: 5,
       );
     }
@@ -358,6 +366,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _clearCookies() async {
+    final l10n = context.l10n;
     AppLogger.log(
       'MAINT clearCookies: début',
       tag: LogTag.maintenance,
@@ -371,7 +380,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         tag: LogTag.maintenance,
         logLevel: LogLevel.info,
       );
-      _toast("Cookies effacés");
+      _toast(l10n.settings_cookies_cleared);
     } catch (e, st) {
       AppLogger.log(
         'MAINT clearCookies: ÉCHEC $e',
@@ -380,11 +389,12 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         error: e,
         stackTrace: st,
       );
-      _toast("Erreur lors de la suppression des cookies");
+      _toast(l10n.settings_cookies_clear_failed);
     }
   }
 
   Future<void> _clearWebViewData() async {
+    final l10n = context.l10n;
     AppLogger.log(
       'MAINT clearWebViewData: début',
       tag: LogTag.maintenance,
@@ -401,7 +411,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         tag: LogTag.maintenance,
         logLevel: LogLevel.info,
       );
-      _toast("Données WebView effacées");
+      _toast(l10n.settings_webview_data_cleared);
     } catch (e, st) {
       AppLogger.log(
         'MAINT clearWebViewData: ÉCHEC $e',
@@ -410,11 +420,12 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         error: e,
         stackTrace: st,
       );
-      _toast("Erreur lors de la suppression des données WebView");
+      _toast(l10n.settings_webview_clear_failed);
     }
   }
 
   Future<void> _clearDatabase() async {
+    final l10n = context.l10n;
     try {
       final nonFavIds =
           (await isar.mangas
@@ -430,28 +441,32 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("Effacer la base de données"),
+          title: Text(context.l10n.settings_clear_database),
           content: Text(
-            "${nonFavIds.length} série(s) non enregistrées dans votre bibliothèque seront supprimées.\n\nCette action est irréversible.",
+            context.l10n
+                .settings_clear_database_body('${nonFavIds.length}'),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Annuler"),
+              child: Text(context.l10n.cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Effacer", style: TextStyle(color: Colors.red)),
+              child: Text(
+                context.l10n.settings_clear,
+                style: const TextStyle(color: Colors.red),
+              ),
             ),
           ],
         ),
       );
       if (confirm == true) {
         await isar.writeTxn(() async => isar.mangas.deleteAll(nonFavIds));
-        _toast("Base de données nettoyée (${nonFavIds.length} supprimées)");
+        _toast(l10n.settings_db_cleared('${nonFavIds.length}'));
       }
     } catch (e) {
-      _toast("Erreur: $e");
+      _toast(l10n.settings_error);
     }
   }
 
@@ -462,7 +477,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   /// can happen after a crash, a migration, or a manual file copy.  Marks
   /// found files as [isDownload = true] so the UI correctly shows them.
   Future<void> _reindexDownloads() async {
-    _toast("Réindexation en cours…");
+    _toast(context.l10n.settings_reindexing);
     try {
       final storageProvider = StorageProvider();
       int fixed = 0;
@@ -554,16 +569,17 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         }
       }
       if (!mounted) return;
-      _toast("$fixed chapitre(s) réindexé(s) sur ${downloads.length}");
+      _toast(
+          context.l10n.settings_reindex_done('$fixed', '${downloads.length}'));
     } catch (e) {
-      _toast("Erreur: $e");
+      _toast(context.l10n.settings_error);
     }
   }
 
   /// Finds every fully-downloaded chapter whose parent manga/anime is NOT yet
   /// in the library (favorite = false) and adds it automatically.
   Future<void> _addDownloadsToLibrary() async {
-    _toast("Vérification en cours…");
+    _toast(context.l10n.settings_checking);
     try {
       // isar_community can reject filters on nullable bool properties at
       // runtime. Read the collection without a filter and apply the
@@ -593,21 +609,24 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         });
       }
       if (!mounted) return;
-      _toast("$added série(s) ajoutées à la bibliothèque");
+      _toast(context.l10n.settings_added_to_library('$added'));
     } catch (e) {
-      _toast("Erreur: $e");
+      _toast(context.l10n.settings_error);
     }
   }
 
   // ── Icon / Library cache helpers ─────────────────────────────────────────────
 
-  static String _fmtSize(int bytes) {
-    if (bytes < 1024) return '$bytes o';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} Ko';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+  static String _fmtSize(BuildContext context, int bytes) {
+    final l10n = context.l10n;
+    if (bytes < 1024) return l10n.settings_bytes_o('$bytes');
+    if (bytes < 1024 * 1024) {
+      return l10n.settings_bytes_ko((bytes / 1024).toStringAsFixed(1));
     }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} Go';
+    if (bytes < 1024 * 1024 * 1024) {
+      return l10n.settings_bytes_mo((bytes / (1024 * 1024)).toStringAsFixed(1));
+    }
+    return l10n.settings_bytes_go((bytes / (1024 * 1024 * 1024)).toStringAsFixed(2));
   }
 
   Future<void> _loadCacheSizes() async {
@@ -627,14 +646,15 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
     final total = await manager.totalSizeBytes();
     if (!mounted) return;
     setState(() {
-      _iconCacheSizeStr = _fmtSize(iconSize);
-      _libCacheSizeStr = _fmtSize(libSize);
+      _iconCacheSizeStr = _fmtSize(context, iconSize);
+      _libCacheSizeStr = _fmtSize(context, libSize);
       _cacheLimitBytes = limit;
-      _totalCacheSizeStr = _fmtSize(total);
+      _totalCacheSizeStr = _fmtSize(context, total);
     });
   }
 
   Future<void> _clearIconCache() async {
+    final l10n = context.l10n;
     try {
       await CacheStorageManager.instance.clearLocations(const [
         CacheStorageManager.coverLabel,
@@ -642,47 +662,46 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       ]);
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
-      _toast('Cache des icônes vidé');
+      _toast(l10n.settings_icon_cache_cleared);
     } catch (e) {
-      _toast('Erreur : $e');
+      _toast(l10n.settings_error);
     } finally {
       await _loadCacheSizes();
     }
   }
 
   Future<void> _clearLibraryCache() async {
+    final l10n = context.l10n;
     try {
       await CacheStorageManager.instance.clearLocations(const [
         CacheStorageManager.libraryCoverLabel,
       ]);
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
-      _toast('Cache des couvertures vidé');
+      _toast(l10n.settings_cover_cache_cleared);
     } catch (e) {
-      _toast('Erreur : $e');
+      _toast(l10n.settings_error);
     } finally {
       await _loadCacheSizes();
     }
   }
 
   Future<void> _clearAllImageCaches() async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Vider tous les caches d\'images ?'),
-        content: const Text(
-          'Les couvertures et les icônes d\'extensions seront rechargées au '
-          'prochain affichage. Vos téléchargements ne sont pas affectés.',
-        ),
+        title: Text(context.l10n.settings_clear_image_caches_title),
+        content: Text(context.l10n.settings_clear_image_caches_body),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Vider'),
+            child: Text(context.l10n.settings_empty),
           ),
         ],
       ),
@@ -692,9 +711,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
       await CacheStorageManager.instance.clearAll();
       PaintingBinding.instance.imageCache.clear();
       PaintingBinding.instance.imageCache.clearLiveImages();
-      _toast('Tous les caches d\'images ont été vidés');
+      _toast(l10n.settings_all_caches_cleared);
     } catch (e) {
-      _toast('Erreur : $e');
+      _toast(l10n.settings_error);
     } finally {
       await _loadCacheSizes();
     }
@@ -711,9 +730,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
         ),
       );
       ref.invalidate(userAgentStateProvider);
-      _toast("Agent utilisateur réinitialisé");
+      _toast(context.l10n.settings_user_agent_reset);
     } catch (_) {
-      _toast("Erreur lors de la réinitialisation");
+      _toast(context.l10n.settings_user_agent_reset_failed);
     }
   }
 
@@ -725,6 +744,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   }
 
   Future<void> _openBatterySettings() async {
+    final l10n = context.l10n;
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await launchUrl(
@@ -732,14 +752,13 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           mode: LaunchMode.externalApplication,
         );
       } catch (_) {
-        _toast(
-          "Impossible d'ouvrir les paramètres d'optimisation de batterie.\nAllez dans Paramètres > Batterie > Optimisation de batterie.",
-        );
+        _toast(l10n.settings_battery_settings_failed);
       }
     }
   }
 
   Future<void> _openNotificationSettings() async {
+    final l10n = context.l10n;
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await launchUrl(
@@ -747,10 +766,10 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           mode: LaunchMode.externalApplication,
         );
       } catch (_) {
-        _toast("Ouvrez Paramètres > Notifications pour gérer les alertes.");
+        _toast(l10n.settings_notifications_hint_android);
       }
     } else {
-      _toast("Ouvrez les Réglages système pour gérer les notifications.");
+      _toast(l10n.settings_notifications_hint_ios);
     }
   }
 
@@ -844,22 +863,23 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (_loading) {
       // Not `const`: SettingsSubpageScaffold's assert reads slivers.length,
       // which is not allowed inside a constant expression.
       return SettingsSubpageScaffold(
-        title: "Avancé",
+        title: context.l10n.settings_advanced,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return SettingsSubpageScaffold(
-      title: "Avancé",
+      title: context.l10n.settings_advanced,
       body: ListView(
         children: [
           // ── Section : Installation automatique ─────────────────────────
           if (!kIsWeb && Platform.isAndroid) ...[
-            _sectionHeader("Installation automatique"),
+            _sectionHeader(context.l10n.settings_auto_install),
             _SilentInstallTile(
               status: _silentStatus,
               onChanged: (success) {
@@ -872,11 +892,10 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             ),
           ],
           // ── Section : Avancé ────────────────────────────────────────────
-          _sectionHeader("Avancé"),
+          _sectionHeader(context.l10n.settings_advanced),
           _toggle(
-            title: "Partager les rapports de plantage",
-            subtitle:
-                "Enregistre les rapports de plantage dans un fichier pour les partager avec les développeurs",
+            title: context.l10n.settings_share_crash_reports,
+            subtitle: context.l10n.settings_share_crash_reports_desc,
             value: _shareCrash,
             onChanged: (v) {
               setState(() => _shareCrash = v);
@@ -884,9 +903,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             },
           ),
           _toggle(
-            title: "Rapports détaillés",
-            subtitle:
-                "Inclut des rapports détaillés dans les traces systèmes (réduit les performances de l'application)",
+            title: context.l10n.settings_detailed_reports,
+            subtitle: context.l10n.settings_detailed_reports_desc,
             value: _detailedReports,
             onChanged: (v) {
               setState(() => _detailedReports = v);
@@ -895,47 +913,45 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             danger: true,
           ),
           _action(
-            title: "Guide de premier lancement",
-            subtitle: "Relancer le tutoriel de démarrage",
+            title: context.l10n.settings_onboarding_guide,
+            subtitle: context.l10n.settings_onboarding_guide_desc,
             onTap: () => context.push('/onboarding'),
             trailing: Broken.arrow_right_3,
           ),
           _action(
-            title: "Notifications",
-            subtitle: "Gérer les alertes de l'application",
+            title: context.l10n.notifications_title,
+            subtitle: context.l10n.settings_manage_notifications,
             onTap: _openNotificationSettings,
             trailing: Broken.arrow_right_3,
           ),
 
           // ── Section : Activité en arrière-plan ──────────────────────────
-          _sectionHeader("Activité en arrière-plan"),
+          _sectionHeader(context.l10n.settings_background_activity),
           if (!kIsWeb && Platform.isAndroid)
             _action(
-              title: "Désactiver la fonction d'optimisation de la batterie",
-              subtitle:
-                  "Facilite les mises à jour et sauvegardes de la bibliothèque en arrière-plan",
+              title: context.l10n.settings_disable_battery_optimisation,
+              subtitle: context.l10n.settings_disable_battery_optimisation_desc,
               onTap: _openBatterySettings,
               trailing: Broken.arrow_right_3,
             ),
           _action(
             title: "Don't kill my app!",
-            subtitle:
-                "Certains fabricants ont mis en place des restrictions supplémentaires sur les applications qui tuent les services d'arrière-plan. Ce site Web contient plus d'informations sur la manière de résoudre ce problème.",
+            subtitle: context.l10n.settings_dont_kill_my_app_desc,
             onTap: () => _openUrl("https://dontkillmyapp.com"),
             trailing: Broken.export,
           ),
 
           // ── Section : Contournement Cloudflare distant ──────────────────
-          _sectionHeader("Contournement Cloudflare distant"),
+          _sectionHeader(context.l10n.settings_remote_section),
           SwitchListTile(
-            title: const Text(
-              'Activer le serveur distant',
-              style: TextStyle(fontSize: 14),
+            title: Text(
+              context.l10n.settings_remote_enable,
+              style: const TextStyle(fontSize: 14),
             ),
             subtitle: Text(
               _remoteBypass.isConfigured
-                  ? 'Connecté à ${_remoteBypass.url}'
-                  : 'Aucun serveur configuré — Appuyez sur Configurer',
+                  ? context.l10n.settings_remote_connected(_remoteBypass.url)
+                  : context.l10n.settings_remote_none_configured,
               style: TextStyle(
                 fontSize: 12,
                 color: _remoteBypass.isConfigured ? Colors.green : null,
@@ -950,8 +966,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             },
           ),
           _action(
-            title: 'Configurer le serveur distant',
-            subtitle: 'URL, clé API, délai, mode de déclenchement',
+            title: context.l10n.settings_remote_configure,
+            subtitle: context.l10n.settings_remote_configure_desc,
             onTap: _showRemoteBypassDialog,
             trailing: Broken.setting_2,
           ),
@@ -984,10 +1000,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'FlareSolverr est un serveur proxy qui utilise un navigateur headless pour résoudre les challenges Cloudflare. '
-                      'Installez-le sur votre machine ou serveur local et entrez son URL ici.',
-                      style: TextStyle(fontSize: 11),
+                    Text(
+                      context.l10n.settings_flaresolverr_help,
+                      style: const TextStyle(fontSize: 11),
                     ),
                     const SizedBox(height: 4),
                     GestureDetector(
@@ -1010,38 +1025,38 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           ),
 
           // ── Section : Données ───────────────────────────────────────────
-          _sectionHeader("Données"),
+          _sectionHeader(context.l10n.settings_data),
           _action(
-            title: "Réindexe les téléchargements",
-            subtitle:
-                "Recherche les fichiers déjà présents sur le disque et corrige les entrées manquantes",
+            title: context.l10n.settings_reindex_downloads,
+            subtitle: context.l10n.settings_reindex_downloads_desc,
             onTap: _reindexDownloads,
           ),
           _action(
-            title: "Téléchargés non en bibliothèque",
-            subtitle:
-                "Ajoute automatiquement à la bibliothèque toutes les séries dont un chapitre est déjà téléchargé",
+            title: context.l10n.settings_downloads_not_in_library,
+            subtitle: context.l10n.settings_downloads_not_in_library_desc,
             onTap: _addDownloadsToLibrary,
           ),
           _action(
-            title: "Effacer la base de données",
-            subtitle:
-                "Supprimer l'historique des séries qui ne sont pas enregistrées dans votre bibliothèque",
+            title: context.l10n.settings_clear_database,
+            subtitle: context.l10n.settings_clear_database_desc,
             onTap: _clearDatabase,
             titleColor: Colors.red,
           ),
 
           // ── Section : Réseau ────────────────────────────────────────────
-          _sectionHeader("Réseau"),
-          _action(title: "Effacer les cookies", onTap: _clearCookies),
+          _sectionHeader(context.l10n.settings_network),
           _action(
-            title: "Effacer les données WebView",
+            title: context.l10n.settings_clear_cookies,
+            onTap: _clearCookies,
+          ),
+          _action(
+            title: context.l10n.settings_clear_webview_data,
             onTap: _clearWebViewData,
           ),
           ListTile(
-            title: const Text(
-              "DNS sur HTTPS (DoH)",
-              style: TextStyle(fontSize: 14),
+            title: Text(
+              context.l10n.settings_doh,
+              style: const TextStyle(fontSize: 14),
             ),
             subtitle: Text(
               "Google",
@@ -1058,9 +1073,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             builder: (context) {
               final ua = ref.watch(userAgentStateProvider);
               return ListTile(
-                title: const Text(
-                  "Liste d'agents utilisateurs par défaut",
-                  style: TextStyle(fontSize: 14),
+                title: Text(
+                  context.l10n.settings_default_user_agent_list,
+                  style: const TextStyle(fontSize: 14),
                 ),
                 subtitle: Text(
                   ua,
@@ -1072,23 +1087,22 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             },
           ),
           _action(
-            title: "Réinitialiser la liste d'agents utilisateurs",
+            title: context.l10n.settings_reset_user_agent,
             onTap: _resetUserAgent,
           ),
 
           // ── Section : Cache des icônes ──────────────────────────────────
-          _sectionHeader("Cache des icônes et couvertures"),
+          _sectionHeader(context.l10n.settings_icon_cover_cache),
           ListTile(
-            title: const Text(
-              "Taille maximale du cache",
-              style: TextStyle(fontSize: 14),
+            title: Text(
+              context.l10n.settings_max_cache_size,
+              style: const TextStyle(fontSize: 14),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Plafond total de tous les caches d'images. Le plus ancien est "
-                  "supprimé en premier quand la limite est atteinte.",
+                  context.l10n.settings_max_cache_size_desc,
                   style: TextStyle(fontSize: 12, color: context.secondaryColor),
                 ),
                 const SizedBox(height: 4),
@@ -1100,7 +1114,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                         min: CacheStorageManager.minLimitBytes.toDouble(),
                         max: CacheStorageManager.maxLimitBytes.toDouble(),
                         divisions: 31,
-                        label: _fmtSize(_cacheLimitBytes),
+                        label: _fmtSize(context, _cacheLimitBytes),
                         onChanged: (v) =>
                             setState(() => _cacheLimitBytes = v.round()),
                         onChangeEnd: (v) async {
@@ -1115,7 +1129,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                     SizedBox(
                       width: 64,
                       child: Text(
-                        _fmtSize(_cacheLimitBytes),
+                        _fmtSize(context, _cacheLimitBytes),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -1128,26 +1142,27 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             ),
           ),
           _action(
-            title: "Vider le cache des icônes d'extensions",
-            subtitle: "Taille actuelle : $_iconCacheSizeStr",
+            title: context.l10n.settings_clear_icon_cache,
+            subtitle: context.l10n.settings_current_size(_iconCacheSizeStr),
             onTap: _clearIconCache,
             trailing: Broken.broom,
           ),
           _action(
-            title: "Vider le cache des couvertures de bibliothèque",
-            subtitle: "Taille actuelle : $_libCacheSizeStr",
+            title: context.l10n.settings_clear_cover_cache,
+            subtitle: context.l10n.settings_current_size(_libCacheSizeStr),
             onTap: _clearLibraryCache,
             trailing: Broken.broom,
           ),
           _action(
-            title: "Vider tous les caches d'images",
-            subtitle: "Taille totale actuelle : $_totalCacheSizeStr",
+            title: context.l10n.settings_clear_all_image_caches,
+            subtitle:
+                context.l10n.settings_current_total_size(_totalCacheSizeStr),
             onTap: _clearAllImageCaches,
             trailing: Broken.trash,
           ),
           _action(
-            title: "Rafraîchir les tailles de cache",
-            subtitle: "Recalcule la taille des caches disque",
+            title: context.l10n.settings_refresh_cache_sizes,
+            subtitle: context.l10n.settings_refresh_cache_sizes_desc,
             onTap: () async {
               setState(() {
                 _iconCacheSizeStr = '…';
@@ -1160,33 +1175,32 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           ),
 
           // ── Section : Bibliothèque ──────────────────────────────────────
-          _sectionHeader("Bibliothèque"),
+          _sectionHeader(context.l10n.settings_library),
           _action(
-            title: "Actualiser les couvertures de la bibliothèque",
+            title: context.l10n.settings_refresh_library_covers,
             onTap: () {
-              _toast("Actualisation des couvertures…");
+              _toast(context.l10n.settings_refreshing_covers);
             },
           ),
           _action(
-            title: "Réinitialiser les paramètres du lecteur par série",
-            subtitle:
-                "Réinitialise le mode de lecture et l'orientation de toutes les séries",
+            title: context.l10n.settings_reset_reader_per_series,
+            subtitle: context.l10n.settings_reset_reader_per_series_desc,
             onTap: () async {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text("Réinitialiser les paramètres du lecteur"),
-                  content: const Text(
-                    "Réinitialise le mode de lecture et l'orientation de toutes les séries.",
+                  title: Text(context.l10n.settings_reset_reader_title),
+                  content: Text(
+                    context.l10n.settings_reset_reader_per_series_desc,
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text("Annuler"),
+                      child: Text(context.l10n.cancel),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text("Réinitialiser"),
+                      child: Text(context.l10n.reset),
                     ),
                   ],
                 ),
@@ -1202,25 +1216,23 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                         ..updatedAt = DateTime.now().millisecondsSinceEpoch,
                     ),
                   );
-                  _toast("Paramètres du lecteur réinitialisés");
+                  _toast(l10n.settings_reader_reset_done);
                 } catch (_) {
-                  _toast("Erreur");
+                  _toast(l10n.settings_error);
                 }
               }
             },
           ),
           _action(
-            title: "Mettre à jour les titres des séries de la bibliothèque",
-            subtitle:
-                "Attention : si une série est renommée, elle sera supprimée de la file d'attente de téléchargement.",
+            title: context.l10n.settings_update_library_titles,
+            subtitle: context.l10n.settings_update_library_titles_desc,
             onTap: () {
-              _toast("Mise à jour des titres en cours…");
+              _toast(context.l10n.settings_updating_titles);
             },
           ),
           _toggle(
-            title: "Interdire les noms de fichiers non ASCII",
-            subtitle:
-                "Assure la compatibilité avec certains supports de stockage qui ne prennent pas en charge Unicode",
+            title: context.l10n.settings_no_non_ascii,
+            subtitle: context.l10n.settings_no_non_ascii_desc,
             value: _noNonAscii,
             onChanged: (v) {
               setState(() => _noNonAscii = v);
@@ -1229,17 +1241,17 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
           ),
 
           // ── Section : Lecteur ───────────────────────────────────────────
-          _sectionHeader("Lecteur"),
+          _sectionHeader(context.l10n.settings_reader),
           ListTile(
-            title: const Text(
-              "Seuil de bitmap matériel personnalisé",
-              style: TextStyle(fontSize: 14),
+            title: Text(
+              context.l10n.settings_bitmap_threshold,
+              style: const TextStyle(fontSize: 14),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Si le lecteur charge une image vierge, réduire progressivement le seuil.",
+                  context.l10n.settings_bitmap_threshold_desc,
                   style: TextStyle(fontSize: 12, color: context.secondaryColor),
                 ),
                 const SizedBox(height: 4),
@@ -1274,10 +1286,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             ),
           ),
           _toggle(
-            title:
-                "Utiliser l'ancien décodeur pour le lecteur de bandes longues",
-            subtitle:
-                "Affecte les performances. Ne l'activer que si la réduction du seuil de bitmap ne résout pas les problèmes d'images vierges",
+            title: context.l10n.settings_old_decoder,
+            subtitle: context.l10n.settings_old_decoder_desc,
             value: _oldDecoder,
             onChanged: (v) {
               setState(() => _oldDecoder = v);
@@ -1286,56 +1296,56 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
             danger: true,
           ),
           _action(
-            title: "Profil d'affichage personnalisé",
+            title: context.l10n.settings_custom_display_profile,
             trailing: Broken.arrow_right_3,
             onTap: () => context.push('/appearance'),
           ),
 
           // ── Section : Extensions ────────────────────────────────────────
-          _sectionHeader("Extensions"),
+          _sectionHeader(context.l10n.extensions),
           ListTile(
-            title: const Text("Installeur", style: TextStyle(fontSize: 14)),
+            title: Text(
+              context.l10n.settings_installer,
+              style: const TextStyle(fontSize: 14),
+            ),
             subtitle: Text(
               "PackageInstaller",
               style: TextStyle(fontSize: 12, color: context.secondaryColor),
             ),
           ),
           _action(
-            title:
-                "Révoquer les extensions provenant d'un répertoire additionnel",
+            title: context.l10n.settings_revoke_extra_repo_extensions,
             titleColor: Colors.orange,
             onTap: () async {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  title: const Text("Révoquer les extensions"),
-                  content: const Text(
-                    "Toutes les extensions provenant de dépôts additionnels seront révoquées.",
-                  ),
+                  title: Text(context.l10n.settings_revoke_extensions_title),
+                  content: Text(context.l10n.settings_revoke_extensions_body),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text("Annuler"),
+                      child: Text(context.l10n.cancel),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text(
-                        "Révoquer",
-                        style: TextStyle(color: Colors.orange),
+                      child: Text(
+                        context.l10n.settings_revoke,
+                        style: const TextStyle(color: Colors.orange),
                       ),
                     ),
                   ],
                 ),
               );
               if (confirm == true) {
-                _toast("Extensions révoquées");
+                _toast(l10n.settings_extensions_revoked);
               }
             },
           ),
 
           // ── Section : Logs avancés ──────────────────────────────────────
           // ── Section : Affichage / DPI ────────────────────────────────────
-          _sectionHeader("Affichage"),
+          _sectionHeader(context.l10n.settings_display),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -1344,15 +1354,16 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      "Échelle de l'interface",
-                      style: TextStyle(
+                    Text(
+                      context.l10n.settings_interface_scale,
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     Text(
-                      '${(_uiScale * 100).round()}%',
+                      context.l10n
+                          .settings_percent('${(_uiScale * 100).round()}'),
                       style: TextStyle(
                         fontSize: 13,
                         color: Theme.of(context).colorScheme.primary,
@@ -1363,8 +1374,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "Adapte la taille de l'interface (texte + espacements). "
-                  "Utile pour les petits écrans comme l'iPhone 7.",
+                  context.l10n.settings_interface_scale_desc,
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1375,7 +1385,8 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   min: 0.75,
                   max: 1.50,
                   divisions: 15,
-                  label: '${(_uiScale * 100).round()}%',
+                  label: context.l10n
+                      .settings_percent('${(_uiScale * 100).round()}'),
                   onChanged: (v) async {
                     setState(() => _uiScale = v);
                     ref.read(uiScaleProvider.notifier).set(v);
@@ -1392,7 +1403,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                       ),
                     ),
                     Text(
-                      '100% (défaut)',
+                      context.l10n.settings_scale_default,
                       style: TextStyle(
                         fontSize: 11,
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1412,9 +1423,9 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
                     icon: const Icon(Broken.refresh, size: 16),
-                    label: const Text(
-                      'Réinitialiser',
-                      style: TextStyle(fontSize: 13),
+                    label: Text(
+                      context.l10n.reset,
+                      style: const TextStyle(fontSize: 13),
                     ),
                     onPressed: () async {
                       setState(() => _uiScale = 1.0);
@@ -1425,7 +1436,7 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
               ],
             ),
           ),
-          _sectionHeader("Logs avancés"),
+          _sectionHeader(context.l10n.settings_advanced_logs),
           _LogAdvancedSection(
             logMode: _logMode,
             logSuppressImages: _logSuppressImages,
@@ -1502,6 +1513,24 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
 // Log Advanced Section — 4 preset modes + per-tag customization
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Maps the logger's preset mode to the localized label / description. Kept
+/// here rather than on [LogMode] because that enum lives in the logger, which
+/// must stay free of a BuildContext.
+String _logModeName(AppLocalizations l10n, LogMode mode) => switch (mode) {
+      LogMode.normal => l10n.settings_log_mode_normal,
+      LogMode.verbose => l10n.settings_log_mode_verbose,
+      LogMode.debug => l10n.settings_log_mode_debug,
+      LogMode.extreme => l10n.settings_log_mode_extreme,
+    };
+
+String _logModeDescription(AppLocalizations l10n, LogMode mode) =>
+    switch (mode) {
+      LogMode.normal => l10n.settings_log_mode_normal_desc,
+      LogMode.verbose => l10n.settings_log_mode_verbose_desc,
+      LogMode.debug => l10n.settings_log_mode_debug_desc,
+      LogMode.extreme => l10n.settings_log_mode_extreme_desc,
+    };
+
 class _LogAdvancedSection extends ConsumerWidget {
   final int logMode;
   final bool logSuppressImages;
@@ -1549,6 +1578,7 @@ class _LogAdvancedSection extends ConsumerWidget {
         Theme.of(context).textTheme.bodySmall?.color ??
         cs.onSurface.withValues(alpha: 0.6);
     final selectedMode = LogMode.values[logMode.clamp(0, 3)];
+    final l10n = context.l10n;
 
     // ── Tag toggle helper ──────────────────────────────────────────────────
     Widget logToggle({
@@ -1615,7 +1645,7 @@ class _LogAdvancedSection extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      "Activez les logs dans À propos > Développeur pour configurer ces options.",
+                      l10n.settings_logs_enable_hint,
                       style: TextStyle(
                         fontSize: 12,
                         color: cs.onSurface.withValues(alpha: 0.7),
@@ -1634,7 +1664,7 @@ class _LogAdvancedSection extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Mode de logging",
+                l10n.settings_log_mode,
                 style: TextStyle(fontSize: 13, color: secondary),
               ),
               const SizedBox(height: 8),
@@ -1660,7 +1690,7 @@ class _LogAdvancedSection extends ConsumerWidget {
                   }
                   return ChoiceChip(
                     label: Text(
-                      mode.displayName,
+                      _logModeName(l10n, mode),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1689,7 +1719,7 @@ class _LogAdvancedSection extends ConsumerWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                selectedMode.description,
+                _logModeDescription(l10n, selectedMode),
                 style: TextStyle(
                   fontSize: 11,
                   color: secondary.withValues(alpha: 0.75),
@@ -1706,14 +1736,14 @@ class _LogAdvancedSection extends ConsumerWidget {
         SwitchListTile(
           dense: true,
           title: Text(
-            "Supprimer erreurs d'images",
+            l10n.settings_log_suppress_images,
             style: TextStyle(
               fontSize: 13.5,
               color: logsEnabled ? null : secondary,
             ),
           ),
           subtitle: Text(
-            "Ne pas enregistrer les erreurs de logos 404",
+            l10n.settings_log_suppress_images_desc,
             style: TextStyle(fontSize: 11.5, color: secondary),
           ),
           value: logSuppressImages,
@@ -1728,7 +1758,7 @@ class _LogAdvancedSection extends ConsumerWidget {
           child: Row(
             children: [
               Text(
-                "Catégories actives",
+                l10n.settings_log_active_categories,
                 style: TextStyle(fontSize: 13, color: secondary),
               ),
               const SizedBox(width: 6),
@@ -1739,7 +1769,7 @@ class _LogAdvancedSection extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  "personnalisables",
+                  l10n.settings_log_customisable,
                   style: TextStyle(
                     fontSize: 10,
                     color: cs.primary,
@@ -1752,76 +1782,75 @@ class _LogAdvancedSection extends ConsumerWidget {
         ),
 
         logToggle(
-          title: "Extensions [EXT]",
-          subtitle: "Installation, mise à jour, erreurs d'extensions",
+          title: l10n.settings_log_tag_ext,
+          subtitle: l10n.settings_log_tag_ext_desc,
           tagKey: kLogTagExt,
           value: logTagExt,
         ),
         logToggle(
-          title: "Installation détaillée [INSTALL]",
-          subtitle: "Chaque étape d'installation/désinstallation",
+          title: l10n.settings_log_tag_install,
+          subtitle: l10n.settings_log_tag_install_desc,
           tagKey: kLogTagInstall,
           value: logTagInstall,
         ),
         logToggle(
-          title: "Téléchargements [DL]",
-          subtitle: "Progression, reprise, erreurs de téléchargements",
+          title: l10n.settings_log_tag_dl,
+          subtitle: l10n.settings_log_tag_dl_desc,
           tagKey: kLogTagDl,
           value: logTagDl,
         ),
         logToggle(
-          title: "HLS streaming [HLS]",
-          subtitle: "Segments HLS, manifest, erreurs de stream",
+          title: l10n.settings_log_tag_hls,
+          subtitle: l10n.settings_log_tag_hls_desc,
           tagKey: kLogTagHls,
           value: logTagHls,
         ),
         logToggle(
-          title: "Réseau [NET]",
-          subtitle: "Requêtes HTTP, redirections, erreurs réseau",
+          title: l10n.settings_log_tag_net,
+          subtitle: l10n.settings_log_tag_net_desc,
           tagKey: kLogTagNet,
           value: logTagNet,
         ),
         logToggle(
-          title: "Manga [MANGA]",
-          subtitle: "Chargement série, chapitres, métadonnées",
+          title: l10n.settings_log_tag_manga,
+          subtitle: l10n.settings_log_tag_manga_desc,
           tagKey: kLogTagManga,
           value: logTagManga,
         ),
         logToggle(
-          title: "Lecteur [READER]",
-          subtitle: "Navigation lecteur, zoom, orientation",
+          title: l10n.settings_log_tag_reader,
+          subtitle: l10n.settings_log_tag_reader_desc,
           tagKey: kLogTagReader,
           value: logTagReader,
         ),
         logToggle(
-          title: "Pages manga [PAGE]",
-          subtitle: "⚡ Chaque page chargée (très verbeux)",
+          title: l10n.settings_log_tag_page,
+          subtitle: l10n.settings_log_tag_page_desc,
           tagKey: kLogTagPage,
           value: logTagPage,
           danger: true,
         ),
         logToggle(
-          title: "Lecture vidéo [WATCH]",
-          subtitle: "Ouverture épisode, buffering, watchdog 60 s",
+          title: l10n.settings_log_tag_watch,
+          subtitle: l10n.settings_log_tag_watch_desc,
           tagKey: kLogTagWatch,
           value: logTagWatch,
         ),
         logToggle(
-          title: "Maintenance [MAINT]",
-          subtitle:
-              "Nettoyage cookies, BDD, réindexation, tâches d'arrière-plan",
+          title: l10n.settings_log_tag_maint,
+          subtitle: l10n.settings_log_tag_maint_desc,
           tagKey: kLogTagMaint,
           value: logTagMaint,
         ),
         logToggle(
-          title: "Interface [UI]",
-          subtitle: "Événements et erreurs d'interface",
+          title: l10n.settings_log_tag_ui,
+          subtitle: l10n.settings_log_tag_ui_desc,
           tagKey: kLogTagUi,
           value: logTagUi,
         ),
         logToggle(
-          title: "Images [IMG]",
-          subtitle: "Téléchargement des couvertures : cache, réseau, échecs",
+          title: l10n.settings_log_tag_img,
+          subtitle: l10n.settings_log_tag_img_desc,
           tagKey: kLogTagImg,
           value: logTagImg,
         ),
@@ -1846,16 +1875,17 @@ class _SilentInstallTile extends StatefulWidget {
 class _SilentInstallTileState extends State<_SilentInstallTile> {
   bool _busy = false;
 
-  String get _subtitle {
+  String _subtitle(BuildContext context) {
+    final l10n = context.l10n;
     switch (widget.status) {
       case SilentInstallStatus.active:
-        return "Actif — les mises à jour s'installent automatiquement sans confirmation.";
+        return l10n.settings_silent_active;
       case SilentInstallStatus.shizukuRequired:
-        return "Shizuku est nécessaire pour une configuration initiale unique. Appuyez pour configurer.";
+        return l10n.settings_silent_shizuku_required;
       case SilentInstallStatus.shizukuNotRunning:
-        return "Shizuku n'est pas démarré. Ouvrez Shizuku puis revenez ici.";
+        return l10n.settings_silent_shizuku_not_running;
       case SilentInstallStatus.unknown:
-        return "Vérification…";
+        return l10n.settings_silent_checking;
     }
   }
 
@@ -1870,8 +1900,8 @@ class _SilentInstallTileState extends State<_SilentInstallTile> {
             ? Colors.green
             : Theme.of(context).colorScheme.secondary,
       ),
-      title: const Text("Mises à jour silencieuses"),
-      subtitle: Text(_subtitle),
+      title: Text(context.l10n.settings_silent_updates),
+      subtitle: Text(_subtitle(context)),
       trailing: _busy
           ? const SizedBox(
               width: 20,

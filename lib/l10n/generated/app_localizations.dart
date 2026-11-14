@@ -9500,6 +9500,948 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cloudflare'**
   String get browse_cloudflare;
+
+  /// No description provided for @settings_remote_bypass_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote bypass server'**
+  String get settings_remote_bypass_title;
+
+  /// No description provided for @settings_remote_bypass_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the URL of your FlareSolverr instance (e.g. http://192.168.1.10:8191)'**
+  String get settings_remote_bypass_help;
+
+  /// No description provided for @settings_remote_server_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get settings_remote_server_url;
+
+  /// No description provided for @settings_remote_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'API key (optional)'**
+  String get settings_remote_api_key;
+
+  /// No description provided for @settings_remote_timeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeout (ms)'**
+  String get settings_remote_timeout;
+
+  /// No description provided for @settings_remote_trigger_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger mode'**
+  String get settings_remote_trigger_mode;
+
+  /// No description provided for @settings_remote_mode_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get settings_remote_mode_auto;
+
+  /// No description provided for @settings_remote_mode_auto_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses the remote server as soon as the 2 local attempts fail'**
+  String get settings_remote_mode_auto_desc;
+
+  /// No description provided for @settings_remote_mode_on_demand.
+  ///
+  /// In en, this message translates to:
+  /// **'On demand'**
+  String get settings_remote_mode_on_demand;
+
+  /// No description provided for @settings_remote_mode_on_demand_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses the remote server only when you tap \"Bypass via remote server\"'**
+  String get settings_remote_mode_on_demand_desc;
+
+  /// No description provided for @settings_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settings_save;
+
+  /// No description provided for @settings_clear_database.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the database'**
+  String get settings_clear_database;
+
+  /// No description provided for @settings_clear_database_body.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} series not saved in your library will be deleted.\n\nThis action cannot be undone.'**
+  String settings_clear_database_body(Object count);
+
+  /// No description provided for @settings_clear_image_caches_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all image caches?'**
+  String get settings_clear_image_caches_title;
+
+  /// No description provided for @settings_clear_image_caches_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Covers and extension icons will be downloaded again the next time they are shown. Your downloads are not affected.'**
+  String get settings_clear_image_caches_body;
+
+  /// No description provided for @settings_share_crash_reports.
+  ///
+  /// In en, this message translates to:
+  /// **'Share crash reports'**
+  String get settings_share_crash_reports;
+
+  /// No description provided for @settings_share_crash_reports_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Writes crash reports to a file so you can share them with the developers'**
+  String get settings_share_crash_reports_desc;
+
+  /// No description provided for @settings_detailed_reports.
+  ///
+  /// In en, this message translates to:
+  /// **'Detailed reports'**
+  String get settings_detailed_reports;
+
+  /// No description provided for @settings_detailed_reports_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds detailed reports to the system traces (reduces app performance)'**
+  String get settings_detailed_reports_desc;
+
+  /// No description provided for @settings_onboarding_guide.
+  ///
+  /// In en, this message translates to:
+  /// **'First-launch guide'**
+  String get settings_onboarding_guide;
+
+  /// No description provided for @settings_onboarding_guide_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart the startup tutorial'**
+  String get settings_onboarding_guide_desc;
+
+  /// No description provided for @settings_manage_notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage the app alerts'**
+  String get settings_manage_notifications;
+
+  /// No description provided for @settings_disable_battery_optimisation.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable battery optimisation'**
+  String get settings_disable_battery_optimisation;
+
+  /// No description provided for @settings_disable_battery_optimisation_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Makes background library updates and backups easier'**
+  String get settings_disable_battery_optimisation_desc;
+
+  /// No description provided for @settings_dont_kill_my_app_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Some manufacturers add extra restrictions on apps that kill background services. This website has more information on how to fix it.'**
+  String get settings_dont_kill_my_app_desc;
+
+  /// No description provided for @settings_remote_enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable the remote server'**
+  String get settings_remote_enable;
+
+  /// No description provided for @settings_remote_connected.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to {url}'**
+  String settings_remote_connected(Object url);
+
+  /// No description provided for @settings_remote_none_configured.
+  ///
+  /// In en, this message translates to:
+  /// **'No server configured — Tap Configure'**
+  String get settings_remote_none_configured;
+
+  /// No description provided for @settings_remote_configure.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure the remote server'**
+  String get settings_remote_configure;
+
+  /// No description provided for @settings_remote_configure_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'URL, API key, timeout, trigger mode'**
+  String get settings_remote_configure_desc;
+
+  /// No description provided for @settings_flaresolverr_help.
+  ///
+  /// In en, this message translates to:
+  /// **'FlareSolverr is a proxy server that uses a headless browser to solve Cloudflare challenges. Install it on your machine or a local server and enter its URL here.'**
+  String get settings_flaresolverr_help;
+
+  /// No description provided for @settings_reindex_downloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Reindex the downloads'**
+  String get settings_reindex_downloads;
+
+  /// No description provided for @settings_reindex_downloads_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Scans the files already on disk and fixes the missing entries'**
+  String get settings_reindex_downloads_desc;
+
+  /// No description provided for @settings_downloads_not_in_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads not in the library'**
+  String get settings_downloads_not_in_library;
+
+  /// No description provided for @settings_downloads_not_in_library_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically adds to the library every series with a downloaded chapter'**
+  String get settings_downloads_not_in_library_desc;
+
+  /// No description provided for @settings_clear_database_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the history of the series that are not saved in your library'**
+  String get settings_clear_database_desc;
+
+  /// No description provided for @settings_clear_cookies.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear cookies'**
+  String get settings_clear_cookies;
+
+  /// No description provided for @settings_clear_webview_data.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the WebView data'**
+  String get settings_clear_webview_data;
+
+  /// No description provided for @settings_doh.
+  ///
+  /// In en, this message translates to:
+  /// **'DNS over HTTPS (DoH)'**
+  String get settings_doh;
+
+  /// No description provided for @settings_default_user_agent_list.
+  ///
+  /// In en, this message translates to:
+  /// **'Default user-agent list'**
+  String get settings_default_user_agent_list;
+
+  /// No description provided for @settings_reset_user_agent.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset the user-agent list'**
+  String get settings_reset_user_agent;
+
+  /// No description provided for @settings_icon_cover_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon and cover cache'**
+  String get settings_icon_cover_cache;
+
+  /// No description provided for @settings_max_cache_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum cache size'**
+  String get settings_max_cache_size;
+
+  /// No description provided for @settings_max_cache_size_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Total ceiling for every image cache. The oldest entry is removed first when the limit is reached.'**
+  String get settings_max_cache_size_desc;
+
+  /// No description provided for @settings_clear_icon_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the extension icon cache'**
+  String get settings_clear_icon_cache;
+
+  /// No description provided for @settings_clear_cover_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the library cover cache'**
+  String get settings_clear_cover_cache;
+
+  /// No description provided for @settings_clear_all_image_caches.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all image caches'**
+  String get settings_clear_all_image_caches;
+
+  /// No description provided for @settings_refresh_cache_sizes.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh the cache sizes'**
+  String get settings_refresh_cache_sizes;
+
+  /// No description provided for @settings_refresh_cache_sizes_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculates the disk cache sizes'**
+  String get settings_refresh_cache_sizes_desc;
+
+  /// No description provided for @settings_current_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Current size: {size}'**
+  String settings_current_size(Object size);
+
+  /// No description provided for @settings_current_total_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Current total size: {size}'**
+  String settings_current_total_size(Object size);
+
+  /// No description provided for @settings_refresh_library_covers.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh the library covers'**
+  String get settings_refresh_library_covers;
+
+  /// No description provided for @settings_refreshing_covers.
+  ///
+  /// In en, this message translates to:
+  /// **'Refreshing covers…'**
+  String get settings_refreshing_covers;
+
+  /// No description provided for @settings_reset_reader_per_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset the reader settings per series'**
+  String get settings_reset_reader_per_series;
+
+  /// No description provided for @settings_reset_reader_per_series_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Resets the reading mode and orientation of every series'**
+  String get settings_reset_reader_per_series_desc;
+
+  /// No description provided for @settings_reset_reader_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset the reader settings'**
+  String get settings_reset_reader_title;
+
+  /// No description provided for @settings_reader_reset_done.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader settings reset'**
+  String get settings_reader_reset_done;
+
+  /// No description provided for @settings_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get settings_error;
+
+  /// No description provided for @settings_update_library_titles.
+  ///
+  /// In en, this message translates to:
+  /// **'Update the library series titles'**
+  String get settings_update_library_titles;
+
+  /// No description provided for @settings_update_library_titles_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning: if a series is renamed, it will be removed from the download queue.'**
+  String get settings_update_library_titles_desc;
+
+  /// No description provided for @settings_updating_titles.
+  ///
+  /// In en, this message translates to:
+  /// **'Updating titles…'**
+  String get settings_updating_titles;
+
+  /// No description provided for @settings_no_non_ascii.
+  ///
+  /// In en, this message translates to:
+  /// **'Forbid non-ASCII file names'**
+  String get settings_no_non_ascii;
+
+  /// No description provided for @settings_no_non_ascii_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Keeps compatibility with some storage media that do not support Unicode'**
+  String get settings_no_non_ascii_desc;
+
+  /// No description provided for @settings_bitmap_threshold.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom hardware bitmap threshold'**
+  String get settings_bitmap_threshold;
+
+  /// No description provided for @settings_bitmap_threshold_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'If the reader shows a blank image, lower the threshold gradually.'**
+  String get settings_bitmap_threshold_desc;
+
+  /// No description provided for @settings_old_decoder.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the old decoder for the long-strip reader'**
+  String get settings_old_decoder;
+
+  /// No description provided for @settings_old_decoder_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Affects performance. Only enable it if lowering the bitmap threshold does not fix the blank image issues'**
+  String get settings_old_decoder_desc;
+
+  /// No description provided for @settings_custom_display_profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom display profile'**
+  String get settings_custom_display_profile;
+
+  /// No description provided for @settings_installer.
+  ///
+  /// In en, this message translates to:
+  /// **'Installer'**
+  String get settings_installer;
+
+  /// No description provided for @settings_revoke_extra_repo_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke extensions from an additional repository'**
+  String get settings_revoke_extra_repo_extensions;
+
+  /// No description provided for @settings_revoke_extensions_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke the extensions'**
+  String get settings_revoke_extensions_title;
+
+  /// No description provided for @settings_revoke_extensions_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Every extension coming from additional repositories will be revoked.'**
+  String get settings_revoke_extensions_body;
+
+  /// No description provided for @settings_revoke.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get settings_revoke;
+
+  /// No description provided for @settings_extensions_revoked.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions revoked'**
+  String get settings_extensions_revoked;
+
+  /// No description provided for @settings_interface_scale.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface scale'**
+  String get settings_interface_scale;
+
+  /// No description provided for @settings_interface_scale_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Adapts the interface size (text + spacing). Useful for small screens like the iPhone 7.'**
+  String get settings_interface_scale_desc;
+
+  /// No description provided for @settings_default_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} (default)'**
+  String settings_default_suffix(Object value);
+
+  /// No description provided for @settings_logs_enable_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable logs in About > Developer to configure these options.'**
+  String get settings_logs_enable_hint;
+
+  /// No description provided for @settings_log_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Logging mode'**
+  String get settings_log_mode;
+
+  /// No description provided for @settings_log_suppress_images.
+  ///
+  /// In en, this message translates to:
+  /// **'Suppress image errors'**
+  String get settings_log_suppress_images;
+
+  /// No description provided for @settings_log_suppress_images_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Do not record 404 logo errors'**
+  String get settings_log_suppress_images_desc;
+
+  /// No description provided for @settings_log_active_categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Active categories'**
+  String get settings_log_active_categories;
+
+  /// No description provided for @settings_log_customisable.
+  ///
+  /// In en, this message translates to:
+  /// **'customisable'**
+  String get settings_log_customisable;
+
+  /// No description provided for @settings_log_tag_ext.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions [EXT]'**
+  String get settings_log_tag_ext;
+
+  /// No description provided for @settings_log_tag_ext_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension installation, update and errors'**
+  String get settings_log_tag_ext_desc;
+
+  /// No description provided for @settings_log_tag_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Detailed install [INSTALL]'**
+  String get settings_log_tag_install;
+
+  /// No description provided for @settings_log_tag_install_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Every install/uninstall step'**
+  String get settings_log_tag_install_desc;
+
+  /// No description provided for @settings_log_tag_dl.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads [DL]'**
+  String get settings_log_tag_dl;
+
+  /// No description provided for @settings_log_tag_dl_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Download progress, resume and errors'**
+  String get settings_log_tag_dl_desc;
+
+  /// No description provided for @settings_log_tag_hls.
+  ///
+  /// In en, this message translates to:
+  /// **'HLS streaming [HLS]'**
+  String get settings_log_tag_hls;
+
+  /// No description provided for @settings_log_tag_hls_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'HLS segments, manifest and stream errors'**
+  String get settings_log_tag_hls_desc;
+
+  /// No description provided for @settings_log_tag_net.
+  ///
+  /// In en, this message translates to:
+  /// **'Network [NET]'**
+  String get settings_log_tag_net;
+
+  /// No description provided for @settings_log_tag_net_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP requests, redirects and network errors'**
+  String get settings_log_tag_net_desc;
+
+  /// No description provided for @settings_log_tag_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga [MANGA]'**
+  String get settings_log_tag_manga;
+
+  /// No description provided for @settings_log_tag_manga_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Series, chapters and metadata loading'**
+  String get settings_log_tag_manga_desc;
+
+  /// No description provided for @settings_log_tag_reader.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader [READER]'**
+  String get settings_log_tag_reader;
+
+  /// No description provided for @settings_log_tag_reader_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader navigation, zoom and orientation'**
+  String get settings_log_tag_reader_desc;
+
+  /// No description provided for @settings_log_tag_page.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga pages [PAGE]'**
+  String get settings_log_tag_page;
+
+  /// No description provided for @settings_log_tag_page_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'⚡ Every loaded page (very verbose)'**
+  String get settings_log_tag_page_desc;
+
+  /// No description provided for @settings_log_tag_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Video playback [WATCH]'**
+  String get settings_log_tag_watch;
+
+  /// No description provided for @settings_log_tag_watch_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode opening, buffering, 60 s watchdog'**
+  String get settings_log_tag_watch_desc;
+
+  /// No description provided for @settings_log_tag_maint.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance [MAINT]'**
+  String get settings_log_tag_maint;
+
+  /// No description provided for @settings_log_tag_maint_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookie cleanup, database, reindexing and background tasks'**
+  String get settings_log_tag_maint_desc;
+
+  /// No description provided for @settings_log_tag_ui.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface [UI]'**
+  String get settings_log_tag_ui;
+
+  /// No description provided for @settings_log_tag_ui_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface events and errors'**
+  String get settings_log_tag_ui_desc;
+
+  /// No description provided for @settings_log_tag_img.
+  ///
+  /// In en, this message translates to:
+  /// **'Images [IMG]'**
+  String get settings_log_tag_img;
+
+  /// No description provided for @settings_log_tag_img_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover downloads: cache, network and failures'**
+  String get settings_log_tag_img_desc;
+
+  /// No description provided for @settings_silent_updates.
+  ///
+  /// In en, this message translates to:
+  /// **'Silent updates'**
+  String get settings_silent_updates;
+
+  /// No description provided for @settings_silent_active.
+  ///
+  /// In en, this message translates to:
+  /// **'Active — updates install automatically without confirmation.'**
+  String get settings_silent_active;
+
+  /// No description provided for @settings_silent_shizuku_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Shizuku is required for a one-time setup. Tap to configure.'**
+  String get settings_silent_shizuku_required;
+
+  /// No description provided for @settings_silent_shizuku_not_running.
+  ///
+  /// In en, this message translates to:
+  /// **'Shizuku is not running. Open Shizuku and come back here.'**
+  String get settings_silent_shizuku_not_running;
+
+  /// No description provided for @settings_silent_checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get settings_silent_checking;
+
+  /// No description provided for @settings_auto_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic install'**
+  String get settings_auto_install;
+
+  /// No description provided for @settings_data.
+  ///
+  /// In en, this message translates to:
+  /// **'Data'**
+  String get settings_data;
+
+  /// No description provided for @settings_network.
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get settings_network;
+
+  /// No description provided for @settings_reader.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader'**
+  String get settings_reader;
+
+  /// No description provided for @settings_display.
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get settings_display;
+
+  /// No description provided for @settings_advanced_logs.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced logs'**
+  String get settings_advanced_logs;
+
+  /// No description provided for @settings_background_activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Background activity'**
+  String get settings_background_activity;
+
+  /// No description provided for @settings_advanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get settings_advanced;
+
+  /// No description provided for @settings_remote_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote Cloudflare bypass'**
+  String get settings_remote_section;
+
+  /// No description provided for @settings_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get settings_library;
+
+  /// No description provided for @settings_cookies_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookies cleared'**
+  String get settings_cookies_cleared;
+
+  /// No description provided for @settings_webview_data_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'WebView data cleared'**
+  String get settings_webview_data_cleared;
+
+  /// No description provided for @settings_cookies_clear_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete the cookies'**
+  String get settings_cookies_clear_failed;
+
+  /// No description provided for @settings_webview_clear_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not delete the WebView data'**
+  String get settings_webview_clear_failed;
+
+  /// No description provided for @settings_db_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Database cleaned ({count} deleted)'**
+  String settings_db_cleared(Object count);
+
+  /// No description provided for @settings_clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get settings_clear;
+
+  /// No description provided for @settings_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty'**
+  String get settings_empty;
+
+  /// No description provided for @settings_reindexing.
+  ///
+  /// In en, this message translates to:
+  /// **'Reindexing…'**
+  String get settings_reindexing;
+
+  /// No description provided for @settings_reindex_done.
+  ///
+  /// In en, this message translates to:
+  /// **'{fixed} of {total} chapter(s) reindexed'**
+  String settings_reindex_done(Object fixed, Object total);
+
+  /// No description provided for @settings_checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get settings_checking;
+
+  /// No description provided for @settings_added_to_library.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} series added to the library'**
+  String settings_added_to_library(Object count);
+
+  /// No description provided for @settings_bytes_o.
+  ///
+  /// In en, this message translates to:
+  /// **'{bytes} B'**
+  String settings_bytes_o(Object bytes);
+
+  /// No description provided for @settings_bytes_ko.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} KB'**
+  String settings_bytes_ko(Object value);
+
+  /// No description provided for @settings_bytes_mo.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} MB'**
+  String settings_bytes_mo(Object value);
+
+  /// No description provided for @settings_bytes_go.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} GB'**
+  String settings_bytes_go(Object value);
+
+  /// No description provided for @settings_icon_cache_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon cache cleared'**
+  String get settings_icon_cache_cleared;
+
+  /// No description provided for @settings_cover_cache_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover cache cleared'**
+  String get settings_cover_cache_cleared;
+
+  /// No description provided for @settings_all_caches_cleared.
+  ///
+  /// In en, this message translates to:
+  /// **'All image caches cleared'**
+  String get settings_all_caches_cleared;
+
+  /// No description provided for @settings_user_agent_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'User agent reset'**
+  String get settings_user_agent_reset;
+
+  /// No description provided for @settings_user_agent_reset_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reset'**
+  String get settings_user_agent_reset_failed;
+
+  /// No description provided for @settings_battery_settings_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the battery optimisation settings.\nGo to Settings > Battery > Battery optimisation.'**
+  String get settings_battery_settings_failed;
+
+  /// No description provided for @settings_notifications_hint_android.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings > Notifications to manage the alerts.'**
+  String get settings_notifications_hint_android;
+
+  /// No description provided for @settings_notifications_hint_ios.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the system Settings to manage the notifications.'**
+  String get settings_notifications_hint_ios;
+
+  /// No description provided for @settings_extreme_warning.
+  ///
+  /// In en, this message translates to:
+  /// **'⚡ Extreme – everything is logged. RAM +++. Use with caution.'**
+  String get settings_extreme_warning;
+
+  /// No description provided for @settings_debug_warning.
+  ///
+  /// In en, this message translates to:
+  /// **'⚠ Debug mode active – high RAM usage'**
+  String get settings_debug_warning;
+
+  /// No description provided for @settings_log_mode_normal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get settings_log_mode_normal;
+
+  /// No description provided for @settings_log_mode_normal_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'INFO+ · extensions and installs only'**
+  String get settings_log_mode_normal_desc;
+
+  /// No description provided for @settings_log_mode_verbose.
+  ///
+  /// In en, this message translates to:
+  /// **'Verbose'**
+  String get settings_log_mode_verbose;
+
+  /// No description provided for @settings_log_mode_verbose_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'DEBUG+ · network, downloads, manga, HLS'**
+  String get settings_log_mode_verbose_desc;
+
+  /// No description provided for @settings_log_mode_debug.
+  ///
+  /// In en, this message translates to:
+  /// **'Debug'**
+  String get settings_log_mode_debug;
+
+  /// No description provided for @settings_log_mode_debug_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'DEBUG+ · everything except page-by-page reads'**
+  String get settings_log_mode_debug_desc;
+
+  /// No description provided for @settings_log_mode_extreme.
+  ///
+  /// In en, this message translates to:
+  /// **'Extreme'**
+  String get settings_log_mode_extreme;
+
+  /// No description provided for @settings_log_mode_extreme_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'⚡ Log EVERYTHING – every page, HLS segment, reader event'**
+  String get settings_log_mode_extreme_desc;
+
+  /// No description provided for @settings_scale_default.
+  ///
+  /// In en, this message translates to:
+  /// **'100% (default)'**
+  String get settings_scale_default;
+
+  /// No description provided for @settings_percent.
+  ///
+  /// In en, this message translates to:
+  /// **'{value}%'**
+  String settings_percent(Object value);
 }
 
 class _AppLocalizationsDelegate
