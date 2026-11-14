@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
+
+/// The assertions below are written against the French strings, so resolve
+/// the `fr` bundle directly (these helpers take an `AppLocalizations`).
+final AppLocalizations _l10n = lookupAppLocalizations(const Locale('fr'));
 
 void main() {
   test('extracts the exact failing URL from an extension error', () {
@@ -52,7 +57,10 @@ void main() {
     );
     expect(extensionHttpStatusCode(Exception('statusCode: 503')), 503);
     expect(
-      extensionRequestFailureMessage(Exception('HTTP 503 Service Unavailable')),
+      extensionRequestFailureMessage(
+        Exception('HTTP 503 Service Unavailable'),
+        _l10n,
+      ),
       contains('HTTP 503'),
     );
   });
@@ -67,7 +75,7 @@ void main() {
       expect(extensionErrorIsCloudflareApiBlock(apiError), isTrue);
       expect(extensionErrorIsCloudflareChallenge(apiError), isFalse);
       expect(extensionHttpStatusCode(apiError), isNull);
-      expect(extensionRequestFailureMessage(apiError), 'Accès bloqué');
+      expect(extensionRequestFailureMessage(apiError, _l10n), 'Accès bloqué');
       expect(
         extensionErrorIsCloudflareChallenge(
           Exception('HTTP 403: cf-chl-out challenge page'),
@@ -89,7 +97,7 @@ void main() {
 
     expect(extensionErrorIsCloudflareChallenge(error), isTrue);
     expect(extensionErrorNeedsBypass(error), isTrue);
-    expect(extensionErrorTitle(error), 'Vérification Cloudflare requise');
+    expect(extensionErrorTitle(error, _l10n), 'Vérification Cloudflare requise');
     expect(extensionHttpStatusCode(error), 403);
     expect(extensionFailedUrl(error), 'https://missav.ws/en/new?sort=views');
   });
@@ -97,6 +105,9 @@ void main() {
   testWidgets('opens the bypass panel on a MissAV challenge', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ExtensionHomeEmptyState(
           onRetry: () async {},
           onRefresh: () async {},
@@ -127,7 +138,7 @@ void main() {
     // The extension's own message must survive instead of the generic
     // “La source est momentanément indisponible”.
     expect(
-      extensionRequestFailureMessage(error),
+      extensionRequestFailureMessage(error, _l10n),
       'Popular response did not contain recommendations',
     );
     expect(
@@ -149,9 +160,9 @@ void main() {
     expect(extensionHttpStatusCode(dropped), isNull);
     expect(extensionErrorIsConnectionDropped(dropped), isTrue);
     expect(extensionErrorIsCloudflareApiBlock(dropped), isTrue);
-    expect(extensionErrorTitle(dropped), 'Accès API bloqué');
-    expect(extensionRequestFailureMessage(dropped), 'Accès bloqué');
-    expect(extensionRequestFailureMessage(dropped), isNot(contains('HTTP 0')));
+    expect(extensionErrorTitle(dropped, _l10n), 'Accès API bloqué');
+    expect(extensionRequestFailureMessage(dropped, _l10n), 'Accès bloqué');
+    expect(extensionRequestFailureMessage(dropped, _l10n), isNot(contains('HTTP 0')));
     expect(extensionFailedUrl(dropped), 'https://api.allanime.day/api?q=1');
 
     // A cut connection with no API wording is still labelled as an anti-bot cut.
@@ -159,8 +170,8 @@ void main() {
       '[IMHentai] Cloudflare: connection closed before full header was received',
     );
     expect(extensionErrorIsConnectionDropped(generic), isTrue);
-    expect(extensionErrorTitle(generic), 'Blocage anti-bot — connexion coupée');
-    expect(extensionRequestFailureMessage(generic), 'Connexion coupée');
+    expect(extensionErrorTitle(generic, _l10n), 'Blocage anti-bot — connexion coupée');
+    expect(extensionRequestFailureMessage(generic, _l10n), 'Connexion coupée');
   });
 
   test('a plain connection drop without anti-bot context is not mislabelled', () {
@@ -174,6 +185,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ExtensionHomeEmptyState(
           onRetry: () async {},
           onRefresh: () async {},
@@ -208,6 +222,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ExtensionHomeEmptyState(
           onRetry: () async {
             retries++;
@@ -246,6 +263,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ExtensionHomeEmptyState(
           onRetry: () async {},
           onRefresh: () async {
@@ -268,6 +288,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ExtensionHomeEmptyState(
           onRetry: () async {},
           onRefresh: () async {},
@@ -290,6 +313,9 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ExtensionHomeEmptyState(
             onRetry: () async {},
             onRefresh: () async {},
@@ -328,6 +354,9 @@ void main() {
       const verboseDetail = 'verbose upstream diagnostic trace';
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ExtensionHomeEmptyState(
             onRetry: () async {},
             onRefresh: () async {},
@@ -354,6 +383,9 @@ void main() {
     for (final code in [403, 404, 500]) {
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('fr'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: ErrorText(
               Exception(
@@ -378,6 +410,9 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ExtensionHomeEmptyState(
           onRetry: () async {},
           onRefresh: () async {},
