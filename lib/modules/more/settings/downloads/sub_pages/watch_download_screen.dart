@@ -189,6 +189,8 @@ class _EngineCard extends StatelessWidget {
         return Broken.hierarchy;
       case DownloadMode.external:
         return Broken.export;
+      case DownloadMode.zeus:
+        return Broken.cpu;
     }
   }
 

@@ -11819,6 +11819,12 @@ abstract class AppLocalizations {
   /// **'Hands off to an external app (ADM, 1DM, FDM, IDM…). The download leaves the app.'**
   String get downloads_mode_external_desc;
 
+  /// No description provided for @downloads_mode_zeus_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Python extractor (ZeusDL) for web pages: TikTok, Facebook, Instagram… without watermark.'**
+  String get downloads_mode_zeus_desc;
+
   /// No description provided for @downloads_manga_engine_note.
   ///
   /// In en, this message translates to:

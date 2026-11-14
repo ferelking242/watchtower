@@ -5,6 +5,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:http/http.dart' as http;
   import 'package:path_provider/path_provider.dart';
   import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
+  import 'package:watchtower/services/download_manager/engines/zeus_binary_manager.dart';
   import 'package:watchtower/utils/log/logger.dart';
 
 const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
@@ -592,6 +593,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
             ),
             const SizedBox(height: 8),
           ],
+          const SizedBox(height: 4),
+          const _ZeusRuntimeCard(),
         ],
       );
     }
@@ -996,3 +999,168 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
     );
   }
   
+// ---------------------------------------------------------------------------
+// _ZeusRuntimeCard — ZeusDL Python runtime (download / store / exec)
+// ---------------------------------------------------------------------------
+
+class _ZeusRuntimeCard extends StatefulWidget {
+  const _ZeusRuntimeCard();
+
+  @override
+  State<_ZeusRuntimeCard> createState() => _ZeusRuntimeCardState();
+}
+
+class _ZeusRuntimeCardState extends State<_ZeusRuntimeCard> {
+  bool _installed = false;
+  String? _size;
+  double? _progress;
+  String? _progressLabel;
+  String? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final mgr = ZeusBinaryManager.instance;
+    final installed = await mgr.isInstalled();
+    String? size;
+    try {
+      final dir = await mgr.runtimeDir();
+      if (await dir.exists()) {
+        var total = 0;
+        await for (final e in dir.list(recursive: true)) {
+          if (e is File) total += await e.length();
+        }
+        if (total > 0) size = _fmtBytes(total);
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _installed = installed;
+        _size = size;
+      });
+    }
+  }
+
+  Future<void> _install() async {
+    if (_progress != null) return;
+    setState(() {
+      _progress = 0;
+      _progressLabel = 'Connexion…';
+      _status = null;
+    });
+    final mgr = ZeusBinaryManager.instance;
+    var ok = false;
+    for (final source in ZeusBinaryManager.sources) {
+      ok = await mgr.installFromSource(
+        source,
+        onProgress: (received, total) {
+          if (!mounted) return;
+          setState(() {
+            _progress = total > 0 ? received / total : null;
+            _progressLabel = total > 0
+                ? '${_fmtBytes(received)} / ${_fmtBytes(total)}'
+                : _fmtBytes(received);
+          });
+        },
+      );
+      if (ok) break;
+    }
+    if (!mounted) return;
+    setState(() {
+      _progress = null;
+      _progressLabel = null;
+      _status = ok ? 'Installé ✓' : 'Échec du téléchargement';
+    });
+    await _refresh();
+  }
+
+  Future<void> _uninstall() async {
+    await ZeusBinaryManager.instance.uninstall();
+    if (mounted) setState(() => _status = 'Désinstallé');
+    await _refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF1DB954);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1C1C),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.terminal_rounded, size: 20, color: green),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('ZeusDL',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white)),
+                    Text(
+                      'Runtime Python pour extraire TikTok, Facebook, Instagram… sans filigrane.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
+                    ),
+                  ],
+                ),
+              ),
+              if (_installed)
+                const Icon(Icons.check_circle_rounded, size: 18, color: green),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_progress != null) ...[
+            LinearProgressIndicator(
+              value: _progress,
+              backgroundColor: const Color(0xFF2A2A2A),
+              color: green,
+            ),
+            const SizedBox(height: 6),
+            Text(_progressLabel ?? '',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E))),
+          ] else ...[
+            Row(
+              children: [
+                Text(
+                  _installed ? 'Installé${_size != null ? ' ($_size)' : ''}' : 'Non installé',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: _installed ? _uninstall : _install,
+                  child: Text(_installed ? 'Désinstaller' : 'Installer',
+                      style: TextStyle(color: _installed ? Colors.red : green)),
+                ),
+                if (_installed)
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded, size: 18, color: green),
+                    tooltip: 'Réinstaller / mettre à jour',
+                    onPressed: _install,
+                  ),
+              ],
+            ),
+          ],
+          if (_status != null) ...[
+            const SizedBox(height: 4),
+            Text(_status!,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E))),
+          ],
+        ],
+      ),
+    );
+  }
+}

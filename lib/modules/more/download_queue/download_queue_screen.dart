@@ -19,6 +19,8 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
+import 'package:watchtower/services/download_manager/link_download_service.dart';
+import 'package:watchtower/services/download_manager/social_url_detector.dart';
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
@@ -173,6 +175,204 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     }
   }
 
+  /// "Paste a link" flow: a direct URL (`.mp4`, `.m3u8`, …) or a social page
+  /// (TikTok/Facebook) is downloaded into the Watch folder. Social pages are
+  /// resolved with the light extractor first, then ZeusDL when installed.
+  void _showPasteLinkSheet(BuildContext context) {
+    final controller = TextEditingController();
+    var busy = false;
+    double? progress;
+    String? statusText;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1C1C1C),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context2, setSheetState) {
+          Future<void> submit() async {
+            final url = controller.text.trim();
+            if (url.isEmpty || busy) return;
+            setSheetState(() {
+              busy = true;
+              progress = null;
+              statusText = 'Résolution du lien…';
+            });
+            try {
+              final service = const LinkDownloadService();
+              final outputPath = await service.buildOutputPath(url: url);
+              final result = await service.download(
+                url: url,
+                outputPath: outputPath,
+                onProgress: (received, total) {
+                  if (!context2.mounted) return;
+                  setSheetState(() {
+                    progress = total > 0 ? received / total : null;
+                    statusText = total > 0
+                        ? '${_fmtLinkBytes(received)} / ${_fmtLinkBytes(total)}'
+                        : _fmtLinkBytes(received);
+                  });
+                },
+              );
+              if (!context2.mounted) return;
+              if (result.status == LinkDownloadStatus.completed) {
+                setSheetState(() {
+                  busy = false;
+                  progress = 1;
+                  statusText = 'Terminé → ${result.filePath}';
+                });
+                ScaffoldMessenger.of(context2).showSnackBar(
+                  const SnackBar(content: Text('Téléchargement terminé')),
+                );
+              } else {
+                setSheetState(() {
+                  busy = false;
+                  statusText = result.message ?? 'Échec du téléchargement';
+                });
+              }
+            } catch (e) {
+              if (!context2.mounted) return;
+              setSheetState(() {
+                busy = false;
+                statusText = 'Erreur : $e';
+              });
+            }
+          }
+
+          final platform = SocialUrlDetector.detect(controller.text);
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              16,
+              20,
+              20 + MediaQuery.of(context2).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Coller un lien',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Fichier direct (.mp4, .m3u8) ou page TikTok / Facebook / '
+                  'Instagram. Les pages sont résolues automatiquement.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.url,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  onChanged: (_) => setSheetState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'https://…',
+                    hintStyle: const TextStyle(color: Color(0xFF616161)),
+                    prefixIcon: const Icon(Icons.link_rounded, size: 18),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.content_paste_rounded, size: 18),
+                      tooltip: 'Coller',
+                      onPressed: () async {
+                        final data = await Clipboard.getData('text/plain');
+                        final text = data?.text;
+                        if (text != null) {
+                          controller.text = text;
+                          setSheetState(() {});
+                        }
+                      },
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF242424),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                if (platform != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded,
+                          size: 14, color: Color(0xFF1DB954)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Plateforme détectée : ${platform.label}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF1DB954),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (busy || progress != null) ...[
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: const Color(0xFF2A2A2A),
+                    color: const Color(0xFF1DB954),
+                  ),
+                ],
+                if (statusText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    statusText!,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: busy ? null : submit,
+                    icon: busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download_rounded, size: 18),
+                    label: Text(busy ? 'Téléchargement…' : 'Télécharger'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _fmtLinkBytes(int bytes) {
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
+    if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+    return '$bytes B';
+  }
+
   @override
   Widget build(BuildContext context) {
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
@@ -278,6 +478,12 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             actions: [
+              // ── Coller un lien — direct/social download ────────────────
+              IconButton(
+                icon: const Icon(Icons.link_rounded),
+                tooltip: 'Coller un lien',
+                onPressed: () => _showPasteLinkSheet(context),
+              ),
               // ── Transfert pill — solid gradient, MovieBox style ─────────
               GestureDetector(
                 onTap: () => showTransferPanel(context),

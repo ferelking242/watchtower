@@ -14,7 +14,7 @@ Section à 3 onglets (Watch / Manga / Novel). Chaque onglet regroupe les réglag
 
 | Option | Type | Valeurs | Description |
 |--------|------|---------|-------------|
-| **Moteur de téléchargement** | Carte sélectionnable | HYDRA · ZEUS · ARES · Externe | Moteur utilisé pour télécharger les épisodes. HYDRA = moteur HLS interne. ZEUS = ZeusDL (multi-thread). ARES = Aria2 (protocole externe). Externe = délègue à une application tierce. |
+| **Moteur de téléchargement** | Carte sélectionnable | HYDRA · ZEUS · ARES · Externe | Moteur utilisé pour télécharger les épisodes. HYDRA = moteur HLS interne (défaut). ZEUS = ZeusDL, extracteur Python pour pages web (TikTok, Facebook, Instagram…), sans filigrane. ARES = Aria2, téléchargement multi-segments. Externe = délègue à une application tierce. Le choix est mémorisé par index : ne jamais réordonner les valeurs. |
 | **Connexions HLS simultanées** | Compteur (1–20) | Défaut : 4 | Nombre de segments HLS téléchargés en parallèle par épisode. Augmenter accélère les streams, mais consomme plus de bande passante. |
 | **Épisodes simultanés (file)** | Compteur (1–10) | Défaut : 1 | Nombre d'épisodes traités en même temps dans la file de téléchargement. |
 | **Wi-Fi uniquement** | Interrupteur | Activé / Désactivé | Bloque tout téléchargement Watch si aucun réseau Wi-Fi n'est disponible. |
@@ -157,3 +157,23 @@ LocalFolder/
 | Balayer à droite | Supprimer |
 | Historique sur dock | Visible |
 | Mises à jour sur dock | Visible |
+
+---
+
+## Coller un lien (file de téléchargement)
+
+L'icône lien dans la barre de la file de téléchargement ouvre un panneau
+« Coller un lien » qui télécharge un média unique sans extension :
+
+- **Fichier direct** (`.mp4`, `.m3u8`, tout HTTP) : téléchargé tel quel par le
+  moteur interne, vers `WatchtowerFolderService.getDownloadDir('anime')`.
+- **Page sociale** (TikTok, Facebook, Instagram, X, YouTube, Reddit) : l'URL
+  est résolue en lisant les balises Open Graph / le JSON embarqué de la page
+  (`SocialMediaExtractor`), puis le média direct est téléchargé. Aucune API de
+  plateforme n'est utilisée.
+- Si la page ne peut pas être résolue et que le **runtime ZeusDL** est installé
+  (Réglages ▸ Avancé ▸ Binaires ▸ ZeusDL), le lien est confié à l'extracteur
+  Python (posts privés, suppression du filigrane TikTok).
+
+Aucune ligne n'est écrite dans la base Isar : ce flux n'alimente pas la file
+gérée, il dépose simplement le fichier dans le dossier de téléchargement.

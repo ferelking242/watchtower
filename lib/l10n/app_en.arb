@@ -2310,6 +2310,7 @@
   "downloads_mode_internal_desc": "HLS downloader built into the app. Ideal for most streams.",
   "downloads_mode_aria2_desc": "High-performance aria2c engine. Multiple connections and download resume.",
   "downloads_mode_external_desc": "Hands off to an external app (ADM, 1DM, FDM, IDM…). The download leaves the app.",
+  "downloads_mode_zeus_desc": "Python extractor (ZeusDL) for web pages: TikTok, Facebook, Instagram… without watermark.",
   "downloads_manga_engine_note": "Manga always uses the internal downloader: a chapter’s pages are fetched in parallel automatically.",
   "downloads_archive_section": "Archive format",
   "downloads_compression_section": "Compression",

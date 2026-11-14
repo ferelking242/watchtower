@@ -1477,3 +1477,30 @@ must not leak into watch code paths or logs:
   contourne volontairement le filtre « source active » de ce dernier : un
   épisode téléchargé doit se lire depuis le disque même si sa source a été
   supprimée, et un épisode partiel lit les fragments déjà présents.
+
+
+## ZeusDL / téléchargement de liens (ne pas régresser)
+- **Un seul moteur = un fichier.** Tout nouveau moteur implémente
+  `DownloadEngine` (`lib/services/download_manager/engines/download_engine.dart`)
+  et est choisi dans `engine_selector.dart`. Ne pas brancher un moteur en dur
+  dans `download_provider.dart` sans passer par `EngineSelector.select`.
+- `DownloadMode` est **persisté par index** dans `download_settings.json`
+  (`animeDownloadMode`). Ajouter un moteur = **ajouter en fin d'énum**, jamais
+  réordonner : `internalDownloader=0, aria2=1, external=2, zeus=3`. Le test
+  `zeus_and_social_test.dart` verrouille ces indices.
+- ZeusDL = **runtime** (bibliothèques Python, `zeusdl.zip`, `__main__.py`)
+  séparé du **script du plugin** (`scripts/main.py`). `ZeusBinaryManager`
+  installe le runtime (asset CI → miroirs, vérif SHA-256), `ZeusEngine` exécute
+  le script du plugin si fourni, sinon `__main__.py`, avec `PYTHONPATH` = dossier
+  runtime. L'interpréteur est `libpython.so` dans `nativeLibraryDir`
+  (exec-capable ; l'app-data-dir ne l'est pas sous SELinux).
+- Le protocole stdout est figé : `PROGRESS:`, `STATUS:`, `DONE:`, `ERROR:`
+  (voir `zeus_runtime.dart` et `docs/extensions_system.md` §4). Toute nouvelle
+  sortie passe par `ZeusProtocol.parseLine` — pas de parsing ad hoc dans l'UI.
+- **Aucune API de plateforme.** TikTok/Facebook sont résolus en lisant les
+  balises Open Graph / le JSON embarqué (`SocialMediaExtractor`, pur et testé),
+  puis téléchargés par le moteur interne ; ZeusDL n'est qu'un chemin avancé
+  optionnel (filigrane, posts privés). Ne pas ajouter de clé API tierce.
+- `LinkDownloadService` gère le flux « coller un lien » (file de
+  téléchargement → icône lien). Il n'écrit **aucune** ligne Isar : c'est un
+  téléchargement direct vers `WatchtowerFolderService.getDownloadDir('anime')`.

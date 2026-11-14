@@ -6680,6 +6680,10 @@ class AppLocalizationsJa extends AppLocalizations {
       'Hands off to an external app (ADM, 1DM, FDM, IDM…). The download leaves the app.';
 
   @override
+  String get downloads_mode_zeus_desc =>
+      'Python extractor (ZeusDL) for web pages: TikTok, Facebook, Instagram… without watermark.';
+
+  @override
   String get downloads_manga_engine_note =>
       'Manga always uses the internal downloader: a chapter’s pages are fetched in parallel automatically.';
 

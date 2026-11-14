@@ -8,10 +8,14 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 
 /// Engine mode for anime (video) downloads only.
 /// Manga and novel always use the internal downloader.
+///
+/// IMPORTANT: do NOT reorder existing values — the index is persisted in
+/// `download_settings.json` (`animeDownloadMode`). New engines are appended.
 enum DownloadMode {
   internalDownloader, // 0 — internal HLS/M3U8 downloader
   aria2,              // 1 — aria2c binary downloader
   external,           // 2 — hand off to ADM/1DM/FDM/IDM via intent
+  zeus,               // 3 — ZeusDL Python extractor (TikTok, Facebook, …)
 }
 
 extension DownloadModeExt on DownloadMode {
@@ -24,6 +28,8 @@ extension DownloadModeExt on DownloadMode {
         return 'Aria2';
       case DownloadMode.external:
         return l10n.downloads_mode_external;
+      case DownloadMode.zeus:
+        return 'ZeusDL';
     }
   }
 
@@ -36,6 +42,22 @@ extension DownloadModeExt on DownloadMode {
         return l10n.downloads_mode_aria2_desc;
       case DownloadMode.external:
         return l10n.downloads_mode_external_desc;
+      case DownloadMode.zeus:
+        return l10n.downloads_mode_zeus_desc;
+    }
+  }
+
+  /// Short badge shown on the download queue card, matching the selector badges.
+  String get badgeLabel {
+    switch (this) {
+      case DownloadMode.internalDownloader:
+        return 'HYDRA';
+      case DownloadMode.aria2:
+        return 'ARES';
+      case DownloadMode.external:
+        return 'EXT';
+      case DownloadMode.zeus:
+        return 'ZEUS';
     }
   }
 

@@ -10,16 +10,22 @@ class EngineSelector {
     bool hasFailed = false,
     int retryCount = 0,
   }) {
-    if (mode == DownloadMode.aria2) {
-      return SelectedEngine.aria2;
+    switch (mode) {
+      case DownloadMode.aria2:
+        return SelectedEngine.aria2;
+      case DownloadMode.zeus:
+        return SelectedEngine.zeus;
+      case DownloadMode.external:
+        // External hand-off is decided upstream; keep the internal fallback so
+        // a caller that reaches the selector still gets a working engine.
+        return SelectedEngine.internal;
+      case DownloadMode.internalDownloader:
+        return SelectedEngine.internal;
     }
-
-    // internalDownloader: always use internal HLS
-    return SelectedEngine.internal;
   }
 }
 
-enum SelectedEngine { internal, aria2 }
+enum SelectedEngine { internal, aria2, zeus }
 
 extension SelectedEngineExt on SelectedEngine {
   String get badgeLabel {
@@ -28,6 +34,8 @@ extension SelectedEngineExt on SelectedEngine {
         return 'HYDRA';
       case SelectedEngine.aria2:
         return 'ARES';
+      case SelectedEngine.zeus:
+        return 'ZEUS';
     }
   }
 
@@ -37,6 +45,8 @@ extension SelectedEngineExt on SelectedEngine {
         return 'Hydra Stream';
       case SelectedEngine.aria2:
         return 'Ares Multi';
+      case SelectedEngine.zeus:
+        return 'ZeusDL';
     }
   }
 }

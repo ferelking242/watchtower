@@ -44,7 +44,10 @@ import 'package:watchtower/services/download_manager/engine_selector.dart';
 import 'package:watchtower/services/video_duration_probe_stub.dart'
     if (dart.library.ffi) 'package:watchtower/services/video_duration_probe_io.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_engine.dart';
+import 'package:watchtower/services/download_manager/engines/download_engine.dart';
 import 'package:watchtower/services/download_manager/engines/ffmpeg_hls_engine.dart';
+import 'package:watchtower/services/download_manager/engines/zeus_engine.dart';
+import 'package:watchtower/services/download_manager/engines/zeus_runtime.dart';
 import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/services/download_manager/speed_meter.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
@@ -2901,40 +2904,55 @@ Future<void> downloadChapter(
         ref.read(downloadQueueStateProvider.notifier).setEngine(chapter.id!, engine.badgeLabel);
       }
 
-      if (engine == SelectedEngine.aria2) {
-        // ── Aria2 path ──────────────────────────────────────────────────
-        log('[downloadChapter][anime/Aria2] starting chapterId=${chapter.id}');
-        final aria2Engine = Aria2Engine(
-          url: videoUrl,
-          outputPath: m3u8Downloader!.fileName,
-          headers: m3u8Downloader!.headers ?? {},
-          itemType: itemType,
-          chapterId: '${chapter.id}',
-        );
+      if (engine == SelectedEngine.aria2 || engine == SelectedEngine.zeus) {
+        // ── Aria2 / ZeusDL path ─────────────────────────────────────────
+        final isZeus = engine == SelectedEngine.zeus;
+        log('[downloadChapter][anime/${isZeus ? 'Zeus' : 'Aria2'}] starting chapterId=${chapter.id}');
+        final DownloadEngine activeEngine = isZeus
+            ? ZeusEngine(
+                url: videoUrl,
+                outputPath: m3u8Downloader!.fileName,
+                headers: m3u8Downloader!.headers ?? {},
+                itemType: itemType,
+                chapterId: '${chapter.id}',
+                params: ZeusParams(
+                  url: videoUrl,
+                  quality: null,
+                  audioOnly: itemType == ItemType.music,
+                ),
+              )
+            : Aria2Engine(
+                url: videoUrl,
+                outputPath: m3u8Downloader!.fileName,
+                headers: m3u8Downloader!.headers ?? {},
+                itemType: itemType,
+                chapterId: '${chapter.id}',
+              );
         if (chapter.id != null) {
           ActiveDownloadRegistry.registerEngine(
             chapter.id!,
-            aria2Engine,
+            activeEngine,
             itemType: itemType,
             source: manga.source ?? '_unknown',
           );
         }
-        bool aria2Failed = false;
+        bool engineFailed = false;
         try {
-          await aria2Engine.start((progress) => setProgress(progress));
-          log('[downloadChapter][anime/Aria2] completed chapterId=${chapter.id}');
+          await activeEngine.start((progress) => setProgress(progress));
+          log('[downloadChapter][anime/${isZeus ? 'Zeus' : 'Aria2'}] completed chapterId=${chapter.id}');
         } catch (e) {
-          aria2Failed = true;
-          log('[downloadChapter][anime/Aria2] FAILED chapterId=${chapter.id} error=$e');
+          engineFailed = true;
+          log('[downloadChapter][anime/${isZeus ? 'Zeus' : 'Aria2'}] FAILED chapterId=${chapter.id} error=$e');
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
           }
         }
-        // Aria2 cannot do HLS — fall back to internal HLS for .m3u8 streams
-        if (aria2Failed) {
+        // Aria2 and ZeusDL cannot do HLS — fall back to internal HLS for
+        // .m3u8 streams (and for any extractor failure).
+        if (engineFailed) {
           log(
-            '[downloadChapter][anime/Aria2→HLS] falling back to internal HLS chapterId=${chapter.id}',
+            '[downloadChapter][anime/${isZeus ? 'Zeus' : 'Aria2'}→HLS] falling back to internal HLS chapterId=${chapter.id}',
           );
           if (chapter.id != null) {
             ref.read(downloadQueueStateProvider.notifier).setEngine(chapter.id!, 'HLS');
