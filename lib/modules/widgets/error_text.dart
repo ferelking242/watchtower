@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart'
     show extensionErrorTitle, extensionRequestFailureMessage;
 
@@ -29,8 +30,11 @@ class _ErrorTextState extends State<ErrorText> {
   @override
   Widget build(BuildContext context) {
     final text = widget.errorText?.toString() ?? '';
-    final title = extensionErrorTitle(widget.errorText);
-    final failureMessage = extensionRequestFailureMessage(widget.errorText);
+    final title = extensionErrorTitle(widget.errorText, context.l10n);
+    final failureMessage = extensionRequestFailureMessage(
+      widget.errorText,
+      context.l10n,
+    );
     final summary =
         failureMessage == null ? null : _limitSummary(failureMessage);
     final hasDetails = text.trim().isNotEmpty && text.trim() != summary?.trim();
@@ -84,8 +88,8 @@ class _ErrorTextState extends State<ErrorText> {
                       setState(() => _detailsExpanded = !_detailsExpanded),
                   child: Text(
                     _detailsExpanded
-                        ? 'Masquer les détails'
-                        : 'Détails de l’erreur',
+                        ? context.l10n.source_err_hide_details
+                        : context.l10n.source_err_details,
                   ),
                 ),
               ],
@@ -107,7 +111,7 @@ class _ErrorTextState extends State<ErrorText> {
                 ),
               const SizedBox(height: 4),
               IconButton(
-                tooltip: 'Copier le détail de l’erreur',
+                tooltip: context.l10n.source_err_copy_details,
                 visualDensity: VisualDensity.compact,
                 iconSize: 18,
                 onPressed: text.isEmpty
@@ -115,7 +119,7 @@ class _ErrorTextState extends State<ErrorText> {
                     : () async {
                         await Clipboard.setData(ClipboardData(text: text));
                         try {
-                          botToast('Erreur copiée')();
+                          botToast(context.l10n.source_err_copied)();
                         } catch (_) {}
                       },
                 icon: Icon(

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -38,6 +39,7 @@ import 'package:watchtower/modules/more/settings/downloads/smart_library_screen.
 import 'package:watchtower/modules/dev/component_gallery_screen.dart';
 import 'package:watchtower/modules/browse/extension/layout_json_editor_screen.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/media/extension_image_headers.dart';
@@ -153,8 +155,16 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
           final sections = home['sections'];
           if (sections is! List || sections.isEmpty) {
             home['sections'] = [
-              <String, dynamic>{'id': 'popular', 'title': 'Popular', 'component': 'grid'},
-              <String, dynamic>{'id': 'latest', 'title': 'Latest', 'component': 'grid'},
+              <String, dynamic>{
+                'id': 'popular',
+                'title': context.l10n.popular,
+                'component': 'grid',
+              },
+              <String, dynamic>{
+                'id': 'latest',
+                'title': context.l10n.latest,
+                'component': 'grid',
+              },
             ];
             decodedLayout['home'] = home;
             loadedLayout = UiLayout.fromJson(decodedLayout);
@@ -220,7 +230,7 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
   Future<bool> _saveLayoutSections(List<Map<String, dynamic>> sections) async {
     final original = _layoutJson;
     if (original == null) {
-      _showEditorMessage('Le layout de cette extension est indisponible.');
+      _showEditorMessage(context.l10n.watch_home_layout_unavailable);
       return false;
     }
 
@@ -237,11 +247,11 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
         const JsonEncoder.withIndent('  ').convert(updated),
       );
     } catch (error) {
-      _showEditorMessage('Échec de l’enregistrement du layout : $error');
+      _showEditorMessage(context.l10n.watch_home_layout_save_failed('$error'));
       return false;
     }
     if (!saved) {
-      _showEditorMessage('Le layout n’a pas pu être enregistré.');
+      _showEditorMessage(context.l10n.watch_home_layout_not_saved);
       return false;
     }
     if (!mounted) return false;
@@ -328,13 +338,13 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
   Future<void> _applyLayoutComponent(String component) async {
     final sectionId = _pendingReplacementSectionId;
     if (sectionId == null) {
-      _showEditorMessage('Maintiens d’abord une section, puis choisis « Remplacer ».');
+      _showEditorMessage(context.l10n.watch_home_hold_section_first);
       return;
     }
     final sections = _copyLayoutSections();
     final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
-      _showEditorMessage('Cette section n’existe plus dans le layout.');
+      _showEditorMessage(context.l10n.watch_home_section_gone);
       return;
     }
     sections[index]['component'] = component;
@@ -356,22 +366,20 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
     if (sectionId == null) return;
     if (source.itemType != ItemType.anime ||
         !LayoutComponentRegistry.supports(component, LayoutComponentContext.homeEpisodeCard)) {
-      _showEditorMessage('Cette carte épisode n’est pas compatible avec cette sélection.');
+      _showEditorMessage(context.l10n.watch_home_episode_card_incompatible);
       return;
     }
 
     final sections = _copyLayoutSections();
     final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
-      _showEditorMessage('Cette section n’existe plus dans le layout.');
+      _showEditorMessage(context.l10n.watch_home_section_gone);
       return;
     }
     final sectionComponent = sections[index]['component']?.toString() ?? 'grid';
     if (LayoutComponentRegistry.resolve(sectionComponent)?.renderer !=
         LayoutComponentRenderer.grid) {
-      _showEditorMessage(
-        'Les cartes épisode personnalisées sont disponibles sur les sections en grille.',
-      );
+      _showEditorMessage(context.l10n.watch_home_episode_card_grid_only);
       return;
     }
 
@@ -391,22 +399,20 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
     if (sectionId == null) return;
     if (source.itemType != ItemType.manga ||
         !LayoutComponentRegistry.supports(component, LayoutComponentContext.chapter)) {
-      _showEditorMessage('Cette carte de chapitre n’est pas compatible avec cette sélection.');
+      _showEditorMessage(context.l10n.watch_home_chapter_card_incompatible);
       return;
     }
 
     final sections = _copyLayoutSections();
     final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
-      _showEditorMessage('Cette section n’existe plus dans le layout.');
+      _showEditorMessage(context.l10n.watch_home_section_gone);
       return;
     }
     final sectionComponent = sections[index]['component']?.toString() ?? 'grid';
     if (LayoutComponentRegistry.resolve(sectionComponent)?.renderer !=
         LayoutComponentRenderer.grid) {
-      _showEditorMessage(
-        'Les cartes de chapitre personnalisées sont disponibles sur les sections en grille.',
-      );
+      _showEditorMessage(context.l10n.watch_home_chapter_card_grid_only);
       return;
     }
 
@@ -426,22 +432,20 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
     if (sectionId == null) return;
     if (source.itemType != ItemType.manga ||
         !LayoutComponentRegistry.supports(component, LayoutComponentContext.homeMangaCard)) {
-      _showEditorMessage('Cette carte Manga n’est pas compatible avec cette sélection.');
+      _showEditorMessage(context.l10n.watch_home_manga_card_incompatible);
       return;
     }
 
     final sections = _copyLayoutSections();
     final index = sections.indexWhere((section) => section['id']?.toString() == sectionId);
     if (index < 0) {
-      _showEditorMessage('Cette section n’existe plus dans le layout.');
+      _showEditorMessage(context.l10n.watch_home_section_gone);
       return;
     }
     final sectionComponent = sections[index]['component']?.toString() ?? 'grid';
     if (LayoutComponentRegistry.resolve(sectionComponent)?.renderer !=
         LayoutComponentRenderer.grid) {
-      _showEditorMessage(
-        'Les cartes Manga personnalisées sont disponibles sur les sections en grille.',
-      );
+      _showEditorMessage(context.l10n.watch_home_manga_card_grid_only);
       return;
     }
 
@@ -465,7 +469,9 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
         _layout = LayoutRegistry.instance.get(source);
       });
     } catch (error) {
-      _showEditorMessage('Layout enregistré, mais aperçu impossible à actualiser : $error');
+      _showEditorMessage(
+        context.l10n.watch_home_preview_refresh_failed('$error'),
+      );
     }
   }
 
@@ -537,7 +543,7 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
             sectionId: collection.listId,
             title: item.name?.trim().isNotEmpty == true
                 ? item.name!.trim()
-                : source.name ?? 'Collection',
+                : source.name ?? context.l10n.watch_home_collection,
             initialExtensionItems: const [],
             cardStyle: collection.listId.startsWith('search_') ? 'landscape' : null,
           ),
@@ -571,7 +577,9 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
       if (!mounted) return;
       if (first == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aucune vidéo disponible dans cette playlist.')),
+          SnackBar(
+            content: Text(context.l10n.watch_home_no_video_in_playlist),
+          ),
         );
         return;
       }
@@ -580,7 +588,11 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Impossible de charger la playlist : $error')));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.watch_home_playlist_load_failed('$error')),
+        ),
+      );
     }
   }
 
@@ -629,7 +641,9 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
       return TmdbMoviesListScreen.extension(
         source: source,
         sectionId: initialSectionId,
-        title: initialSectionId == 'latest' ? 'Latest' : initialSectionId,
+        title: initialSectionId == 'latest'
+            ? context.l10n.latest
+            : initialSectionId,
         initialExtensionItems: const [],
       );
     }
@@ -891,14 +905,16 @@ class _ExtensionFeed extends StatelessWidget {
         source.itemType == ItemType.manga &&
         sectionDefinition?.supportedContexts.contains(LayoutComponentContext.home) == true &&
         sectionDefinition?.renderer == LayoutComponentRenderer.grid;
+    final defaultCardLabel = context.l10n.watch_home_default_card;
     final selectedCardLabel =
-        LayoutComponentRegistry.resolve(section.cardComponent ?? '')?.label ?? 'Affiche standard';
+        LayoutComponentRegistry.resolve(section.cardComponent ?? '')?.label ??
+        context.l10n.watch_home_default_poster;
     final selectedEpisodeCardLabel =
         LayoutComponentRegistry.resolve(section.episodeComponent ?? '')?.label ??
-        'Carte par défaut';
+        defaultCardLabel;
     final selectedChapterCardLabel =
         LayoutComponentRegistry.resolve(section.chapterComponent ?? '')?.label ??
-        'Carte par défaut';
+        defaultCardLabel;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -909,12 +925,12 @@ class _ExtensionFeed extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.open_with_rounded),
               title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: const Text('Actions sur cette section'),
+              subtitle: Text(context.l10n.watch_home_section_actions),
             ),
             if (index > 0)
               ListTile(
                 leading: const Icon(Icons.arrow_upward_rounded),
-                title: const Text('Déplacer d’un niveau vers le haut'),
+                title: Text(context.l10n.watch_home_move_up),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   onMoveSection(index, -1);
@@ -923,7 +939,7 @@ class _ExtensionFeed extends StatelessWidget {
             if (index < sectionCount - 1)
               ListTile(
                 leading: const Icon(Icons.arrow_downward_rounded),
-                title: const Text('Déplacer d’un niveau vers le bas'),
+                title: Text(context.l10n.watch_home_move_down),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   onMoveSection(index, 1);
@@ -931,7 +947,7 @@ class _ExtensionFeed extends StatelessWidget {
               ),
             ListTile(
               leading: const Icon(Icons.widgets_outlined),
-              title: const Text('Remplacer le composant'),
+              title: Text(context.l10n.watch_home_replace_component),
               onTap: () {
                 Navigator.of(sheetContext).pop();
                 onReplaceSection(section.id);
@@ -940,8 +956,10 @@ class _ExtensionFeed extends StatelessWidget {
             if (canCustomizeMangaCards)
               ListTile(
                 leading: const Icon(Icons.style_outlined),
-                title: const Text('Style des cartes manga'),
-                subtitle: Text('Actuel : $selectedCardLabel'),
+                title: Text(context.l10n.watch_home_manga_card_style),
+                subtitle: Text(
+                  context.l10n.watch_home_current_value(selectedCardLabel),
+                ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   onCustomizeMangaCards(section.id);
@@ -950,8 +968,10 @@ class _ExtensionFeed extends StatelessWidget {
             if (canCustomizeEpisodeCards)
               ListTile(
                 leading: const Icon(Icons.movie_outlined),
-                title: const Text('Style des cartes épisode'),
-                subtitle: Text('Actuel : $selectedEpisodeCardLabel'),
+                title: Text(context.l10n.watch_home_episode_card_style),
+                subtitle: Text(
+                  context.l10n.watch_home_current_value(selectedEpisodeCardLabel),
+                ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   onCustomizeEpisodeCards(section.id);
@@ -960,8 +980,10 @@ class _ExtensionFeed extends StatelessWidget {
             if (canCustomizeChapterCards)
               ListTile(
                 leading: const Icon(Icons.menu_book_outlined),
-                title: const Text('Style des cartes de chapitre'),
-                subtitle: Text('Actuel : $selectedChapterCardLabel'),
+                title: Text(context.l10n.watch_home_chapter_card_style),
+                subtitle: Text(
+                  context.l10n.watch_home_current_value(selectedChapterCardLabel),
+                ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   onCustomizeChapterCards(section.id);
@@ -973,7 +995,7 @@ class _ExtensionFeed extends StatelessWidget {
                 color: Theme.of(context).colorScheme.error,
               ),
               title: Text(
-                'Supprimer la section',
+                context.l10n.watch_home_delete_section,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               onTap: () async {
@@ -981,16 +1003,18 @@ class _ExtensionFeed extends StatelessWidget {
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (dialogContext) => AlertDialog(
-                    title: const Text('Supprimer cette section ?'),
-                    content: Text('« $title » sera retirée de cet accueil.'),
+                    title: Text(context.l10n.watch_home_delete_section_title),
+                    content: Text(
+                      context.l10n.watch_home_delete_section_body(title),
+                    ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(dialogContext).pop(false),
-                        child: const Text('Annuler'),
+                        child: Text(context.l10n.cancel),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.of(dialogContext).pop(true),
-                        child: const Text('Supprimer'),
+                        child: Text(context.l10n.delete),
                       ),
                     ],
                   ),
@@ -1042,7 +1066,7 @@ class _ExtensionFeed extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'Aucune section. Utilise l’éditeur JSON pour en créer une.',
+                      context.l10n.watch_home_no_section,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
@@ -1067,13 +1091,13 @@ class _ExtensionFeed extends StatelessWidget {
                             child: Stack(
                               children: [
                                 rendered,
-                                const Positioned(
+                                Positioned(
                                   right: 14,
                                   top: 8,
                                   child: IgnorePointer(
                                     child: Tooltip(
-                                      message: 'Maintenir pour modifier',
-                                      child: Icon(
+                                      message: context.l10n.watch_home_hold_to_edit,
+                                      child: const Icon(
                                         Icons.edit_rounded,
                                         size: 17,
                                         color: Colors.white70,
@@ -1087,7 +1111,7 @@ class _ExtensionFeed extends StatelessWidget {
                         })
                       : [
                           MediaPosterRail(
-                            title: 'Popular',
+                            title: context.l10n.popular,
                             leadingIcon: Broken.flash,
                             items: popular.map(ContentItem.fromManga).toList(growable: false),
                             onOpen: (index) => onOpen(popular[index]),
@@ -1095,13 +1119,13 @@ class _ExtensionFeed extends StatelessWidget {
                               context,
                               source: source,
                               id: 'popular',
-                              title: 'Popular',
+                              title: context.l10n.popular,
                               initialItems: popular,
                             ),
                           ),
                           if (latest.isNotEmpty)
                             MediaPosterRail(
-                              title: 'Latest',
+                              title: context.l10n.latest,
                               leadingIcon: Broken.clock,
                               items: latest.map(ContentItem.fromManga).toList(growable: false),
                               onOpen: (index) => onOpen(latest[index]),
@@ -1109,7 +1133,7 @@ class _ExtensionFeed extends StatelessWidget {
                                 context,
                                 source: source,
                                 id: 'latest',
-                                title: 'Latest',
+                                title: context.l10n.latest,
                                 initialItems: latest,
                               ),
                             ),
@@ -1237,19 +1261,19 @@ class _LayoutEditorDock extends StatelessWidget {
                   children: [
                     _DockDestinationButton(
                       icon: Icons.home_rounded,
-                      label: 'Accueil',
+                      label: context.l10n.watch_home_home,
                       selected: destination == _LayoutEditorDestination.home,
                       onTap: () => onSelect(_LayoutEditorDestination.home),
                     ),
                     _DockDestinationButton(
                       icon: Icons.widgets_outlined,
-                      label: 'Galerie composants',
+                      label: context.l10n.watch_home_component_gallery,
                       selected: destination == _LayoutEditorDestination.gallery,
                       onTap: () => onSelect(_LayoutEditorDestination.gallery),
                     ),
                     _DockDestinationButton(
                       icon: Icons.data_object_rounded,
-                      label: 'Éditeur JSON',
+                      label: context.l10n.watch_home_json_editor,
                       selected: destination == _LayoutEditorDestination.json,
                       onTap: () => onSelect(_LayoutEditorDestination.json),
                     ),
@@ -1260,7 +1284,9 @@ class _LayoutEditorDock extends StatelessWidget {
           const SizedBox(height: 8),
           FloatingActionButton.small(
             heroTag: 'layout-editor-dock-toggle',
-            tooltip: expanded ? 'Fermer le dock d\'édition' : 'Ouvrir le dock d\'édition',
+            tooltip: expanded
+                ? context.l10n.watch_home_close_edit_dock
+                : context.l10n.watch_home_open_edit_dock,
             onPressed: onToggle,
             // Bouton flottant « < » qui déplie le dock de navigation.
             child: Icon(expanded ? Icons.close_rounded : Icons.expand_more_rounded),
@@ -1390,25 +1416,11 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
     return values;
   }
 
-  String _monthLabel(String monthKey) {
+  String _monthLabel(BuildContext context, String monthKey) {
     final date = DateTime.tryParse('$monthKey-01');
     if (date == null) return monthKey;
-    const names = [
-      'janvier',
-      'février',
-      'mars',
-      'avril',
-      'mai',
-      'juin',
-      'juillet',
-      'août',
-      'septembre',
-      'octobre',
-      'novembre',
-      'décembre',
-    ];
-    final name = names[date.month - 1];
-    return '${name[0].toUpperCase()}${name.substring(1)} ${date.year}';
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    return DateFormat.yMMMM(locale).format(date);
   }
 
   String get _listId {
@@ -1421,7 +1433,10 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
     final base = widget.section.title?.trim().isNotEmpty == true
         ? widget.section.title!.trim()
         : widget.section.id;
-    return base.replaceAll('{month}', _monthLabel(_selectedMonth ?? _initialMonth()));
+    return base.replaceAll(
+      '{month}',
+      _monthLabel(context, _selectedMonth ?? _initialMonth()),
+    );
   }
 
   Widget _withMonthSelector(BuildContext context, Widget child) {
@@ -1456,7 +1471,7 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
                 Icon(Icons.calendar_month_rounded, color: cs.onSurfaceVariant, size: 18),
                 const SizedBox(width: 8),
                 Text(
-                  'Choisir un mois',
+                  context.l10n.watch_home_choose_month,
                   style: TextStyle(
                     color: cs.onSurfaceVariant,
                     fontSize: 12,
@@ -1476,7 +1491,10 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
                     ),
                     items: [
                       for (final month in _monthOptions())
-                        DropdownMenuItem(value: month, child: Text(_monthLabel(month))),
+                        DropdownMenuItem(
+                          value: month,
+                          child: Text(_monthLabel(context, month)),
+                        ),
                     ],
                     onChanged: (month) {
                       if (month == null || month == _selectedMonth) return;
@@ -1790,7 +1808,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
             child: Text(
-              'Aucun épisode numéroté avec une URL valide n’a été fourni par cette source.',
+              context.l10n.watch_home_no_episode_from_source,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1810,7 +1828,7 @@ class ExtensionLayoutPreview extends StatelessWidget {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
             child: Text(
-              'Aucun chapitre avec un titre et une URL valides n’a été fourni par cette source.',
+              context.l10n.watch_home_no_chapter_from_source,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -2155,14 +2173,17 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     if (!spotlight) {
-      final message = extensionRequestFailureMessage(error) ??
-          'La source est momentanément indisponible.';
+      final message =
+          extensionRequestFailureMessage(error, context.l10n) ??
+          context.l10n.watch_home_source_unavailable;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppSectionHeader(
             title: title,
-            actionLabel: onSeeAll == null ? null : 'All >',
+            actionLabel: onSeeAll == null
+                ? null
+                : context.l10n.media_see_all_arrow,
             onAction: onSeeAll,
           ),
           Padding(
@@ -2180,7 +2201,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                     kaomoji: '(╥﹏╥)',
                     size: 24,
                     color: cs.error,
-                    message: extensionErrorTitle(error),
+                    message: extensionErrorTitle(error, context.l10n),
                     messageStyle: TextStyle(
                       color: cs.onSurface,
                       fontSize: 13,
@@ -2203,7 +2224,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onRetry,
                     icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: const Text('Réessayer'),
+                    label: Text(context.l10n.retry),
                     style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       padding: const EdgeInsets.symmetric(
@@ -2245,7 +2266,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${extensionErrorTitle(error)} · $title',
+                    '${extensionErrorTitle(error, context.l10n)} · $title',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -2256,8 +2277,8 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    extensionRequestFailureMessage(error) ??
-                        'La source est momentanément indisponible.',
+                    extensionRequestFailureMessage(error, context.l10n) ??
+                        context.l10n.watch_home_source_unavailable,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11.5, height: 1.3),
@@ -2266,7 +2287,7 @@ class _ExtensionLayoutSectionError extends StatelessWidget {
               ),
             ),
             IconButton(
-              tooltip: 'Réessayer',
+              tooltip: context.l10n.retry,
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 20),
               color: cs.primary,
@@ -2307,12 +2328,16 @@ class _ExtensionLayoutSectionEmpty extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const KaomojiEmpty(kaomoji: '(´・ω・`)', size: 22, message: 'Aucun contenu'),
+                KaomojiEmpty(
+                  kaomoji: '(´・ω・`)',
+                  size: 22,
+                  message: context.l10n.watch_home_no_content,
+                ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: const Text('Réessayer'),
+                  label: Text(context.l10n.retry),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -2364,7 +2389,9 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    source.name?.trim().isNotEmpty == true ? source.name!.trim() : 'Extension',
+                    source.name?.trim().isNotEmpty == true
+                        ? source.name!.trim()
+                        : context.l10n.watch_home_extension,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -2378,17 +2405,17 @@ class _ExtensionFeedTopHeader extends StatelessWidget {
                   _ExtensionIconButton(
                     icon: Broken.search_normal,
                     onPressed: onSearch,
-                    tooltip: 'Rechercher',
+                    tooltip: context.l10n.watch_home_search,
                   ),
                 _ExtensionIconButton(
                   icon: Broken.bookmark,
                   onPressed: onLibrary,
-                  tooltip: 'Library',
+                  tooltip: context.l10n.library,
                 ),
                 _ExtensionIconButton(
                   icon: Broken.setting_2,
                   onPressed: onSettings,
-                  tooltip: 'Paramètres de l’extension',
+                  tooltip: context.l10n.extension_settings,
                 ),
               ],
             ),
@@ -2432,7 +2459,9 @@ class _ExtensionFeedOverlayHeader extends StatelessWidget {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    source.name?.trim().isNotEmpty == true ? source.name!.trim() : 'Extension',
+                    source.name?.trim().isNotEmpty == true
+                        ? source.name!.trim()
+                        : context.l10n.watch_home_extension,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -2443,17 +2472,17 @@ class _ExtensionFeedOverlayHeader extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Rechercher',
+                  tooltip: context.l10n.watch_home_search,
                   onPressed: onSearch,
                   icon: const Icon(Broken.search_normal),
                 ),
                 IconButton(
-                  tooltip: 'Library',
+                  tooltip: context.l10n.library,
                   onPressed: onLibrary,
                   icon: const Icon(Broken.bookmark),
                 ),
                 IconButton(
-                  tooltip: 'Paramètres de l’extension',
+                  tooltip: context.l10n.extension_settings,
                   onPressed: onSettings,
                   icon: const Icon(Broken.setting_2),
                 ),
@@ -2485,7 +2514,11 @@ class _ExtensionCollectionCardRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(title: title, actionLabel: 'All >', onAction: onSeeAll),
+        AppSectionHeader(
+          title: title,
+          actionLabel: context.l10n.media_see_all_arrow,
+          onAction: onSeeAll,
+        ),
         SizedBox(
           height: 112,
           child: ListView.separated(
@@ -2564,7 +2597,9 @@ class _ExtensionCollectionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      item.name?.trim().isNotEmpty == true ? item.name!.trim() : 'Collection',
+                      item.name?.trim().isNotEmpty == true
+                          ? item.name!.trim()
+                          : context.l10n.watch_home_collection,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -2911,14 +2946,18 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
           onSubmitted: (_) => _submit(),
           style: TextStyle(color: cs.onSurface),
           decoration: InputDecoration(
-            hintText: 'Rechercher dans ${widget.source.name ?? 'l’extension'}',
+            hintText: widget.source.name?.trim().isNotEmpty == true
+                ? context.l10n.watch_home_search_in_source(
+                    widget.source.name!.trim(),
+                  )
+                : context.l10n.watch_home_search_in_extension,
             border: InputBorder.none,
           ),
         ),
         actions: [
           IconButton(
             onPressed: _submit,
-            tooltip: 'Rechercher',
+            tooltip: context.l10n.watch_home_search,
             icon: const Icon(Broken.search_normal),
           ),
         ],
@@ -2926,7 +2965,7 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
       body: _submittedQuery.isEmpty
           ? Center(
               child: Text(
-                'Recherchez une vidéo dans cette extension',
+                context.l10n.watch_home_search_video_hint,
                 style: TextStyle(color: cs.onSurfaceVariant),
               ),
             )
@@ -2941,13 +2980,13 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                       Icon(Icons.cloud_off_rounded, color: cs.onSurfaceVariant, size: 44),
                       const SizedBox(height: 14),
                       Text(
-                        extensionErrorTitle(error),
+                        extensionErrorTitle(error, context.l10n),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        extensionRequestFailureMessage(error) ?? '',
+                        extensionRequestFailureMessage(error, context.l10n) ?? '',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: cs.onSurfaceVariant, height: 1.4),
                       ),
@@ -2964,7 +3003,7 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                           );
                         },
                         icon: const Icon(Icons.refresh_rounded, size: 18),
-                        label: const Text('Réessayer'),
+                        label: Text(context.l10n.retry),
                       ),
                     ],
                   ),
@@ -2974,7 +3013,10 @@ class _ExtensionSearchViewState extends ConsumerState<_ExtensionSearchView> {
                 final items = pages?.list ?? const <MManga>[];
                 if (items.isEmpty) {
                   return Center(
-                    child: Text('Aucun résultat', style: TextStyle(color: cs.onSurfaceVariant)),
+                    child: Text(
+                      context.l10n.no_result,
+                      style: TextStyle(color: cs.onSurfaceVariant),
+                    ),
                   );
                 }
                 return GridView.builder(

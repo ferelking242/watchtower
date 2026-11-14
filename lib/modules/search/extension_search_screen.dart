@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -823,8 +824,9 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                                 ? null
                                 : extensionRequestFailureMessage(
                                         _previewError,
+                                        context.l10n,
                                       ) ??
-                                      'La recherche d’aperçu est momentanément indisponible.',
+                                      context.l10n.watch_home_preview_search_unavailable,
                             onRetry: _retrySearchPreview,
                             onOpen: widget.onOpen,
                           ),
@@ -864,18 +866,18 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       final statusCode = extensionHttpStatusCode(_error);
       return _ExtensionSearchMessage(
         title: statusCode == null
-            ? 'Recherche indisponible'
-            : 'Erreur HTTP $statusCode',
+            ? context.l10n.watch_home_search_unavailable
+            : context.l10n.source_err_http(statusCode),
         message:
-            extensionRequestFailureMessage(_error) ??
-            'La source est momentanément indisponible. Réessaie dans quelques instants.',
+            extensionRequestFailureMessage(_error, context.l10n) ??
+            context.l10n.watch_home_search_source_unavailable,
         onRetry: _retrySearch,
       );
     }
     if (_results == null || _results!.isEmpty) {
       return SharedSearchEmptyAnimation(
-        title: 'Aucun résultat',
-        message: 'Rien ne correspond à « $_query ».',
+        title: context.l10n.no_result,
+        message: context.l10n.watch_home_nothing_matches_query(_query),
       );
     }
     return Column(
@@ -925,11 +927,11 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       final statusCode = extensionHttpStatusCode(_error);
       content = _ExtensionSearchMessage(
         title: statusCode == null
-            ? 'Recherche indisponible'
-            : 'Erreur HTTP $statusCode',
+            ? context.l10n.watch_home_search_unavailable
+            : context.l10n.source_err_http(statusCode),
         message:
-            extensionRequestFailureMessage(_error) ??
-            'La source est momentanément indisponible. Réessaie dans quelques instants.',
+            extensionRequestFailureMessage(_error, context.l10n) ??
+            context.l10n.watch_home_search_source_unavailable,
         onRetry: _retrySearch,
       );
     } else if (_results == null || _results!.isEmpty) {

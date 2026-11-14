@@ -1175,7 +1175,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                extensionErrorTitle(error),
+                extensionErrorTitle(error, context.l10n),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,

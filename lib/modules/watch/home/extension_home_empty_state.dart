@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/widgets/kaomoji_empty.dart';
 
 int? extensionHttpStatusCode(Object? error) {
@@ -91,31 +93,31 @@ String? extensionErrorDetail(Object? error) {
 
 /// One short line per HTTP status. The user asked for the code and nothing
 /// else; the raw upstream text stays available behind the details disclosure.
-String _httpCodeLine(int code) => switch (code) {
-      401 || 403 => 'Accès refusé (HTTP $code)',
-      404 => 'Introuvable (HTTP 404)',
-      429 => 'Trop de requêtes (HTTP 429)',
-      >= 500 => 'Erreur serveur (HTTP $code)',
-      _ => 'Erreur HTTP $code',
+String _httpCodeLine(int code, AppLocalizations l10n) => switch (code) {
+      401 || 403 => l10n.source_err_access_denied_http(code),
+      404 => l10n.source_err_not_found_http(code),
+      429 => l10n.source_err_rate_limited_http(code),
+      >= 500 => l10n.source_err_server_http(code),
+      _ => l10n.source_err_http(code),
     };
 
-String? extensionRequestFailureMessage(Object? error) {
+String? extensionRequestFailureMessage(Object? error, AppLocalizations l10n) {
   if (error == null) return null;
   final detail = error.toString().toLowerCase();
   final statusCode = extensionHttpStatusCode(error);
   if (extensionErrorIsCloudflareApiBlock(error)) {
     return statusCode == null
-        ? 'Accès bloqué'
-        : 'Accès bloqué (HTTP $statusCode)';
+        ? l10n.source_err_access_blocked
+        : l10n.source_err_access_blocked_http(statusCode);
   }
   if (extensionErrorIsCloudflareChallenge(error)) {
     return statusCode == null
-        ? 'Vérification requise'
-        : 'Vérification requise (HTTP $statusCode)';
+        ? l10n.source_err_verification_required
+        : l10n.source_err_verification_required_http(statusCode);
   }
-  if (statusCode != null) return _httpCodeLine(statusCode);
+  if (statusCode != null) return _httpCodeLine(statusCode, l10n);
   if (extensionErrorIsConnectionDropped(error)) {
-    return 'Connexion coupée';
+    return l10n.source_err_connection_dropped;
   }
   if (detail.contains('socketexception') ||
       detail.contains('failed host lookup') ||
@@ -123,10 +125,10 @@ String? extensionRequestFailureMessage(Object? error) {
       detail.contains('timeout') ||
       detail.contains('network') ||
       detail.contains('connection')) {
-    return 'Vérifie le réseau';
+    return l10n.source_err_check_network;
   }
   if (detail.contains('http 401') || detail.contains('http 403')) {
-    return 'Accès refusé';
+    return l10n.source_err_access_denied;
   }
   // Never hide an unrecognised failure behind a catch-all sentence: show the
   // extension's own message so the real cause stays visible. When there is no
@@ -199,17 +201,17 @@ bool extensionErrorIsConnectionDropped(Object? error) {
 /// Short, specific heading for a failed extension request. Replaces the former
 /// catch-all “Impossible de charger le contenu” so the real failure (HTTP code,
 /// Cloudflare block, connection error) is visible at a glance.
-String extensionErrorTitle(Object? error) {
-  if (error == null) return 'Aucun contenu disponible';
+String extensionErrorTitle(Object? error, AppLocalizations l10n) {
+  if (error == null) return l10n.source_err_no_content;
   if (extensionErrorIsCloudflareChallenge(error)) {
-    return 'Vérification Cloudflare requise';
+    return l10n.source_err_cloudflare_required;
   }
-  if (extensionErrorIsCloudflareApiBlock(error)) return 'Accès API bloqué';
+  if (extensionErrorIsCloudflareApiBlock(error)) return l10n.source_err_api_blocked;
   if (extensionErrorIsConnectionDropped(error)) {
-    return 'Blocage anti-bot — connexion coupée';
+    return l10n.source_err_antibot_dropped;
   }
   final statusCode = extensionHttpStatusCode(error);
-  if (statusCode != null) return 'Erreur HTTP $statusCode';
+  if (statusCode != null) return l10n.source_err_http(statusCode);
   final detail = error.toString().toLowerCase();
   if (detail.contains('socketexception') ||
       detail.contains('failed host lookup') ||
@@ -217,9 +219,9 @@ String extensionErrorTitle(Object? error) {
       detail.contains('timeout') ||
       detail.contains('network') ||
       detail.contains('connection')) {
-    return 'Connexion impossible';
+    return l10n.source_err_connection_failed;
   }
-  return 'Source indisponible';
+  return l10n.source_err_source_unavailable;
 }
 
 /// True when the inline bypass WebView is worth showing: either a real
@@ -285,14 +287,17 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
   String? get _errorDetail {
     final detail = extensionErrorDetail(widget.error);
     if (detail == null) return null;
-    final summary = extensionRequestFailureMessage(widget.error);
+    final summary = extensionRequestFailureMessage(widget.error, context.l10n);
     if (summary != null && summary.trim() == detail.trim()) return null;
     return detail;
   }
 
   @override
   Widget build(BuildContext context) {
-    final failureMessage = extensionRequestFailureMessage(widget.error);
+    final failureMessage = extensionRequestFailureMessage(
+      widget.error,
+      context.l10n,
+    );
     final httpStatusCode = extensionHttpStatusCode(widget.error);
     // Prefer the exact URL that failed: the bypass WebView must open the
     // challenged request, not the site root (which loads without a challenge).
@@ -361,12 +366,16 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   Center(
                                     child: Semantics(
                                       label: isPlainEmpty
-                                          ? 'Boîte vide'
+                                          ? context.l10n.source_err_empty_box
                                           : challengeDetected
-                                              ? 'Vérification Cloudflare nécessaire'
-                                              : cloudflareApiBlocked
-                                                  ? 'Accès API bloqué'
-                                                  : 'Échec de connexion à la source',
+                                          ? context
+                                                .l10n
+                                                .source_err_cloudflare_needed
+                                          : cloudflareApiBlocked
+                                          ? context.l10n.source_err_api_blocked
+                                          : context
+                                                .l10n
+                                                .source_err_source_connection_failed,
                                       child: KaomojiEmpty(
                                         key: const ValueKey(
                                           'extension-empty-kaomoji',
@@ -382,7 +391,7 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   ),
                                   SizedBox(height: challengeDetected ? 10 : 14),
                                   Text(
-                                    extensionErrorTitle(widget.error),
+                                    extensionErrorTitle(widget.error, context.l10n),
                                     key: const ValueKey('extension-empty-title'),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
@@ -443,11 +452,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                     ),
                                   ] else if (challengeDetected) ...[
                                     const SizedBox(height: 10),
-                                    const Text(
-                                      'Termine la vérification dans le panneau, '
-                                      'puis réessaye.',
+                                    Text(
+                                      context.l10n.source_err_finish_verification,
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 13,
                                         height: 1.45,
@@ -455,11 +463,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                     ),
                                   ] else ...[
                                     const SizedBox(height: 10),
-                                    const Text(
-                                      'La source n’a renvoyé aucun élément. '
-                                      'Réessaye, ou mets l’extension à jour.',
+                                    Text(
+                                      context.l10n.source_err_nothing_returned,
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 13,
                                         height: 1.45,
@@ -504,7 +511,7 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                             Icons.refresh_rounded,
                                             size: 18,
                                           ),
-                                          label: const Text('Réessayer'),
+                                          label: Text(context.l10n.retry),
                                           style: FilledButton.styleFrom(
                                             minimumSize: const Size.fromHeight(
                                               48,
@@ -528,10 +535,10 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                   ],
                                   if (isPlainEmpty) ...[
                                     const SizedBox(height: 12),
-                                    const Text(
-                                      'Tirer vers le bas pour actualiser',
+                                    Text(
+                                      context.l10n.source_err_pull_to_refresh,
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 12.5,
                                         height: 1.4,
@@ -595,10 +602,10 @@ class _ErrorDetailsDisclosure extends StatelessWidget {
                     color: cs.primary,
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Détails de l’erreur',
-                      style: TextStyle(
+                      context.l10n.source_err_details,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,

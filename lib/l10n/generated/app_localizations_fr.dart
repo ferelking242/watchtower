@@ -8507,4 +8507,308 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get marketplace_topic_audio_source => 'Source audio';
+
+  @override
+  String get watch_home_layout_unavailable =>
+      'Le layout de cette extension est indisponible.';
+
+  @override
+  String watch_home_layout_save_failed(Object error) {
+    return 'Échec de l’enregistrement du layout : $error';
+  }
+
+  @override
+  String get watch_home_layout_not_saved =>
+      'Le layout n’a pas pu être enregistré.';
+
+  @override
+  String get watch_home_hold_section_first =>
+      'Maintiens d’abord une section, puis choisis « Remplacer ».';
+
+  @override
+  String get watch_home_section_gone =>
+      'Cette section n’existe plus dans le layout.';
+
+  @override
+  String get watch_home_episode_card_incompatible =>
+      'Cette carte épisode n’est pas compatible avec cette sélection.';
+
+  @override
+  String get watch_home_episode_card_grid_only =>
+      'Les cartes épisode personnalisées sont disponibles sur les sections en grille.';
+
+  @override
+  String get watch_home_chapter_card_incompatible =>
+      'Cette carte de chapitre n’est pas compatible avec cette sélection.';
+
+  @override
+  String get watch_home_chapter_card_grid_only =>
+      'Les cartes de chapitre personnalisées sont disponibles sur les sections en grille.';
+
+  @override
+  String get watch_home_manga_card_incompatible =>
+      'Cette carte Manga n’est pas compatible avec cette sélection.';
+
+  @override
+  String get watch_home_manga_card_grid_only =>
+      'Les cartes Manga personnalisées sont disponibles sur les sections en grille.';
+
+  @override
+  String watch_home_preview_refresh_failed(Object error) {
+    return 'Layout enregistré, mais aperçu impossible à actualiser : $error';
+  }
+
+  @override
+  String get watch_home_no_video_in_playlist =>
+      'Aucune vidéo disponible dans cette playlist.';
+
+  @override
+  String watch_home_playlist_load_failed(Object error) {
+    return 'Impossible de charger la playlist : $error';
+  }
+
+  @override
+  String get watch_home_default_poster => 'Affiche standard';
+
+  @override
+  String get watch_home_default_card => 'Carte par défaut';
+
+  @override
+  String get watch_home_section_actions => 'Actions sur cette section';
+
+  @override
+  String get watch_home_move_up => 'Déplacer d’un niveau vers le haut';
+
+  @override
+  String get watch_home_move_down => 'Déplacer d’un niveau vers le bas';
+
+  @override
+  String get watch_home_replace_component => 'Remplacer le composant';
+
+  @override
+  String get watch_home_manga_card_style => 'Style des cartes manga';
+
+  @override
+  String get watch_home_episode_card_style => 'Style des cartes épisode';
+
+  @override
+  String get watch_home_chapter_card_style => 'Style des cartes de chapitre';
+
+  @override
+  String watch_home_current_value(Object value) {
+    return 'Actuel : $value';
+  }
+
+  @override
+  String get watch_home_delete_section => 'Supprimer la section';
+
+  @override
+  String get watch_home_delete_section_title => 'Supprimer cette section ?';
+
+  @override
+  String watch_home_delete_section_body(Object title) {
+    return '« $title » sera retirée de cet accueil.';
+  }
+
+  @override
+  String get watch_home_no_section =>
+      'Aucune section. Utilise l’éditeur JSON pour en créer une.';
+
+  @override
+  String get watch_home_hold_to_edit => 'Maintenir pour modifier';
+
+  @override
+  String get watch_home_home => 'Accueil';
+
+  @override
+  String get watch_home_component_gallery => 'Galerie composants';
+
+  @override
+  String get watch_home_json_editor => 'Éditeur JSON';
+
+  @override
+  String get watch_home_close_edit_dock => 'Fermer le dock d\'édition';
+
+  @override
+  String get watch_home_open_edit_dock => 'Ouvrir le dock d\'édition';
+
+  @override
+  String get watch_home_choose_month => 'Choisir un mois';
+
+  @override
+  String get watch_home_source_unavailable =>
+      'La source est momentanément indisponible.';
+
+  @override
+  String get watch_home_no_content => 'Aucun contenu';
+
+  @override
+  String get watch_home_extension => 'Extension';
+
+  @override
+  String watch_home_search_in_source(Object source) {
+    return 'Rechercher dans $source';
+  }
+
+  @override
+  String get watch_home_search_in_extension => 'Rechercher dans l’extension';
+
+  @override
+  String get watch_home_search_video_hint =>
+      'Recherchez une vidéo dans cette extension';
+
+  @override
+  String get watch_home_search_failed => 'Recherche impossible';
+
+  @override
+  String get watch_home_reel_follow => 'Suivre';
+
+  @override
+  String get watch_home_reel_following => 'Abonné';
+
+  @override
+  String get watch_home_reel_like => 'J’aime';
+
+  @override
+  String get watch_home_reel_comments => 'Commentaires';
+
+  @override
+  String get watch_home_reel_share => 'Partager';
+
+  @override
+  String get watch_home_reel_no_comment => 'Aucun commentaire pour le moment.';
+
+  @override
+  String get watch_home_search => 'Rechercher';
+
+  @override
+  String get watch_home_collection => 'Collection';
+
+  @override
+  String get watch_home_no_episode_from_source =>
+      'Aucun épisode numéroté avec une URL valide n’a été fourni par cette source.';
+
+  @override
+  String get watch_home_preview_search_unavailable =>
+      'La recherche d’aperçu est momentanément indisponible.';
+
+  @override
+  String get watch_home_search_unavailable => 'Recherche indisponible';
+
+  @override
+  String get watch_home_search_source_unavailable =>
+      'La source est momentanément indisponible. Réessaie dans quelques instants.';
+
+  @override
+  String watch_home_nothing_matches_query(Object query) {
+    return 'Rien ne correspond à « $query ».';
+  }
+
+  @override
+  String get watch_home_no_chapter_from_source =>
+      'Aucun chapitre avec un titre et une URL valides n’a été fourni par cette source.';
+
+  @override
+  String source_err_access_denied_http(Object code) {
+    return 'Accès refusé (HTTP $code)';
+  }
+
+  @override
+  String source_err_not_found_http(Object code) {
+    return 'Introuvable (HTTP $code)';
+  }
+
+  @override
+  String source_err_rate_limited_http(Object code) {
+    return 'Trop de requêtes (HTTP $code)';
+  }
+
+  @override
+  String source_err_server_http(Object code) {
+    return 'Erreur serveur (HTTP $code)';
+  }
+
+  @override
+  String source_err_http(Object code) {
+    return 'Erreur HTTP $code';
+  }
+
+  @override
+  String get source_err_access_blocked => 'Accès bloqué';
+
+  @override
+  String source_err_access_blocked_http(Object code) {
+    return 'Accès bloqué (HTTP $code)';
+  }
+
+  @override
+  String get source_err_verification_required => 'Vérification requise';
+
+  @override
+  String source_err_verification_required_http(Object code) {
+    return 'Vérification requise (HTTP $code)';
+  }
+
+  @override
+  String get source_err_connection_dropped => 'Connexion coupée';
+
+  @override
+  String get source_err_check_network => 'Vérifie le réseau';
+
+  @override
+  String get source_err_access_denied => 'Accès refusé';
+
+  @override
+  String get source_err_no_content => 'Aucun contenu disponible';
+
+  @override
+  String get source_err_cloudflare_required =>
+      'Vérification Cloudflare requise';
+
+  @override
+  String get source_err_api_blocked => 'Accès API bloqué';
+
+  @override
+  String get source_err_antibot_dropped =>
+      'Blocage anti-bot — connexion coupée';
+
+  @override
+  String get source_err_connection_failed => 'Connexion impossible';
+
+  @override
+  String get source_err_source_unavailable => 'Source indisponible';
+
+  @override
+  String get source_err_empty_box => 'Boîte vide';
+
+  @override
+  String get source_err_cloudflare_needed =>
+      'Vérification Cloudflare nécessaire';
+
+  @override
+  String get source_err_source_connection_failed =>
+      'Échec de connexion à la source';
+
+  @override
+  String get source_err_finish_verification =>
+      'Termine la vérification dans le panneau, puis réessaye.';
+
+  @override
+  String get source_err_nothing_returned =>
+      'La source n’a renvoyé aucun élément. Réessaye, ou mets l’extension à jour.';
+
+  @override
+  String get source_err_pull_to_refresh => 'Tirer vers le bas pour actualiser';
+
+  @override
+  String get source_err_details => 'Détails de l’erreur';
+
+  @override
+  String get source_err_hide_details => 'Masquer les détails';
+
+  @override
+  String get source_err_copy_details => 'Copier le détail de l’erreur';
+
+  @override
+  String get source_err_copied => 'Erreur copiée';
 }

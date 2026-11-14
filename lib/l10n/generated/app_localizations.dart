@@ -14866,6 +14866,510 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Audio Source'**
   String get marketplace_topic_audio_source;
+
+  /// No description provided for @watch_home_layout_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This extension\'s layout is unavailable.'**
+  String get watch_home_layout_unavailable;
+
+  /// No description provided for @watch_home_layout_save_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save the layout: {error}'**
+  String watch_home_layout_save_failed(Object error);
+
+  /// No description provided for @watch_home_layout_not_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'The layout could not be saved.'**
+  String get watch_home_layout_not_saved;
+
+  /// No description provided for @watch_home_hold_section_first.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold a section first, then pick “Replace”.'**
+  String get watch_home_hold_section_first;
+
+  /// No description provided for @watch_home_section_gone.
+  ///
+  /// In en, this message translates to:
+  /// **'This section no longer exists in the layout.'**
+  String get watch_home_section_gone;
+
+  /// No description provided for @watch_home_episode_card_incompatible.
+  ///
+  /// In en, this message translates to:
+  /// **'This episode card is not compatible with this selection.'**
+  String get watch_home_episode_card_incompatible;
+
+  /// No description provided for @watch_home_episode_card_grid_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom episode cards are available on grid sections.'**
+  String get watch_home_episode_card_grid_only;
+
+  /// No description provided for @watch_home_chapter_card_incompatible.
+  ///
+  /// In en, this message translates to:
+  /// **'This chapter card is not compatible with this selection.'**
+  String get watch_home_chapter_card_incompatible;
+
+  /// No description provided for @watch_home_chapter_card_grid_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom chapter cards are available on grid sections.'**
+  String get watch_home_chapter_card_grid_only;
+
+  /// No description provided for @watch_home_manga_card_incompatible.
+  ///
+  /// In en, this message translates to:
+  /// **'This Manga card is not compatible with this selection.'**
+  String get watch_home_manga_card_incompatible;
+
+  /// No description provided for @watch_home_manga_card_grid_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Manga cards are available on grid sections.'**
+  String get watch_home_manga_card_grid_only;
+
+  /// No description provided for @watch_home_preview_refresh_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout saved, but the preview could not be refreshed: {error}'**
+  String watch_home_preview_refresh_failed(Object error);
+
+  /// No description provided for @watch_home_no_video_in_playlist.
+  ///
+  /// In en, this message translates to:
+  /// **'No video available in this playlist.'**
+  String get watch_home_no_video_in_playlist;
+
+  /// No description provided for @watch_home_playlist_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the playlist: {error}'**
+  String watch_home_playlist_load_failed(Object error);
+
+  /// No description provided for @watch_home_default_poster.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard poster'**
+  String get watch_home_default_poster;
+
+  /// No description provided for @watch_home_default_card.
+  ///
+  /// In en, this message translates to:
+  /// **'Default card'**
+  String get watch_home_default_card;
+
+  /// No description provided for @watch_home_section_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions on this section'**
+  String get watch_home_section_actions;
+
+  /// No description provided for @watch_home_move_up.
+  ///
+  /// In en, this message translates to:
+  /// **'Move one level up'**
+  String get watch_home_move_up;
+
+  /// No description provided for @watch_home_move_down.
+  ///
+  /// In en, this message translates to:
+  /// **'Move one level down'**
+  String get watch_home_move_down;
+
+  /// No description provided for @watch_home_replace_component.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace the component'**
+  String get watch_home_replace_component;
+
+  /// No description provided for @watch_home_manga_card_style.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga card style'**
+  String get watch_home_manga_card_style;
+
+  /// No description provided for @watch_home_episode_card_style.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode card style'**
+  String get watch_home_episode_card_style;
+
+  /// No description provided for @watch_home_chapter_card_style.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter card style'**
+  String get watch_home_chapter_card_style;
+
+  /// No description provided for @watch_home_current_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Current: {value}'**
+  String watch_home_current_value(Object value);
+
+  /// No description provided for @watch_home_delete_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the section'**
+  String get watch_home_delete_section;
+
+  /// No description provided for @watch_home_delete_section_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this section?'**
+  String get watch_home_delete_section_title;
+
+  /// No description provided for @watch_home_delete_section_body.
+  ///
+  /// In en, this message translates to:
+  /// **'“{title}” will be removed from this home.'**
+  String watch_home_delete_section_body(Object title);
+
+  /// No description provided for @watch_home_no_section.
+  ///
+  /// In en, this message translates to:
+  /// **'No section. Use the JSON editor to create one.'**
+  String get watch_home_no_section;
+
+  /// No description provided for @watch_home_hold_to_edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to edit'**
+  String get watch_home_hold_to_edit;
+
+  /// No description provided for @watch_home_home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get watch_home_home;
+
+  /// No description provided for @watch_home_component_gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Component gallery'**
+  String get watch_home_component_gallery;
+
+  /// No description provided for @watch_home_json_editor.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON editor'**
+  String get watch_home_json_editor;
+
+  /// No description provided for @watch_home_close_edit_dock.
+  ///
+  /// In en, this message translates to:
+  /// **'Close the edit dock'**
+  String get watch_home_close_edit_dock;
+
+  /// No description provided for @watch_home_open_edit_dock.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the edit dock'**
+  String get watch_home_open_edit_dock;
+
+  /// No description provided for @watch_home_choose_month.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a month'**
+  String get watch_home_choose_month;
+
+  /// No description provided for @watch_home_source_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The source is temporarily unavailable.'**
+  String get watch_home_source_unavailable;
+
+  /// No description provided for @watch_home_no_content.
+  ///
+  /// In en, this message translates to:
+  /// **'No content'**
+  String get watch_home_no_content;
+
+  /// No description provided for @watch_home_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension'**
+  String get watch_home_extension;
+
+  /// No description provided for @watch_home_search_in_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in {source}'**
+  String watch_home_search_in_source(Object source);
+
+  /// No description provided for @watch_home_search_in_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in the extension'**
+  String get watch_home_search_in_extension;
+
+  /// No description provided for @watch_home_search_video_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a video in this extension'**
+  String get watch_home_search_video_hint;
+
+  /// No description provided for @watch_home_search_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Search failed'**
+  String get watch_home_search_failed;
+
+  /// No description provided for @watch_home_reel_follow.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow'**
+  String get watch_home_reel_follow;
+
+  /// No description provided for @watch_home_reel_following.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get watch_home_reel_following;
+
+  /// No description provided for @watch_home_reel_like.
+  ///
+  /// In en, this message translates to:
+  /// **'Like'**
+  String get watch_home_reel_like;
+
+  /// No description provided for @watch_home_reel_comments.
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get watch_home_reel_comments;
+
+  /// No description provided for @watch_home_reel_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get watch_home_reel_share;
+
+  /// No description provided for @watch_home_reel_no_comment.
+  ///
+  /// In en, this message translates to:
+  /// **'No comment yet.'**
+  String get watch_home_reel_no_comment;
+
+  /// No description provided for @watch_home_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get watch_home_search;
+
+  /// No description provided for @watch_home_collection.
+  ///
+  /// In en, this message translates to:
+  /// **'Collection'**
+  String get watch_home_collection;
+
+  /// No description provided for @watch_home_no_episode_from_source.
+  ///
+  /// In en, this message translates to:
+  /// **'No numbered episode with a valid URL was provided by this source.'**
+  String get watch_home_no_episode_from_source;
+
+  /// No description provided for @watch_home_preview_search_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The preview search is temporarily unavailable.'**
+  String get watch_home_preview_search_unavailable;
+
+  /// No description provided for @watch_home_search_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Search unavailable'**
+  String get watch_home_search_unavailable;
+
+  /// No description provided for @watch_home_search_source_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The source is temporarily unavailable. Retry in a moment.'**
+  String get watch_home_search_source_unavailable;
+
+  /// No description provided for @watch_home_nothing_matches_query.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing matches “{query}”.'**
+  String watch_home_nothing_matches_query(Object query);
+
+  /// No description provided for @watch_home_no_chapter_from_source.
+  ///
+  /// In en, this message translates to:
+  /// **'No chapter with a valid title and URL was provided by this source.'**
+  String get watch_home_no_chapter_from_source;
+
+  /// No description provided for @source_err_access_denied_http.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied (HTTP {code})'**
+  String source_err_access_denied_http(Object code);
+
+  /// No description provided for @source_err_not_found_http.
+  ///
+  /// In en, this message translates to:
+  /// **'Not found (HTTP {code})'**
+  String source_err_not_found_http(Object code);
+
+  /// No description provided for @source_err_rate_limited_http.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many requests (HTTP {code})'**
+  String source_err_rate_limited_http(Object code);
+
+  /// No description provided for @source_err_server_http.
+  ///
+  /// In en, this message translates to:
+  /// **'Server error (HTTP {code})'**
+  String source_err_server_http(Object code);
+
+  /// No description provided for @source_err_http.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP error {code}'**
+  String source_err_http(Object code);
+
+  /// No description provided for @source_err_access_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Access blocked'**
+  String get source_err_access_blocked;
+
+  /// No description provided for @source_err_access_blocked_http.
+  ///
+  /// In en, this message translates to:
+  /// **'Access blocked (HTTP {code})'**
+  String source_err_access_blocked_http(Object code);
+
+  /// No description provided for @source_err_verification_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification required'**
+  String get source_err_verification_required;
+
+  /// No description provided for @source_err_verification_required_http.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification required (HTTP {code})'**
+  String source_err_verification_required_http(Object code);
+
+  /// No description provided for @source_err_connection_dropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection dropped'**
+  String get source_err_connection_dropped;
+
+  /// No description provided for @source_err_check_network.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your network'**
+  String get source_err_check_network;
+
+  /// No description provided for @source_err_access_denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Access denied'**
+  String get source_err_access_denied;
+
+  /// No description provided for @source_err_no_content.
+  ///
+  /// In en, this message translates to:
+  /// **'No content available'**
+  String get source_err_no_content;
+
+  /// No description provided for @source_err_cloudflare_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloudflare verification required'**
+  String get source_err_cloudflare_required;
+
+  /// No description provided for @source_err_api_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'API access blocked'**
+  String get source_err_api_blocked;
+
+  /// No description provided for @source_err_antibot_dropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Anti-bot block — connection dropped'**
+  String get source_err_antibot_dropped;
+
+  /// No description provided for @source_err_connection_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection failed'**
+  String get source_err_connection_failed;
+
+  /// No description provided for @source_err_source_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Source unavailable'**
+  String get source_err_source_unavailable;
+
+  /// No description provided for @source_err_empty_box.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty box'**
+  String get source_err_empty_box;
+
+  /// No description provided for @source_err_cloudflare_needed.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloudflare verification needed'**
+  String get source_err_cloudflare_needed;
+
+  /// No description provided for @source_err_source_connection_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to connect to the source'**
+  String get source_err_source_connection_failed;
+
+  /// No description provided for @source_err_finish_verification.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish the verification in the panel, then retry.'**
+  String get source_err_finish_verification;
+
+  /// No description provided for @source_err_nothing_returned.
+  ///
+  /// In en, this message translates to:
+  /// **'The source returned nothing. Retry, or update the extension.'**
+  String get source_err_nothing_returned;
+
+  /// No description provided for @source_err_pull_to_refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull down to refresh'**
+  String get source_err_pull_to_refresh;
+
+  /// No description provided for @source_err_details.
+  ///
+  /// In en, this message translates to:
+  /// **'Error details'**
+  String get source_err_details;
+
+  /// No description provided for @source_err_hide_details.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide details'**
+  String get source_err_hide_details;
+
+  /// No description provided for @source_err_copy_details.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the error details'**
+  String get source_err_copy_details;
+
+  /// No description provided for @source_err_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Error copied'**
+  String get source_err_copied;
 }
 
 class _AppLocalizationsDelegate

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -196,7 +197,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
           const Icon(Icons.cloud_off_rounded, color: Colors.white54, size: 44),
           const SizedBox(height: 14),
           Text(
-            extensionErrorTitle(error),
+            extensionErrorTitle(error, context.l10n),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
@@ -205,7 +206,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            extensionRequestFailureMessage(error) ?? '',
+            extensionRequestFailureMessage(error, context.l10n) ?? '',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70, height: 1.4),
           ),
@@ -312,7 +313,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         SnackBar(
           content: Text(
             'Impossible de charger la playlist. '
-            '${extensionRequestFailureMessage(error)}',
+            '${extensionRequestFailureMessage(error, context.l10n)}',
           ),
         ),
       );
