@@ -24,6 +24,9 @@ class AppLocalizationsEu extends AppLocalizations {
   String get lyrics => 'Hitzak';
 
   @override
+  String get player => 'Erreproduzitzailea';
+
+  @override
   String get settings => 'Ezarpenak';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsEu extends AppLocalizations {
   String get cancel_all => 'Ezeztatu dena';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'Freskatu';
 
   @override
   String get filter_artist => 'Filtratu artistak...';
@@ -494,13 +497,25 @@ class AppLocalizationsEu extends AppLocalizations {
   String get about => 'Honi buruz';
 
   @override
-  String get u_love_spotube => 'Badakigu Spotube maite duzula';
+  String get music => 'Musika';
+
+  @override
+  String get integrated_in_watchtower => 'Watchtower-en integratuta';
+
+  @override
+  String get wikipedia => 'Wikipedia';
+
+  @override
+  String get read_more_at_wikipedia => 'irakurri gehiago Wikipedian';
+
+  @override
+  String get u_love_spotube => 'Badakigu Watchtower maite duzula';
 
   @override
   String get check_for_updates => 'Bilatu eguneraketak';
 
   @override
-  String get about_spotube => 'Spotube-ri buruz';
+  String get about_spotube => 'Watchtower-ri buruz';
 
   @override
   String get blacklist => 'Zerrenda beltza';
@@ -510,7 +525,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube, arina, plataforma-anitza eta doakoa den Spotify-ren bezeroa';
+      'Watchtower, arina, plataforma-anitza eta doakoa den Spotify-ren bezeroa';
 
   @override
   String get version => 'Bertsioa';
@@ -734,7 +749,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'Bidenabar, baliteke zure IPa YouTuben blokeatzea deskarga eskera gehiegi egiten badituzu. IPa blokeatzeak esan nahi du ezin izango duzula YouTube erabili (nahiz eta saioa hasia izan) gutxienez 2-3 hilabetez IP helbide horretatik. Eta Spotube ez da erantzule izango hori gertatzen bazaizu';
+      'Bidenabar, baliteke zure IPa YouTuben blokeatzea deskarga eskera gehiegi egiten badituzu. IPa blokeatzeak esan nahi du ezin izango duzula YouTube erabili (nahiz eta saioa hasia izan) gutxienez 2-3 hilabetez IP helbide horretatik. Eta Watchtower ez da erantzule izango hori gertatzen bazaizu';
 
   @override
   String get by_clicking_accept_terms =>
@@ -750,7 +765,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'Erabat jakitun naiz YouTubek nire IPa blokea dezakeela eta ez diot Spotube-ri edo bere jabe/laguntzaileei erantzukizunik eskatuko nire oraingo jokaerak ekar ditzakeen arazoengatik';
+      'Erabat jakitun naiz YouTubek nire IPa blokea dezakeela eta ez diot Watchtower-ri edo bere jabe/laguntzaileei erantzukizunik eskatuko nire oraingo jokaerak ekar ditzakeen arazoengatik';
 
   @override
   String get decline => 'Baztertu';
@@ -832,7 +847,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube-ek zifratzea darabil datuak modu seguruan biltegiratzeko. Baina huts egin du. Hori dela eta, biltegiratzea ez da segurua izango\nLinux erabiltzen ari bazara, ziurtatu edozein sekretu-zerbitzu (gnome-keyring, kde-wallet, keepassxc etab.) instalatuta duzula';
+      'Watchtower-ek zifratzea darabil datuak modu seguruan biltegiratzeko. Baina huts egin du. Hori dela eta, biltegiratzea ez da segurua izango\nLinux erabiltzen ari bazara, ziurtatu edozein sekretu-zerbitzu (gnome-keyring, kde-wallet, keepassxc etab.) instalatuta duzula';
 
   @override
   String get querying_info => 'Informazioa egiaztatzen...';
@@ -1012,7 +1027,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'Honekin Spotube-k zure kokalerakuari dagokion edukia\neskeiniko dizu.';
+      'Honekin Watchtower-k zure kokalerakuari dagokion edukia\neskeiniko dizu.';
 
   @override
   String get choose_your_language => 'Aukeratu zure hizkuntza';
@@ -1022,7 +1037,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube kode irekiko proiektu bat da. Proiektu hau hazten lagundu dezakezu, erroreak jakinaraziz edo ezaugarri berriak proposatuz.';
+      'Watchtower kode irekiko proiektu bat da. Proiektu hau hazten lagundu dezakezu, erroreak jakinaraziz edo ezaugarri berriak proposatuz.';
 
   @override
   String get contribute_on_github => 'GitHub-en lagundu';
@@ -1038,7 +1053,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'Kontrolatu Spotube beste gailu batzuetatik';
+      'Kontrolatu Watchtower beste gailu batzuetatik';
 
   @override
   String get devices => 'Gailuak';
@@ -1086,19 +1101,19 @@ class AppLocalizationsEu extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube-ren eguneraketa bat dago';
+  String get spotube_has_an_update => 'Watchtower-ren eguneraketa bat dago';
 
   @override
   String get download_now => 'Orain deskargatu';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube $nightlyBuildNum Nightly-a argitaratu da';
+    return 'Watchtower $nightlyBuildNum Nightly-a argitaratu da';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version argitaratu da';
+    return 'Watchtower v$version argitaratu da';
   }
 
   @override
@@ -1527,7 +1542,7 @@ class AppLocalizationsEu extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'Spotube taldea ezin da arduratu (“hirugarrenen”) plugin-en>gatik (barne legala). Erabili zure arriskuarekin. Erroreak/ arazoak dituzu, jakinarazi pluginaren biltegiari.\n\nPlugin batek edozein zerbitzu/legalki entitate baten ToS/DMCA hautsi baditu, eska iezaiozu pluginaren egileari edo hosting plataformari (adibidez GitHub/Codeberg) neurriak har ditzaten. “Hirugarrena” etiketatutako plugin guztiak komunitate publikoaren bidez mantentzen dira; ez ditugu kuratoriatu, beraz ezin dugu inplikatu.\n\n';
+      'Watchtower taldea ezin da arduratu (“hirugarrenen”) plugin-en>gatik (barne legala). Erabili zure arriskuarekin. Erroreak/ arazoak dituzu, jakinarazi pluginaren biltegiari.\n\nPlugin batek edozein zerbitzu/legalki entitate baten ToS/DMCA hautsi baditu, eska iezaiozu pluginaren egileari edo hosting plataformari (adibidez GitHub/Codeberg) neurriak har ditzaten. “Hirugarrena” etiketatutako plugin guztiak komunitate publikoaren bidez mantentzen dira; ez ditugu kuratoriatu, beraz ezin dugu inplikatu.\n\n';
 
   @override
   String get input_does_not_match_format =>

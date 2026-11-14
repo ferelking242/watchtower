@@ -90,7 +90,7 @@ import 'app_localizations_zh.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -113,11 +113,11 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
@@ -150,7 +150,7 @@ abstract class AppLocalizations {
     Locale('uk'),
     Locale('vi'),
     Locale('zh'),
-    Locale('zh', 'TW')
+    Locale('zh', 'TW'),
   ];
 
   /// No description provided for @guest.
@@ -182,6 +182,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Lyrics'**
   String get lyrics;
+
+  /// No description provided for @player.
+  ///
+  /// In en, this message translates to:
+  /// **'Player'**
+  String get player;
 
   /// No description provided for @settings.
   ///
@@ -1047,10 +1053,34 @@ abstract class AppLocalizations {
   /// **'About'**
   String get about;
 
+  /// No description provided for @music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get music;
+
+  /// No description provided for @integrated_in_watchtower.
+  ///
+  /// In en, this message translates to:
+  /// **'Built into Watchtower'**
+  String get integrated_in_watchtower;
+
+  /// No description provided for @wikipedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Wikipedia'**
+  String get wikipedia;
+
+  /// No description provided for @read_more_at_wikipedia.
+  ///
+  /// In en, this message translates to:
+  /// **'read more at Wikipedia'**
+  String get read_more_at_wikipedia;
+
   /// No description provided for @u_love_spotube.
   ///
   /// In en, this message translates to:
-  /// **'We know you love Spotube'**
+  /// **'We know you love Watchtower'**
   String get u_love_spotube;
 
   /// No description provided for @check_for_updates.
@@ -1062,7 +1092,7 @@ abstract class AppLocalizations {
   /// No description provided for @about_spotube.
   ///
   /// In en, this message translates to:
-  /// **'About Spotube'**
+  /// **'About Watchtower'**
   String get about_spotube;
 
   /// No description provided for @blacklist.
@@ -1488,7 +1518,7 @@ abstract class AppLocalizations {
   /// No description provided for @download_ip_ban_warning.
   ///
   /// In en, this message translates to:
-  /// **'BTW, your IP can get blocked on YouTube due excessive download requests than usual. IP block means you can\'t use YouTube (even if you\'re logged in) for at least 2-3 months from that IP device. And Spotube doesn\'t hold any responsibility if this ever happens'**
+  /// **'BTW, your IP can get blocked on YouTube due excessive download requests than usual. IP block means you can\'t use YouTube (even if you\'re logged in) for at least 2-3 months from that IP device. And Watchtower doesn\'t hold any responsibility if this ever happens'**
   String get download_ip_ban_warning;
 
   /// No description provided for @by_clicking_accept_terms.
@@ -1512,7 +1542,7 @@ abstract class AppLocalizations {
   /// No description provided for @download_agreement_3.
   ///
   /// In en, this message translates to:
-  /// **'I\'m completely aware that my IP can get blocked on YouTube & I don\'t hold Spotube or his owners/contributors responsible for any accidents caused by my current action'**
+  /// **'I\'m completely aware that my IP can get blocked on YouTube & I don\'t hold Watchtower or its owners/contributors responsible for any accidents caused by my current action'**
   String get download_agreement_3;
 
   /// No description provided for @decline.
@@ -1662,7 +1692,7 @@ abstract class AppLocalizations {
   /// No description provided for @encryption_failed_warning.
   ///
   /// In en, this message translates to:
-  /// **'Spotube uses encryption to securely store your data. But failed to do so. So it\'ll fallback to insecure storage\nIf you\'re using linux, please make sure you\'ve any secret-service (gnome-keyring, kde-wallet, keepassxc etc) installed'**
+  /// **'Watchtower uses encryption to securely store your data. But failed to do so. So it\'ll fallback to insecure storage\nIf you\'re using linux, please make sure you\'ve any secret-service (gnome-keyring, kde-wallet, keepassxc etc) installed'**
   String get encryption_failed_warning;
 
   /// No description provided for @querying_info.
@@ -1998,7 +2028,7 @@ abstract class AppLocalizations {
   /// No description provided for @choose_your_region_description.
   ///
   /// In en, this message translates to:
-  /// **'This will help Spotube show you the right content\nfor your location.'**
+  /// **'This will help Watchtower show you the right content\nfor your location.'**
   String get choose_your_region_description;
 
   /// No description provided for @choose_your_language.
@@ -2016,7 +2046,7 @@ abstract class AppLocalizations {
   /// No description provided for @help_project_grow_description.
   ///
   /// In en, this message translates to:
-  /// **'Spotube is an open-source project. You can help this project grow by contributing to the project, reporting bugs, or suggesting new features.'**
+  /// **'Watchtower is an open-source project. You can help this project grow by contributing to the project, reporting bugs, or suggesting new features.'**
   String get help_project_grow_description;
 
   /// No description provided for @contribute_on_github.
@@ -2046,7 +2076,7 @@ abstract class AppLocalizations {
   /// No description provided for @enable_connect_description.
   ///
   /// In en, this message translates to:
-  /// **'Control Spotube from other devices'**
+  /// **'Control Watchtower from other devices'**
   String get enable_connect_description;
 
   /// No description provided for @devices.
@@ -2130,7 +2160,7 @@ abstract class AppLocalizations {
   /// No description provided for @spotube_has_an_update.
   ///
   /// In en, this message translates to:
-  /// **'Spotube has an update'**
+  /// **'Watchtower has an update'**
   String get spotube_has_an_update;
 
   /// No description provided for @download_now.
@@ -2142,13 +2172,13 @@ abstract class AppLocalizations {
   /// No description provided for @nightly_version.
   ///
   /// In en, this message translates to:
-  /// **'Spotube Nightly {nightlyBuildNum} has been released'**
+  /// **'Watchtower Nightly {nightlyBuildNum} has been released'**
   String nightly_version(Object nightlyBuildNum);
 
   /// No description provided for @release_version.
   ///
   /// In en, this message translates to:
-  /// **'Spotube v{version} has been released'**
+  /// **'Watchtower v{version} has been released'**
   String release_version(Object version);
 
   /// No description provided for @read_the_latest.
@@ -2898,7 +2928,7 @@ abstract class AppLocalizations {
   /// No description provided for @third_party_plugin_dmca_notice.
   ///
   /// In en, this message translates to:
-  /// **'The Spotube team does not hold any responsibility (including legal) for any \"Third-party\" plugins.\nPlease use them at your own risk. For any bugs/issues, please report them to the plugin repository.\n\nIf any \"Third-party\" plugin is breaking ToS/DMCA of any service/legal entity, please ask the \"Third-party\" plugin author or the hosting platform .e.g GitHub/Codeberg to take action. Above listed (\"Third-party\" labelled) are all public/community maintained plugins. We\'re not curating them, so we cannot take any action on them.\n\n'**
+  /// **'The Watchtower team does not hold any responsibility (including legal) for any \"Third-party\" plugins.\nPlease use them at your own risk. For any bugs/issues, please report them to the plugin repository.\n\nIf any \"Third-party\" plugin is breaking ToS/DMCA of any service/legal entity, please ask the \"Third-party\" plugin author or the hosting platform .e.g GitHub/Codeberg to take action. Above listed (\"Third-party\" labelled) are all public/community maintained plugins. We\'re not curating them, so we cannot take any action on them.\n\n'**
   String get third_party_plugin_dmca_notice;
 
   /// No description provided for @input_does_not_match_format.
@@ -2997,36 +3027,36 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) => <String>[
-        'ar',
-        'bn',
-        'ca',
-        'cs',
-        'de',
-        'en',
-        'es',
-        'eu',
-        'fa',
-        'fi',
-        'fr',
-        'hi',
-        'id',
-        'it',
-        'ja',
-        'ka',
-        'ko',
-        'ne',
-        'nl',
-        'pl',
-        'pt',
-        'ru',
-        'ta',
-        'th',
-        'tl',
-        'tr',
-        'uk',
-        'vi',
-        'zh'
-      ].contains(locale.languageCode);
+    'ar',
+    'bn',
+    'ca',
+    'cs',
+    'de',
+    'en',
+    'es',
+    'eu',
+    'fa',
+    'fi',
+    'fr',
+    'hi',
+    'id',
+    'it',
+    'ja',
+    'ka',
+    'ko',
+    'ne',
+    'nl',
+    'pl',
+    'pt',
+    'ru',
+    'ta',
+    'th',
+    'tl',
+    'tr',
+    'uk',
+    'vi',
+    'zh',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -3108,8 +3138,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

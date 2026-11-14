@@ -24,6 +24,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get lyrics => 'பாடல் வரிகள்';
 
   @override
+  String get player => 'இயக்கி';
+
+  @override
   String get settings => 'அமைப்புகள்';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get cancel_all => 'அனைத்தையும் ரத்து செய்';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'புதுப்பி';
 
   @override
   String get filter_artist => 'கலைஞர்களை வடிகட்டுக...';
@@ -493,14 +496,26 @@ class AppLocalizationsTa extends AppLocalizations {
   String get about => 'பற்றி';
 
   @override
+  String get music => 'இசை';
+
+  @override
+  String get integrated_in_watchtower => 'Watchtower-இல் ஒருங்கிணைக்கப்பட்டது';
+
+  @override
+  String get wikipedia => 'விக்கிப்பீடியா';
+
+  @override
+  String get read_more_at_wikipedia => 'விக்கிப்பீடியாவில் மேலும் படிக்கவும்';
+
+  @override
   String get u_love_spotube =>
-      'நீங்கள் Spotube ஐ நேசிக்கிறீர்கள் என்பது எங்களுக்குத் தெரியும்';
+      'நீங்கள் Watchtower ஐ நேசிக்கிறீர்கள் என்பது எங்களுக்குத் தெரியும்';
 
   @override
   String get check_for_updates => 'புதுப்பிப்புகளைச் சரிபார்';
 
   @override
-  String get about_spotube => 'Spotube பற்றி';
+  String get about_spotube => 'Watchtower பற்றி';
 
   @override
   String get blacklist => 'தடைப்பட்டியல்';
@@ -510,7 +525,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube, ஒரு லேசான, பல தளங்களில் இயங்கும், அனைவருக்கும் இலவசமான spotify கிளையன்ட்';
+      'Watchtower, ஒரு லேசான, பல தளங்களில் இயங்கும், அனைவருக்கும் இலவசமான spotify கிளையன்ட்';
 
   @override
   String get version => 'பதிப்பு';
@@ -737,7 +752,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'மேலும், அதிகப்படியான பதிவிறக்க கோரிக்கைகள் காரணமாக உங்கள் IP YouTube இல் தடைசெய்யப்படலாம். IP தடை என்பது குறைந்தது 2-3 மாதங்களுக்கு அந்த IP சாதனத்திலிருந்து YouTube ஐப் பயன்படுத்த முடியாது (நீங்கள் உள்நுழைந்திருந்தாலும் கூட). இது ஒருபோதும் நடந்தால் Spotube பொறுப்பேற்காது';
+      'மேலும், அதிகப்படியான பதிவிறக்க கோரிக்கைகள் காரணமாக உங்கள் IP YouTube இல் தடைசெய்யப்படலாம். IP தடை என்பது குறைந்தது 2-3 மாதங்களுக்கு அந்த IP சாதனத்திலிருந்து YouTube ஐப் பயன்படுத்த முடியாது (நீங்கள் உள்நுழைந்திருந்தாலும் கூட). இது ஒருபோதும் நடந்தால் Watchtower பொறுப்பேற்காது';
 
   @override
   String get by_clicking_accept_terms =>
@@ -753,7 +768,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'என் IP YouTube இல் தடைசெய்யப்படலாம் என்பதை நான் முழுமையாக அறிவேன், மேலும் என் தற்போதைய செயலால் ஏற்படும் எந்த விபத்துகளுக்கும் Spotube அல்லது அதன் உரிமையாளர்கள்/பங்களிப்பாளர்களை பொறுப்பாக்க மாட்டேன்';
+      'என் IP YouTube இல் தடைசெய்யப்படலாம் என்பதை நான் முழுமையாக அறிவேன், மேலும் என் தற்போதைய செயலால் ஏற்படும் எந்த விபத்துகளுக்கும் Watchtower அல்லது அதன் உரிமையாளர்கள்/பங்களிப்பாளர்களை பொறுப்பாக்க மாட்டேன்';
 
   @override
   String get decline => 'மறு';
@@ -835,7 +850,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube உங்கள் தரவை பாதுகாப்பாக சேமிக்க குறியாக்கத்தைப் பயன்படுத்துகிறது. ஆனால் அவ்வாறு செய்ய முடியவில்லை. எனவே இது பாதுகாப்பற்ற சேமிப்பகத்திற்கு மாறும்\nநீங்கள் லினக்ஸ் பயன்படுத்துகிறீர்கள் என்றால், எந்த ரகசிய சேவையும் (gnome-keyring, kde-wallet, keepassxc போன்றவை) நிறுவப்பட்டுள்ளதா என்பதை உறுதிப்படுத்தவும்';
+      'Watchtower உங்கள் தரவை பாதுகாப்பாக சேமிக்க குறியாக்கத்தைப் பயன்படுத்துகிறது. ஆனால் அவ்வாறு செய்ய முடியவில்லை. எனவே இது பாதுகாப்பற்ற சேமிப்பகத்திற்கு மாறும்\nநீங்கள் லினக்ஸ் பயன்படுத்துகிறீர்கள் என்றால், எந்த ரகசிய சேவையும் (gnome-keyring, kde-wallet, keepassxc போன்றவை) நிறுவப்பட்டுள்ளதா என்பதை உறுதிப்படுத்தவும்';
 
   @override
   String get querying_info => 'தகவலைக் கேட்கிறது...';
@@ -1016,7 +1031,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'இது உங்கள் இருப்பிடத்திற்கான சரியான உள்ளடக்கத்தை\nSpotube காட்ட உதவும்.';
+      'இது உங்கள் இருப்பிடத்திற்கான சரியான உள்ளடக்கத்தை\nWatchtower காட்ட உதவும்.';
 
   @override
   String get choose_your_language => 'உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்';
@@ -1026,7 +1041,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube ஒரு திறந்த மூல திட்டம். திட்டத்திற்கு பங்களிப்பு செய்வதன் மூலம், பிழைகளைப் புகாரளிப்பதன் மூலம் அல்லது புதிய அம்சங்களைப் பரிந்துரைப்பதன் மூலம் இந்தத் திட்டம் வளர உதவலாம்.';
+      'Watchtower ஒரு திறந்த மூல திட்டம். திட்டத்திற்கு பங்களிப்பு செய்வதன் மூலம், பிழைகளைப் புகாரளிப்பதன் மூலம் அல்லது புதிய அம்சங்களைப் பரிந்துரைப்பதன் மூலம் இந்தத் திட்டம் வளர உதவலாம்.';
 
   @override
   String get contribute_on_github => 'GitHub இல் பங்களியுங்கள்';
@@ -1043,7 +1058,7 @@ class AppLocalizationsTa extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'மற்ற சாதனங்களிலிருந்து Spotube ஐக் கட்டுப்படுத்தவும்';
+      'மற்ற சாதனங்களிலிருந்து Watchtower ஐக் கட்டுப்படுத்தவும்';
 
   @override
   String get devices => 'சாதனங்கள்';
@@ -1091,19 +1106,19 @@ class AppLocalizationsTa extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube க்கு ஒரு புதுப்பிப்பு உள்ளது';
+  String get spotube_has_an_update => 'Watchtower க்கு ஒரு புதுப்பிப்பு உள்ளது';
 
   @override
   String get download_now => 'இப்போது பதிவிறக்கு';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum வெளியிடப்பட்டுள்ளது';
+    return 'Watchtower Nightly $nightlyBuildNum வெளியிடப்பட்டுள்ளது';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version வெளியிடப்பட்டுள்ளது';
+    return 'Watchtower v$version வெளியிடப்பட்டுள்ளது';
   }
 
   @override

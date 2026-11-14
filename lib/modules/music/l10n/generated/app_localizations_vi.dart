@@ -24,6 +24,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get lyrics => 'Lời bài hát';
 
   @override
+  String get player => 'Trình phát';
+
+  @override
   String get settings => 'Cài đặt';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get cancel_all => 'Hủy tất cả';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'Làm mới';
 
   @override
   String get filter_artist => 'Lọc nghệ sĩ...';
@@ -492,13 +495,25 @@ class AppLocalizationsVi extends AppLocalizations {
   String get about => 'Về chúng tôi';
 
   @override
-  String get u_love_spotube => 'Chúng tôi biết bạn yêu Spotube';
+  String get music => 'Âm nhạc';
+
+  @override
+  String get integrated_in_watchtower => 'Tích hợp trong Watchtower';
+
+  @override
+  String get wikipedia => 'Wikipedia';
+
+  @override
+  String get read_more_at_wikipedia => 'đọc thêm trên Wikipedia';
+
+  @override
+  String get u_love_spotube => 'Chúng tôi biết bạn yêu Watchtower';
 
   @override
   String get check_for_updates => 'Kiểm tra cập nhật';
 
   @override
-  String get about_spotube => 'Về Spotube';
+  String get about_spotube => 'Về Watchtower';
 
   @override
   String get blacklist => 'blacklist';
@@ -508,7 +523,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube, một ứng dụng Spotify nhẹ, đa nền tảng và miễn phí';
+      'Watchtower, một ứng dụng Spotify nhẹ, đa nền tảng và miễn phí';
 
   @override
   String get version => 'Phiên bản';
@@ -732,7 +747,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'Địa chỉ IP của bạn có thể bị chặn trên YouTube do yêu cầu tải xuống quá mức so với bình thường. Chặn IP có nghĩa là bạn không thể sử dụng YouTube (ngay cả khi bạn đã đăng nhập) ít nhất 2-3 tháng từ thiết bị IP đó. Và Spotube không chịu trách nhiệm nếu điều này xảy ra';
+      'Địa chỉ IP của bạn có thể bị chặn trên YouTube do yêu cầu tải xuống quá mức so với bình thường. Chặn IP có nghĩa là bạn không thể sử dụng YouTube (ngay cả khi bạn đã đăng nhập) ít nhất 2-3 tháng từ thiết bị IP đó. Và Watchtower không chịu trách nhiệm nếu điều này xảy ra';
 
   @override
   String get by_clicking_accept_terms =>
@@ -748,7 +763,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'Tôi hoàn toàn nhận thức được rằng địa chỉ IP của tôi có thể bị chặn trên YouTube và tôi không đổ lỗi cho Spotube hoặc chủ sở hữu/người đóng góp của nó về bất kỳ tai nạn nào do hành động này của tôi';
+      'Tôi hoàn toàn nhận thức được rằng địa chỉ IP của tôi có thể bị chặn trên YouTube và tôi không đổ lỗi cho Watchtower hoặc chủ sở hữu/người đóng góp của nó về bất kỳ tai nạn nào do hành động này của tôi';
 
   @override
   String get decline => 'Từ chối';
@@ -830,7 +845,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube không thành công trong việc mã hóa nhằm lưu trữ dữ liêu an toàn. vậy nên sẽ chuyển về lưu trữ không an toàn\nNếu bạn đang sử dụng Linux, đảm bảo rằng bạn có sử dụng dịch vụ bảo mật (gnome-keyring, kde-wallet, keepassxc, v.v.)';
+      'Watchtower không thành công trong việc mã hóa nhằm lưu trữ dữ liêu an toàn. vậy nên sẽ chuyển về lưu trữ không an toàn\nNếu bạn đang sử dụng Linux, đảm bảo rằng bạn có sử dụng dịch vụ bảo mật (gnome-keyring, kde-wallet, keepassxc, v.v.)';
 
   @override
   String get querying_info => 'Đang truy vấn thông tin...';
@@ -1014,7 +1029,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'Điều này sẽ giúp Spotube hiển thị nội dung phù hợp cho vị trí của bạn.';
+      'Điều này sẽ giúp Watchtower hiển thị nội dung phù hợp cho vị trí của bạn.';
 
   @override
   String get choose_your_language => 'Chọn ngôn ngữ của bạn';
@@ -1024,7 +1039,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube là một dự án mã nguồn mở. Bạn có thể giúp dự án này phát triển bằng cách đóng góp vào dự án, báo cáo lỗi hoặc đề xuất tính năng mới.';
+      'Watchtower là một dự án mã nguồn mở. Bạn có thể giúp dự án này phát triển bằng cách đóng góp vào dự án, báo cáo lỗi hoặc đề xuất tính năng mới.';
 
   @override
   String get contribute_on_github => 'Đóng góp trên GitHub';
@@ -1040,7 +1055,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'Điều khiển Spotube từ các thiết bị khác';
+      'Điều khiển Watchtower từ các thiết bị khác';
 
   @override
   String get devices => 'Thiết bị';
@@ -1088,19 +1103,19 @@ class AppLocalizationsVi extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube có bản cập nhật';
+  String get spotube_has_an_update => 'Watchtower có bản cập nhật';
 
   @override
   String get download_now => 'Tải về ngay';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum đã được phát hành';
+    return 'Watchtower Nightly $nightlyBuildNum đã được phát hành';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version đã được phát hành';
+    return 'Watchtower v$version đã được phát hành';
   }
 
   @override
@@ -1524,7 +1539,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'Nhóm Spotube không chịu bất kỳ trách nhiệm nào (bao gồm cả pháp lý) đối với bất kỳ plugin \"Bên thứ ba\" nào.\nVui lòng sử dụng chúng với rủi ro của riêng bạn. Đối với bất kỳ lỗi/vấn đề nào, vui lòng báo cáo chúng cho kho lưu trữ plugin.\n\nNếu bất kỳ plugin \"Bên thứ ba\" nào vi phạm ToS/DMCA của bất kỳ dịch vụ/thực thể pháp lý nào, vui lòng yêu cầu tác giả plugin \"Bên thứ ba\" hoặc nền tảng lưu trữ, ví dụ: GitHub/Codeberg, thực hiện hành động. Tất cả các plugin được liệt kê ở trên (được gắn nhãn \"Bên thứ ba\") đều là các plugin công cộng/do cộng đồng duy trì. Chúng tôi không quản lý chúng, vì vậy chúng tôi không thể thực hiện bất kỳ hành động nào đối với chúng.\n\n';
+      'Nhóm Watchtower không chịu bất kỳ trách nhiệm nào (bao gồm cả pháp lý) đối với bất kỳ plugin \"Bên thứ ba\" nào.\nVui lòng sử dụng chúng với rủi ro của riêng bạn. Đối với bất kỳ lỗi/vấn đề nào, vui lòng báo cáo chúng cho kho lưu trữ plugin.\n\nNếu bất kỳ plugin \"Bên thứ ba\" nào vi phạm ToS/DMCA của bất kỳ dịch vụ/thực thể pháp lý nào, vui lòng yêu cầu tác giả plugin \"Bên thứ ba\" hoặc nền tảng lưu trữ, ví dụ: GitHub/Codeberg, thực hiện hành động. Tất cả các plugin được liệt kê ở trên (được gắn nhãn \"Bên thứ ba\") đều là các plugin công cộng/do cộng đồng duy trì. Chúng tôi không quản lý chúng, vì vậy chúng tôi không thể thực hiện bất kỳ hành động nào đối với chúng.\n\n';
 
   @override
   String get input_does_not_match_format =>

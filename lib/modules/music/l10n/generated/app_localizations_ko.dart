@@ -24,6 +24,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get lyrics => '가사';
 
   @override
+  String get player => '플레이어';
+
+  @override
   String get settings => '설정';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get cancel_all => '모두 취소';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => '새로 고침';
 
   @override
   String get filter_artist => '아티스트 필터링';
@@ -489,13 +492,25 @@ class AppLocalizationsKo extends AppLocalizations {
   String get about => '앱 정보';
 
   @override
-  String get u_love_spotube => 'Spotube... 사랑하시죠?';
+  String get music => '음악';
+
+  @override
+  String get integrated_in_watchtower => 'Watchtower에 통합됨';
+
+  @override
+  String get wikipedia => '위키백과';
+
+  @override
+  String get read_more_at_wikipedia => '위키백과에서 더 보기';
+
+  @override
+  String get u_love_spotube => 'Watchtower... 사랑하시죠?';
 
   @override
   String get check_for_updates => '업데이트 확인';
 
   @override
-  String get about_spotube => 'Spotube에 관해';
+  String get about_spotube => 'Watchtower에 관해';
 
   @override
   String get blacklist => '블랙리스트';
@@ -505,7 +520,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube는, 경량에 크로스플랫폼인데다 무료이기까지한 스포티파이 클라이언트입니다';
+      'Watchtower는, 경량에 크로스플랫폼인데다 무료이기까지한 스포티파이 클라이언트입니다';
 
   @override
   String get version => '버전';
@@ -736,7 +751,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      '본인은 YouTube에서 내 IP가 차단될 수 있음을 완전히 알고 있으며, 현재 내 행동으로 인해 발생하는 사고에 대해 Spotube 또는 그 소유자/기여자에게 책임을 묻지 않습니다.';
+      '본인은 YouTube에서 내 IP가 차단될 수 있음을 완전히 알고 있으며, 현재 내 행동으로 인해 발생하는 사고에 대해 Watchtower 또는 그 소유자/기여자에게 책임을 묻지 않습니다.';
 
   @override
   String get decline => '거절';
@@ -818,7 +833,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube는 암호화를 사용하여 데이터를 안전하게 저장합니다. 하지만 그렇게 하지 못했습니다. 따라서 안전하지 않은 저장소로 대체됩니다.\n리눅스를 사용하는 경우, 비밀 서비스(gnome-keyring, kde-wallet, keepassxc 등)가 설치되어 있는지 확인하세요.';
+      'Watchtower는 암호화를 사용하여 데이터를 안전하게 저장합니다. 하지만 그렇게 하지 못했습니다. 따라서 안전하지 않은 저장소로 대체됩니다.\n리눅스를 사용하는 경우, 비밀 서비스(gnome-keyring, kde-wallet, keepassxc 등)가 설치되어 있는지 확인하세요.';
 
   @override
   String get querying_info => '정보를 얻는 중...';
@@ -992,7 +1007,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      '이것은 Spotube가 위치에 맞는 콘텐츠를 표시하는 데 도움이 됩니다.';
+      '이것은 Watchtower가 위치에 맞는 콘텐츠를 표시하는 데 도움이 됩니다.';
 
   @override
   String get choose_your_language => '언어 선택';
@@ -1002,7 +1017,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube는 오픈 소스 프로젝트입니다. 프로젝트에 기여하거나 버그를 보고하거나 새로운 기능을 제안하여이 프로젝트의 성장에 도움을 줄 수 있습니다.';
+      'Watchtower는 오픈 소스 프로젝트입니다. 프로젝트에 기여하거나 버그를 보고하거나 새로운 기능을 제안하여이 프로젝트의 성장에 도움을 줄 수 있습니다.';
 
   @override
   String get contribute_on_github => 'GitHub에서 기여하기';
@@ -1017,7 +1032,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get enable_connect => '연결 활성화';
 
   @override
-  String get enable_connect_description => '다른 장치에서 Spotube 제어';
+  String get enable_connect_description => '다른 장치에서 Watchtower 제어';
 
   @override
   String get devices => '장치';
@@ -1065,19 +1080,19 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube에 업데이트가 있습니다';
+  String get spotube_has_an_update => 'Watchtower에 업데이트가 있습니다';
 
   @override
   String get download_now => '지금 다운로드';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum이 출시되었습니다';
+    return 'Watchtower Nightly $nightlyBuildNum이 출시되었습니다';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version이 출시되었습니다';
+    return 'Watchtower v$version이 출시되었습니다';
   }
 
   @override
@@ -1491,7 +1506,7 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'Spotube 팀은 어떠한 \"타사\" 플러그인에 대해서도 (법적 포함) 어떠한 책임도 지지 않습니다.\n사용자 자신의 책임하에 사용하시기 바랍니다. 버그/문제에 대해서는 플러그인 리포지토리에 보고해 주세요.\n\n만약 \"타사\" 플러그인이 서비스/법인의 ToS/DMCA를 위반하는 경우, \"타사\" 플러그인 저자 또는 호스팅 플랫폼(예: GitHub/Codeberg)에 조치를 취하도록 요청해 주세요. 위에 나열된 (\"타사\"로 표시된) 플러그인은 모두 공개/커뮤니티에서 유지 관리하는 플러그인입니다. 저희는 이를 큐레이션하지 않으므로 어떠한 조치도 취할 수 없습니다.\n\n';
+      'Watchtower 팀은 어떠한 \"타사\" 플러그인에 대해서도 (법적 포함) 어떠한 책임도 지지 않습니다.\n사용자 자신의 책임하에 사용하시기 바랍니다. 버그/문제에 대해서는 플러그인 리포지토리에 보고해 주세요.\n\n만약 \"타사\" 플러그인이 서비스/법인의 ToS/DMCA를 위반하는 경우, \"타사\" 플러그인 저자 또는 호스팅 플랫폼(예: GitHub/Codeberg)에 조치를 취하도록 요청해 주세요. 위에 나열된 (\"타사\"로 표시된) 플러그인은 모두 공개/커뮤니티에서 유지 관리하는 플러그인입니다. 저희는 이를 큐레이션하지 않으므로 어떠한 조치도 취할 수 없습니다.\n\n';
 
   @override
   String get input_does_not_match_format => '입력이 필요한 형식과 일치하지 않습니다';

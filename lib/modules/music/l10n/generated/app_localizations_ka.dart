@@ -24,6 +24,9 @@ class AppLocalizationsKa extends AppLocalizations {
   String get lyrics => 'ტექსტები';
 
   @override
+  String get player => 'დამკვრელი';
+
+  @override
   String get settings => 'კონფიგურაციები';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get cancel_all => 'ყველას გაუქმება';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'განახლება';
 
   @override
   String get filter_artist => 'არტისტების ფილტრი...';
@@ -493,13 +496,25 @@ class AppLocalizationsKa extends AppLocalizations {
   String get about => 'ჩვენს შესახებ';
 
   @override
-  String get u_love_spotube => 'We know you love Spotube';
+  String get music => 'მუსიკა';
+
+  @override
+  String get integrated_in_watchtower => 'ჩართულია Watchtower-ში';
+
+  @override
+  String get wikipedia => 'ვიკიპედია';
+
+  @override
+  String get read_more_at_wikipedia => 'ვიკიპედიაზე მეტის წაკითხვა';
+
+  @override
+  String get u_love_spotube => 'We know you love Watchtower';
 
   @override
   String get check_for_updates => 'განახლებების შემოწმება';
 
   @override
-  String get about_spotube => 'Spotube-ს შესახებ';
+  String get about_spotube => 'Watchtower-ს შესახებ';
 
   @override
   String get blacklist => 'შავი სია';
@@ -509,7 +524,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube, a lightweight, cross-platform, free-for-all spotify client';
+      'Watchtower, a lightweight, cross-platform, free-for-all spotify client';
 
   @override
   String get version => 'ვერსია';
@@ -731,7 +746,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'BTW, your IP can get blocked on YouTube due excessive download requests than usual. IP block means you can\'t use YouTube (even if you\'re logged in) for at least 2-3 months from that IP device. And Spotube doesn\'t hold any responsibility if this ever happens';
+      'BTW, your IP can get blocked on YouTube due excessive download requests than usual. IP block means you can\'t use YouTube (even if you\'re logged in) for at least 2-3 months from that IP device. And Watchtower doesn\'t hold any responsibility if this ever happens';
 
   @override
   String get by_clicking_accept_terms =>
@@ -746,7 +761,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'I\'m completely aware that my IP can get blocked on YouTube & I don\'t hold Spotube or his owners/contributors responsible for any accidents caused by my current action';
+      'I\'m completely aware that my IP can get blocked on YouTube & I don\'t hold Watchtower or his owners/contributors responsible for any accidents caused by my current action';
 
   @override
   String get decline => 'უარყოფა';
@@ -828,7 +843,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube uses encryption to securely store your data. But failed to do so. So it\'ll fallback to insecure storage\nIf you\'re using linux, please make sure you\'ve any secret-service (gnome-keyring, kde-wallet, keepassxc etc) installed';
+      'Watchtower uses encryption to securely store your data. But failed to do so. So it\'ll fallback to insecure storage\nIf you\'re using linux, please make sure you\'ve any secret-service (gnome-keyring, kde-wallet, keepassxc etc) installed';
 
   @override
   String get querying_info => 'Querying info...';
@@ -1009,7 +1024,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'This will help Spotube show you the right content\nfor your location.';
+      'This will help Watchtower show you the right content\nfor your location.';
 
   @override
   String get choose_your_language => 'აირჩიე ენა';
@@ -1019,7 +1034,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube is an open-source project. You can help this project grow by contributing to the project, reporting bugs, or suggesting new features.';
+      'Watchtower is an open-source project. You can help this project grow by contributing to the project, reporting bugs, or suggesting new features.';
 
   @override
   String get contribute_on_github => 'GitHub-ზე კონტრიბუცია';
@@ -1035,7 +1050,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'აკონტროლე Spotube სხვა მოწყობილობებიდან';
+      'აკონტროლე Watchtower სხვა მოწყობილობებიდან';
 
   @override
   String get devices => 'მოწყობილობები';
@@ -1083,19 +1098,19 @@ class AppLocalizationsKa extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube-ს აქვს განახლება';
+  String get spotube_has_an_update => 'Watchtower-ს აქვს განახლება';
 
   @override
   String get download_now => 'ჩამოტვირთეთ ახლავე';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum გამოშვებულია';
+    return 'Watchtower Nightly $nightlyBuildNum გამოშვებულია';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version გამოშვებულია';
+    return 'Watchtower v$version გამოშვებულია';
   }
 
   @override
@@ -1523,7 +1538,7 @@ class AppLocalizationsKa extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'Spotube-ის გუნდი არ იღებს პასუხისმგებლობას (მათ შორის, იურიდიულს) არცერთ \"მესამე მხარის\" პლაგინზე.\nგთხოვთ, გამოიყენოთ ისინი თქვენი რისკის ქვეშ. ნებისმიერი ხარვეზის/პრობლემის შესახებ შეატყობინეთ პლაგინის საცავს.\n\nთუ რომელიმე \"მესამე მხარის\" პლაგინი არღვევს რაიმე სერვისის/იურიდიული პირის ToS/DMCA-ს, გთხოვთ, სთხოვეთ \"მესამე მხარის\" პლაგინის ავტორს ან ჰოსტინგის პლატფორმას, მაგალითად GitHub/Codeberg, მიიღოს ზომები. ზემოთ ჩამოთვლილი (\"მესამე მხარის\" ეტიკეტის მქონე) ყველა არის საჯარო/საზოგადოების მიერ შენარჩუნებული პლაგინები. ჩვენ მათ არ ვაკონტროლებთ, ამიტომ არ შეგვიძლია მათზე რაიმე ზომების მიღება.\n\n';
+      'Watchtower-ის გუნდი არ იღებს პასუხისმგებლობას (მათ შორის, იურიდიულს) არცერთ \"მესამე მხარის\" პლაგინზე.\nგთხოვთ, გამოიყენოთ ისინი თქვენი რისკის ქვეშ. ნებისმიერი ხარვეზის/პრობლემის შესახებ შეატყობინეთ პლაგინის საცავს.\n\nთუ რომელიმე \"მესამე მხარის\" პლაგინი არღვევს რაიმე სერვისის/იურიდიული პირის ToS/DMCA-ს, გთხოვთ, სთხოვეთ \"მესამე მხარის\" პლაგინის ავტორს ან ჰოსტინგის პლატფორმას, მაგალითად GitHub/Codeberg, მიიღოს ზომები. ზემოთ ჩამოთვლილი (\"მესამე მხარის\" ეტიკეტის მქონე) ყველა არის საჯარო/საზოგადოების მიერ შენარჩუნებული პლაგინები. ჩვენ მათ არ ვაკონტროლებთ, ამიტომ არ შეგვიძლია მათზე რაიმე ზომების მიღება.\n\n';
 
   @override
   String get input_does_not_match_format =>

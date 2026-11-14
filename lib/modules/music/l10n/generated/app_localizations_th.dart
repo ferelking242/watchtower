@@ -24,6 +24,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get lyrics => 'เนื้อเพลง';
 
   @override
+  String get player => 'เครื่องเล่น';
+
+  @override
   String get settings => 'ตั้งค่า';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get cancel_all => 'ยกเลิกทั้งหมด';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'รีเฟรช';
 
   @override
   String get filter_artist => 'กรองศิลปิน...';
@@ -492,13 +495,25 @@ class AppLocalizationsTh extends AppLocalizations {
   String get about => 'เกี่ยวกับ';
 
   @override
-  String get u_love_spotube => 'เรารู้ว่าคุณรัก Spotube';
+  String get music => 'เพลง';
+
+  @override
+  String get integrated_in_watchtower => 'รวมอยู่ใน Watchtower';
+
+  @override
+  String get wikipedia => 'วิกิพีเดีย';
+
+  @override
+  String get read_more_at_wikipedia => 'อ่านต่อในวิกิพีเดีย';
+
+  @override
+  String get u_love_spotube => 'เรารู้ว่าคุณรัก Watchtower';
 
   @override
   String get check_for_updates => 'ตรวจสอบการปรับปรุง';
 
   @override
-  String get about_spotube => 'เกี่ยวกับ Spotube';
+  String get about_spotube => 'เกี่ยวกับ Watchtower';
 
   @override
   String get blacklist => 'แบล็กลิสต์';
@@ -508,7 +523,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube โปรแกรมเล่น Spotify ฟรีสำหรับทุกคน น้ำหนักเบา รองรับหลายแพลตฟอร์ม';
+      'Watchtower โปรแกรมเล่น Spotify ฟรีสำหรับทุกคน น้ำหนักเบา รองรับหลายแพลตฟอร์ม';
 
   @override
   String get version => 'รุ่น';
@@ -729,7 +744,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'นอกเหนือจากนั้น IP ของคุณอาจถูกบล็อกบน YouTube เนื่องจากคำขอดาวน์โหลดมากเกินกว่าปกติ การบล็อก IP หมายความว่าคุณไม่สามารถใช้ YouTube (แม้ว่าคุณจะล็อกอินอยู่) เป็นเวลาอย่างน้อย 2-3 เดือนจากอุปกรณ์ IP นั้น และ Spotube จะไม่รับผิดชอบใด ๆ หากสิ่งนี้เกิดขึ้น';
+      'นอกเหนือจากนั้น IP ของคุณอาจถูกบล็อกบน YouTube เนื่องจากคำขอดาวน์โหลดมากเกินกว่าปกติ การบล็อก IP หมายความว่าคุณไม่สามารถใช้ YouTube (แม้ว่าคุณจะล็อกอินอยู่) เป็นเวลาอย่างน้อย 2-3 เดือนจากอุปกรณ์ IP นั้น และ Watchtower จะไม่รับผิดชอบใด ๆ หากสิ่งนี้เกิดขึ้น';
 
   @override
   String get by_clicking_accept_terms =>
@@ -745,7 +760,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'ฉันรับทราบอย่างสมบูรณ์ว่า IP ของฉันอาจถูกบล็อกบน YouTube และฉันจะไม่ถือ Spotube หรือเจ้าของ/ผู้มีส่วนร่วมใด ๆ รับผิดชอบต่ออุบัติเหตุใด ๆ ที่เกิดจากการกระทำปัจจุบันของฉัน';
+      'ฉันรับทราบอย่างสมบูรณ์ว่า IP ของฉันอาจถูกบล็อกบน YouTube และฉันจะไม่ถือ Watchtower หรือเจ้าของ/ผู้มีส่วนร่วมใด ๆ รับผิดชอบต่ออุบัติเหตุใด ๆ ที่เกิดจากการกระทำปัจจุบันของฉัน';
 
   @override
   String get decline => 'ปฏิเสธ';
@@ -827,7 +842,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube ใช้การเข้ารหัสเพื่อเก็บข้อมูลของคุณอย่างปลอดภัย แต่ไม่สามารถทำได้ ดังนั้นจะเปลี่ยนเป็นการจัดเก็บที่ไม่ปลอดภัย\nหากคุณใช้ Linux โปรดตรวจสอบว่าคุณได้ติดตั้งบริการลับ (gnome-keyring, kde-wallet, keepassxc เป็นต้น)';
+      'Watchtower ใช้การเข้ารหัสเพื่อเก็บข้อมูลของคุณอย่างปลอดภัย แต่ไม่สามารถทำได้ ดังนั้นจะเปลี่ยนเป็นการจัดเก็บที่ไม่ปลอดภัย\nหากคุณใช้ Linux โปรดตรวจสอบว่าคุณได้ติดตั้งบริการลับ (gnome-keyring, kde-wallet, keepassxc เป็นต้น)';
 
   @override
   String get querying_info => 'กำลังดึงข้อมูล...';
@@ -1005,7 +1020,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'สิ่งนี้จะช่วยให้ Spotube แสดงเนื้อหาที่เหมาะสมสำหรับคุณ';
+      'สิ่งนี้จะช่วยให้ Watchtower แสดงเนื้อหาที่เหมาะสมสำหรับคุณ';
 
   @override
   String get choose_your_language => 'เลือกภาษาของคุณ';
@@ -1015,7 +1030,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube เป็นโครงการโอเพนซอร์ส คุณสามารถช่วยให้โครงการนี้เติบโตได้โดยการมีส่วนร่วมในโครงการ รายงานข้อบกพร่อง หรือเสนอคุณสมบัติใหม่';
+      'Watchtower เป็นโครงการโอเพนซอร์ส คุณสามารถช่วยให้โครงการนี้เติบโตได้โดยการมีส่วนร่วมในโครงการ รายงานข้อบกพร่อง หรือเสนอคุณสมบัติใหม่';
 
   @override
   String get contribute_on_github => 'มีส่วนร่วมบน GitHub';
@@ -1030,7 +1045,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get enable_connect => 'เปิดใช้งานการเชื่อมต่อ';
 
   @override
-  String get enable_connect_description => 'ควบคุม Spotube จากอุปกรณ์อื่น';
+  String get enable_connect_description => 'ควบคุม Watchtower จากอุปกรณ์อื่น';
 
   @override
   String get devices => 'อุปกรณ์';
@@ -1078,19 +1093,19 @@ class AppLocalizationsTh extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube มีการอัปเดต';
+  String get spotube_has_an_update => 'Watchtower มีการอัปเดต';
 
   @override
   String get download_now => 'ดาวน์โหลดตอนนี้';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum ได้รับการปล่อยออกมา';
+    return 'Watchtower Nightly $nightlyBuildNum ได้รับการปล่อยออกมา';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version ได้รับการปล่อยออกมา';
+    return 'Watchtower v$version ได้รับการปล่อยออกมา';
   }
 
   @override
@@ -1512,7 +1527,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'ทีม Spotube ไม่รับผิดชอบใดๆ (รวมถึงทางกฎหมาย) สำหรับปลั๊กอิน \"บุคคลที่สาม\" ใดๆ\nโปรดใช้งานด้วยความเสี่ยงของคุณเอง สำหรับข้อบกพร่อง/ปัญหาใดๆ โปรดรายงานไปยังที่เก็บปลั๊กอิน\n\nหากปลั๊กอิน \"บุคคลที่สาม\" ใดๆ ละเมิด ToS/DMCA ของบริการ/นิติบุคคลใดๆ โปรดขอให้ผู้เขียนปลั๊กอิน \"บุคคลที่สาม\" หรือแพลตฟอร์มโฮสติ้ง เช่น GitHub/Codeberg ดำเนินการ ที่ระบุไว้ข้างต้น (ที่ติดป้าย \"บุคคลที่สาม\") เป็นปลั๊กอินสาธารณะ/ที่ดูแลโดยชุมชนทั้งหมด เราไม่ได้จัดการดูแล ดังนั้นเราจึงไม่สามารถดำเนินการใดๆ กับพวกเขาได้\n\n';
+      'ทีม Watchtower ไม่รับผิดชอบใดๆ (รวมถึงทางกฎหมาย) สำหรับปลั๊กอิน \"บุคคลที่สาม\" ใดๆ\nโปรดใช้งานด้วยความเสี่ยงของคุณเอง สำหรับข้อบกพร่อง/ปัญหาใดๆ โปรดรายงานไปยังที่เก็บปลั๊กอิน\n\nหากปลั๊กอิน \"บุคคลที่สาม\" ใดๆ ละเมิด ToS/DMCA ของบริการ/นิติบุคคลใดๆ โปรดขอให้ผู้เขียนปลั๊กอิน \"บุคคลที่สาม\" หรือแพลตฟอร์มโฮสติ้ง เช่น GitHub/Codeberg ดำเนินการ ที่ระบุไว้ข้างต้น (ที่ติดป้าย \"บุคคลที่สาม\") เป็นปลั๊กอินสาธารณะ/ที่ดูแลโดยชุมชนทั้งหมด เราไม่ได้จัดการดูแล ดังนั้นเราจึงไม่สามารถดำเนินการใดๆ กับพวกเขาได้\n\n';
 
   @override
   String get input_does_not_match_format => 'อินพุตไม่ตรงกับรูปแบบที่ต้องการ';

@@ -24,6 +24,9 @@ class AppLocalizationsCs extends AppLocalizations {
   String get lyrics => 'Texty';
 
   @override
+  String get player => 'Přehrávač';
+
+  @override
   String get settings => 'Nastavení';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get cancel_all => 'Zrušit vše';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'Obnovit';
 
   @override
   String get filter_artist => 'Filtrovat umělce...';
@@ -490,13 +493,25 @@ class AppLocalizationsCs extends AppLocalizations {
   String get about => 'O aplikaci';
 
   @override
-  String get u_love_spotube => 'Víme, že milujete Spotube';
+  String get music => 'Hudba';
+
+  @override
+  String get integrated_in_watchtower => 'Součást Watchtower';
+
+  @override
+  String get wikipedia => 'Wikipedie';
+
+  @override
+  String get read_more_at_wikipedia => 'čtěte více na Wikipedii';
+
+  @override
+  String get u_love_spotube => 'Víme, že milujete Watchtower';
 
   @override
   String get check_for_updates => 'Zkontrolovat aktualizace';
 
   @override
-  String get about_spotube => 'O Spotube';
+  String get about_spotube => 'O Watchtower';
 
   @override
   String get blacklist => 'Černá listina';
@@ -506,7 +521,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube, rychlý, multiplatformní, bezplatný Spotify klient';
+      'Watchtower, rychlý, multiplatformní, bezplatný Spotify klient';
 
   @override
   String get version => 'Verze';
@@ -728,7 +743,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'Mimochodem, vaše IP může být na YouTube zablokována kvůli nadměrným požadavkům na stahování. Blokování IP znamená, že nemůžete používat YouTube (i když jste přihlášeni) alespoň 2-3 měsíce ze zařízení s touto IP. A Spotube nenese žádnou odpovědnost, pokud se to někdy stane';
+      'Mimochodem, vaše IP může být na YouTube zablokována kvůli nadměrným požadavkům na stahování. Blokování IP znamená, že nemůžete používat YouTube (i když jste přihlášeni) alespoň 2-3 měsíce ze zařízení s touto IP. A Watchtower nenese žádnou odpovědnost, pokud se to někdy stane';
 
   @override
   String get by_clicking_accept_terms =>
@@ -825,7 +840,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube používá šifrování k bezpečnému ukládání vašich dat. Ale selhalo. Takže se vrátí k nezabezpečenému úložišti\nPokud používáte linux, ujistěte se, že máte nainstalovanou jakoukoli službu k ukládání bezpečnostních pověření (gnome-keyring, kde-wallet, keepassxc atd.)';
+      'Watchtower používá šifrování k bezpečnému ukládání vašich dat. Ale selhalo. Takže se vrátí k nezabezpečenému úložišti\nPokud používáte linux, ujistěte se, že máte nainstalovanou jakoukoli službu k ukládání bezpečnostních pověření (gnome-keyring, kde-wallet, keepassxc atd.)';
 
   @override
   String get querying_info => 'Získávání informací...';
@@ -1005,7 +1020,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'To pomůže Spotube ukázat vám správný obsah\npro vaši lokalitu.';
+      'To pomůže Watchtower ukázat vám správný obsah\npro vaši lokalitu.';
 
   @override
   String get choose_your_language => 'Vyberte svůj jazyk';
@@ -1015,7 +1030,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube je open-source projekt. Můžete pomoci tomuto projektu růst tím, že přispějete do projektu, nahlásíte chyby nebo navrhnete nové funkce.';
+      'Watchtower je open-source projekt. Můžete pomoci tomuto projektu růst tím, že přispějete do projektu, nahlásíte chyby nebo navrhnete nové funkce.';
 
   @override
   String get contribute_on_github => 'Přispějte na GitHub';
@@ -1031,7 +1046,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'Ovládejte Spotube z jiného zařízení';
+      'Ovládejte Watchtower z jiného zařízení';
 
   @override
   String get devices => 'Zařízení';
@@ -1079,19 +1094,19 @@ class AppLocalizationsCs extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube má aktualizaci';
+  String get spotube_has_an_update => 'Watchtower má aktualizaci';
 
   @override
   String get download_now => 'Stáhnout nyní';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Byla vydána noční verze Spotube $nightlyBuildNum';
+    return 'Byla vydána noční verze Watchtower $nightlyBuildNum';
   }
 
   @override
   String release_version(Object version) {
-    return 'Byla vydána verze Spotube v$version';
+    return 'Byla vydána verze Watchtower v$version';
   }
 
   @override
@@ -1516,7 +1531,7 @@ class AppLocalizationsCs extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'Tým Spotube nenese žádnou odpovědnost (včetně právní) za pluginy „třetích stran“.\nPoužívejte je na vlastní riziko. Pro chyby/problémy je nahlaste do repozitáře pluginu.\n\nPokud jakýkoli plugin „třetí strany“ porušuje podmínky služby nebo DMCA kteréhokoli poskytovatele či právního subjektu, požádejte autora pluginu nebo hostingovou platformu (např. GitHub/Codeberg), aby podnikla kroky. Pluginy označené jako „třetí strana“ jsou otevřené a spravovány komunitou; nespravujeme je, tudíž nemůžeme jednat.\n\n';
+      'Tým Watchtower nenese žádnou odpovědnost (včetně právní) za pluginy „třetích stran“.\nPoužívejte je na vlastní riziko. Pro chyby/problémy je nahlaste do repozitáře pluginu.\n\nPokud jakýkoli plugin „třetí strany“ porušuje podmínky služby nebo DMCA kteréhokoli poskytovatele či právního subjektu, požádejte autora pluginu nebo hostingovou platformu (např. GitHub/Codeberg), aby podnikla kroky. Pluginy označené jako „třetí strana“ jsou otevřené a spravovány komunitou; nespravujeme je, tudíž nemůžeme jednat.\n\n';
 
   @override
   String get input_does_not_match_format =>

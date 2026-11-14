@@ -24,6 +24,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get lyrics => 'Lyrics';
 
   @override
+  String get player => 'Player';
+
+  @override
   String get settings => 'Settings';
 
   @override
@@ -492,13 +495,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get about => 'About';
 
   @override
-  String get u_love_spotube => 'We know you love Spotube';
+  String get music => 'Music';
+
+  @override
+  String get integrated_in_watchtower => 'Built into Watchtower';
+
+  @override
+  String get wikipedia => 'Wikipedia';
+
+  @override
+  String get read_more_at_wikipedia => 'read more at Wikipedia';
+
+  @override
+  String get u_love_spotube => 'We know you love Watchtower';
 
   @override
   String get check_for_updates => 'Check for updates';
 
   @override
-  String get about_spotube => 'About Spotube';
+  String get about_spotube => 'About Watchtower';
 
   @override
   String get blacklist => 'Blacklist';
@@ -827,7 +842,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube uses encryption to securely store your data. But failed to do so. So it\'ll fallback to insecure storage\nIf you\'re using linux, please make sure you\'ve any secret-service (gnome-keyring, kde-wallet, keepassxc etc) installed';
+      'Watchtower uses encryption to securely store your data. But failed to do so. So it\'ll fallback to insecure storage\nIf you\'re using linux, please make sure you\'ve any secret-service (gnome-keyring, kde-wallet, keepassxc etc) installed';
 
   @override
   String get querying_info => 'Querying info...';
@@ -1031,7 +1046,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get enable_connect => 'Enable Connect';
 
   @override
-  String get enable_connect_description => 'Control Spotube from other devices';
+  String get enable_connect_description =>
+      'Control Watchtower from other devices';
 
   @override
   String get devices => 'Devices';
@@ -1079,19 +1095,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube has an update';
+  String get spotube_has_an_update => 'Watchtower has an update';
 
   @override
   String get download_now => 'Download Now';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum has been released';
+    return 'Watchtower Nightly $nightlyBuildNum has been released';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version has been released';
+    return 'Watchtower v$version has been released';
   }
 
   @override
@@ -1514,7 +1530,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'The Spotube team does not hold any responsibility (including legal) for any \"Third-party\" plugins.\nPlease use them at your own risk. For any bugs/issues, please report them to the plugin repository.\n\nIf any \"Third-party\" plugin is breaking ToS/DMCA of any service/legal entity, please ask the \"Third-party\" plugin author or the hosting platform .e.g GitHub/Codeberg to take action. Above listed (\"Third-party\" labelled) are all public/community maintained plugins. We\'re not curating them, so we cannot take any action on them.\n\n';
+      'The Watchtower team does not hold any responsibility (including legal) for any \"Third-party\" plugins.\nPlease use them at your own risk. For any bugs/issues, please report them to the plugin repository.\n\nIf any \"Third-party\" plugin is breaking ToS/DMCA of any service/legal entity, please ask the \"Third-party\" plugin author or the hosting platform .e.g GitHub/Codeberg to take action. Above listed (\"Third-party\" labelled) are all public/community maintained plugins. We\'re not curating them, so we cannot take any action on them.\n\n';
 
   @override
   String get input_does_not_match_format =>

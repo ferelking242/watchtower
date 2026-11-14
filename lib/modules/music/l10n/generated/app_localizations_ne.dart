@@ -24,6 +24,9 @@ class AppLocalizationsNe extends AppLocalizations {
   String get lyrics => 'गीतको शब्द';
 
   @override
+  String get player => 'प्लेयर';
+
+  @override
   String get settings => 'सेटिङ';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsNe extends AppLocalizations {
   String get cancel_all => 'सब रद्द गर्नुहोस्';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'रिफ्रेस';
 
   @override
   String get filter_artist => 'कलाकारहरूलाई फिल्टर गर्नुहोस्...';
@@ -494,14 +497,26 @@ class AppLocalizationsNe extends AppLocalizations {
   String get about => 'बारेमा';
 
   @override
+  String get music => 'संगीत';
+
+  @override
+  String get integrated_in_watchtower => 'Watchtower मा एकीकृत';
+
+  @override
+  String get wikipedia => 'विकिपिडिया';
+
+  @override
+  String get read_more_at_wikipedia => 'विकिपिडियामा थप पढ्नुहोस्';
+
+  @override
   String get u_love_spotube =>
-      'हामीले थाहा पारेका छौं तपाईंलाई Spotube मन पर्छ';
+      'हामीले थाहा पारेका छौं तपाईंलाई Watchtower मन पर्छ';
 
   @override
   String get check_for_updates => 'अपडेटहरूको लागि जाँच गर्नुहोस्';
 
   @override
-  String get about_spotube => 'Spotube को बारेमा';
+  String get about_spotube => 'Watchtower को बारेमा';
 
   @override
   String get blacklist => 'कालोसूची';
@@ -511,7 +526,7 @@ class AppLocalizationsNe extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube, एक हल्का, समृद्ध, स्वतन्त्र Spotify क्लाइयन';
+      'Watchtower, एक हल्का, समृद्ध, स्वतन्त्र Spotify क्लाइयन';
 
   @override
   String get version => 'संस्करण';
@@ -1016,7 +1031,7 @@ class AppLocalizationsNe extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'यो Spotubeलाई तपाईंको स्थानका लागि सहि सामग्री देखाउने मद्दत गर्नेछ।';
+      'यो Watchtowerलाई तपाईंको स्थानका लागि सहि सामग्री देखाउने मद्दत गर्नेछ।';
 
   @override
   String get choose_your_language => 'तपाईंको भाषा छनौट गर्नुहोस्';
@@ -1026,7 +1041,7 @@ class AppLocalizationsNe extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube एक खुला स्रोतको परियोजना हो। तपाईं परियोजनामा योगदान गरेर, त्रुटिहरू सूचिकै, वा नयाँ सुविधाहरू सुझाव दिएर यस परियोजनामा वृद्धि गर्न सक्नुहुन्छ।';
+      'Watchtower एक खुला स्रोतको परियोजना हो। तपाईं परियोजनामा योगदान गरेर, त्रुटिहरू सूचिकै, वा नयाँ सुविधाहरू सुझाव दिएर यस परियोजनामा वृद्धि गर्न सक्नुहुन्छ।';
 
   @override
   String get contribute_on_github => 'GitHubमा योगदान गर्नुहोस्';
@@ -1042,7 +1057,7 @@ class AppLocalizationsNe extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'अन्य उपकरणहरूबाट Spotube कन्ट्रोल गर्नुहोस्';
+      'अन्य उपकरणहरूबाट Watchtower कन्ट्रोल गर्नुहोस्';
 
   @override
   String get devices => 'उपकरणहरू';
@@ -1090,19 +1105,19 @@ class AppLocalizationsNe extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube मा अपडेट छ';
+  String get spotube_has_an_update => 'Watchtower मा अपडेट छ';
 
   @override
   String get download_now => 'अहिले डाउनलोड गर्नुहोस्';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum रिलिज गरिएको छ';
+    return 'Watchtower Nightly $nightlyBuildNum रिलिज गरिएको छ';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version रिलिज गरिएको छ';
+    return 'Watchtower v$version रिलिज गरिएको छ';
   }
 
   @override

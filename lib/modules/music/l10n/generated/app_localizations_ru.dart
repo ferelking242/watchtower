@@ -24,6 +24,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get lyrics => 'Текст';
 
   @override
+  String get player => 'Плеер';
+
+  @override
   String get settings => 'Настройки';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancel_all => 'Отменить все';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'Обновить';
 
   @override
   String get filter_artist => 'Фильтровать по исполнителю...';
@@ -494,13 +497,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get about => 'О нас';
 
   @override
-  String get u_love_spotube => 'Мы знаем что вам нравится Spotube';
+  String get music => 'Музыка';
+
+  @override
+  String get integrated_in_watchtower => 'Встроено в Watchtower';
+
+  @override
+  String get wikipedia => 'Википедия';
+
+  @override
+  String get read_more_at_wikipedia => 'читать далее в Википедии';
+
+  @override
+  String get u_love_spotube => 'Мы знаем что вам нравится Watchtower';
 
   @override
   String get check_for_updates => 'Проверьте наличие обновлений';
 
   @override
-  String get about_spotube => 'О Spotube';
+  String get about_spotube => 'О Watchtower';
 
   @override
   String get blacklist => 'Чёрный список';
@@ -510,7 +525,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube – это легкий, кросс-платформенный клиент Spotify, предоставляющий бесплатный доступ для всех пользователей';
+      'Watchtower – это легкий, кросс-платформенный клиент Spotify, предоставляющий бесплатный доступ для всех пользователей';
 
   @override
   String get version => 'Версия';
@@ -732,7 +747,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'Кроме того, стоит учитывать, что из-за чрезмерного количества запросов на скачивание ваш IP-адрес может быть заблокирован на YouTube. Блокировка IP означает, что вы не сможете использовать YouTube (даже если вы вошли в свою учетную запись) в течение, как минимум, 2-3 месяцев с того устройства, с которого были сделаны эти запросы. Важно заметить, что Spotube не несет ответственности за такие события';
+      'Кроме того, стоит учитывать, что из-за чрезмерного количества запросов на скачивание ваш IP-адрес может быть заблокирован на YouTube. Блокировка IP означает, что вы не сможете использовать YouTube (даже если вы вошли в свою учетную запись) в течение, как минимум, 2-3 месяцев с того устройства, с которого были сделаны эти запросы. Важно заметить, что Watchtower не несет ответственности за такие события';
 
   @override
   String get by_clicking_accept_terms =>
@@ -748,7 +763,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'Я полностью осознаю, что мой IP-адрес может быть заблокирован на YouTube, и я не считаю Spotube или его владельцев/соавторов ответственными за какие-либо неприятности, вызванные моими текущими действиями';
+      'Я полностью осознаю, что мой IP-адрес может быть заблокирован на YouTube, и я не считаю Watchtower или его владельцев/соавторов ответственными за какие-либо неприятности, вызванные моими текущими действиями';
 
   @override
   String get decline => 'Отклонить';
@@ -830,7 +845,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube использует шифрование для безопасного хранения ваших данных. Однако в этом случае произошла ошибка. Поэтому будет использовано небезопасное хранилище.\nЕсли вы используете Linux, убедитесь, что у вас установлен какой-либо инструмент для работы с секретами (gnome-keyring, kde-wallet, keepassxc и т.д.)';
+      'Watchtower использует шифрование для безопасного хранения ваших данных. Однако в этом случае произошла ошибка. Поэтому будет использовано небезопасное хранилище.\nЕсли вы используете Linux, убедитесь, что у вас установлен какой-либо инструмент для работы с секретами (gnome-keyring, kde-wallet, keepassxc и т.д.)';
 
   @override
   String get querying_info => 'Запрос информации...';
@@ -1011,7 +1026,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'Это поможет Spotube показать вам правильный контент\nдля вашего местоположения.';
+      'Это поможет Watchtower показать вам правильный контент\nдля вашего местоположения.';
 
   @override
   String get choose_your_language => 'Выберите ваш язык';
@@ -1021,7 +1036,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube - это проект с открытым исходным кодом. Вы можете помочь этому проекту развиваться, внося вклад в проект, сообщая ошибках или предлагая новые функции.';
+      'Watchtower - это проект с открытым исходным кодом. Вы можете помочь этому проекту развиваться, внося вклад в проект, сообщая ошибках или предлагая новые функции.';
 
   @override
   String get contribute_on_github => 'Внести вклад на GitHub';
@@ -1037,7 +1052,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'Управление Spotube с других устройств';
+      'Управление Watchtower с других устройств';
 
   @override
   String get devices => 'Устройства';
@@ -1085,19 +1100,19 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'В Spotube доступно обновление';
+  String get spotube_has_an_update => 'В Watchtower доступно обновление';
 
   @override
   String get download_now => 'Скачать сейчас';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum выпущен';
+    return 'Watchtower Nightly $nightlyBuildNum выпущен';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version выпущен';
+    return 'Watchtower v$version выпущен';
   }
 
   @override
@@ -1523,7 +1538,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'Команда Spotube не несет никакой ответственности (в том числе юридической) за какие-либо \"сторонние\" плагины.\nПожалуйста, используйте их на свой страх и риск. О любых ошибках/проблемах сообщайте в репозиторий плагина.\n\nЕсли какой-либо \"сторонний\" плагин нарушает ToS/DMCA какого-либо сервиса/юридического лица, пожалуйста, попросите автора плагина \"стороннего\" или хостинговую платформу, например, GitHub/Codeberg, принять меры. Перечисленные выше (помеченные как \"сторонние\") являются общедоступными/поддерживаемыми сообществом плагинами. Мы не курируем их, поэтому не можем принимать по ним никаких мер.\n\n';
+      'Команда Watchtower не несет никакой ответственности (в том числе юридической) за какие-либо \"сторонние\" плагины.\nПожалуйста, используйте их на свой страх и риск. О любых ошибках/проблемах сообщайте в репозиторий плагина.\n\nЕсли какой-либо \"сторонний\" плагин нарушает ToS/DMCA какого-либо сервиса/юридического лица, пожалуйста, попросите автора плагина \"стороннего\" или хостинговую платформу, например, GitHub/Codeberg, принять меры. Перечисленные выше (помеченные как \"сторонние\") являются общедоступными/поддерживаемыми сообществом плагинами. Мы не курируем их, поэтому не можем принимать по ним никаких мер.\n\n';
 
   @override
   String get input_does_not_match_format =>

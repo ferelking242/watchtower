@@ -24,6 +24,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get lyrics => 'Songtexte';
 
   @override
+  String get player => 'Player';
+
+  @override
   String get settings => 'Einstellungen';
 
   @override
@@ -153,7 +156,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get cancel_all => 'Alle abbrechen';
 
   @override
-  String get refresh => 'Refresh';
+  String get refresh => 'Aktualisieren';
 
   @override
   String get filter_artist => 'Künstler filtern...';
@@ -494,13 +497,25 @@ class AppLocalizationsDe extends AppLocalizations {
   String get about => 'Über';
 
   @override
-  String get u_love_spotube => 'Wir wissen, dass Sie Spotube lieben';
+  String get music => 'Musik';
+
+  @override
+  String get integrated_in_watchtower => 'In Watchtower integriert';
+
+  @override
+  String get wikipedia => 'Wikipedia';
+
+  @override
+  String get read_more_at_wikipedia => 'mehr auf Wikipedia lesen';
+
+  @override
+  String get u_love_spotube => 'Wir wissen, dass Sie Watchtower lieben';
 
   @override
   String get check_for_updates => 'Nach Updates suchen';
 
   @override
-  String get about_spotube => 'Über Spotube';
+  String get about_spotube => 'Über Watchtower';
 
   @override
   String get blacklist => 'Gesperrte Titel';
@@ -510,7 +525,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get spotube_description =>
-      'Spotube, ein leichtgewichtiger, plattformübergreifender und kostenloser Spotify-Client';
+      'Watchtower, ein leichtgewichtiger, plattformübergreifender und kostenloser Spotify-Client';
 
   @override
   String get version => 'Version';
@@ -736,7 +751,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get download_ip_ban_warning =>
-      'Übrigens, deine IP-Adresse kann aufgrund übermäßiger Downloadanfragen von YouTube gesperrt werden. Eine IP-Sperre bedeutet, dass du YouTube (auch wenn du angemeldet bist) für mindestens 2-3 Monate von diesem IP-Gerät aus nicht nutzen kannst. Spotube übernimmt keine Verantwortung, falls dies jemals geschieht.';
+      'Übrigens, deine IP-Adresse kann aufgrund übermäßiger Downloadanfragen von YouTube gesperrt werden. Eine IP-Sperre bedeutet, dass du YouTube (auch wenn du angemeldet bist) für mindestens 2-3 Monate von diesem IP-Gerät aus nicht nutzen kannst. Watchtower übernimmt keine Verantwortung, falls dies jemals geschieht.';
 
   @override
   String get by_clicking_accept_terms =>
@@ -752,7 +767,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get download_agreement_3 =>
-      'Mir ist vollkommen bewusst, dass meine IP-Adresse auf YouTube gesperrt werden kann, und ich halte Spotube oder seine Eigentümer/Mitarbeiter nicht für etwaige Unfälle verantwortlich, die durch meine derzeitige Handlung verursacht werden.';
+      'Mir ist vollkommen bewusst, dass meine IP-Adresse auf YouTube gesperrt werden kann, und ich halte Watchtower oder seine Eigentümer/Mitarbeiter nicht für etwaige Unfälle verantwortlich, die durch meine derzeitige Handlung verursacht werden.';
 
   @override
   String get decline => 'Ablehnen';
@@ -834,7 +849,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get encryption_failed_warning =>
-      'Spotube verwendet Verschlüsselung, um Ihre Daten sicher zu speichern. Dies ist jedoch fehlgeschlagen. Daher wird es auf unsichere Speicherung zurückgreifen\nWenn Sie Linux verwenden, stellen Sie bitte sicher, dass Sie Secret-Services wie gnome-keyring, kde-wallet und keepassxc installiert haben';
+      'Watchtower verwendet Verschlüsselung, um Ihre Daten sicher zu speichern. Dies ist jedoch fehlgeschlagen. Daher wird es auf unsichere Speicherung zurückgreifen\nWenn Sie Linux verwenden, stellen Sie bitte sicher, dass Sie Secret-Services wie gnome-keyring, kde-wallet und keepassxc installiert haben';
 
   @override
   String get querying_info => 'Abfrageinformationen...';
@@ -1017,7 +1032,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get choose_your_region_description =>
-      'Dies wird Spotube helfen, Ihnen den richtigen Inhalt\nfür Ihren Standort anzuzeigen.';
+      'Dies wird Watchtower helfen, Ihnen den richtigen Inhalt\nfür Ihren Standort anzuzeigen.';
 
   @override
   String get choose_your_language => 'Wählen Sie Ihre Sprache';
@@ -1027,7 +1042,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get help_project_grow_description =>
-      'Spotube ist ein Open-Source-Projekt. Sie können diesem Projekt helfen, indem Sie zum Projekt beitragen, Fehler melden oder neue Funktionen vorschlagen.';
+      'Watchtower ist ein Open-Source-Projekt. Sie können diesem Projekt helfen, indem Sie zum Projekt beitragen, Fehler melden oder neue Funktionen vorschlagen.';
 
   @override
   String get contribute_on_github => 'Auf GitHub beitragen';
@@ -1043,7 +1058,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get enable_connect_description =>
-      'Spotube von anderen Geräten steuern';
+      'Watchtower von anderen Geräten steuern';
 
   @override
   String get devices => 'Geräte';
@@ -1091,19 +1106,19 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get spotube_has_an_update => 'Spotube hat ein Update';
+  String get spotube_has_an_update => 'Watchtower hat ein Update';
 
   @override
   String get download_now => 'Jetzt herunterladen';
 
   @override
   String nightly_version(Object nightlyBuildNum) {
-    return 'Spotube Nightly $nightlyBuildNum wurde veröffentlicht';
+    return 'Watchtower Nightly $nightlyBuildNum wurde veröffentlicht';
   }
 
   @override
   String release_version(Object version) {
-    return 'Spotube v$version wurde veröffentlicht';
+    return 'Watchtower v$version wurde veröffentlicht';
   }
 
   @override
@@ -1529,7 +1544,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get third_party_plugin_dmca_notice =>
-      'Das Spotube-Team übernimmt keine Verantwortung (auch nicht rechtlicher Art) für Plugins \"Drittanbieter\". Nutzen Sie diese auf eigenes Risiko. Für Fehler/Probleme melden Sie sich bitte beim Plugin-Repository.\n\nWenn ein Plugin \"Drittanbieter\" gegen die ToS/DMCA eines Dienstes bzw. gesetzlicher Vorschriften verstößt, wenden Sie sich bitte an den Plugin-Autor oder die Hosting-Plattform (z. B. GitHub/Codeberg), um Maßnahmen zu ergreifen. Die genannten Plugins (mit \"Drittanbieter\"-Kennzeichnung) werden öffentlich und gemeinschaftlich gepflegt. Wir kuratieren sie nicht und können keine Maßnahmen ergreifen.\n\n';
+      'Das Watchtower-Team übernimmt keine Verantwortung (auch nicht rechtlicher Art) für Plugins \"Drittanbieter\". Nutzen Sie diese auf eigenes Risiko. Für Fehler/Probleme melden Sie sich bitte beim Plugin-Repository.\n\nWenn ein Plugin \"Drittanbieter\" gegen die ToS/DMCA eines Dienstes bzw. gesetzlicher Vorschriften verstößt, wenden Sie sich bitte an den Plugin-Autor oder die Hosting-Plattform (z. B. GitHub/Codeberg), um Maßnahmen zu ergreifen. Die genannten Plugins (mit \"Drittanbieter\"-Kennzeichnung) werden öffentlich und gemeinschaftlich gepflegt. Wir kuratieren sie nicht und können keine Maßnahmen ergreifen.\n\n';
 
   @override
   String get input_does_not_match_format =>
