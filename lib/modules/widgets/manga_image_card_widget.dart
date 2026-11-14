@@ -16,6 +16,7 @@ import 'package:watchtower/router/router.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/utils/extensions/others.dart';
 import 'package:watchtower/modules/widgets/bottom_text_widget.dart';
 import 'package:watchtower/modules/widgets/cover_view_widget.dart';
 
@@ -58,8 +59,10 @@ class MangaImageCardWidget extends ConsumerWidget {
           ),
           isComfortableGrid: isComfortableGrid,
           image: hasData && mangaList.first.customCoverImage != null
-              ? MemoryImage(mangaList.first.customCoverImage as Uint8List)
-                    as ImageProvider
+              ? coverMemoryImage(
+                  mangaList.first.customCoverImage as Uint8List,
+                  width: 600,
+                )
               : kIsWeb
               ? NetworkImage(
                   toImgUrl(
@@ -215,8 +218,10 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
               : getMangaDetail!.imageUrl ?? "",
         );
         final ImageProvider<Object> image = hasData && mangaList.first.customCoverImage != null
-            ? MemoryImage(mangaList.first.customCoverImage as Uint8List)
-                  as ImageProvider<Object>
+            ? coverMemoryImage(
+                mangaList.first.customCoverImage as Uint8List,
+                width: 600,
+              )
             : kIsWeb
             ? NetworkImage(_imgUrl)
             : CustomExtendedNetworkImageProvider(

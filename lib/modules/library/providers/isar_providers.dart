@@ -7,18 +7,35 @@ import 'package:watchtower/models/settings.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'isar_providers.g.dart';
 
-/// One Isar watch over the whole `Manga` collection, keyed by
-/// `name\0source\0lang` for the extension-result cover cards.
+/// The single Isar watch over the whole `Manga` collection, shared by every
+/// derived provider below.
 ///
-/// `MangaImageCardWidget` used to open one filtered `.watch()` **per visible
-/// card** to find the library row behind an extension result. `Manga` has no
-/// indexes, so each of those watchers re-ran a full collection scan, and every
-/// write fired all of them at once — N native scans per mutation while a grid
-/// of results was on screen. A single shared watcher gives the same
-/// information; each card resolves its row with a map lookup.
+/// `Manga` rows embed the custom cover blob and the full synopsis, so Isar
+/// deserializes *both* on every collection read. Opening one independent
+/// `isar.mangas.where().watch()` per consumer (library list, each category
+/// badge, calendar, extension cards) meant every write re-scanned the whole
+/// collection once per watcher and re-decoded every cover blob — N× the work
+/// for identical data, on the UI isolate. That is the multi-second freeze felt
+/// when tapping a title, which triggers a `put` and therefore fires them all.
+///
+/// Everything now derives from this one watcher, so a mutation deserializes the
+/// collection once. The filtered providers below are `autoDispose`, so when no
+/// consumer is watching them Riverpod tears them down and drops the derived
+/// list; this root is `autoDispose` too, so when the last consumer leaves the
+/// collection is no longer held in memory.
+final libraryMangaRootProvider =
+    StreamProvider.autoDispose<List<Manga>>((ref) {
+  return isar.mangas.where().watch(fireImmediately: true);
+});
+
+/// The `mangas` collection keyed by `name\0source\0lang` for the
+/// extension-result cover cards.
+///
+/// Derived from [libraryMangaRootProvider] so it costs no extra Isar watcher.
 final libraryMangaByNameProvider =
-    StreamProvider.autoDispose<Map<String, List<Manga>>>((ref) {
-  return isar.mangas.where().watch(fireImmediately: true).map((mangas) {
+    Provider.autoDispose<AsyncValue<Map<String, List<Manga>>>>((ref) {
+  final root = ref.watch(libraryMangaRootProvider);
+  return root.whenData((mangas) {
     final byKey = <String, List<Manga>>{};
     for (final manga in mangas) {
       final name = manga.name;
@@ -54,16 +71,25 @@ Stream<List<Manga>> getAllMangaStream(
   required int? categoryId,
   required ItemType itemType,
 }) async* {
-  // isar_community can reject filters on nullable bool properties. Observe
-  // the collection without a filter and keep the same predicates in Dart.
-  yield* isar.mangas.where().watch(fireImmediately: true).map(
-        (mangas) => mangas
-            .where((manga) =>
-                manga.favorite == true &&
-                manga.itemType == itemType &&
-                (categoryId == null ||
-                    manga.categories?.contains(categoryId) == true))
-            .toList(),
+  // Derived from the shared root watch so this costs no extra Isar watcher.
+  // isar_community can reject filters on nullable bool properties, so the
+  // predicates stay in Dart. While the root is loading we emit nothing and the
+  // provider keeps its loading state until the first collection read lands.
+  yield* ref.watch(libraryMangaRootProvider).when(
+        data: (mangas) => Stream.value(
+          mangas
+              .where((manga) =>
+                  manga.favorite == true &&
+                  manga.itemType == itemType &&
+                  (categoryId == null ||
+                      manga.categories?.contains(categoryId) == true))
+              .toList(),
+        ),
+        loading: () => const Stream<List<Manga>>.empty(),
+        error: (error, stackTrace) => Stream<List<Manga>>.error(
+          error,
+          stackTrace,
+        ),
       );
 }
 
@@ -72,13 +98,20 @@ Stream<List<Manga>> getAllMangaWithoutCategoriesStream(
   Ref ref, {
   required ItemType itemType,
 }) async* {
-  yield* isar.mangas.where().watch(fireImmediately: true).map(
-        (mangas) => mangas
-            .where((manga) =>
-                manga.favorite == true &&
-                manga.itemType == itemType &&
-                (manga.categories == null || manga.categories!.isEmpty))
-            .toList(),
+  yield* ref.watch(libraryMangaRootProvider).when(
+        data: (mangas) => Stream.value(
+          mangas
+              .where((manga) =>
+                  manga.favorite == true &&
+                  manga.itemType == itemType &&
+                  (manga.categories == null || manga.categories!.isEmpty))
+              .toList(),
+        ),
+        loading: () => const Stream<List<Manga>>.empty(),
+        error: (error, stackTrace) => Stream<List<Manga>>.error(
+          error,
+          stackTrace,
+        ),
       );
 }
 

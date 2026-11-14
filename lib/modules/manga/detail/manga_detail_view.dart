@@ -183,10 +183,13 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
           return ErrorText(error);
         },
         loading: () {
-          return _buildWidget(
-            chapters: widget.manga!.chapters.toList().reversed.toList(),
-            reverse: reverse,
-          );
+          // Do NOT touch `widget.manga!.chapters` here. That is the lazy
+          // `IsarLinks` backlink, so reading it runs a synchronous Isar query
+          // on the UI isolate — on the very frame the detail route opens, i.e.
+          // exactly the multi-second stall felt when tapping a title. The
+          // `getChaptersStreamProvider` above already emits immediately; until
+          // its first event arrives the chapter list renders empty.
+          return _buildWidget(chapters: const [], reverse: reverse);
         },
       ),
     );
@@ -459,8 +462,9 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                         // chargement (le voile de lisibilité n'est appliqué
                         // qu'une fois l'image prête).
                         imageProvider: widget.manga!.customCoverImage != null
-                            ? MemoryImage(
+                            ? coverMemoryImage(
                                 widget.manga!.customCoverImage as Uint8List,
+                                width: 1080,
                               )
                             : CustomExtendedNetworkImageProvider(
                                 toImgUrl(
@@ -1862,8 +1866,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
   Widget _coverCard() {
     final isCustomCover = widget.manga!.customCoverImage != null;
     final imageProvider = isCustomCover
-        ? MemoryImage(widget.manga!.customCoverImage as Uint8List)
-              as ImageProvider
+        ? coverMemoryImage(
+            widget.manga!.customCoverImage as Uint8List,
+            width: 1080,
+          )
         : CustomExtendedNetworkImageProvider(
             toImgUrl(
               widget.manga!.customCoverFromTracker ??

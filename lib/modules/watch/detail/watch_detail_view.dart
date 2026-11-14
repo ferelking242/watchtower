@@ -284,7 +284,10 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         .watch(getChaptersStreamProvider(mangaId: widget.manga.id!))
         .when(
           data: (list) => list.reversed.toList(),
-          loading: () => widget.manga.chapters.toList().reversed.toList(),
+          // Do NOT fall back to `widget.manga.chapters`: that lazy `IsarLinks`
+          // backlink runs a synchronous Isar query on the UI isolate on the
+          // first frame the route builds. The stream above fires immediately.
+          loading: () => const <Chapter>[],
           error: (_, _) => <Chapter>[],
         );
 

@@ -7,6 +7,15 @@
 /// ("attaque des titans" → "shingeki no kyojin").
 library;
 
+/// Compiled once: the character class and the whitespace collapse used to be
+/// rebuilt inside the per-character loop, i.e. one `RegExp` object allocated
+/// per rune of every title compared. `titleMatches` calls `normalizeTitle`
+/// on the query *and* on each result row, and `intelligentQueryVariants`
+/// calls it again for every alias, so a single search compiled thousands of
+/// identical patterns on the UI isolate.
+final _alphanumericRegex = RegExp(r'[a-z0-9]');
+final _whitespaceRunRegex = RegExp(r'\s+');
+
 /// Lower-cases, strips diacritics and collapses everything that is not a
 /// letter or a digit, so "Shingeki no Kyojin!" and "shingeki no kyojin" match.
 String normalizeTitle(String input) {
@@ -16,15 +25,13 @@ String normalizeTitle(String input) {
     final ch = String.fromCharCode(rune);
     final folded = _diacritics[ch];
     final mapped = folded ?? ch;
-    if (RegExp(r'[a-z0-9]').hasMatch(mapped)) {
+    if (_alphanumericRegex.hasMatch(mapped) || mapped == ' ') {
       buffer.write(mapped);
-    } else if (mapped == ' ') {
-      buffer.write(' ');
     } else {
       buffer.write(' ');
     }
   }
-  return buffer.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
+  return buffer.toString().replaceAll(_whitespaceRunRegex, ' ').trim();
 }
 
 const Map<String, String> _diacritics = {
@@ -97,6 +104,22 @@ int editDistance(String a, String b) {
 bool titleMatches(String query, String title, {double threshold = 0.62}) {
   final q = normalizeTitle(query);
   final t = normalizeTitle(title);
+  return _matchesNormalized(q, t, threshold: threshold);
+}
+
+/// [titleMatches] with both sides already passed through [normalizeTitle].
+///
+/// Filtering a page of results calls `titleMatches` once per row *per query
+/// variant*, so the query was re-normalized for every row. Callers that filter
+/// a list can normalize the query once and use this directly.
+bool titleMatchesNormalized(
+  String normalizedQuery,
+  String title, {
+  double threshold = 0.62,
+}) => _matchesNormalized(normalizedQuery, normalizeTitle(title),
+    threshold: threshold);
+
+bool _matchesNormalized(String q, String t, {required double threshold}) {
   if (q.isEmpty || t.isEmpty) return false;
   if (t == q || t.startsWith(q) || t.contains(q)) return true;
 
@@ -306,6 +329,23 @@ const List<List<String>> _titleSynonyms = [
   ['tokyo godfathers'],
 ];
 
+/// The synonym groups with each alias pre-normalized, built once.
+///
+/// [intelligentQueryVariants] used to normalize every alias of every group on
+/// each call (`_titleSynonyms` is ~40 groups) *and* normalize the whole list
+/// again for each de-duplication check, so one expansion ran hundreds of
+/// `normalizeTitle` passes. The alias list is `const`, so its normalized form
+/// is computed once for the process lifetime.
+final List<List<(String, String)>> _normalizedSynonymGroups = [
+  for (final group in _titleSynonyms)
+    [for (final alias in group) (alias, normalizeTitle(alias))],
+];
+
+final _leadingArticleRegex = RegExp(
+  r'^(the|le|la|les|un|une|des|a|an)\s+',
+  caseSensitive: false,
+);
+
 /// Expands [query] into alternative search strings for the "intelligent
 /// retry": the raw query plus every known synonym of the matching group and a
 /// few generic variants (accent-stripped, stop-words removed).
@@ -313,33 +353,26 @@ List<String> intelligentQueryVariants(String query) {
   final raw = query.trim();
   if (raw.isEmpty) return const [];
   final variants = <String>[];
+  final seen = <String>{};
   void add(String value) {
     final v = value.trim();
     if (v.isEmpty) return;
-    if (!variants.any((e) => normalizeTitle(e) == normalizeTitle(v))) {
-      variants.add(v);
-    }
+    if (seen.add(normalizeTitle(v))) variants.add(v);
   }
 
   add(raw);
 
   final normalized = normalizeTitle(raw);
-  for (final group in _titleSynonyms) {
-    if (group.any((alias) => _phraseHit(normalized, normalizeTitle(alias)))) {
+  for (final group in _normalizedSynonymGroups) {
+    if (group.any((alias) => _phraseHit(normalized, alias.$2))) {
       for (final alias in group) {
-        add(alias);
+        add(alias.$1);
       }
     }
   }
 
   // Generic variants: drop leading articles and strip punctuation leftovers.
-  final withoutArticles = raw
-      .replaceAll(
-        RegExp(r'^(the|le|la|les|un|une|des|a|an)\s+', caseSensitive: false),
-        '',
-      )
-      .trim();
-  add(withoutArticles);
+  add(raw.replaceAll(_leadingArticleRegex, '').trim());
 
   return variants;
 }

@@ -297,14 +297,16 @@ class MangaChapterStats {
 /// must stay in sync with a `build_runner` that is currently unusable in this
 /// environment (riverpod_generator 4.0.0 vs analyzer 9.0.0).
 final libraryChapterStatsProvider =
-    StreamProvider<Map<int, MangaChapterStats>>((ref) {
+    StreamProvider.autoDispose<Map<int, MangaChapterStats>>((ref) {
   return isar.chapters.where().watch(fireImmediately: true).asyncMap((
     rows,
   ) async {
-    // A fresh subscription each pass: an Isar watch stream is
-    // single-subscription, so reusing one instance across events would throw.
+    // A plain read, not `isar.downloads.where().watch(...).first`: that built
+    // a brand-new native query watcher (and its stream controller) on *every*
+    // chapters event, only to take the first value and drop the subscription.
+    // A read returns the same fresh state without the per-event allocation.
     final downloadedIds =
-        (await isar.downloads.where().watch(fireImmediately: true).first)
+        (await isar.downloads.where().findAll())
             .where((download) => download.isDownload == true)
             .map((download) => download.id)
             .whereType<int>()

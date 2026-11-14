@@ -15,6 +15,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:watchtower/providers/storage_provider.dart';
   import 'package:watchtower/core/icon_fonts/broken_icons.dart';
   import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+  import 'package:watchtower/utils/extensions/others.dart';
 
   // Streams local mangas filtered by itemType
   final _localMangasByTypeProvider = StreamProvider.family<List<Manga>, ItemType>(
@@ -184,7 +185,7 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 
                 // Local mangas store their cover as bytes — no network URL needed
                 final ImageProvider? image = manga.customCoverImage != null
-                    ? MemoryImage(manga.customCoverImage as Uint8List)
+                    ? coverMemoryImage(manga.customCoverImage as Uint8List)
                     : null;
 
                 return Padding(

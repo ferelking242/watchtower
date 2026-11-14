@@ -20,6 +20,12 @@ import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'reader_controller_provider.g.dart';
 
+/// Upper bound on the per-chapter resume positions kept in the `Settings`
+/// record. The list is deserialized by every `getIsarSetting()` read (once per
+/// scroll tick), so an unbounded list made the reader slower the more the user
+/// read. 500 entries is far more than any realistic resume set.
+const int kMaxChapterPageIndexEntries = 500;
+
 @riverpod
 class CurrentIndex extends _$CurrentIndex {
   @override
@@ -389,6 +395,11 @@ class ReaderController extends _$ReaderController {
         ? (newIndex + 2) >= getPageLength([]) - 1
         : (newIndex + 2) >= getPageLength([]);
     if (isRead || save) {
+      // Bound the list: it used to grow by one entry per chapter ever opened,
+      // so `getIsarSetting()` decoded an ever-larger list on every scroll tick
+      // and this whole-record write got slower the more the user read. Keep
+      // the most recently touched entries only; a missing entry just means the
+      // chapter opens at page 1.
       List<ChapterPageIndex>? chapterPageIndexs = [];
       for (var chapterPageIndex
           in getIsarSetting().chapterPageIndexList ?? []) {
@@ -401,6 +412,11 @@ class ReaderController extends _$ReaderController {
           ..chapterId = chapter.id
           ..index = isRead ? 0 : newIndex,
       );
+      if (chapterPageIndexs.length > kMaxChapterPageIndexEntries) {
+        chapterPageIndexs = chapterPageIndexs.sublist(
+          chapterPageIndexs.length - kMaxChapterPageIndexEntries,
+        );
+      }
       final chap = chapter;
       isar.writeTxnSync(() {
         isar.settings.putSync(

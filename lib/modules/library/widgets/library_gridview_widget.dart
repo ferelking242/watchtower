@@ -9,6 +9,7 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/utils/extensions/others.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/widgets/bottom_text_widget.dart';
 import 'package:watchtower/modules/widgets/cover_view_widget.dart';
@@ -98,8 +99,9 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                       ),
                       isComfortableGrid: widget.isComfortableGrid,
                       image: entry.customCoverImage != null
-                          ? MemoryImage(entry.customCoverImage as Uint8List)
-                                as ImageProvider
+                          ? coverMemoryImage(
+                              entry.customCoverImage as Uint8List,
+                            )
                           : CustomExtendedNetworkImageProvider(
                               toImgUrl(
                                 entry.customCoverFromTracker ??

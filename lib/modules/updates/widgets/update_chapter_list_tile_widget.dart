@@ -10,6 +10,7 @@ import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/modules/manga/download/download_page_widget.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/utils/extensions/others.dart';
 
 class UpdateChapterListTileWidget extends ConsumerWidget {
   final Chapter chapter;
@@ -64,10 +65,10 @@ class UpdateChapterListTileWidget extends ConsumerWidget {
                               width: 40,
                               height: 45,
                               image: manga.customCoverImage != null
-                                  ? MemoryImage(
-                                          manga.customCoverImage as Uint8List,
-                                        )
-                                        as ImageProvider
+                                  ? coverMemoryImage(
+                                      manga.customCoverImage as Uint8List,
+                                      width: 160,
+                                    )
                                   : CustomExtendedNetworkImageProvider(
                                       toImgUrl(
                                         manga.customCoverFromTracker ??

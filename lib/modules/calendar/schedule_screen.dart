@@ -13,6 +13,7 @@ import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/fetch_interval.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/item_type_filters.dart';
+import 'package:watchtower/utils/extensions/others.dart';
 
 // ── Filter status (separate from model Status enum) ───────────────────────────
 
@@ -754,7 +755,10 @@ class _ScheduleItem extends ConsumerWidget {
 
     ImageProvider? imgProvider;
     if (manga.customCoverImage != null) {
-      imgProvider = MemoryImage(manga.customCoverImage as Uint8List);
+      imgProvider = coverMemoryImage(
+        manga.customCoverImage as Uint8List,
+        width: 320,
+      );
     } else if ((manga.customCoverFromTracker ?? manga.imageUrl ?? '')
         .isNotEmpty) {
       imgProvider = CustomExtendedNetworkImageProvider(

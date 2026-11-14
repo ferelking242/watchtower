@@ -36,6 +36,16 @@ extension LetExtension<T> on T {
   }
 }
 
+/// A [MemoryImage] whose decode is bounded to roughly the on-screen size.
+///
+/// Custom covers are stored on the `Manga` row as the *original* image blob.
+/// A bare `MemoryImage` decodes it at full resolution, so a grid of covers can
+/// allocate hundreds of megabytes of bitmaps and push the app into the
+/// low-memory killer (the Samsung ANR with kswapd at ~88 %). Bounding the
+/// decode keeps the same pixels on screen at a fraction of the memory.
+ImageProvider coverMemoryImage(Uint8List bytes, {int width = 400}) =>
+    ResizeImage(MemoryImage(bytes), width: width, allowUpscaling: false);
+
 extension MedianExtension on List<int> {
   int median() {
     final sorted = List<int>.from(this)..sort();

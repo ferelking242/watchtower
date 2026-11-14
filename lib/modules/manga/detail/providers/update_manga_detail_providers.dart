@@ -35,12 +35,16 @@ Future<dynamic> updateMangaDetail(
     final markDuplicateRead =
         !isInit && ref.read(libraryMarkDuplicateReadProvider) == 1;
 
-    // loadSync() so .isNotEmpty is reliable (IsarLinks are lazy by default).
-    manga.chapters.loadSync();
-
+    // Local archives have no remote source to refresh from; bail out before
+    // the synchronous backlink load below, which is only needed to reconcile
+    // remote chapter lists.
     if (manga.isLocalArchive ?? false) {
       return;
     }
+
+    // loadSync() so .isNotEmpty is reliable (IsarLinks are lazy by default).
+    manga.chapters.loadSync();
+
     final source = getSource(
       manga.lang!,
       manga.source!,

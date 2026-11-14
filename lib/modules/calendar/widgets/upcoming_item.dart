@@ -5,6 +5,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/headers.dart';
+import 'package:watchtower/utils/extensions/others.dart';
 
 const _upcomingItemHeight = 96.0;
 
@@ -63,7 +64,7 @@ class UpcomingItem extends ConsumerWidget {
 
   ImageProvider _getImageProvider(WidgetRef ref) {
     if (manga.customCoverImage != null) {
-      return MemoryImage(manga.customCoverImage as Uint8List);
+      return coverMemoryImage(manga.customCoverImage as Uint8List, width: 320);
     }
     return CustomExtendedNetworkImageProvider(
       toImgUrl(manga.customCoverFromTracker ?? manga.imageUrl ?? ''),

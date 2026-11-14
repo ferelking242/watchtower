@@ -9,6 +9,7 @@ import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/utils/extensions/others.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/modules/library/widgets/library_swipe_wrapper.dart';
@@ -131,11 +132,11 @@ class LibraryListViewWidget extends ConsumerWidget {
                                         width: 40,
                                         height: 45,
                                         image: entry.customCoverImage != null
-                                            ? MemoryImage(
-                                                    entry.customCoverImage
-                                                        as Uint8List,
-                                                  )
-                                                  as ImageProvider
+                                            ? coverMemoryImage(
+                                                entry.customCoverImage
+                                                    as Uint8List,
+                                                width: 160,
+                                              )
                                             : CustomExtendedNetworkImageProvider(
                                                 toImgUrl(
                                                   entry.customCoverFromTracker ??

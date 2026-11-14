@@ -960,13 +960,21 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
     ...intelligentQueryVariants(widget.query),
   ];
 
+  /// [_matchQueries] pre-normalized, so the per-row filter never re-normalizes
+  /// the query. Built lazily once and reused by every `_visibleResults` read.
+  late final List<String> _normalizedMatchQueries = _matchQueries
+      .map(normalizeTitle)
+      .where((q) => q.isNotEmpty)
+      .toList(growable: false);
+
   List<MManga> get _visibleResults {
     final list = pages?.list ?? const <MManga>[];
     if (!widget.intelligentSearch) return list;
+    final queries = _normalizedMatchQueries;
     return list.where((m) {
       final name = m.name;
       if (name == null || name.isEmpty) return false;
-      return _matchQueries.any((q) => titleMatches(q, name));
+      return queries.any((q) => titleMatchesNormalized(q, name));
     }).toList();
   }
 
