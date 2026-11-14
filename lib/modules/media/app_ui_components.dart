@@ -380,6 +380,7 @@ class AppSectionHeader extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.trailing,
+    this.leadingIcon,
     super.key,
   });
 
@@ -390,12 +391,24 @@ class AppSectionHeader extends StatelessWidget {
   /// Extra control pinned after the action label, e.g. a three-dot menu.
   final Widget? trailing;
 
+  /// Optional icon drawn before the title, so a shelf ("Popular", "Latest",
+  /// "Continue reading"…) reads at a glance.
+  final IconData? leadingIcon;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 16, 12, 8),
       child: Row(
         children: [
+          if (leadingIcon != null) ...[
+            Icon(
+              leadingIcon,
+              size: 19,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: Text(
               title,

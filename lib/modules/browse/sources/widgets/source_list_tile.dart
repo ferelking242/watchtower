@@ -11,7 +11,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
-import 'package:watchtower/utils/item_type_localization.dart';
+import 'package:watchtower/modules/browse/widgets/custom_sections_sheet.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -86,6 +86,9 @@ class SourceListTile extends StatelessWidget {
             context.push('/mangaHome', extra: (source, false));
           }
         },
+        onLongPress: isLocal
+            ? null
+            : () => showAddToSectionSheet(context, source),
         leading: isLocal
             ? Container(
                 height: 37,
@@ -129,84 +132,96 @@ class SourceListTile extends StatelessWidget {
                         size: 37,
                       ),
               ),
-        subtitle: Row(
-          children: [
-            Text(
-              completeLanguageName((source.lang ?? '').toLowerCase()),
-              style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 12),
-            ),
-            if (source.isNsfw ?? false)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    "NSFW",
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+        subtitle: isLocal
+            // The local source is not an extension: it has no language and no
+            // source-code language, so the language line and the DART/JS chips
+            // are meaningless there. Show nothing instead of "DART".
+            ? null
+            : Row(
+                children: [
+                  Text(
+                    '${langFlagEmoji((source.lang ?? '').toLowerCase())} '
+                    '${completeLanguageName((source.lang ?? '').toLowerCase())}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w300,
+                      fontSize: 12,
                     ),
                   ),
-                ),
-              ),
-            if (isDart)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.teal.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    "DART",
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  if (source.isNsfw ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          "NSFW",
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            if (isJs)
-              Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade800.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    "JS",
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  if (isDart)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          "DART",
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  if (isJs)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade800.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          "JS",
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
         title: Text(
           !isLocal
               ? (source.name ?? '')
-              : "${context.l10n.local_source} ${source.itemType.localized(context.l10n)}",
+              // The local source is the same entry whatever the content type;
+              // suffixing it with "Regarder"/"Manga"/… was noise, so it is now
+              // labelled plainly "Source locale".
+              : context.l10n.local_source,
         ),
         trailing: !isLocal
             ? Row(

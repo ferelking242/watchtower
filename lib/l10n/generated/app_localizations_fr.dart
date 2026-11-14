@@ -3364,6 +3364,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get browse_more_options => 'Plus d\'options';
 
   @override
+  String get browse_custom_sections => 'Mes sections';
+
+  @override
   String get browse_marketplace => 'Marketplace';
 
   @override

@@ -14,10 +14,13 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/modules/browse/sources/sources_screen.dart';
 import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart';
+import 'package:watchtower/modules/browse/widgets/custom_sections_sheet.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/concurrency.dart';
+import 'package:watchtower/utils/display_fonts.dart';
+import 'package:watchtower/utils/item_type_icons.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 class BrowseScreen extends ConsumerStatefulWidget {
@@ -315,11 +318,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(
-          _searchController.text.isNotEmpty
-              ? Broken.filter_search
-              : _sourceFilters.hasAny
-                  ? Broken.filter_tick
-                  : Broken.filter,
+          // Same filter glyph as the Library, so filtering reads the same on
+          // every surface; only the colour marks an active filter.
+          Broken.slider_horizontal,
           size: 20,
           color: active
               ? theme.colorScheme.primary
@@ -378,6 +379,14 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
           ),
           const PopupMenuDivider(),
           PopupMenuItem(
+            value: _SrcMenuAction.customSections,
+            child: _MenuRow(
+              icon: Broken.folder_2,
+              label: l10n.browse_custom_sections,
+            ),
+          ),
+          const PopupMenuDivider(),
+          PopupMenuItem(
             value: _SrcMenuAction.howTo,
             child: _MenuRow(
               icon: Icons.help_outline_rounded,
@@ -416,6 +425,8 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         _openRandomSource(context, type);
       case _SrcMenuAction.diagnostic:
         _runDiagnostics(context, type);
+      case _SrcMenuAction.customSections:
+        showCustomSectionsManager(context, type);
     }
   }
 
@@ -487,22 +498,9 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
     }
   }
 
-  IconData _typeIcon(ItemType t) {
-    switch (t) {
-      case ItemType.anime:
-        return Icons.live_tv_outlined;
-      case ItemType.manga:
-        return Icons.auto_stories_outlined;
-      case ItemType.novel:
-        return Icons.menu_book_outlined;
-      case ItemType.music:
-        return Icons.music_note_outlined;
-      case ItemType.game:
-        return Icons.sports_esports_outlined;
-      case ItemType.plugin:
-        return Icons.extension_outlined;
-    }
-  }
+  // Same Broken icon set as the History page tabs (via `itemTypeIcon`), so a
+  // content type never renders a different glyph from one screen to the next.
+  IconData _typeIcon(ItemType t) => itemTypeIcon(t);
 
   @override
     Widget build(BuildContext context) {
@@ -522,7 +520,22 @@ class _BrowseScreenState extends ConsumerState<BrowseScreen>
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         backgroundColor: theme.scaffoldBackgroundColor,
-        title: Text(l10n.browse, style: TextStyle(color: theme.hintColor)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Broken.global_search, size: 22, color: theme.colorScheme.primary),
+            const SizedBox(width: 10),
+            Text(
+              l10n.browse,
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontFamily: kMangaDisplayFont,
+                fontSize: 27,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
+        ),
         actions: _appBarActions(context),
         bottom: _buildTabBar(context, theme, l10n),
       ),
@@ -552,6 +565,7 @@ enum _SrcMenuAction {
   howTo,
   openRandomSource,
   diagnostic,
+  customSections,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

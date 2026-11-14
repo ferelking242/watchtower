@@ -1088,6 +1088,7 @@ class _ExtensionFeed extends StatelessWidget {
                       : [
                           MediaPosterRail(
                             title: 'Popular',
+                            leadingIcon: Broken.flash,
                             items: popular.map(ContentItem.fromManga).toList(growable: false),
                             onOpen: (index) => onOpen(popular[index]),
                             onSeeAll: () => _openSection(
@@ -1101,6 +1102,7 @@ class _ExtensionFeed extends StatelessWidget {
                           if (latest.isNotEmpty)
                             MediaPosterRail(
                               title: 'Latest',
+                              leadingIcon: Broken.clock,
                               items: latest.map(ContentItem.fromManga).toList(growable: false),
                               onOpen: (index) => onOpen(latest[index]),
                               onSeeAll: () => _openSection(

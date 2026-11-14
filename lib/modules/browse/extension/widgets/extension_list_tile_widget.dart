@@ -424,7 +424,8 @@ class _ExtensionListTileWidgetState
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            completeLanguageName(widget.source.lang!.toLowerCase()),
+            '${langFlagEmoji(widget.source.lang!.toLowerCase())} '
+            '${completeLanguageName(widget.source.lang!.toLowerCase())}',
             style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 12),
           ),
           const SizedBox(width: 4),

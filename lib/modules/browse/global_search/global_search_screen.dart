@@ -1,23 +1,31 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
+import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/browse/providers/custom_sections_provider.dart';
+import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart';
 import 'package:watchtower/modules/manga/detail/widgets/migrate_screen.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/router.dart';
+import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/services/download_manager/download_settings_service.dart';
+import 'package:watchtower/services/global_search_download.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
+import 'package:watchtower/utils/intelligent_search.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/headers.dart';
@@ -46,7 +54,25 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   // ── Filter state ──────────────────────────────────────────────────────────
   String? _selectedLang;
   SourceCodeLanguage? _selectedType;
+  String? _selectedSection;
+  BrowseNsfwFilter _nsfwFilter = BrowseNsfwFilter.all;
   bool _pinnedOnly = false;
+
+  /// Intelligent search: the extension still runs its own (loose) search, but
+  /// the rows returned are filtered to those whose *name* actually matches the
+  /// query — typos and known alternative titles included.
+  bool _intelligentSearch = false;
+
+  /// Bumped by the "refresh" action to rebuild every per-source row.
+  int _searchVersion = 0;
+
+  /// Per-source outcome of the current query, keyed by source id.
+  /// `null` = still loading, `>0` = matched rows, `0` = no result.
+  final Map<int?, int?> _matchCounts = {};
+
+  /// The matched rows per source, kept so the download sheet can offer the
+  /// titles the user is actually looking at.
+  final Map<int?, List<MManga>> _sourceResults = {};
 
   late final List<Source> _allSources = () {
     final onlyPinned = ref.read(onlyIncludePinnedSourceStateProvider);
@@ -82,6 +108,15 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     return types.length > 1 ? types : <SourceCodeLanguage>[];
   }();
 
+  /// The user's custom sections (see the Explorer ⋮ menu), offered as a
+  /// filter so a search can be restricted to e.g. the "Hentai" shelf.
+  ///
+  /// Cached from [build] rather than read via `ref.watch` here: this list is
+  /// also needed from callbacks (`_submitQuery`, the download sheet) that run
+  /// outside the build phase, where `ref.watch` is not allowed.
+  List<CustomSection> _sections = const [];
+  List<CustomSection> get _availableSections => _sections;
+
   /// Applies the active filter chips to [_allSources].
   ///
   /// Filters operate on plain Source metadata (pinned/lang/type) which is
@@ -90,7 +125,9 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   /// by construction. Each predicate is still wrapped so that a single
   /// malformed/legacy Source entry can never throw and blank out the whole
   /// list; it is simply excluded instead.
-  List<Source> get _filteredSources {
+  List<Source> get _filteredSources => _applyFilters(_availableSections);
+
+  List<Source> _applyFilters(List<CustomSection> sections) {
     var list = _allSources;
     if (_pinnedOnly) {
       list = list.where((s) {
@@ -120,6 +157,21 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           return false;
         }
       }).toList();
+    }
+    if (_nsfwFilter != BrowseNsfwFilter.all) {
+      list = list.where((s) {
+        final isNsfw = s.isNsfw ?? false;
+        return _nsfwFilter == BrowseNsfwFilter.nsfw ? isNsfw : !isNsfw;
+      }).toList();
+    }
+    if (_selectedSection != null) {
+      final section = sections
+          .where((s) => s.id == _selectedSection)
+          .firstOrNull;
+      if (section != null) {
+        list = list.where((s) => s.id != null && section.sourceIds.contains(s.id))
+            .toList();
+      }
     }
     return list;
   }
@@ -153,12 +205,20 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     setState(() {
       _selectedLang = null;
       _selectedType = null;
+      _selectedSection = null;
+      _nsfwFilter = BrowseNsfwFilter.all;
       _pinnedOnly = false;
+      _intelligentSearch = false;
     });
   }
 
   bool get _hasActiveFilters =>
-      _selectedLang != null || _selectedType != null || _pinnedOnly;
+      _selectedLang != null ||
+      _selectedType != null ||
+      _selectedSection != null ||
+      _nsfwFilter != BrowseNsfwFilter.all ||
+      _pinnedOnly ||
+      _intelligentSearch;
 
   void _submitQuery(String value) {
     final submitted = value.trim();
@@ -187,57 +247,57 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     );
   }
 
-  /// Compact filter trigger, matching the extension-search page: a slider icon
-  /// with a badge when any filter is active, opening the source filter sheet.
+  /// Filter trigger, using the exact same component and icon as the Library
+  /// filter: an [AdaptiveOverlayMenuButton] whose `slider_horizontal` icon
+  /// turns to the primary colour when any filter is active.
   Widget _buildFilterButton(BuildContext context, ColorScheme cs) {
-    return IconButton(
-      tooltip: 'Filtrer les sources',
-      icon: Badge(
-        isLabelVisible: _hasActiveFilters,
-        backgroundColor: cs.primary,
+    return AdaptiveOverlayMenuButton(
+      menuWidth: 280,
+      trigger: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(
           Broken.slider_horizontal,
-          size: 20,
-          color: _hasActiveFilters ? cs.primary : cs.onSurfaceVariant,
+          size: 18,
+          color: _hasActiveFilters
+              ? cs.primary
+              : cs.onSurface.withValues(alpha: 0.45),
         ),
       ),
-      onPressed: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          builder: (_) => StatefulBuilder(
-            builder: (context, setSheetState) => _FilterSheet(
-              availableLangs: _availableLangs,
-              availableTypes: _availableTypes,
-              selectedLang: _selectedLang,
-              selectedType: _selectedType,
-              hasActiveFilters: _hasActiveFilters,
-              cs: cs,
-              onLangSelected: (lang) {
-                setState(
-                  () => _selectedLang = lang == _selectedLang ? null : lang,
-                );
-                setSheetState(() {});
-              },
-              onTypeSelected: (type) {
-                setState(
-                  () => _selectedType = type == _selectedType ? null : type,
-                );
-                setSheetState(() {});
-              },
-              onClearAll: () {
-                _clearFilters();
-                setSheetState(() {});
-              },
-            ),
-          ),
-        );
-      },
+      contentBuilder: (close) => _GlobalSearchFilterOverlay(
+        availableLangs: _availableLangs,
+        availableTypes: _availableTypes,
+        availableSections: _availableSections,
+        selectedLang: _selectedLang,
+        selectedType: _selectedType,
+        selectedSection: _selectedSection,
+        nsfwFilter: _nsfwFilter,
+        pinnedOnly: _pinnedOnly,
+        intelligentSearch: _intelligentSearch,
+        hasActiveFilters: _hasActiveFilters,
+        onLangSelected: (lang) => setState(
+          () => _selectedLang = lang == _selectedLang ? null : lang,
+        ),
+        onTypeSelected: (type) => setState(
+          () => _selectedType = type == _selectedType ? null : type,
+        ),
+        onSectionSelected: (id) => setState(
+          () => _selectedSection = id == _selectedSection ? null : id,
+        ),
+        onNsfwSelected: (value) => setState(() => _nsfwFilter = value),
+        onPinnedOnlyToggled: () => setState(() => _pinnedOnly = !_pinnedOnly),
+        onIntelligentToggled: () =>
+            setState(() => _intelligentSearch = !_intelligentSearch),
+        onClearAll: () {
+          _clearFilters();
+          close();
+        },
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    _sections = ref.watch(customSectionsProvider);
     final query = _query;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -273,13 +333,33 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               ),
             ),
             _buildFilterButton(context, cs),
-            PopupMenuButton<_GlobalSearchMenuAction>(
+            AdaptiveOverlayMenu<_GlobalSearchMenuAction>(
               tooltip: 'Plus d’options',
-              icon: const Icon(Broken.more, size: 20),
+              icon: Icon(
+                Broken.more_2,
+                size: 20,
+                color: cs.onSurface.withValues(alpha: 0.75),
+              ),
+              menuWidth: 250,
               onSelected: (action) {
                 switch (action) {
+                  case _GlobalSearchMenuAction.refresh:
+                    setState(() {
+                      _matchCounts.clear();
+                      _searchVersion++;
+                    });
+                    break;
+                  case _GlobalSearchMenuAction.intelligentSearch:
+                    setState(() => _intelligentSearch = !_intelligentSearch);
+                    break;
+                  case _GlobalSearchMenuAction.intelligentHelp:
+                    _showIntelligentSearchHelp(context);
+                    break;
                   case _GlobalSearchMenuAction.pinnedOnly:
                     setState(() => _pinnedOnly = !_pinnedOnly);
+                    break;
+                  case _GlobalSearchMenuAction.download:
+                    _showDownloadOptions(context);
                     break;
                   case _GlobalSearchMenuAction.clearFilters:
                     _clearFilters();
@@ -287,14 +367,56 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                 }
               },
               itemBuilder: (context) => [
-                CheckedPopupMenuItem<_GlobalSearchMenuAction>(
-                  value: _GlobalSearchMenuAction.pinnedOnly,
-                  checked: _pinnedOnly,
+                PopupMenuItem<_GlobalSearchMenuAction>(
+                  value: _GlobalSearchMenuAction.refresh,
                   child: const Row(
                     children: [
-                      Icon(Broken.bookmark_2, size: 18),
+                      Icon(Broken.refresh_2, size: 18),
                       SizedBox(width: 10),
-                      Text('Sources épinglées uniquement'),
+                      Text('Rafraîchir'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<_GlobalSearchMenuAction>(
+                  value: _GlobalSearchMenuAction.intelligentSearch,
+                  child: Row(
+                    children: [
+                      Icon(
+                        _intelligentSearch ? Broken.magicpen : Broken.search_normal_1,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(child: Text('Recherche intelligente')),
+                      IconButton(
+                        tooltip: 'Qu’est-ce que la recherche intelligente ?',
+                        iconSize: 16,
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => _showIntelligentSearchHelp(context),
+                        icon: const Icon(Broken.info_circle),
+                      ),
+                      if (_intelligentSearch)
+                        const Icon(Broken.tick_circle, size: 16),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<_GlobalSearchMenuAction>(
+                  value: _GlobalSearchMenuAction.download,
+                  child: const Row(
+                    children: [
+                      Icon(Broken.document_download, size: 18),
+                      SizedBox(width: 10),
+                      Text('Télécharger'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<_GlobalSearchMenuAction>(
+                  value: _GlobalSearchMenuAction.pinnedOnly,
+                  child: Row(
+                    children: [
+                      const Icon(Broken.bookmark_2, size: 18),
+                      const SizedBox(width: 10),
+                      const Expanded(child: Text('Sources épinglées')),
+                      if (_pinnedOnly) const Icon(Broken.tick_circle, size: 16),
                     ],
                   ),
                 ),
@@ -319,29 +441,14 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         children: [
           Expanded(
             child: _query.isNotEmpty
-                ? filtered.isEmpty
+                ? (filtered.isEmpty
                       ? _EmptyFiltersState(
                           hasFilters: _hasActiveFilters,
                           onClear: _clearFilters,
                           cs: cs,
                           isDark: isDark,
                         )
-                      : SuperListView.builder(
-                          itemCount: filtered.length,
-                          extentPrecalculationPolicy:
-                              SuperPrecalculationPolicy(),
-                          itemBuilder: (context, index) {
-                            final source = filtered[index];
-                            return SizedBox(
-                              height: 260,
-                              child: SourceSearchScreen(
-                                key: ValueKey('${query}_${source.id}'),
-                                query: query,
-                                source: source,
-                              ),
-                            );
-                          },
-                        )
+                      : _buildResults(context, filtered, query, cs))
                 : _IdleSourcesList(
                     sources: filtered,
                     hasFilters: _hasActiveFilters,
@@ -356,6 +463,143 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     );
   }
 
+  /// Ranks the per-source rows: extensions that returned at least one match
+  /// stay on top (ordered by match count), the ones with no result are pushed
+  /// to a separate block at the bottom. Rows still loading stay with the top
+  /// block so the list does not jump while requests are in flight.
+  Widget _buildResults(
+    BuildContext context,
+    List<Source> sources,
+    String query,
+    ColorScheme cs,
+  ) {
+    final withResults = <Source>[];
+    final noResults = <Source>[];
+    for (final source in sources) {
+      final count = _matchCounts[source.id];
+      if (count == 0) {
+        noResults.add(source);
+      } else {
+        withResults.add(source);
+      }
+    }
+    withResults.sort((a, b) {
+      final ca = _matchCounts[a.id] ?? -1;
+      final cb = _matchCounts[b.id] ?? -1;
+      return cb.compareTo(ca);
+    });
+
+    final children = <Widget>[];
+    for (final source in withResults) {
+      children.add(_buildSourceRow(source, query));
+    }
+    if (noResults.isNotEmpty) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+          child: Row(
+            children: [
+              Icon(
+                Broken.search_normal_1,
+                size: 16,
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Aucun résultat',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      for (final source in noResults) {
+        children.add(_buildSourceRow(source, query));
+      }
+    }
+
+    return SuperListView.builder(
+      itemCount: children.length,
+      extentPrecalculationPolicy: SuperPrecalculationPolicy(),
+      itemBuilder: (context, index) => children[index],
+    );
+  }
+
+  Widget _buildSourceRow(Source source, String query) {
+    return SizedBox(
+      height: 260,
+      child: SourceSearchScreen(
+        key: ValueKey('${query}_${source.id}_$_searchVersion'),
+        query: query,
+        source: source,
+        intelligentSearch: _intelligentSearch,
+        onResolved: (items) {
+          if (!mounted) return;
+          if (_matchCounts[source.id] == items.length) return;
+          setState(() {
+            _matchCounts[source.id] = items.length;
+            _sourceResults[source.id] = items;
+          });
+        },
+      ),
+    );
+  }
+
+  /// Explains, in a small box, what intelligent search does.
+  void _showIntelligentSearchHelp(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final cs = Theme.of(context).colorScheme;
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Broken.magicpen, size: 20),
+              SizedBox(width: 10),
+              Text('Recherche intelligente'),
+            ],
+          ),
+          content: const Text(
+            'Une extension a sa propre recherche : quand elle n’a pas le titre '
+            'exact, elle renvoie souvent des résultats proches mais non '
+            'pertinents.\n\n'
+            'La recherche intelligente garde ce que l’extension a trouvé, mais '
+            'ne montre que les résultats dont le nom correspond vraiment à '
+            'votre recherche. L’algorithme est tolérant : « Narufo » retrouve '
+            '« Naruto », et une recherche par un autre titre fonctionne aussi '
+            '(par exemple « Attaque des Titans » pour « Shingeki no Kyojin »).',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text('Compris', style: TextStyle(color: cs.primary)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Download options: first pick *what* to download, then the sub-options,
+  /// then queue the download. The picker lists the sources currently shown so
+  /// the user downloads the content they are looking at.
+  void _showDownloadOptions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => _DownloadOptionsSheet(
+        sources: _filteredSources,
+        results: _sourceResults,
+        query: _query,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _textEditingController.dispose();
@@ -363,7 +607,14 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   }
 }
 
-enum _GlobalSearchMenuAction { pinnedOnly, clearFilters }
+enum _GlobalSearchMenuAction {
+  refresh,
+  intelligentSearch,
+  intelligentHelp,
+  download,
+  pinnedOnly,
+  clearFilters,
+}
 
 // ── Source icon (shared with the browse sources list) ──────────────────────────
 
@@ -477,7 +728,8 @@ class _IdleSourcesList extends StatelessWidget {
                       leading: _SourceIcon(source: source),
                       title: Text(name),
                       subtitle: Text(
-                        completeLanguageName(lang),
+                        '${langFlagEmoji(lang.toLowerCase())} '
+                        '${completeLanguageName(lang)}',
                         style: const TextStyle(fontSize: 11),
                       ),
                       onTap: () => onTapSource(source),
@@ -636,10 +888,20 @@ class SourceSearchScreen extends ConsumerStatefulWidget {
   final String query;
   final Source source;
 
+  /// When true, only the rows whose name plausibly matches [query] are kept.
+  final bool intelligentSearch;
+
+  /// Reports the rows kept (`[]` = no result) so the parent can rank the
+  /// source among the "with results" and "no result" blocks, and so the
+  /// download sheet can list the titles the user is looking at.
+  final ValueChanged<List<MManga>>? onResolved;
+
   const SourceSearchScreen({
     super.key,
     required this.query,
     required this.source,
+    this.intelligentSearch = false,
+    this.onResolved,
   });
 
   @override
@@ -655,9 +917,30 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
 
   String _errorMessage = "";
   bool _isLoading = true;
+  bool _retrying = false;
   MPages? pages;
 
-  Future<void> _init() async {
+  /// Every query string a row may legitimately match in intelligent mode: the
+  /// user's query plus its known alternative titles ("attaque des titans" →
+  /// "shingeki no kyojin"), so a source that only knows the romaji title still
+  /// keeps its rows instead of being reported as empty.
+  late final List<String> _matchQueries = [
+    widget.query,
+    ...intelligentQueryVariants(widget.query),
+  ];
+
+  List<MManga> get _visibleResults {
+    final list = pages?.list ?? const <MManga>[];
+    if (!widget.intelligentSearch) return list;
+    return list.where((m) {
+      final name = m.name;
+      if (name == null || name.isEmpty) return false;
+      return _matchQueries.any((q) => titleMatches(q, name));
+    }).toList();
+  }
+
+  Future<void> _init({String? overrideQuery}) async {
+    final query = overrideQuery ?? widget.query;
     try {
       _errorMessage = "";
       // A slow/broken extension must never block the rest of the global
@@ -667,7 +950,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
             searchProvider(
               source: widget.source,
               page: 1,
-              query: widget.query,
+              query: query,
               filterList: const [],
             ).future,
           )
@@ -677,19 +960,21 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
           );
       AppLogger.log(
         'Source "${widget.source.name}" (${widget.source.lang}) '
-        '→ ${pages?.list.length ?? 0} results | query="${widget.query}"',
+        '→ ${pages?.list.length ?? 0} results | query="$query"',
         logLevel: LogLevel.debug,
         tag: LogTag.search,
       );
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _retrying = false;
         });
+        widget.onResolved?.call(_visibleResults);
       }
     } catch (e, st) {
       AppLogger.log(
         'Source "${widget.source.name}" (${widget.source.lang}) FAILED '
-        '| query="${widget.query}"',
+        '| query="$query"',
         logLevel: LogLevel.error,
         tag: LogTag.search,
         error: e,
@@ -699,14 +984,43 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
         setState(() {
           _errorMessage = e.toString();
           _isLoading = false;
+          _retrying = false;
         });
+        widget.onResolved?.call(const []);
       }
     }
+  }
+
+  /// Retry as-is: run the extension search again with the same query.
+  Future<void> _retry() async {
+    setState(() {
+      _isLoading = true;
+      _retrying = true;
+    });
+    await _init();
+  }
+
+  /// Intelligent retry: the exact title returned nothing, so try known
+  /// alternative titles ("attaque des titans" → "shingeki no kyojin") and
+  /// accent-stripped variants until a row matches.
+  Future<void> _intelligentRetry() async {
+    setState(() {
+      _isLoading = true;
+      _retrying = true;
+    });
+    final variants = intelligentQueryVariants(widget.query);
+    for (final variant in variants) {
+      if (normalizeTitle(variant) == normalizeTitle(widget.query)) continue;
+      await _init(overrideQuery: variant);
+      if (_visibleResults.isNotEmpty) return;
+    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
+    final results = _visibleResults;
 
     return Scaffold(
       body: SizedBox(
@@ -735,7 +1049,8 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
               leading: _SourceIcon(source: widget.source, size: 30),
               title: Text(widget.source.name!),
               subtitle: Text(
-                completeLanguageName(widget.source.lang!),
+                '${langFlagEmoji(widget.source.lang!.toLowerCase())} '
+                '${completeLanguageName(widget.source.lang!)}',
                 style: const TextStyle(fontSize: 10),
               ),
               trailing: const Icon(Broken.arrow_right_2),
@@ -748,26 +1063,84 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
                         if (_errorMessage.isNotEmpty) {
                           return ErrorText(_errorMessage);
                         }
-                        if (pages!.list.isNotEmpty) {
+                        if (results.isNotEmpty) {
                           return SuperListView.builder(
                             extentPrecalculationPolicy:
                                 SuperPrecalculationPolicy(),
                             scrollDirection: Axis.horizontal,
-                            itemCount: pages!.list.length,
+                            itemCount: results.length,
                             itemBuilder: (context, index) {
                               return MangaGlobalImageCard(
-                                manga: pages!.list[index],
+                                manga: results[index],
                                 source: widget.source,
                               );
                             },
                           );
                         }
-                        return Center(child: Text(l10n.no_result));
+                        return _NoResultActions(
+                          label: l10n.no_result,
+                          retrying: _retrying,
+                          onRetry: _retry,
+                          onIntelligentRetry: _intelligentRetry,
+                        );
                       },
                     ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Empty-state actions shown when an extension returned nothing: a plain
+/// "retry" and an "intelligent retry" that re-searches with alternative
+/// titles (romaji / English / French synonyms, accent-stripped variants).
+class _NoResultActions extends StatelessWidget {
+  final String label;
+  final bool retrying;
+  final VoidCallback onRetry;
+  final VoidCallback onIntelligentRetry;
+
+  const _NoResultActions({
+    required this.label,
+    required this.retrying,
+    required this.onRetry,
+    required this.onIntelligentRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: retrying ? null : onRetry,
+                icon: const Icon(Broken.refresh_2, size: 16),
+                label: const Text('Réessayer'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: retrying ? null : onIntelligentRetry,
+                icon: const Icon(Broken.magicpen, size: 16),
+                label: const Text('Réessayer intelligemment'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -901,118 +1274,601 @@ class _MangaGlobalImageCardState extends ConsumerState<MangaGlobalImageCard>
   bool get wantKeepAlive => true;
 }
 
-// ─── Filter bottom sheet ─────────────────────────────────────────────────────
+// ─── Filter overlay (same glass panel as the Library filter) ──────────────────
 
-class _FilterSheet extends StatelessWidget {
+/// The global-search filter panel, rendered inside the shared
+/// [AdaptiveOverlayMenuButton] glass popup so it is the *same* component as
+/// the Library filter. Every active filter paints its icon/label in the
+/// primary colour, exactly like the Library.
+class _GlobalSearchFilterOverlay extends StatelessWidget {
   final List<String> availableLangs;
   final List<SourceCodeLanguage> availableTypes;
+  final List<CustomSection> availableSections;
   final String? selectedLang;
   final SourceCodeLanguage? selectedType;
+  final String? selectedSection;
+  final BrowseNsfwFilter nsfwFilter;
+  final bool pinnedOnly;
+  final bool intelligentSearch;
   final bool hasActiveFilters;
-  final ColorScheme cs;
-  final ValueChanged<String?> onLangSelected;
-  final ValueChanged<SourceCodeLanguage?> onTypeSelected;
+  final ValueChanged<String> onLangSelected;
+  final ValueChanged<SourceCodeLanguage> onTypeSelected;
+  final ValueChanged<String> onSectionSelected;
+  final ValueChanged<BrowseNsfwFilter> onNsfwSelected;
+  final VoidCallback onPinnedOnlyToggled;
+  final VoidCallback onIntelligentToggled;
   final VoidCallback onClearAll;
 
-  const _FilterSheet({
+  const _GlobalSearchFilterOverlay({
     required this.availableLangs,
     required this.availableTypes,
-    this.selectedLang,
-    this.selectedType,
+    required this.availableSections,
+    required this.selectedLang,
+    required this.selectedType,
+    required this.selectedSection,
+    required this.nsfwFilter,
+    required this.pinnedOnly,
+    required this.intelligentSearch,
     required this.hasActiveFilters,
-    required this.cs,
     required this.onLangSelected,
     required this.onTypeSelected,
+    required this.onSectionSelected,
+    required this.onNsfwSelected,
+    required this.onPinnedOnlyToggled,
+    required this.onIntelligentToggled,
     required this.onClearAll,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? Colors.white : Colors.black87;
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 460),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Row(
+                children: [
+                  Icon(Broken.slider_horizontal, size: 16, color: cs.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'FILTRES',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: base.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (hasActiveFilters)
+                    GestureDetector(
+                      onTap: onClearAll,
+                      child: Text(
+                        'Effacer',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            _FilterToggleRow(
+              icon: Broken.bookmark_2,
+              label: 'Sources épinglées',
+              selected: pinnedOnly,
+              onTap: onPinnedOnlyToggled,
+            ),
+            _FilterToggleRow(
+              icon: Broken.magicpen,
+              label: 'Recherche intelligente',
+              selected: intelligentSearch,
+              onTap: onIntelligentToggled,
+            ),
+
+            // ── NSFW ───────────────────────────────────────────────────────
+            const AdaptiveOverlayDivider(),
+            const AdaptiveOverlaySection(title: 'Contenu'),
+            for (final option in const [
+              (BrowseNsfwFilter.all, 'Tout le contenu', Broken.global),
+              (BrowseNsfwFilter.sfw, 'SFW uniquement', Broken.shield_tick),
+              (BrowseNsfwFilter.nsfw, 'NSFW uniquement', Broken.warning_2),
+            ])
+              AdaptiveOverlayItem(
+                icon: option.$3,
+                label: option.$2,
+                selected: nsfwFilter == option.$1,
+                onTap: () => onNsfwSelected(option.$1),
+              ),
+
+            // ── Custom sections ────────────────────────────────────────────
+            if (availableSections.isNotEmpty) ...[
+              const AdaptiveOverlayDivider(),
+              const AdaptiveOverlaySection(title: 'Mes sections'),
+              for (final section in availableSections)
+                AdaptiveOverlayItem(
+                  icon: Broken.folder_2,
+                  label:
+                      '${section.name} (${section.sourceIds.length})',
+                  selected: selectedSection == section.id,
+                  onTap: () => onSectionSelected(section.id),
+                ),
+            ],
+
+            if (availableTypes.isNotEmpty) ...[
+              const AdaptiveOverlayDivider(),
+              const AdaptiveOverlaySection(title: 'Type de source'),
+              for (final type in availableTypes)
+                AdaptiveOverlayItem(
+                  icon: Broken.code,
+                  label: type.name,
+                  selected: selectedType == type,
+                  onTap: () => onTypeSelected(type),
+                ),
+            ],
+            if (availableLangs.isNotEmpty) ...[
+              const AdaptiveOverlayDivider(),
+              const AdaptiveOverlaySection(title: 'Langue'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final lang in availableLangs)
+                      _FilterPill(
+                        label:
+                            '${langFlagEmoji(lang)} ${completeLanguageName(lang)}',
+                        selected: selectedLang == lang,
+                        onTap: () => onLangSelected(lang),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterToggleRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterToggleRow({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? Colors.white : Colors.black87;
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Container(
+        color: selected ? cs.primary.withValues(alpha: 0.10) : null,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? cs.primary : base.withValues(alpha: 0.55),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? cs.primary : base,
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (selected) Icon(Broken.tick_circle, size: 16, color: cs.primary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? cs.primary.withValues(alpha: 0.18)
+              : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? cs.primary : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected
+                ? cs.primary
+                : (isDark ? Colors.white : Colors.black87),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Download options sheet ───────────────────────────────────────────────────
+
+/// "Télécharger" flow: pick what to download, then the sub-options, then queue.
+///
+/// Step 1 lists the sources that currently returned results, so the user picks
+/// a title among the rows they are looking at. Step 2 exposes the download
+/// sub-options (chapter range, Wi-Fi only, add to library) before confirming.
+class _DownloadOptionsSheet extends ConsumerStatefulWidget {
+  final List<Source> sources;
+  final Map<int?, List<MManga>> results;
+  final String query;
+
+  const _DownloadOptionsSheet({
+    required this.sources,
+    required this.results,
+    required this.query,
+  });
+
+  @override
+  ConsumerState<_DownloadOptionsSheet> createState() =>
+      _DownloadOptionsSheetState();
+}
+
+class _DownloadOptionsSheetState extends ConsumerState<_DownloadOptionsSheet> {
+  Source? _source;
+  MManga? _item;
+  final _startController = TextEditingController(text: '1');
+  final _endController = TextEditingController(text: '');
+  bool _allChapters = true;
+  bool _wifiOnly = true;
+  bool _addToLibrary = false;
+  bool _cbzArchive = false;
+  bool _deleteAfterReading = false;
+  int _connections = 4;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed the sub-options from the app-wide download settings so the user
+    // changes them per-download without fighting their global defaults.
+    _wifiOnly = ref.read(onlyOnWifiStateProvider);
+    _cbzArchive = ref.read(saveAsCBZArchiveStateProvider);
+    _deleteAfterReading = ref.read(deleteDownloadAfterReadingStateProvider);
+    _connections = ref.read(mangaConnectionsStateProvider);
+  }
+
+  @override
+  void dispose() {
+    _startController.dispose();
+    _endController.dispose();
+    super.dispose();
+  }
+
+  bool get _hasResults => widget.results.values.any((e) => e.isNotEmpty);
+
+  Future<void> _start() async {
+    final source = _source;
+    final item = _item;
+    if (source == null || item == null) return;
+    // Capture the container before the awaits: `context` must not be used
+    // across an async gap.
+    final container = ProviderScope.containerOf(context, listen: false);
+    setState(() => _busy = true);
+    try {
+      // The download engine reads these from the app-wide settings, so the
+      // per-download choices are committed there right before queueing — the
+      // queue then behaves exactly as the user configured it here.
+      await ref
+          .read(mangaArchiveFormatStateProvider.notifier)
+          .set(_cbzArchive ? MangaArchiveFormat.cbz : MangaArchiveFormat.folder);
+      await ref
+          .read(mangaConnectionsStateProvider.notifier)
+          .set(_connections);
+      ref
+          .read(deleteDownloadAfterReadingStateProvider.notifier)
+          .set(_deleteAfterReading);
+
+      final start = _allChapters ? 0 : (int.tryParse(_startController.text) ?? 1);
+      final end = _allChapters ? 0 : (int.tryParse(_endController.text) ?? 0);
+      final result = await downloadMangaFromGlobalSearch(
+        container: container,
+        source: source,
+        item: item,
+        startChapter: start,
+        endChapter: end,
+        wifiOnly: _wifiOnly,
+        addToLibrary: _addToLibrary,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      botToast('${result.queued} chapitre(s) en file de téléchargement');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      botToast('Téléchargement impossible : $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
+                Icon(Broken.document_download, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
                 Text(
-                  'Filtres',
-                  style: TextStyle(
+                  _item == null ? 'Que télécharger ?' : 'Options de téléchargement',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: cs.onSurface,
                   ),
                 ),
-                const Spacer(),
-                if (hasActiveFilters)
-                  TextButton(
-                    onPressed: onClearAll,
-                    child: const Text('Effacer tout'),
-                  ),
               ],
             ),
             const SizedBox(height: 12),
-            if (availableLangs.isNotEmpty) ...[
-              Text(
-                'Langue',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final lang in availableLangs)
-                    FilterChip(
-                      label: Text(
-                        lang.toUpperCase(),
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      selected: selectedLang == lang,
-                      onSelected: (_) => onLangSelected(lang),
-                      visualDensity: VisualDensity.compact,
+            if (!_hasResults)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Text(
+                    'Lancez une recherche pour voir les titres à télécharger.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurfaceVariant,
                     ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (availableTypes.isNotEmpty) ...[
-              Text(
-                'Type de source',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final type in availableTypes)
-                    FilterChip(
-                      label: Text(
-                        type.name,
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      selected: selectedType == type,
-                      onSelected: (_) => onTypeSelected(type),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
+              )
+            else if (_item == null)
+              _buildPicker(cs)
+            else
+              _buildOptions(cs),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPicker(ColorScheme cs) {
+    final entries = <Widget>[];
+    for (final source in widget.sources) {
+      final items = widget.results[source.id];
+      if (items == null || items.isEmpty) continue;
+      entries.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 10, 4, 2),
+          child: Row(
+            children: [
+              _SourceIcon(source: source, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                source.name ?? '',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      for (final item in items) {
+        entries.add(
+          ListTile(
+            dense: true,
+            leading: const Icon(Broken.document_download, size: 18),
+            title: Text(
+              item.name ?? '',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () => setState(() {
+              _source = source;
+              _item = item;
+            }),
+          ),
+        );
+      }
+    }
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.55,
+      ),
+      child: SingleChildScrollView(child: Column(children: entries)),
+    );
+  }
+
+  Widget _buildOptions(ColorScheme cs) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _item!.name ?? '',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ),
+        Text(
+          _source?.name ?? '',
+          style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 12),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Broken.layer, size: 18),
+          title: const Text('Tous les chapitres', style: TextStyle(fontSize: 13)),
+          value: _allChapters,
+          onChanged: (v) => setState(() => _allChapters = v),
+        ),
+        if (!_allChapters)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _startController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'De',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _endController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'À',
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Broken.wifi, size: 18),
+          title: const Text('Wi-Fi uniquement', style: TextStyle(fontSize: 13)),
+          value: _wifiOnly,
+          onChanged: (v) => setState(() => _wifiOnly = v),
+        ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Broken.bookmark_2, size: 18),
+          title: const Text('Ajouter à la bibliothèque',
+              style: TextStyle(fontSize: 13)),
+          value: _addToLibrary,
+          onChanged: (v) => setState(() => _addToLibrary = v),
+        ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Broken.document, size: 18),
+          title: const Text('Archive CBZ', style: TextStyle(fontSize: 13)),
+          subtitle: const Text(
+            'Empaqueter chaque chapitre dans un .cbz',
+            style: TextStyle(fontSize: 11),
+          ),
+          value: _cbzArchive,
+          onChanged: (v) => setState(() => _cbzArchive = v),
+        ),
+        SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          secondary: const Icon(Broken.trash, size: 18),
+          title: const Text('Supprimer après lecture',
+              style: TextStyle(fontSize: 13)),
+          value: _deleteAfterReading,
+          onChanged: (v) => setState(() => _deleteAfterReading = v),
+        ),
+        ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Broken.hierarchy, size: 18),
+          title: const Text(
+            'Téléchargements simultanés',
+            style: TextStyle(fontSize: 13),
+          ),
+          subtitle: Text(
+            '$_connections connexion(s)',
+            style: const TextStyle(fontSize: 11),
+          ),
+          trailing: SizedBox(
+            width: 150,
+            child: Slider(
+              min: 1,
+              max: 16,
+              divisions: 15,
+              value: _connections.toDouble(),
+              label: '$_connections',
+              onChanged: (v) => setState(() => _connections = v.round()),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            TextButton.icon(
+              onPressed: _busy ? null : () => setState(() => _item = null),
+              icon: const Icon(Broken.arrow_left_2, size: 16),
+              label: const Text('Retour'),
+            ),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: _busy ? null : _start,
+              icon: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Broken.document_download, size: 16),
+              label: const Text('Télécharger'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

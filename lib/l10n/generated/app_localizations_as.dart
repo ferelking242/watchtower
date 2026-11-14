@@ -3334,6 +3334,9 @@ class AppLocalizationsAs extends AppLocalizations {
   String get browse_more_options => 'More options';
 
   @override
+  String get browse_custom_sections => 'My sections';
+
+  @override
   String get browse_marketplace => 'Marketplace';
 
   @override

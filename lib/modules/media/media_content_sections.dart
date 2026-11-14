@@ -124,6 +124,7 @@ class MediaPosterRail extends StatelessWidget {
     required this.onOpen,
     this.onSeeAll,
     this.trailing,
+    this.leadingIcon,
     super.key,
   });
 
@@ -134,6 +135,9 @@ class MediaPosterRail extends StatelessWidget {
 
   /// Extra control pinned at the right end of the header (three-dot menu).
   final Widget? trailing;
+
+  /// Optional icon drawn before the shelf title.
+  final IconData? leadingIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +150,7 @@ class MediaPosterRail extends StatelessWidget {
           actionLabel: onSeeAll == null ? null : 'All >',
           onAction: onSeeAll,
           trailing: trailing,
+          leadingIcon: leadingIcon,
         ),
         SizedBox(
           width: double.infinity,
@@ -183,6 +188,7 @@ class MediaLandscapeRail extends StatelessWidget {
     required this.onOpen,
     this.onSeeAll,
     this.trailing,
+    this.leadingIcon,
     this.width = 238,
     this.height = 184,
     super.key,
@@ -195,6 +201,9 @@ class MediaLandscapeRail extends StatelessWidget {
 
   /// Extra control pinned at the right end of the header (three-dot menu).
   final Widget? trailing;
+
+  /// Optional icon drawn before the shelf title.
+  final IconData? leadingIcon;
   final double width;
   final double height;
 
@@ -219,6 +228,7 @@ class MediaLandscapeRail extends StatelessWidget {
           actionLabel: onSeeAll == null ? null : 'All >',
           onAction: onSeeAll,
           trailing: trailing,
+          leadingIcon: leadingIcon,
         ),
         SizedBox(
           height: effectiveHeight,
@@ -474,6 +484,7 @@ class MediaGridSection extends StatelessWidget {
     required this.onOpen,
     this.onSeeAll,
     this.trailing,
+    this.leadingIcon,
     this.columns,
     this.rows,
     this.scrollDirection,
@@ -492,6 +503,9 @@ class MediaGridSection extends StatelessWidget {
 
   /// Extra control pinned at the right end of the header (three-dot menu).
   final Widget? trailing;
+
+  /// Optional icon drawn before the shelf title.
+  final IconData? leadingIcon;
   final int? columns;
   final int? rows;
   final String? scrollDirection;
@@ -536,6 +550,7 @@ class MediaGridSection extends StatelessWidget {
           actionLabel: onSeeAll == null ? null : 'All >',
           onAction: onSeeAll,
           trailing: trailing,
+          leadingIcon: leadingIcon,
         ),
         SizedBox(
           height: horizontal

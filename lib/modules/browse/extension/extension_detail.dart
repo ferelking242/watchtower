@@ -1065,6 +1065,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final langCode = source.lang ?? 'unknown';
+    final langFlag = langFlagEmoji(langCode.toLowerCase());
     final langName = completeLanguageName(langCode);
     final baseUrl = source.baseUrl ?? '';
     final isObsolete = source.isObsolete ?? false;
@@ -1264,7 +1265,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                             _Chip(icon: typeIcon, label: typeBadge, color: cs.primary),
                           _Chip(
                             icon: Icons.translate_rounded,
-                            label: langName,
+                            label: '$langFlag $langName',
                             color: cs.tertiary,
                           ),
                           _Chip(
@@ -1358,7 +1359,7 @@ class _ExtensionDetailState extends ConsumerState<ExtensionDetail> {
                         _InfoRow(
                           icon: Icons.language_rounded,
                           label: 'Langue',
-                          value: langName,
+                          value: '$langFlag $langName',
                         ),
                     ],
                   ),

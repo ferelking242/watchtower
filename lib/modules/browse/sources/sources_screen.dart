@@ -13,8 +13,30 @@ import 'package:watchtower/modules/browse/widgets/browse_source_filter_menu.dart
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/fetch_item_sources.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/language.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
+
+/// Actions of a language-group three-dot menu in the Explorer.
+enum _SectionMenuAction { enableAll, disableAll, pinAll, unpinAll, clearFilter }
+
+class _SectionMenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _SectionMenuRow({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18),
+        const SizedBox(width: 10),
+        Expanded(child: Text(label)),
+      ],
+    );
+  }
+}
 
 class SourcesScreen extends ConsumerStatefulWidget {
   final ItemType itemType;
@@ -36,6 +58,11 @@ class SourcesScreen extends ConsumerStatefulWidget {
 class _SourcesScreenState extends ConsumerState<SourcesScreen> {
   final _scrollController = ScrollController();
   final Map<String, bool> _collapsed = {};
+
+  /// Per-language filter, applied only to the tiles of that language group.
+  /// Empty by default: the global filter ([widget.filters]) still applies to
+  /// the whole screen.
+  final Map<String, BrowseSourceFilters> _sectionFilters = {};
 
   List<Source> _sourcesForCurrentType(Iterable<Source> sources) {
     return sources
@@ -70,6 +97,124 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
         }
       }),
     ).timeout(const Duration(seconds: 25), onTimeout: () => <void>[]);
+  }
+
+  /// Filter + three-dot controls for one language group. The filter uses the
+  /// shared [BrowseSourceFilterMenu] (same overlay as the Library) scoped to
+  /// the group's sources; the icon turns primary when that group is filtered.
+  Widget _sectionTrailing(String lang, List<Source> entries) {
+    final theme = Theme.of(context);
+    final filters = _sectionFilters[lang] ?? const BrowseSourceFilters();
+    final active = filters.hasAny;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AdaptiveOverlayMenuButton(
+          menuWidth: 300,
+          trigger: Icon(
+            // Same Library filter glyph; the primary colour marks an active
+            // filter on this language group.
+            Broken.slider_horizontal,
+            size: 18,
+            color: active ? theme.colorScheme.primary : theme.hintColor,
+          ),
+          contentBuilder: (close) => BrowseSourceFilterMenu(
+            filters: filters,
+            availableSources: entries,
+            onChanged: (next) {
+              setState(() => _sectionFilters[lang] = next);
+              if (!next.hasAny) _sectionFilters.remove(lang);
+            },
+          ),
+        ),
+        AdaptiveOverlayMenu<_SectionMenuAction>(
+          tooltip: 'Options de la section',
+          icon: Icon(Broken.more_2, size: 18, color: theme.hintColor),
+          menuWidth: 240,
+          onSelected: (action) {
+            switch (action) {
+              case _SectionMenuAction.enableAll:
+                _setSectionActive(entries, true);
+              case _SectionMenuAction.disableAll:
+                _setSectionActive(entries, false);
+              case _SectionMenuAction.pinAll:
+                _setSectionPinned(entries, true);
+              case _SectionMenuAction.unpinAll:
+                _setSectionPinned(entries, false);
+              case _SectionMenuAction.clearFilter:
+                setState(() => _sectionFilters.remove(lang));
+            }
+          },
+          itemBuilder: (ctx) => [
+            PopupMenuItem(
+              value: _SectionMenuAction.enableAll,
+              child: _SectionMenuRow(
+                icon: Broken.play,
+                label: 'Activer la section',
+              ),
+            ),
+            PopupMenuItem(
+              value: _SectionMenuAction.disableAll,
+              child: _SectionMenuRow(
+                icon: Broken.pause,
+                label: 'Désactiver la section',
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: _SectionMenuAction.pinAll,
+              child: _SectionMenuRow(
+                icon: Broken.bookmark,
+                label: 'Épingler la section',
+              ),
+            ),
+            PopupMenuItem(
+              value: _SectionMenuAction.unpinAll,
+              child: _SectionMenuRow(
+                icon: Broken.bookmark_2,
+                label: 'Désépingler la section',
+              ),
+            ),
+            if (active) ...[
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: _SectionMenuAction.clearFilter,
+                child: _SectionMenuRow(
+                  icon: Broken.filter_remove,
+                  label: 'Effacer les filtres',
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _setSectionActive(List<Source> entries, bool active) {
+    final ids = entries.map((e) => e.id).whereType<int>().toSet();
+    isar.writeTxnSync(() {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      for (final source in isar.sources.where().findAllSync()) {
+        if (ids.contains(source.id)) {
+          isar.sources.putSync(source..isActive = active..updatedAt = now);
+        }
+      }
+    });
+    if (mounted) setState(() {});
+  }
+
+  void _setSectionPinned(List<Source> entries, bool pinned) {
+    final ids = entries.map((e) => e.id).whereType<int>().toSet();
+    isar.writeTxnSync(() {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      for (final source in isar.sources.where().findAllSync()) {
+        if (ids.contains(source.id)) {
+          isar.sources.putSync(source..isPinned = pinned..updatedAt = now);
+        }
+      }
+    });
+    if (mounted) setState(() {});
   }
 
   @override
@@ -253,28 +398,42 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                           ),
                         ],
 
-                        for (final lang in sortedLangs) ...[
-                          _CollapsibleLanguageHeader(
-                            lang: lang,
-                            count: grouped[lang]!.length,
-                            isCollapsed: _collapsed[lang] ?? false,
-                            onToggle: () => setState(() {
-                              _collapsed[lang] = !(_collapsed[lang] ?? false);
-                            }),
-                            langCode:
-                                grouped[lang]!.first.lang?.toLowerCase() ?? '',
-                          ),
-                          if (!(_collapsed[lang] ?? false))
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (_, i) => SourceListTile(
-                                  source: grouped[lang]![i],
-                                  itemType: widget.itemType,
-                                ),
-                                childCount: grouped[lang]!.length,
+                        for (final lang in sortedLangs)
+                          ...(() {
+                            final entries = (grouped[lang] ?? const [])
+                                .where(
+                                  (source) =>
+                                      (_sectionFilters[lang] ??
+                                              const BrowseSourceFilters())
+                                          .matches(source, widget.searchQuery),
+                                )
+                                .toList();
+                            if (entries.isEmpty) return const <Widget>[];
+                            return <Widget>[
+                              _CollapsibleLanguageHeader(
+                                lang: lang,
+                                count: entries.length,
+                                isCollapsed: _collapsed[lang] ?? false,
+                                onToggle: () => setState(() {
+                                  _collapsed[lang] =
+                                      !(_collapsed[lang] ?? false);
+                                }),
+                                langCode:
+                                    entries.first.lang?.toLowerCase() ?? '',
+                                trailing: _sectionTrailing(lang, entries),
                               ),
-                            ),
-                        ],
+                              if (!(_collapsed[lang] ?? false))
+                                SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (_, i) => SourceListTile(
+                                      source: entries[i],
+                                      itemType: widget.itemType,
+                                    ),
+                                    childCount: entries.length,
+                                  ),
+                                ),
+                            ];
+                          })(),
 
                         // ── Other / local source section ─────────────────
                         SliverToBoxAdapter(
@@ -592,12 +751,17 @@ class _CollapsibleLanguageHeader extends StatelessWidget {
   final bool isCollapsed;
   final VoidCallback onToggle;
 
+  /// Filter + three-dot controls pinned before the collapse caret, so a
+  /// language group can be filtered in place (same overlay as the Library).
+  final Widget? trailing;
+
   const _CollapsibleLanguageHeader({
     required this.lang,
     required this.langCode,
     required this.count,
     required this.isCollapsed,
     required this.onToggle,
+    this.trailing,
   });
 
   @override
@@ -622,6 +786,7 @@ class _CollapsibleLanguageHeader extends StatelessWidget {
                 ),
               ),
               _CountBadge(count: count),
+              if (trailing != null) ...[const SizedBox(width: 4), trailing!],
               const SizedBox(width: 8),
               AnimatedRotation(
                 turns: isCollapsed ? -0.25 : 0,

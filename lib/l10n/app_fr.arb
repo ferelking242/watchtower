@@ -1034,6 +1034,7 @@
   "browse_opening_source": "Ouverture de \"{name}\"…",
   "browse_global_search_tooltip": "Recherche globale · appui long = diagnostic",
   "browse_more_options": "Plus d'options",
+  "browse_custom_sections": "Mes sections",
   "browse_marketplace": "Marketplace",
   "browse_how_to_local_source": "How To — Source Locale",
   "browse_random_source": "Source aléatoire",

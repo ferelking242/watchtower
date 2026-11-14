@@ -302,6 +302,11 @@ flutter:
         - asset: assets/fonts/Cookie-Regular.ttf
           style: normal
           weight: 500
+    - family: Bangers
+      fonts:
+        - asset: assets/fonts/Bangers-Regular.ttf
+          style: normal
+          weight: 400
     - family: broken
       fonts:
         - asset: assets/fonts/broken.ttf

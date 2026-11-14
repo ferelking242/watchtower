@@ -6011,6 +6011,12 @@ abstract class AppLocalizations {
   /// **'More options'**
   String get browse_more_options;
 
+  /// No description provided for @browse_custom_sections.
+  ///
+  /// In en, this message translates to:
+  /// **'My sections'**
+  String get browse_custom_sections;
+
   /// No description provided for @browse_marketplace.
   ///
   /// In en, this message translates to:
