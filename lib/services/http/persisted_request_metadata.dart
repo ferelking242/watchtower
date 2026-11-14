@@ -43,6 +43,47 @@ String sanitizePersistedUrl(String raw) {
   ).toString();
 }
 
+/// A query parameter whose value rotates on every request while the resource
+/// behind the URL does not (CDN signatures, expiry stamps, replay nonces).
+bool _isVolatileQueryName(String name) {
+  final n = name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  return n.endsWith('expires') ||
+      n.endsWith('expiry') ||
+      n.endsWith('timestamp') ||
+      n.endsWith('nonce') ||
+      n == 'date' ||
+      n == 'ts' ||
+      n == 'e';
+}
+
+/// The URL reduced to the parts that actually identify the resource, for use
+/// as a cache key.
+///
+/// A signed CDN URL carries a rotating token and an expiry stamp in the query
+/// string, so keying on the raw URL made every request miss the cache entry it
+/// had just written and re-download forever — the same failure the header
+/// fingerprint avoids for credentials. Only the *key* is reduced: the request
+/// still goes out with the full, signed URL.
+String cacheKeyUrl(String raw) {
+  final uri = Uri.tryParse(raw);
+  if (uri == null || !uri.hasQuery) return raw;
+
+  final query = <String, dynamic>{};
+  for (final entry in uri.queryParametersAll.entries) {
+    if (isSensitiveRequestField(entry.key)) continue;
+    if (_isVolatileQueryName(entry.key)) continue;
+    query[entry.key] = entry.value;
+  }
+  if (query.length == uri.queryParametersAll.length) return raw;
+  return Uri(
+    scheme: uri.scheme.isEmpty ? null : uri.scheme,
+    host: uri.hasAuthority ? uri.host : null,
+    port: uri.hasPort ? uri.port : null,
+    path: uri.path,
+    queryParameters: query.isEmpty ? null : query,
+  ).toString();
+}
+
 String safeUrlOriginForLog(String raw) {
   final uri = Uri.tryParse(raw);
   if (uri == null || !uri.hasAuthority || uri.host.isEmpty) {

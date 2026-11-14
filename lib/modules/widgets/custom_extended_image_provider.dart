@@ -85,6 +85,12 @@ final _memoryCache = ImageBytesLruCache<String, Uint8List>(
 /// from starting two network downloads.
 final _inFlightImageLoads = <String, Future<Uint8List?>>{};
 
+/// Keys whose stale bytes are being refreshed by a background revalidation.
+///
+/// Stale-while-revalidate: an expired entry renders at once and the fresh copy
+/// is fetched in the background, but only once per key at a time.
+final _revalidatingCovers = <String>{};
+
 /// Deduplicates repeated cover-download failures so a broken CDN host does
 /// not print one line per card. Keyed by `status|host`; the first few are
 /// logged in full, then a periodic running total.
@@ -164,7 +170,7 @@ class CustomExtendedNetworkImageProvider
     this.cancelToken,
     this.imageCacheName,
     this.imageCacheFolderName,
-    this.cacheMaxAge = const Duration(days: 3650),
+    this.cacheMaxAge = const Duration(days: 7),
     this.showCloudFlareError = false,
     this.sourceId,
     this.pageUrl,
@@ -326,7 +332,8 @@ class CustomExtendedNetworkImageProvider
   }
 
   String _cacheKeyFor(CustomExtendedNetworkImageProvider key) {
-    return cacheKey ?? keyToMd5('${key.url}\n${_headersFingerprint()}');
+    return cacheKey ??
+        keyToMd5('${cacheKeyUrl(key.url)}\n${_headersFingerprint()}');
   }
 
   @visibleForTesting
@@ -411,27 +418,51 @@ class CustomExtendedNetworkImageProvider
       }
     }
 
-    // exist, try to find cache image file
+    // The persistent cache used to skip expiry entirely, so a cover that
+    // changed at the same URL stayed wrong forever. An expired entry is now
+    // rendered from disk immediately and refreshed in the background.
     if (!kIsWeb &&
         data == null &&
         (await (cacheFile as dynamic).exists() as bool)) {
-      if (!isPersistentCoverCache && key.cacheMaxAge != null) {
-        final DateTime now = DateTime.now();
-        final DateTime lastModified = await (cacheFile as dynamic).lastModified() as DateTime;
-        if (now.difference(lastModified) > key.cacheMaxAge!) {
-          await (cacheFile as dynamic).delete();
-          _imgLog('DISK-EXPIRED ${_shortUrl(key.url)}');
-        } else {
-          final t0 = DateTime.now();
-          data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
-          final ms = DateTime.now().difference(t0).inMilliseconds;
-          _imgLog('DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
-        }
-      } else {
+      final maxAge = key.cacheMaxAge;
+      bool expired = false;
+      if (maxAge != null) {
+        final DateTime lastModified =
+            await (cacheFile as dynamic).lastModified() as DateTime;
+        expired = DateTime.now().difference(lastModified) > maxAge;
+      }
+      if (!expired) {
         final t0 = DateTime.now();
         data = await (cacheFile as dynamic).readAsBytes() as Uint8List;
         final ms = DateTime.now().difference(t0).inMilliseconds;
         _imgLog('DISK-HIT ${_shortUrl(key.url)} (${data.length} B, ${ms}ms)');
+      } else if (isPersistentCoverCache) {
+        final t0 = DateTime.now();
+        final candidate =
+            await (cacheFile as dynamic).readAsBytes() as Uint8List;
+        final ms = DateTime.now().difference(t0).inMilliseconds;
+        if (candidate.isEmpty || _looksLikeMarkupOrText(candidate)) {
+          try {
+            await (cacheFile as dynamic).delete();
+          } catch (_) {}
+        } else {
+          // Render the stale cover now and refresh it in the background, so a
+          // cold start never blocks the first frame on the network.
+          data = candidate;
+          _imgLog(
+            'DISK-STALE ${_shortUrl(key.url)} (${candidate.length} B, ${ms}ms) '
+            '→ revalidation en arrière-plan',
+          );
+          _revalidateCoverInBackground(
+            key,
+            md5Key,
+            cacheImagesDirectory,
+            candidate,
+          );
+        }
+      } else {
+        await (cacheFile as dynamic).delete();
+        _imgLog('DISK-EXPIRED ${_shortUrl(key.url)}');
       }
     }
     if (data != null && (data.isEmpty || _looksLikeMarkupOrText(data))) {
@@ -452,8 +483,9 @@ class CustomExtendedNetworkImageProvider
     // load from network
     if (data == null) {
       _imgLog('CACHE-MISS → network ${_shortUrl(key.url)}');
-      data = await _loadNetwork(key, chunkEvents);
-      if (data != null) {
+      final fresh = await _loadNetwork(key, chunkEvents);
+      if (fresh != null) {
+        data = fresh;
         if (!kIsWeb) {
           try {
             await (io.File(
@@ -469,13 +501,61 @@ class CustomExtendedNetworkImageProvider
             _imgLog('could not write image cache entry: $error', level: LogLevel.warning);
           }
         }
-
-        // Store in memory cache
-        _memoryCache.put(md5Key, data);
       }
+      if (data != null) _memoryCache.put(md5Key, data);
     }
 
     return data;
+  }
+
+  /// Fetches a fresh copy of an expired cover without blocking the caller.
+  ///
+  /// The stale bytes are already on screen. On success the file is replaced and
+  /// the memory entry updated for the next load; on failure the stale file is
+  /// left untouched so the next load retries. Only one revalidation per key
+  /// runs at a time, and it never starts from inside the revalidation itself.
+  void _revalidateCoverInBackground(
+    CustomExtendedNetworkImageProvider key,
+    String md5Key,
+    io.Directory cacheImagesDirectory,
+    Uint8List stale,
+  ) {
+    if (!_revalidatingCovers.add(md5Key)) return;
+    unawaited(() async {
+      try {
+        final fresh = await _loadNetwork(key, null);
+        if (fresh == null || fresh.isEmpty || _looksLikeMarkupOrText(fresh)) {
+          return;
+        }
+        if (_bytesEqual(fresh, stale)) return;
+        _memoryCache.put(md5Key, fresh);
+        try {
+          await (io.File(
+            join(cacheImagesDirectory.path, md5Key),
+          ) as dynamic).writeAsBytes(fresh);
+          CacheStorageManager.instance.noteWritten(fresh.length);
+        } catch (_) {}
+        _imgLog(
+          'DISK-REVALIDATED ${_shortUrl(key.url)} (${fresh.length} B)',
+        );
+      } catch (error) {
+        _imgLog(
+          'revalidation échouée ${_shortUrl(key.url)} — $error',
+          level: LogLevel.debug,
+        );
+      } finally {
+        _revalidatingCovers.remove(md5Key);
+      }
+    }());
+  }
+
+  static bool _bytesEqual(Uint8List a, Uint8List b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   /// Returns a short display form of a URL for log readability.

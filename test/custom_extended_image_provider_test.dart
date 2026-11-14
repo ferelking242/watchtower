@@ -136,6 +136,50 @@ void main() {
     expect(french.cacheKeyForTesting, isNot(english.cacheKeyForTesting));
   });
 
+  test('a rotating URL token does not change the cache key', () {
+    final first = CustomExtendedNetworkImageProvider(
+      'https://cdn.test/cover.jpg?token=one&expires=1700000000&w=400',
+    );
+    final rotated = CustomExtendedNetworkImageProvider(
+      'https://cdn.test/cover.jpg?token=two&expires=1700009999&w=400',
+    );
+
+    // A signed CDN URL rotates its credentials and expiry on every request;
+    // keying on the raw URL made every cover miss the entry it just wrote.
+    expect(first.cacheKeyForTesting, rotated.cacheKeyForTesting);
+  });
+
+  test('a query parameter that selects the resource still splits the key', () {
+    final small = CustomExtendedNetworkImageProvider(
+      'https://cdn.test/cover.jpg?w=200',
+    );
+    final large = CustomExtendedNetworkImageProvider(
+      'https://cdn.test/cover.jpg?w=800',
+    );
+
+    expect(small.cacheKeyForTesting, isNot(large.cacheKeyForTesting));
+  });
+
+  test(
+    'an expired persistent cover renders from disk instead of a placeholder',
+    () async {
+      final provider = CustomExtendedNetworkImageProvider(
+        'http://127.0.0.1:${imageServer.port}/cover.png',
+        retries: 1,
+        timeRetry: Duration.zero,
+        // Everything written before "now" is immediately expired.
+        cacheMaxAge: Duration.zero,
+      );
+      final imageBytes = Uint8List.fromList([11, 12, 13, 14]);
+      final cacheFile = await _writeDiskCache(provider, imageBytes);
+
+      // The stale entry is returned straight away; revalidation happens in the
+      // background and, with the network blocked, leaves the file in place.
+      expect(await provider.getNetworkImageData(), imageBytes);
+      expect(await cacheFile.exists(), isTrue);
+    },
+  );
+
   test('disk cache bytes are used without an HTTP request', () async {
     final provider = _newProvider();
     final imageBytes = Uint8List.fromList([1, 2, 3, 4]);

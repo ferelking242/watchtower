@@ -56,6 +56,37 @@ void main() {
     });
   });
 
+  group('cacheKeyUrl', () {
+    test('drops rotating CDN credentials and expiry stamps', () {
+      expect(
+        cacheKeyUrl('https://cdn.test/c.jpg?token=abc&expires=1700000000&w=400'),
+        cacheKeyUrl('https://cdn.test/c.jpg?token=xyz&expires=1700009999&w=400'),
+      );
+    });
+
+    test('keeps query parameters that identify a distinct resource', () {
+      expect(
+        cacheKeyUrl('https://cdn.test/c.jpg?w=200'),
+        isNot(cacheKeyUrl('https://cdn.test/c.jpg?w=800')),
+      );
+    });
+
+    test('returns the raw URL when nothing is stripped', () {
+      expect(
+        cacheKeyUrl('https://cdn.test/c.jpg?w=200'),
+        'https://cdn.test/c.jpg?w=200',
+      );
+      expect(cacheKeyUrl('https://cdn.test/c.jpg'), 'https://cdn.test/c.jpg');
+    });
+
+    test('handles a URL whose query is only credentials', () {
+      expect(
+        cacheKeyUrl('https://cdn.test/c.jpg?token=abc'),
+        'https://cdn.test/c.jpg',
+      );
+    });
+  });
+
   group('sanitizePersistedHeaders', () {
     test('removes authentication headers', () {
       final headers = sanitizePersistedHeaders({

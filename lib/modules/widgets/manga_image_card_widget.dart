@@ -86,7 +86,7 @@ class MangaImageCardWidget extends ConsumerWidget {
                     ),
                   ),
                   cache: true,
-                  cacheMaxAge: const Duration(days: 3650),
+                  cacheMaxAge: const Duration(days: 7),
                 ),
           onTap: () {
             // Reel-type links (e.g. RedGIFs) open in ReelScreen (TikTok tabs).

@@ -203,12 +203,20 @@ class _ExtensionIconWidgetState extends State<ExtensionIconWidget> {
         color: Theme.of(context).hintColor,
       );
     }
+    // Decode at the size actually drawn, not at the source resolution: the
+    // Flutter image cache stores the decoded bitmap, so an extension icon
+    // rendered at 12-37 px used to occupy a full-size bitmap per entry and
+    // evict real content out of the decode cache.
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    final decodeSize = (widget.size * dpr).round();
     return ClipRRect(
       borderRadius: BorderRadius.circular(5),
       child: Image.memory(
         _bytes!,
         width: widget.size,
         height: widget.size,
+        cacheWidth: decodeSize,
+        cacheHeight: decodeSize,
         fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) => Icon(
           Icons.extension_rounded,
