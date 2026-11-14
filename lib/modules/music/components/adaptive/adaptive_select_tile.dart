@@ -3,14 +3,17 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
 
-/// Drop-in replacement for shadcn's SelectItemButton<T>.
-/// Holds a [value] and display [child] for use in [AdaptiveSelectTile].
+/// A labelled [value] with its display [child], used as one choice in an
+/// [AdaptiveSelectTile].
 class SelectItemButton<T> {
   final T value;
   final Widget child;
   const SelectItemButton({required this.value, required this.child});
 }
 
+/// A settings row that picks one value from [options]. Renders an inline
+/// dropdown on wide layouts and a tap-to-open dialog on narrow ones, both
+/// styled from the Watchtower theme (`Theme.of(context).colorScheme`).
 class AdaptiveSelectTile<T> extends HookWidget {
   final Widget title;
   final Widget? subtitle;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 
 class SectionCardWithHeading extends StatelessWidget {
   final String heading;
@@ -31,7 +32,7 @@ class SectionCardWithHeading extends StatelessWidget {
             margin: EdgeInsets.zero,
             clipBehavior: Clip.antiAlias,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppUI.cardRadius),
               side: BorderSide(
                 color: theme.colorScheme.outlineVariant,
                 width: 0.5,
