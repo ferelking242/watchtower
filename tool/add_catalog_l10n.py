@@ -3057,6 +3057,114 @@ HOME_L10N = [
 ]
 
 
+# ── Remote mode / remote setup ────────────────────────────────────────────────
+
+REMOTE = [
+    ("remote_server_title", "Remote server", "Serveur Distant"),
+    ("remote_public_link", "Public link (SSH tunnel)",
+     "Lien public (tunnel SSH)"),
+    ("remote_paste_in_web", "Paste this link into the web version",
+     "Coller ce lien dans la version web"),
+    ("remote_tunnel_starting", "Tunnel is starting…",
+     "Tunnel en cours de démarrage..."),
+    ("remote_tunnel_ssh_hint", "SSH connection — about 5 seconds",
+     "Connexion SSH — environ 5 secondes"),
+    ("remote_local_link", "Local link (same Wi-Fi network)",
+     "Lien local (même réseau Wi-Fi)"),
+    ("remote_use_same_network", "Use this if you are on the same network",
+     "Utiliser si vous êtes sur le même réseau"),
+    ("remote_api_key", "API key", "Clé API"),
+    ("remote_api_key_hint",
+     "Add it as ?key=... or as an Authorization: Bearer header on every "
+     "/api call",
+     "À ajouter en ?key=... ou en en-tête Authorization: Bearer sur chaque "
+     "appel /api"),
+    ("remote_copy", "Copy", "Copier"),
+    ("remote_key_copied", "Key copied", "Clé copiée"),
+    ("remote_regenerate", "Regenerate (invalidates the old key)",
+     "Régénérer (invalide l’ancienne clé)"),
+    ("remote_new_key", "New key generated", "Nouvelle clé générée"),
+    ("remote_how_to_use", "How to use", "Comment utiliser"),
+    ("remote_how_to_use_body",
+     "1. Copy the public link above\n"
+     "2. Open Watchtower on the web\n"
+     "3. Go to Settings → Remote connection\n"
+     "4. Paste the link and sign in\n"
+     "5. Every extension and source becomes available",
+     "1. Copiez le lien public ci-dessus\n"
+     "2. Ouvrez Watchtower sur le web\n"
+     "3. Allez dans Paramètres → Connexion distante\n"
+     "4. Collez le lien et connectez-vous\n"
+     "5. Toutes les extensions et sources seront disponibles"),
+    ("remote_how_it_works", "How it works", "Comment ça marche"),
+    ("remote_how_it_works_body",
+     "When Remote Mode is on, your device becomes a server. A public link is "
+     "created automatically through an SSH tunnel (localhost.run) — reachable "
+     "from anywhere, with no download and no network setup.\n\n"
+     "The web version of Watchtower can then connect to this link to use all "
+     "your installed extensions and sources.",
+     "Quand le Mode Distant est actif, votre appareil devient un serveur. Un "
+     "lien public est créé automatiquement via un tunnel SSH (localhost.run) — "
+     "accessible depuis n’importe où, sans téléchargement ni configuration "
+     "réseau.\n\n"
+     "La version web de Watchtower peut ensuite se connecter à ce lien pour "
+     "utiliser toutes vos extensions et sources installées."),
+    ("remote_tunnel_unavailable", "Tunnel unavailable", "Tunnel indisponible"),
+    ("remote_copy_error", "Copy the error", "Copier l’erreur"),
+    ("remote_check_connection",
+     "Check your internet connection and try again.",
+     "Vérifiez votre connexion internet et réessayez."),
+    ("remote_error_copied", "Error copied", "Erreur copiée"),
+    ("remote_link_copied", "Link copied", "Lien copié"),
+    ("remote_connect_title", "Connect to the Watchtower server",
+     "Connexion au serveur Watchtower"),
+    ("remote_connect_steps",
+     "1. Open Watchtower on your phone or PC\n"
+     "2. Go to Settings → Remote Mode\n"
+     "3. Turn the server on, then copy the public link and the API key\n"
+     "4. Paste them here — the next visit will be automatic",
+     "1. Ouvrez Watchtower sur votre téléphone ou PC\n"
+     "2. Allez dans Paramètres → Mode Distant\n"
+     "3. Activez le serveur, puis copiez le lien public et la clé API\n"
+     "4. Collez-les ici — la prochaine visite sera automatique"),
+    ("remote_server_url_label", "Server URL", "URL du serveur"),
+    ("remote_api_key_label", "Server API key", "Clé API du serveur"),
+    ("remote_show_key", "Show the key", "Afficher la clé"),
+    ("remote_hide_key", "Hide the key", "Masquer la clé"),
+    ("remote_enter_url", "Enter a server URL.", "Entrez une URL de serveur."),
+    ("remote_enter_api_key", "Enter the API key shown in Remote Mode.",
+     "Entrez la clé API affichée dans le Mode Distant."),
+    ("remote_http_blocked",
+     "HTTP URL blocked by the browser (this page is HTTPS).\n"
+     "Use the HTTPS public link of the SSH tunnel:\n"
+     "e.g. https://xxxx.lhr.life",
+     "URL HTTP bloquée par le navigateur (cette page est HTTPS).\n"
+     "Utilisez le lien public HTTPS du tunnel SSH :\n"
+     "ex. https://xxxx.lhr.life"),
+    ("remote_timeout_10",
+     "Timed out (10s) — server unreachable or wrong URL",
+     "Délai dépassé (10s) — serveur inaccessible ou URL incorrecte"),
+    ("remote_wrong_api_key",
+     "Wrong API key. Copy the key shown in Remote Mode.",
+     "Clé API incorrecte. Copiez la clé affichée dans le Mode Distant."),
+    ("remote_api_unreachable",
+     "The server responds, but its API is unreachable (HTTP {code}).",
+     "Le serveur répond, mais son API est inaccessible (HTTP {code})."),
+    ("remote_connected_sync", "Server connected — syncing…",
+     "Serveur connecté — synchronisation en cours…"),
+    ("remote_not_found",
+     "Server not found (HTTP {code}).\n"
+     "Check that Remote Mode is active on your device.",
+     "Serveur introuvable (HTTP {code}).\n"
+     "Vérifiez que le Mode Distant est actif sur votre appareil."),
+    ("remote_timeout_short", "Timed out", "Délai dépassé"),
+    ("remote_connect_failed", "Could not connect: {error}",
+     "Impossible de se connecter : {error}"),
+    ("remote_connecting", "Connecting…", "Connexion..."),
+    ("remote_connect", "Connect", "Connecter"),
+]
+
+
 # ── Watch download sheet ──────────────────────────────────────────────────────
 
 DOWNLOAD_SHEET = [
@@ -3258,6 +3366,8 @@ en_entries += [(key, en) for key, en, _ in EPISODE_SOURCES]
 fr_entries += [(key, fr) for key, _, fr in EPISODE_SOURCES]
 en_entries += [(key, en) for key, en, _ in DOWNLOAD_SHEET]
 fr_entries += [(key, fr) for key, _, fr in DOWNLOAD_SHEET]
+en_entries += [(key, en) for key, en, _ in REMOTE]
+fr_entries += [(key, fr) for key, _, fr in REMOTE]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

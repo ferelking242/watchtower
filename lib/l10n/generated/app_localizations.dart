@@ -17638,6 +17638,246 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Season'**
   String get download_sheet_season_word;
+
+  /// No description provided for @remote_server_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote server'**
+  String get remote_server_title;
+
+  /// No description provided for @remote_public_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Public link (SSH tunnel)'**
+  String get remote_public_link;
+
+  /// No description provided for @remote_paste_in_web.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste this link into the web version'**
+  String get remote_paste_in_web;
+
+  /// No description provided for @remote_tunnel_starting.
+  ///
+  /// In en, this message translates to:
+  /// **'Tunnel is starting…'**
+  String get remote_tunnel_starting;
+
+  /// No description provided for @remote_tunnel_ssh_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'SSH connection — about 5 seconds'**
+  String get remote_tunnel_ssh_hint;
+
+  /// No description provided for @remote_local_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Local link (same Wi-Fi network)'**
+  String get remote_local_link;
+
+  /// No description provided for @remote_use_same_network.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this if you are on the same network'**
+  String get remote_use_same_network;
+
+  /// No description provided for @remote_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'API key'**
+  String get remote_api_key;
+
+  /// No description provided for @remote_api_key_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add it as ?key=... or as an Authorization: Bearer header on every /api call'**
+  String get remote_api_key_hint;
+
+  /// No description provided for @remote_copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get remote_copy;
+
+  /// No description provided for @remote_key_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Key copied'**
+  String get remote_key_copied;
+
+  /// No description provided for @remote_regenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate (invalidates the old key)'**
+  String get remote_regenerate;
+
+  /// No description provided for @remote_new_key.
+  ///
+  /// In en, this message translates to:
+  /// **'New key generated'**
+  String get remote_new_key;
+
+  /// No description provided for @remote_how_to_use.
+  ///
+  /// In en, this message translates to:
+  /// **'How to use'**
+  String get remote_how_to_use;
+
+  /// No description provided for @remote_how_to_use_body.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Copy the public link above\n2. Open Watchtower on the web\n3. Go to Settings → Remote connection\n4. Paste the link and sign in\n5. Every extension and source becomes available'**
+  String get remote_how_to_use_body;
+
+  /// No description provided for @remote_how_it_works.
+  ///
+  /// In en, this message translates to:
+  /// **'How it works'**
+  String get remote_how_it_works;
+
+  /// No description provided for @remote_how_it_works_body.
+  ///
+  /// In en, this message translates to:
+  /// **'When Remote Mode is on, your device becomes a server. A public link is created automatically through an SSH tunnel (localhost.run) — reachable from anywhere, with no download and no network setup.\n\nThe web version of Watchtower can then connect to this link to use all your installed extensions and sources.'**
+  String get remote_how_it_works_body;
+
+  /// No description provided for @remote_tunnel_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Tunnel unavailable'**
+  String get remote_tunnel_unavailable;
+
+  /// No description provided for @remote_copy_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the error'**
+  String get remote_copy_error;
+
+  /// No description provided for @remote_check_connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your internet connection and try again.'**
+  String get remote_check_connection;
+
+  /// No description provided for @remote_error_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Error copied'**
+  String get remote_error_copied;
+
+  /// No description provided for @remote_link_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get remote_link_copied;
+
+  /// No description provided for @remote_connect_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to the Watchtower server'**
+  String get remote_connect_title;
+
+  /// No description provided for @remote_connect_steps.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Open Watchtower on your phone or PC\n2. Go to Settings → Remote Mode\n3. Turn the server on, then copy the public link and the API key\n4. Paste them here — the next visit will be automatic'**
+  String get remote_connect_steps;
+
+  /// No description provided for @remote_server_url_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get remote_server_url_label;
+
+  /// No description provided for @remote_api_key_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Server API key'**
+  String get remote_api_key_label;
+
+  /// No description provided for @remote_show_key.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the key'**
+  String get remote_show_key;
+
+  /// No description provided for @remote_hide_key.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide the key'**
+  String get remote_hide_key;
+
+  /// No description provided for @remote_enter_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a server URL.'**
+  String get remote_enter_url;
+
+  /// No description provided for @remote_enter_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the API key shown in Remote Mode.'**
+  String get remote_enter_api_key;
+
+  /// No description provided for @remote_http_blocked.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP URL blocked by the browser (this page is HTTPS).\nUse the HTTPS public link of the SSH tunnel:\ne.g. https://xxxx.lhr.life'**
+  String get remote_http_blocked;
+
+  /// No description provided for @remote_timeout_10.
+  ///
+  /// In en, this message translates to:
+  /// **'Timed out (10s) — server unreachable or wrong URL'**
+  String get remote_timeout_10;
+
+  /// No description provided for @remote_wrong_api_key.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong API key. Copy the key shown in Remote Mode.'**
+  String get remote_wrong_api_key;
+
+  /// No description provided for @remote_api_unreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'The server responds, but its API is unreachable (HTTP {code}).'**
+  String remote_api_unreachable(Object code);
+
+  /// No description provided for @remote_connected_sync.
+  ///
+  /// In en, this message translates to:
+  /// **'Server connected — syncing…'**
+  String get remote_connected_sync;
+
+  /// No description provided for @remote_not_found.
+  ///
+  /// In en, this message translates to:
+  /// **'Server not found (HTTP {code}).\nCheck that Remote Mode is active on your device.'**
+  String remote_not_found(Object code);
+
+  /// No description provided for @remote_timeout_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Timed out'**
+  String get remote_timeout_short;
+
+  /// No description provided for @remote_connect_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect: {error}'**
+  String remote_connect_failed(Object error);
+
+  /// No description provided for @remote_connecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get remote_connecting;
+
+  /// No description provided for @remote_connect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get remote_connect;
 }
 
 class _AppLocalizationsDelegate

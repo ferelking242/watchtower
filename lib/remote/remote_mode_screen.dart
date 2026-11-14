@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
   import 'package:flutter/services.dart';
   import 'package:flutter_riverpod/flutter_riverpod.dart';
-  import 'package:watchtower/remote/remote_mode_provider.dart';
+  import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/remote/remote_mode_provider.dart';
   import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
   class RemoteModeScreen extends ConsumerWidget {
@@ -12,7 +13,7 @@ import 'package:flutter/material.dart';
       final state = ref.watch(remoteModeProvider);
 
       return Scaffold(
-        appBar: AppBar(title: const Text('Mode Distant')),
+        appBar: AppBar(title: Text(context.l10n.settings_remote_mode)),
         body: state.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, stack) => _ErrorFullPage(error: e.toString()),
@@ -37,7 +38,8 @@ import 'package:flutter/material.dart';
             Icon(Icons.error_outline, size: 48,
                 color: Theme.of(context).colorScheme.error),
             const SizedBox(height: 16),
-            Text('Erreur', style: Theme.of(context).textTheme.titleLarge
+            Text(context.l10n.settings_error,
+                style: Theme.of(context).textTheme.titleLarge
                 ?.copyWith(color: Theme.of(context).colorScheme.error)),
             const SizedBox(height: 12),
             Container(
@@ -61,12 +63,14 @@ import 'package:flutter/material.dart';
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: error));
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Erreur copiée'),
-                      duration: Duration(seconds: 2)),
+                  SnackBar(
+                    content: Text(context.l10n.remote_error_copied),
+                    duration: const Duration(seconds: 2),
+                  ),
                 );
               },
               icon: const Icon(Icons.copy, size: 16),
-              label: const Text('Copier l\'erreur'),
+              label: Text(context.l10n.remote_copy_error),
             ),
           ],
         ),
@@ -108,10 +112,12 @@ import 'package:flutter/material.dart';
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Serveur Distant',
+                            Text(context.l10n.remote_server_title,
                                 style: Theme.of(context).textTheme.titleMedium),
                             Text(
-                              state.isRunning ? 'Actif' : 'Inactif',
+                              state.isRunning
+                                    ? context.l10n.browse_status_active
+                                    : context.l10n.browse_status_inactive,
                               style: TextStyle(
                                 color: state.isRunning
                                     ? Colors.green
@@ -135,49 +141,49 @@ import 'package:flutter/material.dart';
 
           if (state.isRunning) ...[
             // ── Tunnel URL ────────────────────────────────────────────────
-            const Text('Lien public (tunnel SSH)',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(context.l10n.remote_public_link,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
 
             if (state.tunnelUrl != null)
               _UrlCard(
                 url: state.tunnelUrl!,
-                label: 'Coller ce lien dans la version web',
+                label: context.l10n.remote_paste_in_web,
                 icon: Icons.cloud_outlined,
                 isPrimary: true,
               )
             else if (state.tunnelError != null)
               _TunnelErrorCard(error: state.tunnelError!)
             else
-              const Card(
+              Card(
                 child: ListTile(
-                  leading: SizedBox(
+                  leading: const SizedBox(
                     width: 24,
                     height: 24,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  title: Text('Tunnel en cours de démarrage...'),
-                  subtitle: Text('Connexion SSH — environ 5 secondes'),
+                  title: Text(context.l10n.remote_tunnel_starting),
+                  subtitle: Text(context.l10n.remote_tunnel_ssh_hint),
                 ),
               ),
 
             const SizedBox(height: 16),
 
             // ── Local URL ─────────────────────────────────────────────────
-            const Text('Lien local (même réseau Wi-Fi)',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(context.l10n.remote_local_link,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             _UrlCard(
               url: state.localUrl ?? 'http://localhost:4567',
-              label: 'Utiliser si vous êtes sur le même réseau',
+              label: context.l10n.remote_use_same_network,
               icon: Icons.lan_outlined,
               isPrimary: false,
             ),
             const SizedBox(height: 16),
 
             // ── API key ───────────────────────────────────────────────────
-            const Text('Clé API',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(context.l10n.remote_api_key,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Card(
               child: ListTile(
@@ -187,37 +193,37 @@ import 'package:flutter/material.dart';
                   state.apiKey ?? '...',
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
                 ),
-                subtitle: const Text(
-                  'À ajouter en ?key=... ou en en-tête Authorization: Bearer sur chaque appel /api',
-                ),
+                subtitle: Text(context.l10n.remote_api_key_hint),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.copy),
-                      tooltip: 'Copier',
+                      tooltip: context.l10n.remote_copy,
                       onPressed: state.apiKey == null
                           ? null
                           : () {
                               Clipboard.setData(
                                   ClipboardData(text: state.apiKey!));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Clé copiée'),
-                                    duration: Duration(seconds: 2)),
+                                SnackBar(
+                                  content: Text(context.l10n.remote_key_copied),
+                                  duration: const Duration(seconds: 2),
+                                ),
                               );
                             },
                     ),
                     IconButton(
                       icon: const Icon(Icons.refresh),
-                      tooltip: 'Régénérer (invalide l\'ancienne clé)',
+                      tooltip: context.l10n.remote_regenerate,
                       onPressed: () async {
                         await notifier.regenerateApiKey();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Nouvelle clé générée'),
-                                duration: Duration(seconds: 2)),
+                            SnackBar(
+                              content: Text(context.l10n.remote_new_key),
+                              duration: const Duration(seconds: 2),
+                            ),
                           );
                         }
                       },
@@ -242,7 +248,7 @@ import 'package:flutter/material.dart';
                               Theme.of(context).colorScheme.onPrimaryContainer),
                       const SizedBox(width: 8),
                       Text(
-                        'Comment utiliser',
+                        context.l10n.remote_how_to_use,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color:
@@ -252,11 +258,7 @@ import 'package:flutter/material.dart';
                     ]),
                     const SizedBox(height: 8),
                     Text(
-                      '1. Copiez le lien public ci-dessus\n'
-                      '2. Ouvrez Watchtower sur le web\n'
-                      '3. Allez dans Paramètres → Connexion distante\n'
-                      '4. Collez le lien et connectez-vous\n'
-                      '5. Toutes les extensions et sources seront disponibles',
+                      context.l10n.remote_how_to_use_body,
                       style: TextStyle(
                           color: Theme.of(context)
                               .colorScheme
@@ -273,17 +275,12 @@ import 'package:flutter/material.dart';
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Comment ça marche',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Quand le Mode Distant est actif, votre appareil devient un '
-                      'serveur. Un lien public est créé automatiquement via un tunnel '
-                      'SSH (localhost.run) — accessible depuis n\'importe où, sans '
-                      'téléchargement ni configuration réseau.\n\n'
-                      'La version web de Watchtower peut ensuite se connecter à ce '
-                      'lien pour utiliser toutes vos extensions et sources installées.',
+                    Text(
+                      context.l10n.remote_how_it_works,
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
+                    const SizedBox(height: 8),
+                    Text(context.l10n.remote_how_it_works_body),
                   ],
                 ),
               ),
@@ -313,18 +310,19 @@ import 'package:flutter/material.dart';
               Row(children: [
                 Icon(Icons.warning_amber_rounded, color: fg),
                 const SizedBox(width: 8),
-                Text('Tunnel indisponible',
+                Text(context.l10n.remote_tunnel_unavailable,
                     style: TextStyle(fontWeight: FontWeight.bold, color: fg)),
                 const Spacer(),
                 IconButton(
                   icon: Icon(Icons.copy, size: 18, color: fg),
-                  tooltip: 'Copier l\'erreur',
+                  tooltip: context.l10n.remote_copy_error,
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: error));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Erreur copiée'),
-                          duration: Duration(seconds: 2)),
+                      SnackBar(
+                        content: Text(context.l10n.remote_error_copied),
+                        duration: const Duration(seconds: 2),
+                      ),
                     );
                   },
                 ),
@@ -337,7 +335,7 @@ import 'package:flutter/material.dart';
               ),
               const SizedBox(height: 4),
               Text(
-                'Vérifiez votre connexion internet et réessayez.',
+                context.l10n.remote_check_connection,
                 style: TextStyle(fontSize: 12, color: fg.withValues(alpha: 0.75)),
               ),
             ],
@@ -373,13 +371,14 @@ import 'package:flutter/material.dart';
           subtitle: Text(label),
           trailing: IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Copier',
+            tooltip: context.l10n.remote_copy,
             onPressed: () {
               Clipboard.setData(ClipboardData(text: url));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Lien copié'),
-                    duration: Duration(seconds: 2)),
+                SnackBar(
+                  content: Text(context.l10n.remote_link_copied),
+                  duration: const Duration(seconds: 2),
+                ),
               );
             },
           ),

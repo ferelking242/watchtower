@@ -10038,4 +10038,141 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get download_sheet_season_word => 'Saison';
+
+  @override
+  String get remote_server_title => 'Serveur Distant';
+
+  @override
+  String get remote_public_link => 'Lien public (tunnel SSH)';
+
+  @override
+  String get remote_paste_in_web => 'Coller ce lien dans la version web';
+
+  @override
+  String get remote_tunnel_starting => 'Tunnel en cours de démarrage...';
+
+  @override
+  String get remote_tunnel_ssh_hint => 'Connexion SSH — environ 5 secondes';
+
+  @override
+  String get remote_local_link => 'Lien local (même réseau Wi-Fi)';
+
+  @override
+  String get remote_use_same_network =>
+      'Utiliser si vous êtes sur le même réseau';
+
+  @override
+  String get remote_api_key => 'Clé API';
+
+  @override
+  String get remote_api_key_hint =>
+      'À ajouter en ?key=... ou en en-tête Authorization: Bearer sur chaque appel /api';
+
+  @override
+  String get remote_copy => 'Copier';
+
+  @override
+  String get remote_key_copied => 'Clé copiée';
+
+  @override
+  String get remote_regenerate => 'Régénérer (invalide l’ancienne clé)';
+
+  @override
+  String get remote_new_key => 'Nouvelle clé générée';
+
+  @override
+  String get remote_how_to_use => 'Comment utiliser';
+
+  @override
+  String get remote_how_to_use_body =>
+      '1. Copiez le lien public ci-dessus\n2. Ouvrez Watchtower sur le web\n3. Allez dans Paramètres → Connexion distante\n4. Collez le lien et connectez-vous\n5. Toutes les extensions et sources seront disponibles';
+
+  @override
+  String get remote_how_it_works => 'Comment ça marche';
+
+  @override
+  String get remote_how_it_works_body =>
+      'Quand le Mode Distant est actif, votre appareil devient un serveur. Un lien public est créé automatiquement via un tunnel SSH (localhost.run) — accessible depuis n’importe où, sans téléchargement ni configuration réseau.\n\nLa version web de Watchtower peut ensuite se connecter à ce lien pour utiliser toutes vos extensions et sources installées.';
+
+  @override
+  String get remote_tunnel_unavailable => 'Tunnel indisponible';
+
+  @override
+  String get remote_copy_error => 'Copier l’erreur';
+
+  @override
+  String get remote_check_connection =>
+      'Vérifiez votre connexion internet et réessayez.';
+
+  @override
+  String get remote_error_copied => 'Erreur copiée';
+
+  @override
+  String get remote_link_copied => 'Lien copié';
+
+  @override
+  String get remote_connect_title => 'Connexion au serveur Watchtower';
+
+  @override
+  String get remote_connect_steps =>
+      '1. Ouvrez Watchtower sur votre téléphone ou PC\n2. Allez dans Paramètres → Mode Distant\n3. Activez le serveur, puis copiez le lien public et la clé API\n4. Collez-les ici — la prochaine visite sera automatique';
+
+  @override
+  String get remote_server_url_label => 'URL du serveur';
+
+  @override
+  String get remote_api_key_label => 'Clé API du serveur';
+
+  @override
+  String get remote_show_key => 'Afficher la clé';
+
+  @override
+  String get remote_hide_key => 'Masquer la clé';
+
+  @override
+  String get remote_enter_url => 'Entrez une URL de serveur.';
+
+  @override
+  String get remote_enter_api_key =>
+      'Entrez la clé API affichée dans le Mode Distant.';
+
+  @override
+  String get remote_http_blocked =>
+      'URL HTTP bloquée par le navigateur (cette page est HTTPS).\nUtilisez le lien public HTTPS du tunnel SSH :\nex. https://xxxx.lhr.life';
+
+  @override
+  String get remote_timeout_10 =>
+      'Délai dépassé (10s) — serveur inaccessible ou URL incorrecte';
+
+  @override
+  String get remote_wrong_api_key =>
+      'Clé API incorrecte. Copiez la clé affichée dans le Mode Distant.';
+
+  @override
+  String remote_api_unreachable(Object code) {
+    return 'Le serveur répond, mais son API est inaccessible (HTTP $code).';
+  }
+
+  @override
+  String get remote_connected_sync =>
+      'Serveur connecté — synchronisation en cours…';
+
+  @override
+  String remote_not_found(Object code) {
+    return 'Serveur introuvable (HTTP $code).\nVérifiez que le Mode Distant est actif sur votre appareil.';
+  }
+
+  @override
+  String get remote_timeout_short => 'Délai dépassé';
+
+  @override
+  String remote_connect_failed(Object error) {
+    return 'Impossible de se connecter : $error';
+  }
+
+  @override
+  String get remote_connecting => 'Connexion...';
+
+  @override
+  String get remote_connect => 'Connecter';
 }

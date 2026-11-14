@@ -9950,4 +9950,139 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get download_sheet_season_word => 'Season';
+
+  @override
+  String get remote_server_title => 'Remote server';
+
+  @override
+  String get remote_public_link => 'Public link (SSH tunnel)';
+
+  @override
+  String get remote_paste_in_web => 'Paste this link into the web version';
+
+  @override
+  String get remote_tunnel_starting => 'Tunnel is starting…';
+
+  @override
+  String get remote_tunnel_ssh_hint => 'SSH connection — about 5 seconds';
+
+  @override
+  String get remote_local_link => 'Local link (same Wi-Fi network)';
+
+  @override
+  String get remote_use_same_network =>
+      'Use this if you are on the same network';
+
+  @override
+  String get remote_api_key => 'API key';
+
+  @override
+  String get remote_api_key_hint =>
+      'Add it as ?key=... or as an Authorization: Bearer header on every /api call';
+
+  @override
+  String get remote_copy => 'Copy';
+
+  @override
+  String get remote_key_copied => 'Key copied';
+
+  @override
+  String get remote_regenerate => 'Regenerate (invalidates the old key)';
+
+  @override
+  String get remote_new_key => 'New key generated';
+
+  @override
+  String get remote_how_to_use => 'How to use';
+
+  @override
+  String get remote_how_to_use_body =>
+      '1. Copy the public link above\n2. Open Watchtower on the web\n3. Go to Settings → Remote connection\n4. Paste the link and sign in\n5. Every extension and source becomes available';
+
+  @override
+  String get remote_how_it_works => 'How it works';
+
+  @override
+  String get remote_how_it_works_body =>
+      'When Remote Mode is on, your device becomes a server. A public link is created automatically through an SSH tunnel (localhost.run) — reachable from anywhere, with no download and no network setup.\n\nThe web version of Watchtower can then connect to this link to use all your installed extensions and sources.';
+
+  @override
+  String get remote_tunnel_unavailable => 'Tunnel unavailable';
+
+  @override
+  String get remote_copy_error => 'Copy the error';
+
+  @override
+  String get remote_check_connection =>
+      'Check your internet connection and try again.';
+
+  @override
+  String get remote_error_copied => 'Error copied';
+
+  @override
+  String get remote_link_copied => 'Link copied';
+
+  @override
+  String get remote_connect_title => 'Connect to the Watchtower server';
+
+  @override
+  String get remote_connect_steps =>
+      '1. Open Watchtower on your phone or PC\n2. Go to Settings → Remote Mode\n3. Turn the server on, then copy the public link and the API key\n4. Paste them here — the next visit will be automatic';
+
+  @override
+  String get remote_server_url_label => 'Server URL';
+
+  @override
+  String get remote_api_key_label => 'Server API key';
+
+  @override
+  String get remote_show_key => 'Show the key';
+
+  @override
+  String get remote_hide_key => 'Hide the key';
+
+  @override
+  String get remote_enter_url => 'Enter a server URL.';
+
+  @override
+  String get remote_enter_api_key => 'Enter the API key shown in Remote Mode.';
+
+  @override
+  String get remote_http_blocked =>
+      'HTTP URL blocked by the browser (this page is HTTPS).\nUse the HTTPS public link of the SSH tunnel:\ne.g. https://xxxx.lhr.life';
+
+  @override
+  String get remote_timeout_10 =>
+      'Timed out (10s) — server unreachable or wrong URL';
+
+  @override
+  String get remote_wrong_api_key =>
+      'Wrong API key. Copy the key shown in Remote Mode.';
+
+  @override
+  String remote_api_unreachable(Object code) {
+    return 'The server responds, but its API is unreachable (HTTP $code).';
+  }
+
+  @override
+  String get remote_connected_sync => 'Server connected — syncing…';
+
+  @override
+  String remote_not_found(Object code) {
+    return 'Server not found (HTTP $code).\nCheck that Remote Mode is active on your device.';
+  }
+
+  @override
+  String get remote_timeout_short => 'Timed out';
+
+  @override
+  String remote_connect_failed(Object error) {
+    return 'Could not connect: $error';
+  }
+
+  @override
+  String get remote_connecting => 'Connecting…';
+
+  @override
+  String get remote_connect => 'Connect';
 }

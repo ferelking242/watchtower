@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
   import 'dart:async';
   import 'dart:convert';
   import 'package:watchtower/main.dart' show isar;
+import 'package:watchtower/providers/l10n_providers.dart';
   import 'package:watchtower/remote/remote_client.dart';
   import 'package:watchtower/utils/mock_isar.dart' show MockIsar;
   import 'package:watchtower/remote/remote_web_sync.dart'
@@ -53,11 +54,11 @@ import 'package:flutter/foundation.dart';
       final url = _ctrl.text.trim().replaceAll(RegExp(r'/+$'), '');
       final apiKey = _apiKeyCtrl.text.trim();
       if (url.isEmpty) {
-        setState(() => _error = 'Entrez une URL de serveur.');
+        setState(() => _error = context.l10n.remote_enter_url);
         return;
       }
       if (apiKey.isEmpty) {
-        setState(() => _error = 'Entrez la clé API affichée dans le Mode Distant.');
+        setState(() => _error = context.l10n.remote_enter_api_key);
         return;
       }
 
@@ -67,10 +68,7 @@ import 'package:flutter/foundation.dart';
       if (kIsWeb && url.startsWith('http://') && !url.startsWith('http://localhost')) {
         setState(() {
           _testing = false;
-          _error =
-              'URL HTTP bloquée par le navigateur (cette page est HTTPS).\n'
-              'Utilisez le lien public HTTPS du tunnel SSH :\n'
-              'ex. https://xxxx.lhr.life';
+          _error = context.l10n.remote_http_blocked;
         });
         return;
       }
@@ -83,7 +81,7 @@ import 'package:flutter/foundation.dart';
             .timeout(
               const Duration(seconds: 10),
               onTimeout: () => throw TimeoutException(
-                'Délai dépassé (10s) — serveur inaccessible ou URL incorrecte',
+                context.l10n.remote_timeout_10,
               ),
             );
 
@@ -102,9 +100,10 @@ import 'package:flutter/foundation.dart';
               if (!mounted) return;
               setState(() {
                 _error = protectedRes.statusCode == 401
-                    ? 'Clé API incorrecte. Copiez la clé affichée dans le Mode Distant.'
-                    : 'Le serveur répond, mais son API est inaccessible '
-                        '(HTTP ${protectedRes.statusCode}).';
+                    ? context.l10n.remote_wrong_api_key
+                    : context.l10n.remote_api_unreachable(
+                        protectedRes.statusCode.toString(),
+                      );
                 _testing = false;
               });
               return;
@@ -118,8 +117,8 @@ import 'package:flutter/foundation.dart';
             widget.onConnected?.call();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Serveur connecté — synchronisation en cours…'),
+                SnackBar(
+                  content: Text(context.l10n.remote_connected_sync),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -128,17 +127,21 @@ import 'package:flutter/foundation.dart';
           }
         }
         setState(() {
-          _error = 'Serveur introuvable (HTTP ${res.statusCode}).\n'
-                   'Vérifiez que le Mode Distant est actif sur votre appareil.';
+          _error = context.l10n.remote_not_found(
+            res.statusCode.toString(),
+          );
           _testing = false;
         });
       } on TimeoutException catch (e) {
         if (!mounted) return;
-        setState(() { _error = e.message ?? 'Délai dépassé'; _testing = false; });
+        setState(() {
+          _error = e.message ?? context.l10n.remote_timeout_short;
+          _testing = false;
+        });
       } catch (e) {
         if (!mounted) return;
         setState(() {
-          _error = 'Impossible de se connecter : $e';
+          _error = context.l10n.remote_connect_failed('$e');
           _testing = false;
         });
       }
@@ -159,23 +162,20 @@ import 'package:flutter/foundation.dart';
                   const Icon(Icons.wifi_tethering, size: 64),
                   const SizedBox(height: 16),
                   Text(
-                    'Connexion au serveur Watchtower',
+                    context.l10n.remote_connect_title,
                     style: Theme.of(context).textTheme.headlineSmall,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    '1. Ouvrez Watchtower sur votre téléphone ou PC\n'
-                    '2. Allez dans Paramètres → Mode Distant\n'
-                   '3. Activez le serveur, puis copiez le lien public et la clé API\n'
-                   '4. Collez-les ici — la prochaine visite sera automatique',
+                  Text(
+                    context.l10n.remote_connect_steps,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   TextField(
                     controller: _ctrl,
                     decoration: InputDecoration(
-                      labelText: 'URL du serveur',
+                      labelText: context.l10n.remote_server_url_label,
                       hintText: 'https://xxxx.lhr.life',
                       border: const OutlineInputBorder(),
                       errorText: _error == null ? null : '', // affiche la bordure rouge
@@ -198,10 +198,12 @@ import 'package:flutter/foundation.dart';
                     autocorrect: false,
                     enableSuggestions: false,
                     decoration: InputDecoration(
-                      labelText: 'Clé API du serveur',
+                      labelText: context.l10n.remote_api_key_label,
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
-                        tooltip: _obscureApiKey ? 'Afficher la clé' : 'Masquer la clé',
+                        tooltip: _obscureApiKey
+                            ? context.l10n.remote_show_key
+                            : context.l10n.remote_hide_key,
                         icon: Icon(
                           _obscureApiKey ? Icons.visibility : Icons.visibility_off,
                         ),
@@ -244,8 +246,12 @@ import 'package:flutter/foundation.dart';
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: _error!));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Erreur copiée'),
-                                    duration: Duration(seconds: 2)),
+                                SnackBar(
+                                  content: Text(
+                                    context.l10n.remote_error_copied,
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
                               );
                             },
                           ),
@@ -263,7 +269,11 @@ import 'package:flutter/foundation.dart';
                                 strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.link),
-                    label: Text(_testing ? 'Connexion...' : 'Connecter'),
+                    label: Text(
+                      _testing
+                          ? context.l10n.remote_connecting
+                          : context.l10n.remote_connect,
+                    ),
                   ),
                 ],
               ),
