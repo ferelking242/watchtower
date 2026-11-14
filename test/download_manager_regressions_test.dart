@@ -14,6 +14,7 @@ import 'package:watchtower/services/download_manager/active_download_registry.da
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart'
     show DownloadPoolInitializationGate;
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/mock_isar.dart';
 
 void main() {

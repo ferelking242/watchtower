@@ -15,29 +15,34 @@ import 'package:watchtower/models/manga.dart';
 /// [Chapter.mangaId] is always set and never cleared, so it is the reliable
 /// fallback. When the fallback is used the link is re-attached so later writes
 /// and the UI see it too.
-Manga? resolveChapterManga(Chapter chapter) {
+Manga? resolveChapterManga(Chapter chapter) => _resolveChapterManga(chapter).$1;
+
+/// Same resolution as [resolveChapterManga], also reporting the error that
+/// made the link unreadable so callers can surface it instead of a bare null.
+(Manga?, Object?) _resolveChapterManga(Chapter chapter) {
+  Object? linkError;
   var manga = chapter.manga.value;
-  if (manga != null) return manga;
-  if (!chapter.manga.isLoaded) {
+  if (manga == null && !chapter.manga.isLoaded) {
     try {
       chapter.manga.loadSync();
-    } catch (_) {
-      // Missing link row: fall back to mangaId below.
+      manga = chapter.manga.value;
+    } catch (error) {
+      // Missing or corrupt link row: fall back to mangaId below.
+      linkError = error;
     }
-    manga = chapter.manga.value;
-    if (manga != null) return manga;
   }
+  if (manga != null) return (manga, linkError);
   final id = chapter.mangaId;
-  if (id == null) return null;
+  if (id == null) return (null, linkError);
   try {
     manga = isar.mangas.getSync(id);
-  } catch (_) {
-    return null;
+  } catch (error) {
+    return (null, error);
   }
   if (manga != null) {
     chapter.manga.value = manga;
   }
-  return manga;
+  return (manga, linkError);
 }
 
 /// Guarantees the manga owning [chapter] is readable before it is queued.
@@ -46,10 +51,12 @@ Manga? resolveChapterManga(Chapter chapter) {
 /// deserialization error into an actionable [StateError] instead of letting a
 /// generic `RangeError` or a null-assertion surface later.
 void ensureChapterLinksLoaded(Chapter chapter) {
-  if (resolveChapterManga(chapter) == null) {
+  final (manga, linkError) = _resolveChapterManga(chapter);
+  if (manga == null) {
+    final detail = linkError == null ? '' : ': $linkError';
     throw StateError(
       'Impossible de lire le manga lié au chapitre '
-      '(chapterId=${chapter.id}, mangaId=${chapter.mangaId})',
+      '(chapterId=${chapter.id}, mangaId=${chapter.mangaId})$detail',
     );
   }
 }
