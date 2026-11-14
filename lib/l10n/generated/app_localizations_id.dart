@@ -10796,4 +10796,136 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get webview_qr_code => 'QR code';
+
+  @override
+  String get more_appearance_subtitle => 'Theme, colours, dark mode';
+
+  @override
+  String get more_navigation => 'Navigation';
+
+  @override
+  String get more_navigation_subtitle => 'Tabs, dock, side rail';
+
+  @override
+  String get more_reading_subtitle => 'Player, quality, subtitles';
+
+  @override
+  String get more_customizations => 'Customizations';
+
+  @override
+  String get more_customizations_subtitle => 'Interface, fonts, icons';
+
+  @override
+  String get more_backup_restore => 'Backup and Restore';
+
+  @override
+  String get more_backup_restore_subtitle => 'Export / import your data';
+
+  @override
+  String get more_advanced_subtitle => 'Advanced technical options';
+
+  @override
+  String get more_about_subtitle => 'Version, credits, licence';
+
+  @override
+  String get more_my_list => 'My List';
+
+  @override
+  String get more_web_view => 'Web View';
+
+  @override
+  String get nav_movies => 'Movies';
+
+  @override
+  String get nav_series => 'Series';
+
+  @override
+  String get nav_music => 'Music';
+
+  @override
+  String get nav_games => 'Games';
+
+  @override
+  String get nav_search => 'Search';
+
+  @override
+  String get nav_plugins => 'Plugins';
+
+  @override
+  String get nav_plugin => 'Plugin';
+
+  @override
+  String get nav_hub => 'Hub';
+
+  @override
+  String get nav_menu => 'Menu';
+
+  @override
+  String get nav_discover => 'Discover';
+
+  @override
+  String get nav_marketplace => 'Marketplace';
+
+  @override
+  String get nav_schedule => 'Schedule';
+
+  @override
+  String get nav_expand_menu => 'Expand the menu';
+
+  @override
+  String get nav_collapse_menu => 'Collapse the menu';
+
+  @override
+  String get nav_desc_hub => 'Hub — tap to expand Manga, Watch & Novel tabs';
+
+  @override
+  String get nav_desc_hub_back => 'Tap to go back to Hub view';
+
+  @override
+  String get nav_desc_library =>
+      'Library — all your content unified in one page';
+
+  @override
+  String get nav_desc_watch => 'Watch — your anime & video library';
+
+  @override
+  String get nav_desc_movies => 'Movies — movie catalogue';
+
+  @override
+  String get nav_desc_series => 'Series — series catalogue';
+
+  @override
+  String get nav_desc_manga => 'Manga — your manga & comic library';
+
+  @override
+  String get nav_desc_novel => 'Novel — your light novel library';
+
+  @override
+  String get nav_desc_music => 'Music — stream & download music';
+
+  @override
+  String get nav_desc_games => 'Games — browse & download ROMs';
+
+  @override
+  String get nav_desc_home => 'Home — discover trending content';
+
+  @override
+  String get nav_desc_browse =>
+      'Browse — explore & install sources and extensions';
+
+  @override
+  String get nav_desc_history => 'History — recently read or watched items';
+
+  @override
+  String get nav_desc_settings => 'More — settings, about & advanced options';
+
+  @override
+  String get nav_desc_updates => 'Updates — new chapters & episodes available';
+
+  @override
+  String get nav_desc_tracking =>
+      'Tracking — sync progress with external trackers';
+
+  @override
+  String get nav_desc_menu => 'Menu — History, Updates, Schedule & more';
 }

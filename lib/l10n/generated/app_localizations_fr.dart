@@ -10926,4 +10926,142 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get webview_qr_code => 'QR code';
+
+  @override
+  String get more_appearance_subtitle => 'Thème, couleurs, mode sombre';
+
+  @override
+  String get more_navigation => 'Navigation';
+
+  @override
+  String get more_navigation_subtitle => 'Onglets, dock, rail latéral';
+
+  @override
+  String get more_reading_subtitle => 'Lecteur, qualité, sous-titres';
+
+  @override
+  String get more_customizations => 'Personnalisations';
+
+  @override
+  String get more_customizations_subtitle => 'Interface, polices, icônes';
+
+  @override
+  String get more_backup_restore => 'Sauvegarde et Restauration';
+
+  @override
+  String get more_backup_restore_subtitle => 'Exporter / importer vos données';
+
+  @override
+  String get more_advanced_subtitle => 'Options techniques avancées';
+
+  @override
+  String get more_about_subtitle => 'Version, crédits, licence';
+
+  @override
+  String get more_my_list => 'Ma Liste';
+
+  @override
+  String get more_web_view => 'Web View';
+
+  @override
+  String get nav_movies => 'Films';
+
+  @override
+  String get nav_series => 'Séries';
+
+  @override
+  String get nav_music => 'Musique';
+
+  @override
+  String get nav_games => 'Jeux';
+
+  @override
+  String get nav_search => 'Rechercher';
+
+  @override
+  String get nav_plugins => 'Plugins';
+
+  @override
+  String get nav_plugin => 'Plugin';
+
+  @override
+  String get nav_hub => 'Hub';
+
+  @override
+  String get nav_menu => 'Menu';
+
+  @override
+  String get nav_discover => 'Découvrir';
+
+  @override
+  String get nav_marketplace => 'Marketplace';
+
+  @override
+  String get nav_schedule => 'Planning';
+
+  @override
+  String get nav_expand_menu => 'Déplier le menu';
+
+  @override
+  String get nav_collapse_menu => 'Replier le menu';
+
+  @override
+  String get nav_desc_hub =>
+      'Hub — appuyez pour déplier Manga, Regarder et Roman';
+
+  @override
+  String get nav_desc_hub_back => 'Appuyez pour revenir à la vue Hub';
+
+  @override
+  String get nav_desc_library =>
+      'Bibliothèque — tout votre contenu réuni sur une page';
+
+  @override
+  String get nav_desc_watch =>
+      'Regarder — votre bibliothèque d’anime et de vidéos';
+
+  @override
+  String get nav_desc_movies => 'Films — catalogue de films';
+
+  @override
+  String get nav_desc_series => 'Séries — catalogue de séries';
+
+  @override
+  String get nav_desc_manga => 'Manga — votre bibliothèque de mangas et de BD';
+
+  @override
+  String get nav_desc_novel => 'Roman — votre bibliothèque de light novels';
+
+  @override
+  String get nav_desc_music => 'Musique — écoutez et téléchargez de la musique';
+
+  @override
+  String get nav_desc_games => 'Jeux — parcourez et téléchargez des ROMs';
+
+  @override
+  String get nav_desc_home => 'Accueil — découvrez les tendances';
+
+  @override
+  String get nav_desc_browse =>
+      'Explorer — parcourez et installez des sources et extensions';
+
+  @override
+  String get nav_desc_history =>
+      'Historique — éléments lus ou regardés récemment';
+
+  @override
+  String get nav_desc_settings =>
+      'Plus — réglages, à propos et options avancées';
+
+  @override
+  String get nav_desc_updates =>
+      'Mises à jour — nouveaux chapitres et épisodes disponibles';
+
+  @override
+  String get nav_desc_tracking =>
+      'Suivi — synchronisez la progression avec des trackers externes';
+
+  @override
+  String get nav_desc_menu =>
+      'Menu — Historique, Mises à jour, Planning et plus';
 }

@@ -302,54 +302,55 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = l10nLocalizations(context)!;
 
-    const tiles = [
+    final tiles = [
       (
         icon: Broken.brush_2,
-        title: 'Apparence',
-        subtitle: 'Thème, couleurs, mode sombre',
+        title: l10n.appearance,
+        subtitle: l10n.more_appearance_subtitle,
         route: '/appearance',
         extra: null,
       ),
       (
         icon: Broken.component,
-        title: 'Navigation',
-        subtitle: 'Onglets, dock, rail latéral',
+        title: l10n.more_navigation,
+        subtitle: l10n.more_navigation_subtitle,
         route: '/customNavigationSettings',
         extra: null,
       ),
       (
         icon: Broken.play_cricle,
-        title: 'Lecture',
-        subtitle: 'Lecteur, qualité, sous-titres',
+        title: l10n.reading,
+        subtitle: l10n.more_reading_subtitle,
         route: '/readerMode',
         extra: null,
       ),
       (
         icon: Broken.brush_1,
-        title: 'Personnalisations',
-        subtitle: 'Interface, polices, icônes',
+        title: l10n.more_customizations,
+        subtitle: l10n.more_customizations_subtitle,
         route: '/appearance',
         extra: null,
       ),
       (
         icon: Broken.refresh_circle,
-        title: 'Sauvegarde et Restauration',
-        subtitle: 'Exporter / importer vos données',
+        title: l10n.more_backup_restore,
+        subtitle: l10n.more_backup_restore_subtitle,
         route: '/dataAndStorage',
         extra: null,
       ),
       (
         icon: Broken.hierarchy_3,
-        title: 'Avancé',
-        subtitle: 'Options techniques avancées',
+        title: l10n.advanced,
+        subtitle: l10n.more_advanced_subtitle,
         route: '/dataAndStorage',
         extra: null,
       ),
       (
         icon: Broken.info_circle,
-        title: 'À propos',
-        subtitle: 'Version, crédits, licence',
+        title: l10n.about,
+        subtitle: l10n.more_about_subtitle,
         route: '/about',
         extra: null,
       ),
@@ -407,7 +408,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
   List<_NavItem> _buildNavItems(dynamic l10n) => [
         _NavItem(
           icon: Broken.video_square,
-          label: (_) => 'Ma Liste',
+          label: (_) => l10n.more_my_list,
           route: '/AnimeLibrary',
         ),
         _NavItem(
@@ -448,7 +449,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
         ),
         _NavItem(
           icon: Broken.global,
-          label: (_) => 'Web View',
+          label: (_) => l10n.more_web_view,
           route: '/mangawebview',
           routeExtra: {
             'url': 'https://github.com/ferelking242/watchtower-extensions',

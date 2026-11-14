@@ -3057,6 +3057,86 @@ HOME_L10N = [
 ]
 
 
+# ── Navigation destinations and dock labels ───────────────────────────────────
+
+NAV = [
+    ("nav_home", "Home", "Accueil"),
+    ("nav_movies", "Movies", "Films"),
+    ("nav_series", "Series", "Séries"),
+    ("nav_music", "Music", "Musique"),
+    ("nav_games", "Games", "Jeux"),
+    ("nav_search", "Search", "Rechercher"),
+    ("nav_plugins", "Plugins", "Plugins"),
+    ("nav_plugin", "Plugin", "Plugin"),
+    ("nav_hub", "Hub", "Hub"),
+    ("nav_menu", "Menu", "Menu"),
+    ("nav_discover", "Discover", "Découvrir"),
+    ("nav_marketplace", "Marketplace", "Marketplace"),
+    ("nav_schedule", "Schedule", "Planning"),
+    ("nav_expand_menu", "Expand the menu", "Déplier le menu"),
+    ("nav_collapse_menu", "Collapse the menu", "Replier le menu"),
+    ("nav_desc_hub", "Hub — tap to expand Manga, Watch & Novel tabs",
+     "Hub — appuyez pour déplier Manga, Regarder et Roman"),
+    ("nav_desc_hub_back", "Tap to go back to Hub view",
+     "Appuyez pour revenir à la vue Hub"),
+    ("nav_desc_library", "Library — all your content unified in one page",
+     "Bibliothèque — tout votre contenu réuni sur une page"),
+    ("nav_desc_watch", "Watch — your anime & video library",
+     "Regarder — votre bibliothèque d’anime et de vidéos"),
+    ("nav_desc_movies", "Movies — movie catalogue",
+     "Films — catalogue de films"),
+    ("nav_desc_series", "Series — series catalogue",
+     "Séries — catalogue de séries"),
+    ("nav_desc_manga", "Manga — your manga & comic library",
+     "Manga — votre bibliothèque de mangas et de BD"),
+    ("nav_desc_novel", "Novel — your light novel library",
+     "Roman — votre bibliothèque de light novels"),
+    ("nav_desc_music", "Music — stream & download music",
+     "Musique — écoutez et téléchargez de la musique"),
+    ("nav_desc_games", "Games — browse & download ROMs",
+     "Jeux — parcourez et téléchargez des ROMs"),
+    ("nav_desc_home", "Home — discover trending content",
+     "Accueil — découvrez les tendances"),
+    ("nav_desc_browse", "Browse — explore & install sources and extensions",
+     "Explorer — parcourez et installez des sources et extensions"),
+    ("nav_desc_history", "History — recently read or watched items",
+     "Historique — éléments lus ou regardés récemment"),
+    ("nav_desc_settings", "More — settings, about & advanced options",
+     "Plus — réglages, à propos et options avancées"),
+    ("nav_desc_updates", "Updates — new chapters & episodes available",
+     "Mises à jour — nouveaux chapitres et épisodes disponibles"),
+    ("nav_desc_tracking", "Tracking — sync progress with external trackers",
+     "Suivi — synchronisez la progression avec des trackers externes"),
+    ("nav_desc_menu", "Menu — History, Updates, Schedule & more",
+     "Menu — Historique, Mises à jour, Planning et plus"),
+]
+
+
+# ── More hub + navigation labels ──────────────────────────────────────────────
+
+MORE_HUB = [
+    ("more_appearance_subtitle", "Theme, colours, dark mode",
+     "Thème, couleurs, mode sombre"),
+    ("more_navigation", "Navigation", "Navigation"),
+    ("more_navigation_subtitle", "Tabs, dock, side rail",
+     "Onglets, dock, rail latéral"),
+    ("more_reading_subtitle", "Player, quality, subtitles",
+     "Lecteur, qualité, sous-titres"),
+    ("more_customizations", "Customizations", "Personnalisations"),
+    ("more_customizations_subtitle", "Interface, fonts, icons",
+     "Interface, polices, icônes"),
+    ("more_backup_restore", "Backup and Restore", "Sauvegarde et Restauration"),
+    ("more_backup_restore_subtitle", "Export / import your data",
+     "Exporter / importer vos données"),
+    ("more_advanced_subtitle", "Advanced technical options",
+     "Options techniques avancées"),
+    ("more_about_subtitle", "Version, credits, licence",
+     "Version, crédits, licence"),
+    ("more_my_list", "My List", "Ma Liste"),
+    ("more_web_view", "Web View", "Web View"),
+]
+
+
 # ── WebView browser chrome ────────────────────────────────────────────────────
 
 WEBVIEW = [
@@ -3710,6 +3790,10 @@ en_entries += [(key, en) for key, en, _ in BROWSE_EXTRA]
 fr_entries += [(key, fr) for key, _, fr in BROWSE_EXTRA]
 en_entries += [(key, en) for key, en, _ in WEBVIEW]
 fr_entries += [(key, fr) for key, _, fr in WEBVIEW]
+en_entries += [(key, en) for key, en, _ in MORE_HUB]
+fr_entries += [(key, fr) for key, _, fr in MORE_HUB]
+en_entries += [(key, en) for key, en, _ in NAV]
+fr_entries += [(key, fr) for key, _, fr in NAV]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

@@ -19204,6 +19204,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'QR code'**
   String get webview_qr_code;
+
+  /// No description provided for @more_appearance_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme, colours, dark mode'**
+  String get more_appearance_subtitle;
+
+  /// No description provided for @more_navigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation'**
+  String get more_navigation;
+
+  /// No description provided for @more_navigation_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tabs, dock, side rail'**
+  String get more_navigation_subtitle;
+
+  /// No description provided for @more_reading_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Player, quality, subtitles'**
+  String get more_reading_subtitle;
+
+  /// No description provided for @more_customizations.
+  ///
+  /// In en, this message translates to:
+  /// **'Customizations'**
+  String get more_customizations;
+
+  /// No description provided for @more_customizations_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface, fonts, icons'**
+  String get more_customizations_subtitle;
+
+  /// No description provided for @more_backup_restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup and Restore'**
+  String get more_backup_restore;
+
+  /// No description provided for @more_backup_restore_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export / import your data'**
+  String get more_backup_restore_subtitle;
+
+  /// No description provided for @more_advanced_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced technical options'**
+  String get more_advanced_subtitle;
+
+  /// No description provided for @more_about_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Version, credits, licence'**
+  String get more_about_subtitle;
+
+  /// No description provided for @more_my_list.
+  ///
+  /// In en, this message translates to:
+  /// **'My List'**
+  String get more_my_list;
+
+  /// No description provided for @more_web_view.
+  ///
+  /// In en, this message translates to:
+  /// **'Web View'**
+  String get more_web_view;
+
+  /// No description provided for @nav_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get nav_movies;
+
+  /// No description provided for @nav_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get nav_series;
+
+  /// No description provided for @nav_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get nav_music;
+
+  /// No description provided for @nav_games.
+  ///
+  /// In en, this message translates to:
+  /// **'Games'**
+  String get nav_games;
+
+  /// No description provided for @nav_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get nav_search;
+
+  /// No description provided for @nav_plugins.
+  ///
+  /// In en, this message translates to:
+  /// **'Plugins'**
+  String get nav_plugins;
+
+  /// No description provided for @nav_plugin.
+  ///
+  /// In en, this message translates to:
+  /// **'Plugin'**
+  String get nav_plugin;
+
+  /// No description provided for @nav_hub.
+  ///
+  /// In en, this message translates to:
+  /// **'Hub'**
+  String get nav_hub;
+
+  /// No description provided for @nav_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get nav_menu;
+
+  /// No description provided for @nav_discover.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get nav_discover;
+
+  /// No description provided for @nav_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketplace'**
+  String get nav_marketplace;
+
+  /// No description provided for @nav_schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule'**
+  String get nav_schedule;
+
+  /// No description provided for @nav_expand_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand the menu'**
+  String get nav_expand_menu;
+
+  /// No description provided for @nav_collapse_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse the menu'**
+  String get nav_collapse_menu;
+
+  /// No description provided for @nav_desc_hub.
+  ///
+  /// In en, this message translates to:
+  /// **'Hub — tap to expand Manga, Watch & Novel tabs'**
+  String get nav_desc_hub;
+
+  /// No description provided for @nav_desc_hub_back.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to go back to Hub view'**
+  String get nav_desc_hub_back;
+
+  /// No description provided for @nav_desc_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Library — all your content unified in one page'**
+  String get nav_desc_library;
+
+  /// No description provided for @nav_desc_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch — your anime & video library'**
+  String get nav_desc_watch;
+
+  /// No description provided for @nav_desc_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies — movie catalogue'**
+  String get nav_desc_movies;
+
+  /// No description provided for @nav_desc_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series — series catalogue'**
+  String get nav_desc_series;
+
+  /// No description provided for @nav_desc_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga — your manga & comic library'**
+  String get nav_desc_manga;
+
+  /// No description provided for @nav_desc_novel.
+  ///
+  /// In en, this message translates to:
+  /// **'Novel — your light novel library'**
+  String get nav_desc_novel;
+
+  /// No description provided for @nav_desc_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music — stream & download music'**
+  String get nav_desc_music;
+
+  /// No description provided for @nav_desc_games.
+  ///
+  /// In en, this message translates to:
+  /// **'Games — browse & download ROMs'**
+  String get nav_desc_games;
+
+  /// No description provided for @nav_desc_home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home — discover trending content'**
+  String get nav_desc_home;
+
+  /// No description provided for @nav_desc_browse.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse — explore & install sources and extensions'**
+  String get nav_desc_browse;
+
+  /// No description provided for @nav_desc_history.
+  ///
+  /// In en, this message translates to:
+  /// **'History — recently read or watched items'**
+  String get nav_desc_history;
+
+  /// No description provided for @nav_desc_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'More — settings, about & advanced options'**
+  String get nav_desc_settings;
+
+  /// No description provided for @nav_desc_updates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates — new chapters & episodes available'**
+  String get nav_desc_updates;
+
+  /// No description provided for @nav_desc_tracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracking — sync progress with external trackers'**
+  String get nav_desc_tracking;
+
+  /// No description provided for @nav_desc_menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu — History, Updates, Schedule & more'**
+  String get nav_desc_menu;
 }
 
 class _AppLocalizationsDelegate
