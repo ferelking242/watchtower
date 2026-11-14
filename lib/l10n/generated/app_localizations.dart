@@ -17308,6 +17308,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'About'**
   String get account_about;
+
+  /// No description provided for @tmdb_cat_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get tmdb_cat_movies;
+
+  /// No description provided for @tmdb_cat_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get tmdb_cat_series;
+
+  /// No description provided for @tmdb_cat_refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get tmdb_cat_refresh;
+
+  /// No description provided for @tmdb_cat_now_playing.
+  ///
+  /// In en, this message translates to:
+  /// **'Now in theaters'**
+  String get tmdb_cat_now_playing;
+
+  /// No description provided for @tmdb_cat_airing_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently airing'**
+  String get tmdb_cat_airing_now;
+
+  /// No description provided for @tmdb_cat_airing_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Airing today'**
+  String get tmdb_cat_airing_today;
+
+  /// No description provided for @tmdb_cat_movies_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'The movies of the moment, with their TMDB posters and information.'**
+  String get tmdb_cat_movies_sub;
+
+  /// No description provided for @tmdb_cat_series_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'The series of the moment, with their TMDB posters and information.'**
+  String get tmdb_cat_series_sub;
+
+  /// No description provided for @tmdb_cat_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No content available.'**
+  String get tmdb_cat_empty;
+
+  /// No description provided for @tmdb_cat_rating.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB rating: {rating}/10'**
+  String tmdb_cat_rating(Object rating);
+
+  /// No description provided for @tmdb_cat_date.
+  ///
+  /// In en, this message translates to:
+  /// **'Date: {date}'**
+  String tmdb_cat_date(Object date);
+
+  /// No description provided for @tmdb_cat_catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'the TMDB catalogue'**
+  String get tmdb_cat_catalogue;
+
+  /// No description provided for @tmdb_cat_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load TMDB content.'**
+  String get tmdb_cat_load_failed;
+
+  /// No description provided for @home_search_hint_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie, series, anime, music…'**
+  String get home_search_hint_all;
+
+  /// No description provided for @home_search_recent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get home_search_recent;
+
+  /// No description provided for @home_search_everyone.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone is searching'**
+  String get home_search_everyone;
+
+  /// No description provided for @home_search_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Search error'**
+  String get home_search_error;
+
+  /// No description provided for @home_search_no_anilist.
+  ///
+  /// In en, this message translates to:
+  /// **'No AniList results for “{query}”'**
+  String home_search_no_anilist(Object query);
+
+  /// No description provided for @home_search_no_data.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get home_search_no_data;
+
+  /// No description provided for @home_search_in_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in Watch'**
+  String get home_search_in_watch;
+
+  /// No description provided for @home_search_in_watch_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Search “{query}” across all your installed Watch extensions, with filters for language, source and more.'**
+  String home_search_in_watch_body(Object query);
+
+  /// No description provided for @home_search_open_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Watch search'**
+  String get home_search_open_watch;
 }
 
 class _AppLocalizationsDelegate

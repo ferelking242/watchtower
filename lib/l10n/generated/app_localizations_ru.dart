@@ -9758,4 +9758,80 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get account_about => 'About';
+
+  @override
+  String get tmdb_cat_movies => 'Movies';
+
+  @override
+  String get tmdb_cat_series => 'Series';
+
+  @override
+  String get tmdb_cat_refresh => 'Refresh';
+
+  @override
+  String get tmdb_cat_now_playing => 'Now in theaters';
+
+  @override
+  String get tmdb_cat_airing_now => 'Currently airing';
+
+  @override
+  String get tmdb_cat_airing_today => 'Airing today';
+
+  @override
+  String get tmdb_cat_movies_sub =>
+      'The movies of the moment, with their TMDB posters and information.';
+
+  @override
+  String get tmdb_cat_series_sub =>
+      'The series of the moment, with their TMDB posters and information.';
+
+  @override
+  String get tmdb_cat_empty => 'No content available.';
+
+  @override
+  String tmdb_cat_rating(Object rating) {
+    return 'TMDB rating: $rating/10';
+  }
+
+  @override
+  String tmdb_cat_date(Object date) {
+    return 'Date: $date';
+  }
+
+  @override
+  String get tmdb_cat_catalogue => 'the TMDB catalogue';
+
+  @override
+  String get tmdb_cat_load_failed => 'Failed to load TMDB content.';
+
+  @override
+  String get home_search_hint_all => 'Movie, series, anime, music…';
+
+  @override
+  String get home_search_recent => 'Recent';
+
+  @override
+  String get home_search_everyone => 'Everyone is searching';
+
+  @override
+  String get home_search_error => 'Search error';
+
+  @override
+  String home_search_no_anilist(Object query) {
+    return 'No AniList results for “$query”';
+  }
+
+  @override
+  String get home_search_no_data => 'No data';
+
+  @override
+  String get home_search_in_watch => 'Search in Watch';
+
+  @override
+  String home_search_in_watch_body(Object query) {
+    return 'Search “$query” across all your installed Watch extensions, with filters for language, source and more.';
+  }
+
+  @override
+  String get home_search_open_watch => 'Open Watch search';
 }

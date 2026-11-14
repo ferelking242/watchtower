@@ -9845,4 +9845,80 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get account_about => 'À propos';
+
+  @override
+  String get tmdb_cat_movies => 'Films';
+
+  @override
+  String get tmdb_cat_series => 'Séries';
+
+  @override
+  String get tmdb_cat_refresh => 'Actualiser';
+
+  @override
+  String get tmdb_cat_now_playing => 'En ce moment';
+
+  @override
+  String get tmdb_cat_airing_now => 'En cours de diffusion';
+
+  @override
+  String get tmdb_cat_airing_today => 'Diffusées aujourd’hui';
+
+  @override
+  String get tmdb_cat_movies_sub =>
+      'Les films du moment, avec leurs affiches et informations TMDB.';
+
+  @override
+  String get tmdb_cat_series_sub =>
+      'Les séries du moment, avec leurs affiches et informations TMDB.';
+
+  @override
+  String get tmdb_cat_empty => 'Aucun contenu disponible.';
+
+  @override
+  String tmdb_cat_rating(Object rating) {
+    return 'Note TMDB : $rating/10';
+  }
+
+  @override
+  String tmdb_cat_date(Object date) {
+    return 'Date : $date';
+  }
+
+  @override
+  String get tmdb_cat_catalogue => 'le catalogue TMDB';
+
+  @override
+  String get tmdb_cat_load_failed => 'Impossible de charger les contenus TMDB.';
+
+  @override
+  String get home_search_hint_all => 'Film, série, anime, musique…';
+
+  @override
+  String get home_search_recent => 'Récents';
+
+  @override
+  String get home_search_everyone => 'Tout le monde recherche';
+
+  @override
+  String get home_search_error => 'Erreur de recherche';
+
+  @override
+  String home_search_no_anilist(Object query) {
+    return 'Aucun résultat AniList pour « $query »';
+  }
+
+  @override
+  String get home_search_no_data => 'Aucune donnée';
+
+  @override
+  String get home_search_in_watch => 'Rechercher dans Watch';
+
+  @override
+  String home_search_in_watch_body(Object query) {
+    return 'Cherche « $query » dans toutes tes extensions Watch installées, avec filtres par langue, source et plus.';
+  }
+
+  @override
+  String get home_search_open_watch => 'Ouvrir la recherche Watch';
 }

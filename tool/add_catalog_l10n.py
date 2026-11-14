@@ -3057,6 +3057,53 @@ HOME_L10N = [
 ]
 
 
+# ── Watchtower global search hub ──────────────────────────────────────────────
+
+SEARCH_HUB = [
+    ("home_search_hint_all", "Movie, series, anime, music…",
+     "Film, série, anime, musique…"),
+    ("home_search_recent", "Recent", "Récents"),
+    ("home_search_everyone", "Everyone is searching",
+     "Tout le monde recherche"),
+    ("home_search_error", "Search error", "Erreur de recherche"),
+    ("home_search_no_anilist", "No AniList results for “{query}”",
+     "Aucun résultat AniList pour « {query} »"),
+    ("home_search_no_data", "No data", "Aucune donnée"),
+    ("home_search_in_watch", "Search in Watch", "Rechercher dans Watch"),
+    ("home_search_in_watch_body",
+     "Search “{query}” across all your installed Watch extensions, with "
+     "filters for language, source and more.",
+     "Cherche « {query} » dans toutes tes extensions Watch installées, avec "
+     "filtres par langue, source et plus."),
+    ("home_search_open_watch", "Open Watch search",
+     "Ouvrir la recherche Watch"),
+]
+
+
+# ── TMDB catalogue screen ─────────────────────────────────────────────────────
+
+TMDB_CATALOG = [
+    ("tmdb_cat_movies", "Movies", "Films"),
+    ("tmdb_cat_series", "Series", "Séries"),
+    ("tmdb_cat_refresh", "Refresh", "Actualiser"),
+    ("tmdb_cat_now_playing", "Now in theaters", "En ce moment"),
+    ("tmdb_cat_airing_now", "Currently airing", "En cours de diffusion"),
+    ("tmdb_cat_airing_today", "Airing today", "Diffusées aujourd’hui"),
+    ("tmdb_cat_movies_sub",
+     "The movies of the moment, with their TMDB posters and information.",
+     "Les films du moment, avec leurs affiches et informations TMDB."),
+    ("tmdb_cat_series_sub",
+     "The series of the moment, with their TMDB posters and information.",
+     "Les séries du moment, avec leurs affiches et informations TMDB."),
+    ("tmdb_cat_empty", "No content available.", "Aucun contenu disponible."),
+    ("tmdb_cat_rating", "TMDB rating: {rating}/10", "Note TMDB : {rating}/10"),
+    ("tmdb_cat_date", "Date: {date}", "Date : {date}"),
+    ("tmdb_cat_catalogue", "the TMDB catalogue", "le catalogue TMDB"),
+    ("tmdb_cat_load_failed", "Failed to load TMDB content.",
+     "Impossible de charger les contenus TMDB."),
+]
+
+
 def quote(value):
     """JSON string literal for an ARB value.
 
@@ -3140,6 +3187,10 @@ en_entries += [(key, en) for key, en, _ in DISCOVER]
 fr_entries += [(key, fr) for key, _, fr in DISCOVER]
 en_entries += [(key, en) for key, en, _ in HOME_L10N]
 fr_entries += [(key, fr) for key, _, fr in HOME_L10N]
+en_entries += [(key, en) for key, en, _ in TMDB_CATALOG]
+fr_entries += [(key, fr) for key, _, fr in TMDB_CATALOG]
+en_entries += [(key, en) for key, en, _ in SEARCH_HUB]
+fr_entries += [(key, fr) for key, _, fr in SEARCH_HUB]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

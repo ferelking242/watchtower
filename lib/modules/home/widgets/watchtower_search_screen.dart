@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ class _WatchtowerSearchScreenState
           if (v.isEmpty && _query.isNotEmpty) setState(() => _query = '');
         },
         decoration: InputDecoration(
-          hintText: 'Film, série, anime, musique…',
+          hintText: context.l10n.home_search_hint_all,
           border: InputBorder.none,
           isDense: true,
           hintStyle: TextStyle(
@@ -199,8 +200,8 @@ class _WatchtowerSearchScreenState
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text(
-              'Recherche',
+            child: Text(
+              context.l10n.home_search_action,
               style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
             ),
           ),
@@ -272,7 +273,7 @@ class _EmptyState extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                         child: Text(
-                          'Récents',
+                          context.l10n.home_search_recent,
                           style: tt.labelLarge?.copyWith(
                             color: cs.onSurface.withValues(alpha: 0.55),
                             fontWeight: FontWeight.w700,
@@ -308,7 +309,7 @@ class _EmptyState extends ConsumerWidget {
                               size: 18, color: Colors.orange),
                           const SizedBox(width: 6),
                           Text(
-                            'Tout le monde recherche',
+                            context.l10n.home_search_everyone,
                             style: tt.titleSmall
                                 ?.copyWith(fontWeight: FontWeight.w800),
                           ),
@@ -356,7 +357,10 @@ class _EmptyState extends ConsumerWidget {
                     // ── Ranked tabs ───────────────────────────────────────
                     TabBar(
                       controller: beforeTabs,
-                      tabs: const [Tab(text: 'Film'), Tab(text: 'Série')],
+                      tabs: [
+                        Tab(text: context.l10n.media_movie),
+                        Tab(text: context.l10n.media_series),
+                      ],
                       indicatorColor: cs.primary,
                       labelColor: cs.primary,
                       unselectedLabelColor:
@@ -419,12 +423,12 @@ class _ResultsState extends ConsumerWidget {
           controller: afterTabs,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          tabs: const [
-            Tab(text: 'Tous'),
-            Tab(text: 'Films'),
-            Tab(text: 'Séries'),
-            Tab(text: 'Anime'),
-            Tab(text: 'Watch'),
+          tabs: [
+            Tab(text: context.l10n.discover_all),
+            Tab(text: context.l10n.media_movies),
+            Tab(text: context.l10n.media_series),
+            Tab(text: context.l10n.media_anime),
+            Tab(text: context.l10n.catalog_tab_watch),
           ],
           indicatorColor: cs.primary,
           labelColor: cs.primary,
@@ -445,7 +449,7 @@ class _ResultsState extends ConsumerWidget {
                       size: 48,
                       color: cs.onSurface.withValues(alpha: 0.30)),
                   const SizedBox(height: 12),
-                  Text('Erreur de recherche',
+                  Text(context.l10n.home_search_error,
                       style: TextStyle(
                           color: cs.onSurface.withValues(alpha: 0.55))),
                 ],
@@ -471,7 +475,7 @@ class _ResultsState extends ConsumerWidget {
                         color: cs.onSurface.withValues(alpha: 0.28)),
                     const SizedBox(height: 12),
                     Text(
-                      'Aucun résultat AniList pour "$query"',
+                      context.l10n.home_search_no_anilist(query),
                       style: TextStyle(
                           color: cs.onSurface.withValues(alpha: 0.50)),
                     ),
@@ -569,7 +573,7 @@ class _RankedTabList extends StatelessWidget {
 
     if (items.isEmpty) {
       return Center(
-        child: Text('Aucune donnée',
+        child: Text(context.l10n.home_search_no_data,
             style:
                 TextStyle(color: cs.onSurface.withValues(alpha: 0.40))),
       );
@@ -701,7 +705,7 @@ class _SearchResultList extends StatelessWidget {
 
     if (items.isEmpty) {
       return Center(
-        child: Text('Aucun résultat',
+        child: Text(context.l10n.no_result,
             style:
                 TextStyle(color: cs.onSurface.withValues(alpha: 0.40))),
       );
@@ -887,7 +891,7 @@ class _WatchSearchTab extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Rechercher dans Watch',
+              context.l10n.home_search_in_watch,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -897,7 +901,7 @@ class _WatchSearchTab extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Cherche « $query » dans toutes tes extensions Watch installées, avec filtres par langue, source et plus.',
+              context.l10n.home_search_in_watch_body(query),
               style: TextStyle(
                 fontSize: 13,
                 color: cs.onSurface.withValues(alpha: 0.55),
@@ -912,7 +916,7 @@ class _WatchSearchTab extends StatelessWidget {
                 extra: (query, ItemType.anime),
               ),
               icon: const Icon(Icons.tune_rounded, size: 18),
-              label: const Text('Ouvrir la recherche Watch'),
+              label: Text(context.l10n.home_search_open_watch),
               style: FilledButton.styleFrom(
                 backgroundColor: cs.primary,
                 foregroundColor: cs.onPrimary,
@@ -929,7 +933,7 @@ class _WatchSearchTab extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () => context.push('/globalSearch'),
                 icon: const Icon(Icons.search_rounded, size: 18),
-                label: const Text('Recherche globale'),
+                label: Text(context.l10n.global_search),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 20, vertical: 12),
@@ -943,7 +947,7 @@ class _WatchSearchTab extends StatelessWidget {
                 icon: Icon(Icons.search_rounded,
                     size: 18,
                     color: cs.onSurface.withValues(alpha: 0.65)),
-                label: Text('Recherche globale',
+                label: Text(context.l10n.global_search,
                     style: TextStyle(
                         color: cs.onSurface.withValues(alpha: 0.65))),
                 style: OutlinedButton.styleFrom(

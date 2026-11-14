@@ -7,6 +7,7 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/widgets/offline_content_state.dart'
     show isOfflineContentError;
+import 'package:watchtower/providers/l10n_providers.dart';
 
 enum TmdbCatalogKind { movies, series }
 
@@ -20,14 +21,16 @@ class TmdbCatalogScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(tmdbHomeProvider);
-    final title = isMovies ? 'Films' : 'Séries';
+    final title = isMovies
+        ? context.l10n.tmdb_cat_movies
+        : context.l10n.tmdb_cat_series;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         actions: [
           IconButton(
-            tooltip: 'Actualiser',
+            tooltip: context.l10n.tmdb_cat_refresh,
             onPressed: () => ref.invalidate(tmdbHomeProvider),
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -57,40 +60,49 @@ class _TmdbCatalogList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMovies = kind == TmdbCatalogKind.movies;
+    final l10n = context.l10n;
     final sections = isMovies
         ? <(String, IconData, List<TmdbMedia>)>[
-            ('En ce moment', Icons.theaters_rounded, data.nowPlayingMovies),
             (
-              'Tendances de la semaine',
+              l10n.tmdb_cat_now_playing,
+              Icons.theaters_rounded,
+              data.nowPlayingMovies,
+            ),
+            (
+              l10n.home_trending_week,
               Icons.local_fire_department_rounded,
               data.trendingMovies,
             ),
             (
-              'Les mieux notés',
+              l10n.home_top_rated,
               Icons.emoji_events_rounded,
               data.topRatedMovies,
             ),
-            ('Films populaires', Icons.star_rounded, data.popularMovies),
-            ('Prochainement', Icons.upcoming_rounded, data.upcomingMovies),
+            (l10n.home_popular_movies, Icons.star_rounded, data.popularMovies),
+            (l10n.home_upcoming, Icons.upcoming_rounded, data.upcomingMovies),
           ]
         : <(String, IconData, List<TmdbMedia>)>[
             (
-              'Tendances de la semaine',
+              l10n.home_tv_trending_week,
               Icons.local_fire_department_rounded,
               data.trendingTv,
             ),
-            ('En cours de diffusion', Icons.live_tv_rounded, data.onTheAirTv),
             (
-              'Diffusées aujourd’hui',
+              l10n.tmdb_cat_airing_now,
+              Icons.live_tv_rounded,
+              data.onTheAirTv,
+            ),
+            (
+              l10n.tmdb_cat_airing_today,
               Icons.fiber_new_rounded,
               data.airingTodayTv,
             ),
             (
-              'Les mieux notées',
+              l10n.home_top_rated_series,
               Icons.workspace_premium_rounded,
               data.topRatedTv,
             ),
-            ('Séries populaires', Icons.star_rounded, data.popularTv),
+            (l10n.home_popular_series, Icons.star_rounded, data.popularTv),
           ];
 
     final nonEmpty = sections.where((section) => section.$3.isNotEmpty);
@@ -100,17 +112,17 @@ class _TmdbCatalogList extends StatelessWidget {
       children: [
         Text(
           isMovies
-              ? 'Les films du moment, avec leurs affiches et informations TMDB.'
-              : 'Les séries du moment, avec leurs affiches et informations TMDB.',
+              ? context.l10n.tmdb_cat_movies_sub
+              : context.l10n.tmdb_cat_series_sub,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 18),
         for (final section in nonEmpty)
           _TmdbSection(title: section.$1, icon: section.$2, items: section.$3),
         if (nonEmpty.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 80),
-            child: Center(child: Text('Aucun contenu disponible.')),
+          Padding(
+            padding: const EdgeInsets.only(top: 80),
+            child: Center(child: Text(context.l10n.tmdb_cat_empty)),
           ),
       ],
     );
@@ -196,9 +208,17 @@ class _TmdbSection extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               if (media.voteAverage != null)
-                Text('Note TMDB : ${media.voteAverage!.toStringAsFixed(1)}/10'),
+                Text(
+                  context.l10n.tmdb_cat_rating(
+                    media.voteAverage!.toStringAsFixed(1),
+                  ),
+                ),
               if (media.releaseDate != null || media.firstAirDate != null)
-                Text('Date : ${media.releaseDate ?? media.firstAirDate}'),
+                Text(
+                  context.l10n.tmdb_cat_date(
+                    media.releaseDate ?? media.firstAirDate ?? '',
+                  ),
+                ),
               if (media.overview?.isNotEmpty == true) ...[
                 const SizedBox(height: 12),
                 Text(media.overview!),
@@ -223,7 +243,10 @@ class _TmdbCatalogError extends StatelessWidget {
     // failure. Show the shared offline state (Lottie + "Activer le réseau")
     // instead of the raw ClientException/SocketException text.
     if (isOfflineContentError(error)) {
-      return MediaOfflineState(title: 'le catalogue TMDB', onRetry: onRetry);
+      return MediaOfflineState(
+        title: context.l10n.tmdb_cat_catalogue,
+        onRetry: onRetry,
+      );
     }
 
     return Center(
@@ -234,8 +257,8 @@ class _TmdbCatalogError extends StatelessWidget {
           children: [
             const Icon(Broken.cloud_cross, size: 42),
             const SizedBox(height: 12),
-            const Text(
-              'Impossible de charger les contenus TMDB.',
+            Text(
+              context.l10n.tmdb_cat_load_failed,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -249,7 +272,7 @@ class _TmdbCatalogError extends StatelessWidget {
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Broken.refresh_2),
-              label: const Text('Réessayer'),
+              label: Text(context.l10n.discover_retry),
             ),
           ],
         ),
