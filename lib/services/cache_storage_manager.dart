@@ -257,50 +257,22 @@ class CacheStorageManager {
 
   // ── Internals ─────────────────────────────────────────────────────────────
 
+  /// Walks every directory and trims the least recently written files.
+  ///
+  /// The walk and the per-file `stat` run on a background isolate: a cache can
+  /// hold tens of thousands of files, and this is called at startup and on
+  /// every move of the cache-limit slider, so doing it on the UI isolate drops
+  /// frames.
   Future<void> _evictToFit(int limit, List<Directory> directories) async {
-    final files = <_CacheFile>[];
-    var total = 0;
-    for (final directory in directories) {
-      for (final file in await _listFiles(directory)) {
-        try {
-          final stat = await file.stat();
-          files.add(
-            _CacheFile(
-              file: file,
-              size: stat.size,
-              // Ordering uses the write time, not `accessed`. Android mounts
-              // /data with relatime/noatime, so `accessed` reads back as the
-              // epoch or as the current instant depending on the mount — the
-              // order it produces is arbitrary, and an arbitrary order can
-              // delete the entry that was just written. `modified` is always
-              // maintained, so it gives a stable oldest-first order.
-              lastWritten: stat.modified,
-            ),
-          );
-          total += stat.size;
-        } catch (_) {
-          // Deleted between listing and stat.
-        }
-      }
-    }
-    if (total <= limit) return;
-
-    // Oldest first: the file that has gone unwritten the longest goes first.
-    files.sort((a, b) => a.lastWritten.compareTo(b.lastWritten));
-    for (final entry in files) {
-      if (total <= limit) break;
-      try {
-        await entry.file.delete();
-        total -= entry.size;
-      } catch (error) {
-        AppLogger.log(
-          'cache eviction failed for ${entry.file.path}: $error',
-          logLevel: LogLevel.debug,
-        );
-      }
-    }
+    final remaining = await compute(
+      _evictToFitSync,
+      _EvictRequest(
+        directories.map((directory) => directory.path).toList(),
+        limit,
+      ),
+    );
     AppLogger.log(
-      'cache trimmed to ${_fmt(total)} (limit ${_fmt(limit)})',
+      'cache trimmed to ${_fmt(remaining)} (limit ${_fmt(limit)})',
       logLevel: LogLevel.debug,
     );
   }
@@ -374,14 +346,77 @@ class CacheStorageManager {
   }
 }
 
-class _CacheFile {
-  const _CacheFile({
-    required this.file,
-    required this.size,
-    required this.lastWritten,
-  });
+/// Arguments for [_evictToFitSync]. Only plain data crosses the isolate
+/// boundary: `File` and `Directory` are not guaranteed sendable.
+class _EvictRequest {
+  const _EvictRequest(this.directoryPaths, this.limit);
 
-  final File file;
+  final List<String> directoryPaths;
+  final int limit;
+}
+
+class _EvictEntry {
+  const _EvictEntry(this.path, this.size, this.modifiedMs);
+
+  final String path;
   final int size;
-  final DateTime lastWritten;
+  final int modifiedMs;
+}
+
+/// Trims the cache under [request].limit and returns the bytes that remain.
+///
+/// Top-level so it can run on a background isolate via [compute].
+int _evictToFitSync(_EvictRequest request) {
+  final entries = <_EvictEntry>[];
+  var total = 0;
+  for (final path in request.directoryPaths) {
+    for (final file in _listFilesSync(Directory(path))) {
+      try {
+        final stat = file.statSync();
+        entries.add(
+          _EvictEntry(file.path, stat.size, stat.modified.millisecondsSinceEpoch),
+        );
+        total += stat.size;
+      } catch (_) {
+        // Deleted between listing and stat.
+      }
+    }
+  }
+  if (total <= request.limit) return total;
+
+  // Oldest first. Ordering uses the write time, not `accessed`: Android mounts
+  // /data with relatime/noatime, so `accessed` reads back as the epoch or as
+  // the current instant depending on the mount, and that arbitrary order can
+  // delete the entry that was just written. `modified` is always maintained.
+  entries.sort((a, b) => a.modifiedMs.compareTo(b.modifiedMs));
+  for (final entry in entries) {
+    if (total <= request.limit) break;
+    try {
+      File(entry.path).deleteSync();
+      total -= entry.size;
+    } catch (_) {
+      // Already gone, or locked: leave it and keep trimming.
+    }
+  }
+  return total;
+}
+
+List<File> _listFilesSync(Directory root) {
+  final files = <File>[];
+  final pending = <Directory>[root];
+  while (pending.isNotEmpty) {
+    final directory = pending.removeLast();
+    try {
+      for (final entity in directory.listSync(followLinks: false)) {
+        if (entity is File) {
+          files.add(entity);
+        } else if (entity is Directory) {
+          pending.add(entity);
+        }
+      }
+    } catch (_) {
+      // Unreadable or deleted mid-walk: skip this subtree.
+    }
+  }
+  return files;
 }

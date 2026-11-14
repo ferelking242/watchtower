@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1300,6 +1301,8 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
               supportsComments: supportsComments,
               sourceIconUrl: widget.source.iconUrl ?? '',
               sourceName: widget.source.name ?? '',
+              sourceId: widget.source.id,
+              sourceVersion: widget.source.version,
               onAvatarTap: () => _openCreatorProfile(context),
               onLike: () {}, // like not supported yet — visual only
               onComment: supportsComments ? () {} : null,
@@ -1321,6 +1324,8 @@ class _PourToiTabState extends ConsumerState<_PourToiTab>
               onCreatorTap: () => _openCreatorProfile(context),
               sourceIconUrl: widget.source.iconUrl ?? '',
               sourceName: widget.source.name ?? '',
+              sourceId: widget.source.id,
+              sourceVersion: widget.source.version,
             ),
           ),
 
@@ -1402,6 +1407,8 @@ class _ReelRail extends StatelessWidget {
   final bool supportsComments;
   final String sourceIconUrl;
   final String sourceName;
+  final int? sourceId;
+  final String? sourceVersion;
   final VoidCallback onAvatarTap;
   final VoidCallback onLike;
   final VoidCallback? onComment;
@@ -1417,6 +1424,8 @@ class _ReelRail extends StatelessWidget {
     required this.supportsComments,
     required this.sourceIconUrl,
     required this.sourceName,
+    required this.sourceId,
+    required this.sourceVersion,
     required this.onAvatarTap,
     required this.onLike,
     required this.onComment,
@@ -1485,7 +1494,12 @@ class _ReelRail extends StatelessWidget {
         const SizedBox(height: 28),
 
         // ── Extension icon (replaces music disk) ─────────────────────
-        _SourceDisk(iconUrl: sourceIconUrl, name: sourceName),
+        _SourceDisk(
+          iconUrl: sourceIconUrl,
+          name: sourceName,
+          sourceId: sourceId,
+          sourceVersion: sourceVersion,
+        ),
       ],
     );
   }
@@ -1581,7 +1595,14 @@ class _RailBtn extends StatelessWidget {
 class _SourceDisk extends StatelessWidget {
   final String iconUrl;
   final String name;
-  const _SourceDisk({required this.iconUrl, required this.name});
+  final int? sourceId;
+  final String? sourceVersion;
+  const _SourceDisk({
+    required this.iconUrl,
+    required this.name,
+    required this.sourceId,
+    required this.sourceVersion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1596,19 +1617,15 @@ class _SourceDisk extends StatelessWidget {
             color: Colors.grey.shade900,
             border: Border.all(color: Colors.white24, width: 3),
           ),
-          child: ClipOval(
-            child: iconUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: iconUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => const Icon(
-                      Icons.extension,
-                      color: Colors.white54,
-                      size: 20,
-                    ),
-                  )
-                : const Icon(Icons.extension, color: Colors.white54, size: 20),
-          ),
+          child: iconUrl.isNotEmpty
+              ? ExtensionIconWidget(
+                  sourceId: sourceId,
+                  iconUrl: iconUrl,
+                  version: sourceVersion,
+                  size: 34,
+                  circular: true,
+                )
+              : const Icon(Icons.extension, color: Colors.white54, size: 20),
         ),
       ],
     );
@@ -1627,6 +1644,8 @@ class _ReelBottomLeft extends StatefulWidget {
   final VoidCallback onCreatorTap;
   final String sourceIconUrl;
   final String sourceName;
+  final int? sourceId;
+  final String? sourceVersion;
 
   const _ReelBottomLeft({
     required this.creator,
@@ -1636,6 +1655,8 @@ class _ReelBottomLeft extends StatefulWidget {
     required this.onCreatorTap,
     required this.sourceIconUrl,
     required this.sourceName,
+    required this.sourceId,
+    required this.sourceVersion,
   });
 
   @override
@@ -1759,6 +1780,8 @@ class _ReelBottomLeftState extends State<_ReelBottomLeft> {
           iconUrl: widget.sourceIconUrl,
           name: widget.sourceName,
           creator: widget.creator,
+          sourceId: widget.sourceId,
+          sourceVersion: widget.sourceVersion,
         ),
       ],
     );
@@ -1769,10 +1792,14 @@ class _SourceRow extends StatelessWidget {
   final String iconUrl;
   final String name;
   final String creator;
+  final int? sourceId;
+  final String? sourceVersion;
   const _SourceRow({
     required this.iconUrl,
     required this.name,
     required this.creator,
+    required this.sourceId,
+    required this.sourceVersion,
   });
 
   @override
@@ -1792,19 +1819,15 @@ class _SourceRow extends StatelessWidget {
             color: Colors.black54,
             border: Border.all(color: Colors.white30, width: 1),
           ),
-          child: ClipOval(
-            child: iconUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: iconUrl,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, _, _) => const Icon(
-                      Icons.extension,
-                      color: Colors.white54,
-                      size: 12,
-                    ),
-                  )
-                : const Icon(Icons.extension, color: Colors.white54, size: 12),
-          ),
+          child: iconUrl.isNotEmpty
+              ? ExtensionIconWidget(
+                  sourceId: sourceId,
+                  iconUrl: iconUrl,
+                  version: sourceVersion,
+                  size: 22,
+                  circular: true,
+                )
+              : const Icon(Icons.extension, color: Colors.white54, size: 12),
         ),
         const SizedBox(width: 7),
         Flexible(

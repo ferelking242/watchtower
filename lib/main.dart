@@ -853,6 +853,16 @@ class _MyAppState extends ConsumerState<MyApp>
     });
   }
 
+  /// The OS is telling us memory is tight (iOS memory warning, Android
+  /// onTrimMemory/lowMemory). [DeviceCapabilities.onLowMemory] clears the
+  /// decoded-image cache plus the raw byte caches it does not own; the disk
+  /// caches are deliberately left alone.
+  @override
+  void didHaveMemoryPressure() {
+    super.didHaveMemoryPressure();
+    DeviceCapabilities.onLowMemory();
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);

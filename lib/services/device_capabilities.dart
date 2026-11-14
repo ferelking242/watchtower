@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
+import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 
 /// Detects real device hardware (RAM, storage) at startup and applies
 /// adaptive parameters so low-RAM phones are protected from OOM kills
@@ -72,6 +74,11 @@ class DeviceCapabilities {
     final cache = PaintingBinding.instance.imageCache;
     cache.clear();
     cache.clearLiveImages();
+    // `imageCache` only holds decoded images. The raw byte buffers the network
+    // provider and the icon service keep are just as large and would otherwise
+    // survive the warning, leaving the process near the OOM limit.
+    clearImageMemoryCache();
+    IconCacheService.instance.clearMemory();
   }
 
   // ── Internal ───────────────────────────────────────────────────────────

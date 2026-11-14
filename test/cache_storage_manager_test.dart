@@ -69,6 +69,26 @@ void main() {
     expect(await newest.exists(), isTrue);
   });
 
+  test('eviction reaches files nested in subdirectories', () async {
+    // The scan runs on a background isolate, so it must walk the tree by hand
+    // rather than rely on a single recursive listing.
+    final nestedOld = await writeFile(
+      'covers/old.img',
+      400,
+      age: const Duration(days: 3),
+    );
+    final nestedNew = await writeFile('covers/new.img', 400);
+
+    await CacheStorageManager.instance.enforceLimit(
+      force: true,
+      overrideDirectories: [root],
+      overrideLimitBytes: 400,
+    );
+
+    expect(await nestedOld.exists(), isFalse);
+    expect(await nestedNew.exists(), isTrue);
+  });
+
   test('nothing is deleted while the caches fit under the ceiling', () async {
     final file = await writeFile('cover.img', 100);
 

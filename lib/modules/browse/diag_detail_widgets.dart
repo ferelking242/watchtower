@@ -7,6 +7,7 @@ import 'package:watchtower/modules/browse/diag_ui_widgets.dart' show ExtStatus;
 import 'package:watchtower/modules/browse/diag_video_preview.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 
 String _fmtMs(int ms) {
   if (ms <= 0) return '—';
@@ -761,16 +762,11 @@ class ResultCardState extends State<ResultCard> {
                   decoration: BoxDecoration(color: accent, shape: BoxShape.circle)),
               const SizedBox(width: 9),
               if ((r.source.iconUrl ?? '').isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: Image.network(r.source.iconUrl!,
-                      width: 24,
-                      height: 24,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Icon(
-                          Icons.extension_rounded,
-                          size: 24,
-                          color: cs.onSurfaceVariant)),
+                ExtensionIconWidget(
+                  sourceId: r.source.id,
+                  iconUrl: r.source.iconUrl,
+                  version: r.source.version,
+                  size: 24,
                 )
               else
                 Icon(Icons.extension_rounded, size: 24, color: cs.onSurfaceVariant),

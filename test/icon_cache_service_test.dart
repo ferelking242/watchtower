@@ -16,6 +16,7 @@ void main() {
     documentsDirectory = await Directory.systemTemp.createTemp(
       'watchtower-icon-cache-test-',
     );
+    IconCacheService.instance.resetForTesting();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_pathProviderChannel, (call) async {
           if (call.method == 'getApplicationDocumentsDirectory') {
@@ -102,4 +103,25 @@ void main() {
       );
     },
   );
+
+  test('clearMemory drops the in-memory copy but keeps the disk one', () async {
+    final cacheDirectory = Directory(
+      p.join(documentsDirectory.path, 'icon_cache'),
+    )..createSync(recursive: true);
+    final service = IconCacheService.instance;
+    const url = 'not-a-valid-http-uri';
+    final savedBytes = Uint8List.fromList([137, 80, 78, 71, 9, 9, 9]);
+    final stableFile = File(
+      p.join(cacheDirectory.path, '${IconCacheService.cacheKeyFor(90, url)}.img'),
+    );
+    await stableFile.writeAsBytes(savedBytes);
+
+    expect(await service.getIcon(90, url), savedBytes);
+
+    service.clearMemory();
+
+    // A second read still resolves the same bytes — from disk, not the network.
+    expect(await service.getIcon(90, url), savedBytes);
+    expect(await stableFile.exists(), isTrue);
+  });
 }

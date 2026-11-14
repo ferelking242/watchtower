@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
+import 'package:watchtower/utils/image_bytes_lru_cache.dart';
 
 const _pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
 

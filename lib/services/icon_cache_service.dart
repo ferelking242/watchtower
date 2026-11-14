@@ -3,18 +3,22 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/services/cache_storage_manager.dart';
+import 'package:watchtower/utils/image_bytes_lru_cache.dart';
 
 class IconCacheService {
   IconCacheService._();
   static final IconCacheService _instance = IconCacheService._();
   static IconCacheService get instance => _instance;
 
-  final Map<String, Uint8List> _mem = {};
+  /// Bounded so a user with many installed extensions cannot grow it without
+  /// limit; icons are small but there is no reason to keep them all forever.
+  final ImageBytesLruCache<String, Uint8List> _mem = createIconMemoryCache();
   Directory? _cacheDir;
 
   /// A process-independent name lets extension icons survive app restarts.
@@ -51,14 +55,14 @@ class IconCacheService {
     if (url.isEmpty) return null;
 
     final key = cacheKeyFor(sourceId, url, version);
-    final cached = _mem[key];
+    final cached = _mem.get(key);
     if (cached != null) return cached;
 
     try {
       final dir = await cacheDir;
       final bytes = await _readPersistentIcon(dir, sourceId, key);
       if (bytes != null) {
-        _mem[key] = bytes;
+        _mem.put(key, bytes);
         return bytes;
       }
     } catch (_) {}
@@ -70,7 +74,7 @@ class IconCacheService {
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) return null;
 
       final bytes = response.bodyBytes;
-      _mem[key] = bytes;
+      _mem.put(key, bytes);
       try {
         final dir = await cacheDir;
         await File(p.join(dir.path, '$key.img')).writeAsBytes(
@@ -125,6 +129,24 @@ class IconCacheService {
     } catch (_) {}
     return legacyBytes;
   }
+
+  /// Drops the in-memory icon bytes. The on-disk copies are untouched, so the
+  /// next request re-reads them without a network round trip.
+  void clearMemory() => _mem.clear();
+
+  /// Number of icons currently held in memory.
+  @visibleForTesting
+  int get memoryEntryCount => _mem.length;
+
+  /// Forgets the cached directory and in-memory icons. Tests swap the
+  /// documents directory between cases, and the resolved [cacheDir] is cached
+  /// on the singleton, so without this a later case would read the previous
+  /// case's (deleted) folder.
+  @visibleForTesting
+  void resetForTesting() {
+    _mem.clear();
+    _cacheDir = null;
+  }
 }
 
 
@@ -137,12 +159,17 @@ class ExtensionIconWidget extends StatefulWidget {
   /// updates its icon in place invalidates the cached bytes.
   final String? version;
 
+  /// Clip the icon into a circle instead of a rounded square. The reel screen
+  /// shows the extension avatar as a disc, so it needs the round variant.
+  final bool circular;
+
   const ExtensionIconWidget({
     super.key,
     required this.sourceId,
     required this.iconUrl,
     this.version,
     this.size = 30,
+    this.circular = false,
   });
 
   @override
@@ -209,21 +236,24 @@ class _ExtensionIconWidgetState extends State<ExtensionIconWidget> {
     // evict real content out of the decode cache.
     final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
     final decodeSize = (widget.size * dpr).round();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(5),
-      child: Image.memory(
-        _bytes!,
-        width: widget.size,
-        height: widget.size,
-        cacheWidth: decodeSize,
-        cacheHeight: decodeSize,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) => Icon(
-          Icons.extension_rounded,
-          size: widget.size * 0.6,
-          color: Theme.of(context).hintColor,
-        ),
+    final image = Image.memory(
+      _bytes!,
+      width: widget.size,
+      height: widget.size,
+      cacheWidth: decodeSize,
+      cacheHeight: decodeSize,
+      fit: widget.circular ? BoxFit.cover : BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) => Icon(
+        Icons.extension_rounded,
+        size: widget.size * 0.6,
+        color: Theme.of(context).hintColor,
       ),
     );
+    return widget.circular
+        ? ClipOval(child: image)
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(5),
+            child: image,
+          );
   }
 }

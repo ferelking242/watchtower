@@ -14,72 +14,23 @@ import 'package:watchtower/services/cache_storage_manager.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/http/persisted_request_metadata.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/image_bytes_lru_cache.dart';
 import 'package:path/path.dart';
 import 'package:extended_image_library/src/network/extended_network_image_provider.dart'
     as image_provider;
-
-/// LRU memory cache for image bytes.
-@visibleForTesting
-class ImageBytesLruCache<K, V> {
-  final int _maxSize;
-  final _cache = <K, V>{};
-  int _currentSize = 0;
-  final int Function(V)? _sizeOf;
-
-  ImageBytesLruCache({required int maxSize, int Function(V)? sizeOf})
-    : _maxSize = maxSize,
-      _sizeOf = sizeOf;
-
-  V? get(K key) {
-    final value = _cache.remove(key);
-    if (value != null) {
-      _cache[key] = value; // Move to end (most recently used)
-    }
-    return value;
-  }
-
-  void put(K key, V value) {
-    final previous = _cache.remove(key);
-    if (previous != null && _sizeOf != null) {
-      _currentSize -= _sizeOf(previous);
-    }
-    _cache[key] = value; // Add to end
-
-    if (_sizeOf != null) {
-      _currentSize += _sizeOf(value);
-      while (_currentSize > _maxSize && _cache.isNotEmpty) {
-        final oldest = _cache.entries.first;
-        _currentSize -= _sizeOf(oldest.value);
-        _cache.remove(oldest.key);
-      }
-    } else {
-      while (_cache.length > _maxSize) {
-        _cache.remove(_cache.keys.first);
-      }
-    }
-  }
-
-  void remove(K key) {
-    final value = _cache.remove(key);
-    if (value != null && _sizeOf != null) {
-      _currentSize -= _sizeOf(value);
-    }
-  }
-
-  void clear() {
-    _cache.clear();
-    _currentSize = 0;
-  }
-
-  int get length => _cache.length;
-  int get currentSize => _currentSize;
-}
 
 /// Global memory cache (100 images max, ~50MB)
 final _memoryCache = ImageBytesLruCache<String, Uint8List>(
   maxSize: 50 * 1024 * 1024, // 50MB
   sizeOf: (data) => data.length,
 );
+
+/// Drops every raw image byte buffer held in memory.
+///
+/// Called from the low-memory handler: [PaintingBinding.imageCache] only holds
+/// *decoded* images, so the raw bytes kept here would otherwise survive a
+/// memory warning and keep the process close to the OOM limit.
+void clearImageMemoryCache() => _memoryCache.clear();
 
 /// Prevents two widgets requesting the same uncached URL at the same time
 /// from starting two network downloads.
