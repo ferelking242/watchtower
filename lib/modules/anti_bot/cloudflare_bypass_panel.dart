@@ -304,11 +304,16 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             ) ??
             '';
         if (ua.isNotEmpty) {
-          await MClient.setCookie(
-            widget.url,
-            ua,
-            controller,
+          // Persist the whole accepted browser session, not just the cookies:
+          // a clearance is bound to the exact User-Agent that solved it, and
+          // several fronts (AllAnime/MKissa) also keep state in `localStorage`.
+          // The extension client must replay the same UA, cookies and storage,
+          // otherwise the replayed request is refused again.
+          await MClient.captureExtensionWebViewSession(
+            url: widget.url,
+            userAgent: ua,
             sourceId: widget.sourceId,
+            controller: controller,
           );
         }
         // Verify the cookie really reached the HTTP client store (Isar).
