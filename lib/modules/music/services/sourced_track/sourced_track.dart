@@ -36,68 +36,101 @@ class SourcedTrack extends BasicSourcedTrack {
     required SpotubeFullTrackObject query,
     required Ref ref,
   }) async {
-    final audioSource = await ref.read(audioSourcePluginProvider.future);
-    final audioSourceConfig = await ref.read(metadataPluginsProvider
-        .selectAsync((data) => data.defaultAudioSourcePluginConfig));
-    if (audioSource == null || audioSourceConfig == null) {
+    final backends = await ref.read(audioSourceBackendsProvider.future);
+    if (backends.isEmpty) {
       throw MetadataPluginException.noDefaultAudioSourcePlugin();
     }
 
     final database = ref.read(databaseProvider);
-    final cachedSource = await (database.select(database.sourceMatchTable)
-          ..where((s) =>
-              s.trackId.equals(query.id) &
-              s.sourceType.equals(audioSourceConfig.slug))
-          ..limit(1)
-          ..orderBy([
-            (s) =>
-                OrderingTerm(expression: s.createdAt, mode: OrderingMode.desc),
-          ]))
-        .get()
-        .then((s) => s.firstOrNull);
+    Object? lastError;
+    var cacheHit = false;
 
-    if (cachedSource == null) {
-      final siblings = await fetchSiblings(ref: ref, query: query);
-      if (siblings.isEmpty) {
-        throw TrackNotFoundError(query);
-      }
+    // Walk the priority list: a provider whose cached match or freshly resolved
+    // stream fails is skipped in favour of the next one. Only when every
+    // provider fails do we surface the last error.
+    for (final backend in backends) {
+      final config = backend.config;
+      try {
+        final cachedSource = await (database.select(database.sourceMatchTable)
+              ..where((s) =>
+                  s.trackId.equals(query.id) &
+                  s.sourceType.equals(config.slug))
+              ..limit(1)
+              ..orderBy([
+                (s) => OrderingTerm(
+                  expression: s.createdAt,
+                  mode: OrderingMode.desc,
+                ),
+              ]))
+            .get()
+            .then((s) => s.firstOrNull);
 
-      await database.into(database.sourceMatchTable).insert(
-            SourceMatchTableCompanion.insert(
-              trackId: query.id,
-              sourceInfo: Value(jsonEncode(siblings.first)),
-              sourceType: audioSourceConfig.slug,
-            ),
+        if (cachedSource != null) {
+          final item = SpotubeAudioSourceMatchObject.fromJson(
+            jsonDecode(cachedSource.sourceInfo),
           );
+          final manifest = await backend.plugin.audioSource.streams(item);
+          cacheHit = true;
+          final sourcedTrack = SourcedTrack(
+            ref: ref,
+            siblings: [],
+            sources: manifest,
+            info: item,
+            query: query,
+            source: config.slug,
+          );
+          AppLogger.log.i("${query.name}: ${sourcedTrack.url}");
+          return sourcedTrack;
+        }
 
-      final manifest = await audioSource.audioSource.streams(siblings.first);
+        final siblings = await _fetchSiblingsFor(backend, query);
+        if (siblings.isEmpty) {
+          // This provider has no match — remember it and try the next one.
+          lastError = TrackNotFoundError(query);
+          continue;
+        }
 
-      return SourcedTrack(
-        ref: ref,
-        siblings: siblings.skip(1).toList(),
-        info: siblings.first,
-        source: audioSourceConfig.slug,
-        sources: manifest,
-        query: query,
-      );
+        final manifest =
+            await backend.plugin.audioSource.streams(siblings.first);
+
+        await database.into(database.sourceMatchTable).insert(
+              SourceMatchTableCompanion.insert(
+                trackId: query.id,
+                sourceInfo: Value(jsonEncode(siblings.first)),
+                sourceType: config.slug,
+              ),
+            );
+
+        final sourcedTrack = SourcedTrack(
+          ref: ref,
+          siblings: siblings.skip(1).toList(),
+          info: siblings.first,
+          source: config.slug,
+          sources: manifest,
+          query: query,
+        );
+        AppLogger.log.i("${query.name}: ${sourcedTrack.url}");
+        return sourcedTrack;
+      } catch (error, stack) {
+        AppLogger.log.w(
+          "Audio source '${config.slug}' failed for '${query.name}'; "
+          "trying next provider",
+          error: error,
+          stackTrace: stack,
+        );
+        lastError = error;
+      }
     }
-    final item = SpotubeAudioSourceMatchObject.fromJson(
-      jsonDecode(cachedSource.sourceInfo),
-    );
-    final manifest = await audioSource.audioSource.streams(item);
 
-    final sourcedTrack = SourcedTrack(
-      ref: ref,
-      siblings: [],
-      sources: manifest,
-      info: item,
-      query: query,
-      source: audioSourceConfig.slug,
-    );
+    // Every provider failed. If a stale cache entry existed but its stream could
+    // not be resolved, drop it so the next attempt re-searches from scratch.
+    if (cacheHit) {
+      await (database.delete(database.sourceMatchTable)
+            ..where((s) => s.trackId.equals(query.id)))
+          .go();
+    }
 
-    AppLogger.log.i("${query.name}: ${sourcedTrack.url}");
-
-    return sourcedTrack;
+    throw lastError ?? TrackNotFoundError(query);
   }
 
   static List<SpotubeAudioSourceMatchObject> rankResults(
@@ -153,15 +186,20 @@ class SourcedTrack extends BasicSourcedTrack {
     required SpotubeFullTrackObject query,
     required Ref ref,
   }) async {
-    final audioSource = await ref.read(audioSourcePluginProvider.future);
-
-    if (audioSource == null) {
+    final backends = await ref.read(audioSourceBackendsProvider.future);
+    if (backends.isEmpty) {
       throw MetadataPluginException.noDefaultAudioSourcePlugin();
     }
+    return _fetchSiblingsFor(backends.first, query);
+  }
 
+  static Future<List<SpotubeAudioSourceMatchObject>> _fetchSiblingsFor(
+    AudioSourceBackend backend,
+    SpotubeFullTrackObject query,
+  ) async {
     final videoResults = <SpotubeAudioSourceMatchObject>[];
 
-    final searchResults = await audioSource.audioSource.matches(query);
+    final searchResults = await backend.plugin.audioSource.matches(query);
 
     if (ServiceUtils.onlyContainsEnglish(query.name)) {
       videoResults.addAll(searchResults);
@@ -188,6 +226,20 @@ class SourcedTrack extends BasicSourcedTrack {
     );
   }
 
+  /// Resolves the backend whose configuration matches this track's resolved
+  /// source. Falls back to the primary backend when the track's source plugin
+  /// has since been uninstalled, so refresh/swap still have a provider to use.
+  Future<AudioSourceBackend> _backendForSource() async {
+    final backends = await ref.read(audioSourceBackendsProvider.future);
+    if (backends.isEmpty) {
+      throw MetadataPluginException.noDefaultAudioSourcePlugin();
+    }
+    return backends.firstWhere(
+      (b) => b.config.slug == source,
+      orElse: () => backends.first,
+    );
+  }
+
   Future<SourcedTrack?> swapWithSibling(
     SpotubeAudioSourceMatchObject sibling,
   ) async {
@@ -195,12 +247,8 @@ class SourcedTrack extends BasicSourcedTrack {
       return null;
     }
 
-    final audioSource = await ref.read(audioSourcePluginProvider.future);
-    final audioSourceConfig = await ref.read(metadataPluginsProvider
-        .selectAsync((data) => data.defaultAudioSourcePluginConfig));
-    if (audioSource == null || audioSourceConfig == null) {
-      throw MetadataPluginException.noDefaultAudioSourcePlugin();
-    }
+    final backend = await _backendForSource();
+    final audioSourceConfig = backend.config;
 
     // a sibling source that was fetched from the search results
     final isStepSibling = siblings.none((s) => s.id == sibling.id);
@@ -212,7 +260,7 @@ class SourcedTrack extends BasicSourcedTrack {
     final newSiblings = siblings.where((s) => s.id != sibling.id).toList()
       ..insert(0, info);
 
-    final manifest = await audioSource.audioSource.streams(newSourceInfo);
+    final manifest = await backend.plugin.audioSource.streams(newSourceInfo);
 
     final database = ref.read(databaseProvider);
 
@@ -250,17 +298,12 @@ class SourcedTrack extends BasicSourcedTrack {
   }
 
   Future<SourcedTrack> refreshStream() async {
-    final audioSource = await ref.read(audioSourcePluginProvider.future);
-    final audioSourceConfig = await ref.read(metadataPluginsProvider
-        .selectAsync((data) => data.defaultAudioSourcePluginConfig));
-    if (audioSource == null || audioSourceConfig == null) {
-      throw MetadataPluginException.noDefaultAudioSourcePlugin();
-    }
+    final backend = await _backendForSource();
 
     // Always fetch fresh CDN URLs from the plugin.  HEAD validation is
     // skipped because YouTube CDN returns 403 for HEAD requests issued by
     // Dart's HttpClient (TLS fingerprint mismatch).
-    final freshStreams = await audioSource.audioSource.streams(info);
+    final freshStreams = await backend.plugin.audioSource.streams(info);
 
     final sourcedTrack = SourcedTrack(
       ref: ref,

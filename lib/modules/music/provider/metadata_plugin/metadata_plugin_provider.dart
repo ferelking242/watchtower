@@ -862,76 +862,93 @@ final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
   },
 );
 
-final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
-  (ref) async {
-    final pluginsState = await ref.watch(
-      metadataPluginsProvider
-          .selectAsync((data) => data),
+/// A loaded audio-source plugin paired with the configuration it was loaded
+/// from, so callers can identify it by [PluginConfiguration.slug] after the
+/// plugin instance has been created.
+class AudioSourceBackend {
+  final MetadataPlugin plugin;
+  final PluginConfiguration config;
+
+  const AudioSourceBackend({required this.plugin, required this.config});
+}
+
+/// Orders the audio-source plugin configurations by priority: the
+/// user-selected default first, then every other installed audio-source plugin
+/// in stable plugin-list order. Non-audio-source plugins are ignored, and the
+/// default is never duplicated.
+List<PluginConfiguration> orderAudioSourceConfigs(MetadataPluginState state) {
+  final ordered = <PluginConfiguration>[];
+  final defaultConfig = state.defaultAudioSourcePluginConfig;
+  if (defaultConfig != null &&
+      defaultConfig.abilities.contains(PluginAbilities.audioSource)) {
+    ordered.add(defaultConfig);
+  }
+  for (final plugin in state.plugins) {
+    if (!plugin.abilities.contains(PluginAbilities.audioSource)) continue;
+    if (ordered.any((p) => p.slug == plugin.slug)) continue;
+    ordered.add(plugin);
+  }
+  return ordered;
+}
+
+/// Ordered list of usable audio-source backends: the user-selected default
+/// first, then every other installed audio-source plugin. Playback walks this
+/// list so a provider that fails at resolution time (dead, rate-limited,
+/// region-locked, or removed) is transparently replaced by the next one
+/// instead of aborting the whole track.
+///
+/// Plugins that fail to load (missing bytecode, API mismatch, stub) are logged
+/// and skipped rather than poisoning the list.
+final audioSourceBackendsProvider =
+    FutureProvider<List<AudioSourceBackend>>((ref) async {
+  final pluginsState = await ref.watch(
+    metadataPluginsProvider.selectAsync((data) => data),
+  );
+  final youtubeEngine = ref.watch(youtubeEngineProvider);
+  final notifier = ref.read(metadataPluginsProvider.notifier);
+
+  // Auto-select the first audio-source plugin when no default is configured so
+  // playback works out of the box; persist it so the choice survives rebuilds.
+  if (pluginsState.defaultAudioSourcePluginConfig == null) {
+    final firstAudioSource = pluginsState.plugins.firstWhereOrNull(
+      (p) => p.abilities.contains(PluginAbilities.audioSource),
     );
-    final youtubeEngine = ref.watch(youtubeEngineProvider);
-
-    var defaultPlugin = pluginsState.defaultAudioSourcePluginConfig;
-
-    // Auto-select first available audio source plugin when no default is set
-    if (defaultPlugin == null && pluginsState.plugins.isNotEmpty) {
-      final firstAudioSource = pluginsState.plugins.firstWhere(
-        (p) => p.abilities.contains(PluginAbilities.audioSource),
-        orElse: () => pluginsState.plugins.first,
-      );
-      if (firstAudioSource.abilities.contains(PluginAbilities.audioSource)) {
-        defaultPlugin = firstAudioSource;
-        try {
-          final notifier = ref.read(metadataPluginsProvider.notifier);
-          await notifier.setDefaultAudioSourcePlugin(firstAudioSource);
-        } catch (_) {}
-      }
+    if (firstAudioSource != null) {
+      try {
+        await notifier.setDefaultAudioSourcePlugin(firstAudioSource);
+      } catch (_) {}
     }
+  }
 
-    if (defaultPlugin == null) {
-      return null;
-    }
-
+  final backends = <AudioSourceBackend>[];
+  for (final config in orderAudioSourceConfigs(pluginsState)) {
     try {
-      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
-      final pluginByteCode =
-          await pluginsNotifier.getPluginByteCode(defaultPlugin);
-
-      return await MetadataPlugin.create(
+      final byteCode = await notifier.getPluginByteCode(config);
+      final plugin = await MetadataPlugin.create(
         youtubeEngine,
-        defaultPlugin,
-        pluginByteCode,
+        config,
+        byteCode,
       );
+      backends.add(AudioSourceBackend(plugin: plugin, config: config));
     } catch (error, stack) {
       AppLogger.log.e(
-        "Audio source plugin '${defaultPlugin.slug}' failed to load",
+        "Audio source plugin '${config.slug}' failed to load",
         error: error,
         stackTrace: stack,
       );
-      // Degrade gracefully instead of rethrowing (see metadataPluginProvider).
-      // Try the next usable audio-source plugin so playback still works.
-      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
-      for (final candidate in pluginsState.plugins) {
-        if (identical(candidate, defaultPlugin)) continue;
-        if (!candidate.abilities.contains(PluginAbilities.audioSource)) {
-          continue;
-        }
-        try {
-          final candidateByteCode =
-              await pluginsNotifier.getPluginByteCode(candidate);
-          final plugin = await MetadataPlugin.create(
-            youtubeEngine,
-            candidate,
-            candidateByteCode,
-          );
-          try {
-            await pluginsNotifier.setDefaultAudioSourcePlugin(candidate);
-          } catch (_) {}
-          return plugin;
-        } catch (_) {
-          // try the next candidate
-        }
-      }
-      return null;
     }
+  }
+
+  return backends;
+});
+
+/// The primary audio-source plugin: the first backend in the ordered list.
+/// Kept for callers that only need "the" audio source (quality presets, auth,
+/// support text); playback itself uses [audioSourceBackendsProvider] so it can
+/// fall back to the remaining providers.
+final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
+  (ref) async {
+    final backends = await ref.watch(audioSourceBackendsProvider.future);
+    return backends.firstOrNull?.plugin;
   },
 );
