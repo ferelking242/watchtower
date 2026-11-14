@@ -56,12 +56,12 @@ class UserPlaylistsPage extends HookConsumerWidget {
       () {
         if (searchText.value.isEmpty) {
           return [
-            if (likedTracksPlaylist != null) likedTracksPlaylist,
+            ?likedTracksPlaylist,
             ...?playlistsQuery.asData?.value.items,
           ];
         }
         return [
-          if (likedTracksPlaylist != null) likedTracksPlaylist,
+          ?likedTracksPlaylist,
           ...?playlistsQuery.asData?.value.items,
         ]
             .map((e) => (weightedRatio(e.name, searchText.value), e))

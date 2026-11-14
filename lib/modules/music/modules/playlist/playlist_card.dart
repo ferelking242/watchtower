@@ -83,9 +83,9 @@ class PlaylistCard extends HookConsumerWidget {
       try {
         updating.value = true;
         if (isPlaylistPlaying && playing) {
-          return audioPlayer.pause();
+          return await audioPlayer.pause();
         } else if (isPlaylistPlaying && !playing) {
-          return audioPlayer.resume();
+          return await audioPlayer.resume();
         }
 
         final fetchedInitialTracks = await fetchInitialTracks();

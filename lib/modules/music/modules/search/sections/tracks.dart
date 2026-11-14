@@ -24,7 +24,6 @@ class SearchTracksSection extends HookConsumerWidget {
     final tracks = search.asData?.value.tracks ?? [];
     final playlistNotifier = ref.watch(audioPlayerProvider.notifier);
     final playlist = ref.watch(audioPlayerProvider);
-    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

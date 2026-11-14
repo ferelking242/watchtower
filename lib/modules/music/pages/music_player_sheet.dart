@@ -1,21 +1,29 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart' show PlaylistMode;
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/assets.gen.dart';
-import 'package:watchtower/modules/music/widgets/music_cached_image.dart';
+import 'package:watchtower/modules/music/components/image/universal_image.dart';
+import 'package:watchtower/modules/music/extensions/context.dart';
+import 'package:palette_generator/palette_generator.dart';
+import 'package:watchtower/modules/music/hooks/utils/use_palette_color.dart';
+import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/modules/player/player_actions.dart';
+import 'package:watchtower/modules/music/modules/player/player_controls.dart';
+import 'package:watchtower/modules/music/modules/player/player_queue.dart';
+import 'package:watchtower/modules/music/modules/player/volume_slider.dart';
+import 'package:watchtower/modules/music/pages/lyrics/plain_lyrics.dart';
+import 'package:watchtower/modules/music/pages/lyrics/synced_lyrics.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
-import 'package:watchtower/modules/music/services/audio_player/audio_player.dart';
 import 'package:watchtower/modules/music/provider/volume_provider.dart';
 
-/// Full-screen player sheet — mirrors Spotube's PlayerOverlay / PlayerPage
-/// design: large album art, track info, progress slider, controls row
-/// (shuffle, prev, play/pause, next, repeat), heart + queue.
+/// Full-screen player sheet opened from the mini-player on pages outside the
+/// music module.
 ///
-/// The single playback engine is [audioPlayerProvider] (Spotube). Every
-/// playback surface in the app reads and drives that one engine.
-class MusicPlayerSheet extends ConsumerStatefulWidget {
+/// It is a thin host around the same widgets the embedded music module uses
+/// ([PlayerControls], [PlayerActions], [PlayerQueue], [SyncedLyrics] /
+/// [PlainLyrics]) so both surfaces drive one playback engine
+/// ([audioPlayerProvider]) and share a single visual language.
+class MusicPlayerSheet extends HookConsumerWidget {
   const MusicPlayerSheet({super.key});
 
   static void show(BuildContext context) {
@@ -29,16 +37,20 @@ class MusicPlayerSheet extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<MusicPlayerSheet> createState() => _MusicPlayerSheetState();
-}
-
-class _MusicPlayerSheetState extends ConsumerState<MusicPlayerSheet> {
-  int _tab = 0; // 0 = player, 1 = lyrics, 2 = queue
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(audioPlayerProvider);
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final track = ref.watch(audioPlayerProvider.select((s) => s.activeTrack));
+    final tab = useState(0);
+
+    final albumArt = useMemoized(
+      () => (track?.album.images).asUrlString(
+        index: (track?.album.images.length ?? 1) - 1,
+        placeholder: ImagePlaceholder.albumArt,
+      ),
+      [track?.album.images],
+    );
+    final palette = usePaletteColor(albumArt, ref);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.96,
@@ -51,7 +63,6 @@ class _MusicPlayerSheetState extends ConsumerState<MusicPlayerSheet> {
         ),
         child: Column(
           children: [
-            // Drag handle
             const SizedBox(height: 12),
             Container(
               width: 36,
@@ -62,17 +73,23 @@ class _MusicPlayerSheetState extends ConsumerState<MusicPlayerSheet> {
               ),
             ),
             const SizedBox(height: 8),
-            // Tab bar
-            _PlayerTabBar(
-                current: _tab, onChanged: (t) => setState(() => _tab = t)),
-            const SizedBox(height: 4),
-            // Content
+            TabBar(
+              onTap: (i) => tab.value = i,
+              tabs: [
+                Tab(text: l10n.player),
+                Tab(text: l10n.lyrics),
+                Tab(text: l10n.queue),
+              ],
+            ),
             Expanded(
-              child: _tab == 2
-                  ? const _QueueView()
-                  : _tab == 1
-                      ? _LyricsView(track: state.activeTrack?.name)
-                      : const _PlayerView(),
+              child: IndexedStack(
+                index: tab.value,
+                children: [
+                  _PlayerTab(albumArt: albumArt, scrollController: scrollCtrl),
+                  _LyricsTab(palette: palette),
+                  const _QueueTab(),
+                ],
+              ),
             ),
           ],
         ),
@@ -81,513 +98,130 @@ class _MusicPlayerSheetState extends ConsumerState<MusicPlayerSheet> {
   }
 }
 
-// ─── Tab bar ──────────────────────────────────────────────────────────────────
+class _PlayerTab extends ConsumerWidget {
+  final String albumArt;
+  final ScrollController scrollController;
 
-class _PlayerTabBar extends StatelessWidget {
-  final int current;
-  final ValueChanged<int> onChanged;
-  const _PlayerTabBar({required this.current, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _Tab(label: 'Player', selected: current == 0, onTap: () => onChanged(0)),
-        const SizedBox(width: 8),
-        _Tab(label: 'Lyrics', selected: current == 1, onTap: () => onChanged(1)),
-        const SizedBox(width: 8),
-        _Tab(label: 'Queue', selected: current == 2, onTap: () => onChanged(2)),
-      ],
-    );
-  }
-}
-
-class _Tab extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _Tab({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? cs.onPrimary : cs.onSurface.withValues(alpha: 0.55),
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Shared helpers ───────────────────────────────────────────────────────────
-
-String _fmt(Duration d) {
-  final m = d.inMinutes;
-  final s = d.inSeconds % 60;
-  return '$m:${s.toString().padLeft(2, '0')}';
-}
-
-// ─── Player view ──────────────────────────────────────────────────────────────
-
-class _PlayerView extends ConsumerWidget {
-  const _PlayerView();
+  const _PlayerTab({required this.albumArt, required this.scrollController});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final track = ref.watch(audioPlayerProvider.select((s) => s.activeTrack));
-    final shuffled = ref.watch(audioPlayerProvider.select((s) => s.shuffled));
-    final loopMode = ref.watch(audioPlayerProvider.select((s) => s.loopMode));
+    final volume = ref.watch(volumeProvider);
 
     if (track == null) {
       return Center(
         child: Text(
-          '—',
-          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.4)),
+          context.l10n.not_playing,
+          style: tt.bodyMedium?.copyWith(
+            color: cs.onSurface.withValues(alpha: 0.5),
+          ),
         ),
       );
     }
 
-    final imageUrl = track.album.images.isNotEmpty
-        ? track.album.images.last.url
-        : Assets.images.albumPlaceholder.path;
-    final durationMs = track.durationMs;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final available = constraints.maxHeight;
-        final screenW = MediaQuery.of(context).size.width;
-        final artSize = (screenW - 48).clamp(0.0, available * 0.42).toDouble();
-
-        return SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: available),
-            child: IntrinsicHeight(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 16),
-                    // Album art
-                    Center(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: MusicCachedImage(
-                          url: imageUrl,
-                          width: artSize,
-                          height: artSize,
-                          placeholder: Icon(
-                            Icons.music_note_rounded,
-                            size: 60,
-                            color: cs.onSurface.withValues(alpha: 0.2),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Title + artist
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                track.name,
-                                style: tt.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: cs.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                track.artists.map((a) => a.name).join(', '),
-                                style: tt.bodyMedium?.copyWith(
-                                  color: cs.onSurface.withValues(alpha: 0.65),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Progress slider
-                    _ProgressSlider(durationMs: durationMs),
-                    const SizedBox(height: 24),
-                    // Controls
-                    _ControlsRow(shuffled: shuffled, loopMode: loopMode),
-                    const SizedBox(height: 20),
-                    // Volume
-                    const _VolumeRow(),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+    return SingleChildScrollView(
+      controller: scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320, maxHeight: 320),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: UniversalImage(
+                path: albumArt,
+                placeholder: Assets.images.albumPlaceholder.path,
+                fit: BoxFit.cover,
               ),
             ),
           ),
-        );
-      },
-    );
-  }
-}
-
-// ─── Progress slider ──────────────────────────────────────────────────────────
-
-class _ProgressSlider extends ConsumerStatefulWidget {
-  final int? durationMs;
-  const _ProgressSlider({this.durationMs});
-
-  @override
-  ConsumerState<_ProgressSlider> createState() => _ProgressSliderState();
-}
-
-class _ProgressSliderState extends ConsumerState<_ProgressSlider> {
-  double? _dragging;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return StreamBuilder<Duration>(
-      stream: audioPlayer.positionStream,
-      initialData: audioPlayer.position,
-      builder: (context, snap) {
-        final position = snap.data ?? Duration.zero;
-        final duration = audioPlayer.duration.inMilliseconds > 0
-            ? audioPlayer.duration
-            : Duration(milliseconds: widget.durationMs ?? 0);
-        final maxMs = math.max(duration.inMilliseconds, 1);
-        final value =
-            _dragging ?? (position.inMilliseconds / maxMs).clamp(0.0, 1.0);
-
-        return Column(
-          children: [
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                trackHeight: 3,
-                activeTrackColor: cs.primary,
-                inactiveTrackColor: cs.onSurface.withValues(alpha: 0.15),
-                thumbColor: cs.onSurface,
-                overlayShape: SliderComponentShape.noOverlay,
+          const SizedBox(height: 20),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                track.name,
+                style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              child: Slider(
-                value: value,
-                onChanged: (v) => setState(() => _dragging = v),
-                onChangeEnd: (v) {
-                  _dragging = null;
-                  audioPlayer.seek(Duration(milliseconds: (v * maxMs).toInt()));
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _fmt(_dragging != null
-                        ? Duration(milliseconds: (_dragging! * maxMs).toInt())
-                        : position),
-                    style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.55),
-                      fontSize: 12,
-                    ),
-                  ),
-                  Text(
-                    _fmt(duration),
-                    style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.55),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ─── Controls row ─────────────────────────────────────────────────────────────
-
-class _ControlsRow extends ConsumerWidget {
-  final bool shuffled;
-  final PlaylistMode loopMode;
-  const _ControlsRow({required this.shuffled, required this.loopMode});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-
-    final repeatIcon = loopMode == PlaylistMode.single
-        ? Icons.repeat_one_rounded
-        : Icons.repeat_rounded;
-    final repeatActive = loopMode != PlaylistMode.none;
-
-    return StreamBuilder<bool>(
-      stream: audioPlayer.playingStream,
-      initialData: audioPlayer.isPlaying,
-      builder: (context, snap) {
-        final playing = snap.data ?? audioPlayer.isPlaying;
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _CtrlBtn(
-              icon: Icons.shuffle_rounded,
-              active: shuffled,
-              size: 22,
-              onTap: () => audioPlayer.setShuffle(!shuffled),
-            ),
-            _CtrlBtn(
-              icon: Icons.skip_previous_rounded,
-              size: 32,
-              onTap: audioPlayer.skipToPrevious,
-            ),
-            GestureDetector(
-              onTap: audioPlayer.playOrPause,
-              child: Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  color: cs.onSurface,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: cs.onSurface.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                    ),
-                  ],
+              const SizedBox(height: 4),
+              Text(
+                track.artists.asString(),
+                style: tt.bodyMedium?.copyWith(
+                  color: cs.onSurface.withValues(alpha: 0.65),
                 ),
-                child: Icon(
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  color: cs.surface,
-                  size: 32,
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            _CtrlBtn(
-              icon: Icons.skip_next_rounded,
-              size: 32,
-              onTap: audioPlayer.skipToNext,
-            ),
-            _CtrlBtn(
-              icon: repeatIcon,
-              active: repeatActive,
-              size: 22,
-              onTap: () async {
-                await audioPlayer.setLoopMode(
-                  switch (loopMode) {
-                    PlaylistMode.loop => PlaylistMode.single,
-                    PlaylistMode.single => PlaylistMode.none,
-                    PlaylistMode.none => PlaylistMode.loop,
-                  },
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _CtrlBtn extends StatelessWidget {
-  final IconData icon;
-  final double size;
-  final bool active;
-  final VoidCallback? onTap;
-  const _CtrlBtn({
-    required this.icon,
-    required this.size,
-    this.active = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return IconButton(
-      icon: Icon(icon, size: size),
-      color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.85),
-      onPressed: onTap,
-    );
-  }
-}
-
-// ─── Volume row ───────────────────────────────────────────────────────────────
-
-class _VolumeRow extends ConsumerWidget {
-  const _VolumeRow();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final volume = ref.watch(volumeProvider);
-    final cs = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        Icon(Icons.volume_down_rounded,
-            size: 18, color: cs.onSurface.withValues(alpha: 0.5)),
-        Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              trackHeight: 2,
-              activeTrackColor: cs.onSurface.withValues(alpha: 0.8),
-              inactiveTrackColor: cs.onSurface.withValues(alpha: 0.15),
-              thumbColor: cs.onSurface,
-              overlayShape: SliderComponentShape.noOverlay,
-            ),
-            child: Slider(
-              value: volume,
-              onChanged: (v) => ref.read(volumeProvider.notifier).setVolume(v),
-            ),
+            ],
           ),
-        ),
-        Icon(Icons.volume_up_rounded,
-            size: 18, color: cs.onSurface.withValues(alpha: 0.5)),
-      ],
-    );
-  }
-}
-
-// ─── Lyrics view ──────────────────────────────────────────────────────────────
-
-class _LyricsView extends StatelessWidget {
-  final String? track;
-  const _LyricsView({required this.track});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.lyrics_rounded,
-                size: 48, color: cs.onSurface.withValues(alpha: 0.2)),
-            const SizedBox(height: 16),
-            Text(
-              'Lyrics unavailable',
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.45),
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Install a lyrics plugin from the Marketplace',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.25),
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
+          const SizedBox(height: 20),
+          const PlayerControls(),
+          const SizedBox(height: 16),
+          const PlayerActions(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            showQueue: false,
+          ),
+          const SizedBox(height: 16),
+          VolumeSlider(
+            fullWidth: true,
+            value: volume,
+            onChanged: (v) => ref.read(volumeProvider.notifier).setVolume(v),
+          ),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
 }
 
-// ─── Queue view ───────────────────────────────────────────────────────────────
+class _LyricsTab extends StatelessWidget {
+  final PaletteColor palette;
 
-class _QueueView extends ConsumerWidget {
-  const _QueueView();
+  const _LyricsTab({required this.palette});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          TabBar(
+            tabs: [
+              Tab(text: l10n.synced),
+              Tab(text: l10n.plain),
+            ],
+          ),
+          Expanded(
+            child: IndexedStack(
+              children: [
+                SyncedLyrics(palette: palette, isModal: false),
+                PlainLyrics(palette: palette, isModal: false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QueueTab extends ConsumerWidget {
+  const _QueueTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final state = ref.watch(audioPlayerProvider);
-    final tracks = state.tracks;
-
-    if (tracks.isEmpty) {
-      return Center(
-        child: Text(
-          'Queue is empty',
-          style: TextStyle(
-              color: cs.onSurface.withValues(alpha: 0.4), fontSize: 15),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
-      itemCount: tracks.length,
-      itemBuilder: (ctx, i) {
-        final t = tracks[i];
-        final isActive = i == state.currentIndex;
-        final imageUrl =
-            t.album.images.isNotEmpty ? t.album.images.first.url : null;
-        return ListTile(
-          leading: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: MusicCachedImage(
-              url: imageUrl ?? '',
-              width: 40,
-              height: 40,
-              placeholder: Icon(Icons.music_note_rounded,
-                  color: cs.onSurface.withValues(alpha: 0.3)),
-            ),
-          ),
-          title: Text(
-            t.name,
-            style: TextStyle(
-              color: isActive ? cs.primary : cs.onSurface,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              fontSize: 14,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            t.artists.map((a) => a.name).join(', '),
-            style: TextStyle(
-              color: cs.onSurface.withValues(alpha: 0.5),
-              fontSize: 12,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: isActive
-              ? Icon(Icons.equalizer_rounded, color: cs.primary)
-              : IconButton(
-                  icon: Icon(Icons.close_rounded,
-                      color: cs.onSurface.withValues(alpha: 0.4)),
-                  onPressed: () =>
-                      ref.read(audioPlayerProvider.notifier).removeTrack(t.id),
-                ),
-          onTap: () => audioPlayer.jumpTo(i),
-        );
-      },
+    final playlist = ref.watch(audioPlayerProvider);
+    final notifier = ref.read(audioPlayerProvider.notifier);
+    return PlayerQueue.fromAudioPlayerNotifier(
+      floating: false,
+      playlist: playlist,
+      notifier: notifier,
     );
   }
 }

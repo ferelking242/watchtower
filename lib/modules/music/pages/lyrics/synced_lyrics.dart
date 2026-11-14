@@ -62,7 +62,7 @@ class SyncedLyrics extends HookConsumerWidget {
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
-        ref.read(syncedLyricsDelayProvider.notifier).state = 0;
+        ref.read(syncedLyricsDelayProvider.notifier).set(0);
       },
     );
 
@@ -243,7 +243,7 @@ class SyncedLyrics extends HookConsumerWidget {
               ZoomControls(
                 value: delay,
                 onChanged: (value) =>
-                    ref.read(syncedLyricsDelayProvider.notifier).state = value,
+                    ref.read(syncedLyricsDelayProvider.notifier).set(value),
                 interval: 1,
                 unit: "s",
                 increaseIcon: const Icon(MusicIcons.add),

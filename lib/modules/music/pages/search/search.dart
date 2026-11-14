@@ -52,7 +52,7 @@ class SearchPage extends HookConsumerWidget {
     }, []);
 
     void onSubmitted(String value) {
-      ref.read(searchTermStateProvider.notifier).state = value;
+      ref.read(searchTermStateProvider.notifier).set(value);
       focusNode.unfocus();
       if (value.trim().isEmpty) return;
       KVStoreService.setRecentSearches(
@@ -197,7 +197,7 @@ class SearchPage extends HookConsumerWidget {
                                           ref
                                               .read(searchTermStateProvider
                                                   .notifier)
-                                              .state = '';
+                                              .set('');
                                           focusNode.requestFocus();
                                         },
                                         child: Padding(

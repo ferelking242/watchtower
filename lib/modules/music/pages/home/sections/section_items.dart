@@ -2,8 +2,7 @@ import 'package:auto_route/auto_route.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
-import 'package:watchtower/modules/music/components/playbutton_view/playbutton_card.dart';
+import 'package:watchtower/modules/music/components/shimmers/music_shimmer.dart';
 import 'package:watchtower/modules/music/components/waypoint.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/album/album_card.dart';
@@ -11,15 +10,6 @@ import 'package:watchtower/modules/music/modules/artist/artist_card.dart';
 import 'package:watchtower/modules/music/modules/playlist/playlist_card.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/browse/section_items.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/common.dart';
-
-const _dummyPlaybuttonCard = PlaybuttonCard(
-  imageUrl: 'https://placehold.co/150x150.png',
-  isLoading: false,
-  isPlaying: false,
-  title: "Playbutton",
-  description: "A really cool playbutton",
-  isOwner: false,
-);
 
 class HomeBrowseSectionItemsPage extends HookConsumerWidget {
   static const name = "home_browse_section_items";
@@ -49,63 +39,57 @@ class HomeBrowseSectionItemsPage extends HookConsumerWidget {
 
     return SafeArea(
       bottom: false,
-      child: ShimmerSkeleton(enabled: sectionItems.isLoading,
-        child: Scaffold(
-          appBar: AppBar(
-              title: Text(section.title),
-            ),
-          body: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: CustomScrollView(
-              controller: controller,
-              slivers: [
-                SliverGrid.builder(
-                  itemCount: isLoading ? 6 : itemCount + 1,
-                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 150 * scale,
-                    mainAxisExtent: 225 * scale,
-                    crossAxisSpacing: 12 * scale,
-                    mainAxisSpacing: 12 * scale,
-                  ),
-                  itemBuilder: (context, index) {
-                    if (isLoading) {
-                      return const ShimmerSkeleton(enabled: true,
-                        child: _dummyPlaybuttonCard,
-                      );
-                    }
-
-                    if (index == itemCount) {
-                      if (!hasMore) return const SizedBox.shrink();
-                      return Waypoint(
-                        controller: controller,
-                        isGrid: true,
-                        onTouchEdge: () async {
-                          await sectionItemsNotifier.fetchMore();
-                        },
-                        child: const ShimmerSkeleton(enabled: true,
-                          child: _dummyPlaybuttonCard,
-                        ),
-                      );
-                    }
-
-                    final item = items[index];
-                    return switch (item) {
-                      SpotubeFullArtistObject() => ArtistCard(item),
-                      SpotubeSimplePlaylistObject() => PlaylistCard(item),
-                      SpotubeSimpleAlbumObject() => AlbumCard(item),
-                      _ => throw Exception(
-                          "Unsupported item type: ${item.runtimeType}",
-                        ),
-                    };
-                  },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(section.title),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: CustomScrollView(
+            controller: controller,
+            slivers: [
+              SliverGrid.builder(
+                itemCount: isLoading ? 6 : itemCount + 1,
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 150 * scale,
+                  mainAxisExtent: 225 * scale,
+                  crossAxisSpacing: 12 * scale,
+                  mainAxisSpacing: 12 * scale,
                 ),
-                const SliverToBoxAdapter(
-                  child: SafeArea(
-                    child: SizedBox(),
-                  ),
+                itemBuilder: (context, index) {
+                  if (isLoading) {
+                    return const MusicCardShimmer();
+                  }
+
+                  if (index == itemCount) {
+                    if (!hasMore) return const SizedBox.shrink();
+                    return Waypoint(
+                      controller: controller,
+                      isGrid: true,
+                      onTouchEdge: () async {
+                        await sectionItemsNotifier.fetchMore();
+                      },
+                      child: const MusicCardShimmer(),
+                    );
+                  }
+
+                  final item = items[index];
+                  return switch (item) {
+                    SpotubeFullArtistObject() => ArtistCard(item),
+                    SpotubeSimplePlaylistObject() => PlaylistCard(item),
+                    SpotubeSimpleAlbumObject() => AlbumCard(item),
+                    _ => throw Exception(
+                        "Unsupported item type: ${item.runtimeType}",
+                      ),
+                  };
+                },
+              ),
+              const SliverToBoxAdapter(
+                child: SafeArea(
+                  child: SizedBox(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

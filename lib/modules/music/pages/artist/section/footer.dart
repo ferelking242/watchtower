@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/image/universal_image.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
+import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/artist/wikipedia.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -48,7 +49,8 @@ class ArtistPageFooter extends ConsumerWidget {
       alignment: Alignment.center,
       child: RichText(
         text: TextSpan(
-          style: theme.textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
           children: [
@@ -60,8 +62,8 @@ class ArtistPageFooter extends ConsumerWidget {
               ),
             ),
             TextSpan(
-              text: " Wikipedia",
-              style: theme.textTheme.bodyLarge!.copyWith(
+              text: ' ${context.l10n.wikipedia}',
+              style: theme.textTheme.bodyLarge?.copyWith(
                 color: Colors.white,
               ),
             ),
@@ -70,8 +72,9 @@ class ArtistPageFooter extends ConsumerWidget {
               text: summary.asData?.value!.extract,
             ),
             TextSpan(
-              text: '\n...read more at wikipedia',
-              style: theme.textTheme.bodyMedium!.copyWith(fontWeight: FontWeight.w600).copyWith(
+              text: '\n${context.l10n.read_more_at_wikipedia}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
                 color: Colors.lightBlue[300],
                 decoration: TextDecoration.underline,
                 decorationColor: Colors.lightBlue[300],

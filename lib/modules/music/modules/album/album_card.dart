@@ -74,7 +74,7 @@ class AlbumCard extends HookConsumerWidget {
       updating.value = true;
       try {
         if (isPlaylistPlaying) {
-          return playing ? audioPlayer.pause() : audioPlayer.resume();
+          return await (playing ? audioPlayer.pause() : audioPlayer.resume());
         }
 
         final fetchedTracks = await fetchAllTrack();

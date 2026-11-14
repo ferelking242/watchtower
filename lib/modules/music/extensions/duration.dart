@@ -2,7 +2,7 @@ import 'package:duration/locale.dart';
 import 'package:duration/duration.dart';
 
 extension DurationToHumanReadableString on Duration {
-  String toHumanReadableString({padZero = true}) {
+  String toHumanReadableString({bool padZero = true}) {
     final mm = inMinutes
         .remainder(60)
         .toString()

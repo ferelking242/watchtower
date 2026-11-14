@@ -14,7 +14,6 @@ import 'package:watchtower/modules/music/utils/service_utils.dart';
 
 void useGlobalSubscriptions(WidgetRef ref) {
   final context = useContext();
-  final theme = Theme.of(context);
   // Eagerly initialize the playback server so SpotubeMedia.serverPort is
     // set before the first track play attempt (avoids port-0 race condition).
     ref.watch(serverProvider);

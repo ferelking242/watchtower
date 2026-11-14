@@ -57,7 +57,7 @@ class PlaybuttonView extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (leading != null) leading!,
+                  ?leading,
                   IconButton(
                     onPressed: () {
                       isGrid.value = true;

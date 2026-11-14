@@ -40,7 +40,7 @@ class MetadataPluginRepositoriesNotifier
       description: "Spotify — métadonnées complètes + lecture (auth ARL).",
       repoUrl: "https://github.com/ferelking242/spotube-plugin-spotify",
       topics: <String>["spotube-plugin", "watchtower"],
-      iconUrl: _kPluginIconBase + "spotify.png",
+      iconUrl: "${_kPluginIconBase}spotify.png",
     ),
     (
       name: "spotube-plugin-deezer",
@@ -48,7 +48,7 @@ class MetadataPluginRepositoriesNotifier
       description: "Deezer — métadonnées + lecture (auth ARL).",
       repoUrl: "https://github.com/ferelking242/spotube-plugin-deezer",
       topics: <String>["spotube-plugin", "watchtower"],
-      iconUrl: _kPluginIconBase + "deezer.png",
+      iconUrl: "${_kPluginIconBase}deezer.png",
     ),
     (
       name: "spotube-plugin-applemusic",
@@ -56,7 +56,7 @@ class MetadataPluginRepositoriesNotifier
       description: "Apple Music — métadonnées (titres, albums, playlists).",
       repoUrl: "https://github.com/ferelking242/spotube-plugin-applemusic",
       topics: <String>["spotube-plugin", "watchtower"],
-      iconUrl: _kPluginIconBase + "applemusic.png",
+      iconUrl: "${_kPluginIconBase}applemusic.png",
     ),
     (
       name: "spotube-plugin-youtube-music",
@@ -64,7 +64,7 @@ class MetadataPluginRepositoriesNotifier
       description: "YouTube Music — métadonnées du catalogue YT Music.",
       repoUrl: "https://github.com/ferelking242/spotube-plugin-youtube-music",
       topics: <String>["spotube-plugin", "watchtower"],
-      iconUrl: _kPluginIconBase + "youtubemusic.png",
+      iconUrl: "${_kPluginIconBase}youtubemusic.png",
     ),
     (
       name: "spotube-plugin-flac-audio",
@@ -72,7 +72,7 @@ class MetadataPluginRepositoriesNotifier
       description: "FLAC — source audio hi-fi (jusqu'à 24-bit/96kHz).",
       repoUrl: "https://github.com/ferelking242/spotube-plugin-flac-audio",
       topics: <String>["spotube-plugin", "watchtower"],
-      iconUrl: _kPluginIconBase + "flac.png",
+      iconUrl: "${_kPluginIconBase}flac.png",
     ),
     (
       name: "spotube-plugin-musicbrainz-listenbrainz",
@@ -81,12 +81,15 @@ class MetadataPluginRepositoriesNotifier
       repoUrl:
           "https://github.com/ferelking242/spotube-plugin-musicbrainz-listenbrainz",
       topics: <String>["spotube-plugin", "watchtower"],
-      iconUrl: _kPluginIconBase + "musicbrainz.png",
+      iconUrl: "${_kPluginIconBase}musicbrainz.png",
     ),
   ];
 
   @override
-  fetch(int offset, int limit) async {
+  Future<SpotubePaginationResponseObject<MetadataPluginRepository>> fetch(
+    int offset,
+    int limit,
+  ) async {
     // Return cached page if still fresh.
     final cached = _cache[offset];
     if (cached != null && !cached.isStale) return cached.data;

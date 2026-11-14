@@ -85,31 +85,31 @@ class ConnectNotifier extends AsyncNotifier<ConnectState?> {
               WebSocketEvent.fromJson(jsonDecode(message), (data) => data);
 
           event.onQueue((event) {
-            ref.read(queueProvider.notifier).state = event.data;
+            ref.read(queueProvider.notifier).set(event.data);
           });
 
           event.onPlaying((event) {
-            ref.read(playingProvider.notifier).state = event.data;
+            ref.read(playingProvider.notifier).set(event.data);
           });
 
           event.onPosition((event) {
-            ref.read(positionProvider.notifier).state = event.data;
+            ref.read(positionProvider.notifier).set(event.data);
           });
 
           event.onDuration((event) {
-            ref.read(durationProvider.notifier).state = event.data;
+            ref.read(durationProvider.notifier).set(event.data);
           });
 
           event.onShuffle((event) {
-            ref.read(shuffleProvider.notifier).state = event.data;
+            ref.read(shuffleProvider.notifier).set(event.data);
           });
 
           event.onLoop((event) {
-            ref.read(loopModeProvider.notifier).state = event.data;
+            ref.read(loopModeProvider.notifier).set(event.data);
           });
 
           event.onVolume((event) {
-            ref.read(volumeProvider.notifier).state = event.data;
+            ref.read(volumeProvider.notifier).set(event.data);
           });
 
           event.onError((event) {

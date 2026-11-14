@@ -70,7 +70,7 @@ class MusicAppRouter extends RootStackRouter {
             AutoRoute(page: SettingsMetadataProviderRoute.page),
             AutoRoute(page: SettingsMetadataProviderFormRoute.page),
             AutoRoute(page: SettingsScrobblingRoute.page),
-            AutoRoute(page: AboutSpotubeRoute.page),
+            AutoRoute(page: AboutRoute.page),
             AutoRoute(page: BlackListRoute.page),
             AutoRoute(page: LogsRoute.page),
             AutoRoute(page: StatsAlbumsRoute.page),

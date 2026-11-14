@@ -22,8 +22,6 @@ class ArtistAlbumList extends HookConsumerWidget {
 
     final albums = albumsQuery.asData?.value.items ?? [];
 
-    final theme = Theme.of(context);
-
     return HorizontalPlaybuttonCardView<SpotubeSimpleAlbumObject>(
       isLoadingNextPage: albumsQuery.isLoadingNextPage,
       hasNextPage: albumsQuery.asData?.value.hasMore ?? false,

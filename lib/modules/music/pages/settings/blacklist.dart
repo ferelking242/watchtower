@@ -28,7 +28,7 @@ class BlackListPage extends HookConsumerWidget {
           return blacklist.asData?.value ?? [];
         }
         return blacklist.asData?.value
-                ?.map(
+                .map(
                   (e) => (
                     weightedRatio(
                         "${e.name} ${e.elementType.name}", searchText.value),

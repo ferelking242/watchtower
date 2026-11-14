@@ -36,7 +36,7 @@ class UserAlbumsPage extends HookConsumerWidget {
         return albumsQuery.asData?.value.items ?? [];
       }
       return albumsQuery.asData?.value.items
-              ?.map((e) => (weightedRatio(e.name, searchText.value), e))
+              .map((e) => (weightedRatio(e.name, searchText.value), e))
               .sorted((a, b) => b.$1.compareTo(a.$1))
               .where((e) => e.$1 > 50)
               .map((e) => e.$2)

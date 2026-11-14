@@ -216,7 +216,7 @@ class PlayerActions extends HookConsumerWidget {
               child: Text(
                 customHoursEnabled
                     ? context.l10n.custom_hours
-                    : sleepTimer!.format(abbreviated: true),
+                    : sleepTimer.format(abbreviated: true),
               ),
             ),
             AdaptiveMenuButton(

@@ -407,7 +407,7 @@ import 'dart:io';
                           _ => null,
                         };
 
-                        if ((supportTextSnapshot?.asData?.value?.isEmpty ??
+                        if ((supportTextSnapshot?.asData?.value.isEmpty ??
                             true)) {
                           return const SizedBox.shrink();
                         }
@@ -421,7 +421,7 @@ import 'dart:io';
                                 AlertDialog(
                                   title: Text(context.l10n.support),
                                   content: AppMarkdown(
-                                    data: supportTextSnapshot!.asData!.value!,
+                                    data: supportTextSnapshot!.asData!.value,
                                   ),
                                   actions: [
                                     TextButton(

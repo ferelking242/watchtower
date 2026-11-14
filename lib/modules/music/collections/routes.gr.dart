@@ -32,7 +32,6 @@ import 'package:watchtower/modules/music/pages/library/user_local_tracks/user_lo
 import 'package:watchtower/modules/music/pages/library/user_playlists.dart' as _i40;
 import 'package:watchtower/modules/music/pages/lyrics/lyrics.dart' as _i15;
 import 'package:watchtower/modules/music/pages/lyrics/mini_lyrics.dart' as _i16;
-import 'package:watchtower/modules/music/pages/player/lyrics.dart' as _i17;
 import 'package:watchtower/modules/music/pages/player/queue.dart' as _i18;
 import 'package:watchtower/modules/music/pages/player/sources.dart' as _i19;
 import 'package:watchtower/modules/music/pages/playlist/liked_playlist.dart' as _i12;
@@ -57,17 +56,17 @@ import 'package:watchtower/modules/music/pages/stats/streams/streams.dart' as _i
 import 'package:watchtower/modules/music/pages/track/track.dart' as _i35;
 
 /// generated route for
-/// [_i1.AboutSpotubePage]
-class AboutSpotubeRoute extends _i41.PageRouteInfo<void> {
-  const AboutSpotubeRoute({List<_i41.PageRouteInfo>? children})
-    : super(AboutSpotubeRoute.name, initialChildren: children);
+/// [_i1.AboutPage]
+class AboutRoute extends _i41.PageRouteInfo<void> {
+  const AboutRoute({List<_i41.PageRouteInfo>? children})
+    : super(AboutRoute.name, initialChildren: children);
 
-  static const String name = 'AboutSpotubeRoute';
+  static const String name = 'AboutRoute';
 
   static _i41.PageInfo page = _i41.PageInfo(
     name,
     builder: (data) {
-      return const _i1.AboutSpotubePage();
+      return const _i1.AboutPage();
     },
   );
 }
@@ -485,7 +484,7 @@ class MiniLyricsRouteArgs {
 }
 
 /// generated route for
-/// [_i17.PlayerLyricsPage]
+/// [_i15.PlayerLyricsPage]
 class PlayerLyricsRoute extends _i41.PageRouteInfo<void> {
   const PlayerLyricsRoute({List<_i41.PageRouteInfo>? children})
     : super(PlayerLyricsRoute.name, initialChildren: children);
@@ -495,7 +494,7 @@ class PlayerLyricsRoute extends _i41.PageRouteInfo<void> {
   static _i41.PageInfo page = _i41.PageInfo(
     name,
     builder: (data) {
-      return const _i17.PlayerLyricsPage();
+      return const _i15.PlayerLyricsPage();
     },
   );
 }

@@ -169,7 +169,7 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
                           final result = await openFile(
                             acceptedTypeGroups: [
                               const XTypeGroup(
-                                label: 'Spotube Metadata Plugin',
+                                label: 'Watchtower Music Plugin',
                                 extensions: ['smplug'],
                               ),
                             ],

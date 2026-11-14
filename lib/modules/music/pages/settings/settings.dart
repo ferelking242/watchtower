@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
+import 'package:watchtower/modules/music/pages/settings/sections/about.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/accounts.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/appearance.dart';
 import 'package:watchtower/modules/music/pages/settings/sections/desktop.dart';
@@ -43,6 +44,7 @@ class SettingsPage extends HookConsumerWidget {
                   const SettingsPlaybackSection(),
                   const SettingsDownloadsSection(),
                   if (kIsDesktop) const SettingsDesktopSection(),
+                  const SettingsAboutSection(),
                   const SizedBox(height: 16),
                   Center(
                     child: FilledButton.tonal(

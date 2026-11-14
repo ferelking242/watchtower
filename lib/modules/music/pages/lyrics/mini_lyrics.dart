@@ -148,7 +148,7 @@ class MiniLyricsPage extends HookConsumerWidget {
         body: Column(
           children: [
             if (playlistQueue.activeTrack != null)
-              Text(playlistQueue.activeTrack!.name!),
+              Text(playlistQueue.activeTrack!.name),
             if (showLyrics.value)
               Expanded(
                 child: TabBarView(

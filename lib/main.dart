@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'utils/io_stub.dart';
 import 'package:app_links/app_links.dart';
 import 'package:collection/collection.dart';
-import 'package:desktop_webview_window/desktop_webview_window.dart'
-    hide WebViewEnvironment, WebViewEnvironmentSettings;
+import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -95,6 +94,10 @@ import 'package:watchtower/modules/plugin/nfile/services/recycle_bin_service.dar
     as nfile_recycle;
 import 'package:watchtower/modules/music/l10n/generated/app_localizations.dart'
     as music_l10n;
+import 'package:watchtower/modules/music/models/database/database.dart'
+    show CloseBehavior;
+import 'package:watchtower/modules/music/provider/tray_manager/tray_manager.dart';
+import 'package:watchtower/modules/music/provider/user_preferences/user_preferences_provider.dart';
 
 late Isar isar;
 DiscordRPC? discordRpc;
@@ -249,8 +252,9 @@ void main(List<String> args) async {
         // can still trigger this on hover — it is harmless on mobile.
         final stack = details.stack?.toString() ?? '';
         if (msg.contains('Null check operator') &&
-            stack.contains('tooltip.dart'))
+            stack.contains('tooltip.dart')) {
           return;
+        }
         // Always print to browser console on web so we can diagnose issues
         debugPrint('[FlutterError] $msg\n${details.stack}');
         FlutterError.presentError(details);
@@ -333,15 +337,15 @@ void main(List<String> args) async {
       }
       final storage = StorageProvider();
       if (kIsWeb) {
-        const _wtBase =
+        const wtBase =
             'https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main';
-        final _mockIsar = MockIsar()
+        final mockIsar = MockIsar()
           ..seed<Settings>(
             227,
             Settings(
               mangaExtensionsRepo: [
                 Repo(
-                  jsonUrl: '$_wtBase/index/manga.json',
+                  jsonUrl: '$wtBase/index/manga.json',
                   name: 'Watchtower – Manga',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
@@ -349,7 +353,7 @@ void main(List<String> args) async {
               ],
               animeExtensionsRepo: [
                 Repo(
-                  jsonUrl: '$_wtBase/index/watch.json',
+                  jsonUrl: '$wtBase/index/watch.json',
                   name: 'Watchtower – Watch',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
@@ -357,7 +361,7 @@ void main(List<String> args) async {
               ],
               novelExtensionsRepo: [
                 Repo(
-                  jsonUrl: '$_wtBase/index/novel.json',
+                  jsonUrl: '$wtBase/index/novel.json',
                   name: 'Watchtower – Novels',
                   website:
                       'https://github.com/ferelking242/watchtower-extensions',
@@ -367,8 +371,8 @@ void main(List<String> args) async {
           );
         // Sync real data from remote server (if configured).
         // seedMockWebData removed — no fake demo data on production web build.
-        await syncRemoteDataToMockIsar(_mockIsar);
-        isar = _mockIsar;
+        await syncRemoteDataToMockIsar(mockIsar);
+        isar = mockIsar;
       } else {
         // Fresh install (no live database) — restore the automatic snapshot
         // left by a previous installation before opening Isar, so the library,
@@ -539,7 +543,7 @@ void main(List<String> args) async {
     // Dart print() bypasses debugPrint and writes directly to stdout otherwise.
     zoneSpecification: isCliInvocation
         ? ZoneSpecification(
-            print: (_self, _parent, _zone, line) {
+            print: (self, parent, zone, line) {
               stderr.writeln(line);
             },
           )
@@ -795,6 +799,24 @@ class _MyAppState extends ConsumerState<MyApp>
     WidgetsBinding.instance.addObserver(this);
     if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
       windowManager.addListener(this);
+      // Keep the shared system-tray provider alive for the whole app lifetime.
+      // It owns the tray icon (Réglages → Bureau → "Afficher l'icône dans la
+      // barre système") and its playback menu, and it reacts to the preference
+      // itself; without an active listener it would never be created.
+      ref.listenManual(trayManagerProvider, (_, _) {});
+      // Close-to-tray is a window-manager concern owned by main.dart, so mirror
+      // the preference here instead of relying on the (previously unused)
+      // Spotube window-close listener.
+      ref.listenManual(
+        userPreferencesProvider.select((s) => s.closeBehavior),
+        (previous, next) => _applyCloseBehavior(next),
+        fireImmediately: true,
+      );
+      ref.listenManual(
+        userPreferencesProvider.select((s) => s.showSystemTrayIcon),
+        (previous, next) =>
+            _applyCloseBehavior(ref.read(userPreferencesProvider).closeBehavior),
+      );
     }
     initializeDateFormatting();
     customDns = ref.read(customDnsStateProvider);
@@ -1006,9 +1028,29 @@ class _MyAppState extends ConsumerState<MyApp>
   @override
   void onWindowMoved() => WindowGeometry.save();
 
+  /// Applies the "Fermeture" preference (Réglages → Bureau) to the native
+  /// window: `minimizeToTray` keeps the process alive and hides the window,
+  /// `close` lets the window close for real. Minimising to tray only makes
+  /// sense with a tray icon, so a disabled tray forces a real close.
+  Future<void> _applyCloseBehavior(CloseBehavior behavior) async {
+    if (kIsWeb || Platform.isAndroid || Platform.isIOS) return;
+    final prefs = ref.read(userPreferencesProvider);
+    final toTray =
+        behavior == CloseBehavior.minimizeToTray && prefs.showSystemTrayIcon;
+    await windowManager.setPreventClose(toTray);
+  }
+
   @override
   void onWindowClose() {
     WindowGeometry.save();
+    if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
+      final prefs = ref.read(userPreferencesProvider);
+      if (prefs.closeBehavior == CloseBehavior.minimizeToTray &&
+          prefs.showSystemTrayIcon) {
+        unawaited(windowManager.hide());
+        return;
+      }
+    }
     // Workaround for libepoxy error when closing app; caused by media-kit
     if (!kIsWeb && Platform.isLinux) exit(0);
   }

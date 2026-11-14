@@ -235,6 +235,15 @@ class ConnectControlPage extends HookConsumerWidget {
                               shape: const CircleBorder(),
                               padding: const EdgeInsets.all(16),
                             ),
+                            onPressed: playlist.activeTrack == null
+                                ? null
+                                : () {
+                                    if (playing) {
+                                      connectNotifier.pause();
+                                    } else {
+                                      connectNotifier.resume();
+                                    }
+                                  },
                             child: playlist.activeTrack == null
                                 ? const SizedBox(
                                     height: 20,
@@ -248,15 +257,6 @@ class ConnectControlPage extends HookConsumerWidget {
                                         : MusicIcons.play,
                                     color: Colors.white,
                                   ),
-                            onPressed: playlist.activeTrack == null
-                                ? null
-                                : () {
-                                    if (playing) {
-                                      connectNotifier.pause();
-                                    } else {
-                                      connectNotifier.resume();
-                                    }
-                                  },
                           ),
                           const SizedBox(width: 12),
                           IconButton(
@@ -336,8 +336,7 @@ class ConnectControlPage extends HookConsumerWidget {
                             fullWidth: true,
                             value: volume,
                             onChanged: (value) {
-                              ref.read(volumeProvider.notifier).state =
-                                  value;
+                              ref.read(volumeProvider.notifier).set(value);
                               connectNotifier.setVolume(value);
                             },
                           );

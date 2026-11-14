@@ -63,7 +63,7 @@ class HorizontalPlaybuttonCardView<T> extends HookWidget {
                   child: title,
                 ),
               ),
-              if (titleTrailing != null) titleTrailing!,
+              ?titleTrailing,
             ],
           ),
           if (error != null)

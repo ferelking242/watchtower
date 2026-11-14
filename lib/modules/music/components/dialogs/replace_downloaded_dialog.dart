@@ -26,7 +26,7 @@ class ReplaceDownloadedDialog extends ConsumerWidget {
           RadioGroup<bool>(
             groupValue: replaceAll,
             onChanged: (value) {
-              ref.read(replaceDownloadedFileState.notifier).state = value;
+              ref.read(replaceDownloadedFileState.notifier).set(value);
             },
             child: Column(
               mainAxisSize: MainAxisSize.min,

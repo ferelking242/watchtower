@@ -30,7 +30,7 @@ PaletteColor usePaletteColor(String imageUrl, WidgetRef ref) {
           ? palette.lightMutedColor ?? palette.lightVibrantColor
           : palette.darkMutedColor ?? palette.darkVibrantColor;
       if (color != null) {
-        ref.read(_paletteColorState.notifier).state = color;
+        ref.read(_paletteColorState.notifier).set(color);
       }
     });
     return null;

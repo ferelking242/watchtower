@@ -16,7 +16,6 @@ class ConnectPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, ref) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
     final connectClients = ref.watch(connectClientsProvider);
