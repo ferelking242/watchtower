@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -15,6 +17,7 @@ class MangaDownloadScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final archiveFormat = ref.watch(mangaArchiveFormatStateProvider);
     final mangaOnlyOnWifi = ref.watch(mangaOnlyOnWifiStateProvider);
@@ -27,7 +30,7 @@ class MangaDownloadScreen extends ConsumerWidget {
         ref.watch(anticipatoryDownloadReadStateProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Manga',
+      title: l10n.manga,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
@@ -50,9 +53,7 @@ class MangaDownloadScreen extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Le Manga utilise toujours le téléchargeur interne : '
-                      'les pages d\'un chapitre sont récupérées en parallèle '
-                      'automatiquement.',
+                      l10n.downloads_manga_engine_note,
                       style: TextStyle(
                           fontSize: 11, color: scheme.onPrimaryContainer),
                     ),
@@ -62,7 +63,7 @@ class MangaDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Format d'archive ────────────────────────────────────────
-            _SectionHeader(title: 'Format d\'archive'),
+            _SectionHeader(title: l10n.downloads_archive_section),
             LayoutBuilder(
               builder: (context, constraints) {
                 // Two cards per row, exactly: share the available width minus
@@ -77,6 +78,8 @@ class MangaDownloadScreen extends ConsumerWidget {
                     return _ArchiveFormatCard(
                       width: cardWidth,
                       choice: choice,
+                      title: _archiveChoiceTitle(l10n, choice.titleKey),
+                      subtitle: _archiveChoiceSubtitle(l10n, choice.subtitleKey),
                       selected: choice.format == archiveFormat,
                       onTap: () => ref
                           .read(mangaArchiveFormatStateProvider.notifier)
@@ -88,7 +91,7 @@ class MangaDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Niveau de compression ───────────────────────────────────
-            _SectionHeader(title: 'Compression'),
+            _SectionHeader(title: l10n.downloads_compression_section),
             _CompressionSlider(
               enabled: archiveFormat != MangaArchiveFormat.folder,
               value: ref.watch(mangaArchiveCompressionStateProvider),
@@ -100,6 +103,7 @@ class MangaDownloadScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
               child: Text(
                 _compressionDescription(
+                  l10n,
                   archiveFormat,
                   ref.watch(mangaArchiveCompressionStateProvider),
                 ),
@@ -108,14 +112,14 @@ class MangaDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Comportement ────────────────────────────────────────────
-            _SectionHeader(title: 'Comportement'),
+            _SectionHeader(title: l10n.downloads_behavior_section),
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.wifi),
-              title: const Text('Wi-Fi uniquement'),
-              subtitle: const Text(
-                'Télécharger uniquement via Wi-Fi',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_wifi_only),
+              subtitle: Text(
+                l10n.downloads_wifi_only_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: mangaOnlyOnWifi,
               onChanged: (v) =>
@@ -124,10 +128,10 @@ class MangaDownloadScreen extends ConsumerWidget {
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.magic_star),
-              title: const Text('Télécharger les nouveaux chapitres'),
-              subtitle: const Text(
-                'Télécharge automatiquement les nouveaux chapitres disponibles',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_manga_new_chapters),
+              subtitle: Text(
+                l10n.downloads_manga_new_chapters_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: autoDownloadNewChapters,
               onChanged: (v) => ref
@@ -137,10 +141,10 @@ class MangaDownloadScreen extends ConsumerWidget {
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.forward),
-              title: const Text('Téléchargement anticipé (lecture)'),
-              subtitle: const Text(
-                'Pré-télécharge si le chapitre actuel et le suivant sont déjà présents',
-                style: TextStyle(fontSize: 10),
+              title: Text(l10n.downloads_anticipatory_read),
+              subtitle: Text(
+                l10n.downloads_anticipatory_read_subtitle,
+                style: const TextStyle(fontSize: 10),
               ),
               value: anticipatoryDownloadRead,
               onChanged: (v) => ref
@@ -149,14 +153,14 @@ class MangaDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Suppression ─────────────────────────────────────────────
-            _SectionHeader(title: 'Suppression'),
+            _SectionHeader(title: l10n.downloads_section_deletion),
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.trash),
-              title: const Text('Supprimer après lecture'),
-              subtitle: const Text(
-                'Supprime le chapitre dès qu\'il est marqué comme lu',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_delete_after_read),
+              subtitle: Text(
+                l10n.downloads_delete_after_read_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: deleteAfterMarkedRead,
               onChanged: (v) =>
@@ -165,10 +169,10 @@ class MangaDownloadScreen extends ConsumerWidget {
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.bookmark),
-              title: const Text('Supprimer même les chapitres marqués'),
-              subtitle: const Text(
-                'La suppression automatique s\'applique aussi aux chapitres avec marque-page',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_delete_marked),
+              subtitle: Text(
+                l10n.downloads_delete_marked_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: allowDeletingBookmarked,
               onChanged: (v) => ref
@@ -189,60 +193,65 @@ class MangaDownloadScreen extends ConsumerWidget {
 
 class _ArchiveFormatChoice {
   final MangaArchiveFormat format;
-  final String title;
-  final String subtitle;
-  const _ArchiveFormatChoice(this.format, this.title, this.subtitle);
+  final String titleKey;
+  final String subtitleKey;
+  const _ArchiveFormatChoice(this.format, this.titleKey, this.subtitleKey);
 }
 
-String _compressionDescription(MangaArchiveFormat format, int level) {
+String _archiveChoiceTitle(AppLocalizations l10n, String key) {
+  return switch (key) {
+    'cbz' => l10n.downloads_archive_cbz_title,
+    'cbr' => l10n.downloads_archive_cbr_title,
+    'cb7' => l10n.downloads_archive_cb7_title,
+    'zip' => l10n.downloads_archive_zip_title,
+    _ => l10n.downloads_archive_folder_title,
+  };
+}
+
+String _archiveChoiceSubtitle(AppLocalizations l10n, String key) {
+  return switch (key) {
+    'cbz' => l10n.downloads_archive_cbz_subtitle,
+    'cbr' => l10n.downloads_archive_cbr_subtitle,
+    'cb7' => l10n.downloads_archive_cb7_subtitle,
+    'zip' => l10n.downloads_archive_zip_subtitle,
+    _ => l10n.downloads_archive_folder_subtitle,
+  };
+}
+
+String _compressionDescription(
+  AppLocalizations l10n,
+  MangaArchiveFormat format,
+  int level,
+) {
   if (format == MangaArchiveFormat.folder) {
-    return 'Choisissez un format d\'archive pour activer la compression.';
+    return l10n.downloads_compression_disabled;
   }
   if (level <= 0) {
-    return 'Aucune recompression : les pages originales sont conservées, '
-        'seul le rangement ZIP est appliqué (le plus rapide).';
+    return l10n.downloads_compression_none;
   }
-  return 'Niveau $level/9 · les pages sont ré-encodées en JPEG plus léger '
-      'puis rangées dans l\'archive : fichier plus petit, un peu de qualité '
-      'en moins.';
+  return l10n.downloads_compression_level(level);
 }
 
 const _archiveFormatChoices = <_ArchiveFormatChoice>[
-  _ArchiveFormatChoice(
-    MangaArchiveFormat.cbz,
-    'Comic Book ZIP',
-    'Le plus compatible · images ZIP',
-  ),
-  _ArchiveFormatChoice(
-    MangaArchiveFormat.cbr,
-    'Comic Book RAR',
-    'Conteneur CBR · lisible partout',
-  ),
-  _ArchiveFormatChoice(
-    MangaArchiveFormat.cb7,
-    'Comic Book 7-Zip',
-    'Conteneur CB7 · très compressé',
-  ),
-  _ArchiveFormatChoice(
-    MangaArchiveFormat.zip,
-    'ZIP standard',
-    'Archive ZIP brute',
-  ),
-  _ArchiveFormatChoice(
-    MangaArchiveFormat.folder,
-    'Dossier d\'images',
-    'Aucune archive · accès direct',
-  ),
+  _ArchiveFormatChoice(MangaArchiveFormat.cbz, 'cbz', 'cbz'),
+  _ArchiveFormatChoice(MangaArchiveFormat.cbr, 'cbr', 'cbr'),
+  _ArchiveFormatChoice(MangaArchiveFormat.cb7, 'cb7', 'cb7'),
+  _ArchiveFormatChoice(MangaArchiveFormat.zip, 'zip', 'zip'),
+  _ArchiveFormatChoice(MangaArchiveFormat.folder, 'folder', 'folder'),
 ];
 
 class _ArchiveFormatCard extends StatelessWidget {
   final _ArchiveFormatChoice choice;
+  final String title;
+  final String subtitle;
   final bool selected;
   final VoidCallback onTap;
   final double width;
 
   const _ArchiveFormatCard({
     required this.choice,
+    required this.title,
+    required this.subtitle,
     required this.selected,
     required this.onTap,
     required this.width,
@@ -295,7 +304,7 @@ class _ArchiveFormatCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      choice.title,
+                      title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -316,7 +325,7 @@ class _ArchiveFormatCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      choice.subtitle,
+                      subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -350,23 +359,24 @@ class _CompressionSlider extends StatelessWidget {
     required this.onChanged,
   });
 
-  static const _labels = [
-    'Rapide',
-    'Léger',
-    'Léger +',
-    'Standard',
-    'Standard +',
-    'Fort',
-    'Fort +',
-    'Intense',
-    'Intense +',
-    'Maximum',
+  static List<String> _labels(AppLocalizations l10n) => [
+    l10n.downloads_compression_fast,
+    l10n.downloads_compression_light,
+    l10n.downloads_compression_light_plus,
+    l10n.downloads_compression_standard,
+    l10n.downloads_compression_standard_plus,
+    l10n.downloads_compression_strong,
+    l10n.downloads_compression_strong_plus,
+    l10n.downloads_compression_intense,
+    l10n.downloads_compression_intense_plus,
+    l10n.downloads_compression_maximum,
   ];
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final effective = value.clamp(0, _labels.length - 1);
+    final labels = _labels(context.l10n);
+    final effective = value.clamp(0, labels.length - 1);
     return Opacity(
       opacity: enabled ? 1 : 0.4,
       child: Column(
@@ -382,9 +392,9 @@ class _CompressionSlider extends StatelessWidget {
                   child: Slider(
                     value: effective.toDouble(),
                     min: 0,
-                    max: (_labels.length - 1).toDouble(),
-                    divisions: _labels.length - 1,
-                    label: _labels[effective],
+                    max: (labels.length - 1).toDouble(),
+                    divisions: labels.length - 1,
+                    label: labels[effective],
                     onChanged:
                         enabled ? (v) => onChanged(v.round()) : null,
                   ),
@@ -397,7 +407,7 @@ class _CompressionSlider extends StatelessWidget {
                     borderRadius: BorderRadius.circular(7),
                   ),
                   child: Text(
-                    _labels[effective],
+                    labels[effective],
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -413,10 +423,10 @@ class _CompressionSlider extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Moins compressé',
+                Text(context.l10n.downloads_less_compressed,
                     style: TextStyle(
                         fontSize: 9, color: scheme.onSurfaceVariant)),
-                Text('Plus compressé',
+                Text(context.l10n.downloads_more_compressed,
                     style: TextStyle(
                         fontSize: 9, color: scheme.onSurfaceVariant)),
               ],

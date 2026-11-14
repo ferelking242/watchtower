@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
@@ -20,6 +22,7 @@ class WatchDownloadScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final downloadMode = ref.watch(downloadModeStateProvider);
     final animeConnections = ref.watch(animeConnectionsStateProvider);
@@ -42,14 +45,14 @@ class WatchDownloadScreen extends ConsumerWidget {
     );
 
     return SettingsSubpageScaffold(
-      title: 'Téléchargements — Watch',
+      title: l10n.downloads_watch_title,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Moteur de téléchargement ────────────────────────────────
-            _SectionHeader(title: 'Moteur de téléchargement'),
+            _SectionHeader(title: l10n.downloads_engine_section),
             ...DownloadMode.values.map(
               (mode) => _EngineCard(
                 mode: mode,
@@ -60,10 +63,10 @@ class WatchDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Connexions ──────────────────────────────────────────────
-            _SectionHeader(title: 'Connexions'),
+            _SectionHeader(title: l10n.downloads_connections_section),
             _ConnectionsTile(
-              label: 'Connexions HLS simultanées',
-              subtitle: 'Segments téléchargés en parallèle par épisode',
+              label: l10n.downloads_hls_connections,
+              subtitle: l10n.downloads_hls_connections_subtitle,
               value: animeConnections,
               icon: Broken.link,
               onChanged: (v) =>
@@ -71,8 +74,8 @@ class WatchDownloadScreen extends ConsumerWidget {
               scheme: scheme,
             ),
             _ConnectionsTile(
-              label: 'Épisodes simultanés (file)',
-              subtitle: 'Nombre d\'épisodes téléchargés en même temps',
+              label: l10n.downloads_episodes_queue,
+              subtitle: l10n.downloads_episodes_queue_subtitle,
               value: watchSimultaneous,
               icon: Broken.note_2,
               onChanged: (v) =>
@@ -81,14 +84,14 @@ class WatchDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Comportement ────────────────────────────────────────────
-            _SectionHeader(title: 'Comportement'),
+            _SectionHeader(title: l10n.downloads_behavior_section),
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.wifi),
-              title: const Text('Wi-Fi uniquement'),
-              subtitle: const Text(
-                'Télécharger uniquement via Wi-Fi',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_wifi_only),
+              subtitle: Text(
+                l10n.downloads_wifi_only_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: watchOnlyOnWifi,
               onChanged: (v) =>
@@ -97,10 +100,10 @@ class WatchDownloadScreen extends ConsumerWidget {
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.magic_star),
-              title: const Text('Télécharger les nouveaux épisodes'),
-              subtitle: const Text(
-                'Télécharge automatiquement les nouveaux épisodes disponibles',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_new_episodes),
+              subtitle: Text(
+                l10n.downloads_new_episodes_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: autoDownloadNewEpisodes,
               onChanged: (v) => ref
@@ -110,10 +113,10 @@ class WatchDownloadScreen extends ConsumerWidget {
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.filter),
-              title: const Text('Autoriser les épisodes filler'),
-              subtitle: const Text(
-                'Inclure les épisodes filler dans les téléchargements automatiques',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_filler),
+              subtitle: Text(
+                l10n.downloads_filler_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: downloadFillerEpisodes,
               onChanged: (v) =>
@@ -122,10 +125,10 @@ class WatchDownloadScreen extends ConsumerWidget {
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.forward),
-              title: const Text('Téléchargement anticipé'),
-              subtitle: const Text(
-                'Pré-télécharge pendant le visionnage si les 2 éps suivants sont disponibles',
-                style: TextStyle(fontSize: 10),
+              title: Text(l10n.downloads_anticipatory),
+              subtitle: Text(
+                l10n.downloads_anticipatory_watch_subtitle,
+                style: const TextStyle(fontSize: 10),
               ),
               value: anticipatoryDownload,
               onChanged: (v) => ref
@@ -134,14 +137,14 @@ class WatchDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Téléchargeur externe ────────────────────────────────────
-            _SectionHeader(title: 'Téléchargeur externe'),
+            _SectionHeader(title: l10n.downloads_external_section),
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.export),
-              title: const Text('Toujours utiliser un téléchargeur externe'),
-              subtitle: const Text(
-                'Délègue chaque téléchargement à l\'app externe choisie ci-dessous',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_always_external),
+              subtitle: Text(
+                l10n.downloads_always_external_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: alwaysUseExternal,
               onChanged: (v) => ref
@@ -234,7 +237,7 @@ class _EngineCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          mode.label,
+                          mode.label(context.l10n),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
@@ -253,7 +256,7 @@ class _EngineCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'Défaut',
+                              context.l10n.downloads_default_folder,
                               style: TextStyle(
                                 fontSize: 9,
                                 color: scheme.primary,
@@ -266,7 +269,7 @@ class _EngineCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      mode.description,
+                      mode.description(context.l10n),
                       style: TextStyle(
                         fontSize: 11,
                         color: scheme.onSurfaceVariant,
@@ -367,7 +370,7 @@ class _ConnectionsTile extends StatelessWidget {
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(
-                  'Annuler',
+                  context.l10n.cancel,
                   style: TextStyle(color: context.primaryColor),
                 ),
               ),
@@ -410,11 +413,13 @@ class _ExternalDownloaderCard extends StatelessWidget {
       (a) => a.id == preferredExternal,
       orElse: () => const _ExternalDownloaderApp(
         id: '',
-        name: 'Aucune app sélectionnée',
-        description: 'L\'application demandera à chaque téléchargement.',
+        name: '',
+        descriptionKey: '',
       ),
     );
     final hasSelection = preferredExternal != null && selected.id.isNotEmpty;
+    final noAppName = context.l10n.downloads_no_app;
+    final noAppDesc = context.l10n.downloads_no_app_subtitle;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -457,7 +462,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'App de téléchargement préférée',
+                        context.l10n.downloads_preferred_app,
                         style: TextStyle(
                           fontSize: 12,
                           color: scheme.onSurfaceVariant,
@@ -466,7 +471,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        selected.name,
+                        hasSelection ? selected.name : noAppName,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -478,7 +483,12 @@ class _ExternalDownloaderCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        selected.description,
+                        hasSelection
+                            ? _externalDownloaderDescription(
+                                context.l10n,
+                                selected.descriptionKey,
+                              )
+                            : noAppDesc,
                         style: TextStyle(
                           fontSize: 11,
                           color: scheme.onSurfaceVariant,
@@ -505,7 +515,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('App de téléchargement préférée'),
+        title: Text(context.l10n.downloads_preferred_app),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
@@ -518,7 +528,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
                   Navigator.pop(ctx);
                 },
                 child: RadioListTile<String?>(
-                  title: const Text('Aucune'),
+                  title: Text(context.l10n.downloads_none_app),
                   value: null,
                 ),
               ),
@@ -538,7 +548,7 @@ class _ExternalDownloaderCard extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(context.l10n.cancel),
           ),
         ],
       ),
@@ -553,12 +563,12 @@ class _ExternalDownloaderApp {
   final String? playStoreUrl;
   final String? appStoreUrl;
   final String? pcUrl;
-  final String description;
+  final String descriptionKey;
 
   const _ExternalDownloaderApp({
     required this.id,
     required this.name,
-    required this.description,
+    required this.descriptionKey,
     this.androidPackage,
     this.playStoreUrl,
     this.appStoreUrl,
@@ -571,14 +581,14 @@ class _ExternalDownloaderRegistry {
     _ExternalDownloaderApp(
       id: 'adm',
       name: 'ADM — Advanced Download Manager',
-      description: 'Gestionnaire de téléchargement multi-thread pour Android.',
+      descriptionKey: 'downloads_ext_adm_desc',
       androidPackage: 'com.dv.adm',
       playStoreUrl: 'https://play.google.com/store/apps/details?id=com.dv.adm',
     ),
     _ExternalDownloaderApp(
       id: '1dm',
       name: '1DM — 1Downloader',
-      description: 'Téléchargeur rapide avec support HLS et DASH pour Android.',
+      descriptionKey: 'downloads_ext_1dm_desc',
       androidPackage: 'idm.internet.download.manager',
       playStoreUrl:
           'https://play.google.com/store/apps/details?id=idm.internet.download.manager',
@@ -588,7 +598,7 @@ class _ExternalDownloaderRegistry {
     _ExternalDownloaderApp(
       id: 'fdm',
       name: 'FDM — Free Download Manager',
-      description: 'Téléchargeur multiplateforme gratuit et open-source.',
+      descriptionKey: 'downloads_ext_fdm_desc',
       androidPackage: 'org.freedownloadmanager.fdm',
       playStoreUrl:
           'https://play.google.com/store/apps/details?id=org.freedownloadmanager.fdm',
@@ -597,19 +607,19 @@ class _ExternalDownloaderRegistry {
     _ExternalDownloaderApp(
       id: 'idm',
       name: 'IDM — Internet Download Manager',
-      description: 'Téléchargeur haute vitesse avec reprise (Windows).',
+      descriptionKey: 'downloads_ext_idm_desc',
       pcUrl: 'https://www.internetdownloadmanager.com/',
     ),
     _ExternalDownloaderApp(
       id: 'jdownloader',
       name: 'JDownloader',
-      description: 'Téléchargeur open-source multiplateforme très populaire.',
+      descriptionKey: 'downloads_ext_jdownloader_desc',
       pcUrl: 'https://jdownloader.org/',
     ),
     _ExternalDownloaderApp(
       id: 'motrix',
       name: 'Motrix',
-      description: 'Téléchargeur Aria2 open-source avec interface moderne.',
+      descriptionKey: 'downloads_ext_motrix_desc',
       pcUrl: 'https://motrix.app/',
     ),
   ];
@@ -635,7 +645,10 @@ class _ExternalAppTile extends StatelessWidget {
         child: Radio<bool>(value: true),
       ),
       title: Text(app.name, style: const TextStyle(fontSize: 13)),
-      subtitle: Text(app.description, style: const TextStyle(fontSize: 11)),
+      subtitle: Text(
+        _externalDownloaderDescription(context.l10n, app.descriptionKey),
+        style: const TextStyle(fontSize: 11),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -644,7 +657,7 @@ class _ExternalAppTile extends StatelessWidget {
               ExternalDownloaderLauncher.packageMap.containsKey(app.id))
             IconButton(
               icon: const Icon(Broken.play, size: 20),
-              tooltip: 'Tester (lance ${app.name})',
+              tooltip: context.l10n.downloads_test_launch(app.name),
               onPressed: () async {
                 final ok = await ExternalDownloaderLauncher.launch(
                   url:
@@ -657,8 +670,8 @@ class _ExternalAppTile extends StatelessWidget {
                       duration: const Duration(seconds: 2),
                       content: Text(
                         ok
-                            ? '${app.name} lancé via intent'
-                            : 'Échec du lancement de ${app.name} (app installée ?)',
+                            ? context.l10n.downloads_launched(app.name)
+                            : context.l10n.downloads_launch_failed(app.name),
                       ),
                     ),
                   );
@@ -680,7 +693,7 @@ class _ExternalAppTile extends StatelessWidget {
           if (app.pcUrl != null)
             IconButton(
               icon: const Icon(Broken.monitor, size: 18),
-              tooltip: 'Site officiel',
+              tooltip: context.l10n.downloads_official_site,
               onPressed: () => launchUrl(Uri.parse(app.pcUrl!)),
             ),
         ],
@@ -766,4 +779,17 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Resolves an external-downloader description key to its localised text.
+String _externalDownloaderDescription(AppLocalizations l10n, String key) {
+  return switch (key) {
+    'downloads_ext_adm_desc' => l10n.downloads_ext_adm_desc,
+    'downloads_ext_1dm_desc' => l10n.downloads_ext_1dm_desc,
+    'downloads_ext_fdm_desc' => l10n.downloads_ext_fdm_desc,
+    'downloads_ext_idm_desc' => l10n.downloads_ext_idm_desc,
+    'downloads_ext_jdownloader_desc' => l10n.downloads_ext_jdownloader_desc,
+    'downloads_ext_motrix_desc' => l10n.downloads_ext_motrix_desc,
+    _ => '',
+  };
 }

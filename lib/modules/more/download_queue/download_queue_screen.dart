@@ -15,6 +15,8 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_rows.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_progress.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
@@ -190,7 +192,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               leading: BackButton(
                 onPressed: () => _goBack(context),
               ),
-              title: const Text('Téléchargements'),
+              title: Text(context.l10n.queue_title),
             ),
             body: Center(
               child: Padding(
@@ -200,8 +202,8 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   children: [
                     const Icon(Icons.error_outline_rounded, size: 48),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Impossible de charger la file de téléchargement.',
+                    Text(
+                      context.l10n.queue_load_error,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
@@ -271,9 +273,9 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               onPressed: () => _goBack(context),
             ),
             titleSpacing: 16,
-            title: const Text(
-              'Téléchargements',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            title: Text(
+              context.l10n.queue_title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             actions: [
               // ── Transfert pill — solid gradient, MovieBox style ─────────
@@ -322,7 +324,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 child: Row(
                   children: [
                     Text(
-                      'Non terminés ($unfinishedDownloadCount)',
+                      context.l10n.queue_unfinished(unfinishedDownloadCount),
                       style: TextStyle(
                         color: scheme.onSurface,
                         fontSize: 13,
@@ -333,7 +335,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                     GestureDetector(
                       onTap: () => _showGererSheet(context, entries, ref),
                       child: Text(
-                        'Gérer',
+                        context.l10n.queue_manage,
                         style: TextStyle(
                           color: mbTeal,
                           fontSize: 13,
@@ -382,7 +384,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       entries: watchEntries,
                       allEntries: entries,
                       emptyIcon: Icons.play_circle_outline,
-                      emptyLabel: 'Aucun téléchargement Watch',
+                      emptyLabel: context.l10n.queue_empty_watch,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -398,7 +400,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       entries: mangaEntries,
                       allEntries: entries,
                       emptyIcon: Icons.menu_book_outlined,
-                      emptyLabel: 'Aucun téléchargement Manga',
+                      emptyLabel: context.l10n.queue_empty_manga,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -414,7 +416,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       entries: novelEntries,
                       allEntries: entries,
                       emptyIcon: Icons.auto_stories_outlined,
-                      emptyLabel: 'Aucun téléchargement Novel',
+                      emptyLabel: context.l10n.queue_empty_novel,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -430,7 +432,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       entries: musicEntries,
                       allEntries: entries,
                       emptyIcon: Icons.music_note_outlined,
-                      emptyLabel: 'Aucun téléchargement Musique',
+                      emptyLabel: context.l10n.queue_empty_music,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -446,7 +448,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       entries: gameEntries,
                       allEntries: entries,
                       emptyIcon: Icons.sports_esports_outlined,
-                      emptyLabel: 'Aucun téléchargement Jeu',
+                      emptyLabel: context.l10n.queue_empty_game,
                       swipeLeft: swipeLeft,
                       swipeRight: swipeRight,
                       onPauseResume: (e) => _togglePause(e, ref),
@@ -589,7 +591,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         MediaDownloadNotificationAction.cancel,
       ),
     );
-    botToast('Téléchargement annulé.');
+    botToast(context.l10n.queue_download_canceled);
   }
 
   /// Delete: fully remove from Isar (no recovery)
@@ -609,7 +611,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void _openDownload(Download element, BuildContext context) {
     final chapter = element.chapter.value;
     if (chapter == null) {
-      botToast('Chapitre introuvable.');
+      botToast(context.l10n.queue_chapter_not_found);
       return;
     }
     if (chapter.manga.value?.itemType == ItemType.anime &&
@@ -774,6 +776,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final entries = widget.entries;
 
@@ -834,8 +837,10 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(width: 8),
                   Text(
                     _openType == null
-                        ? 'Gérer les téléchargements'
-                        : 'Paramètres ${_gererTypeLabel(_openType!)}',
+                        ? l10n.queue_manage_downloads
+                        : l10n.queue_settings_for(
+                            _gererTypeLabel(l10n, _openType!),
+                          ),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -858,17 +863,17 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                 children: [
                   // ── Actions rapides ──────────────────────────────────────
                   _SheetSection(
-                    label: 'Actions rapides',
+                    label: l10n.queue_quick_actions,
                     scheme: scheme,
                     icon: Icons.bolt_rounded,
-                    helpText: 'Agir sur toute la file d\'attente',
+                    helpText: l10n.queue_act_on_all,
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       _ActionBtn(
                         icon: Icons.play_arrow_rounded,
-                        label: 'Lancer',
+                        label: l10n.queue_start,
                         color: scheme.primary,
                         onTap: () {
                           Navigator.pop(context);
@@ -929,7 +934,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                       const SizedBox(width: 8),
                       _ActionBtn(
                         icon: Icons.stop_rounded,
-                        label: 'Arrêter',
+                        label: l10n.queue_stop,
                         color: Colors.redAccent,
                         onTap: () {
                           Navigator.pop(context);
@@ -951,7 +956,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                       const SizedBox(width: 8),
                       _ActionBtn(
                         icon: Icons.replay_rounded,
-                        label: 'Réessayer',
+                        label: l10n.queue_retry,
                         color: scheme.secondary,
                         onTap: () {
                           Navigator.pop(context);
@@ -983,11 +988,10 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 
                   // ── Simultanés par type ──────────────────────────────────
                   _SheetSection(
-                    label: 'Simultanés',
+                    label: l10n.queue_simultaneous,
                     scheme: scheme,
                     icon: Icons.download_for_offline_outlined,
-                    helpText:
-                        'Nombre de téléchargements parallèles par type et par source',
+                    helpText: l10n.queue_simultaneous_help,
                   ),
                   const SizedBox(height: 10),
 
@@ -1090,10 +1094,10 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 
                   // ── Disposition des cartes ───────────────────────────────
                   _SheetSection(
-                    label: 'Disposition',
+                    label: l10n.queue_layout,
                     scheme: scheme,
                     icon: Icons.view_list_outlined,
-                    helpText: 'Densité d\'affichage des éléments de la file',
+                    helpText: l10n.queue_density_help,
                   ),
                   const SizedBox(height: 10),
                   // 5 layout modes — use a responsive 3-column grid
@@ -1169,16 +1173,16 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 4),
                   _OptionTile(
                     icon: Icons.cloud_sync_outlined,
-                    label: 'Arrière-plan',
-                    subtitle: 'Continuer même app fermée',
+                    label: l10n.queue_background,
+                    subtitle: l10n.queue_continue_closed,
                     scheme: scheme,
                     onTap: () =>
-                        botToast('Téléchargement en arrière-plan activé'),
+                        botToast(l10n.queue_background_enabled),
                   ),
                   _OptionTile(
                     icon: Icons.delete_sweep_outlined,
-                    label: 'Effacer les terminés',
-                    subtitle: 'Retirer de la file les éléments finis',
+                    label: l10n.queue_clear_completed,
+                    subtitle: l10n.queue_clear_completed_subtitle,
                     scheme: scheme,
                     isDestructive: true,
                     onTap: () {
@@ -1193,7 +1197,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                           if (d.id != null) isar.downloads.deleteSync(d.id!);
                         }
                       });
-                      botToast('Terminés supprimés de la file');
+                      botToast(l10n.queue_completed_removed);
                     },
                   ),
                 ],
@@ -1208,13 +1212,13 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 
 // ── Sheet helpers ──────────────────────────────────────────────────────────────
 
-String _gererTypeLabel(ItemType type) => switch (type) {
-  ItemType.anime => 'Watch',
-  ItemType.manga => 'Manga',
-  ItemType.novel => 'Roman',
-  ItemType.music => 'Musique',
-  ItemType.game => 'Jeu',
-  ItemType.plugin => 'Extension',
+String _gererTypeLabel(AppLocalizations l10n, ItemType type) => switch (type) {
+  ItemType.anime => l10n.watch,
+  ItemType.manga => l10n.manga,
+  ItemType.novel => l10n.novel,
+  ItemType.music => l10n.catalog_tag_music,
+  ItemType.game => l10n.catalog_tag_game,
+  ItemType.plugin => l10n.browse_extension_word,
 };
 
 /// Per-type download settings shown *inside* the "Gérer" sheet.
@@ -1232,6 +1236,7 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final settings = DownloadSettingsService.instance;
     final connections = switch (type) {
       ItemType.anime => ref.watch(animeConnectionsStateProvider),
@@ -1271,10 +1276,10 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _SheetSection(
-          label: 'Simultanés',
+          label: l10n.queue_simultaneous,
           scheme: scheme,
           icon: Icons.download_for_offline_outlined,
-          helpText: 'Téléchargements parallèles pour ${_gererTypeLabel(type)}',
+          helpText: l10n.queue_simultaneous_for(_gererTypeLabel(l10n, type)),
         ),
         const SizedBox(height: 10),
         Container(
@@ -1313,10 +1318,10 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
 
         const SizedBox(height: 18),
         _SheetSection(
-          label: 'Connexions',
+          label: l10n.queue_connections,
           scheme: scheme,
           icon: Icons.link_rounded,
-          helpText: 'Connexions parallèles par unité téléchargée',
+          helpText: l10n.queue_connections_help,
         ),
         const SizedBox(height: 10),
         Container(
@@ -1330,8 +1335,8 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
             children: [
               Text(
                 type == ItemType.anime
-                    ? 'Segments HLS par épisode'
-                    : 'Connexions par chapitre',
+                    ? l10n.queue_segments_per_episode
+                    : l10n.queue_connections_per_chapter,
                 style: TextStyle(fontSize: 12, color: scheme.onSurface),
               ),
               const Spacer(),
@@ -1351,7 +1356,7 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
 
         const SizedBox(height: 18),
         _SheetSection(
-          label: 'Comportement',
+          label: l10n.downloads_behavior_section,
           scheme: scheme,
           icon: Icons.tune_rounded,
         ),
@@ -1360,10 +1365,13 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
           dense: true,
           contentPadding: EdgeInsets.zero,
           secondary: const Icon(Icons.wifi_rounded),
-          title: const Text('Wi-Fi uniquement', style: TextStyle(fontSize: 13)),
-          subtitle: const Text(
-            'Télécharger uniquement via Wi-Fi',
-            style: TextStyle(fontSize: 11),
+          title: Text(
+            l10n.downloads_wifi_only,
+            style: const TextStyle(fontSize: 13),
+          ),
+          subtitle: Text(
+            l10n.downloads_wifi_only_subtitle,
+            style: const TextStyle(fontSize: 11),
           ),
           value: onlyOnWifi,
           onChanged: (v) => _wifiSetter(ref)(v),
@@ -1374,9 +1382,9 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             secondary: const Icon(Icons.auto_awesome_rounded),
-            title: const Text(
-              'Télécharger les nouveaux épisodes',
-              style: TextStyle(fontSize: 13),
+            title: Text(
+              l10n.downloads_new_episodes,
+              style: const TextStyle(fontSize: 13),
             ),
             value: ref.watch(autoDownloadNewEpisodesStateProvider),
             onChanged: (v) => ref
@@ -1387,9 +1395,9 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             secondary: const Icon(Icons.filter_alt_outlined),
-            title: const Text(
-              'Autoriser les épisodes filler',
-              style: TextStyle(fontSize: 13),
+            title: Text(
+              l10n.downloads_filler,
+              style: const TextStyle(fontSize: 13),
             ),
             value: ref.watch(downloadFillerEpisodesStateProvider),
             onChanged: (v) =>
@@ -1402,9 +1410,9 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             secondary: const Icon(Icons.auto_awesome_rounded),
-            title: const Text(
-              'Télécharger les nouveaux chapitres',
-              style: TextStyle(fontSize: 13),
+            title: Text(
+              l10n.downloads_manga_new_chapters,
+              style: const TextStyle(fontSize: 13),
             ),
             value: ref.watch(autoDownloadNewChaptersStateProvider),
             onChanged: (v) => ref
@@ -1415,12 +1423,12 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.folder_zip_outlined),
-            title: const Text(
-              'Format d\'archive',
-              style: TextStyle(fontSize: 13),
+            title: Text(
+              context.l10n.downloads_archive_section,
+              style: const TextStyle(fontSize: 13),
             ),
             subtitle: Text(
-              settings.mangaArchiveFormat.label,
+              settings.mangaArchiveFormat.label(context.l10n),
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
             trailing: Text(
@@ -1437,9 +1445,9 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             secondary: const Icon(Icons.delete_outline_rounded),
-            title: const Text(
-              'Supprimer après lecture',
-              style: TextStyle(fontSize: 13),
+            title: Text(
+              l10n.downloads_delete_after_read,
+              style: const TextStyle(fontSize: 13),
             ),
             value: ref.watch(deleteAfterMarkedReadStateProvider),
             onChanged: (v) =>
@@ -1452,12 +1460,12 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.download_outlined),
-            title: const Text(
-              'Moteur de téléchargement',
-              style: TextStyle(fontSize: 13),
+            title: Text(
+              context.l10n.downloads_engine_section,
+              style: const TextStyle(fontSize: 13),
             ),
             subtitle: Text(
-              settings.animeDownloadMode.label,
+              settings.animeDownloadMode.label(context.l10n),
               style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
             ),
             onTap: () => _pickDownloadMode(ref, context),
@@ -1513,7 +1521,7 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
     final picked = await showDialog<MangaArchiveFormat>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Format d\'archive'),
+        title: Text(context.l10n.downloads_archive_section),
         children: MangaArchiveFormat.supportedFormats
             .map(
               (f) => RadioGroup<MangaArchiveFormat>(
@@ -1522,7 +1530,7 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
                   if (v != null) Navigator.pop(ctx, v);
                 },
                 child: RadioListTile<MangaArchiveFormat>(
-                  title: Text(f.label),
+                  title: Text(f.label(context.l10n)),
                   subtitle: Text(
                     f.shortLabel,
                     style: const TextStyle(fontSize: 11),
@@ -1544,7 +1552,7 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
     final picked = await showDialog<DownloadMode>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Moteur de téléchargement'),
+        title: Text(context.l10n.downloads_engine_section),
         children: DownloadMode.values
             .map(
               (m) => RadioGroup<DownloadMode>(
@@ -1553,9 +1561,9 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
                   if (v != null) Navigator.pop(ctx, v);
                 },
                 child: RadioListTile<DownloadMode>(
-                  title: Text(m.label),
+                  title: Text(m.label(context.l10n)),
                   subtitle: Text(
-                    m.description,
+                    m.description(context.l10n),
                     style: const TextStyle(fontSize: 11),
                   ),
                   value: m,
@@ -1743,7 +1751,7 @@ class _SimultaneousRow extends StatelessWidget {
           if (onOpenSettings != null) ...[
             const SizedBox(width: 6),
             _RowChevron(
-              tooltip: 'Paramètres $label',
+              tooltip: context.l10n.queue_params_for(label),
               color: iconColor,
               onTap: onOpenSettings!,
             ),
@@ -2390,7 +2398,7 @@ class _GroupedDownloadTabListState
         alignment: Alignment.centerLeft,
         color: Colors.red.shade700,
         icon: Icons.delete_outline_rounded,
-        label: 'Supprimer',
+        label: context.l10n.delete,
       ),
       secondaryBackground: _swipeBackground(
         alignment: Alignment.centerRight,
@@ -2541,8 +2549,10 @@ class _GroupedDownloadTabListState
         manga?.name ??
         firstDownload.title ??
         firstDownload.chapter.value?.name ??
-        'Téléchargement';
-    final itemUnit = itemType == ItemType.anime ? 'épisodes' : 'chapitres';
+        context.l10n.queue_transfer;
+    final itemUnit = itemType == ItemType.anime
+        ? context.l10n.queue_unit_episodes
+        : context.l10n.queue_unit_chapters;
     final animeHasExactTotals =
         itemType == ItemType.anime &&
         items.every((download) => (download.totalBytes ?? 0) > 0);
@@ -2636,7 +2646,7 @@ class _GroupedDownloadTabListState
         alignment: Alignment.centerLeft,
         color: Colors.red.shade700,
         icon: Icons.delete_outline_rounded,
-        label: 'Supprimer la série',
+        label: context.l10n.queue_delete_series,
       ),
       secondaryBackground: _swipeBackground(
         alignment: Alignment.centerRight,
@@ -2644,7 +2654,9 @@ class _GroupedDownloadTabListState
         icon: allUnfinishedPaused
             ? Icons.play_arrow_rounded
             : Icons.pause_rounded,
-        label: allUnfinishedPaused ? 'Reprendre la série' : 'Pause série',
+        label: allUnfinishedPaused
+            ? context.l10n.queue_resume_series
+            : context.l10n.queue_pause_series,
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
@@ -2756,8 +2768,8 @@ class _GroupedDownloadTabListState
                 if (controllableItems.isNotEmpty)
                   IconButton(
                     tooltip: allUnfinishedPaused
-                        ? 'Reprendre la série'
-                        : 'Mettre la série en pause',
+                        ? context.l10n.queue_resume_series
+                        : context.l10n.queue_pause_series_full,
                     visualDensity: VisualDensity.compact,
                     onPressed: () {
                       for (final download in controllableItems) {
@@ -2918,7 +2930,9 @@ class _GroupedDownloadTabListState
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Challenge Cloudflare — ${target.sourceName ?? 'source'}',
+                      context.l10n.queue_cloudflare_challenge(
+                        target.sourceName ?? 'source',
+                      ),
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
@@ -2931,7 +2945,7 @@ class _GroupedDownloadTabListState
                     visualDensity: VisualDensity.compact,
                     iconSize: 18,
                     icon: const Icon(Icons.close_rounded),
-                    tooltip: 'Masquer',
+                    tooltip: context.l10n.queue_hide,
                     onPressed: widget.onChallengeClosed,
                   ),
                 ],
@@ -2943,7 +2957,7 @@ class _GroupedDownloadTabListState
                 compact: true,
                 onRetry: () => widget.onRetry(download),
                 onResolved: () {
-                  botToast('Challenge résolu — reprise du téléchargement');
+                  botToast(context.l10n.queue_challenge_resolved);
                   widget.onRetry(download);
                 },
               ),
@@ -2982,14 +2996,18 @@ class _GroupedDownloadTabListState
         color: Colors.red.shade700,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 28),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.delete_outline_rounded, color: Colors.white, size: 30),
-            SizedBox(height: 4),
+            const Icon(
+              Icons.delete_outline_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
+            const SizedBox(height: 4),
             Text(
-              'Supprimer',
-              style: TextStyle(
+              context.l10n.delete,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -3041,7 +3059,11 @@ class _GroupedDownloadTabListState
           ref
               .read(downloadQueueStateProvider.notifier)
               .setPriority(element.id ?? -1, newPrio);
-          botToast(newPrio > 0 ? 'Priorité haute activée' : 'Priorité normale');
+          botToast(
+            newPrio > 0
+                ? context.l10n.queue_priority_high
+                : context.l10n.queue_priority_normal,
+          );
         },
         child: _DownloadCard(
           download: element,
@@ -3245,7 +3267,7 @@ class _DownloadCard extends ConsumerWidget {
     final fileDetails = fileMetadata.join(' • ');
     final progressLabel = isComplete && itemType == ItemType.anime
         ? ''
-        : _buildProgressLabel(itemType, succeeded, total, failed);
+        : _buildProgressLabel(context, itemType, succeeded, total, failed);
 
     final scheme = Theme.of(context).colorScheme;
 
@@ -3305,17 +3327,21 @@ class _DownloadCard extends ConsumerWidget {
     if (isCompressing) {
       // Manga packs its pages into an archive; anime concatenates the HLS
       // fragments and muxes them. Both are the golden second pass.
-      statusText = itemType == ItemType.anime ? 'Assemblage' : 'Compression';
+      statusText = itemType == ItemType.anime
+          ? context.l10n.queue_status_muxing
+          : context.l10n.queue_status_compressing;
     } else if (isComplete) {
-      statusText = fileDetails.isNotEmpty ? fileDetails : 'Terminé';
+      statusText = fileDetails.isNotEmpty
+          ? fileDetails
+          : context.l10n.queue_status_completed;
     } else if (hasFailed) {
-      statusText = 'Échec';
+      statusText = context.l10n.queue_status_failed;
     } else if (isCancelled) {
-      statusText = 'Annulé';
+      statusText = context.l10n.queue_status_canceled;
     } else if (isPaused) {
-      statusText = 'En pause';
+      statusText = context.l10n.queue_status_paused;
     } else if (isWaiting) {
-      statusText = 'En attente';
+      statusText = context.l10n.queue_status_waiting;
     } else {
       // Keep the queue quiet while idle or transferring. The bar, speed, and
       // byte counters already communicate progress without a repeated label.
@@ -3422,16 +3448,16 @@ class _DownloadCard extends ConsumerWidget {
     if (isSeriesChild && layout != DownloadCardLayout.media) {
       final chapterLabel = chapter?.name?.trim();
       final childTitle = chapterLabel == null || chapterLabel.isEmpty
-          ? 'Chapitre'
+          ? context.l10n.queue_unit_chapter
           : chapterLabel;
       final childDetails = isComplete && fileDetails.isNotEmpty
           ? fileDetails
           : hasFailed
-          ? 'Échec'
+          ? context.l10n.queue_status_failed
           : isCancelled
-          ? 'Annulé'
+          ? context.l10n.queue_status_canceled
           : isPaused
-          ? 'En pause'
+          ? context.l10n.queue_status_paused
           : progressLabel;
 
       return Padding(
@@ -3770,7 +3796,9 @@ class _DownloadCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isComplete ? 'Téléchargement terminé' : progressLabel,
+                    isComplete
+                        ? context.l10n.queue_download_finished
+                        : progressLabel,
                     style: TextStyle(
                       color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                       fontSize: 11,
@@ -3801,7 +3829,9 @@ class _DownloadCard extends ConsumerWidget {
       transferSizeLabel =
           '${_formatBytes(exactDownloadedBytes)} / ${_formatBytes(exactTotalBytes)}';
     } else if (exactDownloadedBytes != null && exactDownloadedBytes > 0) {
-      transferSizeLabel = '${_formatBytes(exactDownloadedBytes)} reçus';
+      transferSizeLabel = context.l10n.queue_received(
+        _formatBytes(exactDownloadedBytes),
+      );
     } else if (finalSizeBytes != null && finalSizeBytes > 0) {
       transferSizeLabel = _formatBytes(finalSizeBytes);
     } else {
@@ -3987,6 +4017,7 @@ class _DownloadCard extends ConsumerWidget {
   }
 
   String _buildProgressLabel(
+    BuildContext context,
     ItemType itemType,
     int succeeded,
     int total,
@@ -4024,7 +4055,7 @@ class _DownloadCard extends ConsumerWidget {
             details.add('${live.completedUnits}/${live.totalUnits} segments');
           }
           if (downloaded != null && downloaded > 0) {
-            details.add('${_formatBytes(downloaded)} reçus');
+            details.add(context.l10n.queue_received(_formatBytes(downloaded)));
           }
         }
         return withSpeed(details.join(' · '));
@@ -4481,7 +4512,9 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
                                 icon: widget.isPaused
                                     ? Icons.play_arrow_rounded
                                     : Icons.pause_rounded,
-                                label: widget.isPaused ? 'Reprendre' : 'Pause',
+                                label: widget.isPaused
+                                    ? context.l10n.queue_resume
+                                    : context.l10n.queue_pause,
                                 color: Colors.orange.shade700,
                                 onTap: () => _tap(widget.onPauseResume),
                               ),
@@ -4491,7 +4524,7 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
                               Expanded(
                                 child: _SwipeActionItem(
                                   icon: Icons.close_rounded,
-                                  label: 'Annuler',
+                                  label: context.l10n.cancel,
                                   color: Colors.red.shade700,
                                   onTap: () => _tap(widget.onCancel),
                                 ),
@@ -4516,7 +4549,7 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
                               Expanded(
                                 child: _SwipeActionItem(
                                   icon: Icons.folder_open_outlined,
-                                  label: 'Ouvrir',
+                                  label: context.l10n.plugins_action_open,
                                   color: scheme.primary,
                                   onTap: () => _tap(widget.onOpen),
                                 ),
@@ -4525,7 +4558,7 @@ class _ProgressiveSwipeableState extends State<_ProgressiveSwipeable>
                             Expanded(
                               child: _SwipeActionItem(
                                 icon: Icons.delete_outline_rounded,
-                                label: 'Supprimer',
+                                label: context.l10n.delete,
                                 color: Colors.red.shade900,
                                 onTap: () => _tap(widget.onDelete),
                               ),

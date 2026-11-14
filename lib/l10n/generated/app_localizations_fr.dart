@@ -6678,4 +6678,569 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get library_settings_swipe_none => 'Aucun(e)';
+
+  @override
+  String get downloads_watch_title => 'Téléchargements — Watch';
+
+  @override
+  String get downloads_novel_title => 'Téléchargements — Roman';
+
+  @override
+  String get downloads_music_title => 'Téléchargements — Musique';
+
+  @override
+  String get downloads_game_title => 'Téléchargements — Jeu';
+
+  @override
+  String get downloads_engine_section => 'Moteur de téléchargement';
+
+  @override
+  String get downloads_connections_section => 'Connexions';
+
+  @override
+  String get downloads_behavior_section => 'Comportement';
+
+  @override
+  String get downloads_hls_connections => 'Connexions HLS simultanées';
+
+  @override
+  String get downloads_hls_connections_subtitle =>
+      'Segments téléchargés en parallèle par épisode';
+
+  @override
+  String get downloads_episodes_queue => 'Épisodes simultanés (file)';
+
+  @override
+  String get downloads_episodes_queue_subtitle =>
+      'Nombre d’épisodes téléchargés en même temps';
+
+  @override
+  String get downloads_wifi_only => 'Wi-Fi uniquement';
+
+  @override
+  String get downloads_wifi_only_subtitle => 'Télécharger uniquement via Wi-Fi';
+
+  @override
+  String get downloads_new_episodes => 'Télécharger les nouveaux épisodes';
+
+  @override
+  String get downloads_new_episodes_subtitle =>
+      'Télécharge automatiquement les nouveaux épisodes disponibles';
+
+  @override
+  String get downloads_filler => 'Autoriser les épisodes filler';
+
+  @override
+  String get downloads_filler_subtitle =>
+      'Inclure les épisodes filler dans les téléchargements automatiques';
+
+  @override
+  String get downloads_anticipatory => 'Téléchargement anticipé';
+
+  @override
+  String get downloads_anticipatory_watch_subtitle =>
+      'Pré-télécharge pendant le visionnage si les 2 éps suivants sont disponibles';
+
+  @override
+  String get downloads_external_section => 'Téléchargeur externe';
+
+  @override
+  String get downloads_always_external =>
+      'Toujours utiliser un téléchargeur externe';
+
+  @override
+  String get downloads_always_external_subtitle =>
+      'Délègue chaque téléchargement à l’app externe choisie ci-dessous';
+
+  @override
+  String get downloads_no_app => 'Aucune app sélectionnée';
+
+  @override
+  String get downloads_no_app_subtitle =>
+      'L’application demandera à chaque téléchargement.';
+
+  @override
+  String get downloads_preferred_app => 'App de téléchargement préférée';
+
+  @override
+  String get downloads_none_app => 'Aucune';
+
+  @override
+  String downloads_test_launch(Object name) {
+    return 'Tester (lance $name)';
+  }
+
+  @override
+  String downloads_launched(Object name) {
+    return '$name lancé via intent';
+  }
+
+  @override
+  String downloads_launch_failed(Object name) {
+    return 'Échec du lancement de $name (app installée ?)';
+  }
+
+  @override
+  String get downloads_official_site => 'Site officiel';
+
+  @override
+  String get downloads_ext_adm_desc =>
+      'Gestionnaire de téléchargement multi-thread pour Android.';
+
+  @override
+  String get downloads_ext_1dm_desc =>
+      'Téléchargeur rapide avec support HLS et DASH pour Android.';
+
+  @override
+  String get downloads_ext_fdm_desc =>
+      'Téléchargeur multiplateforme gratuit et open-source.';
+
+  @override
+  String get downloads_ext_idm_desc =>
+      'Téléchargeur haute vitesse avec reprise (Windows).';
+
+  @override
+  String get downloads_ext_jdownloader_desc =>
+      'Téléchargeur open-source multiplateforme très populaire.';
+
+  @override
+  String get downloads_ext_motrix_desc =>
+      'Téléchargeur Aria2 open-source avec interface moderne.';
+
+  @override
+  String get downloads_mode_internal => 'Interne';
+
+  @override
+  String get downloads_mode_external => 'Externe';
+
+  @override
+  String get downloads_mode_internal_desc =>
+      'Téléchargeur HLS intégré à l’application. Idéal pour la majorité des streams.';
+
+  @override
+  String get downloads_mode_aria2_desc =>
+      'Moteur aria2c haute performance. Connexions multiples et reprise des téléchargements.';
+
+  @override
+  String get downloads_mode_external_desc =>
+      'Délègue à une app externe (ADM, 1DM, FDM, IDM…). Le téléchargement quitte l’application.';
+
+  @override
+  String get downloads_manga_engine_note =>
+      'Le Manga utilise toujours le téléchargeur interne : les pages d’un chapitre sont récupérées en parallèle automatiquement.';
+
+  @override
+  String get downloads_archive_section => 'Format d’archive';
+
+  @override
+  String get downloads_compression_section => 'Compression';
+
+  @override
+  String get downloads_compression_disabled =>
+      'Choisissez un format d’archive pour activer la compression.';
+
+  @override
+  String get downloads_compression_none =>
+      'Aucune recompression : les pages originales sont conservées, seul le rangement ZIP est appliqué (le plus rapide).';
+
+  @override
+  String downloads_compression_level(Object level) {
+    return 'Niveau $level/9 · les pages sont ré-encodées en JPEG plus léger puis rangées dans l’archive : fichier plus petit, un peu de qualité en moins.';
+  }
+
+  @override
+  String get downloads_less_compressed => 'Moins compressé';
+
+  @override
+  String get downloads_more_compressed => 'Plus compressé';
+
+  @override
+  String get downloads_compression_fast => 'Rapide';
+
+  @override
+  String get downloads_compression_light => 'Léger';
+
+  @override
+  String get downloads_compression_light_plus => 'Léger +';
+
+  @override
+  String get downloads_compression_standard => 'Standard';
+
+  @override
+  String get downloads_compression_standard_plus => 'Standard +';
+
+  @override
+  String get downloads_compression_strong => 'Fort';
+
+  @override
+  String get downloads_compression_strong_plus => 'Fort +';
+
+  @override
+  String get downloads_compression_intense => 'Intense';
+
+  @override
+  String get downloads_compression_intense_plus => 'Intense +';
+
+  @override
+  String get downloads_compression_maximum => 'Maximum';
+
+  @override
+  String get downloads_archive_cbz_title => 'Comic Book ZIP';
+
+  @override
+  String get downloads_archive_cbz_subtitle =>
+      'Le plus compatible · images ZIP';
+
+  @override
+  String get downloads_archive_cbr_title => 'Comic Book RAR';
+
+  @override
+  String get downloads_archive_cbr_subtitle =>
+      'Conteneur CBR · lisible partout';
+
+  @override
+  String get downloads_archive_cb7_title => 'Comic Book 7-Zip';
+
+  @override
+  String get downloads_archive_cb7_subtitle => 'Conteneur CB7 · très compressé';
+
+  @override
+  String get downloads_archive_zip_title => 'ZIP standard';
+
+  @override
+  String get downloads_archive_zip_subtitle => 'Archive ZIP brute';
+
+  @override
+  String get downloads_archive_folder_title => 'Dossier d’images';
+
+  @override
+  String get downloads_archive_folder_subtitle =>
+      'Aucune archive · accès direct';
+
+  @override
+  String get downloads_manga_new_chapters =>
+      'Télécharger les nouveaux chapitres';
+
+  @override
+  String get downloads_manga_new_chapters_subtitle =>
+      'Télécharge automatiquement les nouveaux chapitres disponibles';
+
+  @override
+  String get downloads_anticipatory_read => 'Téléchargement anticipé (lecture)';
+
+  @override
+  String get downloads_anticipatory_read_subtitle =>
+      'Pré-télécharge si le chapitre actuel et le suivant sont déjà présents';
+
+  @override
+  String get downloads_delete_after_read => 'Supprimer après lecture';
+
+  @override
+  String get downloads_delete_after_read_subtitle =>
+      'Supprime le chapitre dès qu’il est marqué comme lu';
+
+  @override
+  String get downloads_delete_marked => 'Supprimer même les chapitres marqués';
+
+  @override
+  String get downloads_delete_marked_subtitle =>
+      'La suppression automatique s’applique aussi aux chapitres avec marque-page';
+
+  @override
+  String get downloads_novel_note =>
+      'Le Roman utilise le téléchargeur interne via l’extension source. Les chapitres sont sauvegardés en HTML et regroupés par titre.';
+
+  @override
+  String get downloads_music_note =>
+      'La Musique utilise le téléchargeur interne via l’extension source.';
+
+  @override
+  String get downloads_game_note =>
+      'Le Jeu utilise le téléchargeur interne via l’extension source.';
+
+  @override
+  String get downloads_connections_simultaneous => 'Connexions simultanées';
+
+  @override
+  String get downloads_connections_per_chapter =>
+      'Connexions parallèles par chapitre';
+
+  @override
+  String get downloads_connections_per_download =>
+      'Connexions parallèles par téléchargement';
+
+  @override
+  String get downloads_chapters_queue => 'Chapitres simultanés (file)';
+
+  @override
+  String get downloads_chapters_queue_subtitle =>
+      'Nombre de chapitres téléchargés en même temps';
+
+  @override
+  String get downloads_items_queue => 'Téléchargements simultanés (file)';
+
+  @override
+  String get downloads_items_queue_subtitle =>
+      'Nombre d’éléments téléchargés en même temps';
+
+  @override
+  String get downloads_cards_buttons_section =>
+      'Boutons des cartes de téléchargement';
+
+  @override
+  String get downloads_cards_buttons_subtitle =>
+      'Choisissez les boutons affichés sur chaque carte de téléchargement.';
+
+  @override
+  String get downloads_card_preview => 'Aperçu de la carte';
+
+  @override
+  String get downloads_swipe_subtitle =>
+      'Action déclenchée en balayant une carte à gauche ou à droite.';
+
+  @override
+  String get downloads_swipe_left => 'Balayer à gauche';
+
+  @override
+  String get downloads_swipe_right => 'Balayer à droite';
+
+  @override
+  String get downloads_no_buttons =>
+      'Aucun bouton affiché — balayez pour agir.';
+
+  @override
+  String get downloads_storage_format => 'Format de stockage';
+
+  @override
+  String get downloads_archive_folder_desc =>
+      'Pages vérifiées, conservées dans un dossier.';
+
+  @override
+  String get downloads_archive_cbz_desc =>
+      'Archive créée après validation de toutes les pages.';
+
+  @override
+  String get downloads_archive_zip_desc =>
+      'Archive ZIP créée après validation des pages.';
+
+  @override
+  String get downloads_archive_unsupported =>
+      'Format non pris en charge : un CBZ sera produit.';
+
+  @override
+  String get downloads_archive_label_folder => 'Dossier (images)';
+
+  @override
+  String get downloads_swipe_pause_resume => 'Pause / Reprendre';
+
+  @override
+  String get downloads_swipe_cancel => 'Annuler';
+
+  @override
+  String get downloads_swipe_delete => 'Supprimer';
+
+  @override
+  String get downloads_swipe_retry => 'Réessayer';
+
+  @override
+  String get downloads_swipe_disabled => 'Désactivé';
+
+  @override
+  String get downloads_open_folder => 'Ouvrir dossier';
+
+  @override
+  String get downloads_swipe_section => 'Actions de balayage';
+
+  @override
+  String get queue_title => 'Téléchargements';
+
+  @override
+  String get queue_load_error =>
+      'Impossible de charger la file de téléchargement.';
+
+  @override
+  String queue_unfinished(Object count) {
+    return 'Non terminés ($count)';
+  }
+
+  @override
+  String get queue_manage => 'Gérer';
+
+  @override
+  String get queue_empty_watch => 'Aucun téléchargement Watch';
+
+  @override
+  String get queue_empty_manga => 'Aucun téléchargement Manga';
+
+  @override
+  String get queue_empty_novel => 'Aucun téléchargement Novel';
+
+  @override
+  String get queue_empty_music => 'Aucun téléchargement Musique';
+
+  @override
+  String get queue_empty_game => 'Aucun téléchargement Jeu';
+
+  @override
+  String get queue_download_canceled => 'Téléchargement annulé.';
+
+  @override
+  String get queue_chapter_not_found => 'Chapitre introuvable.';
+
+  @override
+  String get queue_manage_downloads => 'Gérer les téléchargements';
+
+  @override
+  String queue_settings_for(Object name) {
+    return 'Paramètres $name';
+  }
+
+  @override
+  String get queue_act_on_all => 'Agir sur toute la file d’attente';
+
+  @override
+  String get queue_stop => 'Arrêter';
+
+  @override
+  String get queue_simultaneous => 'Simultanés';
+
+  @override
+  String get queue_simultaneous_help =>
+      'Nombre de téléchargements parallèles par type et par source';
+
+  @override
+  String get queue_density_help =>
+      'Densité d’affichage des éléments de la file';
+
+  @override
+  String get queue_background => 'Arrière-plan';
+
+  @override
+  String get queue_continue_closed => 'Continuer même app fermée';
+
+  @override
+  String get queue_background_enabled =>
+      'Téléchargement en arrière-plan activé';
+
+  @override
+  String get queue_clear_completed => 'Effacer les terminés';
+
+  @override
+  String get queue_clear_completed_subtitle =>
+      'Retirer de la file les éléments finis';
+
+  @override
+  String get queue_completed_removed => 'Terminés supprimés de la file';
+
+  @override
+  String queue_simultaneous_for(Object name) {
+    return 'Téléchargements parallèles pour $name';
+  }
+
+  @override
+  String get queue_connections => 'Connexions';
+
+  @override
+  String get queue_connections_help =>
+      'Connexions parallèles par unité téléchargée';
+
+  @override
+  String get queue_segments_per_episode => 'Segments HLS par épisode';
+
+  @override
+  String get queue_connections_per_chapter => 'Connexions par chapitre';
+
+  @override
+  String queue_params_for(Object name) {
+    return 'Paramètres $name';
+  }
+
+  @override
+  String get queue_delete_series => 'Supprimer la série';
+
+  @override
+  String get queue_resume_series => 'Reprendre la série';
+
+  @override
+  String get queue_pause_series => 'Pause série';
+
+  @override
+  String get queue_pause_series_full => 'Mettre la série en pause';
+
+  @override
+  String get queue_hide => 'Masquer';
+
+  @override
+  String get queue_challenge_resolved =>
+      'Challenge résolu — reprise du téléchargement';
+
+  @override
+  String get queue_priority_high => 'Priorité haute activée';
+
+  @override
+  String get queue_priority_normal => 'Priorité normale';
+
+  @override
+  String get queue_status_completed => 'Terminé';
+
+  @override
+  String get queue_status_failed => 'Échec';
+
+  @override
+  String get queue_status_canceled => 'Annulé';
+
+  @override
+  String get queue_unit_chapter => 'Chapitre';
+
+  @override
+  String get queue_unit_episodes => 'épisodes';
+
+  @override
+  String get queue_unit_chapters => 'chapitres';
+
+  @override
+  String get queue_download_finished => 'Téléchargement terminé';
+
+  @override
+  String queue_received(Object size) {
+    return '$size reçus';
+  }
+
+  @override
+  String get queue_transfer => 'Téléchargement';
+
+  @override
+  String get queue_quick_actions => 'Actions rapides';
+
+  @override
+  String get queue_start => 'Lancer';
+
+  @override
+  String get queue_retry => 'Réessayer';
+
+  @override
+  String get queue_layout => 'Disposition';
+
+  @override
+  String get queue_status_muxing => 'Assemblage';
+
+  @override
+  String get queue_status_compressing => 'Compression';
+
+  @override
+  String get queue_status_paused => 'En pause';
+
+  @override
+  String get queue_status_waiting => 'En attente';
+
+  @override
+  String queue_cloudflare_challenge(Object source) {
+    return 'Challenge Cloudflare — $source';
+  }
+
+  @override
+  String get queue_resume => 'Reprendre';
+
+  @override
+  String get queue_pause => 'Pause';
 }

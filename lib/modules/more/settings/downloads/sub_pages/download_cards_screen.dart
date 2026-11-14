@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -15,24 +16,25 @@ class DownloadCardsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final cardButtons = ref.watch(cardButtonsStateProvider);
     final swipeLeft = ref.watch(swipeLeftActionStateProvider);
     final swipeRight = ref.watch(swipeRightActionStateProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Cartes & Gestes',
+      title: l10n.downloads_cards_gestures,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Boutons des cartes ───────────────────────────────────────
-            _SectionHeader(title: 'Boutons des cartes de téléchargement'),
+            _SectionHeader(title: l10n.downloads_cards_buttons_section),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Choisissez les boutons affichés sur chaque carte de téléchargement.',
+                l10n.downloads_cards_buttons_subtitle,
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ),
@@ -44,20 +46,20 @@ class DownloadCardsScreen extends ConsumerWidget {
             ),
 
             // ── Aperçu ──────────────────────────────────────────────────
-            _SectionHeader(title: 'Aperçu de la carte'),
+            _SectionHeader(title: l10n.downloads_card_preview),
             _CardPreview(enabledButtons: cardButtons, scheme: scheme),
 
             // ── Actions de balayage ─────────────────────────────────────
-            _SectionHeader(title: 'Actions de balayage'),
+            _SectionHeader(title: l10n.downloads_swipe_section),
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'Action déclenchée en balayant une carte à gauche ou à droite.',
+                l10n.downloads_swipe_subtitle,
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ),
             _SwipeActionTile(
-              label: 'Balayer à gauche',
+              label: l10n.downloads_swipe_left,
               icon: Broken.arrow_left,
               current: swipeLeft,
               scheme: scheme,
@@ -65,7 +67,7 @@ class DownloadCardsScreen extends ConsumerWidget {
                   ref.read(swipeLeftActionStateProvider.notifier).set(v),
             ),
             _SwipeActionTile(
-              label: 'Balayer à droite',
+              label: l10n.downloads_swipe_right,
               icon: Broken.arrow_right,
               current: swipeRight,
               scheme: scheme,
@@ -129,7 +131,7 @@ class _CardButtonsGrid extends StatelessWidget {
               ),
             ),
             title: Text(
-              btn.label,
+              btn.label(context.l10n),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isEnabled ? FontWeight.w600 : FontWeight.normal,
@@ -252,7 +254,7 @@ class _CardPreview extends StatelessWidget {
                         Icon(btn.icon, size: 14, color: scheme.primary),
                         const SizedBox(width: 4),
                         Text(
-                          btn.label.split(' / ').first,
+                          btn.label(context.l10n).split(' / ').first,
                           style: TextStyle(
                             fontSize: 11,
                             color: scheme.primary,
@@ -268,7 +270,7 @@ class _CardPreview extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 8),
             Text(
-              'Aucun bouton affiché — balayez pour agir.',
+              context.l10n.downloads_no_buttons,
               style: TextStyle(
                 fontSize: 11,
                 color: scheme.onSurfaceVariant,
@@ -325,7 +327,7 @@ class _SwipeActionTile extends StatelessWidget {
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
         subtitle: Text(
-          current.label,
+          current.label(context.l10n),
           style: TextStyle(fontSize: 12, color: scheme.primary),
         ),
         trailing: Icon(Broken.arrow_right_3, color: scheme.onSurfaceVariant),
@@ -352,7 +354,7 @@ class _SwipeActionTile extends StatelessWidget {
                 }
               },
               child: RadioListTile<SwipeAction>(
-                title: Text(action.label),
+                title: Text(action.label(context.l10n)),
                 value: action,
               ),
             );
@@ -362,7 +364,7 @@ class _SwipeActionTile extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
-              'Annuler',
+              context.l10n.cancel,
               style: TextStyle(color: context.primaryColor),
             ),
           ),

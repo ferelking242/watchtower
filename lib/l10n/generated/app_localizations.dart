@@ -11572,6 +11572,996 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'None'**
   String get library_settings_swipe_none;
+
+  /// No description provided for @downloads_watch_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads — Watch'**
+  String get downloads_watch_title;
+
+  /// No description provided for @downloads_novel_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads — Novel'**
+  String get downloads_novel_title;
+
+  /// No description provided for @downloads_music_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads — Music'**
+  String get downloads_music_title;
+
+  /// No description provided for @downloads_game_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads — Game'**
+  String get downloads_game_title;
+
+  /// No description provided for @downloads_engine_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Download engine'**
+  String get downloads_engine_section;
+
+  /// No description provided for @downloads_connections_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Connections'**
+  String get downloads_connections_section;
+
+  /// No description provided for @downloads_behavior_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Behavior'**
+  String get downloads_behavior_section;
+
+  /// No description provided for @downloads_hls_connections.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous HLS connections'**
+  String get downloads_hls_connections;
+
+  /// No description provided for @downloads_hls_connections_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Segments downloaded in parallel per episode'**
+  String get downloads_hls_connections_subtitle;
+
+  /// No description provided for @downloads_episodes_queue.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous episodes (queue)'**
+  String get downloads_episodes_queue;
+
+  /// No description provided for @downloads_episodes_queue_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of episodes downloaded at the same time'**
+  String get downloads_episodes_queue_subtitle;
+
+  /// No description provided for @downloads_wifi_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Wi-Fi only'**
+  String get downloads_wifi_only;
+
+  /// No description provided for @downloads_wifi_only_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Download over Wi-Fi only'**
+  String get downloads_wifi_only_subtitle;
+
+  /// No description provided for @downloads_new_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Download new episodes'**
+  String get downloads_new_episodes;
+
+  /// No description provided for @downloads_new_episodes_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically downloads new available episodes'**
+  String get downloads_new_episodes_subtitle;
+
+  /// No description provided for @downloads_filler.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow filler episodes'**
+  String get downloads_filler;
+
+  /// No description provided for @downloads_filler_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Include filler episodes in automatic downloads'**
+  String get downloads_filler_subtitle;
+
+  /// No description provided for @downloads_anticipatory.
+  ///
+  /// In en, this message translates to:
+  /// **'Anticipatory download'**
+  String get downloads_anticipatory;
+
+  /// No description provided for @downloads_anticipatory_watch_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-downloads while watching when the next 2 episodes are available'**
+  String get downloads_anticipatory_watch_subtitle;
+
+  /// No description provided for @downloads_external_section.
+  ///
+  /// In en, this message translates to:
+  /// **'External downloader'**
+  String get downloads_external_section;
+
+  /// No description provided for @downloads_always_external.
+  ///
+  /// In en, this message translates to:
+  /// **'Always use an external downloader'**
+  String get downloads_always_external;
+
+  /// No description provided for @downloads_always_external_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hands every download to the external app chosen below'**
+  String get downloads_always_external_subtitle;
+
+  /// No description provided for @downloads_no_app.
+  ///
+  /// In en, this message translates to:
+  /// **'No app selected'**
+  String get downloads_no_app;
+
+  /// No description provided for @downloads_no_app_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The app will ask on every download.'**
+  String get downloads_no_app_subtitle;
+
+  /// No description provided for @downloads_preferred_app.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred download app'**
+  String get downloads_preferred_app;
+
+  /// No description provided for @downloads_none_app.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get downloads_none_app;
+
+  /// No description provided for @downloads_test_launch.
+  ///
+  /// In en, this message translates to:
+  /// **'Test (launches {name})'**
+  String downloads_test_launch(Object name);
+
+  /// No description provided for @downloads_launched.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} launched via intent'**
+  String downloads_launched(Object name);
+
+  /// No description provided for @downloads_launch_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not launch {name} (is the app installed?)'**
+  String downloads_launch_failed(Object name);
+
+  /// No description provided for @downloads_official_site.
+  ///
+  /// In en, this message translates to:
+  /// **'Official site'**
+  String get downloads_official_site;
+
+  /// No description provided for @downloads_ext_adm_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Multi-threaded download manager for Android.'**
+  String get downloads_ext_adm_desc;
+
+  /// No description provided for @downloads_ext_1dm_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast downloader with HLS and DASH support for Android.'**
+  String get downloads_ext_1dm_desc;
+
+  /// No description provided for @downloads_ext_fdm_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Free and open-source cross-platform downloader.'**
+  String get downloads_ext_fdm_desc;
+
+  /// No description provided for @downloads_ext_idm_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'High-speed downloader with resume (Windows).'**
+  String get downloads_ext_idm_desc;
+
+  /// No description provided for @downloads_ext_jdownloader_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Very popular open-source cross-platform downloader.'**
+  String get downloads_ext_jdownloader_desc;
+
+  /// No description provided for @downloads_ext_motrix_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Open-source Aria2 downloader with a modern interface.'**
+  String get downloads_ext_motrix_desc;
+
+  /// No description provided for @downloads_mode_internal.
+  ///
+  /// In en, this message translates to:
+  /// **'Internal'**
+  String get downloads_mode_internal;
+
+  /// No description provided for @downloads_mode_external.
+  ///
+  /// In en, this message translates to:
+  /// **'External'**
+  String get downloads_mode_external;
+
+  /// No description provided for @downloads_mode_internal_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'HLS downloader built into the app. Ideal for most streams.'**
+  String get downloads_mode_internal_desc;
+
+  /// No description provided for @downloads_mode_aria2_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'High-performance aria2c engine. Multiple connections and download resume.'**
+  String get downloads_mode_aria2_desc;
+
+  /// No description provided for @downloads_mode_external_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Hands off to an external app (ADM, 1DM, FDM, IDM…). The download leaves the app.'**
+  String get downloads_mode_external_desc;
+
+  /// No description provided for @downloads_manga_engine_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga always uses the internal downloader: a chapter’s pages are fetched in parallel automatically.'**
+  String get downloads_manga_engine_note;
+
+  /// No description provided for @downloads_archive_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive format'**
+  String get downloads_archive_section;
+
+  /// No description provided for @downloads_compression_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Compression'**
+  String get downloads_compression_section;
+
+  /// No description provided for @downloads_compression_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an archive format to enable compression.'**
+  String get downloads_compression_disabled;
+
+  /// No description provided for @downloads_compression_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No recompression: original pages are kept, only ZIP packing is applied (fastest).'**
+  String get downloads_compression_none;
+
+  /// No description provided for @downloads_compression_level.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level}/9 · pages are re-encoded to lighter JPEG then packed into the archive: smaller file, a little quality lost.'**
+  String downloads_compression_level(Object level);
+
+  /// No description provided for @downloads_less_compressed.
+  ///
+  /// In en, this message translates to:
+  /// **'Less compressed'**
+  String get downloads_less_compressed;
+
+  /// No description provided for @downloads_more_compressed.
+  ///
+  /// In en, this message translates to:
+  /// **'More compressed'**
+  String get downloads_more_compressed;
+
+  /// No description provided for @downloads_compression_fast.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get downloads_compression_fast;
+
+  /// No description provided for @downloads_compression_light.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get downloads_compression_light;
+
+  /// No description provided for @downloads_compression_light_plus.
+  ///
+  /// In en, this message translates to:
+  /// **'Light +'**
+  String get downloads_compression_light_plus;
+
+  /// No description provided for @downloads_compression_standard.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard'**
+  String get downloads_compression_standard;
+
+  /// No description provided for @downloads_compression_standard_plus.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard +'**
+  String get downloads_compression_standard_plus;
+
+  /// No description provided for @downloads_compression_strong.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong'**
+  String get downloads_compression_strong;
+
+  /// No description provided for @downloads_compression_strong_plus.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong +'**
+  String get downloads_compression_strong_plus;
+
+  /// No description provided for @downloads_compression_intense.
+  ///
+  /// In en, this message translates to:
+  /// **'Intense'**
+  String get downloads_compression_intense;
+
+  /// No description provided for @downloads_compression_intense_plus.
+  ///
+  /// In en, this message translates to:
+  /// **'Intense +'**
+  String get downloads_compression_intense_plus;
+
+  /// No description provided for @downloads_compression_maximum.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum'**
+  String get downloads_compression_maximum;
+
+  /// No description provided for @downloads_archive_cbz_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Comic Book ZIP'**
+  String get downloads_archive_cbz_title;
+
+  /// No description provided for @downloads_archive_cbz_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Most compatible · ZIP images'**
+  String get downloads_archive_cbz_subtitle;
+
+  /// No description provided for @downloads_archive_cbr_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Comic Book RAR'**
+  String get downloads_archive_cbr_title;
+
+  /// No description provided for @downloads_archive_cbr_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CBR container · readable everywhere'**
+  String get downloads_archive_cbr_subtitle;
+
+  /// No description provided for @downloads_archive_cb7_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Comic Book 7-Zip'**
+  String get downloads_archive_cb7_title;
+
+  /// No description provided for @downloads_archive_cb7_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'CB7 container · highly compressed'**
+  String get downloads_archive_cb7_subtitle;
+
+  /// No description provided for @downloads_archive_zip_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard ZIP'**
+  String get downloads_archive_zip_title;
+
+  /// No description provided for @downloads_archive_zip_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw ZIP archive'**
+  String get downloads_archive_zip_subtitle;
+
+  /// No description provided for @downloads_archive_folder_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Image folder'**
+  String get downloads_archive_folder_title;
+
+  /// No description provided for @downloads_archive_folder_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No archive · direct access'**
+  String get downloads_archive_folder_subtitle;
+
+  /// No description provided for @downloads_manga_new_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'Download new chapters'**
+  String get downloads_manga_new_chapters;
+
+  /// No description provided for @downloads_manga_new_chapters_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically downloads new available chapters'**
+  String get downloads_manga_new_chapters_subtitle;
+
+  /// No description provided for @downloads_anticipatory_read.
+  ///
+  /// In en, this message translates to:
+  /// **'Anticipatory download (reading)'**
+  String get downloads_anticipatory_read;
+
+  /// No description provided for @downloads_anticipatory_read_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-downloads when the current and next chapter are already present'**
+  String get downloads_anticipatory_read_subtitle;
+
+  /// No description provided for @downloads_delete_after_read.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete after reading'**
+  String get downloads_delete_after_read;
+
+  /// No description provided for @downloads_delete_after_read_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes the chapter as soon as it is marked read'**
+  String get downloads_delete_after_read_subtitle;
+
+  /// No description provided for @downloads_delete_marked.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete even bookmarked chapters'**
+  String get downloads_delete_marked;
+
+  /// No description provided for @downloads_delete_marked_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic deletion also applies to bookmarked chapters'**
+  String get downloads_delete_marked_subtitle;
+
+  /// No description provided for @downloads_novel_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Novel uses the internal downloader through the source extension. Chapters are saved as HTML and grouped by title.'**
+  String get downloads_novel_note;
+
+  /// No description provided for @downloads_music_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Music uses the internal downloader through the source extension.'**
+  String get downloads_music_note;
+
+  /// No description provided for @downloads_game_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Game uses the internal downloader through the source extension.'**
+  String get downloads_game_note;
+
+  /// No description provided for @downloads_connections_simultaneous.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous connections'**
+  String get downloads_connections_simultaneous;
+
+  /// No description provided for @downloads_connections_per_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Parallel connections per chapter'**
+  String get downloads_connections_per_chapter;
+
+  /// No description provided for @downloads_connections_per_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Parallel connections per download'**
+  String get downloads_connections_per_download;
+
+  /// No description provided for @downloads_chapters_queue.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous chapters (queue)'**
+  String get downloads_chapters_queue;
+
+  /// No description provided for @downloads_chapters_queue_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of chapters downloaded at the same time'**
+  String get downloads_chapters_queue_subtitle;
+
+  /// No description provided for @downloads_items_queue.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous items (queue)'**
+  String get downloads_items_queue;
+
+  /// No description provided for @downloads_items_queue_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of items downloaded at the same time'**
+  String get downloads_items_queue_subtitle;
+
+  /// No description provided for @downloads_cards_buttons_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Download card buttons'**
+  String get downloads_cards_buttons_section;
+
+  /// No description provided for @downloads_cards_buttons_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the buttons shown on each download card.'**
+  String get downloads_cards_buttons_subtitle;
+
+  /// No description provided for @downloads_card_preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Card preview'**
+  String get downloads_card_preview;
+
+  /// No description provided for @downloads_swipe_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Action triggered by swiping a card left or right.'**
+  String get downloads_swipe_subtitle;
+
+  /// No description provided for @downloads_swipe_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe left'**
+  String get downloads_swipe_left;
+
+  /// No description provided for @downloads_swipe_right.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe right'**
+  String get downloads_swipe_right;
+
+  /// No description provided for @downloads_no_buttons.
+  ///
+  /// In en, this message translates to:
+  /// **'No button shown — swipe to act.'**
+  String get downloads_no_buttons;
+
+  /// No description provided for @downloads_storage_format.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage format'**
+  String get downloads_storage_format;
+
+  /// No description provided for @downloads_archive_folder_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Pages verified, kept in a folder.'**
+  String get downloads_archive_folder_desc;
+
+  /// No description provided for @downloads_archive_cbz_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Archive created after all pages are verified.'**
+  String get downloads_archive_cbz_desc;
+
+  /// No description provided for @downloads_archive_zip_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'ZIP archive created after pages are verified.'**
+  String get downloads_archive_zip_desc;
+
+  /// No description provided for @downloads_archive_unsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsupported format: a CBZ will be produced.'**
+  String get downloads_archive_unsupported;
+
+  /// No description provided for @downloads_archive_label_folder.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder (images)'**
+  String get downloads_archive_label_folder;
+
+  /// No description provided for @downloads_swipe_pause_resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause / Resume'**
+  String get downloads_swipe_pause_resume;
+
+  /// No description provided for @downloads_swipe_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get downloads_swipe_cancel;
+
+  /// No description provided for @downloads_swipe_delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get downloads_swipe_delete;
+
+  /// No description provided for @downloads_swipe_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get downloads_swipe_retry;
+
+  /// No description provided for @downloads_swipe_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get downloads_swipe_disabled;
+
+  /// No description provided for @downloads_open_folder.
+  ///
+  /// In en, this message translates to:
+  /// **'Open folder'**
+  String get downloads_open_folder;
+
+  /// No description provided for @downloads_swipe_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe actions'**
+  String get downloads_swipe_section;
+
+  /// No description provided for @queue_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get queue_title;
+
+  /// No description provided for @queue_load_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the download queue.'**
+  String get queue_load_error;
+
+  /// No description provided for @queue_unfinished.
+  ///
+  /// In en, this message translates to:
+  /// **'Unfinished ({count})'**
+  String queue_unfinished(Object count);
+
+  /// No description provided for @queue_manage.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get queue_manage;
+
+  /// No description provided for @queue_empty_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'No Watch download'**
+  String get queue_empty_watch;
+
+  /// No description provided for @queue_empty_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'No Manga download'**
+  String get queue_empty_manga;
+
+  /// No description provided for @queue_empty_novel.
+  ///
+  /// In en, this message translates to:
+  /// **'No Novel download'**
+  String get queue_empty_novel;
+
+  /// No description provided for @queue_empty_music.
+  ///
+  /// In en, this message translates to:
+  /// **'No Music download'**
+  String get queue_empty_music;
+
+  /// No description provided for @queue_empty_game.
+  ///
+  /// In en, this message translates to:
+  /// **'No Game download'**
+  String get queue_empty_game;
+
+  /// No description provided for @queue_download_canceled.
+  ///
+  /// In en, this message translates to:
+  /// **'Download cancelled.'**
+  String get queue_download_canceled;
+
+  /// No description provided for @queue_chapter_not_found.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter not found.'**
+  String get queue_chapter_not_found;
+
+  /// No description provided for @queue_manage_downloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage downloads'**
+  String get queue_manage_downloads;
+
+  /// No description provided for @queue_settings_for.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} settings'**
+  String queue_settings_for(Object name);
+
+  /// No description provided for @queue_act_on_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Act on the whole queue'**
+  String get queue_act_on_all;
+
+  /// No description provided for @queue_stop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop'**
+  String get queue_stop;
+
+  /// No description provided for @queue_simultaneous.
+  ///
+  /// In en, this message translates to:
+  /// **'Simultaneous'**
+  String get queue_simultaneous;
+
+  /// No description provided for @queue_simultaneous_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of parallel downloads per type and per source'**
+  String get queue_simultaneous_help;
+
+  /// No description provided for @queue_density_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Display density of the queue items'**
+  String get queue_density_help;
+
+  /// No description provided for @queue_background.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get queue_background;
+
+  /// No description provided for @queue_continue_closed.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep going when the app is closed'**
+  String get queue_continue_closed;
+
+  /// No description provided for @queue_background_enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Background downloading enabled'**
+  String get queue_background_enabled;
+
+  /// No description provided for @queue_clear_completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear completed'**
+  String get queue_clear_completed;
+
+  /// No description provided for @queue_clear_completed_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove finished items from the queue'**
+  String get queue_clear_completed_subtitle;
+
+  /// No description provided for @queue_completed_removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed items removed from the queue'**
+  String get queue_completed_removed;
+
+  /// No description provided for @queue_simultaneous_for.
+  ///
+  /// In en, this message translates to:
+  /// **'Parallel downloads for {name}'**
+  String queue_simultaneous_for(Object name);
+
+  /// No description provided for @queue_connections.
+  ///
+  /// In en, this message translates to:
+  /// **'Connections'**
+  String get queue_connections;
+
+  /// No description provided for @queue_connections_help.
+  ///
+  /// In en, this message translates to:
+  /// **'Parallel connections per downloaded unit'**
+  String get queue_connections_help;
+
+  /// No description provided for @queue_segments_per_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'HLS segments per episode'**
+  String get queue_segments_per_episode;
+
+  /// No description provided for @queue_connections_per_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Connections per chapter'**
+  String get queue_connections_per_chapter;
+
+  /// No description provided for @queue_params_for.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} settings'**
+  String queue_params_for(Object name);
+
+  /// No description provided for @queue_delete_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the series'**
+  String get queue_delete_series;
+
+  /// No description provided for @queue_resume_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume the series'**
+  String get queue_resume_series;
+
+  /// No description provided for @queue_pause_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause the series'**
+  String get queue_pause_series;
+
+  /// No description provided for @queue_pause_series_full.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause the series'**
+  String get queue_pause_series_full;
+
+  /// No description provided for @queue_hide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get queue_hide;
+
+  /// No description provided for @queue_challenge_resolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Challenge solved — download resumed'**
+  String get queue_challenge_resolved;
+
+  /// No description provided for @queue_priority_high.
+  ///
+  /// In en, this message translates to:
+  /// **'High priority enabled'**
+  String get queue_priority_high;
+
+  /// No description provided for @queue_priority_normal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal priority'**
+  String get queue_priority_normal;
+
+  /// No description provided for @queue_status_completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get queue_status_completed;
+
+  /// No description provided for @queue_status_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get queue_status_failed;
+
+  /// No description provided for @queue_status_canceled.
+  ///
+  /// In en, this message translates to:
+  /// **'Canceled'**
+  String get queue_status_canceled;
+
+  /// No description provided for @queue_unit_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter'**
+  String get queue_unit_chapter;
+
+  /// No description provided for @queue_unit_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'episodes'**
+  String get queue_unit_episodes;
+
+  /// No description provided for @queue_unit_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'chapters'**
+  String get queue_unit_chapters;
+
+  /// No description provided for @queue_download_finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Download finished'**
+  String get queue_download_finished;
+
+  /// No description provided for @queue_received.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} received'**
+  String queue_received(Object size);
+
+  /// No description provided for @queue_transfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer'**
+  String get queue_transfer;
+
+  /// No description provided for @queue_quick_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick actions'**
+  String get queue_quick_actions;
+
+  /// No description provided for @queue_start.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get queue_start;
+
+  /// No description provided for @queue_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get queue_retry;
+
+  /// No description provided for @queue_layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get queue_layout;
+
+  /// No description provided for @queue_status_muxing.
+  ///
+  /// In en, this message translates to:
+  /// **'Muxing'**
+  String get queue_status_muxing;
+
+  /// No description provided for @queue_status_compressing.
+  ///
+  /// In en, this message translates to:
+  /// **'Compressing'**
+  String get queue_status_compressing;
+
+  /// No description provided for @queue_status_paused.
+  ///
+  /// In en, this message translates to:
+  /// **'Paused'**
+  String get queue_status_paused;
+
+  /// No description provided for @queue_status_waiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get queue_status_waiting;
+
+  /// No description provided for @queue_cloudflare_challenge.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloudflare challenge — {source}'**
+  String queue_cloudflare_challenge(Object source);
+
+  /// No description provided for @queue_resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get queue_resume;
+
+  /// No description provided for @queue_pause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get queue_pause;
 }
 
 class _AppLocalizationsDelegate

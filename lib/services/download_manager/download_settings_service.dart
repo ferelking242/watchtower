@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 
 /// Engine mode for anime (video) downloads only.
 /// Manga and novel always use the internal downloader.
@@ -12,25 +15,27 @@ enum DownloadMode {
 }
 
 extension DownloadModeExt on DownloadMode {
-  String get label {
+  /// Localised engine name.
+  String label(AppLocalizations l10n) {
     switch (this) {
       case DownloadMode.internalDownloader:
-        return 'Interne';
+        return l10n.downloads_mode_internal;
       case DownloadMode.aria2:
         return 'Aria2';
       case DownloadMode.external:
-        return 'Externe';
+        return l10n.downloads_mode_external;
     }
   }
 
-  String get description {
+  /// Localised engine description.
+  String description(AppLocalizations l10n) {
     switch (this) {
       case DownloadMode.internalDownloader:
-        return 'Téléchargeur HLS intégré à l\'application. Idéal pour la majorité des streams.';
+        return l10n.downloads_mode_internal_desc;
       case DownloadMode.aria2:
-        return 'Moteur aria2c haute performance. Connexions multiples et reprise des téléchargements.';
+        return l10n.downloads_mode_aria2_desc;
       case DownloadMode.external:
-        return 'Délègue à une app externe (ADM, 1DM, FDM, IDM…). Le téléchargement quitte l\'application.';
+        return l10n.downloads_mode_external_desc;
     }
   }
 
@@ -90,10 +95,11 @@ extension MangaArchiveFormatExt on MangaArchiveFormat {
   /// True when the chapter is packaged into one archive file.
   bool get isArchive => this != MangaArchiveFormat.folder;
 
-  String get label {
+  /// Localised format name.
+  String label(AppLocalizations l10n) {
     switch (this) {
       case MangaArchiveFormat.folder:
-        return 'Dossier (images)';
+        return l10n.downloads_archive_label_folder;
       case MangaArchiveFormat.cbz:
         return 'CBZ';
       case MangaArchiveFormat.cbr:
@@ -124,18 +130,19 @@ extension MangaArchiveFormatExt on MangaArchiveFormat {
 /// Enum for swipe left/right actions on download cards
 enum SwipeAction { pauseResume, cancel, delete, retry, none }
 extension SwipeActionExt on SwipeAction {
-  String get label {
+  /// Localised action name.
+  String label(AppLocalizations l10n) {
     switch (this) {
       case SwipeAction.pauseResume:
-        return 'Pause / Reprendre';
+        return l10n.downloads_swipe_pause_resume;
       case SwipeAction.cancel:
-        return 'Annuler';
+        return l10n.downloads_swipe_cancel;
       case SwipeAction.delete:
-        return 'Supprimer';
+        return l10n.downloads_swipe_delete;
       case SwipeAction.retry:
-        return 'Réessayer';
+        return l10n.downloads_swipe_retry;
       case SwipeAction.none:
-        return 'Désactivé';
+        return l10n.downloads_swipe_disabled;
     }
   }
 }
@@ -589,18 +596,19 @@ extension DownloadCardLayoutExt on DownloadCardLayout {
 enum CardButton { pauseResume, retry, cancel, delete, openFolder }
 
 extension CardButtonExt on CardButton {
-  String get label {
+  /// Localised button label.
+  String label(AppLocalizations l10n) {
     switch (this) {
       case CardButton.pauseResume:
-        return 'Pause / Reprendre';
+        return l10n.downloads_swipe_pause_resume;
       case CardButton.retry:
-        return 'Réessayer';
+        return l10n.downloads_swipe_retry;
       case CardButton.cancel:
-        return 'Annuler';
+        return l10n.downloads_swipe_cancel;
       case CardButton.delete:
-        return 'Supprimer';
+        return l10n.downloads_swipe_delete;
       case CardButton.openFolder:
-        return 'Ouvrir dossier';
+        return l10n.downloads_open_folder;
     }
   }
 

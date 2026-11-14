@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -14,13 +16,14 @@ class NovelDownloadScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final novelConnections = ref.watch(novelConnectionsStateProvider);
     final novelSimultaneous = ref.watch(novelSimultaneousStateProvider);
     final novelOnlyOnWifi = ref.watch(novelOnlyOnWifiStateProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Téléchargements — Roman',
+      title: l10n.downloads_novel_title,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
@@ -43,8 +46,7 @@ class NovelDownloadScreen extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Le Roman utilise le téléchargeur interne via l\'extension source. '
-                      'Les chapitres sont sauvegardés en HTML et regroupés par titre.',
+                      l10n.downloads_novel_note,
                       style: TextStyle(
                           fontSize: 11, color: scheme.onPrimaryContainer),
                     ),
@@ -54,10 +56,10 @@ class NovelDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Connexions ──────────────────────────────────────────────
-            _SectionHeader(title: 'Connexions'),
+            _SectionHeader(title: l10n.downloads_connections_section),
             _ConnectionsTile(
-              label: 'Connexions simultanées',
-              subtitle: 'Connexions parallèles par chapitre',
+              label: l10n.downloads_connections_simultaneous,
+              subtitle: l10n.downloads_connections_per_chapter,
               value: novelConnections,
               icon: Broken.document_download,
               onChanged: (v) =>
@@ -65,8 +67,8 @@ class NovelDownloadScreen extends ConsumerWidget {
               scheme: scheme,
             ),
             _ConnectionsTile(
-              label: 'Chapitres simultanés (file)',
-              subtitle: 'Nombre de chapitres téléchargés en même temps',
+              label: l10n.downloads_chapters_queue,
+              subtitle: l10n.downloads_chapters_queue_subtitle,
               value: novelSimultaneous,
               icon: Broken.note_2,
               onChanged: (v) =>
@@ -75,14 +77,14 @@ class NovelDownloadScreen extends ConsumerWidget {
             ),
 
             // ── Comportement ────────────────────────────────────────────
-            _SectionHeader(title: 'Comportement'),
+            _SectionHeader(title: l10n.downloads_behavior_section),
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.wifi),
-              title: const Text('Wi-Fi uniquement'),
-              subtitle: const Text(
-                'Télécharger uniquement via Wi-Fi',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_wifi_only),
+              subtitle: Text(
+                l10n.downloads_wifi_only_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: novelOnlyOnWifi,
               onChanged: (v) =>
@@ -169,7 +171,7 @@ class _ConnectionsTile extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Annuler',
+                child: Text(context.l10n.cancel,
                     style: TextStyle(color: context.primaryColor)),
               ),
               TextButton(

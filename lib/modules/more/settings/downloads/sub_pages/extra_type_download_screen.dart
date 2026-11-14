@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Music / Game download settings sub-pages
@@ -37,9 +38,11 @@ class _ExtraTypeDownloadScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final isMusic = type == _ExtraType.music;
-    final title = isMusic ? 'Téléchargements — Musique' : 'Téléchargements — Jeu';
+    final title =
+        isMusic ? l10n.downloads_music_title : l10n.downloads_game_title;
     final connections = isMusic
         ? ref.watch(musicConnectionsStateProvider)
         : ref.watch(gameConnectionsStateProvider);
@@ -76,10 +79,8 @@ class _ExtraTypeDownloadScreen extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       isMusic
-                          ? 'La Musique utilise le téléchargeur interne via '
-                                'l\'extension source.'
-                          : 'Le Jeu utilise le téléchargeur interne via '
-                                'l\'extension source.',
+                          ? l10n.downloads_music_note
+                          : l10n.downloads_game_note,
                       style: TextStyle(
                         fontSize: 11,
                         color: scheme.onPrimaryContainer,
@@ -90,10 +91,10 @@ class _ExtraTypeDownloadScreen extends ConsumerWidget {
               ),
             ),
 
-            _SectionHeader(title: 'Connexions'),
+            _SectionHeader(title: l10n.downloads_connections_section),
             _ConnectionsTile(
-              label: 'Connexions simultanées',
-              subtitle: 'Connexions parallèles par téléchargement',
+              label: l10n.downloads_connections_simultaneous,
+              subtitle: l10n.downloads_connections_per_download,
               value: connections,
               icon: Broken.document_download,
               onChanged: (v) => isMusic
@@ -102,8 +103,8 @@ class _ExtraTypeDownloadScreen extends ConsumerWidget {
               scheme: scheme,
             ),
             _ConnectionsTile(
-              label: 'Téléchargements simultanés (file)',
-              subtitle: 'Nombre d\'éléments téléchargés en même temps',
+              label: l10n.downloads_items_queue,
+              subtitle: l10n.downloads_items_queue_subtitle,
               value: simultaneous,
               icon: Broken.note_2,
               onChanged: (v) => isMusic
@@ -112,14 +113,14 @@ class _ExtraTypeDownloadScreen extends ConsumerWidget {
               scheme: scheme,
             ),
 
-            _SectionHeader(title: 'Comportement'),
+            _SectionHeader(title: l10n.downloads_behavior_section),
             SwitchListTile(
               dense: true,
               secondary: const Icon(Broken.wifi),
-              title: const Text('Wi-Fi uniquement'),
-              subtitle: const Text(
-                'Télécharger uniquement via Wi-Fi',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.downloads_wifi_only),
+              subtitle: Text(
+                l10n.downloads_wifi_only_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               value: onlyOnWifi,
               onChanged: (v) => isMusic
