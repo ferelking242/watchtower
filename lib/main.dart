@@ -249,9 +249,9 @@ void main(List<String> args) async {
         final msg = details.exceptionAsString();
         // Suppress broken image/asset loading errors (e.g. extension icons 404)
         if (AppLogger.shouldSuppressImageError(msg)) return;
-        // Suppress residual shadcn_flutter Tooltip OverlayManager null-check crash.
-        // The music module previously used shadcn widgets; some tooltip interactions
-        // can still trigger this on hover — it is harmless on mobile.
+        // Defensive: a tooltip overlay can throw a null-check during a rapid
+        // hover/teardown race (overlay removed while the tooltip paints). It is
+        // a harmless transient on desktop hover and not actionable for the user.
         final stack = details.stack?.toString() ?? '';
         if (msg.contains('Null check operator') &&
             stack.contains('tooltip.dart')) {
