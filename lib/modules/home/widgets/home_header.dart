@@ -2,25 +2,46 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab definitions — must stay in sync with _HomeTab in watchtower_home_screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-const kHomeTabs = [
-  'Tout',
-  'Film',
-  'Série',
-  'Musique',   // ← Discovery Music pill entre Série et Anime
-  'Anime',
-  'Asia',
-  'Enfant',
-  'Occidental',
-  'Africa',
-  'TV Court',
-  'Football',
-  'Jeux',
-];
+/// Number of pills in the home tab row. The labels are resolved at render time
+/// by [homeTabLabel] so the tab row follows the app locale.
+const kHomeTabs = 12;
+
+/// Position of the Music pill: between Series and Anime.
+String homeTabLabel(BuildContext context, int index) {
+  final l10n = context.l10n;
+  switch (index) {
+    case 1:
+      return l10n.home_tab_movie;
+    case 2:
+      return l10n.home_tab_series;
+    case 3:
+      return l10n.home_tab_music;
+    case 4:
+      return l10n.home_tab_anime;
+    case 5:
+      return l10n.home_tab_asia;
+    case 6:
+      return l10n.home_tab_kids;
+    case 7:
+      return l10n.home_tab_western;
+    case 8:
+      return l10n.home_tab_africa;
+    case 9:
+      return l10n.home_tab_tv_short;
+    case 10:
+      return l10n.home_tab_football;
+    case 11:
+      return l10n.home_tab_games;
+    default:
+      return l10n.home_tab_all;
+  }
+}
 
 // Icons kept for potential future use but not shown in tab bar (Seanime style — text only)
 const kHomeTabIcons = <int, IconData>{
@@ -164,12 +185,12 @@ class _AccountSheet extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Guest',
+                            Text(context.l10n.account_guest,
                                 style: tt.titleMedium
                                     ?.copyWith(fontWeight: FontWeight.w800)),
                             const SizedBox(height: 2),
                             Text(
-                              'Connecte un tracker pour synchroniser',
+                              context.l10n.account_connect_tracker,
                               style: tt.bodySmall?.copyWith(
                                   color: cs.onSurface.withValues(alpha: 0.50)),
                             ),
@@ -185,7 +206,7 @@ class _AccountSheet extends StatelessWidget {
                   const SizedBox(height: 8),
                   _SheetTile(
                     icon: Broken.setting,
-                    label: 'Paramètres',
+                    label: context.l10n.account_settings,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/settings');
@@ -193,7 +214,7 @@ class _AccountSheet extends StatelessWidget {
                   ),
                   _SheetTile(
                     icon: Broken.chart_21,
-                    label: 'Tracking',
+                    label: context.l10n.account_tracking,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/trackerLibrary');
@@ -201,7 +222,7 @@ class _AccountSheet extends StatelessWidget {
                   ),
                   _SheetTile(
                     icon: Broken.clock_1,
-                    label: 'Historique',
+                    label: context.l10n.account_history,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/history');
@@ -209,7 +230,7 @@ class _AccountSheet extends StatelessWidget {
                   ),
                   _SheetTile(
                     icon: Broken.driver,
-                    label: 'Téléchargements',
+                    label: context.l10n.account_downloads,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/downloadQueue');
@@ -217,7 +238,7 @@ class _AccountSheet extends StatelessWidget {
                   ),
                   _SheetTile(
                     icon: Broken.info_circle,
-                    label: 'À propos',
+                    label: context.l10n.account_about,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/about');

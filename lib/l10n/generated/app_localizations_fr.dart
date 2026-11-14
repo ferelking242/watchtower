@@ -9601,4 +9601,248 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get discover_tmdb_try_another_title => 'Essaie un autre titre.';
+
+  @override
+  String get home_tab_all => 'Tout';
+
+  @override
+  String get home_tab_movie => 'Film';
+
+  @override
+  String get home_tab_series => 'Série';
+
+  @override
+  String get home_tab_music => 'Musique';
+
+  @override
+  String get home_tab_anime => 'Anime';
+
+  @override
+  String get home_tab_asia => 'Asia';
+
+  @override
+  String get home_tab_kids => 'Enfant';
+
+  @override
+  String get home_tab_western => 'Occidental';
+
+  @override
+  String get home_tab_africa => 'Africa';
+
+  @override
+  String get home_tab_tv_short => 'TV Court';
+
+  @override
+  String get home_tab_football => 'Football';
+
+  @override
+  String get home_tab_games => 'Jeux';
+
+  @override
+  String get home_for_you => 'Pour vous';
+
+  @override
+  String get home_search_hint => 'Rechercher un titre…';
+
+  @override
+  String get home_search_action => 'Recherche';
+
+  @override
+  String get home_offline_banner =>
+      'Connexion non disponible — données mises en cache';
+
+  @override
+  String get home_spotlight => 'À la une';
+
+  @override
+  String get home_animation => 'Animation';
+
+  @override
+  String get home_popular_movies => 'Films populaires';
+
+  @override
+  String get home_trending_week => 'Tendances de la semaine';
+
+  @override
+  String get home_top_rated => 'Les mieux notés';
+
+  @override
+  String get home_now_playing => 'Films en ce moment';
+
+  @override
+  String get home_upcoming => 'Prochainement';
+
+  @override
+  String get home_movies => 'Films';
+
+  @override
+  String get home_movies_studio => 'Films · Studio';
+
+  @override
+  String get home_popular_series => 'Séries populaires';
+
+  @override
+  String get home_tv_trending_week => 'Tendances TV de la semaine';
+
+  @override
+  String get home_top_rated_series => 'Les mieux notées';
+
+  @override
+  String get home_watch_tonight => 'À voir ce soir';
+
+  @override
+  String get home_airing_today => 'Diffusées aujourd’hui';
+
+  @override
+  String get home_airing_now => 'En cours de diffusion';
+
+  @override
+  String get home_series => 'Séries';
+
+  @override
+  String get home_series_studio => 'Séries · Studio';
+
+  @override
+  String get home_country_fr => 'France';
+
+  @override
+  String get home_country_us_uk => 'États-Unis / Royaume-Uni';
+
+  @override
+  String get home_country_kr => 'Corée du Sud';
+
+  @override
+  String get home_country_jp => 'Japon';
+
+  @override
+  String get home_kids => 'Enfant';
+
+  @override
+  String get home_kids_sub => 'Dessins animés & contenus jeunesse';
+
+  @override
+  String get home_western => 'Occidental';
+
+  @override
+  String get home_western_sub => 'Séries & films US/EU';
+
+  @override
+  String get home_africa => 'Africa';
+
+  @override
+  String get home_africa_sub => 'Contenus africains';
+
+  @override
+  String get home_football => 'Football';
+
+  @override
+  String get home_football_sub => 'Matchs & résumés';
+
+  @override
+  String get home_games => 'Jeux';
+
+  @override
+  String get home_games_sub => 'Bibliothèque ROM';
+
+  @override
+  String get home_tv_short => 'TV Court';
+
+  @override
+  String get home_tv_short_sub => 'Mini-séries, shorts & drama courts';
+
+  @override
+  String get home_mini_dramas => 'Mini-dramas & courts';
+
+  @override
+  String get home_top_rated_short => 'Les mieux notés (court)';
+
+  @override
+  String get home_no_movie => 'Aucun film disponible';
+
+  @override
+  String get home_best_rated => 'Mieux notés';
+
+  @override
+  String get home_explore_genre => 'Explorer par genre';
+
+  @override
+  String get home_trending_series => 'Séries en tendance';
+
+  @override
+  String get home_sagas_long => 'Sagas & Longues Séries';
+
+  @override
+  String get home_top_popular => 'Top populaires';
+
+  @override
+  String get home_best_rated_fem => 'Mieux notées';
+
+  @override
+  String get home_kdrama_trending => 'K-Drama en tendance';
+
+  @override
+  String get home_cdrama_manhua => 'C-Drama / Manhua';
+
+  @override
+  String get home_top_asia => 'Top Asie';
+
+  @override
+  String get home_open => 'Ouvrir';
+
+  @override
+  String get home_see_all => 'Voir tout';
+
+  @override
+  String get home_view_all => 'Tout voir';
+
+  @override
+  String get home_favorite => 'Coup de cœur';
+
+  @override
+  String get home_origin => 'Origine';
+
+  @override
+  String get home_continue_watching => 'Continuer à regarder';
+
+  @override
+  String get home_tonight_pick => 'SÉLECTION DU SOIR';
+
+  @override
+  String get home_recent_releases => 'Sorties récentes';
+
+  @override
+  String get home_trending_now => 'En ce moment';
+
+  @override
+  String get home_top_now => 'Top du moment';
+
+  @override
+  String get home_drama_k => 'K-Drama';
+
+  @override
+  String get home_drama_c => 'C-Drama';
+
+  @override
+  String get home_drama_j => 'J-Drama';
+
+  @override
+  String get account_guest => 'Invité';
+
+  @override
+  String get account_connect_tracker => 'Connecte un tracker pour synchroniser';
+
+  @override
+  String get account_settings => 'Paramètres';
+
+  @override
+  String get account_tracking => 'Tracking';
+
+  @override
+  String get account_history => 'Historique';
+
+  @override
+  String get account_downloads => 'Téléchargements';
+
+  @override
+  String get account_about => 'À propos';
 }

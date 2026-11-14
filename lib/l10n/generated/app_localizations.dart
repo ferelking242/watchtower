@@ -16822,6 +16822,492 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try another title.'**
   String get discover_tmdb_try_another_title;
+
+  /// No description provided for @home_tab_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get home_tab_all;
+
+  /// No description provided for @home_tab_movie.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie'**
+  String get home_tab_movie;
+
+  /// No description provided for @home_tab_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get home_tab_series;
+
+  /// No description provided for @home_tab_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get home_tab_music;
+
+  /// No description provided for @home_tab_anime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get home_tab_anime;
+
+  /// No description provided for @home_tab_asia.
+  ///
+  /// In en, this message translates to:
+  /// **'Asia'**
+  String get home_tab_asia;
+
+  /// No description provided for @home_tab_kids.
+  ///
+  /// In en, this message translates to:
+  /// **'Kids'**
+  String get home_tab_kids;
+
+  /// No description provided for @home_tab_western.
+  ///
+  /// In en, this message translates to:
+  /// **'Western'**
+  String get home_tab_western;
+
+  /// No description provided for @home_tab_africa.
+  ///
+  /// In en, this message translates to:
+  /// **'Africa'**
+  String get home_tab_africa;
+
+  /// No description provided for @home_tab_tv_short.
+  ///
+  /// In en, this message translates to:
+  /// **'TV Short'**
+  String get home_tab_tv_short;
+
+  /// No description provided for @home_tab_football.
+  ///
+  /// In en, this message translates to:
+  /// **'Football'**
+  String get home_tab_football;
+
+  /// No description provided for @home_tab_games.
+  ///
+  /// In en, this message translates to:
+  /// **'Games'**
+  String get home_tab_games;
+
+  /// No description provided for @home_for_you.
+  ///
+  /// In en, this message translates to:
+  /// **'For you'**
+  String get home_for_you;
+
+  /// No description provided for @home_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search a title…'**
+  String get home_search_hint;
+
+  /// No description provided for @home_search_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get home_search_action;
+
+  /// No description provided for @home_offline_banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection unavailable — showing cached data'**
+  String get home_offline_banner;
+
+  /// No description provided for @home_spotlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get home_spotlight;
+
+  /// No description provided for @home_animation.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation'**
+  String get home_animation;
+
+  /// No description provided for @home_popular_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular movies'**
+  String get home_popular_movies;
+
+  /// No description provided for @home_trending_week.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending this week'**
+  String get home_trending_week;
+
+  /// No description provided for @home_top_rated.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated'**
+  String get home_top_rated;
+
+  /// No description provided for @home_now_playing.
+  ///
+  /// In en, this message translates to:
+  /// **'Now in theaters'**
+  String get home_now_playing;
+
+  /// No description provided for @home_upcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get home_upcoming;
+
+  /// No description provided for @home_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get home_movies;
+
+  /// No description provided for @home_movies_studio.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies · Studio'**
+  String get home_movies_studio;
+
+  /// No description provided for @home_popular_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular series'**
+  String get home_popular_series;
+
+  /// No description provided for @home_tv_trending_week.
+  ///
+  /// In en, this message translates to:
+  /// **'TV trending this week'**
+  String get home_tv_trending_week;
+
+  /// No description provided for @home_top_rated_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated series'**
+  String get home_top_rated_series;
+
+  /// No description provided for @home_watch_tonight.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch tonight'**
+  String get home_watch_tonight;
+
+  /// No description provided for @home_airing_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Airing today'**
+  String get home_airing_today;
+
+  /// No description provided for @home_airing_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently airing'**
+  String get home_airing_now;
+
+  /// No description provided for @home_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get home_series;
+
+  /// No description provided for @home_series_studio.
+  ///
+  /// In en, this message translates to:
+  /// **'Series · Studio'**
+  String get home_series_studio;
+
+  /// No description provided for @home_country_fr.
+  ///
+  /// In en, this message translates to:
+  /// **'France'**
+  String get home_country_fr;
+
+  /// No description provided for @home_country_us_uk.
+  ///
+  /// In en, this message translates to:
+  /// **'United States / United Kingdom'**
+  String get home_country_us_uk;
+
+  /// No description provided for @home_country_kr.
+  ///
+  /// In en, this message translates to:
+  /// **'South Korea'**
+  String get home_country_kr;
+
+  /// No description provided for @home_country_jp.
+  ///
+  /// In en, this message translates to:
+  /// **'Japan'**
+  String get home_country_jp;
+
+  /// No description provided for @home_kids.
+  ///
+  /// In en, this message translates to:
+  /// **'Kids'**
+  String get home_kids;
+
+  /// No description provided for @home_kids_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Cartoons & kids content'**
+  String get home_kids_sub;
+
+  /// No description provided for @home_western.
+  ///
+  /// In en, this message translates to:
+  /// **'Western'**
+  String get home_western;
+
+  /// No description provided for @home_western_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'US/EU series & movies'**
+  String get home_western_sub;
+
+  /// No description provided for @home_africa.
+  ///
+  /// In en, this message translates to:
+  /// **'Africa'**
+  String get home_africa;
+
+  /// No description provided for @home_africa_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'African content'**
+  String get home_africa_sub;
+
+  /// No description provided for @home_football.
+  ///
+  /// In en, this message translates to:
+  /// **'Football'**
+  String get home_football;
+
+  /// No description provided for @home_football_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Matches & highlights'**
+  String get home_football_sub;
+
+  /// No description provided for @home_games.
+  ///
+  /// In en, this message translates to:
+  /// **'Games'**
+  String get home_games;
+
+  /// No description provided for @home_games_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'ROM library'**
+  String get home_games_sub;
+
+  /// No description provided for @home_tv_short.
+  ///
+  /// In en, this message translates to:
+  /// **'TV Short'**
+  String get home_tv_short;
+
+  /// No description provided for @home_tv_short_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Mini-series, shorts & short dramas'**
+  String get home_tv_short_sub;
+
+  /// No description provided for @home_mini_dramas.
+  ///
+  /// In en, this message translates to:
+  /// **'Mini-dramas & shorts'**
+  String get home_mini_dramas;
+
+  /// No description provided for @home_top_rated_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated (short)'**
+  String get home_top_rated_short;
+
+  /// No description provided for @home_no_movie.
+  ///
+  /// In en, this message translates to:
+  /// **'No movie available'**
+  String get home_no_movie;
+
+  /// No description provided for @home_best_rated.
+  ///
+  /// In en, this message translates to:
+  /// **'Best rated'**
+  String get home_best_rated;
+
+  /// No description provided for @home_explore_genre.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore by genre'**
+  String get home_explore_genre;
+
+  /// No description provided for @home_trending_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending series'**
+  String get home_trending_series;
+
+  /// No description provided for @home_sagas_long.
+  ///
+  /// In en, this message translates to:
+  /// **'Sagas & long series'**
+  String get home_sagas_long;
+
+  /// No description provided for @home_top_popular.
+  ///
+  /// In en, this message translates to:
+  /// **'Top popular'**
+  String get home_top_popular;
+
+  /// No description provided for @home_best_rated_fem.
+  ///
+  /// In en, this message translates to:
+  /// **'Best rated'**
+  String get home_best_rated_fem;
+
+  /// No description provided for @home_kdrama_trending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending K-Drama'**
+  String get home_kdrama_trending;
+
+  /// No description provided for @home_cdrama_manhua.
+  ///
+  /// In en, this message translates to:
+  /// **'C-Drama / Manhua'**
+  String get home_cdrama_manhua;
+
+  /// No description provided for @home_top_asia.
+  ///
+  /// In en, this message translates to:
+  /// **'Top Asia'**
+  String get home_top_asia;
+
+  /// No description provided for @home_open.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get home_open;
+
+  /// No description provided for @home_see_all.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get home_see_all;
+
+  /// No description provided for @home_view_all.
+  ///
+  /// In en, this message translates to:
+  /// **'View all'**
+  String get home_view_all;
+
+  /// No description provided for @home_favorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Favourite'**
+  String get home_favorite;
+
+  /// No description provided for @home_origin.
+  ///
+  /// In en, this message translates to:
+  /// **'Origin'**
+  String get home_origin;
+
+  /// No description provided for @home_continue_watching.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue watching'**
+  String get home_continue_watching;
+
+  /// No description provided for @home_tonight_pick.
+  ///
+  /// In en, this message translates to:
+  /// **'TONIGHT’S PICK'**
+  String get home_tonight_pick;
+
+  /// No description provided for @home_recent_releases.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get home_recent_releases;
+
+  /// No description provided for @home_trending_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending now'**
+  String get home_trending_now;
+
+  /// No description provided for @home_top_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Top this week'**
+  String get home_top_now;
+
+  /// No description provided for @home_drama_k.
+  ///
+  /// In en, this message translates to:
+  /// **'K-Drama'**
+  String get home_drama_k;
+
+  /// No description provided for @home_drama_c.
+  ///
+  /// In en, this message translates to:
+  /// **'C-Drama'**
+  String get home_drama_c;
+
+  /// No description provided for @home_drama_j.
+  ///
+  /// In en, this message translates to:
+  /// **'J-Drama'**
+  String get home_drama_j;
+
+  /// No description provided for @account_guest.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest'**
+  String get account_guest;
+
+  /// No description provided for @account_connect_tracker.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect a tracker to sync'**
+  String get account_connect_tracker;
+
+  /// No description provided for @account_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get account_settings;
+
+  /// No description provided for @account_tracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracking'**
+  String get account_tracking;
+
+  /// No description provided for @account_history.
+  ///
+  /// In en, this message translates to:
+  /// **'History'**
+  String get account_history;
+
+  /// No description provided for @account_downloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads'**
+  String get account_downloads;
+
+  /// No description provided for @account_about.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get account_about;
 }
 
 class _AppLocalizationsDelegate

@@ -2964,6 +2964,99 @@ DISCOVER = [
 ]
 
 
+# ── Watchtower home (premium streaming hub) ────────────────────────────────────
+
+HOME_L10N = [
+    ("home_tab_all", "All", "Tout"),
+    ("home_tab_movie", "Movie", "Film"),
+    ("home_tab_series", "Series", "Série"),
+    ("home_tab_music", "Music", "Musique"),
+    ("home_tab_anime", "Anime", "Anime"),
+    ("home_tab_asia", "Asia", "Asia"),
+    ("home_tab_kids", "Kids", "Enfant"),
+    ("home_tab_western", "Western", "Occidental"),
+    ("home_tab_africa", "Africa", "Africa"),
+    ("home_tab_tv_short", "TV Short", "TV Court"),
+    ("home_tab_football", "Football", "Football"),
+    ("home_tab_games", "Games", "Jeux"),
+    ("home_for_you", "For you", "Pour vous"),
+    ("home_search_hint", "Search a title…", "Rechercher un titre…"),
+    ("home_search_action", "Search", "Recherche"),
+    ("home_offline_banner", "Connection unavailable — showing cached data",
+     "Connexion non disponible — données mises en cache"),
+    ("home_spotlight", "Featured", "À la une"),
+    ("home_animation", "Animation", "Animation"),
+    ("home_popular_movies", "Popular movies", "Films populaires"),
+    ("home_trending_week", "Trending this week", "Tendances de la semaine"),
+    ("home_top_rated", "Top rated", "Les mieux notés"),
+    ("home_now_playing", "Now in theaters", "Films en ce moment"),
+    ("home_upcoming", "Upcoming", "Prochainement"),
+    ("home_movies", "Movies", "Films"),
+    ("home_movies_studio", "Movies · Studio", "Films · Studio"),
+    ("home_popular_series", "Popular series", "Séries populaires"),
+    ("home_tv_trending_week", "TV trending this week",
+     "Tendances TV de la semaine"),
+    ("home_top_rated_series", "Top rated series", "Les mieux notées"),
+    ("home_watch_tonight", "Watch tonight", "À voir ce soir"),
+    ("home_airing_today", "Airing today", "Diffusées aujourd’hui"),
+    ("home_airing_now", "Currently airing", "En cours de diffusion"),
+    ("home_series", "Series", "Séries"),
+    ("home_series_studio", "Series · Studio", "Séries · Studio"),
+    ("home_country_fr", "France", "France"),
+    ("home_country_us_uk", "United States / United Kingdom",
+     "États-Unis / Royaume-Uni"),
+    ("home_country_kr", "South Korea", "Corée du Sud"),
+    ("home_country_jp", "Japan", "Japon"),
+    ("home_kids", "Kids", "Enfant"),
+    ("home_kids_sub", "Cartoons & kids content",
+     "Dessins animés & contenus jeunesse"),
+    ("home_western", "Western", "Occidental"),
+    ("home_western_sub", "US/EU series & movies", "Séries & films US/EU"),
+    ("home_africa", "Africa", "Africa"),
+    ("home_africa_sub", "African content", "Contenus africains"),
+    ("home_football", "Football", "Football"),
+    ("home_football_sub", "Matches & highlights", "Matchs & résumés"),
+    ("home_games", "Games", "Jeux"),
+    ("home_games_sub", "ROM library", "Bibliothèque ROM"),
+    ("home_tv_short", "TV Short", "TV Court"),
+    ("home_tv_short_sub", "Mini-series, shorts & short dramas",
+     "Mini-séries, shorts & drama courts"),
+    ("home_mini_dramas", "Mini-dramas & shorts", "Mini-dramas & courts"),
+    ("home_top_rated_short", "Top rated (short)", "Les mieux notés (court)"),
+    ("home_no_movie", "No movie available", "Aucun film disponible"),
+    ("home_best_rated", "Best rated", "Mieux notés"),
+    ("home_explore_genre", "Explore by genre", "Explorer par genre"),
+    ("home_trending_series", "Trending series", "Séries en tendance"),
+    ("home_sagas_long", "Sagas & long series", "Sagas & Longues Séries"),
+    ("home_top_popular", "Top popular", "Top populaires"),
+    ("home_best_rated_fem", "Best rated", "Mieux notées"),
+    ("home_kdrama_trending", "Trending K-Drama", "K-Drama en tendance"),
+    ("home_cdrama_manhua", "C-Drama / Manhua", "C-Drama / Manhua"),
+    ("home_top_asia", "Top Asia", "Top Asie"),
+    ("home_open", "Open", "Ouvrir"),
+    ("home_see_all", "See all", "Voir tout"),
+    ("home_view_all", "View all", "Tout voir"),
+    ("home_favorite", "Favourite", "Coup de cœur"),
+    ("home_origin", "Origin", "Origine"),
+    ("home_continue_watching", "Continue watching", "Continuer à regarder"),
+    ("home_tonight_pick", "TONIGHT’S PICK", "SÉLECTION DU SOIR"),
+    ("home_recent_releases", "Recently added", "Sorties récentes"),
+    ("home_trending_now", "Trending now", "En ce moment"),
+    ("home_top_now", "Top this week", "Top du moment"),
+    ("home_drama_k", "K-Drama", "K-Drama"),
+    ("home_drama_c", "C-Drama", "C-Drama"),
+    ("home_drama_j", "J-Drama", "J-Drama"),
+    ("account_guest", "Guest", "Invité"),
+    ("account_connect_tracker", "Connect a tracker to sync",
+     "Connecte un tracker pour synchroniser"),
+    ("account_settings", "Settings", "Paramètres"),
+    ("account_tracking", "Tracking", "Tracking"),
+    ("account_history", "History", "Historique"),
+    ("account_downloads", "Downloads", "Téléchargements"),
+    ("account_about", "About", "À propos"),
+]
+
+
 def quote(value):
     """JSON string literal for an ARB value.
 
@@ -3045,6 +3138,8 @@ en_entries += [(key, en) for key, en, _ in DOWNLOAD_QUEUE]
 fr_entries += [(key, fr) for key, _, fr in DOWNLOAD_QUEUE]
 en_entries += [(key, en) for key, en, _ in DISCOVER]
 fr_entries += [(key, fr) for key, _, fr in DISCOVER]
+en_entries += [(key, en) for key, en, _ in HOME_L10N]
+fr_entries += [(key, fr) for key, _, fr in HOME_L10N]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 
