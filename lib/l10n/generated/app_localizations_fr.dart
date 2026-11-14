@@ -6015,4 +6015,178 @@ class AppLocalizationsFr extends AppLocalizations {
   String settings_percent(Object value) {
     return '$value%';
   }
+
+  @override
+  String get reader_show_reading_mode => 'Afficher le mode de lecture';
+
+  @override
+  String get reader_show_reading_mode_desc =>
+      'Affiche la liste des modes de lecture à l’ouverture du lecteur';
+
+  @override
+  String get reader_show_tap_zones =>
+      'Afficher les zones tactiles (superposition)';
+
+  @override
+  String get reader_show_tap_zones_desc =>
+      'Affichage bref à l’ouverture du lecteur';
+
+  @override
+  String get reader_load_ahead_wifi => 'Précharger uniquement en Wi-Fi';
+
+  @override
+  String get reader_load_ahead_wifi_desc =>
+      'Économise les données mobiles en ne chargeant que les pages proches de celle en cours de lecture';
+
+  @override
+  String get reader_pages_preload => 'Nombre de pages à précharger';
+
+  @override
+  String get reader_pages_preload_desc =>
+      'Le nombre de pages à précharger pendant la lecture. Une valeur plus élevée rend la lecture plus fluide, au prix d’un cache plus grand et d’une consommation de données plus importante.';
+
+  @override
+  String get reader_section_display => 'Affichage';
+
+  @override
+  String get reader_default_rotation => 'Rotation par défaut';
+
+  @override
+  String get reader_cutout => 'Utiliser la zone de l’encoche';
+
+  @override
+  String get reader_show_page_number => 'Afficher le numéro des pages';
+
+  @override
+  String get reader_section_eink => 'E-Ink';
+
+  @override
+  String get reader_eink_flash => 'Flash lors du changement de page';
+
+  @override
+  String get reader_eink_flash_desc =>
+      'Réduire le ghosting sur les écrans e-ink';
+
+  @override
+  String get reader_section_reading => 'En cours';
+
+  @override
+  String get reader_skip_read => 'Passer les chapitres marqués comme lus';
+
+  @override
+  String get reader_skip_filtered => 'Passer les chapitres filtrés';
+
+  @override
+  String get reader_skip_duplicate => 'Ignorer les chapitres en double';
+
+  @override
+  String get reader_always_transition =>
+      'Toujours afficher la transition entre les chapitres';
+
+  @override
+  String get reader_section_pages => 'Pages';
+
+  @override
+  String get reader_invert_tap_zones => 'Inverser les zones tactiles';
+
+  @override
+  String get reader_zoom_start => 'Position du zoom initial';
+
+  @override
+  String get reader_panorama => 'Panoramique des images larges';
+
+  @override
+  String get reader_split_wide => 'Diviser les pages larges';
+
+  @override
+  String get reader_rotate_wide =>
+      'Tourner les pages larges pour qu’elles rentrent';
+
+  @override
+  String get reader_disable_zoom_out => 'Désactiver le zoom arrière';
+
+  @override
+  String get reader_disable_zoom_out_desc =>
+      'Le double-clic ne fait plus que zoomer';
+
+  @override
+  String get reader_section_continuous => 'Bande continue';
+
+  @override
+  String get reader_side_padding => 'Décalage latéral';
+
+  @override
+  String get reader_menu_hide_sensitivity =>
+      'Sensibilité pour masquer le menu lors du défilement';
+
+  @override
+  String get reader_section_navigation => 'Navigation';
+
+  @override
+  String get reader_volume_buttons => 'Avec les boutons de volume';
+
+  @override
+  String get reader_volume_buttons_desc =>
+      'Utilisez ▲/▼ pour tourner les pages';
+
+  @override
+  String get reader_invert_volume => 'Inverser les boutons de volume';
+
+  @override
+  String get reader_volume_forward =>
+      '▲ → page suivante  •  ▼ → page précédente';
+
+  @override
+  String get reader_volume_backward =>
+      '▲ → page précédente  •  ▼ → page suivante';
+
+  @override
+  String get reader_vertical_navigator => 'Navigateur de chapitres vertical';
+
+  @override
+  String get reader_section_actions => 'Actions';
+
+  @override
+  String get reader_long_press_actions =>
+      'Afficher les actions en appuyant longuement';
+
+  @override
+  String get reader_save_pages_separate =>
+      'Enregistrer les pages dans des dossiers séparés';
+
+  @override
+  String get reader_option_free => 'Libre';
+
+  @override
+  String get reader_option_portrait => 'Portrait';
+
+  @override
+  String get reader_option_landscape => 'Paysage';
+
+  @override
+  String get reader_option_auto => 'Automatique';
+
+  @override
+  String get reader_option_left => 'Gauche';
+
+  @override
+  String get reader_option_right => 'Droite';
+
+  @override
+  String get reader_option_center => 'Centre';
+
+  @override
+  String get reader_option_none => 'Aucun(e)';
+
+  @override
+  String get reader_option_both => 'Les deux';
+
+  @override
+  String get reader_option_low => 'Basse';
+
+  @override
+  String get reader_option_medium => 'Moyenne';
+
+  @override
+  String get reader_option_high => 'Haute';
 }

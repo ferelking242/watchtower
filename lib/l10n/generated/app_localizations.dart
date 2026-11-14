@@ -10442,6 +10442,324 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{value}%'**
   String settings_percent(Object value);
+
+  /// No description provided for @reader_show_reading_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the reading mode'**
+  String get reader_show_reading_mode;
+
+  /// No description provided for @reader_show_reading_mode_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Lists the reading modes when the reader opens'**
+  String get reader_show_reading_mode_desc;
+
+  /// No description provided for @reader_show_tap_zones.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the tap zones (overlay)'**
+  String get reader_show_tap_zones;
+
+  /// No description provided for @reader_show_tap_zones_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Briefly shown when the reader opens'**
+  String get reader_show_tap_zones_desc;
+
+  /// No description provided for @reader_load_ahead_wifi.
+  ///
+  /// In en, this message translates to:
+  /// **'Only preload on Wi-Fi'**
+  String get reader_load_ahead_wifi;
+
+  /// No description provided for @reader_load_ahead_wifi_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Saves mobile data by loading only the pages close to the one you are reading'**
+  String get reader_load_ahead_wifi_desc;
+
+  /// No description provided for @reader_pages_preload.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of pages to preload'**
+  String get reader_pages_preload;
+
+  /// No description provided for @reader_pages_preload_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'How many pages to preload while reading. A higher value makes reading smoother, at the cost of a larger cache and higher data usage.'**
+  String get reader_pages_preload_desc;
+
+  /// No description provided for @reader_section_display.
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get reader_section_display;
+
+  /// No description provided for @reader_default_rotation.
+  ///
+  /// In en, this message translates to:
+  /// **'Default rotation'**
+  String get reader_default_rotation;
+
+  /// No description provided for @reader_cutout.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the notch area'**
+  String get reader_cutout;
+
+  /// No description provided for @reader_show_page_number.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the page number'**
+  String get reader_show_page_number;
+
+  /// No description provided for @reader_section_eink.
+  ///
+  /// In en, this message translates to:
+  /// **'E-Ink'**
+  String get reader_section_eink;
+
+  /// No description provided for @reader_eink_flash.
+  ///
+  /// In en, this message translates to:
+  /// **'Flash on page change'**
+  String get reader_eink_flash;
+
+  /// No description provided for @reader_eink_flash_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduces ghosting on e-ink screens'**
+  String get reader_eink_flash_desc;
+
+  /// No description provided for @reader_section_reading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading'**
+  String get reader_section_reading;
+
+  /// No description provided for @reader_skip_read.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip chapters marked as read'**
+  String get reader_skip_read;
+
+  /// No description provided for @reader_skip_filtered.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip filtered chapters'**
+  String get reader_skip_filtered;
+
+  /// No description provided for @reader_skip_duplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore duplicate chapters'**
+  String get reader_skip_duplicate;
+
+  /// No description provided for @reader_always_transition.
+  ///
+  /// In en, this message translates to:
+  /// **'Always show the transition between chapters'**
+  String get reader_always_transition;
+
+  /// No description provided for @reader_section_pages.
+  ///
+  /// In en, this message translates to:
+  /// **'Pages'**
+  String get reader_section_pages;
+
+  /// No description provided for @reader_invert_tap_zones.
+  ///
+  /// In en, this message translates to:
+  /// **'Invert the tap zones'**
+  String get reader_invert_tap_zones;
+
+  /// No description provided for @reader_zoom_start.
+  ///
+  /// In en, this message translates to:
+  /// **'Initial zoom position'**
+  String get reader_zoom_start;
+
+  /// No description provided for @reader_panorama.
+  ///
+  /// In en, this message translates to:
+  /// **'Pan wide images'**
+  String get reader_panorama;
+
+  /// No description provided for @reader_split_wide.
+  ///
+  /// In en, this message translates to:
+  /// **'Split wide pages'**
+  String get reader_split_wide;
+
+  /// No description provided for @reader_rotate_wide.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate wide pages to fit'**
+  String get reader_rotate_wide;
+
+  /// No description provided for @reader_disable_zoom_out.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable zooming out'**
+  String get reader_disable_zoom_out;
+
+  /// No description provided for @reader_disable_zoom_out_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'A double tap now only zooms in'**
+  String get reader_disable_zoom_out_desc;
+
+  /// No description provided for @reader_section_continuous.
+  ///
+  /// In en, this message translates to:
+  /// **'Continuous strip'**
+  String get reader_section_continuous;
+
+  /// No description provided for @reader_side_padding.
+  ///
+  /// In en, this message translates to:
+  /// **'Side padding'**
+  String get reader_side_padding;
+
+  /// No description provided for @reader_menu_hide_sensitivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensitivity for hiding the menu while scrolling'**
+  String get reader_menu_hide_sensitivity;
+
+  /// No description provided for @reader_section_navigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation'**
+  String get reader_section_navigation;
+
+  /// No description provided for @reader_volume_buttons.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the volume buttons'**
+  String get reader_volume_buttons;
+
+  /// No description provided for @reader_volume_buttons_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use ▲/▼ to turn the pages'**
+  String get reader_volume_buttons_desc;
+
+  /// No description provided for @reader_invert_volume.
+  ///
+  /// In en, this message translates to:
+  /// **'Invert the volume buttons'**
+  String get reader_invert_volume;
+
+  /// No description provided for @reader_volume_forward.
+  ///
+  /// In en, this message translates to:
+  /// **'▲ → next page  •  ▼ → previous page'**
+  String get reader_volume_forward;
+
+  /// No description provided for @reader_volume_backward.
+  ///
+  /// In en, this message translates to:
+  /// **'▲ → previous page  •  ▼ → next page'**
+  String get reader_volume_backward;
+
+  /// No description provided for @reader_vertical_navigator.
+  ///
+  /// In en, this message translates to:
+  /// **'Vertical chapter navigator'**
+  String get reader_vertical_navigator;
+
+  /// No description provided for @reader_section_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get reader_section_actions;
+
+  /// No description provided for @reader_long_press_actions.
+  ///
+  /// In en, this message translates to:
+  /// **'Show actions on long press'**
+  String get reader_long_press_actions;
+
+  /// No description provided for @reader_save_pages_separate.
+  ///
+  /// In en, this message translates to:
+  /// **'Save pages in separate folders'**
+  String get reader_save_pages_separate;
+
+  /// No description provided for @reader_option_free.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get reader_option_free;
+
+  /// No description provided for @reader_option_portrait.
+  ///
+  /// In en, this message translates to:
+  /// **'Portrait'**
+  String get reader_option_portrait;
+
+  /// No description provided for @reader_option_landscape.
+  ///
+  /// In en, this message translates to:
+  /// **'Landscape'**
+  String get reader_option_landscape;
+
+  /// No description provided for @reader_option_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get reader_option_auto;
+
+  /// No description provided for @reader_option_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get reader_option_left;
+
+  /// No description provided for @reader_option_right.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get reader_option_right;
+
+  /// No description provided for @reader_option_center.
+  ///
+  /// In en, this message translates to:
+  /// **'Center'**
+  String get reader_option_center;
+
+  /// No description provided for @reader_option_none.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get reader_option_none;
+
+  /// No description provided for @reader_option_both.
+  ///
+  /// In en, this message translates to:
+  /// **'Both'**
+  String get reader_option_both;
+
+  /// No description provided for @reader_option_low.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get reader_option_low;
+
+  /// No description provided for @reader_option_medium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get reader_option_medium;
+
+  /// No description provided for @reader_option_high.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get reader_option_high;
 }
 
 class _AppLocalizationsDelegate

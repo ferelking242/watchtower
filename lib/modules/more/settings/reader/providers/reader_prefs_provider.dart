@@ -143,35 +143,12 @@ final longPressActionsProvider = _boolPref('long_press_actions', true);
 final savePagesInSeparateFoldersProvider =
     _boolPref('save_pages_in_separate_folders', false);
 
-const kReaderRotationOptions = <(String, String)>[
-  ('free', 'Libre'),
-  ('portrait', 'Portrait'),
-  ('landscape', 'Paysage'),
-];
+// Value-only option lists: the labels are localized at the call site through
+// [readerOptionLabel], which keeps this provider free of any Flutter import.
+const kReaderRotationOptions = <String>['free', 'portrait', 'landscape'];
 
-const kZoomStartOptions = <(String, String)>[
-  ('auto', 'Automatique'),
-  ('left', 'Gauche'),
-  ('right', 'Droite'),
-  ('center', 'Centre'),
-];
+const kZoomStartOptions = <String>['auto', 'left', 'right', 'center'];
 
-const kVerticalNavigatorOptions = <(String, String)>[
-  ('none', 'Aucun(e)'),
-  ('left', 'Gauche'),
-  ('right', 'Droite'),
-  ('both', 'Les deux'),
-];
+const kVerticalNavigatorOptions = <String>['none', 'left', 'right', 'both'];
 
-const kMenuHideSensitivityOptions = <(int, String)>[
-  (0, 'Basse'),
-  (1, 'Moyenne'),
-  (2, 'Haute'),
-];
-
-String optionLabel(List<(String, String)> options, String value) {
-  for (final o in options) {
-    if (o.$1 == value) return o.$2;
-  }
-  return options.first.$2;
-}
+const kMenuHideSensitivityOptions = <int>[0, 1, 2];

@@ -105,10 +105,10 @@ class ReaderScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.book_1),
                 value: showReadingMode,
-                title: const Text('Afficher le mode de lecture'),
-                subtitle: const Text(
-                  "Affiche la liste des modes de lecture à l'ouverture du lecteur",
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.reader_show_reading_mode),
+                subtitle: Text(
+                  l10n.reader_show_reading_mode_desc,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(showReadingModeProvider.notifier).set(v),
@@ -116,10 +116,10 @@ class ReaderScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.mouse),
                 value: showTapZonesOverlay,
-                title: const Text('Afficher les zones tactiles (superposition)'),
-                subtitle: const Text(
-                  "Affichage bref à l'ouverture du lecteur",
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.reader_show_tap_zones),
+                subtitle: Text(
+                  l10n.reader_show_tap_zones_desc,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(showTapZonesOverlayProvider.notifier).set(v),
@@ -127,11 +127,10 @@ class ReaderScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.wifi),
                 value: loadAheadOnlyOnWifi,
-                title: const Text('Précharger uniquement en Wi-Fi'),
-                subtitle: const Text(
-                  "Économise les données mobiles en ne chargeant que les pages "
-                  'proches de celle en cours de lecture',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.reader_load_ahead_wifi),
+                subtitle: Text(
+                  l10n.reader_load_ahead_wifi_desc,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(loadAheadOnlyOnWifiProvider.notifier).set(v),
@@ -145,13 +144,9 @@ class ReaderScreen extends ConsumerWidget {
               ),
               _Tile(
                 icon: Broken.document_download,
-                title: 'Nombre de pages à précharger',
+                title: l10n.reader_pages_preload,
                 value: '$pagePreloadAmount',
-                subtitle:
-                    'Le nombre de pages à précharger pendant la lecture. Une '
-                    'valeur plus élevée rend la lecture plus fluide, au prix '
-                    "d'un cache plus grand et d'une consommation de données "
-                    'plus importante.',
+                subtitle: l10n.reader_pages_preload_desc,
                 slider: Slider(
                   min: 1,
                   max: 20,
@@ -167,16 +162,17 @@ class ReaderScreen extends ConsumerWidget {
               const Divider(height: 8, indent: 16, endIndent: 16),
 
               // ── Affichage ──────────────────────────────────────────────
-              _Section(icon: Broken.monitor, label: 'Affichage'),
+              _Section(icon: Broken.monitor, label: l10n.reader_section_display),
               _Tile(
                 icon: Broken.rotate_right,
-                title: 'Rotation par défaut',
-                value: optionLabel(kReaderRotationOptions, rotation),
+                title: l10n.reader_default_rotation,
+                value: _rotationName(context, rotation),
                 onTap: () => _pickString(
                   context,
                   ref,
-                  title: 'Rotation par défaut',
+                  title: l10n.reader_default_rotation,
                   options: kReaderRotationOptions,
+                  labelOf: _rotationName,
                   current: rotation,
                   setter: (v) => ref.read(readerRotationProvider.notifier).set(v),
                 ),
@@ -192,7 +188,7 @@ class ReaderScreen extends ConsumerWidget {
                 SwitchListTile(
                   secondary: const Icon(Broken.crop),
                   value: cutout,
-                  title: const Text("Utiliser la zone de l'encoche"),
+                  title: Text(l10n.reader_cutout),
                   onChanged: (v) =>
                       ref.read(readerCutoutProvider.notifier).set(v),
                 ),
@@ -214,7 +210,7 @@ class ReaderScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.mobile),
                 value: showPagesNumber,
-                title: const Text('Afficher le numéro des pages'),
+                title: Text(l10n.reader_show_page_number),
                 onChanged: (v) =>
                     ref.read(showPagesNumberStateProvider.notifier).set(v),
               ),
@@ -222,14 +218,14 @@ class ReaderScreen extends ConsumerWidget {
               const Divider(height: 8, indent: 16, endIndent: 16),
 
               // ── E-Ink ──────────────────────────────────────────────────
-              _Section(icon: Broken.book_saved, label: 'E-Ink'),
+              _Section(icon: Broken.book_saved, label: l10n.reader_section_eink),
               SwitchListTile(
                 secondary: const Icon(Broken.flash_1),
                 value: einkFlash,
-                title: const Text('Flash lors du changement de page'),
-                subtitle: const Text(
-                  'Réduire le ghosting sur les écrans e-ink',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.reader_eink_flash),
+                subtitle: Text(
+                  l10n.reader_eink_flash_desc,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(einkFlashOnPageChangeProvider.notifier).set(v),
@@ -238,34 +234,32 @@ class ReaderScreen extends ConsumerWidget {
               const Divider(height: 8, indent: 16, endIndent: 16),
 
               // ── En cours ───────────────────────────────────────────────
-              _Section(icon: Broken.book_1, label: 'En cours'),
+              _Section(icon: Broken.book_1, label: l10n.reader_section_reading),
               SwitchListTile(
                 secondary: const Icon(Broken.tick_circle),
                 value: skipRead,
-                title: const Text('Passer les chapitres marqués comme lus'),
+                title: Text(l10n.reader_skip_read),
                 onChanged: (v) =>
                     ref.read(skipReadChaptersProvider.notifier).set(v),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.filter),
                 value: skipFiltered,
-                title: const Text('Passer les chapitres filtrés'),
+                title: Text(l10n.reader_skip_filtered),
                 onChanged: (v) =>
                     ref.read(skipFilteredChaptersProvider.notifier).set(v),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.copy),
                 value: skipDuplicate,
-                title: const Text('Ignorer les chapitres en double'),
+                title: Text(l10n.reader_skip_duplicate),
                 onChanged: (v) =>
                     ref.read(skipDuplicateChaptersProvider.notifier).set(v),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.arrow_right_2),
                 value: alwaysShowChapterTransition,
-                title: const Text(
-                  'Toujours afficher la transition entre les chapitres',
-                ),
+                title: Text(l10n.reader_always_transition),
                 onChanged: (v) => ref
                     .read(alwaysShowChapterTransitionProvider.notifier)
                     .set(v),
@@ -274,7 +268,7 @@ class ReaderScreen extends ConsumerWidget {
               const Divider(height: 8, indent: 16, endIndent: 16),
 
               // ── Pages ──────────────────────────────────────────────────
-              _Section(icon: Broken.document, label: 'Pages'),
+              _Section(icon: Broken.document, label: l10n.reader_section_pages),
               SwitchListTile(
                 secondary: const Icon(Broken.mouse),
                 value: usePageTapZones,
@@ -285,7 +279,7 @@ class ReaderScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.refresh_left_square),
                 value: invertTapZones,
-                title: const Text('Inverser les zones tactiles'),
+                title: Text(l10n.reader_invert_tap_zones),
                 onChanged: (v) =>
                     ref.read(invertPageTapZonesProvider.notifier).set(v),
               ),
@@ -297,13 +291,14 @@ class ReaderScreen extends ConsumerWidget {
               ),
               _Tile(
                 icon: Broken.search_zoom_in,
-                title: 'Position du zoom initial',
-                value: optionLabel(kZoomStartOptions, zoomStart),
+                title: l10n.reader_zoom_start,
+                value: _zoomStartName(context, zoomStart),
                 onTap: () => _pickString(
                   context,
                   ref,
-                  title: 'Position du zoom initial',
+                  title: l10n.reader_zoom_start,
                   options: kZoomStartOptions,
+                  labelOf: _zoomStartName,
                   current: zoomStart,
                   setter: (v) =>
                       ref.read(zoomStartPositionProvider.notifier).set(v),
@@ -319,33 +314,31 @@ class ReaderScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.maximize_3),
                 value: panorama,
-                title: const Text('Panoramique des images larges'),
+                title: Text(l10n.reader_panorama),
                 onChanged: (v) =>
                     ref.read(panoramaImagesProvider.notifier).set(v),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.grid_5),
                 value: splitWide,
-                title: const Text('Diviser les pages larges'),
+                title: Text(l10n.reader_split_wide),
                 onChanged: (v) =>
                     ref.read(splitWidePagesProvider.notifier).set(v),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.rotate_right),
                 value: rotateWide,
-                title: const Text(
-                  'Tourner les pages larges pour qu’elles rentrent',
-                ),
+                title: Text(l10n.reader_rotate_wide),
                 onChanged: (v) =>
                     ref.read(rotateWidePagesProvider.notifier).set(v),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.search_zoom_in),
                 value: doubleTapZoomOut,
-                title: const Text('Désactiver le zoom arrière'),
-                subtitle: const Text(
-                  'Le double-clic ne fait plus que zoomer',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.reader_disable_zoom_out),
+                subtitle: Text(
+                  l10n.reader_disable_zoom_out_desc,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(doubleTapZoomOutProvider.notifier).set(v),
@@ -354,7 +347,7 @@ class ReaderScreen extends ConsumerWidget {
               const Divider(height: 8, indent: 16, endIndent: 16),
 
               // ── Bande continue ─────────────────────────────────────────
-              _Section(icon: Broken.document_text, label: 'Bande continue'),
+              _Section(icon: Broken.document_text, label: l10n.reader_section_continuous),
               SwitchListTile(
                 secondary: const Icon(Broken.grid_4),
                 value: showPageGaps,
@@ -365,13 +358,13 @@ class ReaderScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.refresh_left_square),
                 value: invertTapZones,
-                title: const Text('Inverser les zones tactiles'),
+                title: Text(l10n.reader_invert_tap_zones),
                 onChanged: (v) =>
                     ref.read(invertPageTapZonesProvider.notifier).set(v),
               ),
               _Tile(
                 icon: Broken.arrow_swap,
-                title: 'Décalage latéral',
+                title: l10n.reader_side_padding,
                 value: '$webtoonSidePadding%',
                 slider: Slider(
                   min: 0,
@@ -386,15 +379,14 @@ class ReaderScreen extends ConsumerWidget {
               ),
               _Tile(
                 icon: Broken.mouse,
-                title:
-                    'Sensibilité pour masquer le menu lors du défilement',
-                value:
-                    kMenuHideSensitivityOptions[menuHideSensitivity].$2,
+                title: l10n.reader_menu_hide_sensitivity,
+                value: _menuHideSensitivityName(context, menuHideSensitivity),
                 onTap: () => _pickInt(
                   context,
                   ref,
-                  title: 'Sensibilité pour masquer le menu lors du défilement',
+                  title: l10n.reader_menu_hide_sensitivity,
                   options: kMenuHideSensitivityOptions,
+                  labelOf: _menuHideSensitivityName,
                   current: menuHideSensitivity,
                   setter: (v) => ref
                       .read(continuousMenuHideSensitivityProvider.notifier)
@@ -405,7 +397,7 @@ class ReaderScreen extends ConsumerWidget {
               const Divider(height: 8, indent: 16, endIndent: 16),
 
               // ── Navigation ─────────────────────────────────────────────
-              _Section(icon: Broken.routing, label: 'Navigation'),
+              _Section(icon: Broken.routing, label: l10n.reader_section_navigation),
               _Tile(
                 icon: Broken.grid_1,
                 title: l10n.navigation_layout,
@@ -420,10 +412,10 @@ class ReaderScreen extends ConsumerWidget {
                 SwitchListTile(
                   secondary: const Icon(Broken.volume_high),
                   value: volumeButtonNav,
-                  title: const Text('Avec les boutons de volume'),
-                  subtitle: const Text(
-                    'Utilisez ▲/▼ pour tourner les pages',
-                    style: TextStyle(fontSize: 11),
+                  title: Text(l10n.reader_volume_buttons),
+                  subtitle: Text(
+                    l10n.reader_volume_buttons_desc,
+                    style: const TextStyle(fontSize: 11),
                   ),
                   onChanged: (v) =>
                       ref.read(volumeButtonNavigationStateProvider.notifier).set(v),
@@ -432,11 +424,11 @@ class ReaderScreen extends ConsumerWidget {
                 SwitchListTile(
                   secondary: const Icon(Broken.arrow_swap_horizontal),
                   value: invertVolumeButtonNav,
-                  title: const Text('Inverser les boutons de volume'),
+                  title: Text(l10n.reader_invert_volume),
                   subtitle: Text(
                     invertVolumeButtonNav
-                        ? '▲ → page suivante  •  ▼ → page précédente'
-                        : '▲ → page précédente  •  ▼ → page suivante',
+                        ? l10n.reader_volume_forward
+                        : l10n.reader_volume_backward,
                     style: const TextStyle(fontSize: 11),
                   ),
                   onChanged: (v) => ref
@@ -447,16 +439,14 @@ class ReaderScreen extends ConsumerWidget {
                 ),
               _Tile(
                 icon: Broken.element_4,
-                title: 'Navigateur de chapitres vertical',
-                value: optionLabel(
-                  kVerticalNavigatorOptions,
-                  verticalNavigator,
-                ),
+                title: l10n.reader_vertical_navigator,
+                value: _verticalNavigatorName(context, verticalNavigator),
                 onTap: () => _pickString(
                   context,
                   ref,
-                  title: 'Navigateur de chapitres vertical',
+                  title: l10n.reader_vertical_navigator,
                   options: kVerticalNavigatorOptions,
+                  labelOf: _verticalNavigatorName,
                   current: verticalNavigator,
                   setter: (v) => ref
                       .read(verticalChapterNavigatorProvider.notifier)
@@ -467,20 +457,18 @@ class ReaderScreen extends ConsumerWidget {
               const Divider(height: 8, indent: 16, endIndent: 16),
 
               // ── Actions ────────────────────────────────────────────────
-              _Section(icon: Broken.flash, label: 'Actions'),
+              _Section(icon: Broken.flash, label: l10n.reader_section_actions),
               SwitchListTile(
                 secondary: const Icon(Broken.mouse_square),
                 value: longPressActions,
-                title: const Text('Afficher les actions en appuyant longuement'),
+                title: Text(l10n.reader_long_press_actions),
                 onChanged: (v) =>
                     ref.read(longPressActionsProvider.notifier).set(v),
               ),
               SwitchListTile(
                 secondary: const Icon(Broken.folder),
                 value: savePagesSeparately,
-                title: const Text(
-                  'Enregistrer les pages dans des dossiers séparés',
-                ),
+                title: Text(l10n.reader_save_pages_separate),
                 onChanged: (v) =>
                     ref.read(savePagesInSeparateFoldersProvider.notifier).set(v),
               ),
@@ -562,16 +550,17 @@ class ReaderScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     required String title,
-    required List<(String, String)> options,
+    required List<String> options,
+    required String Function(BuildContext, String) labelOf,
     required String current,
     required ValueChanged<String> setter,
   }) {
     _radioSheet<String>(
       context,
       title: title,
-      options: options.map((e) => e.$1).toList(),
+      options: options,
       current: current,
-      labelOf: (v) => optionLabel(options, v),
+      labelOf: (v) => labelOf(context, v),
       onPicked: setter,
     );
   }
@@ -580,21 +569,17 @@ class ReaderScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     required String title,
-    required List<(int, String)> options,
+    required List<int> options,
+    required String Function(BuildContext, int) labelOf,
     required int current,
     required ValueChanged<int> setter,
   }) {
     _radioSheet<int>(
       context,
       title: title,
-      options: options.map((e) => e.$1).toList(),
+      options: options,
       current: current,
-      labelOf: (v) {
-        for (final o in options) {
-          if (o.$1 == v) return o.$2;
-        }
-        return options.first.$2;
-      },
+      labelOf: (v) => labelOf(context, v),
       onPicked: setter,
     );
   }
@@ -699,6 +684,41 @@ class _Tile extends StatelessWidget {
     );
   }
 }
+
+// ── Option labels ────────────────────────────────────────────────────────────
+//
+// The option lists in `reader_prefs_provider.dart` store values only; the
+// labels are resolved here so the provider stays free of Flutter imports.
+
+String _rotationName(BuildContext context, String value) =>
+    switch (value) {
+      'portrait' => context.l10n.reader_option_portrait,
+      'landscape' => context.l10n.reader_option_landscape,
+      _ => context.l10n.reader_option_free,
+    };
+
+String _zoomStartName(BuildContext context, String value) =>
+    switch (value) {
+      'left' => context.l10n.reader_option_left,
+      'right' => context.l10n.reader_option_right,
+      'center' => context.l10n.reader_option_center,
+      _ => context.l10n.reader_option_auto,
+    };
+
+String _verticalNavigatorName(BuildContext context, String value) =>
+    switch (value) {
+      'left' => context.l10n.reader_option_left,
+      'right' => context.l10n.reader_option_right,
+      'both' => context.l10n.reader_option_both,
+      _ => context.l10n.reader_option_none,
+    };
+
+String _menuHideSensitivityName(BuildContext context, int value) =>
+    switch (value) {
+      1 => context.l10n.reader_option_medium,
+      2 => context.l10n.reader_option_high,
+      _ => context.l10n.reader_option_low,
+    };
 
 /// Bottom-sheet radio picker shared by every reader option.
 void _radioSheet<T>(

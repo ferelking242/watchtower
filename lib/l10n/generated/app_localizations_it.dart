@@ -5961,4 +5961,169 @@ class AppLocalizationsIt extends AppLocalizations {
   String settings_percent(Object value) {
     return '$value%';
   }
+
+  @override
+  String get reader_show_reading_mode => 'Show the reading mode';
+
+  @override
+  String get reader_show_reading_mode_desc =>
+      'Lists the reading modes when the reader opens';
+
+  @override
+  String get reader_show_tap_zones => 'Show the tap zones (overlay)';
+
+  @override
+  String get reader_show_tap_zones_desc =>
+      'Briefly shown when the reader opens';
+
+  @override
+  String get reader_load_ahead_wifi => 'Only preload on Wi-Fi';
+
+  @override
+  String get reader_load_ahead_wifi_desc =>
+      'Saves mobile data by loading only the pages close to the one you are reading';
+
+  @override
+  String get reader_pages_preload => 'Number of pages to preload';
+
+  @override
+  String get reader_pages_preload_desc =>
+      'How many pages to preload while reading. A higher value makes reading smoother, at the cost of a larger cache and higher data usage.';
+
+  @override
+  String get reader_section_display => 'Display';
+
+  @override
+  String get reader_default_rotation => 'Default rotation';
+
+  @override
+  String get reader_cutout => 'Use the notch area';
+
+  @override
+  String get reader_show_page_number => 'Show the page number';
+
+  @override
+  String get reader_section_eink => 'E-Ink';
+
+  @override
+  String get reader_eink_flash => 'Flash on page change';
+
+  @override
+  String get reader_eink_flash_desc => 'Reduces ghosting on e-ink screens';
+
+  @override
+  String get reader_section_reading => 'Reading';
+
+  @override
+  String get reader_skip_read => 'Skip chapters marked as read';
+
+  @override
+  String get reader_skip_filtered => 'Skip filtered chapters';
+
+  @override
+  String get reader_skip_duplicate => 'Ignore duplicate chapters';
+
+  @override
+  String get reader_always_transition =>
+      'Always show the transition between chapters';
+
+  @override
+  String get reader_section_pages => 'Pages';
+
+  @override
+  String get reader_invert_tap_zones => 'Invert the tap zones';
+
+  @override
+  String get reader_zoom_start => 'Initial zoom position';
+
+  @override
+  String get reader_panorama => 'Pan wide images';
+
+  @override
+  String get reader_split_wide => 'Split wide pages';
+
+  @override
+  String get reader_rotate_wide => 'Rotate wide pages to fit';
+
+  @override
+  String get reader_disable_zoom_out => 'Disable zooming out';
+
+  @override
+  String get reader_disable_zoom_out_desc => 'A double tap now only zooms in';
+
+  @override
+  String get reader_section_continuous => 'Continuous strip';
+
+  @override
+  String get reader_side_padding => 'Side padding';
+
+  @override
+  String get reader_menu_hide_sensitivity =>
+      'Sensitivity for hiding the menu while scrolling';
+
+  @override
+  String get reader_section_navigation => 'Navigation';
+
+  @override
+  String get reader_volume_buttons => 'Use the volume buttons';
+
+  @override
+  String get reader_volume_buttons_desc => 'Use ▲/▼ to turn the pages';
+
+  @override
+  String get reader_invert_volume => 'Invert the volume buttons';
+
+  @override
+  String get reader_volume_forward => '▲ → next page  •  ▼ → previous page';
+
+  @override
+  String get reader_volume_backward => '▲ → previous page  •  ▼ → next page';
+
+  @override
+  String get reader_vertical_navigator => 'Vertical chapter navigator';
+
+  @override
+  String get reader_section_actions => 'Actions';
+
+  @override
+  String get reader_long_press_actions => 'Show actions on long press';
+
+  @override
+  String get reader_save_pages_separate => 'Save pages in separate folders';
+
+  @override
+  String get reader_option_free => 'Free';
+
+  @override
+  String get reader_option_portrait => 'Portrait';
+
+  @override
+  String get reader_option_landscape => 'Landscape';
+
+  @override
+  String get reader_option_auto => 'Automatic';
+
+  @override
+  String get reader_option_left => 'Left';
+
+  @override
+  String get reader_option_right => 'Right';
+
+  @override
+  String get reader_option_center => 'Center';
+
+  @override
+  String get reader_option_none => 'None';
+
+  @override
+  String get reader_option_both => 'Both';
+
+  @override
+  String get reader_option_low => 'Low';
+
+  @override
+  String get reader_option_medium => 'Medium';
+
+  @override
+  String get reader_option_high => 'High';
 }
