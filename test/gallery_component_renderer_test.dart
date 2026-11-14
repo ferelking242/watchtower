@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/models/gallery_component_palette.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/collection_cards.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_content_sections.dart';
@@ -32,6 +34,8 @@ GalleryComponentContext _ctx(String id) =>
     GalleryComponentContext(componentId: id, items: _items, onOpen: (_) {});
 
 Widget _app(Widget child) => MaterialApp(
+  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );
 
@@ -186,7 +190,15 @@ void main() {
     final card = tester.widget<RankingSectionCard>(
       find.byType(RankingSectionCard),
     );
-    expect(card.flat, isTrue);
+    // La carte est nue : plus de panneau ni d'en-tête propre. Le titre et le
+    // « Tout voir » viennent de la section qui l'héberge.
+    expect(
+      find.descendant(
+        of: find.byType(RankingSectionCard),
+        matching: find.byType(AppSectionHeader),
+      ),
+      findsNothing,
+    );
     expect(card.items.first.onTap, isNotNull);
     card.items.first.onTap!.call();
     expect(openedIndex, 0);

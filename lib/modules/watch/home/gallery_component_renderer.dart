@@ -700,7 +700,6 @@ class GalleryComponentRenderer {
           items: _rank(ctx, items),
           width: w ?? 430,
           labelTiles: ctx.flag('labelTiles'),
-          flat: ctx.flag('flat', fallback: true),
         );
 
       // ── Collection rails ──
@@ -1838,8 +1837,7 @@ class GalleryComponentRenderer {
         return RankingSectionCard(
           items: _rank(ctx, items),
           width: w ?? 430,
-          title: ctx.text('title'),
-          onSeeAll: ctx.onSeeAll,
+          labelTiles: ctx.flag('labelTiles'),
         );
       case GalleryComponentFamily.mangaChapter:
         return MangaChapterCard(

@@ -53,36 +53,20 @@ class RankingEntry {
 /// corriger dans toute l'application.
 ///
 /// Carte nue : le titre, le sous-titre, l'icône et le « Voir tout »
-/// appartiennent à la section qui l'héberge (`AppSectionHeader`). [title],
-/// [subtitle], [icon] et [onSeeAll] sont conservés pour la compatibilité des
-/// layouts JSON mais ne sont plus rendus ici.
+/// appartiennent à la section qui l'héberge (`AppSectionHeader`).
 class RankingSectionCard extends StatelessWidget {
   const RankingSectionCard({
     super.key,
     required this.items,
     this.width = 430,
-    this.onSeeAll,
-    this.title,
-    this.subtitle,
-    this.icon,
     this.labelTiles = false,
-    this.flat = false,
   });
 
   final List<RankingEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
-
-  final String? title;
-  final String? subtitle;
-  final IconData? icon;
 
   /// Force toutes les tuiles en mode « libellé » (genres, pays, décennies).
   final bool labelTiles;
-
-  /// Carte intégrée à une page : pas de panneau autour. `false` uniquement
-  /// pour l'aperçu isolé de la galerie.
-  final bool flat;
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +74,6 @@ class RankingSectionCard extends StatelessWidget {
       items: items,
       width: width,
       labelTiles: labelTiles,
-      flat: flat,
     );
   }
 }
@@ -105,7 +88,6 @@ class _RankingSectionCard extends StatelessWidget {
     required this.items,
     required this.width,
     this.labelTiles = false,
-    this.flat = false,
   });
 
   final List<RankingEntry> items;
@@ -113,13 +95,11 @@ class _RankingSectionCard extends StatelessWidget {
 
   /// Force toutes les tuiles en mode « libellé » (genres, pays, décennies).
   final bool labelTiles;
-  final bool flat;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: width,
-      constraints: BoxConstraints(maxWidth: width),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(

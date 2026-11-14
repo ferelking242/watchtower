@@ -91,6 +91,7 @@ enum _PreviewKind {
   historyGrid,
   empty,
   error,
+  prefabSection,
   swipeSection,
   richDetails,
   richBackdrop,
@@ -260,6 +261,7 @@ const _orderedGallerySections = <String>[
   'COLLECTIONS',
   'DÉCOUVERTE',
   'CATÉGORIES',
+  'SECTIONS PRÉFABRIQUÉES',
   'CATALOGUE & DISCOVERY',
   'CARTES RICHES',
   'STREAMING & PROGRESSION',
@@ -362,6 +364,7 @@ class _ComponentSpec {
   /// Sections displayed in the "Sections" tab instead of the "Cards" tab.
   static const _sectionNames = <String>{
     'FILMS & SÉRIES · SECTIONS',
+    'SECTIONS PRÉFABRIQUÉES',
     'EXTENSIONS WATCH',
     'SECTIONS RÉUTILISABLES',
   };
@@ -1402,10 +1405,14 @@ IconData _sectionIcon(String section) {
   if (section.contains('BADGES')) {
     return Icons.sell_outlined;
   }
+  if (section.contains('PRÉFABRIQUÉES')) {
+    return Icons.dashboard_customize_outlined;
+  }
   if (section.contains('EXTENSION')) return Icons.extension_outlined;
   if (section.contains('STREAMING')) return Icons.play_circle_outline_rounded;
-  if (section.contains('COLLECTION'))
+  if (section.contains('COLLECTION')) {
     return Icons.collections_bookmark_outlined;
+  }
   if (section.contains('ÉPISODES')) return Icons.subtitles_outlined;
   if (section.contains('CLASSEMENTS')) return Icons.leaderboard_outlined;
   if (section.contains('MANGA · READER')) return Icons.chrome_reader_mode_outlined;
@@ -1968,6 +1975,7 @@ class _CardSkeleton extends StatelessWidget {
         height: 174,
         child: AppShimmerBlock(radius: 18),
       ),
+      _PreviewKind.prefabSection => const PrefabSectionSkeleton(),
       _PreviewKind.swipeSection => const SwipeSectionSkeleton(),
       // ── Cartes riches ──
       _PreviewKind.richDetails => const _RichDetailsSkeleton(),
@@ -3366,7 +3374,46 @@ class ScanGroupSkeleton extends StatelessWidget {
   }
 }
 
-/// Swipe 3×3 section: header + 3 columns × 3 rows of small posters.
+/// Prefab section: header + a row of bare cards.
+class PrefabSectionSkeleton extends StatelessWidget {
+  const PrefabSectionSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 360,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const _ShimmerLine(width: 20, height: 20),
+              const SizedBox(width: 8),
+              const _ShimmerLine(width: 120, height: 16),
+              const Spacer(),
+              const _ShimmerLine(width: 48, height: 12),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (var c = 0; c < 3; c++) ...[
+                if (c > 0) const SizedBox(width: 12),
+                const Expanded(
+                  child: SizedBox(
+                    height: 132,
+                    child: AppShimmerBlock(radius: 14),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class SwipeSectionSkeleton extends StatelessWidget {
   const SwipeSectionSkeleton({super.key});
 
@@ -4537,6 +4584,46 @@ class _LibraryGridPreview extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A prefab section: the production section header plus one or more bare
+/// cards. It is what a layout author actually gets when they drop a card into
+/// a page: the section owns the heading, the subtitle, the icon and the
+/// « Tout voir » action, and the card only draws its content.
+class _PrefabSection extends StatelessWidget {
+  const _PrefabSection({
+    required this.title,
+    required this.icon,
+    required this.child,
+    this.subtitle,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 900),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppSectionHeader(
+            title: title,
+            subtitle: subtitle,
+            leadingIcon: icon,
+            actionLabel: 'Tout voir',
+            onAction: () {},
+          ),
+          const SizedBox(height: 10),
+          child,
         ],
       ),
     );
@@ -6028,10 +6115,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.ranked,
     layoutComponent: 'top-movies',
     result: (_) => RankingSectionCard(
-      onSeeAll: () {},
-      title: 'Top 10 Films du moment',
-      subtitle: 'Les films les plus populaires en ce moment.',
-      icon: Icons.whatshot_rounded,
       items: [
         _rankEntry(
           'Dune: Part Two',
@@ -9549,7 +9632,278 @@ List<_ComponentSpec> _buildComponents() => [
       ),
     ),
   ),
+  // ── SECTIONS PRÉFABRIQUÉES ──
+  // Une section n'est pas une carte : c'est un en-tête de production
+  // (`AppSectionHeader`) posé au-dessus d'une ou plusieurs cartes nues. Ces
+  // aperçus montrent le rendu réel une fois la carte déposée dans une page —
+  // le titre, le sous-titre, l'icône et le « Tout voir » appartiennent à la
+  // section, jamais à la carte.
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Rail de posters',
+    className: 'AppSectionHeader + PosterCard',
+    path: 'lib/modules/media/app_ui_components.dart',
+    usage: 'En-tête « Populaires » + rangée de posters nus',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Populaires cette semaine',
+      subtitle: 'Mis à jour il y a 2 h',
+      icon: Icons.whatshot_rounded,
+      child: _prefabRow([
+        for (final item in _tmdbItems.take(6))
+          PosterCard(
+            item: ContentItem.fromTmdb(item),
+            width: 112,
+            onTap: () {},
+          ),
+      ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Reprendre la lecture',
+    className: 'AppSectionHeader + ProgressMediaCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'En-tête « Reprendre » + cartes de progression nues',
+    icon: Icons.timelapse_rounded,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Reprendre',
+      subtitle: 'Votre progression',
+      icon: Icons.play_circle_outline_rounded,
+      child: _prefabRow([
+        for (final item in _tmdbItems.take(3))
+          SizedBox(
+            width: 320,
+            child: ProgressMediaCard(
+              data: _streamCardData(
+                item,
+                seriesMeta: 'S1 • Ép. 6',
+                extraMeta: '42 min',
+                progress: .68,
+              ),
+              style: ProgressMediaStyle.percent,
+              percent: true,
+              animation: true,
+              chevron: true,
+            ),
+          ),
+      ]),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Carrousel d\'épisodes',
+    className: 'AppSectionHeader + EpisodeCarousel',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'En-tête + carrousel auto-défilant (`autoScroll`, `speed`)',
+    icon: Icons.subtitles_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Épisodes',
+      subtitle: 'Saison 1',
+      icon: Icons.subtitles_outlined,
+      child: EpisodeCarousel(
+        autoScroll: true,
+        speed: 30,
+        episodes: [
+          _episodeEntry('Pilot', number: 1, thumbUrl: _posterDune),
+          _episodeEntry('The Weir', number: 2, thumbUrl: _posterThrones),
+          _episodeEntry(
+            'Long, Long Time',
+            number: 3,
+            current: true,
+            thumbUrl: _posterOppenheimer,
+          ),
+          _episodeEntry('Please Hold', number: 4, thumbUrl: _posterArcane),
+          _episodeEntry(
+            'Endure and Survive',
+            number: 5,
+            thumbUrl: _posterInterstellar,
+          ),
+        ],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Classement Top 10',
+    className: 'AppSectionHeader + RankedMediaCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'En-tête « Top 10 » + carte classée nue',
+    icon: Icons.leaderboard_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Top 10 cette semaine',
+      subtitle: 'Les plus regardés',
+      icon: Icons.leaderboard_outlined,
+      child: RankedMediaCard(
+        items: [
+          _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
+          _collectionEntry(
+            'The Last of Us',
+            meta: 'Série',
+            thumbUrl: _posterThrones,
+            rank: 2,
+          ),
+          _collectionEntry(
+            'Spider-Man',
+            meta: 'Film',
+            thumbUrl: _posterOppenheimer,
+            rank: 3,
+          ),
+        ],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Saison (effet miroir)',
+    className: 'AppSectionHeader + SeasonBannerCard',
+    path: 'lib/modules/media/episode_cards.dart',
+    usage: 'En-tête + bannière de saison miroir (`mirror`)',
+    icon: Icons.play_circle_outline,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Saisons',
+      subtitle: 'Breaking Bad',
+      icon: Icons.video_library_outlined,
+      child: SeasonBannerCard(
+        mirror: true,
+        season: _seasonEntry(
+          'Breaking Bad',
+          seasonLabel: 'Saison 5',
+          stats: '16 épisodes · 2013',
+          description: 'La fin épique pour Walter White et Jesse Pinkman.',
+          rating: 9.5,
+          thumbUrl: _backdropDune,
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Univers par pays (scroll)',
+    className: 'AppSectionHeader + HomeLanguageGridCard',
+    path: 'lib/modules/media/home_hero_cards.dart',
+    usage: 'En-tête + grille pays nues, défilement horizontal (`scroll`)',
+    icon: Icons.public_rounded,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Univers par pays / langue',
+      subtitle: 'Explorez des contenus du monde entier.',
+      icon: Icons.public_rounded,
+      child: HomeLanguageGridCard(
+        scroll: true,
+        chips: const [
+          HomeCountryChip(
+            label: 'États-Unis',
+            code: 'US',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1496588152823-86ff7695e68f?auto=format&fit=crop&w=420&q=80',
+          ),
+          HomeCountryChip(
+            label: 'Royaume-Uni',
+            code: 'GB',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=420&q=80',
+          ),
+          HomeCountryChip(
+            label: 'France',
+            code: 'FR',
+            backgroundUrl:
+                'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=420&q=80',
+          ),
+        ],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Collections & franchises',
+    className: 'AppSectionHeader + CollectionCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'En-tête + carte collection nue',
+    icon: Icons.collections_bookmark_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Collections & franchises',
+      subtitle: 'Tous les univers',
+      icon: Icons.collections_bookmark_outlined,
+      child: CollectionCard(
+        width: 620,
+        data: _collectionData(
+          _collItem(
+            'Le Seigneur des Anneaux',
+            poster: _posterDune,
+            backdrop: _backdropDune,
+          ),
+          stats: '3 films · 6 documentaires',
+          actionLabel: 'Voir la collection',
+        ),
+        sideEntries: [
+          _collectionEntry('Le Hobbit', meta: '3 films', thumbUrl: _posterDune),
+          _collectionEntry('Le Silmarillion', meta: 'Livre', thumbUrl: _posterThrones),
+          _collectionEntry(
+            'Les Anneaux de pouvoir',
+            meta: 'Série',
+            thumbUrl: _posterOppenheimer,
+          ),
+        ],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Carrousel d\'univers',
+    className: 'AppSectionHeader + UniverseCarouselCard',
+    path: 'lib/modules/media/collection_cards.dart',
+    usage: 'En-tête + trois visuels inclinés, sans flèches (`tilt`)',
+    icon: Icons.view_carousel_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Univers',
+      subtitle: 'Explorez les sagas',
+      icon: Icons.auto_awesome_motion_rounded,
+      child: UniverseCarouselCard(
+        universes: [
+          _collectionEntry(
+            'Univers DC',
+            meta: 'Films · Comics',
+            thumbUrl: _backdropDune,
+          ),
+          _collectionEntry(
+            'Univers Harry Potter',
+            meta: 'Films · Livres',
+            thumbUrl: _backdropInterstellar,
+          ),
+          _collectionEntry(
+            'Univers Marvel',
+            meta: 'Films · Séries',
+            thumbUrl: _backdropOppenheimer,
+          ),
+        ],
+      ),
+    ),
+  ),
 ];
+
+/// Rangée horizontale de cartes pour les aperçus de sections préfabriquées.
+Widget _prefabRow(List<Widget> children, {double gap = 12}) {
+  return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) SizedBox(width: gap),
+          children[i],
+        ],
+      ],
+    ),
+  );
+}
 
 /// Démo : entrée de rail paysage (Section 9).
 LandscapeEntry _lsEntry(
