@@ -1665,6 +1665,12 @@ abstract class AppLocalizations {
   /// **'You\'re not logged in'**
   String get not_logged_in;
 
+  /// No description provided for @login_to_your_music_account.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in to your music account to continue'**
+  String get login_to_your_music_account;
+
   /// No description provided for @search_mode.
   ///
   /// In en, this message translates to:
@@ -1742,6 +1748,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search to get results'**
   String get search_to_get_results;
+
+  /// No description provided for @all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get all;
+
+  /// No description provided for @metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata'**
+  String get metadata;
+
+  /// No description provided for @discover_new_horizons.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover new horizons'**
+  String get discover_new_horizons;
 
   /// No description provided for @use_amoled_mode.
   ///
@@ -1886,6 +1910,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Explore Genres'**
   String get explore_genres;
+
+  /// Empty search result title
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing found for \"{query}\"'**
+  String nothing_found_for_query(String query);
 
   /// No description provided for @friends.
   ///
@@ -3014,6 +3044,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'For audiophiles. Provides high-quality/lossless audio streams. Accurate ISRC based track matching.'**
   String get dab_music_source_description;
+
+  /// No description provided for @repeat.
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat'**
+  String get repeat;
+
+  /// No description provided for @quit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit'**
+  String get quit;
+
+  /// No description provided for @show_hide_window.
+  ///
+  /// In en, this message translates to:
+  /// **'Show/Hide Window'**
+  String get show_hide_window;
+
+  /// No description provided for @changelog.
+  ///
+  /// In en, this message translates to:
+  /// **'Changelog'**
+  String get changelog;
+
+  /// No description provided for @open_track.
+  ///
+  /// In en, this message translates to:
+  /// **'Open track'**
+  String get open_track;
+
+  /// No description provided for @dismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get dismiss;
+
+  /// No description provided for @field_is_required.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required'**
+  String get field_is_required;
+
+  /// No description provided for @music_plugin.
+  ///
+  /// In en, this message translates to:
+  /// **'Music Plugin'**
+  String get music_plugin;
+
+  /// No description provided for @track.
+  ///
+  /// In en, this message translates to:
+  /// **'Track'**
+  String get track;
 }
 
 class _AppLocalizationsDelegate

@@ -14824,6 +14824,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Director: '**
   String get media_director_colon;
+
+  /// No description provided for @marketplace_official.
+  ///
+  /// In en, this message translates to:
+  /// **'Official'**
+  String get marketplace_official;
+
+  /// No description provided for @marketplace_third_party.
+  ///
+  /// In en, this message translates to:
+  /// **'Third-party'**
+  String get marketplace_third_party;
+
+  /// No description provided for @marketplace_sign_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get marketplace_sign_in;
+
+  /// No description provided for @marketplace_connect_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection — {name}'**
+  String marketplace_connect_title(Object name);
+
+  /// No description provided for @marketplace_plugin_kind_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music plugin'**
+  String get marketplace_plugin_kind_music;
+
+  /// No description provided for @marketplace_topic_metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata'**
+  String get marketplace_topic_metadata;
+
+  /// No description provided for @marketplace_topic_audio_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio Source'**
+  String get marketplace_topic_audio_source;
 }
 
 class _AppLocalizationsDelegate

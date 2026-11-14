@@ -8484,4 +8484,27 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_director_colon => 'Réalisateur : ';
+
+  @override
+  String get marketplace_official => 'Officiel';
+
+  @override
+  String get marketplace_third_party => 'Tiers';
+
+  @override
+  String get marketplace_sign_in => 'Se connecter';
+
+  @override
+  String marketplace_connect_title(Object name) {
+    return 'Connexion — $name';
+  }
+
+  @override
+  String get marketplace_plugin_kind_music => 'Plugin musical';
+
+  @override
+  String get marketplace_topic_metadata => 'Métadonnées';
+
+  @override
+  String get marketplace_topic_audio_source => 'Source audio';
 }

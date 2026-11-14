@@ -475,5 +475,19 @@
   "refresh": "Atualizar",
   "integrated_in_watchtower": "Integrado no Watchtower",
   "wikipedia": "Wikipédia",
-  "read_more_at_wikipedia": "leia mais na Wikipédia"
+  "read_more_at_wikipedia": "leia mais na Wikipédia",
+  "login_to_your_music_account": "Log in to your music account to continue",
+  "all": "All",
+  "metadata": "Metadata",
+  "discover_new_horizons": "Discover new horizons",
+  "nothing_found_for_query": "Nothing found for \"{query}\"",
+  "repeat": "Repeat",
+  "quit": "Quit",
+  "show_hide_window": "Show/Hide Window",
+  "changelog": "Changelog",
+  "open_track": "Open track",
+  "dismiss": "Dismiss",
+  "field_is_required": "This field is required",
+  "music_plugin": "Music Plugin",
+  "track": "Track"
 }

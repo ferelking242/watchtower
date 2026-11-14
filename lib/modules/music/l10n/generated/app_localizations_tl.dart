@@ -835,6 +835,10 @@ class AppLocalizationsTl extends AppLocalizations {
   String get not_logged_in => 'Hindi ka naka-log in';
 
   @override
+  String get login_to_your_music_account =>
+      'Log in to your music account to continue';
+
+  @override
   String get search_mode => 'Mode ng Paghahanap';
 
   @override
@@ -876,6 +880,15 @@ class AppLocalizationsTl extends AppLocalizations {
 
   @override
   String get search_to_get_results => 'Maghanap para makakuha ng mga resulta';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get metadata => 'Metadata';
+
+  @override
+  String get discover_new_horizons => 'Discover new horizons';
 
   @override
   String get use_amoled_mode => 'Matingkad na itim na madilim na tema';
@@ -949,6 +962,11 @@ class AppLocalizationsTl extends AppLocalizations {
 
   @override
   String get explore_genres => 'Tuklasin ang mga Genre';
+
+  @override
+  String nothing_found_for_query(String query) {
+    return 'Nothing found for \"$query\"';
+  }
 
   @override
   String get friends => 'Mga Kaibigan';
@@ -1596,4 +1614,31 @@ class AppLocalizationsTl extends AppLocalizations {
   @override
   String get dab_music_source_description =>
       'Para sa mga audiophile. Nagbibigay ng de-kalidad/walang loss na audio streams. Tumpak na pagtutugma ng track batay sa ISRC.';
+
+  @override
+  String get repeat => 'Repeat';
+
+  @override
+  String get quit => 'Quit';
+
+  @override
+  String get show_hide_window => 'Show/Hide Window';
+
+  @override
+  String get changelog => 'Changelog';
+
+  @override
+  String get open_track => 'Open track';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get field_is_required => 'This field is required';
+
+  @override
+  String get music_plugin => 'Music Plugin';
+
+  @override
+  String get track => 'Track';
 }

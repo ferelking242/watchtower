@@ -836,6 +836,10 @@ class AppLocalizationsNe extends AppLocalizations {
   String get not_logged_in => 'तपाईंले लगइन गरेका छैनौं';
 
   @override
+  String get login_to_your_music_account =>
+      'Log in to your music account to continue';
+
+  @override
   String get search_mode => 'खोज मोड';
 
   @override
@@ -878,6 +882,15 @@ class AppLocalizationsNe extends AppLocalizations {
   @override
   String get search_to_get_results =>
       'परिणामहरू प्राप्त गर्नका लागि खोज्नुहोस्';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get metadata => 'Metadata';
+
+  @override
+  String get discover_new_horizons => 'Discover new horizons';
 
   @override
   String get use_amoled_mode => 'कृष्ण ब्ल्याक गाढा थिम प्रयोग गर्नुहोस्';
@@ -951,6 +964,11 @@ class AppLocalizationsNe extends AppLocalizations {
 
   @override
   String get explore_genres => 'शैलीहरू अन्वेषण गर्नुहोस्';
+
+  @override
+  String nothing_found_for_query(String query) {
+    return 'Nothing found for \"$query\"';
+  }
 
   @override
   String get friends => 'साथीहरू';
@@ -1593,4 +1611,31 @@ class AppLocalizationsNe extends AppLocalizations {
   @override
   String get dab_music_source_description =>
       'अडियोप्रेमीहरूका लागि। उच्च गुणस्तर/लसलेस अडियो स्ट्रिमहरू उपलब्ध गराउँछ। ISRC-मा आधारित सटीक ट्र्याक मिलान।';
+
+  @override
+  String get repeat => 'Repeat';
+
+  @override
+  String get quit => 'Quit';
+
+  @override
+  String get show_hide_window => 'Show/Hide Window';
+
+  @override
+  String get changelog => 'Changelog';
+
+  @override
+  String get open_track => 'Open track';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get field_is_required => 'This field is required';
+
+  @override
+  String get music_plugin => 'Music Plugin';
+
+  @override
+  String get track => 'Track';
 }

@@ -2420,5 +2420,12 @@
   "media_see_episodes": "See the episodes",
   "media_see_series": "See the series",
   "media_share": "Share",
-  "media_director_colon": "Director: "
+  "media_director_colon": "Director: ",
+  "marketplace_official": "Official",
+  "marketplace_third_party": "Third-party",
+  "marketplace_sign_in": "Sign in",
+  "marketplace_connect_title": "Connection — {name}",
+  "marketplace_plugin_kind_music": "Music plugin",
+  "marketplace_topic_metadata": "Metadata",
+  "marketplace_topic_audio_source": "Audio Source"
 }

@@ -838,6 +838,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get not_logged_in => 'Vous n\'êtes pas connecté(e)';
 
   @override
+  String get login_to_your_music_account =>
+      'Connectez-vous à votre compte musical';
+
+  @override
   String get search_mode => 'Mode de recherche';
 
   @override
@@ -878,6 +882,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get search_to_get_results => 'Recherche pour obtenir des résultats';
+
+  @override
+  String get all => 'Tout';
+
+  @override
+  String get metadata => 'Métadonnées';
+
+  @override
+  String get discover_new_horizons => 'Découvrir de nouveaux horizons';
 
   @override
   String get use_amoled_mode => 'Utiliser le mode AMOLED';
@@ -950,6 +963,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get explore_genres => 'Explorer les genres';
+
+  @override
+  String nothing_found_for_query(String query) {
+    return 'Aucun résultat pour « $query »';
+  }
 
   @override
   String get friends => 'Amis';
@@ -1599,4 +1617,31 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get dab_music_source_description =>
       'Pour les audiophiles. Fournit des flux audio de haute qualité/sans perte. Correspondance précise des pistes basée sur ISRC.';
+
+  @override
+  String get repeat => 'Répéter';
+
+  @override
+  String get quit => 'Quitter';
+
+  @override
+  String get show_hide_window => 'Afficher/Masquer la fenêtre';
+
+  @override
+  String get changelog => 'Nouveautés';
+
+  @override
+  String get open_track => 'Ouvrir le titre';
+
+  @override
+  String get dismiss => 'Fermer';
+
+  @override
+  String get field_is_required => 'Ce champ est obligatoire';
+
+  @override
+  String get music_plugin => 'Plugin musical';
+
+  @override
+  String get track => 'Piste';
 }

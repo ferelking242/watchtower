@@ -251,6 +251,7 @@
   "logs": "Logs",
   "developers": "Developers",
   "not_logged_in": "You're not logged in",
+  "login_to_your_music_account": "Log in to your music account to continue",
   "search_mode": "Search Mode",
   "audio_source": "Audio Source",
   "ok": "Ok",
@@ -264,6 +265,9 @@
   "use_system_title_bar": "Use system title bar",
   "crunching_results": "Crunching results...",
   "search_to_get_results": "Search to get results",
+  "all": "All",
+  "metadata": "Metadata",
+  "discover_new_horizons": "Discover new horizons",
   "use_amoled_mode": "Pitch black dark theme",
   "pitch_dark_theme": "AMOLED Mode",
   "normalize_audio": "Normalize audio",
@@ -288,6 +292,15 @@
   "browse_all": "Browse All",
   "genres": "Genres",
   "explore_genres": "Explore Genres",
+  "nothing_found_for_query": "Nothing found for \"{query}\"",
+  "@nothing_found_for_query": {
+    "description": "Empty search result title",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "friends": "Friends",
   "no_lyrics_available": "Sorry, unable find lyrics for this track",
   "start_a_radio": "Start a Radio",
@@ -475,5 +488,14 @@
   "scrobbling": "Scrobbling",
   "source": "Source: ",
   "uncompressed": "Uncompressed",
-  "dab_music_source_description": "For audiophiles. Provides high-quality/lossless audio streams. Accurate ISRC based track matching."
+  "dab_music_source_description": "For audiophiles. Provides high-quality/lossless audio streams. Accurate ISRC based track matching.",
+  "repeat": "Repeat",
+  "quit": "Quit",
+  "show_hide_window": "Show/Hide Window",
+  "changelog": "Changelog",
+  "open_track": "Open track",
+  "dismiss": "Dismiss",
+  "field_is_required": "This field is required",
+  "music_plugin": "Music Plugin",
+  "track": "Track"
 }

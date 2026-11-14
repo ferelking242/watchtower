@@ -817,6 +817,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get not_logged_in => '你尚未登录';
 
   @override
+  String get login_to_your_music_account =>
+      'Log in to your music account to continue';
+
+  @override
   String get search_mode => '搜索模式';
 
   @override
@@ -857,6 +861,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get search_to_get_results => '搜索以获取结果';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get metadata => 'Metadata';
+
+  @override
+  String get discover_new_horizons => 'Discover new horizons';
 
   @override
   String get use_amoled_mode => '使用 AMOLED 模式';
@@ -929,6 +942,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get explore_genres => '探索音乐类型';
+
+  @override
+  String nothing_found_for_query(String query) {
+    return 'Nothing found for \"$query\"';
+  }
 
   @override
   String get friends => '朋友';
@@ -1543,6 +1561,33 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get dab_music_source_description =>
       '适合发烧友。提供高质量/无损音频流。基于 ISRC 的精确曲目匹配。';
+
+  @override
+  String get repeat => 'Repeat';
+
+  @override
+  String get quit => 'Quit';
+
+  @override
+  String get show_hide_window => 'Show/Hide Window';
+
+  @override
+  String get changelog => 'Changelog';
+
+  @override
+  String get open_track => 'Open track';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get field_is_required => 'This field is required';
+
+  @override
+  String get music_plugin => 'Music Plugin';
+
+  @override
+  String get track => 'Track';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -2358,6 +2403,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get not_logged_in => '你尚未登入';
 
   @override
+  String get login_to_your_music_account =>
+      'Log in to your music account to continue';
+
+  @override
   String get search_mode => '搜尋模式';
 
   @override
@@ -2398,6 +2447,15 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get search_to_get_results => '搜尋以取得結果';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get metadata => 'Metadata';
+
+  @override
+  String get discover_new_horizons => 'Discover new horizons';
 
   @override
   String get use_amoled_mode => '使用 AMOLED 模式';
@@ -2470,6 +2528,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get explore_genres => '探索音樂類型';
+
+  @override
+  String nothing_found_for_query(String query) {
+    return 'Nothing found for \"$query\"';
+  }
 
   @override
   String get friends => '好友';
@@ -3085,4 +3148,31 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   @override
   String get dab_music_source_description =>
       '適合音響發燒友。提供高品質/無損音訊串流。精確的 ISRC 曲目比對。';
+
+  @override
+  String get repeat => 'Repeat';
+
+  @override
+  String get quit => 'Quit';
+
+  @override
+  String get show_hide_window => 'Show/Hide Window';
+
+  @override
+  String get changelog => 'Changelog';
+
+  @override
+  String get open_track => 'Open track';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get field_is_required => 'This field is required';
+
+  @override
+  String get music_plugin => 'Music Plugin';
+
+  @override
+  String get track => 'Track';
 }

@@ -475,5 +475,19 @@
   "refresh": "Actualiser",
   "integrated_in_watchtower": "Intégré dans Watchtower",
   "wikipedia": "Wikipédia",
-  "read_more_at_wikipedia": "lire la suite sur Wikipédia"
+  "read_more_at_wikipedia": "lire la suite sur Wikipédia",
+  "repeat": "R\u00e9p\u00e9ter",
+  "quit": "Quitter",
+  "show_hide_window": "Afficher/Masquer la fen\u00eatre",
+  "changelog": "Nouveaut\u00e9s",
+  "open_track": "Ouvrir le titre",
+  "dismiss": "Fermer",
+  "field_is_required": "Ce champ est obligatoire",
+  "music_plugin": "Plugin musical",
+  "login_to_your_music_account": "Connectez-vous \u00e0 votre compte musical",
+  "all": "Tout",
+  "discover_new_horizons": "D\u00e9couvrir de nouveaux horizons",
+  "track": "Piste",
+  "metadata": "Métadonnées",
+  "nothing_found_for_query": "Aucun résultat pour « {query} »"
 }

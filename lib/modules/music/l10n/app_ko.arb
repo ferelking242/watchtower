@@ -476,5 +476,19 @@
   "refresh": "새로 고침",
   "integrated_in_watchtower": "Watchtower에 통합됨",
   "wikipedia": "위키백과",
-  "read_more_at_wikipedia": "위키백과에서 더 보기"
+  "read_more_at_wikipedia": "위키백과에서 더 보기",
+  "login_to_your_music_account": "Log in to your music account to continue",
+  "all": "All",
+  "metadata": "Metadata",
+  "discover_new_horizons": "Discover new horizons",
+  "nothing_found_for_query": "Nothing found for \"{query}\"",
+  "repeat": "Repeat",
+  "quit": "Quit",
+  "show_hide_window": "Show/Hide Window",
+  "changelog": "Changelog",
+  "open_track": "Open track",
+  "dismiss": "Dismiss",
+  "field_is_required": "This field is required",
+  "music_plugin": "Music Plugin",
+  "track": "Track"
 }

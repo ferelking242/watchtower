@@ -8388,6 +8388,29 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get media_director_colon => 'Director: ';
+
+  @override
+  String get marketplace_official => 'Official';
+
+  @override
+  String get marketplace_third_party => 'Third-party';
+
+  @override
+  String get marketplace_sign_in => 'Sign in';
+
+  @override
+  String marketplace_connect_title(Object name) {
+    return 'Connection — $name';
+  }
+
+  @override
+  String get marketplace_plugin_kind_music => 'Music plugin';
+
+  @override
+  String get marketplace_topic_metadata => 'Metadata';
+
+  @override
+  String get marketplace_topic_audio_source => 'Audio Source';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).
@@ -16193,4 +16216,27 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get media_director_colon => 'Director: ';
+
+  @override
+  String get marketplace_official => 'Official';
+
+  @override
+  String get marketplace_third_party => 'Third-party';
+
+  @override
+  String get marketplace_sign_in => 'Sign in';
+
+  @override
+  String marketplace_connect_title(Object name) {
+    return 'Connection — $name';
+  }
+
+  @override
+  String get marketplace_plugin_kind_music => 'Music plugin';
+
+  @override
+  String get marketplace_topic_metadata => 'Metadata';
+
+  @override
+  String get marketplace_topic_audio_source => 'Audio Source';
 }

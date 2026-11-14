@@ -831,6 +831,10 @@ class AppLocalizationsHi extends AppLocalizations {
   String get not_logged_in => 'आप लॉग इन नहीं हैं';
 
   @override
+  String get login_to_your_music_account =>
+      'Log in to your music account to continue';
+
+  @override
   String get search_mode => 'खोज मोड';
 
   @override
@@ -871,6 +875,15 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get search_to_get_results => 'परिणाम प्राप्त करने के लिए खोजें';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get metadata => 'Metadata';
+
+  @override
+  String get discover_new_horizons => 'Discover new horizons';
 
   @override
   String get use_amoled_mode => 'AMOLED मोड का उपयोग करें';
@@ -943,6 +956,11 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get explore_genres => 'शैलियों का अन्वेषण करें';
+
+  @override
+  String nothing_found_for_query(String query) {
+    return 'Nothing found for \"$query\"';
+  }
 
   @override
   String get friends => 'दोस्त';
@@ -1586,4 +1604,31 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get dab_music_source_description =>
       'ऑडियोफाइलों के लिए। उच्च-गुणवत्ता/बिना हानि वाले ऑडियो स्ट्रीम प्रदान करता है। सटीक ISRC आधारित ट्रैक मिलान।';
+
+  @override
+  String get repeat => 'Repeat';
+
+  @override
+  String get quit => 'Quit';
+
+  @override
+  String get show_hide_window => 'Show/Hide Window';
+
+  @override
+  String get changelog => 'Changelog';
+
+  @override
+  String get open_track => 'Open track';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get field_is_required => 'This field is required';
+
+  @override
+  String get music_plugin => 'Music Plugin';
+
+  @override
+  String get track => 'Track';
 }

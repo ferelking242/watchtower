@@ -832,6 +832,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get not_logged_in => 'Вы не выполнили вход';
 
   @override
+  String get login_to_your_music_account =>
+      'Log in to your music account to continue';
+
+  @override
   String get search_mode => 'Режим поиска';
 
   @override
@@ -872,6 +876,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get search_to_get_results => 'Поиск для получения результатов';
+
+  @override
+  String get all => 'All';
+
+  @override
+  String get metadata => 'Metadata';
+
+  @override
+  String get discover_new_horizons => 'Discover new horizons';
 
   @override
   String get use_amoled_mode => 'Режим AMOLED';
@@ -944,6 +957,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get explore_genres => 'Исследовать жанры';
+
+  @override
+  String nothing_found_for_query(String query) {
+    return 'Nothing found for \"$query\"';
+  }
 
   @override
   String get friends => 'Друзья';
@@ -1588,4 +1606,31 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get dab_music_source_description =>
       'Для аудиофилов. Предоставляет высококачественные/lossless аудиопотоки. Точное совпадение треков по ISRC.';
+
+  @override
+  String get repeat => 'Repeat';
+
+  @override
+  String get quit => 'Quit';
+
+  @override
+  String get show_hide_window => 'Show/Hide Window';
+
+  @override
+  String get changelog => 'Changelog';
+
+  @override
+  String get open_track => 'Open track';
+
+  @override
+  String get dismiss => 'Dismiss';
+
+  @override
+  String get field_is_required => 'This field is required';
+
+  @override
+  String get music_plugin => 'Music Plugin';
+
+  @override
+  String get track => 'Track';
 }
