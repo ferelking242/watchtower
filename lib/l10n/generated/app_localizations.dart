@@ -16234,6 +16234,468 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Watch player queue request failed'**
   String get player_webview_error;
+
+  /// No description provided for @discover_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Discovery'**
+  String get discover_title;
+
+  /// No description provided for @discover_mode_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get discover_mode_watch;
+
+  /// No description provided for @discover_mode_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get discover_mode_manga;
+
+  /// No description provided for @discover_mode_novel.
+  ///
+  /// In en, this message translates to:
+  /// **'Novel'**
+  String get discover_mode_novel;
+
+  /// No description provided for @discover_mode_music.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get discover_mode_music;
+
+  /// No description provided for @discover_mode_custom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get discover_mode_custom;
+
+  /// No description provided for @discover_type_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All anime'**
+  String get discover_type_all;
+
+  /// No description provided for @discover_type_film.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie'**
+  String get discover_type_film;
+
+  /// No description provided for @discover_type_series.
+  ///
+  /// In en, this message translates to:
+  /// **'TV series'**
+  String get discover_type_series;
+
+  /// No description provided for @discover_type_ova.
+  ///
+  /// In en, this message translates to:
+  /// **'OVA / ONA'**
+  String get discover_type_ova;
+
+  /// No description provided for @discover_type_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get discover_type_manga;
+
+  /// No description provided for @discover_type_webtoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Webtoon'**
+  String get discover_type_webtoon;
+
+  /// No description provided for @discover_type_novel.
+  ///
+  /// In en, this message translates to:
+  /// **'Novel'**
+  String get discover_type_novel;
+
+  /// No description provided for @discover_type_one_shot.
+  ///
+  /// In en, this message translates to:
+  /// **'One shot'**
+  String get discover_type_one_shot;
+
+  /// No description provided for @discover_sort_trending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending'**
+  String get discover_sort_trending;
+
+  /// No description provided for @discover_sort_popularity.
+  ///
+  /// In en, this message translates to:
+  /// **'Popularity'**
+  String get discover_sort_popularity;
+
+  /// No description provided for @discover_sort_score.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated'**
+  String get discover_sort_score;
+
+  /// No description provided for @discover_sort_newest.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get discover_sort_newest;
+
+  /// No description provided for @discover_sort_az.
+  ///
+  /// In en, this message translates to:
+  /// **'A–Z'**
+  String get discover_sort_az;
+
+  /// No description provided for @discover_season_any.
+  ///
+  /// In en, this message translates to:
+  /// **'All seasons'**
+  String get discover_season_any;
+
+  /// No description provided for @discover_season_winter.
+  ///
+  /// In en, this message translates to:
+  /// **'Winter'**
+  String get discover_season_winter;
+
+  /// No description provided for @discover_season_spring.
+  ///
+  /// In en, this message translates to:
+  /// **'Spring'**
+  String get discover_season_spring;
+
+  /// No description provided for @discover_season_summer.
+  ///
+  /// In en, this message translates to:
+  /// **'Summer'**
+  String get discover_season_summer;
+
+  /// No description provided for @discover_season_fall.
+  ///
+  /// In en, this message translates to:
+  /// **'Fall'**
+  String get discover_season_fall;
+
+  /// No description provided for @discover_status_any.
+  ///
+  /// In en, this message translates to:
+  /// **'All statuses'**
+  String get discover_status_any;
+
+  /// No description provided for @discover_status_finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished'**
+  String get discover_status_finished;
+
+  /// No description provided for @discover_status_releasing.
+  ///
+  /// In en, this message translates to:
+  /// **'Airing'**
+  String get discover_status_releasing;
+
+  /// No description provided for @discover_status_not_yet_released.
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet released'**
+  String get discover_status_not_yet_released;
+
+  /// No description provided for @discover_status_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get discover_status_cancelled;
+
+  /// No description provided for @discover_status_hiatus.
+  ///
+  /// In en, this message translates to:
+  /// **'On hold'**
+  String get discover_status_hiatus;
+
+  /// No description provided for @discover_score_any.
+  ///
+  /// In en, this message translates to:
+  /// **'All scores'**
+  String get discover_score_any;
+
+  /// No description provided for @discover_clear_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get discover_clear_filters;
+
+  /// No description provided for @discover_section_sort.
+  ///
+  /// In en, this message translates to:
+  /// **'SORT BY'**
+  String get discover_section_sort;
+
+  /// No description provided for @discover_section_display.
+  ///
+  /// In en, this message translates to:
+  /// **'DISPLAY MODE'**
+  String get discover_section_display;
+
+  /// No description provided for @discover_section_grid_size.
+  ///
+  /// In en, this message translates to:
+  /// **'GRID SIZE'**
+  String get discover_section_grid_size;
+
+  /// No description provided for @discover_display_compact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact grid'**
+  String get discover_display_compact;
+
+  /// No description provided for @discover_display_comfortable.
+  ///
+  /// In en, this message translates to:
+  /// **'Comfortable grid'**
+  String get discover_display_comfortable;
+
+  /// No description provided for @discover_display_cinema.
+  ///
+  /// In en, this message translates to:
+  /// **'Cinema'**
+  String get discover_display_cinema;
+
+  /// No description provided for @discover_display_list.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get discover_display_list;
+
+  /// No description provided for @discover_adult_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Adult on'**
+  String get discover_adult_on;
+
+  /// No description provided for @discover_adult.
+  ///
+  /// In en, this message translates to:
+  /// **'Adult content'**
+  String get discover_adult;
+
+  /// No description provided for @discover_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get discover_filters;
+
+  /// No description provided for @discover_clear.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get discover_clear;
+
+  /// No description provided for @discover_content_type.
+  ///
+  /// In en, this message translates to:
+  /// **'Content type'**
+  String get discover_content_type;
+
+  /// No description provided for @discover_sort_by.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort by'**
+  String get discover_sort_by;
+
+  /// No description provided for @discover_genre.
+  ///
+  /// In en, this message translates to:
+  /// **'Genre'**
+  String get discover_genre;
+
+  /// No description provided for @discover_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get discover_genres;
+
+  /// No description provided for @discover_all_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'All genres'**
+  String get discover_all_genres;
+
+  /// No description provided for @discover_format.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get discover_format;
+
+  /// No description provided for @discover_formats.
+  ///
+  /// In en, this message translates to:
+  /// **'Formats'**
+  String get discover_formats;
+
+  /// No description provided for @discover_all_formats.
+  ///
+  /// In en, this message translates to:
+  /// **'All formats'**
+  String get discover_all_formats;
+
+  /// No description provided for @discover_season.
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get discover_season;
+
+  /// No description provided for @discover_year.
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get discover_year;
+
+  /// No description provided for @discover_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get discover_status;
+
+  /// No description provided for @discover_score_min.
+  ///
+  /// In en, this message translates to:
+  /// **'Min score'**
+  String get discover_score_min;
+
+  /// No description provided for @discover_score_minimum.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum score'**
+  String get discover_score_minimum;
+
+  /// No description provided for @discover_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load'**
+  String get discover_load_failed;
+
+  /// No description provided for @discover_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get discover_retry;
+
+  /// No description provided for @discover_no_results_for.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found for {query}'**
+  String discover_no_results_for(Object query);
+
+  /// No description provided for @discover_no_results_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another term or change the filters.'**
+  String get discover_no_results_hint;
+
+  /// No description provided for @discover_timeless.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeless'**
+  String get discover_timeless;
+
+  /// No description provided for @discover_choose_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an extension'**
+  String get discover_choose_extension;
+
+  /// No description provided for @discover_choose_extension_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an installed extension to explore its content.'**
+  String get discover_choose_extension_body;
+
+  /// No description provided for @discover_select_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an extension'**
+  String get discover_select_extension;
+
+  /// No description provided for @discover_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get discover_reset;
+
+  /// No description provided for @discover_change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get discover_change;
+
+  /// No description provided for @discover_load_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading error'**
+  String get discover_load_error;
+
+  /// No description provided for @discover_no_result.
+  ///
+  /// In en, this message translates to:
+  /// **'No result'**
+  String get discover_no_result;
+
+  /// No description provided for @discover_no_extension_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension installed'**
+  String get discover_no_extension_installed;
+
+  /// No description provided for @discover_install_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Install extensions from Browse → Extensions.'**
+  String get discover_install_hint;
+
+  /// No description provided for @discover_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get discover_search;
+
+  /// No description provided for @discover_search_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in {name}…'**
+  String discover_search_in(Object name);
+
+  /// No description provided for @discover_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get discover_all;
+
+  /// No description provided for @discover_sources_label.
+  ///
+  /// In en, this message translates to:
+  /// **'SOURCE'**
+  String get discover_sources_label;
+
+  /// No description provided for @discover_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension'**
+  String get discover_extension;
+
+  /// No description provided for @discover_unknown_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get discover_unknown_title;
+
+  /// No description provided for @discover_this_search.
+  ///
+  /// In en, this message translates to:
+  /// **'this search'**
+  String get discover_this_search;
 }
 
 class _AppLocalizationsDelegate

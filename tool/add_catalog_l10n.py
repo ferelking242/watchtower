@@ -2844,6 +2844,97 @@ WATCH_HOME = [
 ]
 
 
+# ── Discover (AniList explorer) ────────────────────────────────────────────────
+
+DISCOVER = [
+    ("discover_title", "Discovery", "Explorer"),
+    ("discover_mode_watch", "Watch", "Watch"),
+    ("discover_mode_manga", "Manga", "Manga"),
+    ("discover_mode_novel", "Novel", "Roman"),
+    ("discover_mode_music", "Music", "Musique"),
+    ("discover_mode_custom", "Custom", "Personnalisé"),
+    ("discover_type_all", "All anime", "Tout anime"),
+    ("discover_type_film", "Movie", "Film"),
+    ("discover_type_series", "TV series", "Série TV"),
+    ("discover_type_ova", "OVA / ONA", "OVA / ONA"),
+    ("discover_type_manga", "Manga", "Manga"),
+    ("discover_type_webtoon", "Webtoon", "Webtoon"),
+    ("discover_type_novel", "Novel", "Roman"),
+    ("discover_type_one_shot", "One shot", "One shot"),
+    ("discover_sort_trending", "Trending", "Tendance"),
+    ("discover_sort_popularity", "Popularity", "Popularité"),
+    ("discover_sort_score", "Top rated", "Meilleure note"),
+    ("discover_sort_newest", "Newest", "Plus récent"),
+    ("discover_sort_az", "A–Z", "A–Z"),
+    ("discover_season_any", "All seasons", "Toutes saisons"),
+    ("discover_season_winter", "Winter", "Hiver"),
+    ("discover_season_spring", "Spring", "Printemps"),
+    ("discover_season_summer", "Summer", "Été"),
+    ("discover_season_fall", "Fall", "Automne"),
+    ("discover_status_any", "All statuses", "Tous statuts"),
+    ("discover_status_finished", "Finished", "Terminé"),
+    ("discover_status_releasing", "Airing", "En cours"),
+    ("discover_status_not_yet_released", "Not yet released", "Pas encore sorti"),
+    ("discover_status_cancelled", "Cancelled", "Annulé"),
+    ("discover_status_hiatus", "On hold", "En pause"),
+    ("discover_score_any", "All scores", "Tous scores"),
+    ("discover_clear_filters", "Clear filters", "Effacer les filtres"),
+    ("discover_section_sort", "SORT BY", "TRIER PAR"),
+    ("discover_section_display", "DISPLAY MODE", "MODE D’AFFICHAGE"),
+    ("discover_section_grid_size", "GRID SIZE", "TAILLE DE GRILLE"),
+    ("discover_display_compact", "Compact grid", "Grille compacte"),
+    ("discover_display_comfortable", "Comfortable grid", "Grille confortable"),
+    ("discover_display_cinema", "Cinema", "Cinéma"),
+    ("discover_display_list", "List", "Liste"),
+    ("discover_adult_on", "Adult on", "Adulte activé"),
+    ("discover_adult", "Adult content", "Contenu adulte"),
+    ("discover_filters", "Filters", "Filtres"),
+    ("discover_clear", "Clear", "Effacer"),
+    ("discover_content_type", "Content type", "Type de contenu"),
+    ("discover_sort_by", "Sort by", "Trier par"),
+    ("discover_genre", "Genre", "Genre"),
+    ("discover_genres", "Genres", "Genres"),
+    ("discover_all_genres", "All genres", "Tous genres"),
+    ("discover_format", "Format", "Format"),
+    ("discover_formats", "Formats", "Formats"),
+    ("discover_all_formats", "All formats", "Tous formats"),
+    ("discover_season", "Season", "Saison"),
+    ("discover_year", "Year", "Année"),
+    ("discover_status", "Status", "Statut"),
+    ("discover_score_min", "Min score", "Score min"),
+    ("discover_score_minimum", "Minimum score", "Score minimum"),
+    ("discover_load_failed", "Unable to load", "Impossible de charger"),
+    ("discover_retry", "Retry", "Réessayer"),
+    ("discover_no_results_for", "No results found for {query}",
+     "Aucun résultat trouvé pour {query}"),
+    ("discover_no_results_hint",
+     "Try another term or change the filters.",
+     "Essaie un autre terme ou modifie les filtres."),
+    ("discover_timeless", "Timeless", "Intemporel"),
+    ("discover_choose_extension", "Choose an extension", "Choisir une extension"),
+    ("discover_choose_extension_body",
+     "Select an installed extension to explore its content.",
+     "Sélectionne une extension installée pour explorer son contenu."),
+    ("discover_select_extension", "Select an extension", "Sélectionner une extension"),
+    ("discover_reset", "Reset", "Réinitialiser"),
+    ("discover_change", "Change", "Changer"),
+    ("discover_load_error", "Loading error", "Erreur de chargement"),
+    ("discover_no_result", "No result", "Aucun résultat"),
+    ("discover_no_extension_installed", "No extension installed",
+     "Aucune extension installée"),
+    ("discover_install_hint",
+     "Install extensions from Browse → Extensions.",
+     "Installe des extensions depuis Browse → Extensions."),
+    ("discover_search", "Search…", "Rechercher…"),
+    ("discover_search_in", "Search in {name}…", "Rechercher dans {name}…"),
+    ("discover_all", "All", "Tout"),
+    ("discover_sources_label", "SOURCE", "SOURCE"),
+    ("discover_extension", "Extension", "Extension"),
+    ("discover_unknown_title", "Unknown", "Inconnu"),
+    ("discover_this_search", "this search", "cette recherche"),
+]
+
+
 def quote(value):
     """JSON string literal for an ARB value.
 
@@ -2923,6 +3014,8 @@ en_entries += [(key, en) for key, en, _ in DOWNLOADS_SUBPAGES]
 fr_entries += [(key, fr) for key, _, fr in DOWNLOADS_SUBPAGES]
 en_entries += [(key, en) for key, en, _ in DOWNLOAD_QUEUE]
 fr_entries += [(key, fr) for key, _, fr in DOWNLOAD_QUEUE]
+en_entries += [(key, en) for key, en, _ in DISCOVER]
+fr_entries += [(key, fr) for key, _, fr in DISCOVER]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

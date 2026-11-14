@@ -22,6 +22,8 @@ import 'package:watchtower/services/get_filter_list.dart';
 import 'package:watchtower/services/get_popular.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/main_view/widgets/namida_inner_drawer.dart';
 import 'package:watchtower/modules/search/widgets/watch_discover_drawer.dart';
 import 'package:watchtower/ui/widgets/namida_app_bar.dart';
@@ -44,18 +46,18 @@ enum _DiscoverMode {
   music,
   custom;
 
-  String get label {
+  String label(AppLocalizations l10n) {
     switch (this) {
       case _DiscoverMode.watch:
-        return 'Watch';
+        return l10n.discover_mode_watch;
       case _DiscoverMode.manga:
-        return 'Manga';
+        return l10n.discover_mode_manga;
       case _DiscoverMode.novel:
-        return 'Novel';
+        return l10n.discover_mode_novel;
       case _DiscoverMode.music:
-        return 'Music';
+        return l10n.discover_mode_music;
       case _DiscoverMode.custom:
-        return 'Custom';
+        return l10n.discover_mode_custom;
     }
   }
 
@@ -78,35 +80,69 @@ enum _DiscoverMode {
 // ── Content types ──────────────────────────────────────────────────────────────
 
 enum _ContentType {
-  anime('Tout anime', 'ANIME', null, null),
-  film('Film', 'ANIME', 'MOVIE', null),
-  serie('Série TV', 'ANIME', 'TV', null),
-  ova('OVA / ONA', 'ANIME', null, ['OVA', 'ONA', 'SPECIAL']),
-  manga('Manga', 'MANGA', 'MANGA', null),
-  webtoon('Webtoon', 'MANGA', 'MANGA', null),
-  novel('Novel', 'MANGA', 'NOVEL', null),
-  oneShot('One Shot', 'MANGA', 'ONE_SHOT', null);
+  anime('ANIME', null, null),
+  film('ANIME', 'MOVIE', null),
+  serie('ANIME', 'TV', null),
+  ova('ANIME', null, ['OVA', 'ONA', 'SPECIAL']),
+  manga('MANGA', 'MANGA', null),
+  webtoon('MANGA', 'MANGA', null),
+  novel('MANGA', 'NOVEL', null),
+  oneShot('MANGA', 'ONE_SHOT', null);
 
-  const _ContentType(this.label, this.aniType, this.aniFormat, this.aniFormatIn);
-  final String label;
+  const _ContentType(this.aniType, this.aniFormat, this.aniFormatIn);
   final String aniType;
   final String? aniFormat;
   final List<String>? aniFormatIn;
+
+  String label(AppLocalizations l10n) {
+    switch (this) {
+      case _ContentType.anime:
+        return l10n.discover_type_all;
+      case _ContentType.film:
+        return l10n.discover_type_film;
+      case _ContentType.serie:
+        return l10n.discover_type_series;
+      case _ContentType.ova:
+        return l10n.discover_type_ova;
+      case _ContentType.manga:
+        return l10n.discover_type_manga;
+      case _ContentType.webtoon:
+        return l10n.discover_type_webtoon;
+      case _ContentType.novel:
+        return l10n.discover_type_novel;
+      case _ContentType.oneShot:
+        return l10n.discover_type_one_shot;
+    }
+  }
 }
 
 // ── Sort options ───────────────────────────────────────────────────────────────
 
 enum _SortOption {
-  trending('Tendance', Icons.local_fire_department_outlined, 'TRENDING_DESC'),
-  popularity('Popularité', Icons.trending_up_rounded, 'POPULARITY_DESC'),
-  score('Meilleure note', Icons.star_outline_rounded, 'SCORE_DESC'),
-  newest('Plus récent', Icons.fiber_new_outlined, 'START_DATE_DESC'),
-  az('A–Z', Icons.sort_by_alpha_rounded, 'TITLE_ROMAJI');
+  trending(Icons.local_fire_department_outlined, 'TRENDING_DESC'),
+  popularity(Icons.trending_up_rounded, 'POPULARITY_DESC'),
+  score(Icons.star_outline_rounded, 'SCORE_DESC'),
+  newest(Icons.fiber_new_outlined, 'START_DATE_DESC'),
+  az(Icons.sort_by_alpha_rounded, 'TITLE_ROMAJI');
 
-  const _SortOption(this.label, this.icon, this.aniSort);
-  final String label;
+  const _SortOption(this.icon, this.aniSort);
   final IconData icon;
   final String aniSort;
+
+  String label(AppLocalizations l10n) {
+    switch (this) {
+      case _SortOption.trending:
+        return l10n.discover_sort_trending;
+      case _SortOption.popularity:
+        return l10n.discover_sort_popularity;
+      case _SortOption.score:
+        return l10n.discover_sort_score;
+      case _SortOption.newest:
+        return l10n.discover_sort_newest;
+      case _SortOption.az:
+        return l10n.discover_sort_az;
+    }
+  }
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -136,24 +172,60 @@ const _kAnimeFormats = ['TV', 'TV Short', 'Movie', 'OVA', 'ONA', 'Special', 'Mus
 const _kMangaFormats = ['Manga', 'Novel', 'One Shot'];
 
 const _kSeasons = [
-  (label: 'Toutes saisons', value: null),
-  (label: 'Hiver', value: 'WINTER'),
-  (label: 'Printemps', value: 'SPRING'),
-  (label: 'Été', value: 'SUMMER'),
-  (label: 'Automne', value: 'FALL'),
+  (key: 'discover_season_any', value: null),
+  (key: 'discover_season_winter', value: 'WINTER'),
+  (key: 'discover_season_spring', value: 'SPRING'),
+  (key: 'discover_season_summer', value: 'SUMMER'),
+  (key: 'discover_season_fall', value: 'FALL'),
 ];
+
+String _seasonLabel(String key, AppLocalizations l10n) {
+  switch (key) {
+    case 'discover_season_any':
+      return l10n.discover_season_any;
+    case 'discover_season_winter':
+      return l10n.discover_season_winter;
+    case 'discover_season_spring':
+      return l10n.discover_season_spring;
+    case 'discover_season_summer':
+      return l10n.discover_season_summer;
+    case 'discover_season_fall':
+      return l10n.discover_season_fall;
+    default:
+      return key;
+  }
+}
 
 const _kStatuses = [
-  (label: 'Tous statuts', value: null),
-  (label: 'Terminé', value: 'FINISHED'),
-  (label: 'En cours', value: 'RELEASING'),
-  (label: 'Pas encore sorti', value: 'NOT_YET_RELEASED'),
-  (label: 'Annulé', value: 'CANCELLED'),
-  (label: 'En pause', value: 'HIATUS'),
+  (key: 'discover_status_any', value: null),
+  (key: 'discover_status_finished', value: 'FINISHED'),
+  (key: 'discover_status_releasing', value: 'RELEASING'),
+  (key: 'discover_status_not_yet_released', value: 'NOT_YET_RELEASED'),
+  (key: 'discover_status_cancelled', value: 'CANCELLED'),
+  (key: 'discover_status_hiatus', value: 'HIATUS'),
 ];
 
+String _statusLabel(String key, AppLocalizations l10n) {
+  switch (key) {
+    case 'discover_status_any':
+      return l10n.discover_status_any;
+    case 'discover_status_finished':
+      return l10n.discover_status_finished;
+    case 'discover_status_releasing':
+      return l10n.discover_status_releasing;
+    case 'discover_status_not_yet_released':
+      return l10n.discover_status_not_yet_released;
+    case 'discover_status_cancelled':
+      return l10n.discover_status_cancelled;
+    case 'discover_status_hiatus':
+      return l10n.discover_status_hiatus;
+    default:
+      return key;
+  }
+}
+
 const _kScoreOptions = [
-  (label: 'Tous scores', value: null),
+  (label: 'All scores', value: null),
   (label: '60+ ★', value: 60),
   (label: '70+ ★', value: 70),
   (label: '75+ ★', value: 75),
@@ -161,6 +233,9 @@ const _kScoreOptions = [
   (label: '85+ ★', value: 85),
   (label: '90+ ★', value: 90),
 ];
+
+String _scoreLabel(String label, AppLocalizations l10n) =>
+    label == 'All scores' ? l10n.discover_score_any : label;
 
 // ── Discover Item ─────────────────────────────────────────────────────────────
 
@@ -183,7 +258,8 @@ class _DiscoverItem {
     this.format,
   });
 
-  String get displayTitle => titleEnglish ?? titleRomaji ?? 'Unknown';
+  String displayTitle(AppLocalizations l10n) =>
+      titleEnglish ?? titleRomaji ?? l10n.discover_unknown_title;
 
   factory _DiscoverItem.fromJson(Map<String, dynamic> json) {
     final title = (json['title'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -592,7 +668,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   contentPadding: EdgeInsets.zero,
                                   leading: Icon(Icons.delete_outline_rounded, color: cs.error),
                                   title: Text(
-                                    'Effacer les filtres',
+                                    context.l10n.discover_clear_filters,
                                     style: TextStyle(color: cs.error),
                                   ),
                                   onTap: () {
@@ -605,7 +681,10 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                               ],
 
                               // ── Sort By ────────────────────────────────────
-                              _SheetSectionLabel('SORT BY', cs),
+                              _SheetSectionLabel(
+                                context.l10n.discover_section_sort,
+                                cs,
+                              ),
                               const SizedBox(height: 10),
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
@@ -646,7 +725,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                               ),
                                               const SizedBox(width: 6),
                                               Text(
-                                                opt.label,
+                                                opt.label(context.l10n),
                                                 style: TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: isSel
@@ -667,7 +746,10 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                               const SizedBox(height: 20),
 
                               // ── Display Mode ───────────────────────────────
-                              _SheetSectionLabel('DISPLAY MODE', cs),
+                              _SheetSectionLabel(
+                                context.l10n.discover_section_display,
+                                cs,
+                              ),
                               const SizedBox(height: 10),
                               GridView.count(
                                 crossAxisCount: 2,
@@ -679,7 +761,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                 children: [
                                   _DisplayModeBtn(
                                     icon: Icons.grid_view_rounded,
-                                    label: 'Compact Grid',
+                                    label: context.l10n.discover_display_compact,
                                     selected: localDisplay == _DiscoverDisplayMode.compact,
                                     cs: cs,
                                     isDark: isDark,
@@ -690,7 +772,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   ),
                                   _DisplayModeBtn(
                                     icon: Icons.grid_on_rounded,
-                                    label: 'Comfortable Grid',
+                                    label: context.l10n.discover_display_comfortable,
                                     selected: localDisplay == _DiscoverDisplayMode.comfortable,
                                     cs: cs,
                                     isDark: isDark,
@@ -701,7 +783,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   ),
                                   _DisplayModeBtn(
                                     icon: Icons.local_movies_rounded,
-                                    label: 'Cinéma',
+                                    label: context.l10n.discover_display_cinema,
                                     selected: localDisplay == _DiscoverDisplayMode.cinema,
                                     cs: cs,
                                     isDark: isDark,
@@ -712,7 +794,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   ),
                                   _DisplayModeBtn(
                                     icon: Icons.view_list_rounded,
-                                    label: 'List',
+                                    label: context.l10n.discover_display_list,
                                     selected: localDisplay == _DiscoverDisplayMode.list,
                                     cs: cs,
                                     isDark: isDark,
@@ -725,7 +807,10 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                               // ── Grid Size (hidden for list mode) ───────────
                               if (localDisplay != _DiscoverDisplayMode.list) ...[
                                 const SizedBox(height: 20),
-                                _SheetSectionLabel('GRID SIZE', cs),
+                                _SheetSectionLabel(
+                                  context.l10n.discover_section_grid_size,
+                                  cs,
+                                ),
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
@@ -806,7 +891,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                   side: BorderSide(color: cs.outlineVariant),
                                 ),
                                 child: Text(
-                                  'Annuler',
+                                  context.l10n.cancel,
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: cs.onSurface,
@@ -835,8 +920,8 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                                child: const Text(
-                                  'Appliquer',
+                                child: Text(
+                                  context.l10n.media_apply,
                                   style: TextStyle(fontWeight: FontWeight.w700),
                                 ),
                               ),
@@ -1028,7 +1113,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _adult ? 'Adulte activé' : 'Contenu adulte',
+                  _adult
+                      ? context.l10n.discover_adult_on
+                      : context.l10n.discover_adult,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1056,7 +1143,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               Icon(Icons.tune_rounded, size: 13, color: cs.onSurfaceVariant),
               const SizedBox(width: 5),
               Text(
-                'Filtres',
+                context.l10n.discover_filters,
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
@@ -1095,7 +1182,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                         Icon(Icons.delete_outline_rounded, size: 13, color: cs.error),
                         const SizedBox(width: 3),
                         Text(
-                          'Effacer',
+                          context.l10n.discover_clear,
                           style: TextStyle(
                             fontSize: 11,
                             color: cs.error,
@@ -1117,13 +1204,13 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               Expanded(
                 child: drop(
                   icon: Icons.category_outlined,
-                  label: _type.label,
+                  label: _type.label(context.l10n),
                   active: _typeIsChanged,
                   onTap: () => _showEnumPicker<_ContentType>(
-                    title: 'Type de contenu',
+                    title: context.l10n.discover_content_type,
                     items: _contentTypeItems,
                     selected: _type,
-                    labelOf: (t) => t.label,
+                    labelOf: (t) => t.label(context.l10n),
                     onSelected: (t) {
                       setState(() => _type = t);
                       _fetchResults(reset: true);
@@ -1135,13 +1222,13 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               Expanded(
                 child: drop(
                   icon: _sort.icon,
-                  label: _sort.label,
+                  label: _sort.label(context.l10n),
                   active: _sort != _SortOption.trending,
                   onTap: () => _showEnumPicker<_SortOption>(
-                    title: 'Trier par',
+                    title: context.l10n.discover_sort_by,
                     items: _SortOption.values,
                     selected: _sort,
-                    labelOf: (s) => s.label,
+                    labelOf: (s) => s.label(context.l10n),
                     iconOf: (s) => s.icon,
                     onSelected: (s) {
                       setState(() => _sort = s);
@@ -1154,14 +1241,18 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               Expanded(
                 child: drop(
                   icon: Icons.label_outline_rounded,
-                  label: _genre ?? 'Genre',
+                  label: _genre ?? context.l10n.discover_genre,
                   active: _genre != null,
                   onTap: () => _showStringPicker(
-                    title: 'Genres',
-                    items: ['Tous genres', ..._kGenres],
+                    title: context.l10n.discover_genres,
+                    items: [context.l10n.discover_all_genres, ..._kGenres],
                     selected: _genre,
                     onSelected: (v) {
-                      setState(() => _genre = v == 'Tous genres' ? null : v);
+                      setState(
+                        () => _genre = v == context.l10n.discover_all_genres
+                            ? null
+                            : v,
+                      );
                       _fetchResults(reset: true);
                     },
                   ),
@@ -1178,14 +1269,18 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               Expanded(
                 child: drop(
                   icon: Icons.tv_outlined,
-                  label: _format ?? 'Format',
+                  label: _format ?? context.l10n.discover_format,
                   active: _format != null,
                   onTap: () => _showStringPicker(
-                    title: 'Formats',
-                    items: ['Tous formats', ..._availableFormats],
+                    title: context.l10n.discover_formats,
+                    items: [context.l10n.discover_all_formats, ..._availableFormats],
                     selected: _format,
                     onSelected: (v) {
-                      setState(() => _format = v == 'Tous formats' ? null : v);
+                      setState(
+                        () => _format = v == context.l10n.discover_all_formats
+                            ? null
+                            : v,
+                      );
                       _fetchResults(reset: true);
                     },
                   ),
@@ -1196,18 +1291,32 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 child: drop(
                   icon: Icons.eco_outlined,
                   label: _season != null
-                      ? _kSeasons.firstWhere((e) => e.value == _season).label
-                      : 'Saison',
+                      ? _seasonLabel(
+                          _kSeasons
+                              .firstWhere((e) => e.value == _season)
+                              .key,
+                          context.l10n,
+                        )
+                      : context.l10n.discover_season,
                   active: _season != null,
                   enabled: _type.aniType == 'ANIME',
                   onTap: () => _showStringPicker(
-                    title: 'Saison',
-                    items: _kSeasons.map((e) => e.label).toList(),
+                    title: context.l10n.discover_season,
+                    items: _kSeasons
+                        .map((e) => _seasonLabel(e.key, context.l10n))
+                        .toList(),
                     selected: _season != null
-                        ? _kSeasons.firstWhere((e) => e.value == _season).label
+                        ? _seasonLabel(
+                            _kSeasons
+                                .firstWhere((e) => e.value == _season)
+                                .key,
+                            context.l10n,
+                          )
                         : null,
                     onSelected: (v) {
-                      final found = _kSeasons.firstWhere((e) => e.label == v);
+                      final found = _kSeasons.firstWhere(
+                        (e) => _seasonLabel(e.key, context.l10n) == v,
+                      );
                       setState(() => _season = found.value);
                       _fetchResults(reset: true);
                     },
@@ -1222,7 +1331,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
           // ── Row 3 (1 col full): Année ─────────────────────────────────────
           drop(
             icon: Icons.calendar_today_outlined,
-            label: _timeless ? 'Année' : (_seasonYear?.toString() ?? 'Année'),
+            label: _timeless
+                ? context.l10n.discover_year
+                : (_seasonYear?.toString() ?? context.l10n.discover_year),
             active: !_timeless,
             onTap: _showYearPicker,
           ),
@@ -1236,17 +1347,31 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 child: drop(
                   icon: Icons.pending_outlined,
                   label: _status != null
-                      ? _kStatuses.firstWhere((e) => e.value == _status).label
-                      : 'Statut',
+                      ? _statusLabel(
+                          _kStatuses
+                              .firstWhere((e) => e.value == _status)
+                              .key,
+                          context.l10n,
+                        )
+                      : context.l10n.discover_status,
                   active: _status != null,
                   onTap: () => _showStringPicker(
-                    title: 'Statut',
-                    items: _kStatuses.map((e) => e.label).toList(),
+                    title: context.l10n.discover_status,
+                    items: _kStatuses
+                        .map((e) => _statusLabel(e.key, context.l10n))
+                        .toList(),
                     selected: _status != null
-                        ? _kStatuses.firstWhere((e) => e.value == _status).label
+                        ? _statusLabel(
+                            _kStatuses
+                                .firstWhere((e) => e.value == _status)
+                                .key,
+                            context.l10n,
+                          )
                         : null,
                     onSelected: (v) {
-                      final found = _kStatuses.firstWhere((e) => e.label == v);
+                      final found = _kStatuses.firstWhere(
+                        (e) => _statusLabel(e.key, context.l10n) == v,
+                      );
                       setState(() => _status = found.value);
                       _fetchResults(reset: true);
                     },
@@ -1257,16 +1382,27 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
               Expanded(
                 child: drop(
                   icon: Icons.star_outline_rounded,
-                  label: _minScore != null ? '$_minScore+ ★' : 'Score min',
+                  label: _minScore != null
+                      ? '$_minScore+ ★'
+                      : context.l10n.discover_score_min,
                   active: _minScore != null,
                   onTap: () => _showStringPicker(
-                    title: 'Score minimum',
-                    items: _kScoreOptions.map((e) => e.label).toList(),
+                    title: context.l10n.discover_score_minimum,
+                    items: _kScoreOptions
+                        .map((e) => _scoreLabel(e.label, context.l10n))
+                        .toList(),
                     selected: _minScore != null
-                        ? _kScoreOptions.firstWhere((e) => e.value == _minScore).label
+                        ? _scoreLabel(
+                            _kScoreOptions
+                                .firstWhere((e) => e.value == _minScore)
+                                .label,
+                            context.l10n,
+                          )
                         : null,
                     onSelected: (v) {
-                      final found = _kScoreOptions.firstWhere((e) => e.label == v);
+                      final found = _kScoreOptions.firstWhere(
+                        (e) => _scoreLabel(e.label, context.l10n) == v,
+                      );
                       setState(() => _minScore = found.value);
                       _fetchResults(reset: true);
                     },
@@ -1449,8 +1585,12 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             Icon(Icons.cloud_off_outlined, size: 48, color: cs.error),
             const SizedBox(height: 12),
             Text(
-              'Impossible de charger',
-              style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface, fontSize: 15),
+              context.l10n.discover_load_failed,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface,
+                fontSize: 15,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -1462,7 +1602,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             FilledButton.tonalIcon(
               onPressed: () => _fetchResults(reset: true),
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Réessayer'),
+              label: Text(context.l10n.discover_retry),
             ),
           ],
         ),
@@ -1471,7 +1611,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
   }
 
   Widget _buildEmptyState(ColorScheme cs) {
-    final query = _searchQuery.isEmpty ? 'cette recherche' : '« $_searchQuery »';
+    final query = _searchQuery.isEmpty
+        ? context.l10n.discover_this_search
+        : '« $_searchQuery »';
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
@@ -1485,13 +1627,13 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
             ),
             const SizedBox(height: 8),
             Text(
-              'Aucun résultat trouvé pour $query',
+              context.l10n.discover_no_results_for(query),
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurface, fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              'Essaie un autre terme ou modifie les filtres.',
+              context.l10n.discover_no_results_hint,
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurfaceVariant, fontSize: 13),
             ),
@@ -1543,19 +1685,20 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
   Future<void> _showYearPicker() async {
     final now = DateTime.now().year;
-    final years = ['Intemporel', ...List.generate(15, (i) => (now - i).toString())];
+    final timeless = context.l10n.discover_timeless;
+    final years = [timeless, ...List.generate(15, (i) => (now - i).toString())];
     final result = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _StringPickerSheet(
-        title: 'Année',
+        title: context.l10n.discover_year,
         items: years,
-        selected: _timeless ? 'Intemporel' : _seasonYear?.toString(),
+        selected: _timeless ? timeless : _seasonYear?.toString(),
       ),
     );
     if (result == null) return;
-    if (result == 'Intemporel') {
+    if (result == timeless) {
       setState(() {
         _timeless = true;
         _seasonYear = null;
@@ -1609,10 +1752,14 @@ class _DiscoveryHeader extends StatelessWidget {
               // ── Hamburger — Namida Broken.menu_1 ────────────────────────
               NamidaAppBarIcon(icon: Broken.menu_1, onPressed: onDrawerTap),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Discovery',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                  context.l10n.discover_title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
               // Search icon (when bar is collapsed)
@@ -1640,7 +1787,7 @@ class _DiscoveryHeader extends StatelessWidget {
                     icon: m.icon,
                     label: m == _DiscoverMode.custom && customSourceName != null
                         ? customSourceName!
-                        : m.label,
+                        : m.label(context.l10n),
                     selected: currentMode == m,
                     onTap: () => onModeChanged(m),
                   ),
@@ -1806,7 +1953,7 @@ class _CustomEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 22),
             Text(
-              'Choisir une extension',
+              context.l10n.discover_choose_extension,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
@@ -1816,7 +1963,7 @@ class _CustomEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Sélectionne une extension installée pour explorer son contenu.',
+              context.l10n.discover_choose_extension_body,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13.5, color: cs.onSurfaceVariant, height: 1.5),
             ),
@@ -1824,7 +1971,7 @@ class _CustomEmptyState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onPickSource,
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Sélectionner une extension'),
+              label: Text(context.l10n.discover_select_extension),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -2027,7 +2174,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Filtres',
+                            context.l10n.discover_filters,
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 17,
@@ -2041,7 +2188,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                               localFilters = List.from(_filterList);
                             });
                           },
-                          child: const Text('Réinitialiser'),
+                          child: Text(context.l10n.discover_reset),
                         ),
                       ],
                     ),
@@ -2059,7 +2206,9 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                       },
                       textInputAction: TextInputAction.search,
                       decoration: InputDecoration(
-                        hintText: 'Rechercher dans ${widget.source.name ?? 'la source'}…',
+                        hintText: context.l10n.discover_search_in(
+                          widget.source.name ?? '',
+                        ),
                         prefixIcon: const Icon(Icons.search_rounded, size: 18),
                         isDense: true,
                         filled: true,
@@ -2096,7 +2245,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            child: const Text('Annuler'),
+                            child: Text(context.l10n.cancel),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -2117,7 +2266,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                             ),
-                            child: const Text('Appliquer'),
+                            child: Text(context.l10n.media_apply),
                           ),
                         ),
                       ],
@@ -2180,7 +2329,9 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
                   },
                   style: TextStyle(fontSize: 14, color: cs.onSurface),
                   decoration: InputDecoration(
-                    hintText: 'Rechercher dans ${widget.source.name ?? 'l\'extension'}…',
+                    hintText: context.l10n.discover_search_in(
+                      widget.source.name ?? '',
+                    ),
                     hintStyle: TextStyle(
                       fontSize: 13,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.6),
@@ -2253,7 +2404,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              src.name ?? 'Extension',
+              src.name ?? context.l10n.discover_extension,
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.onSurface),
               overflow: TextOverflow.ellipsis,
             ),
@@ -2261,7 +2412,10 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
           TextButton.icon(
             onPressed: widget.onChangeTap,
             icon: const Icon(Icons.swap_horiz_rounded, size: 14),
-            label: const Text('Changer', style: TextStyle(fontSize: 12)),
+            label: Text(
+              context.l10n.discover_change,
+              style: const TextStyle(fontSize: 12),
+            ),
             style: TextButton.styleFrom(
               foregroundColor: cs.primary,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -2285,7 +2439,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
               Icon(Icons.cloud_off_outlined, size: 44, color: cs.error),
               const SizedBox(height: 12),
               Text(
-                'Erreur de chargement',
+                context.l10n.discover_load_error,
                 style: TextStyle(fontWeight: FontWeight.w700, color: cs.onSurface),
               ),
               const SizedBox(height: 6),
@@ -2300,7 +2454,7 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
               FilledButton.tonalIcon(
                 onPressed: () => _loadPage(reset: true),
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Réessayer'),
+                label: Text(context.l10n.discover_retry),
               ),
             ],
           ),
@@ -2314,7 +2468,10 @@ class _CustomCatalogueViewState extends ConsumerState<_CustomCatalogueView> {
 
     if (_items.isEmpty) {
       return Center(
-        child: Text('Aucun résultat', style: TextStyle(color: cs.onSurfaceVariant)),
+        child: Text(
+          context.l10n.discover_no_result,
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
       );
     }
 
@@ -2384,7 +2541,7 @@ class _SourcePickerSheet extends StatelessWidget {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Choisir une extension',
+                  context.l10n.discover_choose_extension,
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17, color: cs.onSurface),
                 ),
               ),
@@ -2400,12 +2557,12 @@ class _SourcePickerSheet extends StatelessWidget {
                         Icon(Icons.extension_off_rounded, size: 48, color: cs.onSurfaceVariant),
                         const SizedBox(height: 12),
                         Text(
-                          'Aucune extension installée',
+                          context.l10n.discover_no_extension_installed,
                           style: TextStyle(fontWeight: FontWeight.w600, color: cs.onSurface),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Installe des extensions depuis Browse → Extensions.',
+                          context.l10n.discover_install_hint,
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                         ),
@@ -2469,7 +2626,7 @@ class _SourcePickerSheet extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      src.name ?? 'Extension',
+                                      src.name ?? context.l10n.discover_extension,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
@@ -2627,7 +2784,7 @@ class _SearchField extends StatelessWidget {
         style: TextStyle(color: cs.onSurface, fontSize: 14),
         decoration: InputDecoration(
           prefixIcon: Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 18),
-          hintText: 'Rechercher…',
+          hintText: context.l10n.discover_search,
           hintStyle: TextStyle(color: cs.onSurfaceVariant, fontSize: 14),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -2811,7 +2968,7 @@ class _MediaCard extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            item.displayTitle,
+            item.displayTitle(context.l10n),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -2892,7 +3049,7 @@ class _MediaListTile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    item.displayTitle,
+                    item.displayTitle(context.l10n),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -3122,7 +3279,7 @@ class _MediaCardComfortable extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 2),
             child: Text(
-              item.displayTitle,
+              item.displayTitle(context.l10n),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -3204,7 +3361,7 @@ class _MediaCardCinema extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      item.displayTitle,
+                      item.displayTitle(context.l10n),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

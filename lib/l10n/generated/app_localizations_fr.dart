@@ -9299,4 +9299,242 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get player_webview_error =>
       'Échec de la requête de mise en file du lecteur';
+
+  @override
+  String get discover_title => 'Explorer';
+
+  @override
+  String get discover_mode_watch => 'Watch';
+
+  @override
+  String get discover_mode_manga => 'Manga';
+
+  @override
+  String get discover_mode_novel => 'Roman';
+
+  @override
+  String get discover_mode_music => 'Musique';
+
+  @override
+  String get discover_mode_custom => 'Personnalisé';
+
+  @override
+  String get discover_type_all => 'Tout anime';
+
+  @override
+  String get discover_type_film => 'Film';
+
+  @override
+  String get discover_type_series => 'Série TV';
+
+  @override
+  String get discover_type_ova => 'OVA / ONA';
+
+  @override
+  String get discover_type_manga => 'Manga';
+
+  @override
+  String get discover_type_webtoon => 'Webtoon';
+
+  @override
+  String get discover_type_novel => 'Roman';
+
+  @override
+  String get discover_type_one_shot => 'One shot';
+
+  @override
+  String get discover_sort_trending => 'Tendance';
+
+  @override
+  String get discover_sort_popularity => 'Popularité';
+
+  @override
+  String get discover_sort_score => 'Meilleure note';
+
+  @override
+  String get discover_sort_newest => 'Plus récent';
+
+  @override
+  String get discover_sort_az => 'A–Z';
+
+  @override
+  String get discover_season_any => 'Toutes saisons';
+
+  @override
+  String get discover_season_winter => 'Hiver';
+
+  @override
+  String get discover_season_spring => 'Printemps';
+
+  @override
+  String get discover_season_summer => 'Été';
+
+  @override
+  String get discover_season_fall => 'Automne';
+
+  @override
+  String get discover_status_any => 'Tous statuts';
+
+  @override
+  String get discover_status_finished => 'Terminé';
+
+  @override
+  String get discover_status_releasing => 'En cours';
+
+  @override
+  String get discover_status_not_yet_released => 'Pas encore sorti';
+
+  @override
+  String get discover_status_cancelled => 'Annulé';
+
+  @override
+  String get discover_status_hiatus => 'En pause';
+
+  @override
+  String get discover_score_any => 'Tous scores';
+
+  @override
+  String get discover_clear_filters => 'Effacer les filtres';
+
+  @override
+  String get discover_section_sort => 'TRIER PAR';
+
+  @override
+  String get discover_section_display => 'MODE D’AFFICHAGE';
+
+  @override
+  String get discover_section_grid_size => 'TAILLE DE GRILLE';
+
+  @override
+  String get discover_display_compact => 'Grille compacte';
+
+  @override
+  String get discover_display_comfortable => 'Grille confortable';
+
+  @override
+  String get discover_display_cinema => 'Cinéma';
+
+  @override
+  String get discover_display_list => 'Liste';
+
+  @override
+  String get discover_adult_on => 'Adulte activé';
+
+  @override
+  String get discover_adult => 'Contenu adulte';
+
+  @override
+  String get discover_filters => 'Filtres';
+
+  @override
+  String get discover_clear => 'Effacer';
+
+  @override
+  String get discover_content_type => 'Type de contenu';
+
+  @override
+  String get discover_sort_by => 'Trier par';
+
+  @override
+  String get discover_genre => 'Genre';
+
+  @override
+  String get discover_genres => 'Genres';
+
+  @override
+  String get discover_all_genres => 'Tous genres';
+
+  @override
+  String get discover_format => 'Format';
+
+  @override
+  String get discover_formats => 'Formats';
+
+  @override
+  String get discover_all_formats => 'Tous formats';
+
+  @override
+  String get discover_season => 'Saison';
+
+  @override
+  String get discover_year => 'Année';
+
+  @override
+  String get discover_status => 'Statut';
+
+  @override
+  String get discover_score_min => 'Score min';
+
+  @override
+  String get discover_score_minimum => 'Score minimum';
+
+  @override
+  String get discover_load_failed => 'Impossible de charger';
+
+  @override
+  String get discover_retry => 'Réessayer';
+
+  @override
+  String discover_no_results_for(Object query) {
+    return 'Aucun résultat trouvé pour $query';
+  }
+
+  @override
+  String get discover_no_results_hint =>
+      'Essaie un autre terme ou modifie les filtres.';
+
+  @override
+  String get discover_timeless => 'Intemporel';
+
+  @override
+  String get discover_choose_extension => 'Choisir une extension';
+
+  @override
+  String get discover_choose_extension_body =>
+      'Sélectionne une extension installée pour explorer son contenu.';
+
+  @override
+  String get discover_select_extension => 'Sélectionner une extension';
+
+  @override
+  String get discover_reset => 'Réinitialiser';
+
+  @override
+  String get discover_change => 'Changer';
+
+  @override
+  String get discover_load_error => 'Erreur de chargement';
+
+  @override
+  String get discover_no_result => 'Aucun résultat';
+
+  @override
+  String get discover_no_extension_installed => 'Aucune extension installée';
+
+  @override
+  String get discover_install_hint =>
+      'Installe des extensions depuis Browse → Extensions.';
+
+  @override
+  String get discover_search => 'Rechercher…';
+
+  @override
+  String discover_search_in(Object name) {
+    return 'Rechercher dans $name…';
+  }
+
+  @override
+  String get discover_all => 'Tout';
+
+  @override
+  String get discover_sources_label => 'SOURCE';
+
+  @override
+  String get discover_extension => 'Extension';
+
+  @override
+  String get discover_unknown_title => 'Inconnu';
+
+  @override
+  String get discover_this_search => 'cette recherche';
 }

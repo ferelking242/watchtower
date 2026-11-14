@@ -9166,4 +9166,242 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get player_webview_error => 'Watch player queue request failed';
+
+  @override
+  String get discover_title => 'Discovery';
+
+  @override
+  String get discover_mode_watch => 'Watch';
+
+  @override
+  String get discover_mode_manga => 'Manga';
+
+  @override
+  String get discover_mode_novel => 'Novel';
+
+  @override
+  String get discover_mode_music => 'Music';
+
+  @override
+  String get discover_mode_custom => 'Custom';
+
+  @override
+  String get discover_type_all => 'All anime';
+
+  @override
+  String get discover_type_film => 'Movie';
+
+  @override
+  String get discover_type_series => 'TV series';
+
+  @override
+  String get discover_type_ova => 'OVA / ONA';
+
+  @override
+  String get discover_type_manga => 'Manga';
+
+  @override
+  String get discover_type_webtoon => 'Webtoon';
+
+  @override
+  String get discover_type_novel => 'Novel';
+
+  @override
+  String get discover_type_one_shot => 'One shot';
+
+  @override
+  String get discover_sort_trending => 'Trending';
+
+  @override
+  String get discover_sort_popularity => 'Popularity';
+
+  @override
+  String get discover_sort_score => 'Top rated';
+
+  @override
+  String get discover_sort_newest => 'Newest';
+
+  @override
+  String get discover_sort_az => 'A–Z';
+
+  @override
+  String get discover_season_any => 'All seasons';
+
+  @override
+  String get discover_season_winter => 'Winter';
+
+  @override
+  String get discover_season_spring => 'Spring';
+
+  @override
+  String get discover_season_summer => 'Summer';
+
+  @override
+  String get discover_season_fall => 'Fall';
+
+  @override
+  String get discover_status_any => 'All statuses';
+
+  @override
+  String get discover_status_finished => 'Finished';
+
+  @override
+  String get discover_status_releasing => 'Airing';
+
+  @override
+  String get discover_status_not_yet_released => 'Not yet released';
+
+  @override
+  String get discover_status_cancelled => 'Cancelled';
+
+  @override
+  String get discover_status_hiatus => 'On hold';
+
+  @override
+  String get discover_score_any => 'All scores';
+
+  @override
+  String get discover_clear_filters => 'Clear filters';
+
+  @override
+  String get discover_section_sort => 'SORT BY';
+
+  @override
+  String get discover_section_display => 'DISPLAY MODE';
+
+  @override
+  String get discover_section_grid_size => 'GRID SIZE';
+
+  @override
+  String get discover_display_compact => 'Compact grid';
+
+  @override
+  String get discover_display_comfortable => 'Comfortable grid';
+
+  @override
+  String get discover_display_cinema => 'Cinema';
+
+  @override
+  String get discover_display_list => 'List';
+
+  @override
+  String get discover_adult_on => 'Adult on';
+
+  @override
+  String get discover_adult => 'Adult content';
+
+  @override
+  String get discover_filters => 'Filters';
+
+  @override
+  String get discover_clear => 'Clear';
+
+  @override
+  String get discover_content_type => 'Content type';
+
+  @override
+  String get discover_sort_by => 'Sort by';
+
+  @override
+  String get discover_genre => 'Genre';
+
+  @override
+  String get discover_genres => 'Genres';
+
+  @override
+  String get discover_all_genres => 'All genres';
+
+  @override
+  String get discover_format => 'Format';
+
+  @override
+  String get discover_formats => 'Formats';
+
+  @override
+  String get discover_all_formats => 'All formats';
+
+  @override
+  String get discover_season => 'Season';
+
+  @override
+  String get discover_year => 'Year';
+
+  @override
+  String get discover_status => 'Status';
+
+  @override
+  String get discover_score_min => 'Min score';
+
+  @override
+  String get discover_score_minimum => 'Minimum score';
+
+  @override
+  String get discover_load_failed => 'Unable to load';
+
+  @override
+  String get discover_retry => 'Retry';
+
+  @override
+  String discover_no_results_for(Object query) {
+    return 'No results found for $query';
+  }
+
+  @override
+  String get discover_no_results_hint =>
+      'Try another term or change the filters.';
+
+  @override
+  String get discover_timeless => 'Timeless';
+
+  @override
+  String get discover_choose_extension => 'Choose an extension';
+
+  @override
+  String get discover_choose_extension_body =>
+      'Select an installed extension to explore its content.';
+
+  @override
+  String get discover_select_extension => 'Select an extension';
+
+  @override
+  String get discover_reset => 'Reset';
+
+  @override
+  String get discover_change => 'Change';
+
+  @override
+  String get discover_load_error => 'Loading error';
+
+  @override
+  String get discover_no_result => 'No result';
+
+  @override
+  String get discover_no_extension_installed => 'No extension installed';
+
+  @override
+  String get discover_install_hint =>
+      'Install extensions from Browse → Extensions.';
+
+  @override
+  String get discover_search => 'Search…';
+
+  @override
+  String discover_search_in(Object name) {
+    return 'Search in $name…';
+  }
+
+  @override
+  String get discover_all => 'All';
+
+  @override
+  String get discover_sources_label => 'SOURCE';
+
+  @override
+  String get discover_extension => 'Extension';
+
+  @override
+  String get discover_unknown_title => 'Unknown';
+
+  @override
+  String get discover_this_search => 'this search';
 }
