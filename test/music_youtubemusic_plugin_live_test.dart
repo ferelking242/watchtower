@@ -23,6 +23,21 @@ import 'package:watchtower/modules/music/services/metadata/apis/localstorage.dar
 /// just syntactically valid bytecode.
 const _runLive = bool.fromEnvironment('RUN_LIVE_PLUGIN_TESTS');
 
+/// Locations the YouTube Music artifact may live at, in priority order: the
+/// app bundle (when the plugin ships with the app) and the extensions
+/// catalogue checkout (where `build_all.sh` writes the built `.smplug`).
+const _pluginPaths = <String>[
+  'assets/plugins/spotube-plugin-youtubemusic/plugin.smplug',
+  '../wtx/plugins/youtubemusic.smplug',
+];
+
+String? _locatePlugin() {
+  for (final path in _pluginPaths) {
+    if (File(path).existsSync()) return path;
+  }
+  return null;
+}
+
 Future<Hetu> _newHetu() async {
   final prefs = await SharedPreferences.getInstance();
   final hetu = Hetu();
@@ -33,7 +48,7 @@ Future<Hetu> _newHetu() async {
     localStorageImpl: SharedPreferencesLocalStorage(prefs, 'live-test'),
     onNavigatorPush: (_) async {},
     onNavigatorPop: () {},
-    onShowForm: (_, __) async => [],
+    onShowForm: (_, _) async => [],
     createYoutubeEngine: () => throw UnimplementedError(),
   );
   await HetuStdLoader.loadBytecodeFlutter(hetu);
@@ -55,7 +70,7 @@ Uint8List _bytecode(List<int> bytes) {
   final file = archive.firstWhere(
     (f) => f.isFile && f.name == 'plugin.out',
   );
-  return file.content as Uint8List;
+  return file.content;
 }
 
 void main() {
@@ -67,10 +82,19 @@ void main() {
 
   late Hetu hetu;
   late HTInstance plugin;
+  final pluginPath = _locatePlugin();
 
   setUpAll(() async {
-    final archiveBytes =
-        _readBytes('assets/plugins/spotube-plugin-youtubemusic/plugin.smplug');
+    if (!_runLive) return;
+    final path = pluginPath;
+    if (path == null) {
+      throw StateError(
+        'YouTube Music .smplug not found. Build it with '
+        '`./plugin-sources/build_all.sh youtubemusic` in the '
+        'watchtower-extensions checkout.',
+      );
+    }
+    final archiveBytes = _readBytes(path);
     final manifest = _manifest(archiveBytes);
     hetu = await _newHetu();
     hetu.loadBytecode(
@@ -110,7 +134,7 @@ void main() {
       expect(chips, isNotEmpty);
       expect(chips.every((c) => c is String), isTrue);
     });
-  });
+  }, skip: _runLive ? false : 'set RUN_LIVE_PLUGIN_TESTS=true to run');
 
   group('live InnerTube', () {
     test('search.tracks returns parseable rows', () async {
