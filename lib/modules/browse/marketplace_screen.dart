@@ -41,7 +41,6 @@ import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositor
 import 'package:watchtower/modules/music/utils/primitive_utils.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/log/logger.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -78,10 +77,6 @@ const _kFeaturedNames = {
   'Viz',
   'CrunchyRoll',
 };
-
-// ─── Compat filter ─────────────────────────────────────────────────────────────
-
-enum _CompatF { all, js }
 
 // Rewrites icon URLs so brand icons keep their REAL colors:
 //  • cdn.simpleicons.org is a free community CDN that rate-limits
@@ -157,7 +152,6 @@ class _ExtEntry implements CatalogEntryView {
   @override
   final bool isNsfw;
   final String repoUrl;
-  final List<_ExtVersionEntry> versions;
   final List<String> subCategories;
   final String? uiLayout;
   final String? uiLayoutVersion;
@@ -241,7 +235,6 @@ class _ExtEntry implements CatalogEntryView {
     required this.compat,
     this.isNsfw = false,
     required this.repoUrl,
-    this.versions = const [],
     this.subCategories = const [],
     this.uiLayout,
     this.uiLayoutVersion,
@@ -518,17 +511,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   String _searchQuery = '';
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
-
-  // ── Per-tab compat filter (legacy chips) ─────────────────────────────────────
-  final Map<int, _CompatF> _compatF = {
-    _kTabHome: _CompatF.all,
-    _kTabManga: _CompatF.all,
-    _kTabAnime: _CompatF.all,
-    _kTabNovel: _CompatF.all,
-    _kTabGames: _CompatF.all,
-    _kTabMusic: _CompatF.all,
-    _kTabBinary: _CompatF.all,
-  };
 
   // ── Play Store enhanced filter state ─────────────────────────────────────────
   final Map<int, String?> _repoFilter = {};
@@ -1248,13 +1230,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     SourceCodeLanguage.dart => 'Dart',
     SourceCodeLanguage.unsupported => 'Unsupported',
   };
-
-  static Color _compatColor(SourceCodeLanguage c, ColorScheme cs) =>
-      switch (c) {
-        SourceCodeLanguage.javascript => const Color(0xFFF5A623),
-        SourceCodeLanguage.dart => const Color(0xFF00B4D8),
-        SourceCodeLanguage.unsupported => const Color(0xFF757575),
-      };
 
   /// `_kItemTypeSubtitle` is the subtitle catalogue's raw index. It has no
   /// `ItemType` member, so these helpers take the raw index instead.
@@ -2534,7 +2509,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _repoFilter.remove(tab);
       _langFilter.remove(tab);
       _progLangFilter.remove(tab);
-      _compatF[tab] = _CompatF.all;
       _installedOnly = false;
       _withUpdatesOnly = false;
       _sortBy = 'alpha';
@@ -2833,34 +2807,15 @@ class _TagChip extends StatelessWidget {
   final String label;
   final ColorScheme cs;
   final Color? color;
-  final bool filled;
   const _TagChip({
     required this.label,
     required this.cs,
     this.color,
-    this.filled = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final fg = color ?? cs.onSurfaceVariant;
-    if (filled) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: fg.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: fg,
-          ),
-        ),
-      );
-    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -3002,9 +2957,9 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
 
   bool get _isOfficial => _repo.owner == 'ferelking242';
 
-  String _topicLabel(String topic) => switch (topic) {
-    'spotube-metadata-plugin' => 'Metadata',
-    'spotube-audio-source-plugin' => 'Source Audio',
+  String _topicLabel(BuildContext context, String topic) => switch (topic) {
+    'spotube-metadata-plugin' => context.l10n.marketplace_topic_metadata,
+    'spotube-audio-source-plugin' => context.l10n.marketplace_topic_audio_source,
     _ => topic,
   };
 
@@ -3042,7 +2997,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
               t == 'spotube-metadata-plugin' ||
               t == 'spotube-audio-source-plugin',
         )
-        .map(_topicLabel)
+        .map((t) => _topicLabel(context, t))
         .toList();
 
     return GestureDetector(
@@ -3112,7 +3067,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${_repo.owner} · Plugin Musique',
+                        '${_repo.owner} · ${context.l10n.marketplace_plugin_kind_music}',
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.65),
@@ -3281,7 +3236,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Officiel',
+                      context.l10n.marketplace_official,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -3302,7 +3257,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                       ),
                     ),
                     child: Text(
-                      'Tiers',
+                      context.l10n.marketplace_third_party,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
@@ -3320,9 +3275,9 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.login_rounded, size: 16),
-                  label: const Text(
-                    'Se connecter',
-                    style: TextStyle(fontSize: 13),
+                  label: Text(
+                    context.l10n.marketplace_sign_in,
+                    style: const TextStyle(fontSize: 13),
                   ),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -3345,7 +3300,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              'Connexion — $_displayName',
+                              context.l10n.marketplace_connect_title(_displayName),
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -3578,331 +3533,6 @@ class _MusicPluginsSection extends ConsumerWidget {
   }
 }
 
-// ─── Banner card (featured) ────────────────────────────────────────────────────
-
-class _BannerCard extends StatelessWidget {
-  final _ExtEntry entry;
-  final bool installed;
-  final bool hasUpdate;
-  final bool busy;
-  final VoidCallback onInstall;
-  final VoidCallback? onSettings;
-  const _BannerCard({
-    required this.entry,
-    required this.installed,
-    this.hasUpdate = false,
-    required this.busy,
-    required this.onInstall,
-    this.onSettings,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final typeColor = _MarketplaceScreenState._typeColor(entry.itemType);
-    final compatColor = _MarketplaceScreenState._compatColor(entry.compat, cs);
-    final hasIcon = entry.iconUrl != null && entry.iconUrl!.isNotEmpty;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: typeColor.withValues(alpha: 0.30),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Background: blurred icon image or gradient fallback
-            if (hasIcon)
-              ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-                child: Image.network(
-                  entry.iconUrl!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                  errorBuilder: (_, _, _) => Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [typeColor, compatColor],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      typeColor.withValues(alpha: 0.85),
-                      compatColor.withValues(alpha: 0.65),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-            // Dark gradient overlay for text readability
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.62),
-                    typeColor.withValues(alpha: 0.55),
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-              ),
-            ),
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _ExtIcon(
-                    iconUrl: entry.iconUrl,
-                    itemType: entry.itemType,
-                    size: 60,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Text(
-                          entry.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            shadows: [
-                              Shadow(blurRadius: 4, color: Colors.black45),
-                            ],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.22),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                _MarketplaceScreenState._compatLabel(
-                                  entry.compat,
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.22),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                _MarketplaceScreenState._langCode(entry.lang),
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 32,
-                          child: installed
-                              ? Row(
-                                  children: [
-                                    // Gear icon
-                                    if (onSettings != null)
-                                      GestureDetector(
-                                        onTap: onSettings,
-                                        child: Container(
-                                          width: 34,
-                                          height: 32,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.22,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Broken.setting_2,
-                                            size: 15,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    if (onSettings != null)
-                                      const SizedBox(width: 6),
-                                    Expanded(
-                                      child: hasUpdate
-                                          ? GestureDetector(
-                                              onTap: busy ? null : onInstall,
-                                              child: Container(
-                                                height: 32,
-                                                alignment: Alignment.center,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orange.shade700
-                                                      .withValues(alpha: 0.85),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: busy
-                                                    ? const SizedBox(
-                                                        width: 13,
-                                                        height: 13,
-                                                        child:
-                                                            CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                              color:
-                                                                  Colors.white,
-                                                            ),
-                                                      )
-                                                    : Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          Icon(
-                                                            Icons
-                                                                .system_update_alt_rounded,
-                                                            size: 13,
-                                                            color: Colors.white,
-                                                          ),
-                                                          SizedBox(width: 5),
-                                                          Text(
-                                                            context
-                                                                .l10n
-                                                                .marketplace_update_available_short,
-                                                            style: TextStyle(
-                                                              fontSize: 11,
-                                                              color:
-                                                                  Colors.white,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                              ),
-                                            )
-                                          : Container(
-                                              alignment: Alignment.center,
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.22,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Broken.check,
-                                                    size: 14,
-                                                    color: Colors.white,
-                                                  ),
-                                                  SizedBox(width: 5),
-                                                  Text(
-                                                    context.l10n.installed,
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                    ),
-                                  ],
-                                )
-                              : FilledButton(
-                                  onPressed: busy ? null : onInstall,
-                                  style: FilledButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    backgroundColor: Colors.white.withValues(
-                                      alpha: 0.25,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: busy
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : Text(
-                                          context.l10n.install,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _MiniCard extends StatelessWidget {
   final _ExtEntry entry;
   final bool installed;
@@ -3910,7 +3540,6 @@ class _MiniCard extends StatelessWidget {
   final bool busy;
   final VoidCallback onInstall;
   final VoidCallback? onSettings;
-  final VoidCallback? onHistory;
   const _MiniCard({
     required this.entry,
     required this.installed,
@@ -3918,7 +3547,6 @@ class _MiniCard extends StatelessWidget {
     required this.busy,
     required this.onInstall,
     this.onSettings,
-    this.onHistory,
   });
 
   @override
@@ -4207,60 +3835,6 @@ class _SkeletonShimmerState extends State<_SkeletonShimmer>
       ),
     ),
   );
-}
-
-// ─── Icon chip ─────────────────────────────────────────────────────────────────
-
-class _IconChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-  const _IconChip({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-        decoration: BoxDecoration(
-          color: active ? cs.primary : cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: active ? cs.primary : cs.outline.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 13,
-              color: active ? cs.onPrimary : cs.onSurfaceVariant,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: active ? cs.onPrimary : cs.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─── Repo Carousel ─────────────────────────────────────────────────────────────
@@ -4642,181 +4216,6 @@ class _MarketplaceFilterButton extends StatelessWidget {
   }
 }
 
-class _FilterChipButton extends StatelessWidget {
-  final String label;
-  final bool active;
-  final IconData icon;
-  final VoidCallback onTap;
-  const _FilterChipButton({
-    required this.label,
-    required this.active,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-        decoration: BoxDecoration(
-          color: active ? cs.primaryContainer : cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: active ? cs.primary : cs.outline.withValues(alpha: 0.25),
-            width: active ? 1.5 : 1.0,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 13,
-              color: active ? cs.primary : cs.onSurfaceVariant,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: active ? cs.primary : cs.onSurface,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.arrow_drop_down_rounded,
-              size: 16,
-              color: active ? cs.primary : cs.onSurfaceVariant,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Simple picker bottom sheet ────────────────────────────────────────────────
-
-class _SimplePickerSheet extends StatelessWidget {
-  final String title;
-  final String allLabel;
-  final List<(String, String)> items; // (value, display)
-  final String? selected;
-  final void Function(String? value) onPick;
-  const _SimplePickerSheet({
-    required this.title,
-    required this.allLabel,
-    required this.items,
-    required this.selected,
-    required this.onPick,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DraggableScrollableSheet(
-      initialChildSize: 0.5,
-      minChildSize: 0.3,
-      maxChildSize: 0.9,
-      expand: false,
-      builder: (_, ctrl) => Column(
-        children: [
-          const SizedBox(height: 8),
-          Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: cs.outline.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Icon(Icons.filter_list_rounded, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: cs.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Divider(height: 1, color: cs.outline.withValues(alpha: 0.15)),
-          Expanded(
-            child: ListView(
-              controller: ctrl,
-              children: [
-                // "All" option
-                _PickerTile(
-                  label: allLabel,
-                  selected: selected == null,
-                  onTap: () => onPick(null),
-                  cs: cs,
-                ),
-                ...items.map(
-                  (item) => _PickerTile(
-                    label: item.$2,
-                    selected: selected == item.$1,
-                    onTap: () => onPick(item.$1),
-                    cs: cs,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PickerTile extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final ColorScheme cs;
-  const _PickerTile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.cs,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          color: selected ? cs.primary : cs.onSurface,
-        ),
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: selected
-          ? Icon(Broken.check, size: 18, color: cs.primary)
-          : null,
-      tileColor: selected ? cs.primaryContainer.withValues(alpha: 0.3) : null,
-    );
-  }
-}
 // ─── Language grid picker sheet ────────────────────────────────────────────────
 
 class _LangGridPickerSheet extends StatefulWidget {
@@ -5605,21 +5004,6 @@ class _ActiveFiltersSummary extends StatelessWidget {
 }
 
 // ─── Marketplace skeleton loading ──────────────────────────────────────────────
-
-class _ExtVersionEntry {
-  final String version;
-  final String? date;
-  final String? changelog;
-  final List<String> tags;
-  const _ExtVersionEntry({
-    required this.version,
-    this.date,
-    this.changelog,
-    this.tags = const [],
-  });
-}
-
-// ─── Version history bottom sheet ──────────────────────────────────────────────
 
 // ─── Glass toast notification ─────────────────────────────────────────────────
 
@@ -8352,45 +7736,19 @@ class _NtfyToggleTileState extends State<_NtfyToggleTile> {
 
 class _HeaderIcon extends StatelessWidget {
   final IconData icon;
-  final String? badge;
   final VoidCallback onTap;
-  const _HeaderIcon({required this.icon, this.badge, required this.onTap});
+  const _HeaderIcon({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(
-          onPressed: onTap,
-          icon: Icon(
-            icon,
-            color: MarketplacePalette.of(context).text,
-            size: 23,
-          ),
-          visualDensity: VisualDensity.compact,
-        ),
-        if (badge != null)
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: MarketplacePalette.of(context).alertSurface,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                badge!,
-                style: TextStyle(
-                  color: MarketplacePalette.of(context).onAlertSurface,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-      ],
+    return IconButton(
+      onPressed: onTap,
+      icon: Icon(
+        icon,
+        color: MarketplacePalette.of(context).text,
+        size: 23,
+      ),
+      visualDensity: VisualDensity.compact,
     );
   }
 }

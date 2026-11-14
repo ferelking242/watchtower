@@ -364,6 +364,14 @@ MARKETPLACE = [
      "Installation… {done}/{total}"),
     ("marketplace_tag_adult", "Adult", "Adulte"),
     ("marketplace_sort_alpha", "A → Z", "A → Z"),
+    ("marketplace_official", "Official", "Officiel"),
+    ("marketplace_third_party", "Third-party", "Tiers"),
+    ("marketplace_sign_in", "Sign in", "Se connecter"),
+    ("marketplace_connect_title", "Connection — {name}",
+     "Connexion — {name}"),
+    ("marketplace_plugin_kind_music", "Music plugin", "Plugin musical"),
+    ("marketplace_topic_metadata", "Metadata", "Métadonnées"),
+    ("marketplace_topic_audio_source", "Audio Source", "Source audio"),
 ]
 
 # The Browse screen's own chrome: bulk install/uninstall/update banners, the
