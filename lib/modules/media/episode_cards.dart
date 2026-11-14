@@ -1388,182 +1388,6 @@ class _EpisodeListRow extends StatelessWidget {
   }
 }
 
-/// ── 11. EpisodeProgressCard ─────────────────────────────────────────────
-/// WatchProgressCard — épisode avec progression de visionnage.
-class EpisodeProgressCard extends StatelessWidget {
-  const EpisodeProgressCard({super.key, required this.entry, this.width = 380});
-
-  final EpisodeEntry entry;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 72,
-            height: 90,
-            child: ContentImage(
-              url: entry.backdropUrl ?? entry.thumbUrl,
-              radius: 10,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SizedBox(
-              height: 90,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (entry.meta != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      entry.meta!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _EpisodeProgressBar(
-                          value: entry.progressValue,
-                          accent: accent,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _EpisodePlayCircle(size: 26, onTap: entry.onPlay),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      if (entry.duration != null)
-                        Text(
-                          entry.duration!,
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      const Spacer(),
-                      if (entry.hd) const _EpisodeBadge(label: 'HD'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// ── 12. MediaProgressCard ───────────────────────────────────────────────
-/// ProgressMediaCard — média avec barre de progression et temps restant.
-class MediaProgressCard extends StatelessWidget {
-  const MediaProgressCard({super.key, required this.entry, this.width = 380});
-
-  final EpisodeEntry entry;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 70,
-            height: 70,
-            child: ContentImage(
-              url: entry.backdropUrl ?? entry.thumbUrl,
-              radius: 10,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (entry.meta != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    entry.meta!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 9),
-                _EpisodeProgressBar(value: entry.progressValue, accent: accent),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Broken.clock, size: 11, color: Colors.white38),
-                    const SizedBox(width: 4),
-                    if (entry.duration != null)
-                      Text(
-                        entry.duration!,
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    const Spacer(),
-                    if (entry.hd) const _EpisodeBadge(label: 'HD'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// ── 13. UpNextCompactCard ───────────────────────────────────────────────
 /// UpNextCard — prochain épisode (format compact paysage).
 class UpNextCompactCard extends StatelessWidget {
@@ -1893,63 +1717,127 @@ class SeriesBannerCard extends StatelessWidget {
 }
 
 /// ── 16. EpisodeCarousel ─────────────────────────────────────────────────
-/// Carrousel d'épisodes.
-class EpisodeCarousel extends StatelessWidget {
+/// Rangée d'épisodes défilante, sans en-tête et sans panneau.
+///
+/// `autoScroll` lance un défilement automatique continu, `speed` en règle la
+/// vitesse (pixels/seconde). L'utilisateur garde la main : un glissement
+/// suspend le défilement automatique.
+class EpisodeCarousel extends StatefulWidget {
   const EpisodeCarousel({
     super.key,
     required this.episodes,
     this.width = 420,
-    this.onPrevious,
-    this.onNext,
+    this.autoScroll = false,
+    this.speed = 24,
+    this.tileWidth = 96,
   });
 
   final List<EpisodeEntry> episodes;
   final double width;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
+
+  /// Défilement automatique continu.
+  final bool autoScroll;
+
+  /// Vitesse du défilement automatique, en pixels par seconde.
+  final double speed;
+
+  /// Largeur d'une tuile d'épisode.
+  final double tileWidth;
+
+  @override
+  State<EpisodeCarousel> createState() => _EpisodeCarouselState();
+}
+
+class _EpisodeCarouselState extends State<EpisodeCarousel> {
+  late final ScrollController _controller = ScrollController();
+  bool _userInteracting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoScroll) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _tick());
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Un pas de défilement, planifié image par image. On avance d'une fraction
+  /// de `speed` proportionnelle à la durée écoulée pour rester régulier quelle
+  /// que soit la cadence d'affichage.
+  void _tick() {
+    if (!mounted || !widget.autoScroll || _userInteracting) return;
+    if (_controller.hasClients) {
+      final position = _controller.position;
+      if (position.maxScrollExtent > 0) {
+        final next = position.pixels + widget.speed / 60;
+        _controller.jumpTo(
+          next >= position.maxScrollExtent
+              ? position.minScrollExtent
+              : next,
+        );
+      }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tick());
+  }
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    final visible = episodes.take(5).toList(growable: false);
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
+    final visible = widget.episodes.take(5).toList(growable: false);
+    return SizedBox(
+      width: widget.width,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _CarouselArrowButton(
-                icon: Icons.chevron_left_rounded,
-                onTap: onPrevious,
-              ),
-              const SizedBox(width: 6),
-              for (var i = 0; i < visible.length; i++) ...[
-                if (i > 0) const SizedBox(width: 6),
-                Expanded(
-                  child: _MiniEpisodeTile(entry: visible[i], index: i + 1),
+          SizedBox(
+            // 4/3 poster + libellés d'épisode : la hauteur suit la largeur de
+            // tuile, avec la place des deux lignes de texte.
+            height: widget.tileWidth * 4 / 3 + 40,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollStartNotification &&
+                    notification.dragDetails != null) {
+                  _userInteracting = true;
+                } else if (notification is ScrollEndNotification) {
+                  _userInteracting = false;
+                }
+                return false;
+              },
+              child: ListView.separated(
+                controller: _controller,
+                scrollDirection: Axis.horizontal,
+                itemCount: visible.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) => SizedBox(
+                  width: widget.tileWidth,
+                  child: _MiniEpisodeTile(
+                    entry: visible[index],
+                    index: index + 1,
+                  ),
                 ),
-              ],
-              const SizedBox(width: 6),
-              _CarouselArrowButton(
-                icon: Icons.chevron_right_rounded,
-                onTap: onNext,
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (var i = 0; i < episodes.length && i < 8; i++) ...[
+              for (
+                var i = 0;
+                i < widget.episodes.length && i < 8;
+                i++
+              ) ...[
                 if (i > 0) const SizedBox(width: 4),
                 Container(
                   width: 5,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: episodes[i].current
-                        ? accent
+                    color: widget.episodes[i].current
+                        ? Theme.of(context).colorScheme.primary
                         : Colors.white.withValues(alpha: .25),
                     shape: BoxShape.circle,
                   ),
@@ -2028,64 +1916,62 @@ class _MiniEpisodeTile extends StatelessWidget {
   }
 }
 
-class _CarouselArrowButton extends StatelessWidget {
-  const _CarouselArrowButton({required this.icon, this.onTap});
-
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: .07),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap ?? () {},
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: Icon(icon, size: 15, color: Colors.white70),
-        ),
-      ),
-    );
-  }
-}
-
 /// ── 17. SeasonBannerCard ────────────────────────────────────────────────
-/// SeasonCard (style horizontal).
+/// SeasonCard (style horizontal), sans panneau.
+///
+/// `mirror` place la vignette à gauche et le texte à droite ; `false` garde la
+/// vignette à droite. `coverLeft` reste accepté comme alias historique de
+/// `mirror`.
 class SeasonBannerCard extends StatelessWidget {
   const SeasonBannerCard({
     super.key,
     required this.season,
     this.width = 420,
+    this.mirror = false,
     this.coverLeft = false,
+    this.coverWidth = 118,
+    this.flat = true,
   });
 
   final SeasonEntry season;
   final double width;
 
-  /// Place la vignette à gauche (au lieu de la droite) — variante miroir.
+  /// Effet miroir : vignette à gauche, texte à droite.
+  final bool mirror;
+
+  /// Alias historique de [mirror].
   final bool coverLeft;
+
+  /// Largeur de la vignette de saison.
+  final double coverWidth;
+
+  /// Conservé pour la compatibilité des layouts existants ; la carte n'affiche
+  /// de toute façon plus de panneau.
+  final bool flat;
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    final cover = SizedBox(width: 118, child: _SeasonBannerCover(season: season));
+    final cover = SizedBox(
+      width: coverWidth,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: _SeasonBannerCover(season: season),
+      ),
+    );
     final body = Expanded(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: _SeasonBannerBody(season: season, accent: accent),
       ),
     );
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      decoration: _episodePanelDecoration(accent),
-      clipBehavior: Clip.antiAlias,
+    final flipped = mirror || coverLeft;
+    return SizedBox(
+      width: width,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: coverLeft ? [cover, body] : [body, cover],
+          children: flipped ? [cover, body] : [body, cover],
         ),
       ),
     );

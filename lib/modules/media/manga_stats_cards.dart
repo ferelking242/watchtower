@@ -63,99 +63,6 @@ class MangaStatTile {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: accent.withValues(alpha: .18)),
-  );
-}
-
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.onSeeAll,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 14, color: accent),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 1),
-                Text(
-                  subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (onSeeAll != null)
-          InkWell(
-            onTap: onSeeAll,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 /// ── 1. MangaStatusCard ──────────────────────────────────────────────────
 /// Statuts de mangas (En cours, Terminé, En pause…).
@@ -174,21 +81,12 @@ class MangaStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.person_outline,
-            title: 'Statut des mangas',
-            subtitle: 'Le statut actuel de chaque manga.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -265,21 +163,12 @@ class MangaSerializationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.auto_stories_outlined,
-            title: 'Sérialisations',
-            subtitle: 'Les magazines et périodiques de publication.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -362,21 +251,12 @@ class MangaFrequencyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.event_rounded,
-            title: 'Fréquence de sortie',
-            subtitle: 'Combien de chapitres sortent par période.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
               for (var i = 0; i < items.length; i++) ...[
@@ -451,17 +331,9 @@ class MangaGlobalStatsCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.speed_rounded,
-            title: 'Statistiques globales',
-            subtitle: 'Chiffres clés de la communauté manga.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
               for (var i = 0; i < tiles.length; i++) ...[
@@ -538,21 +410,12 @@ class MangaPopularityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.whatshot_rounded,
-            title: 'Popularité & Tendances',
-            subtitle: 'Les mangas les plus populaires du moment.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             _PopularityRow(item: items[i]),
@@ -662,17 +525,9 @@ class MangaFollowersCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.group_rounded,
-            title: 'Suiveurs / Abonnés',
-            subtitle: 'Le nombre de personnes qui suivent chaque manga.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
               for (var i = 0; i < items.length; i++) ...[
@@ -764,7 +619,6 @@ class MangaItemStatsCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -873,17 +727,9 @@ class MangaStatsGridCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.grid_view_rounded,
-            title: 'Grille des statistiques',
-            subtitle: 'Vue d’ensemble rapide des données.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           // Le nombre de rangées suit la liste reçue : coder trois rangées en
           // dur levait un RangeError dès qu'un appelant passait moins de neuf
           // tuiles, ce qui faisait disparaître toute la page.
@@ -994,17 +840,9 @@ class MangaCategoryRankingCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.emoji_events_outlined,
-            title: 'Classements par catégorie',
-            subtitle: 'Les meilleures séries selon différents critères.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -1141,17 +979,9 @@ class MangaReportsCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.insights_rounded,
-            title: 'Rapports & Aperçus',
-            subtitle: 'Analyses et tendances de la communauté.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             Row(

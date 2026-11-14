@@ -75,13 +75,6 @@ class MangaVolumeItem {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: accent.withValues(alpha: .18)),
-  );
-}
 
 class _Chip extends StatelessWidget {
   const _Chip(
@@ -116,92 +109,6 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.onSeeAll,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 14, color: accent),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 1),
-                Text(
-                  subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (onSeeAll != null)
-          InkWell(
-            onTap: onSeeAll,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// ── 1. MangaVolumeCard ──────────────────────────────────────────────────
 /// Volume populaire (poster + tome + note).
 class MangaVolumeCard extends StatelessWidget {
@@ -218,7 +125,6 @@ class MangaVolumeCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         constraints: BoxConstraints(maxWidth: width),
-        decoration: _panelDecoration(accent, radius: 14),
         padding: const EdgeInsets.all(8),
         child: Stack(
           children: [
@@ -356,7 +262,6 @@ class MangaVolumeListCard extends StatelessWidget {
             child: Container(
               width: width,
               padding: const EdgeInsets.all(10),
-              decoration: _panelDecoration(accent, radius: 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -457,7 +362,6 @@ class MangaVolumePreviewCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -592,14 +496,12 @@ class MangaSpecialEditionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: item.onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         width: 132,
         padding: const EdgeInsets.all(8),
-        decoration: _panelDecoration(accent, radius: 14),
         child: Stack(
           children: [
             ClipRRect(
@@ -708,7 +610,6 @@ class MangaFormatCard extends StatelessWidget {
       child: Container(
         width: width,
         padding: const EdgeInsets.all(8),
-        decoration: _panelDecoration(accent, radius: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -786,11 +687,9 @@ class MangaEditionLanguageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -910,7 +809,6 @@ class MangaCollectionTrackerCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1107,11 +1005,9 @@ class MangaUpcomingVolumeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

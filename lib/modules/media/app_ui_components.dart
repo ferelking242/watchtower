@@ -377,6 +377,8 @@ class AppFeedOverlayHeader extends StatelessWidget {
 class AppSectionHeader extends StatelessWidget {
   const AppSectionHeader({
     required this.title,
+    this.subtitle,
+    this.icon,
     this.actionLabel,
     this.onAction,
     this.trailing,
@@ -385,6 +387,13 @@ class AppSectionHeader extends StatelessWidget {
   });
 
   final String title;
+
+  /// Optional line under the title, e.g. `Mis à jour il y a 2 h`.
+  final String? subtitle;
+
+  /// Optional leading icon, chosen by the layout via the `icon` parameter.
+  final IconData? icon;
+
   final String? actionLabel;
   final VoidCallback? onAction;
 
@@ -397,26 +406,45 @@ class AppSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: EdgeInsets.fromLTRB(AppUI.pagePadding(context), 16, 12, 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (leadingIcon != null) ...[
+          if (leadingIcon != null || icon != null) ...[
             Icon(
-              leadingIcon,
+              leadingIcon ?? icon,
               size: 19,
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 8),
           ],
           Expanded(
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           if (actionLabel != null)

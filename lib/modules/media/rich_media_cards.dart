@@ -1288,7 +1288,6 @@ class MovieDetailsModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = data.item;
-    final accent = Theme.of(context).colorScheme.primary;
     return SafeArea(
       top: false,
       child: Padding(

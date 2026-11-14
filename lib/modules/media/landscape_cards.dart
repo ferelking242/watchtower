@@ -86,98 +86,6 @@ class LandscapeGenreTile {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: accent.withValues(alpha: .18)),
-  );
-}
-
-class _RailHeader extends StatelessWidget {
-  const _RailHeader({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.onSeeAll,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 14, color: accent),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white38,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (onSeeAll != null)
-          InkWell(
-            onTap: onSeeAll,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// Tuile 16:9 génomique du rail.
 class _LandscapeTile extends StatelessWidget {
   const _LandscapeTile({required this.entry});
@@ -306,6 +214,11 @@ class _LandscapeTile extends StatelessWidget {
 
 /// ── 1. LandscapeShowcaseSection ─────────────────────────────────────────
 /// Rail générique de cartes 16:9 (films, séries, mangas, novels).
+///
+/// Carte nue : le titre, le sous-titre, l'icône et le « Tout voir »
+/// appartiennent à la section qui l'héberge (`AppSectionHeader`), jamais à la
+/// carte. [title], [subtitle], [icon] et [onSeeAll] sont conservés pour la
+/// compatibilité des layouts JSON mais ne sont plus rendus ici.
 class LandscapeShowcaseSection extends StatelessWidget {
   const LandscapeShowcaseSection({
     super.key,
@@ -326,40 +239,25 @@ class LandscapeShowcaseSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RailHeader(
-            icon: icon,
-            title: title,
-            subtitle: subtitle,
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  _LandscapeTile(entry: items[i]),
-                ],
-              ],
-            ),
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              _LandscapeTile(entry: items[i]),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
 /// ── 6. LandscapePlaylistCard ────────────────────────────────────────────
-/// Musique — Playlists.
+/// Musique — Playlists. Carte nue : le titre appartient à la section.
 class LandscapePlaylistCard extends StatelessWidget {
   const LandscapePlaylistCard({
     super.key,
@@ -374,33 +272,18 @@ class LandscapePlaylistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RailHeader(
-            icon: Icons.music_note_rounded,
-            title: 'Musique — Playlists',
-            subtitle: 'Écoutez vos préférés pendant votre visionnage.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < playlists.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  _PlaylistTile(playlist: playlists[i]),
-                ],
-              ],
-            ),
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < playlists.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              _PlaylistTile(playlist: playlists[i]),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -509,7 +392,7 @@ class _PlaylistTile extends StatelessWidget {
 }
 
 /// ── 7. LandscapeGenreRow ────────────────────────────────────────────────
-/// Découvertes par genre.
+/// Découvertes par genre. Carte nue : le titre appartient à la section.
 class LandscapeGenreRow extends StatelessWidget {
   const LandscapeGenreRow({
     super.key,
@@ -524,34 +407,18 @@ class LandscapeGenreRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RailHeader(
-            icon: Icons.explore_outlined,
-            title: 'Découvertes par genre',
-            subtitle:
-                'Explorez par genre et trouvez votre prochaine obsession.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < tiles.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  _GenreSmallTile(tile: tiles[i]),
-                ],
-              ],
-            ),
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < tiles.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              _GenreSmallTile(tile: tiles[i]),
+            ],
+          ],
+        ),
       ),
     );
   }

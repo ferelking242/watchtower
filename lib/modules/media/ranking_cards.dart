@@ -44,13 +44,18 @@ class RankingEntry {
 }
 
 /// ── 1. RankingSectionCard ───────────────────────────────────────────────
-/// Section « Top 10 / classement » : en-tête (icône + titre + sous-titre +
-/// « Voir tout ») et rangée horizontale défilante de [RankingEntry].
+/// Section « Top 10 / classement » : rangée horizontale défilante de
+/// [RankingEntry].
 ///
 /// Films, séries, animés, genres, pays, décennies… étaient dix widgets
 /// identiques qui ne différaient que par un titre, un sous-titre et une icône.
-/// Il n'en reste qu'un, paramétré par [title], [subtitle], [icon] et
-/// [labelTiles] — donc un seul composant à corriger dans toute l'application.
+/// Il n'en reste qu'un, paramétré par [labelTiles] — donc un seul composant à
+/// corriger dans toute l'application.
+///
+/// Carte nue : le titre, le sous-titre, l'icône et le « Voir tout »
+/// appartiennent à la section qui l'héberge (`AppSectionHeader`). [title],
+/// [subtitle], [icon] et [onSeeAll] sont conservés pour la compatibilité des
+/// layouts JSON mais ne sont plus rendus ici.
 class RankingSectionCard extends StatelessWidget {
   const RankingSectionCard({
     super.key,
@@ -68,8 +73,6 @@ class RankingSectionCard extends StatelessWidget {
   final double width;
   final VoidCallback? onSeeAll;
 
-  /// En-tête de la section. Un `null` laisse l'en-tête vide plutôt que de
-  /// retomber sur un libellé par défaut : c'est le layout.json qui décide.
   final String? title;
   final String? subtitle;
   final IconData? icon;
@@ -86,10 +89,6 @@ class RankingSectionCard extends StatelessWidget {
     return _RankingSectionCard(
       items: items,
       width: width,
-      title: title ?? '',
-      subtitle: subtitle,
-      icon: icon ?? Icons.emoji_events_outlined,
-      onSeeAll: onSeeAll,
       labelTiles: labelTiles,
       flat: flat,
     );
@@ -100,25 +99,17 @@ class RankingSectionCard extends StatelessWidget {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-/// Socle commun : en-tête + rangée horizontale défilante de tuiles.
+/// Socle commun : rangée horizontale défilante de tuiles, sans en-tête.
 class _RankingSectionCard extends StatelessWidget {
   const _RankingSectionCard({
     required this.items,
     required this.width,
-    required this.title,
-    required this.icon,
-    this.subtitle,
-    this.onSeeAll,
     this.labelTiles = false,
     this.flat = false,
   });
 
   final List<RankingEntry> items;
   final double width;
-  final String title;
-  final String? subtitle;
-  final IconData icon;
-  final VoidCallback? onSeeAll;
 
   /// Force toutes les tuiles en mode « libellé » (genres, pays, décennies).
   final bool labelTiles;
@@ -126,7 +117,6 @@ class _RankingSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: flat ? width : null,
       constraints: BoxConstraints(maxWidth: width),
@@ -138,93 +128,16 @@ class _RankingSectionCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Colors.white.withValues(alpha: .09)),
             ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: .15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, size: 14, color: accent),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white38,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (onSeeAll != null)
-                InkWell(
-                  onTap: onSeeAll,
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.all(3),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Voir tout',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(width: 2),
-                        Icon(
-                          Broken.arrow_right_3,
-                          size: 12,
-                          color: Colors.white54,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              _RankingTile(entry: items[i], forceLabelTile: labelTiles),
             ],
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  _RankingTile(entry: items[i], forceLabelTile: labelTiles),
-                ],
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

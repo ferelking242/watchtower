@@ -6,6 +6,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
+import 'package:watchtower/modules/dev/component_detail_sheet.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/discovery_card.dart';
@@ -1785,6 +1786,41 @@ class _ComponentTile extends StatelessWidget {
                         Icons.copy_rounded,
                         size: 15,
                         color: Colors.white60,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Tooltip(
+                      message: 'Détail du composant et de ses paramètres',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(9),
+                        onTap: () => showComponentDetail(
+                          context,
+                          GalleryComponentDetailData(
+                            title: component.title,
+                            className: component.className,
+                            path: component.path,
+                            usage: component.usage,
+                            icon: component.icon,
+                            componentId: component.layoutComponent,
+                          ),
+                        ),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          margin: const EdgeInsets.only(top: 2),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: .13),
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(
+                              color: accent.withValues(alpha: .25),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.info_outline_rounded,
+                            size: 15,
+                            color: accent,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -5158,85 +5194,25 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    title: 'Série + épisode compact',
-    className: 'SeriesEpisodeCard',
+    title: 'Progression de visionnage',
+    className: 'ProgressMediaCard',
     path: 'lib/modules/media/streaming_cards.dart',
-    usage: 'Rangée horizontale avec play et chevron',
+    usage:
+        'Une carte, tous les effets : style (bar · percent · chip · series), '
+        'pourcentage, couleur, animation, chevron, miroir, inversion',
     section: 'STREAMING & PROGRESSION',
-    icon: Icons.tv_rounded,
-    kind: _PreviewKind.streamSeriesEpisode,
-    result: (_) => SeriesEpisodeCard(
+    icon: Icons.timelapse_rounded,
+    kind: _PreviewKind.streamProgressMedia,
+    layoutComponent: 'watch-progress',
+    result: (_) => ProgressMediaCard(
       data: _streamCardData(
         _tmdbItems[4],
         seriesMeta: 'S1 • Ép. 6',
         extraMeta: '42 min',
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Progression visuelle',
-    className: 'WatchProgressCard',
-    path: 'lib/modules/media/streaming_cards.dart',
-    usage: 'Barre de progression et pourcentage',
-    section: 'STREAMING & PROGRESSION',
-    icon: Icons.speed_rounded,
-    kind: _PreviewKind.streamWatchProgress,
-    result: (_) => WatchProgressCard(
-      data: _streamCardData(
-        _tmdbItems[3],
-        seriesMeta: 'S3 • Ép. 5',
-        progress: .68,
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Barre de progression',
-    className: 'ProgressMediaCard',
-    path: 'lib/modules/media/streaming_cards.dart',
-    usage: 'Style barre + bouton play',
-    section: 'STREAMING & PROGRESSION',
-    icon: Icons.timelapse_rounded,
-    kind: _PreviewKind.streamProgressMedia,
-    result: (_) => ProgressMediaCard(
-      data: _streamCardData(
-        _tmdbItems[4],
-        seriesMeta: 'S1 • Ép. 6',
         progress: .72,
       ),
-      style: ProgressMediaStyle.bar,
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Barre de progression (%)',
-    className: 'ProgressMediaCard(percent)',
-    path: 'lib/modules/media/streaming_cards.dart',
-    usage: 'Pourcentage affiché à droite',
-    section: 'STREAMING & PROGRESSION',
-    icon: Icons.timelapse_rounded,
-    kind: _PreviewKind.streamProgressMedia,
-    result: (_) => ProgressMediaCard(
-      data: _streamCardData(
-        _tmdbItems[4],
-        seriesMeta: 'S1 • Ép. 6',
-        progress: .72,
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Barre de progression (chip)',
-    className: 'ProgressMediaCard(chip)',
-    path: 'lib/modules/media/streaming_cards.dart',
-    usage: 'Pastille de pourcentage sur la vignette',
-    section: 'STREAMING & PROGRESSION',
-    icon: Icons.timelapse_rounded,
-    kind: _PreviewKind.streamProgressMedia,
-    result: (_) => ProgressMediaCard(
-      data: _streamCardData(
-        _tmdbItems[4],
-        seriesMeta: 'S1 • Ép. 6',
-        progress: .72,
-      ),
-      style: ProgressMediaStyle.chip,
+      percent: true,
+      chevron: true,
     ),
   ),
   // ── COLLECTIONS & FRANCHISES ──
@@ -5311,7 +5287,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.trending_up_rounded,
     kind: _PreviewKind.collTrending,
     result: (_) => TrendingCard(
-      onSeeAll: () {},
       items: [
         _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
         _collectionEntry(
@@ -5350,7 +5325,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.visibility_rounded,
     kind: _PreviewKind.collPopular,
     result: (_) => PopularCard(
-      onSeeAll: () {},
       items: [
         _collectionEntry(
           'One Piece',
@@ -5388,7 +5362,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.star_rounded,
     kind: _PreviewKind.collTopRated,
     result: (_) => TopRatedCard(
-      onSeeAll: () {},
       items: [
         _collectionEntry(
           'Breaking Bad',
@@ -5426,7 +5399,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.leaderboard_outlined,
     kind: _PreviewKind.collRanked,
     result: (_) => RankedMediaCard(
-      onSeeAll: () {},
       items: [
         _collectionEntry('Dune', meta: 'Film', thumbUrl: _posterDune, rank: 1),
         _collectionEntry(
@@ -5529,7 +5501,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.thumb_up_alt_outlined,
     kind: _PreviewKind.collRecommendation,
     result: (_) => RecommendationCard(
-      onSeeAll: () {},
       items: [
         _collectionEntry(
           'Arcane',
@@ -5558,13 +5529,11 @@ List<_ComponentSpec> _buildComponents() => [
     title: 'Carrousel de collections',
     className: 'UniverseCarouselCard',
     path: 'lib/modules/media/collection_cards.dart',
-    usage: 'Trois univers par vue, avec flèches',
+    usage: 'Trois univers inclinés, sans flèches',
     section: 'COLLECTIONS & FRANCHISES',
     icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.collCarousel,
     result: (_) => UniverseCarouselCard(
-      onPrevious: () {},
-      onNext: () {},
       universes: [
         _collectionEntry(
           'Univers DC',
@@ -5857,44 +5826,6 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    title: 'Progression de visionnage',
-    className: 'EpisodeProgressCard',
-    path: 'lib/modules/media/episode_cards.dart',
-    usage: 'WatchProgressCard — épisode en cours',
-    section: 'ÉPISODES & SAISONS',
-    icon: Icons.access_time_rounded,
-    kind: _PreviewKind.epProgress,
-    result: (_) => EpisodeProgressCard(
-      entry: _episodeEntry(
-        'Teen Wolf',
-        meta: 'S3 · Ép. 6 — Raw Talent',
-        duration: '52 min',
-        progress: .72,
-        hd: true,
-        thumbUrl: _posterArcane,
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    title: 'Média avec barre de progression',
-    className: 'MediaProgressCard',
-    path: 'lib/modules/media/episode_cards.dart',
-    usage: 'ProgressMediaCard — temps restant et HD',
-    section: 'ÉPISODES & SAISONS',
-    icon: Icons.speed_rounded,
-    kind: _PreviewKind.epMediaProgress,
-    result: (_) => MediaProgressCard(
-      entry: _episodeEntry(
-        'The 100',
-        meta: 'S5 · Ép. 7 · The Warriors Will',
-        duration: '41 min',
-        progress: .45,
-        hd: true,
-        thumbUrl: _posterInterstellar,
-      ),
-    ),
-  ),
-  _ComponentSpec(
     title: 'Prochain épisode (compact)',
     className: 'UpNextCompactCard',
     path: 'lib/modules/media/episode_cards.dart',
@@ -5960,8 +5891,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.view_carousel_outlined,
     kind: _PreviewKind.epCarousel,
     result: (_) => EpisodeCarousel(
-      onPrevious: () {},
-      onNext: () {},
       episodes: [
         _episodeEntry('Pilot', number: 1, thumbUrl: _posterDune),
         _episodeEntry('The Weir', number: 2, thumbUrl: _posterThrones),
@@ -8405,7 +8334,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.star_rounded,
     kind: _PreviewKind.hmSpotlight,
     result: (_) => HomeSpotlightRailCard(
-      onSeeAll: () {},
       items: [
         HomeSpotlightEntry(
           title: 'The Last Heir',
@@ -8476,7 +8404,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.local_fire_department_rounded,
     kind: _PreviewKind.hmPopular,
     result: (_) => HomePopularRailCard(
-      onSeeAll: () {},
       items: [
         HomePopularEntry(
           title: 'Stranger Things',
@@ -8526,7 +8453,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.menu_book_outlined,
     kind: _PreviewKind.hmRead,
     result: (_) => HomeReadRailCard(
-      onSeeAll: () {},
       items: [
         HomeSpotlightEntry(
           title: 'Solo Leveling',
@@ -8640,7 +8566,6 @@ List<_ComponentSpec> _buildComponents() => [
     icon: Icons.favorite_rounded,
     kind: _PreviewKind.hmMyList,
     result: (_) => HomeMyListCard(
-      onSeeAll: () {},
       items: [
         HomeMyListEntry(title: 'The Last Heir', thumbUrl: _backdropArcane),
         HomeMyListEntry(title: 'Dune', thumbUrl: _backdropDune),

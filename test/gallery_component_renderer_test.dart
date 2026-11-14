@@ -189,8 +189,11 @@ void main() {
     expect(card.flat, isTrue);
     expect(card.items.first.onTap, isNotNull);
     card.items.first.onTap!.call();
-    card.onSeeAll!.call();
     expect(openedIndex, 0);
+    // L'en-tête (titre + « Tout voir ») appartient à la section, plus à la
+    // carte : la carte reste nue.
+    expect(find.text('Top 10 Anime'), findsOneWidget);
+    await tester.tap(find.text('Tout voir'));
     expect(seeAllCount, 1);
   });
 
@@ -355,31 +358,51 @@ void main() {
     // layout author can set it.
     const rendererKeys = {
       'actionLabel',
+      'animation',
+      'autoScroll',
       'badge',
       'cast',
+      'chevron',
+      'color',
       'columns',
+      'compact',
+      'coverWidth',
       'fill',
+      'flat',
       'genres',
       'hd',
       'height',
+      'icon',
       'items',
+      'labelTiles',
       'layout',
+      'mirror',
       'numbered',
+      'percent',
       'period',
       'progress',
       'rank',
       'rankLabel',
       'readingDirection',
       'remaining',
+      'reverse',
       'rows',
       'runtime',
+      'scroll',
       'scrollDirection',
+      'seeAll',
       'seriesMeta',
       'showCount',
       'spacing',
+      'spacingX',
+      'spacingY',
+      'speed',
       'stats',
+      'style',
       'subtitle',
       'tags',
+      'tileWidth',
+      'tilt',
       'time',
       'title',
       'width',
@@ -503,11 +526,11 @@ void main() {
     await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
     await tester.pumpAndSettle(const Duration(milliseconds: 20));
 
-    final card = tester.widget<RankingSectionCard>(
-      find.byType(RankingSectionCard),
-    );
-    expect(card.title, 'Mon top');
-    expect(card.subtitle, 'Cette semaine');
+    // Le titre et le sous-titre sont rendus par l'en-tête de section, jamais
+    // par la carte : la carte reste nue.
+    expect(find.text('Mon top'), findsOneWidget);
+    expect(find.text('Cette semaine'), findsOneWidget);
+    expect(find.byType(RankingSectionCard), findsOneWidget);
   });
 
   testWidgets('genre grid and provider rail use the genres parameter', (

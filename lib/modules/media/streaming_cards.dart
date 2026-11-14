@@ -1253,12 +1253,13 @@ class _SeasonChip extends StatelessWidget {
 }
 
 /// ── 11. ProgressMediaCard ───────────────────────────────────────────────
-/// Carte de progression unique, déclinée par [ProgressMediaStyle].
+/// Carte de progression unique, entièrement paramétrée.
 ///
 /// [SeriesEpisodeCard], [WatchProgressCard] et les trois variantes
-/// [ProgressMediaCard] étaient quatre copies du même widget. Elles fusionnent
-/// ici : le style ne change que la position du pourcentage, la disposition du
-/// badge et l'affichage du temps restant.
+/// [ProgressMediaCard] étaient quatre copies du même widget. Il n'en reste
+/// qu'une : [ProgressMediaStyle] choisit la disposition de base, et chaque
+/// effet (pourcentage, couleur, animation, chevron, miroir, inversion) est un
+/// paramètre indépendant que layout.json peut activer.
 enum ProgressMediaStyle {
   /// Vignette carrée, titre + sous-titre, barre de progression seule.
   bar,
@@ -1279,16 +1280,55 @@ class ProgressMediaCard extends StatelessWidget {
     required this.data,
     this.width = 400,
     this.style = ProgressMediaStyle.percent,
+    this.percent,
+    this.color,
+    this.animation = false,
+    this.chevron = false,
+    this.mirror = false,
+    this.reverse = false,
+    this.flat = false,
+    this.showBar = true,
   });
 
   final StreamingCardData data;
   final double width;
   final ProgressMediaStyle style;
 
+  /// Force l'affichage du pourcentage. `null` suit le [style] : visible pour
+  /// `percent` et `chip`, masqué pour `bar` et `series`.
+  final bool? percent;
+
+  /// Couleur d'accent (barre, pastille, bouton). `null` = couleur du thème.
+  final Color? color;
+
+  /// Anime le remplissage de la barre de progression.
+  final bool animation;
+
+  /// Ajoute un chevron à droite (ouvre le détail).
+  final bool chevron;
+
+  /// Place la vignette à droite au lieu de la gauche.
+  final bool mirror;
+
+  /// Inverse la carte : vignette à droite *et* texte aligné à droite.
+  final bool reverse;
+
+  /// Carte nue intégrée à une page (aucun panneau autour).
+  final bool flat;
+
+  /// Affiche la barre de progression.
+  final bool showBar;
+
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
+    final accent = color ?? Theme.of(context).colorScheme.primary;
     final series = style == ProgressMediaStyle.series;
+    final showPercent = percent ?? (style != ProgressMediaStyle.bar);
+    final flip = mirror || reverse;
+    final textAlign = reverse ? TextAlign.right : TextAlign.left;
+    final cross = reverse
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start;
     final thumbWidth = series ? 82.0 : 70.0;
     final thumbHeight = series ? 58.0 : 70.0;
 
@@ -1326,87 +1366,100 @@ class ProgressMediaCard extends StatelessWidget {
       ),
     );
 
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(10),
-      decoration: _streamCardDecoration(accent),
-      child: Row(
+    final body = Expanded(
+      child: Column(
+        crossAxisAlignment: cross,
         children: [
-          thumb,
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            data.item.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: textAlign,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (data.seriesMeta != null || data.extraMeta != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              data.metaLine,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: textAlign,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          if (series) ...[
+            if (data.remainingLabel != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                data.remainingLabel!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: textAlign,
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ] else if (showBar) ...[
+            const SizedBox(height: 10),
+            Row(
               children: [
-                Text(
-                  data.item.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: _StreamProgressBar(
+                    value: data.progressValue,
+                    accent: accent,
+                    height: 5,
+                    animation: animation,
                   ),
                 ),
-                if (data.seriesMeta != null || data.extraMeta != null) ...[
-                  const SizedBox(height: 3),
+                if (showPercent &&
+                    style != ProgressMediaStyle.chip &&
+                    data.percentLabel != null) ...[
+                  const SizedBox(width: 8),
                   Text(
-                    data.metaLine,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    data.percentLabel!,
                     style: const TextStyle(
-                      color: Colors.white54,
+                      color: Colors.white70,
                       fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w800,
                     ),
-                  ),
-                ],
-                if (series) ...[
-                  if (data.remainingLabel != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      data.remainingLabel!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ] else ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _StreamProgressBar(
-                          value: data.progressValue,
-                          accent: accent,
-                          height: 5,
-                        ),
-                      ),
-                      if (style == ProgressMediaStyle.percent &&
-                          data.percentLabel != null) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          data.percentLabel!,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ],
                   ),
                 ],
               ],
             ),
-          ),
+          ],
+        ],
+      ),
+    );
+
+    return Container(
+      constraints: BoxConstraints(maxWidth: width),
+      padding: EdgeInsets.all(flat ? 0 : 10),
+      decoration: flat ? null : _streamCardDecoration(accent),
+      child: Row(
+        children: [
+          if (flip) ...[
+            body,
+            const SizedBox(width: 12),
+            thumb,
+          ] else ...[
+            thumb,
+            const SizedBox(width: 12),
+            body,
+          ],
           const SizedBox(width: 10),
-          _StreamPlayButton(onTap: data.onPlay, size: 34),
-          if (series) ...[
+          _StreamPlayButton(onTap: data.onPlay, size: 34, color: accent),
+          if (series || chevron) ...[
             const SizedBox(width: 4),
             const Icon(Broken.arrow_right_3, size: 15, color: Colors.white38),
           ],
@@ -1414,36 +1467,6 @@ class ProgressMediaCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Alias historiques de [ProgressMediaCard] : conservés pour les layouts JSON
-/// existants et le catalogue de composants.
-class SeriesEpisodeCard extends StatelessWidget {
-  const SeriesEpisodeCard({super.key, required this.data, this.width = 400});
-
-  final StreamingCardData data;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) => ProgressMediaCard(
-    data: data,
-    width: width,
-    style: ProgressMediaStyle.series,
-  );
-}
-
-class WatchProgressCard extends StatelessWidget {
-  const WatchProgressCard({super.key, required this.data, this.width = 400});
-
-  final StreamingCardData data;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) => ProgressMediaCard(
-    data: data,
-    width: width,
-    style: ProgressMediaStyle.percent,
-  );
 }
 
 /// ─────────────────────────────────────────────────────────────────────────
@@ -1516,6 +1539,7 @@ class _StreamProgressBar extends StatelessWidget {
     required this.accent,
     this.height = 5,
     this.square = false,
+    this.animation = false,
   });
 
   /// Progression 0 → 1.
@@ -1526,6 +1550,9 @@ class _StreamProgressBar extends StatelessWidget {
 
   /// Barre pleine largeur (sans rayon latéral) pour un bord de carte.
   final bool square;
+
+  /// Anime le remplissage au lieu de l'afficher d'un coup.
+  final bool animation;
 
   @override
   Widget build(BuildContext context) {
@@ -1542,28 +1569,39 @@ class _StreamProgressBar extends StatelessWidget {
             ColoredBox(color: Colors.white.withValues(alpha: .12)),
             Align(
               alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: factor,
-                heightFactor: 1,
-                child: ColoredBox(color: accent),
-              ),
+              child: animation
+                  ? TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: factor),
+                      duration: const Duration(milliseconds: 700),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, animated, _) =>
+                          _barFill(animated),
+                    )
+                  : _barFill(factor),
             ),
           ],
         ),
       ),
     );
   }
+
+  Widget _barFill(double factor) => FractionallySizedBox(
+    widthFactor: factor,
+    heightFactor: 1,
+    child: ColoredBox(color: accent),
+  );
 }
 
 class _StreamPlayButton extends StatelessWidget {
-  const _StreamPlayButton({required this.onTap, this.size = 34});
+  const _StreamPlayButton({required this.onTap, this.size = 34, this.color});
 
   final VoidCallback onTap;
   final double size;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
+    final accent = color ?? Theme.of(context).colorScheme.primary;
     return Material(
       color: accent,
       shape: const CircleBorder(),

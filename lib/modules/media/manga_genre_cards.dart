@@ -169,92 +169,6 @@ BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
   );
 }
 
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.onSeeAll,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 14, color: accent),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 1),
-                Text(
-                  subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (onSeeAll != null)
-          InkWell(
-            onTap: onSeeAll,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 /// ── 1. MangaGenresCard ──────────────────────────────────────────────────
 /// Grille de genres avec compteurs.
 class MangaGenresCard extends StatelessWidget {
@@ -277,21 +191,12 @@ class MangaGenresCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.category_outlined,
-            title: title,
-            subtitle: subtitle,
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -411,21 +316,12 @@ class MangaDemographicsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.group_rounded,
-            title: 'Démographies',
-            subtitle: 'Les différentes catégories de public.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -521,21 +417,12 @@ class MangaThemesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.auto_awesome_outlined,
-            title: 'Thèmes',
-            subtitle: 'Les thèmes qui rendent chaque histoire unique.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -571,21 +458,12 @@ class MangaUniverseShowcaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.collections_outlined,
-            title: title,
-            subtitle: 'Plonge dans les sagas et univers incontournables.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -737,15 +615,6 @@ class MangaTagsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showHeader && title.trim().isNotEmpty) ...[
-            _PanelHeader(
-              icon: Icons.local_offer_outlined,
-              title: title,
-              subtitle: subtitle,
-              onSeeAll: onSeeAll,
-            ),
-            const SizedBox(height: 12),
-          ],
           LayoutBuilder(
             builder: (context, constraints) {
               final count = columns.clamp(1, 5);
@@ -961,21 +830,12 @@ class MangaLanguagesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.language_rounded,
-            title: 'Langues / Traductions',
-            subtitle:
-                'Choisis ta langue ou découvre les traductions disponibles.',
-          ),
-          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1269,21 +1129,12 @@ class MangaPublishersCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.business_rounded,
-            title: 'Éditeurs & Publications',
-            subtitle: 'Éditeurs, maisons d’édition et magazines.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1386,21 +1237,12 @@ class MangaLanguageNewsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.language_rounded,
-            title: 'Nouveautés par langue',
-            subtitle: 'Les derniers ajouts dans les différentes langues.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(

@@ -19,6 +19,19 @@ class GalleryHomePreset {
 /// The kind of value a [GalleryComponentParameter] accepts.
 enum GalleryParameterKind { text, number, boolean, selection }
 
+/// The section a [GalleryComponentParameter] belongs to, used by the
+/// component detail sheet to keep a long parameter list readable.
+enum GalleryParameterGroup { general, layout, effects, content }
+
+extension GalleryParameterGroupLabel on GalleryParameterGroup {
+  String get label => switch (this) {
+    GalleryParameterGroup.general => 'Général',
+    GalleryParameterGroup.layout => 'Disposition',
+    GalleryParameterGroup.effects => 'Effets',
+    GalleryParameterGroup.content => 'Contenu',
+  };
+}
+
 /// A single configurable value of a gallery component.
 ///
 /// Values are stored in `UiSection.params` (see `lib/models/ui_layout.dart`) so
@@ -32,6 +45,9 @@ class GalleryComponentParameter {
     this.description,
     this.defaultValue,
     this.options = const [],
+    this.example,
+    this.aliases = const [],
+    this.group = GalleryParameterGroup.general,
   });
 
   final String key;
@@ -40,6 +56,32 @@ class GalleryComponentParameter {
   final String? description;
   final String? defaultValue;
   final List<String> options;
+
+  /// A ready-to-paste value shown in the detail sheet, e.g. `#4CAF50`.
+  final String? example;
+
+  /// Other spellings accepted by the renderer (`auto-scroll` for
+  /// `autoScroll`, `coverLeft` for `mirror`…).
+  final List<String> aliases;
+
+  final GalleryParameterGroup group;
+
+  /// JSON type name shown in the detail sheet.
+  String get typeName => switch (kind) {
+    GalleryParameterKind.number => 'number',
+    GalleryParameterKind.boolean => 'boolean',
+    GalleryParameterKind.selection => 'string (choix)',
+    GalleryParameterKind.text => 'string',
+  };
+
+  /// The value rendered when the layout omits this key.
+  String get effectiveDefault =>
+      defaultValue ?? switch (kind) {
+        GalleryParameterKind.boolean => 'false',
+        GalleryParameterKind.number => '—',
+        GalleryParameterKind.selection => options.isEmpty ? '—' : options.first,
+        GalleryParameterKind.text => '—',
+      };
 
   Object? coerce(String? raw) {
     if (raw == null) return null;
@@ -61,17 +103,45 @@ class GalleryComponentPalette {
   GalleryComponentPalette._();
 
   static const List<GalleryComponentParameter> common = [
+    // ── Général ───────────────────────────────────────────────────────────
     GalleryComponentParameter(
       key: 'title',
       label: 'Titre de la section',
-      description: 'Remplace le titre déduit de la section.',
+      description:
+          'Remplace le titre de la section. Le titre est rendu par la '
+          'section (au-dessus de la carte), jamais par la carte elle-même.',
+      example: 'Tendances de la semaine',
+    ),
+    GalleryComponentParameter(
+      key: 'subtitle',
+      label: 'Sous-titre de la section',
+      example: 'Mis à jour il y a 2 h',
+    ),
+    GalleryComponentParameter(
+      key: 'icon',
+      label: 'Icône de la section',
+      description:
+          'Nom stable d\'icône Material. Voir le catalogue d\'icônes de la '
+          'documentation.',
+      example: 'whatshot',
+      aliases: ['headerIcon'],
+    ),
+    GalleryComponentParameter(
+      key: 'seeAll',
+      label: 'Action « Tout voir »',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Affiche l\'action « Tout voir » dans l\'en-tête de la section.',
     ),
     GalleryComponentParameter(
       key: 'items',
       label: 'Nombre de cartes',
       kind: GalleryParameterKind.number,
       description: 'Limite le nombre de cartes affichées.',
+      example: '6',
+      group: GalleryParameterGroup.content,
     ),
+    // ── Disposition ───────────────────────────────────────────────────────
     GalleryComponentParameter(
       key: 'layout',
       label: 'Disposition',
@@ -79,12 +149,15 @@ class GalleryComponentPalette {
       options: ['row', 'grid'],
       defaultValue: 'row',
       description: 'Rangée horizontale défilante ou grille fixe.',
+      group: GalleryParameterGroup.layout,
     ),
     GalleryComponentParameter(
       key: 'columns',
       label: 'Colonnes (grille)',
       kind: GalleryParameterKind.number,
       description: 'Nombre de colonnes quand la disposition est « grid ».',
+      example: '3',
+      group: GalleryParameterGroup.layout,
     ),
     GalleryComponentParameter(
       key: 'rows',
@@ -93,96 +166,287 @@ class GalleryComponentPalette {
       description:
           'Nombre de lignes affichées quand la disposition est '
           '« grid ». Laisse vide pour tout afficher.',
-    ),
-    GalleryComponentParameter(
-      key: 'height',
-      label: 'Hauteur (px)',
-      kind: GalleryParameterKind.number,
-      description: 'Hauteur forcée pour les cartes qui la supportent.',
+      example: '2',
+      group: GalleryParameterGroup.layout,
     ),
     GalleryComponentParameter(
       key: 'width',
       label: 'Largeur (px)',
       kind: GalleryParameterKind.number,
       description: 'Largeur des cartes. Vide = largeur de design ou cellule.',
+      example: '430',
+      group: GalleryParameterGroup.layout,
+    ),
+    GalleryComponentParameter(
+      key: 'height',
+      label: 'Hauteur (px)',
+      kind: GalleryParameterKind.number,
+      description: 'Hauteur forcée pour les cartes qui la supportent.',
+      example: '150',
+      group: GalleryParameterGroup.layout,
     ),
     GalleryComponentParameter(
       key: 'spacing',
       label: 'Espacement (px)',
       kind: GalleryParameterKind.number,
-      description: 'Espace entre les cartes d\'une rangée ou d\'une grille.',
+      description:
+          'Espace entre les cartes d\'une même rangée (horizontal) ou d\'une '
+          'même colonne (vertical).',
+      example: '12',
+      aliases: ['gap', 'spaceBetween'],
+      group: GalleryParameterGroup.layout,
     ),
     GalleryComponentParameter(
-      key: 'hero',
-      label: 'Bandeau héro',
-      kind: GalleryParameterKind.boolean,
+      key: 'spacingX',
+      label: 'Espacement horizontal (px)',
+      kind: GalleryParameterKind.number,
+      description:
+          'Espace gauche-droite entre deux cartes. Prioritaire sur '
+          '`spacing` dans le sens horizontal.',
+      example: '12',
+      aliases: ['horizontalSpacing', 'spaceBetweenX'],
+      group: GalleryParameterGroup.layout,
+    ),
+    GalleryComponentParameter(
+      key: 'spacingY',
+      label: 'Espacement vertical (px)',
+      kind: GalleryParameterKind.number,
+      description:
+          'Espace haut-bas entre deux rangées de cartes. Prioritaire sur '
+          '`spacing` dans le sens vertical.',
+      example: '12',
+      aliases: ['verticalSpacing', 'spaceBetweenY'],
+      group: GalleryParameterGroup.layout,
     ),
     GalleryComponentParameter(
       key: 'fill',
       label: 'Pleine largeur',
       kind: GalleryParameterKind.boolean,
       description: 'Étire les cartes composites à la largeur du conteneur.',
+      group: GalleryParameterGroup.layout,
     ),
     GalleryComponentParameter(
       key: 'flat',
       label: 'Sans panneau',
       kind: GalleryParameterKind.boolean,
-      description: 'Retire le cadre de panneau autour des cartes intégrées.',
+      description:
+          'Retire le cadre de panneau autour des cartes. Les cartes n\'ont de '
+          'toute façon plus de panneau en production ; ce paramètre ne sert '
+          'qu\'à l\'aperçu isolé de la galerie.',
+      group: GalleryParameterGroup.layout,
     ),
-    // ── Per-card text and metadata ────────────────────────────────────────
-    GalleryComponentParameter(key: 'subtitle', label: 'Sous-titre'),
+    GalleryComponentParameter(
+      key: 'scroll',
+      label: 'Défilement',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Fait défiler la rangée horizontalement au lieu de l\'empiler en '
+          'grille (cartes de tuiles : pays, genres…).',
+      group: GalleryParameterGroup.layout,
+    ),
+    GalleryComponentParameter(
+      key: 'scrollDirection',
+      label: 'Sens de défilement',
+      kind: GalleryParameterKind.selection,
+      options: ['horizontal', 'vertical'],
+      group: GalleryParameterGroup.layout,
+    ),
+    GalleryComponentParameter(
+      key: 'hero',
+      label: 'Bandeau héro',
+      kind: GalleryParameterKind.boolean,
+      group: GalleryParameterGroup.layout,
+    ),
+    // ── Effets ────────────────────────────────────────────────────────────
+    GalleryComponentParameter(
+      key: 'color',
+      label: 'Couleur d\'accent',
+      description:
+          'Nom de couleur (`green`, `red`, `orange`, `blue`, `purple`…) ou '
+          'code hexadécimal `#RRGGBB` / `#AARRGGBB`. Vide = couleur du thème.',
+      example: '#4CAF50',
+      aliases: ['accent'],
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'animation',
+      label: 'Animation',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Anime le remplissage de la barre de progression et les entrées de '
+          'carte.',
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'chevron',
+      label: 'Chevron',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Ajoute un chevron à droite de la carte, qui indique qu\'elle '
+          'ouvre une page de détail.',
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'mirror',
+      label: 'Effet miroir',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Place le visuel à droite au lieu de la gauche (le texte reste '
+          'aligné à gauche).',
+      aliases: ['coverLeft', 'flip', 'inverted'],
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'reverse',
+      label: 'Effet inversé',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Effet miroir complet : visuel à droite **et** texte aligné à '
+          'droite.',
+      aliases: ['reversed'],
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'tilt',
+      label: 'Inclinaison (rad)',
+      kind: GalleryParameterKind.number,
+      description:
+          'Inclinaison des visuels du carrousel d\'univers (0 = droit, 0.05 = '
+          'léger penché vers le haut à droite).',
+      example: '0.05',
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'autoScroll',
+      label: 'Défilement automatique',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Fait défiler la rangée en continu. Un glissement de l\'utilisateur '
+          'le suspend.',
+      aliases: ['auto-scroll', 'autoplay'],
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'speed',
+      label: 'Vitesse de défilement',
+      kind: GalleryParameterKind.number,
+      description: 'Vitesse du défilement automatique, en pixels par seconde.',
+      example: '24',
+      aliases: ['scrollSpeed'],
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'percent',
+      label: 'Pourcentage',
+      kind: GalleryParameterKind.boolean,
+      description:
+          'Force l\'affichage du pourcentage. Vide = suit le `style` de la '
+          'carte de progression.',
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'style',
+      label: 'Style de carte',
+      kind: GalleryParameterKind.selection,
+      options: ['percent', 'bar', 'chip', 'series'],
+      description:
+          'Variante de la carte de progression : `percent` (barre + '
+          'pourcentage), `bar` (barre seule), `chip` (pastille sur la '
+          'vignette), `series` (bloc série).',
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'compact',
+      label: 'Compact',
+      kind: GalleryParameterKind.boolean,
+      description: 'Réduit les marges internes de la carte.',
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'labelTiles',
+      label: 'Légendes des tuiles',
+      kind: GalleryParameterKind.boolean,
+      group: GalleryParameterGroup.effects,
+    ),
+    GalleryComponentParameter(
+      key: 'coverWidth',
+      label: 'Largeur du visuel (px)',
+      kind: GalleryParameterKind.number,
+      description: 'Largeur de la vignette latérale des cartes horizontales.',
+      example: '118',
+      group: GalleryParameterGroup.layout,
+    ),
+    GalleryComponentParameter(
+      key: 'tileWidth',
+      label: 'Largeur de tuile (px)',
+      kind: GalleryParameterKind.number,
+      description: 'Largeur d\'une tuile d\'épisode dans un carrousel.',
+      example: '96',
+      group: GalleryParameterGroup.layout,
+    ),
+    // ── Contenu ───────────────────────────────────────────────────────────
     GalleryComponentParameter(key: 'badge', label: 'Pastille'),
     GalleryComponentParameter(
       key: 'actionLabel',
       label: 'Libellé du bouton',
       description: 'Texte du bouton d\'action des cartes riches.',
+      example: 'Voir la collection',
     ),
     GalleryComponentParameter(
       key: 'stats',
       label: 'Statistiques',
       description: 'Ligne de statistiques affichée sous le titre.',
+      example: '32 films · 18 séries',
     ),
     GalleryComponentParameter(
       key: 'seriesMeta',
       label: 'Métadonnées de série',
       description: 'Saison, épisodes ou statut de diffusion.',
+      example: 'S3 · Ép. 5',
     ),
     GalleryComponentParameter(
       key: 'remaining',
       label: 'Temps restant',
       description: 'Libellé du temps restant (progression streaming).',
+      example: '12 min restantes',
     ),
     GalleryComponentParameter(
       key: 'time',
       label: 'Horodatage',
       description: 'Moment affiché par les cartes de lecture.',
+      example: 'Hier',
     ),
     GalleryComponentParameter(
       key: 'cast',
       label: 'Casting',
       description: 'Noms séparés par des virgules.',
+      example: 'Pedro Pascal, Bella Ramsey',
     ),
     GalleryComponentParameter(
       key: 'tags',
       label: 'Étiquettes',
       description: 'Étiquettes séparées par des virgules.',
+      example: 'Action, Drame',
     ),
     GalleryComponentParameter(
       key: 'runtime',
       label: 'Durée (min)',
       kind: GalleryParameterKind.number,
+      example: '52',
     ),
     GalleryComponentParameter(
       key: 'rank',
       label: 'Rang',
       kind: GalleryParameterKind.number,
       description: 'Rang de départ des cartes classées.',
+      example: '1',
     ),
     GalleryComponentParameter(
       key: 'progress',
       label: 'Progression (0–1)',
       kind: GalleryParameterKind.number,
       description: 'Avancement affiché par les cartes de progression.',
+      example: '0.68',
     ),
     GalleryComponentParameter(
       key: 'numbered',
@@ -194,12 +458,6 @@ class GalleryComponentPalette {
       key: 'hd',
       label: 'Badge HD',
       kind: GalleryParameterKind.boolean,
-    ),
-    GalleryComponentParameter(
-      key: 'scrollDirection',
-      label: 'Sens de défilement',
-      kind: GalleryParameterKind.selection,
-      options: ['horizontal', 'vertical'],
     ),
   ];
 

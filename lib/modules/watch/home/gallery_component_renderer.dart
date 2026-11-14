@@ -80,6 +80,11 @@ class GalleryComponentContext {
     return fallback;
   }
 
+  /// Couleur d'accent d'un paramètre. Accepte un nom de thème (`primary`,
+  /// `secondary`, `tertiary`, `error`) ou un code hexadécimal `#RRGGBB` /
+  /// `#AARRGGBB`. Renvoie `null` pour laisser la carte utiliser le thème.
+  Color? color(String key) => parseLayoutColor(params[key]);
+
   /// Effective section title: explicit param wins over the layout title.
   String? get header => text('title') ?? title;
 
@@ -93,6 +98,44 @@ IconData? layoutIconFor(String? name) {
   if (name == null) return null;
   return _layoutIcons[name.trim().toLowerCase().replaceAll('_', '-')];
 }
+
+/// Resolves a layout colour param. Accepts a hex string (`#RRGGBB`,
+/// `#AARRGGBB`) or one of the named colours in [_layoutColors] (`green`,
+/// `red`, `orange`…). Returns `null` when the value is empty or unrecognised,
+/// so a card falls back to the theme colour.
+Color? parseLayoutColor(Object? value) {
+  if (value is! String) return null;
+  final raw = value.trim();
+  if (raw.isEmpty) return null;
+  final named = _layoutColors[raw.toLowerCase()];
+  if (named != null) return named;
+  if (!raw.startsWith('#')) return null;
+  final hex = raw.substring(1);
+  final parsed = int.tryParse(hex, radix: 16);
+  if (parsed == null) return null;
+  if (hex.length == 6) return Color(0xFF000000 | parsed);
+  if (hex.length == 8) return Color(parsed);
+  return null;
+}
+
+/// Small, stable palette for the `color` parameter. Deliberately theme-free:
+/// a layout author picks a colour that reads the same on every device.
+const Map<String, Color> _layoutColors = {
+  'green': Color(0xFF4CAF50),
+  'red': Color(0xFFE53935),
+  'orange': Color(0xFFFF9800),
+  'amber': Color(0xFFFFC107),
+  'yellow': Color(0xFFFFEB3B),
+  'blue': Color(0xFF2196F3),
+  'indigo': Color(0xFF3F51B5),
+  'purple': Color(0xFF9C27B0),
+  'pink': Color(0xFFEC407A),
+  'teal': Color(0xFF009688),
+  'cyan': Color(0xFF00BCD4),
+  'white': Color(0xFFFFFFFF),
+  'grey': Color(0xFF9E9E9E),
+  'black': Color(0xFF000000),
+};
 
 const Map<String, IconData> _layoutIcons = {
   'whatshot': Icons.whatshot_rounded,
@@ -144,13 +187,105 @@ class GalleryComponentRenderer {
 
     // Composite widgets already render their own title and every item.
     final whole = _wholeCard(context, ctx, items);
-    if (whole != null) return _fullWidth(context, ctx, whole);
+    if (whole != null) {
+      // Les cartes « bloc » n'ont plus d'en-tête propre : la section le rend
+      // (titre, sous-titre, icône, « Tout voir »), la carte reste nue et
+      // alignée sur la marge de page.
+      if (_sectionOwnsHeader(ctx.componentId)) {
+        return _sectionWithCard(context, ctx, whole);
+      }
+      return _fullWidth(context, ctx, whole);
+    }
 
     final child = ctx.text('layout') == 'grid'
         ? _grid(context, ctx, items)
         : _row(context, ctx, items);
     return _header(ctx, child);
   }
+
+  /// Composants « bloc » dont l'en-tête est désormais rendu par la section :
+  /// la carte n'en affiche plus aucun.
+  static bool _sectionOwnsHeader(String id) => const {
+    'similar-media',
+    'trending',
+    'trending-card',
+    'popular',
+    'popular-card',
+    'top-rated',
+    'ranked-media',
+    'numbered',
+    'recommendation',
+    'carousel-card',
+    'home-language-grid',
+    'episode-carousel',
+    // Rails « accueil » : le titre et le « Tout voir » viennent de la section.
+    'home-spotlight-rail',
+    'home-genre-tile',
+    'home-popular-rail',
+    'home-read-rail',
+    'home-my-list',
+    'home-airecommender',
+    // Classements « Top 10 / Top 50 » : une seule carte, l'en-tête est celui
+    // de la section.
+    'top-movies',
+    'top-series',
+    'top-anime',
+    'top-by-genre',
+    'top-by-country',
+    'global-ranking',
+    'top-rated-ranking',
+    'trending-ranking',
+    'top-by-decade',
+    'must-watch',
+    // Rails paysage : la carte est nue, la section porte le titre.
+    'landscape-showcase',
+    'landscape-films',
+    'landscape-series',
+    'landscape-manga',
+    'landscape-novels',
+    'landscape-playlist',
+    'landscape-genre-row',
+    // Panneaux manga (chapitres, volumes, genres, stats, univers) : plus
+    // aucun en-tête ni panneau dans la carte.
+    'manga-chapter-release',
+    'manga-chapter-list',
+    'manga-latest-release',
+    'manga-release-timeline',
+    'manga-chapter-timeline',
+    'manga-chapter-badge',
+    'manga-volume-list',
+    'manga-volume-preview',
+    'manga-upcoming-volume',
+    'manga-chapter-search',
+    'manga-genres',
+    'manga-demographics',
+    'manga-themes',
+    'manga-universe-showcase',
+    'manga-tags',
+    'manga-languages',
+    'manga-publishers',
+    'manga-language-news',
+    'manga-global-stats',
+    'manga-stats-grid',
+    'manga-status',
+    'manga-frequency',
+    'manga-popularity',
+    'manga-category-ranking',
+    'manga-followers',
+    'manga-reports',
+    'manga-serialization',
+    'manga-item-stats',
+    'manga-edition-language',
+    'manga-relation-type',
+    'manga-universe-timeline',
+    'manga-linked-series',
+    'manga-relation-list',
+    'manga-same-universe',
+    'manga-universe-chronology',
+    'manga-franchise-universes',
+    'manga-character-relations',
+    'manga-universe-map',
+  }.contains(id);
 
   /// Full-width spotlight used by the extension renderer.
   static Widget spotlight(
@@ -182,18 +317,45 @@ class GalleryComponentRenderer {
   static Widget _header(GalleryComponentContext ctx, Widget child) {
     final title = ctx.header;
     if (title == null || title.trim().isEmpty) return child;
+    // `seeAll: false` masque explicitement l'action « Tout voir », même quand
+    // la section fournit un callback : le layout garde la main.
+    final showSeeAll = ctx.flag('seeAll', fallback: true) && ctx.onSeeAll != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: ctx.onSeeAll == null ? null : 'Tout voir',
-          onAction: ctx.onSeeAll,
+          subtitle: ctx.text('subtitle'),
+          icon: ctx.icon,
+          actionLabel: showSeeAll ? 'Tout voir' : null,
+          onAction: showSeeAll ? ctx.onSeeAll : null,
           trailing: ctx.trailing,
         ),
         child,
       ],
     );
+  }
+
+  /// Une carte « bloc » nue (sans en-tête propre) placée sous l'en-tête de la
+  /// section. L'en-tête est rendu *hors* du défilement horizontal : sinon sa
+  /// rangée interne se retrouve avec une largeur non bornée.
+  static Widget _sectionWithCard(
+    BuildContext context,
+    GalleryComponentContext ctx,
+    Widget card,
+  ) {
+    final padded = Padding(
+      padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
+      child: card,
+    );
+    final body = ctx.flag('fill') || _isResponsive(ctx)
+        ? padded
+        : SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(top: 16),
+            child: padded,
+          );
+    return _header(ctx, body);
   }
 
   /// A composite card keeps its designed width; on narrow screens it can be
@@ -238,12 +400,34 @@ class GalleryComponentRenderer {
       'manga-latest-update',
       'manga-vote',
       'home-hero-banner',
+      // Cartes « bloc » sans en-tête propre : elles remplissent la largeur de
+      // la section au lieu de défiler horizontalement.
+      'similar-media',
+      'trending',
+      'trending-card',
+      'popular',
+      'popular-card',
+      'top-rated',
+      'ranked-media',
+      'numbered',
+      'recommendation',
+      'carousel-card',
+      'home-language-grid',
+      'episode-carousel',
+      // Rails « accueil » : ils remplissent la largeur de la section.
+      'home-spotlight-rail',
+      'home-genre-tile',
+      'home-popular-rail',
+      'home-read-rail',
+      'home-my-list',
+      'home-airecommender',
     };
     if (responsiveIds.contains(ctx.componentId)) return true;
     return switch (ctx.family) {
       GalleryComponentFamily.grid ||
       GalleryComponentFamily.swipe ||
       GalleryComponentFamily.ranked ||
+      GalleryComponentFamily.ranking ||
       GalleryComponentFamily.landscape ||
       GalleryComponentFamily.genreGrid ||
       GalleryComponentFamily.providersRail ||
@@ -257,7 +441,13 @@ class GalleryComponentRenderer {
     GalleryComponentContext ctx,
     List<ContentItem> items,
   ) {
-    final spacing = ctx.decimal('spacing') ?? 12;
+    // `spacingX` (gauche-droite) prime sur `spacing` (les deux sens) : un
+    // layout peut donc régler l'écart horizontal et vertical indépendamment.
+    final spacing =
+        ctx.decimal('spacingX') ??
+        ctx.decimal('horizontalSpacing') ??
+        ctx.decimal('spacing') ??
+        12;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
@@ -379,7 +569,18 @@ class GalleryComponentRenderer {
         .clamp(1, 8)
         .toInt();
     final rows = ctx.number('rows');
-    final spacing = ctx.decimal('spacing') ?? 12;
+    // `spacingX` / `spacingY` permettent de régler l'écart horizontal et
+    // vertical d'une grille séparément ; `spacing` sert de repli commun.
+    final spacing =
+        ctx.decimal('spacingX') ??
+        ctx.decimal('horizontalSpacing') ??
+        ctx.decimal('spacing') ??
+        12;
+    final spacingY =
+        ctx.decimal('spacingY') ??
+        ctx.decimal('verticalSpacing') ??
+        ctx.decimal('spacing') ??
+        12;
     final visible = rows == null
         ? items
         : items.take((columns * rows).clamp(1, 60)).toList(growable: false);
@@ -399,7 +600,7 @@ class GalleryComponentRenderer {
           child: Column(
             children: [
               for (var r = 0; r < rowCount; r++) ...[
-                if (r > 0) SizedBox(height: spacing),
+                if (r > 0) SizedBox(height: spacingY),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -482,8 +683,9 @@ class GalleryComponentRenderer {
         );
 
       // ── Ranking panels ──
-      // Dix classements, une seule carte. Titre, sous-titre et icône viennent
-      // du layout ; `labelTiles` bascule les tuiles genre / pays / décennie.
+      // Dix classements, une seule carte. L'en-tête (titre, sous-titre, icône)
+      // appartient à la section ; `labelTiles` bascule les tuiles genre / pays
+      // / décennie.
       case 'top-movies':
       case 'top-series':
       case 'top-anime':
@@ -497,70 +699,32 @@ class GalleryComponentRenderer {
         return RankingSectionCard(
           items: _rank(ctx, items),
           width: w ?? 430,
-          title: ctx.text('title'),
-          subtitle: ctx.text('subtitle'),
-          icon: ctx.icon,
           labelTiles: ctx.flag('labelTiles'),
-          onSeeAll: seeAll,
           flat: ctx.flag('flat', fallback: true),
         );
 
       // ── Collection rails ──
       case 'similar-media':
-        return SimilarMediaCard(
-          items: _entries(ctx, items),
-          width: w ?? 430,
-          flat: ctx.flag('flat', fallback: true),
-        );
+        return SimilarMediaCard(items: _entries(ctx, items), width: w ?? 430);
       case 'trending':
       case 'trending-card':
-        return TrendingCard(
-          items: _entries(ctx, items),
-          width: w ?? 430,
-          onSeeAll: seeAll,
-          flat: ctx.flag('flat', fallback: true),
-        );
+        return TrendingCard(items: _entries(ctx, items), width: w ?? 430);
       case 'popular':
       case 'popular-card':
-        return PopularCard(
-          items: _entries(ctx, items),
-          width: w ?? 430,
-          onSeeAll: seeAll,
-          flat: ctx.flag('flat', fallback: true),
-        );
+        return PopularCard(items: _entries(ctx, items), width: w ?? 430);
       case 'top-rated':
-        return TopRatedCard(
-          items: _entries(ctx, items),
-          width: w ?? 430,
-          onSeeAll: seeAll,
-          flat: ctx.flag('flat', fallback: true),
-        );
+        return TopRatedCard(items: _entries(ctx, items), width: w ?? 430);
       case 'ranked-media':
-        return RankedMediaCard(
-          items: _entries(ctx, items),
-          width: w ?? 430,
-          onSeeAll: seeAll,
-          flat: ctx.flag('flat', fallback: true),
-        );
+        return RankedMediaCard(items: _entries(ctx, items), width: w ?? 430);
       case 'numbered':
-        return NumberedCard(
-          items: _entries(ctx, items),
-          width: w ?? 400,
-          flat: ctx.flag('flat', fallback: true),
-        );
+        return NumberedCard(items: _entries(ctx, items), width: w ?? 400);
       case 'recommendation':
-        return RecommendationCard(
-          items: _entries(ctx, items),
-          width: w ?? 430,
-          onSeeAll: seeAll,
-          flat: ctx.flag('flat', fallback: true),
-        );
+        return RecommendationCard(items: _entries(ctx, items), width: w ?? 430);
       case 'carousel-card':
         return UniverseCarouselCard(
           universes: _entries(ctx, items),
           width: w ?? 540,
-          onPrevious: () {},
-          onNext: () {},
+          tilt: ctx.decimal('tilt') ?? 0.05,
         );
 
       // ── Episode / season panels ──
@@ -583,8 +747,9 @@ class GalleryComponentRenderer {
         return EpisodeCarousel(
           episodes: _episodes(ctx, items),
           width: w ?? 420,
-          onPrevious: () {},
-          onNext: () {},
+          autoScroll: ctx.flag('autoScroll') || ctx.flag('auto-scroll'),
+          speed: ctx.decimal('speed') ?? ctx.decimal('scrollSpeed') ?? 24,
+          tileWidth: ctx.decimal('tileWidth') ?? 96,
         );
       case 'season-selector':
         return SeasonSelectorCard(
@@ -846,32 +1011,28 @@ class GalleryComponentRenderer {
         return HomeSpotlightRailCard(
           items: _spotlightEntries(ctx, items),
           width: w ?? 340,
-          onSeeAll: seeAll,
         );
       case 'home-genre-tile':
         return HomeGenreTileCard(
           items: _genreCardEntries(ctx, items),
           width: w ?? 620,
-          onSeeAll: seeAll,
         );
       case 'home-popular-rail':
         return HomePopularRailCard(
           items: _popularEntries(ctx, items),
           width: w ?? 620,
-          onSeeAll: seeAll,
         );
       case 'home-read-rail':
         return HomeReadRailCard(
           items: _spotlightEntries(ctx, items),
           width: w ?? 620,
-          onSeeAll: seeAll,
         );
       case 'home-language-grid':
         return HomeLanguageGridCard(
           chips: _countryChips(ctx, items),
           width: w ?? 360,
-          onSeeAll: seeAll,
           columns: ctx.number('columns') ?? 2,
+          scroll: ctx.flag('scroll'),
           flat: ctx.flag('flat', fallback: true),
           title: ctx.header ?? 'Univers par pays / langue',
           subtitle:
@@ -881,7 +1042,6 @@ class GalleryComponentRenderer {
         return HomeMyListCard(
           items: _myListEntries(items),
           width: w ?? 360,
-          onSeeAll: seeAll,
         );
       case 'home-airecommender':
         final placeholder = ctx.text('subtitle');
@@ -1069,6 +1229,32 @@ class GalleryComponentRenderer {
 
   // ── Per-item cards ───────────────────────────────────────────────────────
 
+  /// Style de la carte de progression. Les anciens ids
+  /// (`progress-media-card-chip`…) gardent leur disposition ; sinon le
+  /// paramètre `style` (`bar` | `percent` | `chip` | `series`) décide.
+  static ProgressMediaStyle _progressStyle(GalleryComponentContext ctx) {
+    final id = ctx.componentId;
+    if (id == 'progress-media') return ProgressMediaStyle.bar;
+    if (id == 'progress-media-card-chip') return ProgressMediaStyle.chip;
+    if (id == 'series-episode') return ProgressMediaStyle.series;
+    if (id == 'progress-media-card-percent' || id == 'watch-progress') {
+      return ProgressMediaStyle.percent;
+    }
+    return switch (ctx.text('style')) {
+      'bar' => ProgressMediaStyle.bar,
+      'chip' => ProgressMediaStyle.chip,
+      'series' => ProgressMediaStyle.series,
+      _ => ProgressMediaStyle.percent,
+    };
+  }
+
+  /// Le pourcentage suit le style par défaut ; le paramètre `percent`
+  /// (`true`/`false`) le force dans un sens ou dans l'autre.
+  static bool? _progressPercent(GalleryComponentContext ctx) {
+    if (ctx.params.containsKey('percent')) return ctx.flag('percent');
+    return null;
+  }
+
   static Widget _perItem(
     GalleryComponentContext ctx,
     List<ContentItem> items,
@@ -1165,28 +1351,6 @@ class GalleryComponentRenderer {
         return NextEpisodeCard(data: _stream(ctx, item), width: w ?? 240);
       case 'season':
         return SeasonCard(data: _stream(ctx, item), width: w ?? 280);
-      case 'series-episode':
-        return SeriesEpisodeCard(data: _stream(ctx, item), width: w ?? 400);
-      case 'watch-progress':
-        return WatchProgressCard(data: _stream(ctx, item), width: w ?? 400);
-      case 'progress-media':
-        return ProgressMediaCard(
-          data: _stream(ctx, item),
-          width: w ?? 400,
-          style: ProgressMediaStyle.bar,
-        );
-      case 'progress-media-card-percent':
-        return ProgressMediaCard(
-          data: _stream(ctx, item),
-          width: w ?? 400,
-          style: ProgressMediaStyle.percent,
-        );
-      case 'progress-media-card-chip':
-        return ProgressMediaCard(
-          data: _stream(ctx, item),
-          width: w ?? 400,
-          style: ProgressMediaStyle.chip,
-        );
       case 'episode':
         return EpisodeCard(
           episodes: _streamEpisodes(ctx, items),
@@ -1303,14 +1467,26 @@ class GalleryComponentRenderer {
           width: w ?? 340,
         );
       case 'episode-progress':
-        return EpisodeProgressCard(
-          entry: _episode(ctx, item, i),
-          width: w ?? 380,
-        );
       case 'media-progress':
-        return MediaProgressCard(
-          entry: _episode(ctx, item, i),
-          width: w ?? 380,
+      case 'series-episode':
+      case 'watch-progress':
+      case 'progress-media':
+      case 'progress-media-card-percent':
+      case 'progress-media-card-chip':
+        // Une seule carte de progression : le style, le pourcentage, la
+        // couleur, l'animation, le chevron, le miroir et l'inversion viennent
+        // tous de `params`, jamais d'un id distinct.
+        return ProgressMediaCard(
+          data: _stream(ctx, item),
+          width: w ?? 400,
+          style: _progressStyle(ctx),
+          percent: _progressPercent(ctx),
+          color: ctx.color('color'),
+          animation: ctx.flag('animation'),
+          chevron: ctx.flag('chevron'),
+          mirror: ctx.flag('mirror'),
+          reverse: ctx.flag('reverse'),
+          flat: ctx.flag('flat'),
         );
       case 'up-next-compact':
         return UpNextCompactCard(
@@ -1325,7 +1501,13 @@ class GalleryComponentRenderer {
       case 'series-banner':
         return SeriesBannerCard(season: _season(ctx, item), width: w ?? 420);
       case 'season-banner':
-        return SeasonBannerCard(season: _season(ctx, item), width: w ?? 420);
+        return SeasonBannerCard(
+          season: _season(ctx, item),
+          width: w ?? 420,
+          mirror: ctx.flag('mirror'),
+          coverWidth: ctx.decimal('coverWidth') ?? 118,
+          flat: ctx.flag('flat', fallback: true),
+        );
 
       // ── Manga chapter ──
       case 'manga-chapter':

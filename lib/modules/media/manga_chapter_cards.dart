@@ -93,13 +93,6 @@ class MangaChapterItem {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: accent.withValues(alpha: .18)),
-  );
-}
 
 class _Chip extends StatelessWidget {
   const _Chip(
@@ -145,86 +138,6 @@ class _Chip extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final String? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 14, color: accent),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 1),
-                Text(
-                  subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (trailing != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .08),
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: Text(
-              trailing!,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -317,7 +230,6 @@ class MangaChapterCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         constraints: BoxConstraints(maxWidth: width),
-        decoration: _panelDecoration(accent, radius: 14),
         padding: const EdgeInsets.all(8),
         child: Stack(
           children: [
@@ -454,19 +366,12 @@ class MangaChapterReleaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.live_tv_outlined,
-            title: 'Nouveaux chapitres',
-          ),
-          const SizedBox(height: 10),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             _ReleaseRow(item: items[i]),
@@ -571,7 +476,6 @@ class MangaChapterListCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -711,13 +615,11 @@ class MangaChapterGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: item.onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         constraints: BoxConstraints(maxWidth: width),
-        decoration: _panelDecoration(accent, radius: 14),
         padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -834,11 +736,9 @@ class MangaLatestReleaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -981,7 +881,6 @@ class MangaReleaseTimelineCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1105,7 +1004,6 @@ class MangaChapterVolumeCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         constraints: BoxConstraints(maxWidth: width),
-        decoration: _panelDecoration(accent, radius: 14),
         padding: const EdgeInsets.all(8),
         child: Stack(
           children: [
@@ -1245,11 +1143,9 @@ class MangaChapterBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration(accent),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
@@ -1289,7 +1185,6 @@ class MangaChapterRangeCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: Container(
         constraints: BoxConstraints(maxWidth: width),
-        decoration: _panelDecoration(accent, radius: 14),
         padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1429,15 +1324,9 @@ class MangaChapterTimelineCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.format_list_numbered_rounded,
-            title: 'Chronologie de l’arc',
-          ),
-          const SizedBox(height: 12),
           for (var i = 0; i < items.length; i++)
             IntrinsicHeight(
               child: Row(
@@ -1538,13 +1427,11 @@ class MangaNewChapterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: item.onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         constraints: BoxConstraints(maxWidth: width),
-        decoration: _panelDecoration(accent, radius: 14),
         padding: const EdgeInsets.all(8),
         child: Stack(
           children: [
@@ -1672,7 +1559,6 @@ class MangaChapterProgressCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1791,7 +1677,6 @@ class MangaChapterNextCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1915,15 +1800,9 @@ class MangaChapterSearchCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.manage_search_rounded,
-            title: 'Rechercher un chapitre',
-          ),
-          const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(

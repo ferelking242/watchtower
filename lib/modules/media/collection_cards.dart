@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
@@ -166,13 +165,15 @@ class _CompositeCollectionCard extends StatelessWidget {
   final CollectionCardData data;
   final List<CollectionEntry> sideEntries;
   final double width;
+
+  /// Largeur *plancher* de la colonne latérale ; la largeur réelle suit la
+  /// largeur disponible pour que les mini-tuiles restent lisibles sur un
+  /// téléphone comme sur un écran large.
   final double sideWidth;
   final bool bigTitle;
   final bool sideAsRows;
   final bool sideCaptions;
   final bool sideShowMeta;
-
-  static const double _height = 132;
 
   /// `true` : carte nue intégrée à une page. `false` : panneau de l'aperçu
   /// isolé de la galerie.
@@ -186,33 +187,51 @@ class _CompositeCollectionCard extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: width),
       padding: EdgeInsets.all(flat ? 0 : 10),
       decoration: flat ? null : _collectionDecoration(accent),
-      child: Row(
-        children: [
-          Expanded(
-            child: _CollectionTile(
-              data: data,
-              height: _height,
-              bigTitle: bigTitle,
-            ),
-          ),
-          if (sideEntries.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            if (sideAsRows)
-              _SideRowColumn(
-                entries: sideEntries,
-                height: _height,
-                width: sideWidth,
-                showMeta: sideShowMeta,
-              )
-            else
-              _SideTileColumn(
-                entries: sideEntries,
-                height: _height,
-                width: sideWidth,
-                withCaption: sideCaptions,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final available = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : width;
+          // Hauteur et colonne latérale dérivées de la largeur : la carte
+          // reste lisible de 320 px (téléphone) à 1900 px (TV) sans jamais
+          // écraser la tuile principale ni réduire les mini-tuiles à néant.
+          final height = (available * 0.34).clamp(124.0, 200.0);
+          // Les trois mini-tuiles occupent environ 40 % de la carte : assez
+          // larges pour rester nettes, la tuile principale gardant la
+          // majorité. `sideWidth` sert de plancher, le plafond évite que la
+          // colonne ne dévore la tuile principale sur très grand écran.
+          final side = sideAsRows
+              ? (available * 0.46).clamp(sideWidth, 320.0)
+              : (available * 0.40).clamp(sideWidth, 260.0);
+          return Row(
+            children: [
+              Expanded(
+                child: _CollectionTile(
+                  data: data,
+                  height: height,
+                  bigTitle: bigTitle,
+                ),
               ),
-          ],
-        ],
+              if (sideEntries.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                if (sideAsRows)
+                  _SideRowColumn(
+                    entries: sideEntries,
+                    height: height,
+                    width: side,
+                    showMeta: sideShowMeta,
+                  )
+                else
+                  _SideTileColumn(
+                    entries: sideEntries,
+                    height: height,
+                    width: side,
+                    withCaption: sideCaptions,
+                  ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -225,308 +244,147 @@ class _CompositeCollectionCard extends StatelessWidget {
 /// ── 12. SimilarMediaCard ────────────────────────────────────────────────
 /// Contenus similaires (ex : même genre, même ambiance…).
 class SimilarMediaCard extends StatelessWidget {
-  const SimilarMediaCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.flat = false,
-    this.headerLabel = 'Vous aimerez aussi',
-  });
+  const SimilarMediaCard({super.key, required this.items, this.width = 430});
 
   final List<CollectionEntry> items;
   final double width;
 
-  /// Sans cadre (l'habillage vient de la section).
-  final bool flat;
-  final String headerLabel;
-
   @override
-  Widget build(BuildContext context) {
-    return _PosterRowCard(
-      flat: flat,
-      items: items,
-      width: width,
-      headerTitle: headerLabel,
-    );
-  }
+  Widget build(BuildContext context) =>
+      _PosterRowCard(items: items, width: width);
 }
 
 /// ── 13. TrendingCard ────────────────────────────────────────────────────
 /// Contenu tendance (ex : top actuellement).
 class TrendingCard extends StatelessWidget {
-  const TrendingCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.flat = false,
-    this.onSeeAll,
-  });
+  const TrendingCard({super.key, required this.items, this.width = 430});
 
   final List<CollectionEntry> items;
   final double width;
 
-  /// Sans cadre (l'habillage vient de la section).
-  final bool flat;
-  final VoidCallback? onSeeAll;
-
   @override
-  Widget build(BuildContext context) {
-    return _PosterRowCard(
-      flat: flat,
-      items: items,
-      width: width,
-      headerTitle: 'Tendances',
-      headerIcon: Icons.whatshot_rounded,
-      showSeeAll: true,
-      onSeeAll: onSeeAll,
-      showRank: true,
-    );
-  }
+  Widget build(BuildContext context) =>
+      _PosterRowCard(items: items, width: width, showRank: true);
 }
 
 /// ── 14. PopularCard ─────────────────────────────────────────────────────
 /// Contenu populaire (ex : plus de vues).
 class PopularCard extends StatelessWidget {
-  const PopularCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.flat = false,
-    this.onSeeAll,
-  });
+  const PopularCard({super.key, required this.items, this.width = 430});
 
   final List<CollectionEntry> items;
   final double width;
 
-  /// Sans cadre (l'habillage vient de la section).
-  final bool flat;
-  final VoidCallback? onSeeAll;
-
   @override
-  Widget build(BuildContext context) {
-    return _PosterRowCard(
-      flat: flat,
-      items: items,
-      width: width,
-      headerTitle: 'Le plus populaire',
-      headerBadge: '1',
-      showSeeAll: true,
-      onSeeAll: onSeeAll,
-      showViews: true,
-    );
-  }
+  Widget build(BuildContext context) =>
+      _PosterRowCard(items: items, width: width, showViews: true);
 }
 
 /// ── 15. TopRatedCard ────────────────────────────────────────────────────
 /// Mieux notés (ex : IMDb / TMDB).
 class TopRatedCard extends StatelessWidget {
-  const TopRatedCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.flat = false,
-    this.onSeeAll,
-  });
+  const TopRatedCard({super.key, required this.items, this.width = 430});
 
   final List<CollectionEntry> items;
   final double width;
 
-  /// Sans cadre (l'habillage vient de la section).
-  final bool flat;
-  final VoidCallback? onSeeAll;
-
   @override
-  Widget build(BuildContext context) {
-    return _PosterRowCard(
-      flat: flat,
-      items: items,
-      width: width,
-      headerTitle: 'Top notés',
-      headerIcon: Icons.star_rounded,
-      showSeeAll: true,
-      onSeeAll: onSeeAll,
-      showRating: true,
-    );
-  }
+  Widget build(BuildContext context) =>
+      _PosterRowCard(items: items, width: width, showRating: true);
 }
 
 /// ── 16. RankedMediaCard ─────────────────────────────────────────────────
 /// Classement (ex : top 10, top 50…). `RankedCard` étant déjà utilisé par
 /// content_cards.dart, cette variante « section Top » se nomme RankedMediaCard.
 class RankedMediaCard extends StatelessWidget {
-  const RankedMediaCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.flat = false,
-    this.rankLabel = 'Top 10',
-    this.onSeeAll,
-  });
+  const RankedMediaCard({super.key, required this.items, this.width = 430});
 
   final List<CollectionEntry> items;
   final double width;
 
-  /// Sans cadre (l'habillage vient de la section).
-  final bool flat;
-  final String rankLabel;
-  final VoidCallback? onSeeAll;
-
   @override
-  Widget build(BuildContext context) {
-    return _PosterRowCard(
-      flat: flat,
-      items: items,
-      width: width,
-      headerTitle: rankLabel,
-      showSeeAll: true,
-      onSeeAll: onSeeAll,
-      showBigRank: true,
-    );
-  }
+  Widget build(BuildContext context) =>
+      _PosterRowCard(items: items, width: width, showBigRank: true);
 }
 
 /// ── 17. NumberedCard ────────────────────────────────────────────────────
 /// Carte numérotée (ex : top 10, classement).
 class NumberedCard extends StatelessWidget {
-  const NumberedCard({
-    super.key,
-    required this.items,
-    this.width = 400,
-    this.flat = false,
-  });
+  const NumberedCard({super.key, required this.items, this.width = 400});
 
   final List<CollectionEntry> items;
   final double width;
 
-  /// Sans cadre (l'habillage vient de la section).
-  final bool flat;
-
   @override
-  Widget build(BuildContext context) {
-    return _PosterRowCard(
-      flat: flat,
-      items: items,
-      width: width,
-      showRank: true,
-      showMeta: false,
-    );
-  }
+  Widget build(BuildContext context) => _PosterRowCard(
+    items: items,
+    width: width,
+    showRank: true,
+    showMeta: false,
+  );
 }
 
 /// ── 20. RecommendationCard ──────────────────────────────────────────────
 /// Recommandations personnalisées.
 class RecommendationCard extends StatelessWidget {
-  const RecommendationCard({
-    super.key,
-    required this.items,
-    this.width = 430,
-    this.flat = false,
-    this.onSeeAll,
-  });
+  const RecommendationCard({super.key, required this.items, this.width = 430});
 
   final List<CollectionEntry> items;
   final double width;
 
-  /// Sans cadre (l'habillage vient de la section).
-  final bool flat;
-  final VoidCallback? onSeeAll;
-
   @override
-  Widget build(BuildContext context) {
-    return _PosterRowCard(
-      flat: flat,
-      items: items,
-      width: width,
-      headerTitle: 'Parce que vous avez aimé…',
-      showSeeAll: true,
-      onSeeAll: onSeeAll,
-    );
-  }
+  Widget build(BuildContext context) =>
+      _PosterRowCard(items: items, width: width);
 }
 
 /// Socle commun des cartes « rangée de posters ».
+///
+/// Aucun en-tête et aucun panneau : le titre et le « Tout voir » appartiennent
+/// à la section qui héberge la carte (voir `AppSectionHeader`), jamais à la
+/// carte elle-même.
 class _PosterRowCard extends StatelessWidget {
   const _PosterRowCard({
     required this.items,
     required this.width,
-    this.headerTitle,
-    this.headerIcon,
-    this.headerBadge,
-    this.onSeeAll,
-    this.showSeeAll = false,
     this.showRank = false,
     this.showBigRank = false,
     this.showRating = false,
     this.showViews = false,
     this.showMeta = true,
-    this.flat = false,
   });
 
   final List<CollectionEntry> items;
   final double width;
-  final String? headerTitle;
-  final IconData? headerIcon;
-  final String? headerBadge;
-  final VoidCallback? onSeeAll;
-  final bool showSeeAll;
   final bool showRank;
   final bool showBigRank;
   final bool showRating;
   final bool showViews;
   final bool showMeta;
 
-  /// Sans cadre : la carte n'est plus qu'un en-tête et une rangée de posters.
-  /// L'habillage revient à la section qui l'héberge.
-  final bool flat;
-
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     // Un maximum de cinq tuiles par rangée : au-delà les posters devenaient
-    // trop serrés et illisibles. L'action « Voir tout » mène au reste.
+    // trop serrés et illisibles.
     final visible = items.length > 5 ? items.sublist(0, 5) : items;
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (headerTitle != null) ...[
-          _CollectionHeader(
-            title: headerTitle!,
-            icon: headerIcon,
-            iconBadge: headerBadge,
-            showSeeAll: showSeeAll,
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 10),
-        ],
-        Row(
-          children: [
-            for (var i = 0; i < visible.length; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              Expanded(
-                child: _PosterTile(
-                  entry: visible[i],
-                  showRank: showRank,
-                  showBigRank: showBigRank,
-                  showRating: showRating,
-                  showViews: showViews,
-                  showMeta: showMeta,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-
-    if (flat) {
-      return SizedBox(width: width, child: content);
-    }
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _collectionDecoration(accent),
-      child: content,
+      child: Row(
+        children: [
+          for (var i = 0; i < visible.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(
+              child: _PosterTile(
+                entry: visible[i],
+                showRank: showRank,
+                showBigRank: showBigRank,
+                showRating: showRating,
+                showViews: showViews,
+                showMeta: showMeta,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -734,43 +592,68 @@ class SpotlightCard extends StatelessWidget {
 }
 
 /// ── 21. UniverseCarouselCard ────────────────────────────────────────────
-/// Carrousel de collections / univers : trois tuiles et des flèches.
+/// Carte nue : trois visuels d'univers répartis à parts égales, légèrement
+/// inclinés vers le haut à droite. Aucun panneau, aucun en-tête : l'habillage
+/// et le titre appartiennent à la section qui l'héberge.
+///
+/// La carte est responsive : les trois visuels se partagent la largeur
+/// disponible (téléphone étroit comme écran large) et la hauteur suit cette
+/// largeur, bornée par [height].
 class UniverseCarouselCard extends StatelessWidget {
   const UniverseCarouselCard({
     super.key,
     required this.universes,
     this.width = 540,
     this.height = 150,
-    this.onPrevious,
-    this.onNext,
+    this.tilt = 0.05,
   });
 
   final List<CollectionEntry> universes;
+
+  /// Largeur maximale de la carte. La carte se comprime en dessous.
   final double width;
   final double height;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
+
+  /// Inclinaison en radians des visuels (haut à droite par défaut).
+  final double tilt;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    final visible = universes.take(3).toList(growable: false);
+    if (visible.isEmpty) return const SizedBox.shrink();
+    const gap = 10.0;
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _collectionDecoration(accent),
-      child: Row(
-        children: [
-          _CarouselArrow(icon: Icons.chevron_left_rounded, onTap: onPrevious),
-          const SizedBox(width: 10),
-          for (var i = 0; i < universes.length && i < 3; i++) ...[
-            if (i > 0) const SizedBox(width: 10),
-            Expanded(
-              child: _UniverseTile(entry: universes[i], height: height),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final available = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : width;
+          final tileWidth = ((available - gap * (visible.length - 1)) /
+                  visible.length)
+              .clamp(60.0, 260.0);
+          // Hauteur dérivée de la largeur de tuile (format ~3:4) : les trois
+          // visuels restent équilibrés et lisibles sur toutes les tailles.
+          final tileHeight = (tileWidth * 1.2).clamp(96.0, height);
+          return SizedBox(
+            height: tileHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < visible.length; i++) ...[
+                  if (i > 0) const SizedBox(width: gap),
+                  Expanded(
+                    child: Transform.rotate(
+                      // Trois paliers croissants pour lire la perspective.
+                      angle: tilt * (i - 1),
+                      child: _UniverseTile(entry: visible[i], height: tileHeight),
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-          const SizedBox(width: 10),
-          _CarouselArrow(icon: Icons.chevron_right_rounded, onTap: onNext),
-        ],
+          );
+        },
       ),
     );
   }
@@ -783,23 +666,20 @@ class CarouselCard extends StatelessWidget {
     required this.universes,
     this.width = 540,
     this.height = 150,
-    this.onPrevious,
-    this.onNext,
+    this.tilt = 0.05,
   });
 
   final List<CollectionEntry> universes;
   final double width;
   final double height;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
+  final double tilt;
 
   @override
   Widget build(BuildContext context) => UniverseCarouselCard(
     universes: universes,
     width: width,
     height: height,
-    onPrevious: onPrevious,
-    onNext: onNext,
+    tilt: tilt,
   );
 }
 
@@ -824,67 +704,49 @@ class _UniverseTile extends StatelessWidget {
               left: 10,
               right: 10,
               bottom: 10,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    entry.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                      height: 1.15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (entry.meta != null) ...[
-                    const SizedBox(height: 3),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      entry.meta!,
-                      maxLines: 1,
+                      entry.title,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        height: 1.15,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (entry.meta != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        entry.meta!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    // Le bouton disparaît quand la tuile devient trop étroite
+                    // (trois univers sur un téléphone) : il débordait.
+                    if (constraints.maxWidth >= 112) ...[
+                      const SizedBox(height: 8),
+                      _CollectionButton(
+                        label: 'Explorer',
+                        onTap: entry.onTap ?? () {},
+                      ),
+                    ],
                   ],
-                  const SizedBox(height: 8),
-                  _CollectionButton(
-                    label: 'Explorer',
-                    onTap: entry.onTap ?? () {},
-                  ),
-                ],
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CarouselArrow extends StatelessWidget {
-  const _CarouselArrow({required this.icon, this.onTap});
-
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: .07),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap ?? () {},
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 26,
-          height: 26,
-          child: Icon(icon, size: 16, color: Colors.white70),
         ),
       ),
     );
@@ -994,90 +856,6 @@ class _CollectionButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _CollectionHeader extends StatelessWidget {
-  const _CollectionHeader({
-    required this.title,
-    this.icon,
-    this.iconBadge,
-    this.onSeeAll,
-    this.showSeeAll = false,
-  });
-
-  final String title;
-  final IconData? icon;
-
-  /// Petit carré accentué avant le titre (ex : `1` pour PopularCard).
-  final String? iconBadge;
-  final VoidCallback? onSeeAll;
-  final bool showSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        if (iconBadge != null) ...[
-          Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: .85),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              iconBadge!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-        ] else if (icon != null) ...[
-          Icon(icon, size: 15, color: accent),
-          const SizedBox(width: 7),
-        ],
-        Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        if (showSeeAll && onSeeAll != null)
-          InkWell(
-            onTap: onSeeAll,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
-                ],
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

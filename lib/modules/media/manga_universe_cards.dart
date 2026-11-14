@@ -72,99 +72,6 @@ class MangaUniversePoint {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: accent.withValues(alpha: .18)),
-  );
-}
-
-class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.onSeeAll,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 14, color: accent),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 1),
-                Text(
-                  subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (onSeeAll != null)
-          InkWell(
-            onTap: onSeeAll,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 class _CountBadge extends StatelessWidget {
   const _CountBadge(this.label, {this.color});
@@ -210,21 +117,12 @@ class MangaRelationTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.hub_outlined,
-            title: 'Types de relations',
-            subtitle: 'La nature des liens entre les mangas.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -348,17 +246,9 @@ class MangaUniverseTimelineCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.public_rounded,
-            title: 'Univers & Timeline',
-            subtitle: 'Les mondes et chronologies des séries.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Stack(
             children: [
               ClipRRect(
@@ -514,21 +404,12 @@ class MangaLinkedSeriesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.travel_explore_rounded,
-            title: 'Séries liées / Univers partagés',
-            subtitle: 'Les mangas qui partagent le même univers.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -639,21 +520,12 @@ class MangaRelationListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.hub_outlined,
-            title: 'Relations spécifiques',
-            subtitle: 'Les différents types de liens entre les œuvres.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 7),
             _RelationRow(item: items[i]),
@@ -764,17 +636,9 @@ class MangaSameUniverseCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.public_rounded,
-            title: 'Œuvres du même univers',
-            subtitle: 'Toutes les œuvres dans un même monde.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Stack(
             children: [
               ClipRRect(
@@ -946,17 +810,9 @@ class MangaUniverseChronologyCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.event_available_rounded,
-            title: 'Chronologie de l’univers',
-            subtitle: 'Suivre la timeline des événements.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           for (var i = 0; i < points.length; i++)
             IntrinsicHeight(
               child: Row(
@@ -1074,21 +930,12 @@ class MangaFranchiseUniversesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.verified_rounded,
-            title: 'Univers par franchise',
-            subtitle: 'Les grandes franchises et leurs mondes.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 7),
             _FranchiseRow(item: items[i]),
@@ -1174,21 +1021,12 @@ class MangaCharacterRelationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.group_rounded,
-            title: 'Relations entre personnages',
-            subtitle: 'Les liens entre personnages à travers les œuvres.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1300,17 +1138,9 @@ class MangaUniverseMapCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelHeader(
-            icon: Icons.travel_explore_rounded,
-            title: 'Carte des univers',
-            subtitle: 'Visualisez les mondes et leurs connexions.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 14),
           Column(
             children: [
               for (var i = 0; i < nodes.length; i += 2)

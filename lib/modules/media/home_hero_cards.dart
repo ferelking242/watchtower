@@ -113,92 +113,6 @@ BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
   );
 }
 
-class _RailHeader extends StatelessWidget {
-  const _RailHeader({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.onSeeAll,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: .15),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, size: 14, color: accent),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 1),
-                Text(
-                  subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (onSeeAll != null)
-          InkWell(
-            onTap: onSeeAll,
-            borderRadius: BorderRadius.circular(8),
-            child: const Padding(
-              padding: EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Text(
-                    'Voir tout',
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(width: 2),
-                  Icon(Broken.arrow_right_3, size: 12, color: Colors.white54),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _RatingChip extends StatelessWidget {
   const _RatingChip(this.label);
 
@@ -535,34 +449,26 @@ class HomeHeroBannerCard extends StatelessWidget {
 
 /// ── 2. HomeSpotlightRailCard ────────────────────────────────────────────
 /// « À ne pas manquer » (rail vertical compact).
+///
+/// Carte nue : aucun panneau, aucun en-tête. Le titre et le « Tout voir »
+/// appartiennent à la section qui l'héberge.
 class HomeSpotlightRailCard extends StatelessWidget {
   const HomeSpotlightRailCard({
     super.key,
     required this.items,
     this.width = 340,
-    this.onSeeAll,
   });
 
   final List<HomeSpotlightEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
+    return SizedBox(
+      width: width,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _RailHeader(
-            icon: Icons.star_rounded,
-            title: 'À ne pas manquer',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 10),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             _SpotlightRow(item: items[i]),
@@ -629,58 +535,31 @@ class _SpotlightRow extends StatelessWidget {
 }
 
 /// ── 3. HomeGenreTileCard ────────────────────────────────────────────────
-/// Cartes de genres (visuel + tagline).
+/// Cartes de genres (visuel + tagline). Carte nue, sans en-tête ni panneau.
 class HomeGenreTileCard extends StatelessWidget {
   const HomeGenreTileCard({
     super.key,
     required this.items,
     this.width = 620,
-    this.onSeeAll,
   });
 
   final List<HomeGenreCardEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.explore_outlined, size: 14, color: accent),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Explorez par genre',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              _GenreCard(entry: items[i]),
             ],
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  _GenreCard(entry: items[i]),
-                ],
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -756,49 +635,36 @@ class _GenreCard extends StatelessWidget {
 }
 
 /// ── 4. HomePopularRailCard ──────────────────────────────────────────────
-/// « Populaire à regarder » (rail posters).
+/// « Populaire à regarder » (rail posters). Carte nue, sans en-tête.
 class HomePopularRailCard extends StatelessWidget {
   const HomePopularRailCard({
     super.key,
     required this.items,
     this.width = 620,
     this.title = 'Populaire à regarder',
-    this.onSeeAll,
   });
 
   final List<HomePopularEntry> items;
   final double width;
+
+  /// Conservé pour la compatibilité : le titre est désormais rendu par la
+  /// section, jamais par la carte.
   final String title;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RailHeader(
-            icon: Icons.local_fire_department_rounded,
-            title: title,
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 9),
-                  _PopularTile(item: items[i]),
-                ],
-              ],
-            ),
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 9),
+              _PopularTile(item: items[i]),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -866,88 +732,71 @@ class _PopularTile extends StatelessWidget {
 }
 
 /// ── 5. HomeReadRailCard ─────────────────────────────────────────────────
-/// « Populaire à lire » (Manga & Novel).
+/// « Populaire à lire » (Manga & Novel). Carte nue, sans en-tête.
 class HomeReadRailCard extends StatelessWidget {
   const HomeReadRailCard({
     super.key,
     required this.items,
     this.width = 620,
-    this.onSeeAll,
   });
 
   final List<HomeSpotlightEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RailHeader(
-            icon: Icons.menu_book_outlined,
-            title: 'Populaire à lire',
-            subtitle: 'Manga & Novel',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (var i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 9),
-                  SizedBox(
-                    width: 88,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 9),
+              SizedBox(
+                width: 88,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Stack(
                       children: [
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: AspectRatio(
-                                aspectRatio: 3 / 4,
-                                child: ContentImage(
-                                  url: items[i].thumbUrl,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: AspectRatio(
+                            aspectRatio: 3 / 4,
+                            child: ContentImage(
+                              url: items[i].thumbUrl,
+                              fit: BoxFit.cover,
                             ),
-                            if (items[i].kindLabel != null)
-                              Positioned(
-                                left: 5,
-                                bottom: 5,
-                                child: _KindChip(items[i].kindLabel!),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          items[i].title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
                           ),
                         ),
-                        if (items[i].ratingLabel != null)
-                          _RatingChip(items[i].ratingLabel!),
+                        if (items[i].kindLabel != null)
+                          Positioned(
+                            left: 5,
+                            bottom: 5,
+                            child: _KindChip(items[i].kindLabel!),
+                          ),
                       ],
                     ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
+                    const SizedBox(height: 6),
+                    Text(
+                      items[i].title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (items[i].ratingLabel != null)
+                      _RatingChip(items[i].ratingLabel!),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -955,6 +804,11 @@ class HomeReadRailCard extends StatelessWidget {
 
 /// ── 6. HomeLanguageGridCard ─────────────────────────────────────────────
 /// « Univers par pays / langue ».
+///
+/// Carte nue : aucun en-tête et aucun panneau. Le titre de la section et le
+/// « Tout voir » appartiennent à la section qui l'héberge ; la carte ne rend
+/// que la grille de tuiles pays. `scroll` permet de garder une rangée
+/// défilante au lieu d'une grille quand le layout le demande.
 class HomeLanguageGridCard extends StatelessWidget {
   const HomeLanguageGridCard({
     super.key,
@@ -964,6 +818,7 @@ class HomeLanguageGridCard extends StatelessWidget {
     this.title = 'Univers par pays / langue',
     this.subtitle = 'Explorez des contenus du monde entier.',
     this.columns = 2,
+    this.scroll = false,
     this.flat = true,
   });
 
@@ -976,66 +831,59 @@ class HomeLanguageGridCard extends StatelessWidget {
   /// Colonnes de la grille de pays (2 par défaut).
   final int columns;
 
-  /// Carte intégrée à une page : pas de panneau autour. `false` uniquement
-  /// pour l'aperçu isolé de la galerie.
+  /// Fait défiler les tuiles horizontalement au lieu de les empiler en
+  /// grille. Utile quand la carte est posée dans une rangée étroite.
+  final bool scroll;
+
+  /// Carte intégrée à une page : pas de panneau autour. Conservé pour la
+  /// compatibilité des layouts existants ; la carte n'affiche de toute façon
+  /// plus de panneau.
   final bool flat;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      width: flat ? width : null,
-      constraints: BoxConstraints(maxWidth: width),
-      padding: EdgeInsets.all(flat ? 0 : 12),
-      decoration: flat ? null : _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RailHeader(
-            icon: Icons.public_rounded,
-            title: title,
-            subtitle: subtitle,
-            onSeeAll: onSeeAll,
+    // La carte n'est jamais encadrée : le paramètre `flat` est accepté pour
+    // ne pas casser les layouts JSON existants, mais ignoré.
+    const spacing = 8.0;
+    if (scroll) {
+      return SizedBox(
+        height: 82,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: chips.length,
+          separatorBuilder: (_, _) => const SizedBox(width: spacing),
+          itemBuilder: (context, index) => SizedBox(
+            width: (width / columns.clamp(1, 4)).clamp(120.0, 240.0),
+            child: _LanguageChipTile(chip: chips[index]),
           ),
-          const SizedBox(height: 12),
-          // Grille régulière : `columns` tuiles par ligne, sur plusieurs
-          // lignes. Un `Wrap` à largeur fixe tombait en colonne unique dès
-          // que le conteneur était plus étroit que la somme des tuiles ; on
-          // pose donc les rangées explicitement pour garantir le nombre de
-          // colonnes demandé, quelle que soit la largeur disponible.
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final count = columns.clamp(1, 4);
-              final spacing = 8.0;
-              final rowCount = (chips.length / count).ceil();
-              return Column(
-                children: [
-                  for (var row = 0; row < rowCount; row++) ...[
-                    if (row > 0) SizedBox(height: spacing),
-                    Row(
-                      children: [
-                        for (var col = 0; col < count; col++) ...[
-                          if (col > 0) SizedBox(width: spacing),
-                          Expanded(
-                            child: row * count + col < chips.length
-                                ? SizedBox(
-                                    height: 82,
-                                    child: _LanguageChipTile(
-                                      chip: chips[row * count + col],
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
+        ),
+      );
+    }
+    final count = columns.clamp(1, 4);
+    final rowCount = (chips.length / count).ceil();
+    return Column(
+      children: [
+        for (var row = 0; row < rowCount; row++) ...[
+          if (row > 0) const SizedBox(height: spacing),
+          Row(
+            children: [
+              for (var col = 0; col < count; col++) ...[
+                if (col > 0) const SizedBox(width: spacing),
+                Expanded(
+                  child: row * count + col < chips.length
+                      ? SizedBox(
+                          height: 82,
+                          child: _LanguageChipTile(
+                            chip: chips[row * count + col],
                           ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ],
-              );
-            },
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ],
           ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -1153,105 +1001,74 @@ String? _countryScenery(String? countryCode) {
 }
 
 /// ── 7. HomeMyListCard ───────────────────────────────────────────────────
-/// « Ma liste » (favoris).
+/// « Ma liste » (favoris). Carte nue, sans en-tête ni panneau.
 class HomeMyListCard extends StatelessWidget {
   const HomeMyListCard({
     super.key,
     required this.items,
     this.width = 360,
-    this.onSeeAll,
   });
 
   final List<HomeMyListEntry> items;
   final double width;
-  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      width: width,
+      child: Row(
         children: [
-          _RailHeader(
-            icon: Icons.favorite_rounded,
-            title: 'Ma liste',
-            subtitle: 'Vos favoris, toujours à portée de main.',
-            onSeeAll: onSeeAll,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(
-                  child: InkWell(
-                    onTap: items[i].onTap,
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: InkWell(
+                onTap: items[i].onTap,
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  height: 62,
+                  child: ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: SizedBox(
-                      height: 62,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ContentImage(
-                              url: items[i].thumbUrl,
-                              fit: BoxFit.cover,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ContentImage(url: items[i].thumbUrl, fit: BoxFit.cover),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.only(
+                              left: 5,
+                              right: 5,
+                              bottom: 4,
+                              top: 12,
                             ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: const EdgeInsets.only(
-                                  left: 5,
-                                  right: 5,
-                                  bottom: 4,
-                                  top: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.transparent,
-                                      Colors.black87,
-                                    ],
-                                  ),
-                                ),
-                                child: Text(
-                                  items[i].title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.transparent, Colors.black87],
                               ),
                             ),
-                          ],
+                            child: Text(
+                              items[i].title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const SizedBox(),
-              Icon(Broken.arrow_right_3, size: 13, color: accent),
-            ],
-          ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1259,7 +1076,7 @@ class HomeMyListCard extends StatelessWidget {
 }
 
 /// ── 8. HomeAIRecommenderCard ────────────────────────────────────────────
-/// « Recommandations IA » (suggestion + envoi).
+/// « Recommandations IA » (champ de saisie + envoi). Carte nue, sans en-tête.
 class HomeAIRecommenderCard extends StatelessWidget {
   const HomeAIRecommenderCard({
     super.key,
@@ -1275,56 +1092,43 @@ class HomeAIRecommenderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      decoration: _panelDecoration(accent),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _RailHeader(
-            icon: Icons.auto_awesome_outlined,
-            title: 'Recommandations IA',
-            subtitle: 'Des suggestions rien que pour vous.',
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .05),
+    return SizedBox(
+      width: width,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .05),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: accent.withValues(alpha: .35)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                placeholder,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            InkWell(
+              onTap: () => onSend?.call(placeholder),
               borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: accent.withValues(alpha: .35)),
+              child: Icon(Icons.send_rounded, size: 14, color: accent),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    placeholder,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                InkWell(
-                  onTap: () => onSend?.call(placeholder),
-                  borderRadius: BorderRadius.circular(99),
-                  child: Icon(Icons.send_rounded, size: 14, color: accent),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 /// ── 9. HomeMiniPlayerCard ───────────────────────────────────────────────
-/// Barre de reprise en bas d'écran.
+/// Barre de reprise en bas d'écran. Carte nue, sans panneau.
 class HomeMiniPlayerCard extends StatelessWidget {
   const HomeMiniPlayerCard({
     super.key,
@@ -1352,10 +1156,8 @@ class HomeMiniPlayerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(8),
-      decoration: _panelDecoration(accent, radius: 14),
+    return SizedBox(
+      width: width,
       child: Row(
         children: [
           SizedBox(
