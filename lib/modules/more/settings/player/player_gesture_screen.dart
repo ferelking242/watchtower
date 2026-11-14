@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 
@@ -11,6 +12,7 @@ class PlayerGestureScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final doubleTapSeek = ref.watch(playerDoubleTapSeekProvider);
     final seekSeconds = ref.watch(playerDoubleTapSeekSecondsProvider);
     final swipeGestures = ref.watch(playerSwipeGesturesProvider);
@@ -18,7 +20,7 @@ class PlayerGestureScreen extends ConsumerWidget {
     final doubleTapPause = ref.watch(playerDoubleTapToPauseProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Gestes',
+      title: l10n.player_gestures_title,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -26,10 +28,10 @@ class PlayerGestureScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.mouse),
                 value: doubleTapSeek,
-                title: const Text('Chercher par double-clic'),
-                subtitle: const Text(
-                  'Avance ou recule dans la vidéo en double-cliquant sur les côtés',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.player_double_tap_seek),
+                subtitle: Text(
+                  l10n.player_double_tap_seek_subtitle,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(playerDoubleTapSeekProvider.notifier).set(v),
@@ -37,9 +39,9 @@ class PlayerGestureScreen extends ConsumerWidget {
               if (doubleTapSeek)
                 ListTile(
                   leading: const Icon(Broken.timer_1),
-                  title: const Text('Durée du double-clic'),
+                  title: Text(l10n.player_double_tap_duration),
                   subtitle: Text(
-                    '$seekSeconds secondes',
+                    l10n.player_seconds(seekSeconds),
                     style: const TextStyle(fontSize: 11),
                   ),
                   trailing: const Icon(Broken.arrow_right_2),
@@ -62,7 +64,7 @@ class PlayerGestureScreen extends ConsumerWidget {
                               .map(
                                 (s) => RadioListTile<int>(
                                   value: s,
-                                  title: Text('$s secondes'),
+                                  title: Text(l10n.player_seconds(s)),
                                 ),
                               )
                               .toList(),
@@ -74,11 +76,10 @@ class PlayerGestureScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.maximize_4),
                 value: swipeGestures,
-                title: const Text('Gestes de balayage'),
-                subtitle: const Text(
-                  'Balayage horizontal pour chercher, vertical pour le volume '
-                  'et la luminosité',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.player_swipe_gestures),
+                subtitle: Text(
+                  l10n.player_swipe_gestures_subtitle,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(playerSwipeGesturesProvider.notifier).set(v),
@@ -86,10 +87,10 @@ class PlayerGestureScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.element_4),
                 value: gestureOverlay,
-                title: const Text('Superposition des gestes'),
-                subtitle: const Text(
-                  'Affiche un aperçu pendant un geste',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.player_gesture_overlay),
+                subtitle: Text(
+                  l10n.player_gesture_overlay_subtitle,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(playerGestureOverlayProvider.notifier).set(v),
@@ -97,7 +98,7 @@ class PlayerGestureScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.play_circle),
                 value: doubleTapPause,
-                title: const Text('Double-clic au centre pour lecture/pause'),
+                title: Text(l10n.player_center_double_tap),
                 onChanged: (v) =>
                     ref.read(playerDoubleTapToPauseProvider.notifier).set(v),
               ),

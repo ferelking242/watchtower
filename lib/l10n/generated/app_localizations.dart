@@ -12562,6 +12562,600 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pause'**
   String get queue_pause;
+
+  /// No description provided for @appearance_ui_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface & Effects'**
+  String get appearance_ui_title;
+
+  /// No description provided for @appearance_ui_section_ui.
+  ///
+  /// In en, this message translates to:
+  /// **'UI & DISCOVERY'**
+  String get appearance_ui_section_ui;
+
+  /// No description provided for @appearance_ui_carousel_style.
+  ///
+  /// In en, this message translates to:
+  /// **'Carousel style'**
+  String get appearance_ui_carousel_style;
+
+  /// No description provided for @appearance_ui_carousel_synopsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Synopsis in the carousel'**
+  String get appearance_ui_carousel_synopsis;
+
+  /// No description provided for @appearance_ui_carousel_synopsis_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the description under the banner'**
+  String get appearance_ui_carousel_synopsis_subtitle;
+
+  /// No description provided for @appearance_ui_glow.
+  ///
+  /// In en, this message translates to:
+  /// **'Glow effects'**
+  String get appearance_ui_glow;
+
+  /// No description provided for @appearance_ui_glow_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Bright shadows on the covers'**
+  String get appearance_ui_glow_subtitle;
+
+  /// No description provided for @appearance_ui_animated_bg.
+  ///
+  /// In en, this message translates to:
+  /// **'Animated background (detail)'**
+  String get appearance_ui_animated_bg;
+
+  /// No description provided for @appearance_ui_animated_bg_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ken Burns effect on the detail banners'**
+  String get appearance_ui_animated_bg_subtitle;
+
+  /// No description provided for @appearance_ui_petals.
+  ///
+  /// In en, this message translates to:
+  /// **'Falling petals'**
+  String get appearance_ui_petals;
+
+  /// No description provided for @appearance_ui_petals_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discreet floral animation on the screens'**
+  String get appearance_ui_petals_subtitle;
+
+  /// No description provided for @appearance_ui_section_blur.
+  ///
+  /// In en, this message translates to:
+  /// **'BLUR & GLASS'**
+  String get appearance_ui_section_blur;
+
+  /// No description provided for @appearance_ui_frosted_header.
+  ///
+  /// In en, this message translates to:
+  /// **'Frosted header'**
+  String get appearance_ui_frosted_header;
+
+  /// No description provided for @appearance_ui_frosted_header_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Header blur while scrolling'**
+  String get appearance_ui_frosted_header_subtitle;
+
+  /// No description provided for @appearance_ui_frosted_sheets.
+  ///
+  /// In en, this message translates to:
+  /// **'Frosted sheets'**
+  String get appearance_ui_frosted_sheets;
+
+  /// No description provided for @appearance_ui_frosted_sheets_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Background blur behind bottom sheets'**
+  String get appearance_ui_frosted_sheets_subtitle;
+
+  /// No description provided for @appearance_ui_blur_intensity.
+  ///
+  /// In en, this message translates to:
+  /// **'Blur intensity'**
+  String get appearance_ui_blur_intensity;
+
+  /// No description provided for @appearance_ui_section_transitions.
+  ///
+  /// In en, this message translates to:
+  /// **'TRANSITIONS & ANIMATIONS'**
+  String get appearance_ui_section_transitions;
+
+  /// No description provided for @appearance_ui_transition_style.
+  ///
+  /// In en, this message translates to:
+  /// **'Transition style'**
+  String get appearance_ui_transition_style;
+
+  /// No description provided for @appearance_ui_carousel_classic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get appearance_ui_carousel_classic;
+
+  /// No description provided for @appearance_ui_carousel_cinematic.
+  ///
+  /// In en, this message translates to:
+  /// **'Cinematic'**
+  String get appearance_ui_carousel_cinematic;
+
+  /// No description provided for @appearance_ui_carousel_compact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get appearance_ui_carousel_compact;
+
+  /// No description provided for @appearance_ui_transition_fade.
+  ///
+  /// In en, this message translates to:
+  /// **'Fade'**
+  String get appearance_ui_transition_fade;
+
+  /// No description provided for @appearance_ui_transition_slide.
+  ///
+  /// In en, this message translates to:
+  /// **'Slide'**
+  String get appearance_ui_transition_slide;
+
+  /// No description provided for @appearance_ui_transition_scale.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale'**
+  String get appearance_ui_transition_scale;
+
+  /// No description provided for @appearance_ui_transition_none.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get appearance_ui_transition_none;
+
+  /// No description provided for @appearance_display_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get appearance_display_title;
+
+  /// No description provided for @appearance_display_system_default.
+  ///
+  /// In en, this message translates to:
+  /// **'System (default)'**
+  String get appearance_display_system_default;
+
+  /// No description provided for @appearance_display_date_format.
+  ///
+  /// In en, this message translates to:
+  /// **'Date format'**
+  String get appearance_display_date_format;
+
+  /// No description provided for @appearance_display_relative_times.
+  ///
+  /// In en, this message translates to:
+  /// **'Relative times'**
+  String get appearance_display_relative_times;
+
+  /// No description provided for @appearance_display_render_images.
+  ///
+  /// In en, this message translates to:
+  /// **'Render images in manga descriptions'**
+  String get appearance_display_render_images;
+
+  /// No description provided for @appearance_font_picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Font'**
+  String get appearance_font_picker;
+
+  /// No description provided for @appearance_font_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a font…'**
+  String get appearance_font_search;
+
+  /// No description provided for @app_language_title.
+  ///
+  /// In en, this message translates to:
+  /// **'App language'**
+  String get app_language_title;
+
+  /// No description provided for @nav_home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get nav_home;
+
+  /// No description provided for @general_section_network.
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get general_section_network;
+
+  /// No description provided for @general_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get general_disabled;
+
+  /// No description provided for @general_close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get general_close;
+
+  /// No description provided for @general_section_recommendations.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommendations'**
+  String get general_section_recommendations;
+
+  /// No description provided for @general_recommendations_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Algorithm, similarity and relevance weights'**
+  String get general_recommendations_subtitle;
+
+  /// No description provided for @general_section_activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get general_section_activity;
+
+  /// No description provided for @general_system_default.
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get general_system_default;
+
+  /// No description provided for @general_doh_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypts your DNS requests so your carrier or network cannot see the sites you visit.'**
+  String get general_doh_subtitle;
+
+  /// No description provided for @general_user_agent_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the site, copy your User-Agent, then paste it above.'**
+  String get general_user_agent_hint;
+
+  /// No description provided for @player_gestures_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Seek, double tap, controls'**
+  String get player_gestures_subtitle;
+
+  /// No description provided for @player_subtitles_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred languages, whitelist, blacklist'**
+  String get player_subtitles_subtitle;
+
+  /// No description provided for @player_script_editor_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit and create new scripts and script options'**
+  String get player_script_editor_subtitle;
+
+  /// No description provided for @player_torrent_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'TorrServer options'**
+  String get player_torrent_subtitle;
+
+  /// No description provided for @player_user_files_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom scripts, shaders and fonts'**
+  String get player_user_files_subtitle;
+
+  /// No description provided for @player_script_editor_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Script editor'**
+  String get player_script_editor_title;
+
+  /// No description provided for @player_gestures_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Gestures'**
+  String get player_gestures_title;
+
+  /// No description provided for @player_double_tap_seek.
+  ///
+  /// In en, this message translates to:
+  /// **'Double-tap to seek'**
+  String get player_double_tap_seek;
+
+  /// No description provided for @player_double_tap_seek_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast-forward or rewind the video by double-tapping the sides'**
+  String get player_double_tap_seek_subtitle;
+
+  /// No description provided for @player_double_tap_duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Double-tap duration'**
+  String get player_double_tap_duration;
+
+  /// No description provided for @player_seconds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} seconds'**
+  String player_seconds(Object count);
+
+  /// No description provided for @player_swipe_gestures.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe gestures'**
+  String get player_swipe_gestures;
+
+  /// No description provided for @player_swipe_gestures_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Horizontal swipe to seek, vertical for volume and brightness'**
+  String get player_swipe_gestures_subtitle;
+
+  /// No description provided for @player_gesture_overlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Gesture overlay'**
+  String get player_gesture_overlay;
+
+  /// No description provided for @player_gesture_overlay_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows a preview during a gesture'**
+  String get player_gesture_overlay_subtitle;
+
+  /// No description provided for @player_center_double_tap.
+  ///
+  /// In en, this message translates to:
+  /// **'Double-tap centre for play/pause'**
+  String get player_center_double_tap;
+
+  /// No description provided for @player_subtitles_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles'**
+  String get player_subtitles_title;
+
+  /// No description provided for @player_preferred_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred languages'**
+  String get player_preferred_languages;
+
+  /// No description provided for @player_whitelist.
+  ///
+  /// In en, this message translates to:
+  /// **'Whitelist'**
+  String get player_whitelist;
+
+  /// No description provided for @player_whitelist_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters to keep'**
+  String get player_whitelist_hint;
+
+  /// No description provided for @player_blacklist.
+  ///
+  /// In en, this message translates to:
+  /// **'Blacklist'**
+  String get player_blacklist;
+
+  /// No description provided for @player_blacklist_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters to hide'**
+  String get player_blacklist_hint;
+
+  /// No description provided for @player_subtitle_text_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Text size'**
+  String get player_subtitle_text_size;
+
+  /// No description provided for @player_custom_buttons.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom buttons'**
+  String get player_custom_buttons;
+
+  /// No description provided for @player_custom_buttons_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and edit buttons that run lua code'**
+  String get player_custom_buttons_subtitle;
+
+  /// No description provided for @player_load_user_files.
+  ///
+  /// In en, this message translates to:
+  /// **'Load user files'**
+  String get player_load_user_files;
+
+  /// No description provided for @player_load_user_files_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Runs the mpv scripts placed in the user folder'**
+  String get player_load_user_files_subtitle;
+
+  /// No description provided for @player_scripts_folder.
+  ///
+  /// In en, this message translates to:
+  /// **'Scripts folder'**
+  String get player_scripts_folder;
+
+  /// No description provided for @player_not_defined.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get player_not_defined;
+
+  /// No description provided for @player_not_configured.
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured'**
+  String get player_not_configured;
+
+  /// No description provided for @player_resume_last_position.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume at the last position'**
+  String get player_resume_last_position;
+
+  /// No description provided for @player_resume_last_position_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resumes playback where it stopped'**
+  String get player_resume_last_position_subtitle;
+
+  /// No description provided for @player_ask_next_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for the next episode'**
+  String get player_ask_next_episode;
+
+  /// No description provided for @player_ask_next_episode_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows a prompt at the end of an episode'**
+  String get player_ask_next_episode_subtitle;
+
+  /// No description provided for @player_lock_landscape.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock landscape orientation while playing'**
+  String get player_lock_landscape;
+
+  /// No description provided for @player_decoder_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Decoding mode'**
+  String get player_decoder_mode;
+
+  /// No description provided for @player_debanding.
+  ///
+  /// In en, this message translates to:
+  /// **'Debanding'**
+  String get player_debanding;
+
+  /// No description provided for @player_debanding_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Improves interlaced videos'**
+  String get player_debanding_subtitle;
+
+  /// No description provided for @player_torrent_prebuffer.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts playback as soon as enough pieces are available'**
+  String get player_torrent_prebuffer;
+
+  /// No description provided for @player_keep_audio_channels.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep audio channels'**
+  String get player_keep_audio_channels;
+
+  /// No description provided for @player_keep_audio_channels_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Do not downmix to stereo'**
+  String get player_keep_audio_channels_subtitle;
+
+  /// No description provided for @player_load_user_assets.
+  ///
+  /// In en, this message translates to:
+  /// **'Load scripts, shaders and fonts from the user folder'**
+  String get player_load_user_assets;
+
+  /// No description provided for @player_orientation_landscape.
+  ///
+  /// In en, this message translates to:
+  /// **'Landscape orientation'**
+  String get player_orientation_landscape;
+
+  /// No description provided for @player_decoder_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get player_decoder_auto;
+
+  /// No description provided for @player_decoder_hw.
+  ///
+  /// In en, this message translates to:
+  /// **'Hardware decoding'**
+  String get player_decoder_hw;
+
+  /// No description provided for @player_decoder_sw.
+  ///
+  /// In en, this message translates to:
+  /// **'Software decoding'**
+  String get player_decoder_sw;
+
+  /// No description provided for @settings_search_in_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in settings…'**
+  String get settings_search_in_settings;
+
+  /// No description provided for @settings_search_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get settings_search_tooltip;
+
+  /// No description provided for @settings_close_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Close search'**
+  String get settings_close_search;
+
+  /// No description provided for @settings_extensions_display.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions display'**
+  String get settings_extensions_display;
+
+  /// No description provided for @settings_layout_list.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get settings_layout_list;
+
+  /// No description provided for @settings_layout_grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid'**
+  String get settings_layout_grid;
+
+  /// No description provided for @settings_layout_extended.
+  ///
+  /// In en, this message translates to:
+  /// **'Extended'**
+  String get settings_layout_extended;
+
+  /// No description provided for @settings_remote_server.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote server'**
+  String get settings_remote_server;
+
+  /// No description provided for @settings_remote_server_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your device to sync the library'**
+  String get settings_remote_server_subtitle;
 }
 
 class _AppLocalizationsDelegate

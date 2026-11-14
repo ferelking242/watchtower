@@ -194,7 +194,7 @@ class _ExtensionListTileWidgetState
               if (_sourceNotEmpty)
                 _SheetAction(
                   icon: Broken.setting_2,
-                  label: 'Ouvrir les paramètres',
+                  label: context.l10n.browse_open_settings,
                   cs: cs,
                   isDark: isDark,
                   onTap: () {
@@ -208,8 +208,8 @@ class _ExtensionListTileWidgetState
                       ? Icons.system_update_alt_outlined
                       : Icons.refresh_rounded,
                   label: _updateAvailable
-                      ? 'Mettre à jour'
-                      : 'Vérifier la mise à jour',
+                      ? context.l10n.update
+                      : context.l10n.check_for_update,
                   accent: _updateAvailable ? Colors.orange.shade400 : null,
                   cs: cs,
                   isDark: isDark,
@@ -220,7 +220,9 @@ class _ExtensionListTileWidgetState
                 ),
               _SheetAction(
                 icon: isPinned ? Broken.bookmark : Broken.bookmark_2,
-                label: isPinned ? 'Désépingler' : 'Épingler',
+                label: isPinned
+                    ? context.l10n.browse_unpin
+                    : context.l10n.browse_pin,
                 cs: cs,
                 isDark: isDark,
                 onTap: () {
@@ -231,7 +233,7 @@ class _ExtensionListTileWidgetState
               if (_sourceNotEmpty)
                 _SheetAction(
                   icon: Icons.delete_outline_rounded,
-                  label: 'Désinstaller',
+                  label: context.l10n.uninstall,
                   accent: cs.error,
                   cs: cs,
                   isDark: isDark,
@@ -721,9 +723,9 @@ class _SwipeTileState extends State<_SwipeTile>
                                     size: 18,
                                   ),
                                   const SizedBox(height: 3),
-                                  const Text(
-                                    'Épingler',
-                                    style: TextStyle(
+                                  Text(
+                                    context.l10n.browse_pin,
+                                    style: const TextStyle(
                                       fontSize: 9,
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
@@ -742,18 +744,18 @@ class _SwipeTileState extends State<_SwipeTile>
                             },
                             child: Container(
                               color: Colors.blueGrey.shade600,
-                              child: const Column(
+                              child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Broken.setting_2,
                                     color: Colors.white,
                                     size: 18,
                                   ),
-                                  SizedBox(height: 3),
+                                  const SizedBox(height: 3),
                                   Text(
-                                    'Réglages',
-                                    style: TextStyle(
+                                    context.l10n.settings,
+                                    style: const TextStyle(
                                       fontSize: 9,
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,

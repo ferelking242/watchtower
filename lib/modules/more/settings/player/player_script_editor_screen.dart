@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 
@@ -15,21 +16,22 @@ class PlayerScriptEditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final userFiles = ref.watch(playerUserFilesProvider);
     final userFilesDir = ref.watch(playerUserFilesDirProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Éditeur de scripts',
+      title: l10n.player_script_editor_title,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
             children: [
               ListTile(
                 leading: const Icon(Broken.code),
-                title: const Text('Boutons personnalisés'),
-                subtitle: const Text(
-                  'Créer et modifier des boutons exécutant du code lua',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.player_custom_buttons),
+                subtitle: Text(
+                  l10n.player_custom_buttons_subtitle,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 trailing: const Icon(Broken.arrow_right_2),
                 onTap: () => context.push('/customButtonScreen'),
@@ -37,19 +39,21 @@ class PlayerScriptEditorScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.document),
                 value: userFiles,
-                title: const Text('Charger les fichiers utilisateur'),
-                subtitle: const Text(
-                  'Exécute les scripts mpv placés dans le dossier utilisateur',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.player_load_user_files),
+                subtitle: Text(
+                  l10n.player_load_user_files_subtitle,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(playerUserFilesProvider.notifier).set(v),
               ),
               ListTile(
                 leading: const Icon(Broken.folder),
-                title: const Text('Dossier des scripts'),
+                title: Text(l10n.player_scripts_folder),
                 subtitle: Text(
-                  userFilesDir.isEmpty ? 'Non défini' : userFilesDir,
+                  userFilesDir.isEmpty
+                      ? l10n.player_not_defined
+                      : userFilesDir,
                   style: const TextStyle(fontSize: 11),
                 ),
                 trailing: const Icon(Broken.edit_2),
@@ -67,7 +71,7 @@ class PlayerScriptEditorScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Dossier des scripts'),
+        title: Text(context.l10n.player_scripts_folder),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -76,7 +80,7 @@ class PlayerScriptEditorScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () {

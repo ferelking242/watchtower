@@ -286,7 +286,7 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
       title: _headerSearchActive
           ? _searchField(
               controller: _headerSearch,
-              hint: 'Rechercher dans les paramètres…',
+              hint: context.l10n.settings_search_in_settings,
               onChanged: (_) => setState(() {}),
               onClear: () {
                 _headerSearch.clear();
@@ -316,7 +316,7 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
               ignoring: !_collapsed,
               child: IconButton(
                 icon: const Icon(Broken.search_normal),
-                tooltip: 'Rechercher',
+                tooltip: context.l10n.settings_search_tooltip,
                 onPressed: _openHeaderSearch,
               ),
             ),
@@ -324,7 +324,7 @@ class _SettingsSubpageScaffoldState extends State<SettingsSubpageScaffold> {
         if (_headerSearchActive)
           IconButton(
             icon: const Icon(Broken.close_circle),
-            tooltip: 'Fermer la recherche',
+            tooltip: context.l10n.settings_close_search,
             onPressed: _closeHeaderSearch,
           ),
         ?widget.trailing,

@@ -132,7 +132,10 @@ class CustomNavigationSettings extends ConsumerWidget {
                 itemCount: navigationOrder.length,
                 itemBuilder: (context, index) {
                   final navigation = navigationOrder[index];
-                  final label = navigationItems[navigation] ?? navigation;
+                  final label = navigationItemLabel(
+                    context.l10n,
+                    navigation,
+                  );
                   final isVisible = !hideItems.contains(navigation);
                   final isFixed =
                       navigation == '/settings' || navigation == '/browse';

@@ -44,7 +44,7 @@ class GeneralScreen extends ConsumerWidget {
               // ── RÉSEAU ───────────────────────────────────────────────────
               _SectionHeader(
                 icon: Broken.wifi,
-                label: 'Réseau',
+                label: l10n.general_section_network,
                 colorScheme: colorScheme,
               ),
 
@@ -60,7 +60,7 @@ class GeneralScreen extends ConsumerWidget {
                         ),
                       )
                     : Text(
-                        'Désactivé',
+                        l10n.general_disabled,
                         style: TextStyle(
                           fontSize: 11,
                           color: colorScheme.error.withValues(alpha: 0.7),
@@ -80,7 +80,7 @@ class GeneralScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Chiffre vos requêtes DNS pour empêcher votre opérateur ou réseau de voir les sites que vous visitez.',
+                          l10n.general_doh_subtitle,
                           style: TextStyle(
                             fontSize: 12,
                             color: colorScheme.onSurfaceVariant,
@@ -121,7 +121,7 @@ class GeneralScreen extends ConsumerWidget {
                       _showCustomDnsDialog(context, ref, customDns, l10n),
                   title: Text(l10n.custom_dns),
                   subtitle: Text(
-                    customDns.isEmpty ? 'Système par défaut' : customDns,
+                    customDns.isEmpty ? l10n.general_system_default : customDns,
                     style: TextStyle(
                       fontSize: 11,
                       color: context.secondaryColor,
@@ -147,16 +147,16 @@ class GeneralScreen extends ConsumerWidget {
               // ── RECOMMANDATIONS ─────────────────────────────────────────
               _SectionHeader(
                 icon: Broken.magicpen,
-                label: 'Recommandations',
+                label: l10n.general_section_recommendations,
                 colorScheme: colorScheme,
               ),
 
               ListTile(
                 leading: const Icon(Broken.star),
-                title: const Text('Recommandations'),
-                subtitle: const Text(
-                  'Algorithme, similarité et poids de pertinence',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.general_section_recommendations),
+                subtitle: Text(
+                  l10n.general_recommendations_subtitle,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 trailing: const Icon(Broken.arrow_right_2),
                 onTap: () => context.push('/recommendations'),
@@ -167,7 +167,7 @@ class GeneralScreen extends ConsumerWidget {
               // ── ACTIVITÉ ────────────────────────────────────────────────
               _SectionHeader(
                 icon: Broken.activity,
-                label: 'Activité',
+                label: l10n.general_section_activity,
                 colorScheme: colorScheme,
               ),
 
@@ -242,7 +242,7 @@ class GeneralScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('Fournisseur DNS'),
+          title: Text(context.l10n.dns_provider),
           content: SizedBox(
             width: context.width(0.9),
             child: SuperListView.builder(
@@ -309,7 +309,7 @@ class GeneralScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Fermer'),
+              child: Text(context.l10n.general_close),
             ),
           ],
         );
@@ -488,7 +488,7 @@ void _showDefaultUserAgentDialog(
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Ouvre le site, copie ton User Agent, puis colle-le ci-dessus.',
+                  context.l10n.general_user_agent_hint,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 const SizedBox(height: 12),

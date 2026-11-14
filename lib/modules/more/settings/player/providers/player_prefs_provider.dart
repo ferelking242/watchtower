@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+
 /// Video-player options that have no field in the Isar settings model yet.
 /// Persisted in the `player_prefs` Hive box.
 const _kBox = 'player_prefs';
@@ -144,15 +146,14 @@ final playerUserFilesProvider = _boolPref('user_files', false);
 /// Directory holding user mpv scripts and shaders.
 final playerUserFilesDirProvider = _stringPref('user_files_dir', '');
 
-const kDecoderModeOptions = <(String, String)>[
-  ('auto', 'Automatique'),
-  ('hw', 'Décodage matériel'),
-  ('sw', 'Décodage logiciel'),
-];
+/// Decoder mode values; labels resolve through [decoderModeLabel] in the
+/// active locale.
+const kDecoderModeOptions = <String>['auto', 'hw', 'sw'];
 
-String decoderModeLabel(String v) {
-  for (final o in kDecoderModeOptions) {
-    if (o.$1 == v) return o.$2;
-  }
-  return kDecoderModeOptions.first.$2;
+String decoderModeLabel(AppLocalizations l10n, String v) {
+  return switch (v) {
+    'hw' => l10n.player_decoder_hw,
+    'sw' => l10n.player_decoder_sw,
+    _ => l10n.player_decoder_auto,
+  };
 }

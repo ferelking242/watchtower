@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 
@@ -11,20 +12,21 @@ class PlayerSubtitleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final languages = ref.watch(playerSubtitleLanguagesProvider);
     final whitelist = ref.watch(playerSubtitleWhitelistProvider);
     final blacklist = ref.watch(playerSubtitleBlacklistProvider);
     final scale = ref.watch(playerSubtitleScaleProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Sous-titres',
+      title: l10n.player_subtitles_title,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
             children: [
               _ListEditTile(
                 icon: Broken.global,
-                title: 'Langues préférées',
+                title: l10n.player_preferred_languages,
                 value: languages,
                 hint: 'fr, en, ja…',
                 onSave: (v) =>
@@ -32,23 +34,23 @@ class PlayerSubtitleScreen extends ConsumerWidget {
               ),
               _ListEditTile(
                 icon: Broken.tick_circle,
-                title: 'Liste blanche',
+                title: l10n.player_whitelist,
                 value: whitelist,
-                hint: 'Filtres à conserver',
+                hint: l10n.player_whitelist_hint,
                 onSave: (v) =>
                     ref.read(playerSubtitleWhitelistProvider.notifier).set(v),
               ),
               _ListEditTile(
                 icon: Broken.close_circle,
-                title: 'Liste noire',
+                title: l10n.player_blacklist,
                 value: blacklist,
-                hint: 'Filtres à masquer',
+                hint: l10n.player_blacklist_hint,
                 onSave: (v) =>
                     ref.read(playerSubtitleBlacklistProvider.notifier).set(v),
               ),
               ListTile(
                 leading: const Icon(Broken.text),
-                title: const Text('Taille du texte'),
+                title: Text(l10n.player_subtitle_text_size),
                 subtitle: Slider(
                   min: 50,
                   max: 200,
@@ -108,7 +110,7 @@ class _ListEditTile extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Annuler'),
+                child: Text(context.l10n.cancel),
               ),
               FilledButton(
                 onPressed: () {

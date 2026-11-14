@@ -531,7 +531,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Aucun résultat',
+                context.l10n.no_result,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,

@@ -22,6 +22,7 @@ class PlayerAdvancedScreen extends ConsumerStatefulWidget {
 class _PlayerAdvancedScreenState extends ConsumerState<PlayerAdvancedScreen> {
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final useMpvConfig = ref.watch(useMpvConfigStateProvider);
     final userFiles = ref.watch(playerUserFilesProvider);
 
@@ -59,9 +60,7 @@ class _PlayerAdvancedScreenState extends ConsumerState<PlayerAdvancedScreen> {
               secondary: const Icon(Broken.folder),
               value: userFiles,
               title: const Text('Fichiers utilisateur'),
-              subtitle: const Text(
-                'Charger les scripts, shaders et polices du dossier utilisateur',
-                style: TextStyle(fontSize: 11),
+              subtitle: Text(l10n.player_load_user_assets, style: TextStyle(fontSize: 11),
               ),
               onChanged: (v) =>
                   ref.read(playerUserFilesProvider.notifier).set(v),

@@ -22,6 +22,7 @@ class PlayerAudioScreen extends ConsumerStatefulWidget {
 class _PlayerAudioScreenState extends ConsumerState<PlayerAudioScreen> {
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final audioPreferredLang = ref.watch(audioPreferredLangStateProvider);
     final enableAudioPitchCorrection = ref.watch(
       enableAudioPitchCorrectionStateProvider,
@@ -164,10 +165,8 @@ class _PlayerAudioScreenState extends ConsumerState<PlayerAudioScreen> {
             SwitchListTile(
               secondary: const Icon(Broken.volume_high),
               value: keepAudioChannels,
-              title: const Text('Conserver les canaux audio'),
-              subtitle: const Text(
-                'Ne pas réduire le mixage au stéréo',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.player_keep_audio_channels),
+              subtitle: Text(l10n.player_keep_audio_channels_subtitle, style: TextStyle(fontSize: 11),
               ),
               onChanged: (v) =>
                   ref.read(playerKeepAudioChannelsProvider.notifier).set(v),

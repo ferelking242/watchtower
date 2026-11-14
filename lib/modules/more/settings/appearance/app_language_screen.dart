@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/display_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Language picker, opened from Affichage › Langue de l'application.
 /// Choosing a language overrides the system locale for the whole app.
@@ -51,7 +52,7 @@ class AppLanguageScreen extends ConsumerWidget {
     entries.sort((a, b) => a.$2.toLowerCase().compareTo(b.$2.toLowerCase()));
 
     return SettingsSubpageScaffold(
-      title: "Langue de l'application",
+      title: context.l10n.app_language_title,
       slivers: [
         SliverList(
           delegate: SliverChildBuilderDelegate(
@@ -59,7 +60,9 @@ class AppLanguageScreen extends ConsumerWidget {
               final isSystem = index == 0;
               final entry = isSystem ? null : entries[index - 1];
               final locale = entry?.$1;
-              final label = isSystem ? 'Système (par défaut)' : entry!.$2;
+              final label = isSystem
+                  ? context.l10n.appearance_display_system_default
+                  : entry!.$2;
               final isSelected = isSystem
                   ? selected == null
                   : selected?.languageCode == locale!.languageCode;

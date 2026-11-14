@@ -445,10 +445,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             SwitchListTile(
               secondary: const Icon(Broken.play_circle),
               value: resumeFromLast,
-              title: const Text('Reprendre à la dernière position'),
-              subtitle: const Text(
-                'Reprend la lecture là où elle s’est arrêtée',
-                style: TextStyle(fontSize: 11),
+              title: Text(context.l10n.player_resume_last_position),
+              subtitle: Text(
+                context.l10n.player_resume_last_position_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               onChanged: (value) {
                 ref
@@ -459,10 +459,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             SwitchListTile(
               secondary: const Icon(Broken.arrow_right_2),
               value: askNextEpisode,
-              title: const Text('Demander l’épisode suivant'),
-              subtitle: const Text(
-                'Affiche une invite à la fin d’un épisode',
-                style: TextStyle(fontSize: 11),
+              title: Text(context.l10n.player_ask_next_episode),
+              subtitle: Text(
+                context.l10n.player_ask_next_episode_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
               onChanged: (value) {
                 ref.read(playerAskNextEpisodeProvider.notifier).set(value);
@@ -471,10 +471,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             SwitchListTile(
               secondary: const Icon(Broken.rotate_right),
               value: orientationLandscape,
-              title: const Text('Orientation paysage'),
-              subtitle: const Text(
-                'Verrouille l’orientation en paysage pendant la lecture',
-                style: TextStyle(fontSize: 11),
+              title: Text(context.l10n.player_orientation_landscape),
+              subtitle: Text(
+                context.l10n.player_lock_landscape,
+                style: const TextStyle(fontSize: 11),
               ),
               onChanged: (value) {
                 ref

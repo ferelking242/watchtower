@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:hive/hive.dart';
 
 const _kBox = 'ui_prefs';
@@ -88,7 +90,18 @@ final carouselStyleProvider = NotifierProvider<CarouselStyleNotifier, int>(
   CarouselStyleNotifier.new,
 );
 
-const carouselStyleLabels = ['Classic', 'Cinematic', 'Compact'];
+/// Carousel layout values. Labels resolve through [carouselStyleLabel] so the
+/// picker renders in the active locale instead of a hardcoded string.
+const kCarouselStyles = <int>[0, 1, 2];
+
+String carouselStyleLabel(AppLocalizations l10n, int style) {
+  return switch (style) {
+    0 => l10n.appearance_ui_carousel_classic,
+    1 => l10n.appearance_ui_carousel_cinematic,
+    2 => l10n.appearance_ui_carousel_compact,
+    _ => l10n.appearance_ui_carousel_classic,
+  };
+}
 
 // ── Card Style ────────────────────────────────────────────────────────────────
 // 0 = standard, 1 = modern (rounded), 2 = blur
@@ -191,5 +204,16 @@ final kenBurnsProvider = NotifierProvider<KenBurnsNotifier, bool>(
   final pageTransitionStyleProvider =
       NotifierProvider<PageTransitionStyleNotifier, int>(PageTransitionStyleNotifier.new);
 
-  const pageTransitionStyleLabels = ['Fondu', 'Glissement', 'Échelle', 'Aucun'];
-  
+/// Page-transition values; labels resolve through [pageTransitionStyleLabel]
+/// in the active locale.
+const kPageTransitionStyles = <int>[0, 1, 2, 3];
+
+String pageTransitionStyleLabel(AppLocalizations l10n, int style) {
+  return switch (style) {
+    0 => l10n.appearance_ui_transition_fade,
+    1 => l10n.appearance_ui_transition_slide,
+    2 => l10n.appearance_ui_transition_scale,
+    3 => l10n.appearance_ui_transition_none,
+    _ => l10n.appearance_ui_transition_fade,
+  };
+}

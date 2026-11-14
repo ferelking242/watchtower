@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 
@@ -11,11 +12,12 @@ class PlayerTorrentScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final url = ref.watch(playerTorrServerUrlProvider);
     final stream = ref.watch(playerTorrentStreamProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Torrent',
+      title: l10n.settings_idx_title_torrent,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -24,7 +26,7 @@ class PlayerTorrentScreen extends ConsumerWidget {
                 leading: const Icon(Broken.link),
                 title: const Text('Adresse TorrServer'),
                 subtitle: Text(
-                  url.isEmpty ? 'Non configuré' : url,
+                  url.isEmpty ? l10n.player_not_configured : url,
                   style: const TextStyle(fontSize: 11),
                 ),
                 trailing: const Icon(Broken.edit_2),
@@ -44,7 +46,7 @@ class PlayerTorrentScreen extends ConsumerWidget {
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Annuler'),
+                          child: Text(context.l10n.cancel),
                         ),
                         FilledButton(
                           onPressed: () {
@@ -64,9 +66,7 @@ class PlayerTorrentScreen extends ConsumerWidget {
                 secondary: const Icon(Broken.play_circle),
                 value: stream,
                 title: const Text('Lecture en continu'),
-                subtitle: const Text(
-                  'Démarre la lecture dès que suffisamment de morceaux sont disponibles',
-                  style: TextStyle(fontSize: 11),
+                subtitle: Text(l10n.player_torrent_prebuffer, style: TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>
                     ref.read(playerTorrentStreamProvider.notifier).set(v),

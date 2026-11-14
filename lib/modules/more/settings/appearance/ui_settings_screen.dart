@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/more/settings/appearance/providers/ui_prefs_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 class UiSettingsScreen extends ConsumerWidget {
@@ -11,16 +12,17 @@ class UiSettingsScreen extends ConsumerWidget {
 
   void _showCarouselStyleDialog(BuildContext context, WidgetRef ref) {
     final current = ref.read(carouselStyleProvider);
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Style Carousel'),
+        title: Text(l10n.appearance_ui_carousel_style),
         content: SizedBox(
           width: double.maxFinite,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
-              carouselStyleLabels.length,
+              kCarouselStyles.length,
               (i) => RadioGroup<int>(
                 groupValue: current,
                 onChanged: (v) {
@@ -33,7 +35,7 @@ class UiSettingsScreen extends ConsumerWidget {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   value: i,
-                  title: Text(carouselStyleLabels[i]),
+                  title: Text(carouselStyleLabel(l10n, i)),
                 ),
               ),
             ),
@@ -43,7 +45,7 @@ class UiSettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Annuler',
+              context.l10n.cancel,
               style: TextStyle(color: context.primaryColor),
             ),
           ),
@@ -87,19 +89,20 @@ class UiSettingsScreen extends ConsumerWidget {
       ),
     );
 
+    final l10n = context.l10n;
     return SettingsSubpageScaffold(
-      title: 'Interface & Effets',
+      title: l10n.appearance_ui_title,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              sectionLabel('UI & DÉCOUVERTE'),
+              sectionLabel(l10n.appearance_ui_section_ui),
               ListTile(
                 leading: iconBox(Broken.slider_horizontal),
-                title: const Text('Style Carousel'),
+                title: Text(l10n.appearance_ui_carousel_style),
                 subtitle: Text(
-                  carouselStyleLabels[carouselStyle],
+                  carouselStyleLabel(l10n, carouselStyle),
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 trailing: const Icon(Broken.arrow_right_2),
@@ -107,9 +110,9 @@ class UiSettingsScreen extends ConsumerWidget {
               ),
               SwitchListTile(
                 secondary: iconBox(Broken.document_text),
-                title: const Text('Synopsis dans le Carousel'),
+                title: Text(l10n.appearance_ui_carousel_synopsis),
                 subtitle: Text(
-                  'Afficher la description sous la bannière',
+                  l10n.appearance_ui_carousel_synopsis_subtitle,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 value: showSynopsis,
@@ -118,9 +121,9 @@ class UiSettingsScreen extends ConsumerWidget {
               ),
               SwitchListTile(
                 secondary: iconBox(Broken.magic_star),
-                title: const Text('Effets de Lueur'),
+                title: Text(l10n.appearance_ui_glow),
                 subtitle: Text(
-                  'Ombres lumineuses sur les couvertures',
+                  l10n.appearance_ui_glow_subtitle,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 value: glowEffects,
@@ -128,9 +131,9 @@ class UiSettingsScreen extends ConsumerWidget {
               ),
               SwitchListTile(
                 secondary: iconBox(Broken.flash),
-                title: const Text('Fond animé (détail)'),
+                title: Text(l10n.appearance_ui_animated_bg),
                 subtitle: Text(
-                  'Effet Ken Burns sur les bannières de la fiche',
+                  l10n.appearance_ui_animated_bg_subtitle,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 value: kenBurns,
@@ -138,9 +141,9 @@ class UiSettingsScreen extends ConsumerWidget {
               ),
               SwitchListTile(
                 secondary: iconBox(Broken.brush_2),
-                title: const Text('Fleurs qui tombent'),
+                title: Text(l10n.appearance_ui_petals),
                 subtitle: Text(
-                  'Animation florale discrète sur les écrans',
+                  l10n.appearance_ui_petals_subtitle,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 value: fallingPetals,
@@ -148,12 +151,12 @@ class UiSettingsScreen extends ConsumerWidget {
                     ref.read(fallingPetalsProvider.notifier).set(v),
               ),
               const Divider(height: 24),
-              sectionLabel('FLOU & VERRE'),
+              sectionLabel(l10n.appearance_ui_section_blur),
               SwitchListTile(
                 secondary: iconBox(Broken.blur),
-                title: const Text('En-tête givré'),
+                title: Text(l10n.appearance_ui_frosted_header),
                 subtitle: Text(
-                  "Flou de l'en-tête pendant le défilement",
+                  l10n.appearance_ui_frosted_header_subtitle,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 value: headerBlur,
@@ -161,9 +164,9 @@ class UiSettingsScreen extends ConsumerWidget {
               ),
               SwitchListTile(
                 secondary: iconBox(Broken.layer),
-                title: const Text('Feuilles givrées'),
+                title: Text(l10n.appearance_ui_frosted_sheets),
                 subtitle: Text(
-                  'Flou du fond derrière les bottom sheets',
+                  l10n.appearance_ui_frosted_sheets_subtitle,
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 value: bottomSheetBlur,
@@ -186,9 +189,9 @@ class UiSettingsScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Intensité du flou',
-                                style: TextStyle(
+                              Text(
+                                l10n.appearance_ui_blur_intensity,
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w500,
                                   fontSize: 15,
                                 ),
@@ -217,12 +220,12 @@ class UiSettingsScreen extends ConsumerWidget {
                 ),
               ),
               const Divider(height: 24),
-              sectionLabel('TRANSITIONS & ANIMATIONS'),
+              sectionLabel(l10n.appearance_ui_section_transitions),
               ListTile(
                 leading: iconBox(Broken.arrow_swap),
-                title: const Text('Style de transition'),
+                title: Text(l10n.appearance_ui_transition_style),
                 subtitle: Text(
-                  pageTransitionStyleLabels[pageTransStyle],
+                  pageTransitionStyleLabel(l10n, pageTransStyle),
                   style: TextStyle(fontSize: 11, color: context.secondaryColor),
                 ),
                 trailing: const Icon(Broken.arrow_right_2),
@@ -238,16 +241,17 @@ class UiSettingsScreen extends ConsumerWidget {
 
   void _showPageTransitionDialog(BuildContext context, WidgetRef ref) {
     final current = ref.read(pageTransitionStyleProvider);
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Style de transition'),
+        title: Text(l10n.appearance_ui_transition_style),
         content: SizedBox(
           width: double.maxFinite,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
-              pageTransitionStyleLabels.length,
+              kPageTransitionStyles.length,
               (i) => RadioGroup<int>(
                 groupValue: current,
                 onChanged: (v) {
@@ -260,7 +264,7 @@ class UiSettingsScreen extends ConsumerWidget {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   value: i,
-                  title: Text(pageTransitionStyleLabels[i]),
+                  title: Text(pageTransitionStyleLabel(l10n, i)),
                 ),
               ),
             ),
@@ -270,7 +274,7 @@ class UiSettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Annuler',
+              context.l10n.cancel,
               style: TextStyle(color: context.primaryColor),
             ),
           ),

@@ -23,20 +23,40 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/date.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
-final navigationItems = {
-  "/WatchtowerHome": "Accueil",
-  "/Library": "Bibliothèque",
-  "/MangaLibrary": "Manga",
-  "/AnimeLibrary": "Watch",
-  "/NovelLibrary": "Novel",
-  "/MusicLibrary": "Music",
-  "/GameLibrary": "Games",
-  "/updates": "Updates",
-  "/history": "History",
-  "/browse": "Browse",
-  "/more": "More",
-  "/trackerLibrary": "Tracking",
+/// Dock/sidebar entries. Labels are resolved through [navigationItemLabel] so
+/// the reorder list renders in the active locale.
+const navigationItems = <String, String>{
+  "/WatchtowerHome": "home",
+  "/Library": "library",
+  "/MangaLibrary": "manga",
+  "/AnimeLibrary": "watch",
+  "/NovelLibrary": "novel",
+  "/MusicLibrary": "music",
+  "/GameLibrary": "games",
+  "/updates": "updates",
+  "/history": "history",
+  "/browse": "browse",
+  "/more": "more",
+  "/trackerLibrary": "tracking",
 };
+
+String navigationItemLabel(AppLocalizations l10n, String route) {
+  return switch (navigationItems[route]) {
+    'home' => l10n.nav_home,
+    'library' => l10n.library,
+    'manga' => l10n.manga,
+    'watch' => l10n.watch,
+    'novel' => l10n.novel,
+    'music' => l10n.catalog_tab_music,
+    'games' => l10n.catalog_tab_games,
+    'updates' => l10n.updates,
+    'history' => l10n.history,
+    'browse' => l10n.browse,
+    'more' => l10n.more,
+    'tracking' => l10n.tracking,
+    _ => route,
+  };
+}
 
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
@@ -52,12 +72,12 @@ class AppearanceScreen extends ConsumerWidget {
     final relativeTimestamps = ref.watch(relativeTimesTampsStateProvider);
     final appLanguage = ref.watch(appLanguageOverrideProvider);
     final localeLabel = appLanguage == null
-        ? 'Système (par défaut)'
+        ? l10n.appearance_display_system_default
         : (AppLanguageScreen.labels[appLanguage.languageCode] ??
               appLanguage.languageCode.toUpperCase());
 
     return SettingsSubpageScaffold(
-      title: 'Affichage',
+      title: l10n.appearance_display_title,
       slivers: [
         SliverToBoxAdapter(
           child: Column(
@@ -96,7 +116,7 @@ class AppearanceScreen extends ConsumerWidget {
               // ── Format de date ─────────────────────────────────────────
               ListTile(
                 leading: const Icon(Broken.calendar),
-                title: const Text('Format de date'),
+                title: Text(l10n.appearance_display_date_format),
                 subtitle: Text(
                   '$dateFormatState (${dateFormat(context: context, DateTime.now().millisecondsSinceEpoch.toString(), useRelativeTimesTamps: false, dateFormat: dateFormatState, ref: ref)})',
                   style: TextStyle(
@@ -112,7 +132,7 @@ class AppearanceScreen extends ConsumerWidget {
               // ── Durées relatives ───────────────────────────────────────
               ListTile(
                 leading: const Icon(Broken.timer),
-                title: const Text('Durées relatives'),
+                title: Text(l10n.appearance_display_relative_times),
                 subtitle: Text(
                   relativeTimestampsList(context)[relativeTimestamps],
                   style: TextStyle(
@@ -133,9 +153,7 @@ class AppearanceScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.image),
                 value: renderImages,
-                title: const Text(
-                  'Rendre les images dans les descriptions de mangas',
-                ),
+                title: Text(l10n.appearance_display_render_images),
                 onChanged: (v) =>
                     ref.read(renderDescriptionImagesProvider.notifier).set(v),
               ),
@@ -469,7 +487,7 @@ class _FontPickerDialogState extends State<_FontPickerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Police'),
+      title: Text(context.l10n.appearance_font_picker),
       content: SizedBox(
         width: double.maxFinite,
         height: 400,
@@ -477,9 +495,9 @@ class _FontPickerDialogState extends State<_FontPickerDialog> {
           children: [
             TextField(
               controller: _search,
-              decoration: const InputDecoration(
-                hintText: 'Rechercher une police…',
-                prefixIcon: Icon(Broken.search_normal),
+              decoration: InputDecoration(
+                hintText: context.l10n.appearance_font_search,
+                prefixIcon: const Icon(Broken.search_normal),
                 isDense: true,
               ),
             ),

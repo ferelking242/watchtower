@@ -7243,4 +7243,329 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get queue_pause => 'Pause';
+
+  @override
+  String get appearance_ui_title => 'Interface & Effets';
+
+  @override
+  String get appearance_ui_section_ui => 'UI & DÉCOUVERTE';
+
+  @override
+  String get appearance_ui_carousel_style => 'Style Carousel';
+
+  @override
+  String get appearance_ui_carousel_synopsis => 'Synopsis dans le Carousel';
+
+  @override
+  String get appearance_ui_carousel_synopsis_subtitle =>
+      'Afficher la description sous la bannière';
+
+  @override
+  String get appearance_ui_glow => 'Effets de Lueur';
+
+  @override
+  String get appearance_ui_glow_subtitle =>
+      'Ombres lumineuses sur les couvertures';
+
+  @override
+  String get appearance_ui_animated_bg => 'Fond animé (détail)';
+
+  @override
+  String get appearance_ui_animated_bg_subtitle =>
+      'Effet Ken Burns sur les bannières de la fiche';
+
+  @override
+  String get appearance_ui_petals => 'Fleurs qui tombent';
+
+  @override
+  String get appearance_ui_petals_subtitle =>
+      'Animation florale discrète sur les écrans';
+
+  @override
+  String get appearance_ui_section_blur => 'FLOU & VERRE';
+
+  @override
+  String get appearance_ui_frosted_header => 'En-tête givré';
+
+  @override
+  String get appearance_ui_frosted_header_subtitle =>
+      'Flou de l’en-tête pendant le défilement';
+
+  @override
+  String get appearance_ui_frosted_sheets => 'Feuilles givrées';
+
+  @override
+  String get appearance_ui_frosted_sheets_subtitle =>
+      'Flou du fond derrière les bottom sheets';
+
+  @override
+  String get appearance_ui_blur_intensity => 'Intensité du flou';
+
+  @override
+  String get appearance_ui_section_transitions => 'TRANSITIONS & ANIMATIONS';
+
+  @override
+  String get appearance_ui_transition_style => 'Style de transition';
+
+  @override
+  String get appearance_ui_carousel_classic => 'Classique';
+
+  @override
+  String get appearance_ui_carousel_cinematic => 'Cinématique';
+
+  @override
+  String get appearance_ui_carousel_compact => 'Compact';
+
+  @override
+  String get appearance_ui_transition_fade => 'Fondu';
+
+  @override
+  String get appearance_ui_transition_slide => 'Glissement';
+
+  @override
+  String get appearance_ui_transition_scale => 'Échelle';
+
+  @override
+  String get appearance_ui_transition_none => 'Aucun';
+
+  @override
+  String get appearance_display_title => 'Affichage';
+
+  @override
+  String get appearance_display_system_default => 'Système (par défaut)';
+
+  @override
+  String get appearance_display_date_format => 'Format de date';
+
+  @override
+  String get appearance_display_relative_times => 'Durées relatives';
+
+  @override
+  String get appearance_display_render_images =>
+      'Rendre les images dans les descriptions de mangas';
+
+  @override
+  String get appearance_font_picker => 'Police';
+
+  @override
+  String get appearance_font_search => 'Rechercher une police…';
+
+  @override
+  String get app_language_title => 'Langue de l’application';
+
+  @override
+  String get nav_home => 'Accueil';
+
+  @override
+  String get general_section_network => 'Réseau';
+
+  @override
+  String get general_disabled => 'Désactivé';
+
+  @override
+  String get general_close => 'Fermer';
+
+  @override
+  String get general_section_recommendations => 'Recommandations';
+
+  @override
+  String get general_recommendations_subtitle =>
+      'Algorithme, similarité et poids de pertinence';
+
+  @override
+  String get general_section_activity => 'Activité';
+
+  @override
+  String get general_system_default => 'Système par défaut';
+
+  @override
+  String get general_doh_subtitle =>
+      'Chiffre vos requêtes DNS pour empêcher votre opérateur ou réseau de voir les sites que vous visitez.';
+
+  @override
+  String get general_user_agent_hint =>
+      'Ouvre le site, copie ton User Agent, puis colle-le ci-dessus.';
+
+  @override
+  String get player_gestures_subtitle => 'Chercher, double tap, contrôles';
+
+  @override
+  String get player_subtitles_subtitle =>
+      'Langues préférées, liste blanche, liste noire';
+
+  @override
+  String get player_script_editor_subtitle =>
+      'Modifier et créer de nouveaux scripts et options de script';
+
+  @override
+  String get player_torrent_subtitle => 'TorrServer options';
+
+  @override
+  String get player_user_files_subtitle =>
+      'Scripts, shaders et polices personnalisés';
+
+  @override
+  String get player_script_editor_title => 'Éditeur de scripts';
+
+  @override
+  String get player_gestures_title => 'Gestes';
+
+  @override
+  String get player_double_tap_seek => 'Chercher par double-clic';
+
+  @override
+  String get player_double_tap_seek_subtitle =>
+      'Avance ou recule dans la vidéo en double-cliquant sur les côtés';
+
+  @override
+  String get player_double_tap_duration => 'Durée du double-clic';
+
+  @override
+  String player_seconds(Object count) {
+    return '$count secondes';
+  }
+
+  @override
+  String get player_swipe_gestures => 'Gestes de balayage';
+
+  @override
+  String get player_swipe_gestures_subtitle =>
+      'Balayage horizontal pour chercher, vertical pour le volume et la luminosité';
+
+  @override
+  String get player_gesture_overlay => 'Superposition des gestes';
+
+  @override
+  String get player_gesture_overlay_subtitle =>
+      'Affiche un aperçu pendant un geste';
+
+  @override
+  String get player_center_double_tap =>
+      'Double-clic au centre pour lecture/pause';
+
+  @override
+  String get player_subtitles_title => 'Sous-titres';
+
+  @override
+  String get player_preferred_languages => 'Langues préférées';
+
+  @override
+  String get player_whitelist => 'Liste blanche';
+
+  @override
+  String get player_whitelist_hint => 'Filtres à conserver';
+
+  @override
+  String get player_blacklist => 'Liste noire';
+
+  @override
+  String get player_blacklist_hint => 'Filtres à masquer';
+
+  @override
+  String get player_subtitle_text_size => 'Taille du texte';
+
+  @override
+  String get player_custom_buttons => 'Boutons personnalisés';
+
+  @override
+  String get player_custom_buttons_subtitle =>
+      'Créer et modifier des boutons exécutant du code lua';
+
+  @override
+  String get player_load_user_files => 'Charger les fichiers utilisateur';
+
+  @override
+  String get player_load_user_files_subtitle =>
+      'Exécute les scripts mpv placés dans le dossier utilisateur';
+
+  @override
+  String get player_scripts_folder => 'Dossier des scripts';
+
+  @override
+  String get player_not_defined => 'Non défini';
+
+  @override
+  String get player_not_configured => 'Non configuré';
+
+  @override
+  String get player_resume_last_position => 'Reprendre à la dernière position';
+
+  @override
+  String get player_resume_last_position_subtitle =>
+      'Reprend la lecture là où elle s’est arrêtée';
+
+  @override
+  String get player_ask_next_episode => 'Demander l’épisode suivant';
+
+  @override
+  String get player_ask_next_episode_subtitle =>
+      'Affiche une invite à la fin d’un épisode';
+
+  @override
+  String get player_lock_landscape =>
+      'Verrouille l’orientation en paysage pendant la lecture';
+
+  @override
+  String get player_decoder_mode => 'Mode de décodage';
+
+  @override
+  String get player_debanding => 'Désentrelacement';
+
+  @override
+  String get player_debanding_subtitle => 'Améliore les vidéos entrelacées';
+
+  @override
+  String get player_torrent_prebuffer =>
+      'Démarre la lecture dès que suffisamment de morceaux sont disponibles';
+
+  @override
+  String get player_keep_audio_channels => 'Conserver les canaux audio';
+
+  @override
+  String get player_keep_audio_channels_subtitle =>
+      'Ne pas réduire le mixage au stéréo';
+
+  @override
+  String get player_load_user_assets =>
+      'Charger les scripts, shaders et polices du dossier utilisateur';
+
+  @override
+  String get player_orientation_landscape => 'Orientation paysage';
+
+  @override
+  String get player_decoder_auto => 'Automatique';
+
+  @override
+  String get player_decoder_hw => 'Décodage matériel';
+
+  @override
+  String get player_decoder_sw => 'Décodage logiciel';
+
+  @override
+  String get settings_search_in_settings => 'Rechercher dans les paramètres…';
+
+  @override
+  String get settings_search_tooltip => 'Rechercher';
+
+  @override
+  String get settings_close_search => 'Fermer la recherche';
+
+  @override
+  String get settings_extensions_display => 'Affichage des extensions';
+
+  @override
+  String get settings_layout_list => 'Liste';
+
+  @override
+  String get settings_layout_grid => 'Grille';
+
+  @override
+  String get settings_layout_extended => 'Étendu';
+
+  @override
+  String get settings_remote_server => 'Serveur distant';
+
+  @override
+  String get settings_remote_server_subtitle =>
+      'Connecter votre appareil pour synchroniser la bibliothèque';
 }

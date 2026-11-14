@@ -20,6 +20,7 @@ class PlayerDecoderScreen extends ConsumerStatefulWidget {
 class _PlayerDecoderScreenState extends ConsumerState<PlayerDecoderScreen> {
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final enableHardwareAccel = ref.watch(enableHardwareAccelStateProvider);
     final hwdecMode = ref.watch(hwdecModeStateProvider(rawValue: true));
     final useGpuNext = ref.watch(useGpuNextStateProvider);
@@ -211,9 +212,9 @@ class _PlayerDecoderScreenState extends ConsumerState<PlayerDecoderScreen> {
             ),
             ListTile(
               leading: const Icon(Broken.cpu),
-              title: const Text('Mode de décodage'),
+              title: Text(l10n.player_decoder_mode),
               subtitle: Text(
-                decoderModeLabel(decoderMode),
+                decoderModeLabel(l10n, decoderMode),
                 style: TextStyle(fontSize: 11, color: context.secondaryColor),
               ),
               trailing: const Icon(Broken.arrow_right_2),
@@ -233,8 +234,8 @@ class _PlayerDecoderScreenState extends ConsumerState<PlayerDecoderScreen> {
                       children: kDecoderModeOptions
                           .map(
                             (o) => RadioListTile<String>(
-                              value: o.$1,
-                              title: Text(o.$2),
+                              value: o,
+                              title: Text(decoderModeLabel(l10n, o)),
                             ),
                           )
                           .toList(),
@@ -246,10 +247,8 @@ class _PlayerDecoderScreenState extends ConsumerState<PlayerDecoderScreen> {
             SwitchListTile(
               secondary: const Icon(Broken.video_square),
               value: deinterlace,
-              title: const Text('Désentrelacement'),
-              subtitle: const Text(
-                'Améliore les vidéos entrelacées',
-                style: TextStyle(fontSize: 11),
+              title: Text(l10n.player_debanding),
+              subtitle: Text(l10n.player_debanding_subtitle, style: TextStyle(fontSize: 11),
               ),
               onChanged: (value) {
                 ref.read(playerDeinterlaceProvider.notifier).set(value);

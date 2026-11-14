@@ -68,7 +68,7 @@ class BrowseSScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Affichage des extensions',
+                          context.l10n.settings_extensions_display,
                           style: TextStyle(
                             fontSize: 12,
                             color: context.secondaryColor,
@@ -76,21 +76,23 @@ class BrowseSScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         SegmentedButton<int>(
-                          segments: const [
+                          segments: [
                             ButtonSegment(
                               value: 0,
-                              icon: Icon(Broken.task, size: 18),
-                              label: Text('Liste'),
+                              icon: const Icon(Broken.task, size: 18),
+                              label: Text(context.l10n.settings_layout_list),
                             ),
                             ButtonSegment(
                               value: 1,
-                              icon: Icon(Broken.grid_2, size: 18),
-                              label: Text('Grille'),
+                              icon: const Icon(Broken.grid_2, size: 18),
+                              label: Text(context.l10n.settings_layout_grid),
                             ),
                             ButtonSegment(
                               value: 2,
-                              icon: Icon(Broken.category, size: 18),
-                              label: Text('Étendu'),
+                              icon: const Icon(Broken.category, size: 18),
+                              label: Text(
+                                context.l10n.settings_layout_extended,
+                              ),
                             ),
                           ],
                           selected: {extensionLayout},
@@ -114,9 +116,9 @@ class BrowseSScreen extends ConsumerWidget {
                     ListTile(
                       onTap: () => context.push('/remoteSetup'),
                       leading: const Icon(Broken.wifi_square),
-                      title: const Text('Serveur distant'),
+                      title: Text(context.l10n.settings_remote_server),
                       subtitle: Text(
-                        'Connecter votre appareil pour synchroniser la bibliothèque',
+                        context.l10n.settings_remote_server_subtitle,
                         style: TextStyle(
                           fontSize: 11,
                           color: context.secondaryColor,

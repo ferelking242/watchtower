@@ -1955,6 +1955,187 @@ SETTINGS_INDEX = [
     ("settings_idx_title_mode_distant", "Mode distant", "Mode distant"),
 ]
 
+# Appearance / UI sub-pages (Interface & Effets, Affichage, Langue).
+APPEARANCE_UI = [
+    ("appearance_ui_title", "Interface & Effects", "Interface & Effets"),
+    ("appearance_ui_section_ui", "UI & DISCOVERY", "UI & DÉCOUVERTE"),
+    ("appearance_ui_carousel_style", "Carousel style", "Style Carousel"),
+    ("appearance_ui_carousel_synopsis", "Synopsis in the carousel",
+     "Synopsis dans le Carousel"),
+    ("appearance_ui_carousel_synopsis_subtitle",
+     "Show the description under the banner",
+     "Afficher la description sous la bannière"),
+    ("appearance_ui_glow", "Glow effects", "Effets de Lueur"),
+    ("appearance_ui_glow_subtitle", "Bright shadows on the covers",
+     "Ombres lumineuses sur les couvertures"),
+    ("appearance_ui_animated_bg", "Animated background (detail)",
+     "Fond animé (détail)"),
+    ("appearance_ui_animated_bg_subtitle",
+     "Ken Burns effect on the detail banners",
+     "Effet Ken Burns sur les bannières de la fiche"),
+    ("appearance_ui_petals", "Falling petals", "Fleurs qui tombent"),
+    ("appearance_ui_petals_subtitle",
+     "Discreet floral animation on the screens",
+     "Animation florale discrète sur les écrans"),
+    ("appearance_ui_section_blur", "BLUR & GLASS", "FLOU & VERRE"),
+    ("appearance_ui_frosted_header", "Frosted header", "En-tête givré"),
+    ("appearance_ui_frosted_header_subtitle",
+     "Header blur while scrolling",
+     "Flou de l’en-tête pendant le défilement"),
+    ("appearance_ui_frosted_sheets", "Frosted sheets", "Feuilles givrées"),
+    ("appearance_ui_frosted_sheets_subtitle",
+     "Background blur behind bottom sheets",
+     "Flou du fond derrière les bottom sheets"),
+    ("appearance_ui_blur_intensity", "Blur intensity", "Intensité du flou"),
+    ("appearance_ui_section_transitions", "TRANSITIONS & ANIMATIONS",
+     "TRANSITIONS & ANIMATIONS"),
+    ("appearance_ui_transition_style", "Transition style",
+     "Style de transition"),
+    ("appearance_ui_carousel_classic", "Classic", "Classique"),
+    ("appearance_ui_carousel_cinematic", "Cinematic", "Cinématique"),
+    ("appearance_ui_carousel_compact", "Compact", "Compact"),
+    ("appearance_ui_transition_fade", "Fade", "Fondu"),
+    ("appearance_ui_transition_slide", "Slide", "Glissement"),
+    ("appearance_ui_transition_scale", "Scale", "Échelle"),
+    ("appearance_ui_transition_none", "None", "Aucun"),
+    ("appearance_display_title", "Display", "Affichage"),
+    ("appearance_display_system_default", "System (default)",
+     "Système (par défaut)"),
+    ("appearance_display_date_format", "Date format", "Format de date"),
+    ("appearance_display_relative_times", "Relative times",
+     "Durées relatives"),
+    ("appearance_display_render_images",
+     "Render images in manga descriptions",
+     "Rendre les images dans les descriptions de mangas"),
+    ("appearance_font_picker", "Font", "Police"),
+    ("appearance_font_search", "Search for a font…", "Rechercher une police…"),
+    ("app_language_title", "App language", "Langue de l’application"),
+    ("nav_home", "Home", "Accueil"),
+]
+# General settings sub-page (Réseau / Recommandations / Activité).
+GENERAL_SETTINGS = [
+    ("general_section_network", "Network", "Réseau"),
+    ("general_disabled", "Disabled", "Désactivé"),
+    ("general_close", "Close", "Fermer"),
+    ("general_section_recommendations", "Recommendations", "Recommandations"),
+    ("general_recommendations_subtitle",
+     "Algorithm, similarity and relevance weights",
+     "Algorithme, similarité et poids de pertinence"),
+    ("general_section_activity", "Activity", "Activité"),
+    ("general_system_default", "System default", "Système par défaut"),
+    ("general_doh_subtitle",
+     "Encrypts your DNS requests so your carrier or network cannot see the "
+     "sites you visit.",
+     "Chiffre vos requêtes DNS pour empêcher votre opérateur ou réseau de voir "
+     "les sites que vous visitez."),
+    ("general_user_agent_hint",
+     "Open the site, copy your User-Agent, then paste it above.",
+     "Ouvre le site, copie ton User Agent, puis colle-le ci-dessus."),
+]
+# Video player settings hub subtitles.
+PLAYER_SETTINGS = [
+    ("player_gestures_subtitle", "Seek, double tap, controls",
+     "Chercher, double tap, contrôles"),
+    ("player_subtitles_subtitle", "Preferred languages, whitelist, blacklist",
+     "Langues préférées, liste blanche, liste noire"),
+    ("player_script_editor_subtitle",
+     "Edit and create new scripts and script options",
+     "Modifier et créer de nouveaux scripts et options de script"),
+    ("player_torrent_subtitle", "TorrServer options", "TorrServer options"),
+    ("player_user_files_subtitle", "Custom scripts, shaders and fonts",
+     "Scripts, shaders et polices personnalisés"),
+    ("player_script_editor_title", "Script editor", "Éditeur de scripts"),
+]
+# Player gestures / subtitles / script editor sub-pages.
+PLAYER_DETAIL = [
+    ("player_gestures_title", "Gestures", "Gestes"),
+    ("player_double_tap_seek", "Double-tap to seek",
+     "Chercher par double-clic"),
+    ("player_double_tap_seek_subtitle",
+     "Fast-forward or rewind the video by double-tapping the sides",
+     "Avance ou recule dans la vidéo en double-cliquant sur les côtés"),
+    ("player_double_tap_duration", "Double-tap duration",
+     "Durée du double-clic"),
+    ("player_seconds", "{count} seconds", "{count} secondes"),
+    ("player_swipe_gestures", "Swipe gestures", "Gestes de balayage"),
+    ("player_swipe_gestures_subtitle",
+     "Horizontal swipe to seek, vertical for volume and brightness",
+     "Balayage horizontal pour chercher, vertical pour le volume et la "
+     "luminosité"),
+    ("player_gesture_overlay", "Gesture overlay", "Superposition des gestes"),
+    ("player_gesture_overlay_subtitle", "Shows a preview during a gesture",
+     "Affiche un aperçu pendant un geste"),
+    ("player_center_double_tap", "Double-tap centre for play/pause",
+     "Double-clic au centre pour lecture/pause"),
+    ("player_subtitles_title", "Subtitles", "Sous-titres"),
+    ("player_preferred_languages", "Preferred languages", "Langues préférées"),
+    ("player_whitelist", "Whitelist", "Liste blanche"),
+    ("player_whitelist_hint", "Filters to keep", "Filtres à conserver"),
+    ("player_blacklist", "Blacklist", "Liste noire"),
+    ("player_blacklist_hint", "Filters to hide", "Filtres à masquer"),
+    ("player_subtitle_text_size", "Text size", "Taille du texte"),
+    ("player_custom_buttons", "Custom buttons", "Boutons personnalisés"),
+    ("player_custom_buttons_subtitle",
+     "Create and edit buttons that run lua code",
+     "Créer et modifier des boutons exécutant du code lua"),
+    ("player_load_user_files", "Load user files",
+     "Charger les fichiers utilisateur"),
+    ("player_load_user_files_subtitle",
+     "Runs the mpv scripts placed in the user folder",
+     "Exécute les scripts mpv placés dans le dossier utilisateur"),
+    ("player_scripts_folder", "Scripts folder", "Dossier des scripts"),
+    ("player_not_defined", "Not set", "Non défini"),
+    ("player_not_configured", "Not configured", "Non configuré"),
+    ("player_resume_last_position", "Resume at the last position",
+     "Reprendre à la dernière position"),
+    ("player_resume_last_position_subtitle",
+     "Resumes playback where it stopped",
+     "Reprend la lecture là où elle s’est arrêtée"),
+    ("player_ask_next_episode", "Ask for the next episode",
+     "Demander l’épisode suivant"),
+    ("player_ask_next_episode_subtitle",
+     "Shows a prompt at the end of an episode",
+     "Affiche une invite à la fin d’un épisode"),
+    ("player_lock_landscape", "Lock landscape orientation while playing",
+     "Verrouille l’orientation en paysage pendant la lecture"),
+    ("player_decoder_mode", "Decoding mode", "Mode de décodage"),
+    ("player_debanding", "Debanding", "Désentrelacement"),
+    ("player_debanding_subtitle", "Improves interlaced videos",
+     "Améliore les vidéos entrelacées"),
+    ("player_torrent_prebuffer",
+     "Starts playback as soon as enough pieces are available",
+     "Démarre la lecture dès que suffisamment de morceaux sont disponibles"),
+    ("player_keep_audio_channels", "Keep audio channels",
+     "Conserver les canaux audio"),
+    ("player_keep_audio_channels_subtitle",
+     "Do not downmix to stereo", "Ne pas réduire le mixage au stéréo"),
+    ("player_load_user_assets",
+     "Load scripts, shaders and fonts from the user folder",
+     "Charger les scripts, shaders et polices du dossier utilisateur"),
+    ("player_orientation_landscape", "Landscape orientation",
+     "Orientation paysage"),
+    ("player_decoder_auto", "Automatic", "Automatique"),
+    ("player_decoder_hw", "Hardware decoding", "Décodage matériel"),
+    ("player_decoder_sw", "Software decoding", "Décodage logiciel"),
+]
+
+# Settings chrome: sub-page search bar and the browse display section.
+SETTINGS_CHROME = [
+    ("settings_search_in_settings", "Search in settings…",
+     "Rechercher dans les paramètres…"),
+    ("settings_search_tooltip", "Search", "Rechercher"),
+    ("settings_close_search", "Close search", "Fermer la recherche"),
+    ("settings_extensions_display", "Extensions display",
+     "Affichage des extensions"),
+    ("settings_layout_list", "List", "Liste"),
+    ("settings_layout_grid", "Grid", "Grille"),
+    ("settings_layout_extended", "Extended", "Étendu"),
+    ("settings_remote_server", "Remote server", "Serveur distant"),
+    ("settings_remote_server_subtitle",
+     "Connect your device to sync the library",
+     "Connecter votre appareil pour synchroniser la bibliothèque"),
+]
+
 PLURAL_KEY = "catalog_shelf_count"
 PLURAL_VALUE = "{count, plural, =1{{count} extension} other{{count} extensions}}"
 
@@ -2081,6 +2262,17 @@ en_entries += [(key, en) for key, en, _ in READER_SETTINGS]
 fr_entries += [(key, fr) for key, _, fr in READER_SETTINGS]
 en_entries += [(key, en) for key, en, _ in SETTINGS_HUB]
 fr_entries += [(key, fr) for key, _, fr in SETTINGS_HUB]
+en_entries += [(key, en) for key, en, _ in APPEARANCE_UI]
+fr_entries += [(key, fr) for key, _, fr in APPEARANCE_UI]
+en_entries += [(key, en) for key, en, _ in GENERAL_SETTINGS]
+fr_entries += [(key, fr) for key, _, fr in GENERAL_SETTINGS]
+en_entries += [(key, en) for key, en, _ in PLAYER_SETTINGS]
+fr_entries += [(key, fr) for key, _, fr in PLAYER_SETTINGS]
+en_entries += [(key, en) for key, en, _ in PLAYER_DETAIL]
+fr_entries += [(key, fr) for key, _, fr in PLAYER_DETAIL]
+en_entries += [(key, en) for key, en, _ in SETTINGS_CHROME]
+fr_entries += [(key, fr) for key, _, fr in SETTINGS_CHROME]
+fr_entries += [(key, fr) for key, _, fr in APPEARANCE_UI]
 en_entries += [(key, en) for key, en, _ in SETTINGS_INDEX]
 fr_entries += [(key, fr) for key, _, fr in SETTINGS_INDEX]
 en_entries += [(key, en) for key, en, _ in DOWNLOADS_EXTRA]
