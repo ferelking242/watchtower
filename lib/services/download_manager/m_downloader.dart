@@ -1,6 +1,7 @@
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'dart:async';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/page.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -8,6 +9,7 @@ import 'package:watchtower/services/http/rhttp/src/model/settings.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m3u8/models/download.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
 
@@ -37,6 +39,12 @@ class MDownloader {
     this.shouldCancel,
     this.concurrentDownloads = 1,
   });
+
+  /// Item type drives progress rendering; the chapter may arrive with an
+  /// unloaded IsarLink, so resolve it (falling back to the manga default)
+  /// instead of dereferencing `chapter.manga.value!`.
+  ItemType get _itemType =>
+      resolveChapterManga(chapter)?.itemType ?? ItemType.manga;
 
   void _log(String message) {
     AppLogger.log(
@@ -158,7 +166,7 @@ class MDownloader {
       taskId: taskId,
       pageUrls: pageUrls,
       concurrentDownloads: concurrentDownloads,
-      itemType: chapter.manga.value!.itemType,
+      itemType: _itemType,
       writeMode: DownloadSettingsService.instance.downloadWriteMode,
       speedLimitKBs: DownloadSettingsService.instance.speedLimitKBs,
       onProgress: (progress) {

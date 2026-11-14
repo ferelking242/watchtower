@@ -26,6 +26,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_html_content.dart';
 import 'package:watchtower/src/rust/api/epub.dart';
 import 'package:watchtower/utils/extensions/dom_extensions.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -129,7 +130,7 @@ class _NovelWebViewState extends ConsumerState<NovelWebView>
     }
   }
 
-  late Chapter chapter = widget.chapter;
+  late Chapter chapter = attachChapterManga(widget.chapter);
   EpubNovel? epubBook;
 
   final StreamController<double> _rebuildDetail =

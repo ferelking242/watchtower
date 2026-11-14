@@ -4,6 +4,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/watch/detail/watch_detail_view.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Entry point kept for the `animePlayerView` route and the WebView
@@ -37,11 +38,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
   Future<void> _resolve() async {
     try {
       final chapter = isar.chapters.getSync(widget.episodeId);
-      Manga? manga = chapter?.manga.value;
-      if (chapter != null && manga == null) {
-        await chapter.manga.load();
-        manga = chapter.manga.value;
-      }
+      final manga = chapter == null ? null : resolveChapterManga(chapter);
       if (!mounted) return;
       setState(() {
         _manga = manga;

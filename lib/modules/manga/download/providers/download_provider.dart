@@ -50,6 +50,7 @@ import 'package:watchtower/services/download_manager/engines/zeus_engine.dart';
 import 'package:watchtower/services/download_manager/engines/zeus_runtime.dart';
 import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/services/download_manager/speed_meter.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
@@ -578,88 +579,6 @@ String _actualDurationLabel(Duration duration) {
   final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
   final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
   return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
-}
-
-/// Resolve (and persist) the manga owning [chapter] as safely as possible.
-///
-/// Root cause of "le téléchargement ne démarre pas" : un chapitre chargé
-/// directement depuis Isar peut avoir son `IsarLink<Manga>` NON chargé
-/// (`chapter.manga.value == null`). L'ancien code lançait alors
-/// `StateError('chapter.manga not loaded')`, le téléchargement échouait
-/// immédiatement, l'entrée passait en `failed` et disparaissait du
-/// gestionnaire.
-///
-/// On répare ici : on charge le lien si besoin, et on retombe sur
-/// `mangaId` (champ dénormalisé, jamais effacé) en dernier recours.
-Manga resolveChapterManga(Chapter chapter) {
-  Manga? manga = chapter.manga.value;
-  if (manga == null) {
-    if (!chapter.manga.isLoaded) {
-      try {
-        chapter.manga.loadSync();
-      } catch (_) {
-        // Lien absent en base : on tentera le mangaId juste après.
-      }
-      manga = chapter.manga.value;
-    }
-    if (manga == null && chapter.mangaId != null) {
-      try {
-        manga = isar.mangas.getSync(chapter.mangaId!);
-        if (manga != null) {
-          // Re-attache le lien pour les écritures suivantes (et pour l'UI).
-          chapter.manga.value = manga;
-        }
-      } catch (_) {
-        // Manga corrompu / migration non jouée : on laisse null, le caller
-        // (``downloadChapter``) attrape le StateError et markera failed.
-      }
-    }
-  }
-  if (manga == null) {
-    throw StateError(
-      'Manga introuvable pour chapterId=${chapter.id} '
-      '(mangaId=${chapter.mangaId}) — téléchargement impossible.',
-    );
-  }
-  return manga;
-}
-
-/// Garantit que le manga associé au chapitre est lisible avant la mise en file.
-///
-/// Les liens Isar peuvent être absents ou corrompus dans d'anciennes bases.
-/// On essaie le lien puis le mangaId de secours, en transformant les erreurs
-/// de désérialisation en message exploitable au lieu de les laisser remonter
-/// sous forme de RangeError générique.
-void ensureChapterLinksLoaded(Chapter chapter) {
-  Object? linkError;
-  Manga? manga;
-  try {
-    manga = chapter.manga.value;
-    if (manga == null && !chapter.manga.isLoaded) {
-      chapter.manga.loadSync();
-      manga = chapter.manga.value;
-    }
-  } catch (error) {
-    linkError = error;
-  }
-  if (manga == null && chapter.mangaId != null) {
-    try {
-      manga = isar.mangas.getSync(chapter.mangaId!);
-      if (manga != null) {
-        chapter.manga.value = manga;
-      }
-    } catch (error) {
-      linkError = error;
-      manga = null;
-    }
-  }
-  if (manga == null) {
-    final detail = linkError == null ? '' : ': $linkError';
-    throw StateError(
-      'Impossible de lire le manga lié au chapitre '
-      '(chapterId=${chapter.id}, mangaId=${chapter.mangaId})$detail',
-    );
-  }
 }
 
 /// User-chosen quality label (normalized via [_normalizeQuality]), keyed by
@@ -1296,15 +1215,13 @@ Future<void> downloadChapter(
     List<PageUrl> pages = [];
     final StorageProvider storageProvider = StorageProvider();
     // Résolution robuste du manga EN PREMIER : `getMangaMainDirectory()` fait
-    // `chapter.manga.value!` et levait donc un "Null check operator used on a
-    // null value" (→ téléchargement marqué en échec avant même de commencer)
-    // quand le lien Isar n'était pas chargé. resolveChapterManga() charge le
-    // lien et retombe sur mangaId si nécessaire.
-    Manga manga;
-    try {
-      manga = resolveChapterManga(chapter);
-    } on StateError catch (e) {
-      log('[downloadChapter] cannot resolve manga: $e');
+    // `resolveChapterManga()` et levait auparavant un "Null check operator used
+    // on a null value" (→ téléchargement marqué en échec avant même de
+    // commencer) quand le lien Isar n'était pas chargé.
+    final manga = resolveChapterManga(chapter);
+    if (manga == null) {
+      log('[downloadChapter] cannot resolve manga for chapter ${chapter.id} '
+          '(mangaId=${chapter.mangaId})');
       _notifyDownloadFailure('Manga introuvable pour ce chapitre.');
       if (chapter.id != null) {
         unawaited(
@@ -1931,8 +1848,9 @@ Future<void> downloadChapter(
       final chapterTitle = chapter.name?.trim().isNotEmpty == true
           ? chapter.name!.trim()
           : 'Téléchargement';
-      final seriesTitle = chapter.manga.value?.name?.trim().isNotEmpty == true
-          ? chapter.manga.value!.name!.trim()
+      final chapterManga = resolveChapterManga(chapter);
+      final seriesTitle = chapterManga?.name?.trim().isNotEmpty == true
+          ? chapterManga!.name!.trim()
           : chapterTitle;
       final notificationTitle = seriesTitle;
       if (!skipFrequentMangaByteEffects && progress.itemType == ItemType.anime) {

@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/more/settings/reader/providers/reader_state_provider.dart';
 import 'package:watchtower/modules/widgets/custom_extended_image_provider.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:path/path.dart' as p;
@@ -128,30 +129,35 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
     final isLocale = data.isLocale!;
     final archiveImage = data.archiveImage;
     final cropBorders = ref.watch(cropBordersStateProvider);
-    return cropBorders && data.cropImage != null
-        ? ExtendedMemoryImageProvider(data.cropImage!)
-        : (isLocale
-                  ? archiveImage != null
-                        ? ExtendedMemoryImageProvider(archiveImage)
-                        : ExtendedFileImageProvider(
-                            _localIoFile(
-                              p.join(
-                                data.directory!.path,
-                                "${padIndex(data.index!)}.jpg",
-                              ),
-                            ),
-                          )
-                  : buildNetworkImageProvider(
-                      showCloudFlareError: showCloudFlareError,
-                      headers: ref.watch(
-                        headersProvider(
-                          source: data.chapter!.manga.value!.source!,
-                          lang: data.chapter!.manga.value!.lang!,
-                          sourceId: data.chapter!.manga.value!.sourceId,
-                        ),
-                      ),
-                    ))
-              as ImageProvider<Object>;
+    final chapterManga = data.chapter == null
+        ? null
+        : resolveChapterManga(data.chapter!);
+    if (cropBorders && data.cropImage != null) {
+      return ExtendedMemoryImageProvider(data.cropImage!);
+    }
+    if (isLocale) {
+      if (archiveImage != null) return ExtendedMemoryImageProvider(archiveImage);
+      return ExtendedFileImageProvider(
+        _localIoFile(
+          p.join(data.directory!.path, "${padIndex(data.index!)}.jpg"),
+        ),
+      );
+    }
+    // Remote page: the headers provider needs the owning title's source. When
+    // the link is missing we fall back to the plain provider (no custom
+    // headers) rather than crashing on the `!` dereference.
+    return chapterManga == null
+        ? buildNetworkImageProvider(showCloudFlareError: showCloudFlareError)
+        : buildNetworkImageProvider(
+            showCloudFlareError: showCloudFlareError,
+            headers: ref.watch(
+              headersProvider(
+                source: chapterManga.source!,
+                lang: chapterManga.lang!,
+                sourceId: chapterManga.sourceId,
+              ),
+            ),
+          );
   }
 }
 

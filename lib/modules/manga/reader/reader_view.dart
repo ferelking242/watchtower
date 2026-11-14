@@ -32,6 +32,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/reader/image_view_paged.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
@@ -293,7 +294,7 @@ class _MangaChapterPageGalleryState
   late final _autoScrollPage = ValueNotifier(_autoScroll.value);
   late GetChapterPagesModel _chapterUrlModel = widget.chapterUrlModel;
 
-  late Chapter chapter = widget.chapter;
+  late Chapter chapter = attachChapterManga(widget.chapter);
 
   final _failedToLoadImage = ValueNotifier<bool>(false);
 

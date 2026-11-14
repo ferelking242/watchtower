@@ -3,6 +3,7 @@ import 'dart:io'
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:watchtower/models/chapter.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/anti_bot/browser_fetch.dart';
@@ -15,6 +16,7 @@ import 'package:watchtower/services/download_manager/m3u8/ffmpeg_merge_service.d
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:path/path.dart' as path;
@@ -60,6 +62,12 @@ class M3u8Downloader {
     this.sourceId,
     this.mergeRunner,
   });
+
+  /// Item type drives progress rendering; the chapter may arrive with an
+  /// unloaded IsarLink, so resolve it (falling back to the manga default)
+  /// instead of dereferencing `chapter.manga.value!`.
+  ItemType get _itemType =>
+      resolveChapterManga(chapter)?.itemType ?? ItemType.manga;
 
   void _log(String message) {
     AppLogger.log(
@@ -182,7 +190,7 @@ class M3u8Downloader {
           DownloadProgress(
             completedSegments,
             tsList.length,
-            chapter.manga.value!.itemType,
+            _itemType,
             downloadedBytes: downloadedBytes,
           ),
         );
@@ -335,7 +343,7 @@ class M3u8Downloader {
       initialDownloadedBytes: initialDownloadedBytes,
       concurrentDownloads: concurrentDownloads,
       headers: _buildEffectiveHeaders(),
-      itemType: chapter.manga.value!.itemType,
+      itemType: _itemType,
       sourceId: sourceId,
       writeMode: DownloadSettingsService.instance.downloadWriteMode,
       speedLimitKBs: DownloadSettingsService.instance.speedLimitKBs,
@@ -430,7 +438,7 @@ class M3u8Downloader {
     // segment count) and the download looks stalled. The event carries no
     // counters: it must not overwrite the stored transfer totals.
     onProgress(
-      DownloadProgress(0, 0, chapter.manga.value!.itemType, isMerging: true),
+      DownloadProgress(0, 0, _itemType, isMerging: true),
     );
     try {
       await _mergeTsToMp4(outputFile, tempDir);
@@ -452,7 +460,7 @@ class M3u8Downloader {
         DownloadProgress(
           1,
           1,
-          chapter.manga.value!.itemType,
+          _itemType,
           isCompleted: true,
           downloadedBytes: actualBytes,
           totalBytes: actualBytes,

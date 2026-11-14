@@ -10,6 +10,7 @@ import 'package:watchtower/services/download_manager/download_isolate_pool.dart'
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/download_manager/media_file_name.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:path/path.dart' as p;
 
@@ -21,7 +22,8 @@ extension ChapterExtension on Chapter {
     if (ignoreIsRead || !isRead!) {
       await pushMangaReaderView(context: context, chapter: this);
     } else {
-      final filteredChaps = manga.value!.getFilteredChapterList();
+      final filteredChaps =
+          resolveChapterManga(this)?.getFilteredChapterList() ?? [];
       bool exist = false;
       for (var filteredChap in filteredChaps.reversed) {
         if (filteredChap.toJson().toString() == toJson().toString()) {

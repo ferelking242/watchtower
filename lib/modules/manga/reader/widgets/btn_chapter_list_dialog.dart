@@ -7,6 +7,7 @@ import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
 import 'package:watchtower/modules/manga/reader/reader_view.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/date.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
@@ -111,7 +112,8 @@ class ChapterListWidget extends StatefulWidget {
 
 class _ChapterListWidgetState extends State<ChapterListWidget> {
   final controller = ScrollController();
-  late final chapterList = widget.chapter.manga.value!.getFilteredChapterList();
+  late final chapterList =
+      resolveChapterManga(widget.chapter)?.getFilteredChapterList() ?? [];
   late final currentChapIndex = chapterList.indexWhere(
     (element) =>
         element.name == widget.chapter.name &&
@@ -188,7 +190,7 @@ class ChapterListTile extends StatefulWidget {
 }
 
 class _ChapterListTileState extends State<ChapterListTile> {
-  late final chapter = widget.chapter;
+  late final chapter = attachChapterManga(widget.chapter);
   late bool isBookmarked = chapter.isBookmarked!;
   @override
   Widget build(BuildContext context) {

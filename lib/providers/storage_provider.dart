@@ -21,6 +21,7 @@ import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_file_cache.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
@@ -341,11 +342,13 @@ class StorageProvider {
   }
 
   Future<Directory?> getMangaMainDirectory(Chapter chapter) async {
-    final manga = chapter.manga.value!;
+    final manga = resolveChapterManga(chapter);
+    if (manga == null) return null;
     final dir = await getDirectory();
+    if (dir == null) return null;
     return Directory(
       path.join(
-        dir!.path,
+        dir.path,
         'download',
         '${manga.source} (${manga.lang!.toUpperCase()})',
         manga.name!.replaceForbiddenCharacters('_'),
@@ -358,6 +361,7 @@ class StorageProvider {
     Directory? mangaMainDirectory,
   }) async {
     final basedir = mangaMainDirectory ?? await getMangaMainDirectory(chapter);
+    if (basedir == null) return null;
     String scanlator = chapter.scanlator?.isNotEmpty ?? false
         ? "${chapter.scanlator!.replaceForbiddenCharacters('_')}_"
         : "";
@@ -369,7 +373,7 @@ class StorageProvider {
     final folderName = title.isNotEmpty
         ? title
         : 'chapter_${chapter.id ?? 'unknown'}';
-    return Directory(path.join(basedir!.path, scanlator + folderName));
+    return Directory(path.join(basedir.path, scanlator + folderName));
   }
 
   Future<Directory?> getDatabaseDirectory() async {

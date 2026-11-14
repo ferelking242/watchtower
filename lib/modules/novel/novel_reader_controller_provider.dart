@@ -5,6 +5,7 @@ import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'novel_reader_controller_provider.g.dart';
@@ -15,7 +16,13 @@ class NovelReaderController extends _$NovelReaderController {
   void build({required Chapter chapter}) {}
 
   Manga getManga() {
-    return chapter.manga.value!;
+    final manga = resolveChapterManga(chapter);
+    if (manga == null) {
+      throw StateError(
+        'Chapter ${chapter.id} has no linked title (mangaId=${chapter.mangaId})',
+      );
+    }
+    return manga;
   }
 
   Chapter geChapter() {
@@ -67,8 +74,9 @@ class NovelReaderController extends _$NovelReaderController {
   void setMangaHistoryUpdate({int readingTimeSeconds = 0}) {
     if (incognitoMode) return;
     isar.writeTxnSync(() {
-      Manga? manga = chapter.manga.value;
-      manga!.lastRead = DateTime.now().millisecondsSinceEpoch;
+      final manga = resolveChapterManga(chapter);
+      if (manga == null) return;
+      manga.lastRead = DateTime.now().millisecondsSinceEpoch;
       manga.updatedAt = DateTime.now().millisecondsSinceEpoch;
       isar.mangas.putSync(manga);
     });

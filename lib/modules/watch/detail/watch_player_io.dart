@@ -34,6 +34,7 @@ import 'package:watchtower/services/hls_adaptive_quality.dart';
 import 'package:watchtower/services/player_codec_error.dart';
 import 'package:watchtower/services/downloaded_video_preference.dart'
     as downloaded_video_preference;
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
 import 'package:cached_network_image/cached_network_image.dart';

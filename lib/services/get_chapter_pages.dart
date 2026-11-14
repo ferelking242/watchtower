@@ -21,6 +21,7 @@ import 'package:watchtower/utils/concurrency.dart';
 import 'package:watchtower/utils/reg_exp_matcher.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'get_chapter_pages.g.dart';
 
@@ -46,7 +47,7 @@ Future<GetChapterPagesModel> getChapterPages(
 }) async {
   final keepAlive = ref.keepAlive();
 
-  final chManga = chapter.manga.value;
+  final chManga = resolveChapterManga(chapter);
   final srcLabel =
       '${chManga?.source ?? "?"}[${chManga?.lang ?? "?"}]';
   final chLabel = 'ch:${chapter.id}';

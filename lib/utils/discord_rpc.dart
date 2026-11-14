@@ -2,6 +2,7 @@ import 'package:flutter_discord_rpc_fork/flutter_discord_rpc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 
@@ -79,12 +80,14 @@ class DiscordRPC {
   }
 
   Future<void> showChapterDetails(WidgetRef ref, Chapter chapter) async {
-    final status = chapter.manga.value!.itemType == ItemType.anime
+    final manga = resolveChapterManga(chapter);
+    if (manga == null) return;
+    final status = manga.itemType == ItemType.anime
         ? "Watching"
         : "Reading";
-    final title = chapter.manga.value!.name;
+    final title = manga.name;
     final chapterTitle = chapter.name;
-    final imageUrl = chapter.manga.value!.imageUrl;
+    final imageUrl = manga.imageUrl;
     final rpcShowTitle = ref.read(rpcShowTitleStateProvider);
     final rpcShowCoverImage = ref.read(rpcShowCoverImageStateProvider);
     await updateActivity(
@@ -96,7 +99,7 @@ class DiscordRPC {
           rpcShowCoverImage && imageUrl != null && imageUrl.startsWith("http")
           ? RPCAssets(
               largeImage: imageUrl,
-              largeText: rpcShowTitle ? chapter.manga.value!.name : "-----",
+              largeText: rpcShowTitle ? manga.name : "-----",
               smallImage: "app-icon",
               smallText: "Watchtower",
             )

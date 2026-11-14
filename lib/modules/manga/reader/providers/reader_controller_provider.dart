@@ -14,6 +14,7 @@ import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/modules/more/settings/track/providers/track_providers.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/chapter_recognition.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -57,7 +58,13 @@ class ReaderController extends _$ReaderController {
   void close() {}
 
   Manga getManga() {
-    return chapter.manga.value!;
+    final manga = resolveChapterManga(chapter);
+    if (manga == null) {
+      throw StateError(
+        'Chapter ${chapter.id} has no linked title (mangaId=${chapter.mangaId})',
+      );
+    }
+    return manga;
   }
 
   Chapter geChapter() {
@@ -436,7 +443,8 @@ extension ChapterExtensions on Chapter {
       updateProgressAfterReadingStateProvider,
     );
     if (!updateProgressAfterReading) return;
-    final manga = this.manga.value!;
+    final manga = resolveChapterManga(this);
+    if (manga == null) return;
     final chapterNumber = ChapterRecognition().parseChapterNumber(
       manga.name!,
       name!,

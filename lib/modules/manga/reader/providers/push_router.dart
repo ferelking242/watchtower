@@ -5,12 +5,13 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 
 Future<void> pushMangaReaderView({
   required BuildContext context,
   required Chapter chapter,
 }) async {
-  final chManga = chapter.manga.value;
+  final chManga = resolveChapterManga(chapter);
   if (chManga == null) return;
   final sourceExist = isar.sources
       .filter()
@@ -49,7 +50,7 @@ void pushReplacementMangaReaderView({
   required BuildContext context,
   required Chapter chapter,
 }) {
-  final chManga = chapter.manga.value;
+  final chManga = resolveChapterManga(chapter);
   if (chManga == null) return;
   switch (chManga.itemType) {
     case ItemType.manga:

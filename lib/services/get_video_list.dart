@@ -2,9 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:flutter/foundation.dart';
-import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
-import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/browse/extension/providers/extension_preferences_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
@@ -17,6 +15,7 @@ import 'package:watchtower/services/hls_variant_resolver.dart';
 import 'package:watchtower/services/youtube_watch_resolver.dart';
 import 'package:watchtower/services/torrent_server.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -33,7 +32,7 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
   (List<Video>, bool, List<String>, Directory?) result;
   final keepAlive = ref.keepAlive();
 
-  final epManga = _resolveEpisodeManga(episode);
+  final epManga = resolveChapterManga(episode);
   final srcLabel =
       '${epManga?.source ?? "?"}[${epManga?.lang ?? "?"}]';
   final epLabel = 'ep:${episode.id}';
@@ -133,21 +132,26 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
     final isLocalArchive =
         (epManga.isLocalArchive ?? false) &&
         epManga.source != "torrent";
-    final mp4animePath = p.join(
-      mangaDirectory!.path,
-      "${episode.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
-    );
+    // Without a resolvable title there is no download folder to look in; skip
+    // the on-disk check rather than crashing on a null path.
+    final mp4animePath = mangaDirectory == null
+        ? null
+        : p.join(
+            mangaDirectory.path,
+            "${episode.name!.replaceForbiddenCharacters(' ').truncateToBytes(kMaxDownloadNameBytes)}.mp4",
+          );
     List<String> infoHashes = [];
 
     // ── Local file path — no extension call needed ────────────────────────
-    if (await File(mp4animePath).exists() || isLocalArchive) {
+    if ((mp4animePath != null && await File(mp4animePath).exists()) ||
+        isLocalArchive) {
       AppLogger.log(
         '[$epLabel] getVideoList LOCAL FILE  path=${isLocalArchive ? episode.archivePath : mp4animePath}',
         logLevel: LogLevel.debug,
         tag: LogTag.watch,
       );
       final animeDir =
-          episode.archivePath != null && episode.manga.value?.source == "local"
+          episode.archivePath != null && epManga.source == "local"
           ? Directory(p.dirname(episode.archivePath!))
           : null;
       final chapterDirectory = (await storageProvider.getMangaChapterDirectory(
@@ -155,33 +159,42 @@ Future<(List<Video>, bool, List<String>, Directory?)> getVideoList(
         mangaMainDirectory: animeDir ?? mangaDirectory,
       ))!;
       final path = isLocalArchive ? episode.archivePath : mp4animePath;
-      final subtitlesDir = Directory(
-        p.join('${chapterDirectory.path}_subtitles'),
-      );
-      List<Track> subtitles = [];
-      if (subtitlesDir.existsSync()) {
-        for (var element in subtitlesDir.listSync()) {
-          if (element is File) {
-            final subtitle = Track(
-              label: element.uri.pathSegments.last.replaceAll('.srt', ''),
-              file: element.uri.toString(),
-            );
-            subtitles.add(subtitle);
+      if (path == null) {
+        AppLogger.log(
+          '[$epLabel] getVideoList local archive has no resolvable path, '
+          'falling through to the extension',
+          logLevel: LogLevel.warning,
+          tag: LogTag.watch,
+        );
+      } else {
+        final subtitlesDir = Directory(
+          p.join('${chapterDirectory.path}_subtitles'),
+        );
+        List<Track> subtitles = [];
+        if (subtitlesDir.existsSync()) {
+          for (var element in subtitlesDir.listSync()) {
+            if (element is File) {
+              final subtitle = Track(
+                label: element.uri.pathSegments.last.replaceAll('.srt', ''),
+                file: element.uri.toString(),
+              );
+              subtitles.add(subtitle);
+            }
           }
         }
+        AppLogger.log(
+          '[$epLabel] getVideoList DONE (local)  subtitles=${subtitles.length}',
+          logLevel: LogLevel.info,
+          tag: LogTag.watch,
+        );
+        keepAlive.close();
+        return (
+          [Video(path, episode.name!, path, subtitles: subtitles)],
+          true,
+          infoHashes,
+          mpvDirectory,
+        );
       }
-      AppLogger.log(
-        '[$epLabel] getVideoList DONE (local)  subtitles=${subtitles.length}',
-        logLevel: LogLevel.info,
-        tag: LogTag.watch,
-      );
-      keepAlive.close();
-      return (
-        [Video(path!, episode.name!, path, subtitles: subtitles)],
-        true,
-        infoHashes,
-        mpvDirectory,
-      );
     }
 
     // ── WebView-intercepted URL — play directly, no extension needed ──────────
@@ -470,28 +483,6 @@ Future<String?> _fetchHlsPlaylistViaBrowser(
   } catch (_) {
     return null;
   }
-}
-
-/// The manga (watch title) linked to [episode], tolerating an unloaded or
-/// dangling IsarLink.
-///
-/// `episode.manga.value` is only populated when the link has been loaded, and
-/// the watch detail screen gets its episodes from the `getChaptersStream`
-/// query (which does not load the link). Relying on `.value` alone therefore
-/// threw "Episode has no linked manga" and the player found no stream at all.
-/// Fall back to `mangaId` (always set, never cleared) so playback works.
-Manga? _resolveEpisodeManga(Chapter episode) {
-  var manga = episode.manga.value;
-  if (manga == null && !episode.manga.isLoaded) {
-    try {
-      episode.manga.loadSync();
-      manga = episode.manga.value;
-    } catch (_) {}
-  }
-  if (manga == null && episode.mangaId != null) {
-    manga = isar.mangas.getSync(episode.mangaId!);
-  }
-  return manga;
 }
 
 List<Video> _applySourcePreferences(Source? source, List<Video> videos) {

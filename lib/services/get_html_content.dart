@@ -7,6 +7,7 @@ import 'package:watchtower/eval/lib.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
+import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 part 'get_html_content.g.dart';
@@ -75,14 +76,20 @@ Future<(String, EpubNovel?)> getHtmlContent(
         // (which may be unavailable or attempt another request) to open it.
         result = (_buildHtml(_unwrapHtmlEnvelope(htmlContent)), null);
       } else {
+        final chapterManga = resolveChapterManga(chapter);
+        if (chapterManga == null) {
+          throw StateError(
+            'Chapter ${chapter.id} has no linked title (mangaId=${chapter.mangaId})',
+          );
+        }
         final source = getSource(
-          chapter.manga.value!.lang!,
-          chapter.manga.value!.source!,
-          chapter.manga.value!.sourceId,
+          chapterManga.lang!,
+          chapterManga.source!,
+          chapterManga.sourceId,
         )!;
         final html = await withExtensionService(source, (service) async {
           return await service.getHtmlContent(
-            chapter.manga.value!.name!,
+            chapterManga.name!,
             chapter.url!,
           );
         });
