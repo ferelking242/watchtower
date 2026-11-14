@@ -1,7 +1,13 @@
 # ──────────────────────────────────────────────────────────────────────
-# CI Template for Watchtower Music Plugins
+# CI Template for standalone Watchtower Music Plugins
 # ──────────────────────────────────────────────────────────────────────
-# Copy this file to each plugin repo at .github/workflows/build.yml
+# Watchtower's OWN plugins are consolidated in a single repository
+# (ferelking242/watchtower-extensions) and built by its build-plugins.yml;
+# this template is for THIRD-PARTY authors who publish one plugin per repo.
+# Copy it to <your-plugin-repo>/.github/workflows/build.yml.
+#
+# Expects the repo to expose `make compile` and `make archive` (see the
+# plugin-sources/<name>/Makefile in watchtower-extensions for a reference).
 #
 # Triggers:
 #   - Push a v* tag → builds and creates a GitHub Release
