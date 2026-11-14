@@ -115,11 +115,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: rust-android-${{ matrix.label }}-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
-          restore-keys: rust-android-${{ matrix.label }}-${{ runner.os }}-
-
+            build/rust_lib_watchtower
+          key: rust-android-multi-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: rust-android-multi-${{ runner.os }}-
       - name: Decode keystore from secret
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
@@ -263,11 +261,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: rust-android-universal-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
-          restore-keys: rust-android-universal-${{ runner.os }}-
-
+            build/rust_lib_watchtower
+          key: rust-android-multi-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: rust-android-multi-${{ runner.os }}-
       - name: Decode keystore from secret
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore
@@ -356,9 +352,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: rust-linux-x64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+            build/linux/x64/release/plugins/rust_lib_watchtower/cargokit_build
+          key: rust-linux-x64-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
           restore-keys: rust-linux-x64-${{ runner.os }}-
 
       # The hosted runner intermittently fails to resolve the apt mirror
@@ -712,11 +707,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: rust-windows-x64-${{ runner.os }}-${{ hashFiles('rust/Cargo.lock', 'rust_builder/Cargo.lock', '**/Cargo.toml') }}
+            build/windows/x64/plugins/rust_lib_watchtower/cargokit_build
+          key: rust-windows-x64-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
           restore-keys: rust-windows-x64-${{ runner.os }}-
-
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
@@ -778,11 +771,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: cargo-ios-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: cargo-ios-${{ runner.os }}-
-
+            build/ios/derived/Build/Intermediates.noindex/Pods.build
+          key: rust-macos-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: rust-macos-${{ runner.os }}-
       - name: Cache pub
         uses: actions/cache@v5
         with:
@@ -1205,11 +1196,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: rust-android-tv-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
-          restore-keys: rust-android-tv-${{ runner.os }}-
-
+            build/rust_lib_watchtower
+          key: rust-android-multi-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: rust-android-multi-${{ runner.os }}-
       - name: Decode keystore from secret
         run: |
           echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > android/app/watchtower-debug.keystore

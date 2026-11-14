@@ -8,13 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/extension_catalog_notifications.dart';
+import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -892,7 +892,7 @@ class WatchtowerNotificationService {
     if (!_initialized) await init();
     try {
       final info = await PackageInfo.fromPlatform();
-      final res = await http
+      final res = await MClient.init(reqcopyWith: {'useDartHttpClient': true})
           .get(
             Uri.parse(
               'https://api.github.com/repos/ferelking242/watchtower/releases?page=1&per_page=1',

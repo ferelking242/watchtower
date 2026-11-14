@@ -57,10 +57,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: rust-android-arm64-profile-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
-          restore-keys: rust-android-arm64-profile-${{ runner.os }}-
+            build/rust_lib_watchtower
+          key: rust-android-arm64-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: rust-android-arm64-${{ runner.os }}-
 
       # Cache Android NDK 27 + CMake 3.22.1 — telecharges par Gradle a chaque run
       - name: Cache Android SDK extras (NDK 27, CMake)

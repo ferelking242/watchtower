@@ -64,16 +64,6 @@ import 'dart:convert';
         _elements[_elementKey] = element;
         return _elementKey;
       });
-      runtime.onMessage('get_doc_string', (dynamic args) {
-        final input = args[0];
-        final type = args[1];
-        final doc = parse(input);
-        final res = switch (type) {
-          'text' => doc.text,
-          _ => doc.outerHtml,
-        };
-        return res ?? "";
-      });
       runtime.onMessage('get_element_string', (dynamic args) {
         final type = args[0];
         final key = args[1];
@@ -91,14 +81,6 @@ import 'dart:convert';
           _ => element?.getDataSrc,
         };
         return res ?? "";
-      });
-      runtime.onMessage('doc_select_first', (dynamic args) {
-        final input = args[0];
-        final selector = args[1];
-        _elementKey++;
-        _elements[_elementKey] =
-            _selectFirst(parse(input).documentElement, selector);
-        return _elementKey;
       });
       runtime.onMessage('ele_selectFirst', (dynamic args) {
         final selector = args[0];
@@ -124,58 +106,20 @@ import 'dart:convert';
         final key = args[1];
         return _elements[key]?.attr(attr) ?? "";
       });
-      runtime.onMessage('doc_attr', (dynamic args) {
-        final input = args[0];
-        final attr = args[1];
-        return parse(input).attr(attr) ?? "";
-      });
       runtime.onMessage('ele_has_attr', (dynamic args) {
         final attr = args[0];
         final key = args[1];
         return _elements[key]?.hasAtr(attr) ?? false;
-      });
-      runtime.onMessage('doc_has_attr', (dynamic args) {
-        final input = args[0];
-        final attr = args[1];
-        return parse(input).hasAtr(attr);
-      });
-      runtime.onMessage('doc_xpath_first', (dynamic args) {
-        final input = args[0];
-        final xpath = args[1];
-        return parse(input).xpathFirst(xpath) ?? "";
       });
       runtime.onMessage('ele_xpathFirst', (dynamic args) {
         final xpath = args[0];
         final key = args[1];
         return _elements[key]?.xpathFirst(xpath) ?? "";
       });
-      runtime.onMessage('doc_xpath', (dynamic args) {
-        final input = args[0];
-        final xpath = args[1];
-        return jsonEncode(parse(input).xpath(xpath));
-      });
       runtime.onMessage('ele_xpath', (dynamic args) {
         final xpath = args[0];
         final key = args[1];
         return jsonEncode(_elements[key]?.xpath(xpath));
-      });
-      runtime.onMessage('doc_get_elements_by', (dynamic args) {
-        final input = args[0];
-        final type = args[1];
-        final name = args[2];
-        final doc = parse(input);
-        final elements = switch (type) {
-          'children' => doc.children,
-          'getElementsByTagName' => doc.getElementsByTagName(name),
-          _ => doc.getElementsByClassName(name),
-        };
-        List<int> elementKeys = [];
-        for (var element in elements) {
-          _elementKey++;
-          _elements[_elementKey] = element;
-          elementKeys.add(_elementKey);
-        }
-        return jsonEncode(elementKeys);
       });
       runtime.onMessage('ele_get_elements_by', (dynamic args) {
         final type = args[0];
@@ -189,25 +133,6 @@ import 'dart:convert';
         };
         List<int> elementKeys = [];
         for (var element in elements ?? []) {
-          _elementKey++;
-          _elements[_elementKey] = element;
-          elementKeys.add(_elementKey);
-        }
-        return jsonEncode(elementKeys);
-      });
-      runtime.onMessage('doc_get_element_by_id', (dynamic args) {
-        final input = args[0];
-        final id = args[1];
-        _elementKey++;
-        _elements[_elementKey] = parse(input).getElementById(id);
-        return _elementKey;
-      });
-      runtime.onMessage('doc_select', (dynamic args) {
-        final input = args[0];
-        final selector = args[1];
-        final elements = _selectAll(parse(input).documentElement, selector);
-        List<int> elementKeys = [];
-        for (var element in elements) {
           _elementKey++;
           _elements[_elementKey] = element;
           elementKeys.add(_elementKey);

@@ -1420,17 +1420,23 @@ must not leak into watch code paths or logs:
 - Quand plusieurs jobs partagent une clé et sauvent en même temps, tous sauf un
   loguent `Failed to save: Unable to reserve cache … another job may be creating
   this cache` : c'est bénin, un job frère a déjà sauvegardé.
-- Le cache **Rust n'a jamais fonctionné** : il ne sauve que ~64 Mo (juste
-  `~/.cargo/registry` + `~/.cargo/git`). Il cible `rust/target` et
+- Le cache **Rust ne fonctionnait pas** : il ne sauvegardait que ~64 Mo (juste
+  `~/.cargo/registry` + `~/.cargo/git`). Il ciblait `rust/target` et
   `rust_builder/target`, mais cargokit force `--target-dir` à
   `${project.buildDir}/build` = `build/<plugin>/build` (le sous-projet porte le
   `name` du pubspec, ex. `rust_lib_watchtower`). Résultat : recompilation Rust
   **complète** à chaque run (~390-680 s, dans `assembleRelease`). C'est
   pré-existant (déjà présent dans le run « golden » de 10m51s, ~387 s de Rust)
-  et c'est le principal coût résiduel. Corriger = cacher
-  `build/rust_lib_watchtower` (avec `build/rust_builder` en filet), mais c'est
-  ~1-2 Go par clé et il y a ~9 clés rust : consolider d'abord en **une clé par
-  OS**, sinon l'éviction du budget revient.
+  et c'était le principal coût résiduel.
+  **Corrigé** : les workflows cachent maintenant le vrai dossier cible —
+  `build/rust_lib_watchtower` pour Android (gradle), et les chemins CMake/
+  CocoaPods pour desktop/iOS (`build/linux/x64/release/plugins/rust_lib_watchtower/cargokit_build`,
+  `build/windows/x64/plugins/rust_lib_watchtower/cargokit_build`,
+  `build/ios/derived/Build/Intermediates.noindex/Pods.build`) — avec une **seule
+  clé par OS** (`rust-Linux-` / `rust-Windows-` / `rust-macOS-` + hash des
+  sources/Cargo) pour ne pas exploser le budget de 10 Go. Vérifier après coup
+  `Cache restored from key: rust-Linux-…` **et** une taille de cache de
+  plusieurs centaines de Mo (un cache cible vide = toujours ~64 Mo).
 
 ## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
 - Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
