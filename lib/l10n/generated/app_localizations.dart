@@ -15820,6 +15820,420 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'WebView'**
   String get media_webview;
+
+  /// No description provided for @player_fit_contain.
+  ///
+  /// In en, this message translates to:
+  /// **'Fit'**
+  String get player_fit_contain;
+
+  /// No description provided for @player_fit_cover.
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen'**
+  String get player_fit_cover;
+
+  /// No description provided for @player_fit_fill.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill'**
+  String get player_fit_fill;
+
+  /// No description provided for @player_fit_height.
+  ///
+  /// In en, this message translates to:
+  /// **'↕ Height'**
+  String get player_fit_height;
+
+  /// No description provided for @player_speed_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback speed'**
+  String get player_speed_title;
+
+  /// No description provided for @player_speed_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Speed'**
+  String get player_speed_short;
+
+  /// No description provided for @player_unlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get player_unlock;
+
+  /// No description provided for @player_capture.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture'**
+  String get player_capture;
+
+  /// No description provided for @player_capture_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture saved'**
+  String get player_capture_saved;
+
+  /// No description provided for @player_capture_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture failed'**
+  String get player_capture_failed;
+
+  /// No description provided for @player_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get player_auto;
+
+  /// No description provided for @player_portrait.
+  ///
+  /// In en, this message translates to:
+  /// **'Portrait'**
+  String get player_portrait;
+
+  /// No description provided for @player_landscape_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Landscape ←'**
+  String get player_landscape_left;
+
+  /// No description provided for @player_landscape_right.
+  ///
+  /// In en, this message translates to:
+  /// **'Landscape →'**
+  String get player_landscape_right;
+
+  /// No description provided for @player_orientation.
+  ///
+  /// In en, this message translates to:
+  /// **'Orientation'**
+  String get player_orientation;
+
+  /// No description provided for @player_rotation_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotation: {mode}'**
+  String player_rotation_toast(Object mode);
+
+  /// No description provided for @player_resume_at.
+  ///
+  /// In en, this message translates to:
+  /// **'Resuming at {time}'**
+  String player_resume_at(Object time);
+
+  /// No description provided for @player_no_source_to_download.
+  ///
+  /// In en, this message translates to:
+  /// **'No source to download'**
+  String get player_no_source_to_download;
+
+  /// No description provided for @player_already_downloaded.
+  ///
+  /// In en, this message translates to:
+  /// **'This resolution is already downloaded'**
+  String get player_already_downloaded;
+
+  /// No description provided for @player_episode_not_in_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode not found in the library'**
+  String get player_episode_not_in_library;
+
+  /// No description provided for @player_download_added.
+  ///
+  /// In en, this message translates to:
+  /// **'Download {quality} added'**
+  String player_download_added(Object quality);
+
+  /// No description provided for @player_download_duplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'This resolution is already downloaded or in progress'**
+  String get player_download_duplicate;
+
+  /// No description provided for @player_queue_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to queue'**
+  String get player_queue_failed;
+
+  /// No description provided for @player_quality_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get player_quality_label;
+
+  /// No description provided for @player_download_quality.
+  ///
+  /// In en, this message translates to:
+  /// **'Download · quality'**
+  String get player_download_quality;
+
+  /// No description provided for @player_no_quality.
+  ///
+  /// In en, this message translates to:
+  /// **'No quality'**
+  String get player_no_quality;
+
+  /// No description provided for @player_quality_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality: {quality}'**
+  String player_quality_toast(Object quality);
+
+  /// No description provided for @player_track_none.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get player_track_none;
+
+  /// No description provided for @player_track_n.
+  ///
+  /// In en, this message translates to:
+  /// **'Track {number}'**
+  String player_track_n(Object number);
+
+  /// No description provided for @player_subtitle_n.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle {number}'**
+  String player_subtitle_n(Object number);
+
+  /// No description provided for @player_sub_n.
+  ///
+  /// In en, this message translates to:
+  /// **'Sub {number}'**
+  String player_sub_n(Object number);
+
+  /// No description provided for @player_tab_playback.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get player_tab_playback;
+
+  /// No description provided for @player_tab_audio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get player_tab_audio;
+
+  /// No description provided for @player_tab_subtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles'**
+  String get player_tab_subtitles;
+
+  /// No description provided for @player_seek_interval.
+  ///
+  /// In en, this message translates to:
+  /// **'SEEK INTERVAL'**
+  String get player_seek_interval;
+
+  /// No description provided for @player_video_adjust.
+  ///
+  /// In en, this message translates to:
+  /// **'VIDEO ADJUSTMENT'**
+  String get player_video_adjust;
+
+  /// No description provided for @player_no_audio_track.
+  ///
+  /// In en, this message translates to:
+  /// **'No audio track'**
+  String get player_no_audio_track;
+
+  /// No description provided for @player_no_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No subtitle'**
+  String get player_no_subtitle;
+
+  /// No description provided for @player_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get player_disabled;
+
+  /// No description provided for @player_disable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable'**
+  String get player_disable;
+
+  /// No description provided for @player_bilingual.
+  ///
+  /// In en, this message translates to:
+  /// **'Bilingual'**
+  String get player_bilingual;
+
+  /// No description provided for @player_subtitle_offset.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle offset'**
+  String get player_subtitle_offset;
+
+  /// No description provided for @player_subtitle_style.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitle style'**
+  String get player_subtitle_style;
+
+  /// No description provided for @player_style_outline.
+  ///
+  /// In en, this message translates to:
+  /// **'Outline'**
+  String get player_style_outline;
+
+  /// No description provided for @player_style_background.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get player_style_background;
+
+  /// No description provided for @player_player_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Player settings'**
+  String get player_player_settings;
+
+  /// No description provided for @player_loop.
+  ///
+  /// In en, this message translates to:
+  /// **'Loop'**
+  String get player_loop;
+
+  /// No description provided for @player_loop_none.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get player_loop_none;
+
+  /// No description provided for @player_loop_one.
+  ///
+  /// In en, this message translates to:
+  /// **'One'**
+  String get player_loop_one;
+
+  /// No description provided for @player_loop_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get player_loop_all;
+
+  /// No description provided for @player_brightness.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness'**
+  String get player_brightness;
+
+  /// No description provided for @player_more.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get player_more;
+
+  /// No description provided for @player_audio_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio only'**
+  String get player_audio_only;
+
+  /// No description provided for @player_mirror.
+  ///
+  /// In en, this message translates to:
+  /// **'Mirror'**
+  String get player_mirror;
+
+  /// No description provided for @player_night_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Night mode'**
+  String get player_night_mode;
+
+  /// No description provided for @player_loop_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode'**
+  String get player_loop_episode;
+
+  /// No description provided for @player_ab_repeat.
+  ///
+  /// In en, this message translates to:
+  /// **'A–B repeat'**
+  String get player_ab_repeat;
+
+  /// No description provided for @player_ab_set_a.
+  ///
+  /// In en, this message translates to:
+  /// **'Set A'**
+  String get player_ab_set_a;
+
+  /// No description provided for @player_ab_set_b.
+  ///
+  /// In en, this message translates to:
+  /// **'Set B'**
+  String get player_ab_set_b;
+
+  /// No description provided for @player_audio_track.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio track'**
+  String get player_audio_track;
+
+  /// No description provided for @player_no_track.
+  ///
+  /// In en, this message translates to:
+  /// **'No track'**
+  String get player_no_track;
+
+  /// No description provided for @player_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes'**
+  String get player_episodes;
+
+  /// No description provided for @player_no_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'No episode'**
+  String get player_no_episode;
+
+  /// No description provided for @player_episode_n.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number}'**
+  String player_episode_n(Object number);
+
+  /// No description provided for @player_ep_short.
+  ///
+  /// In en, this message translates to:
+  /// **'EP {number}'**
+  String player_ep_short(Object number);
+
+  /// No description provided for @player_next_episode_in.
+  ///
+  /// In en, this message translates to:
+  /// **'Next episode in'**
+  String get player_next_episode_in;
+
+  /// No description provided for @player_play_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Play now'**
+  String get player_play_now;
+
+  /// No description provided for @player_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get player_language;
+
+  /// No description provided for @player_webview_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch player queue request failed'**
+  String get player_webview_error;
 }
 
 class _AppLocalizationsDelegate

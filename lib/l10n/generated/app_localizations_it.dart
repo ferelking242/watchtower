@@ -8974,4 +8974,232 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get media_webview => 'WebView';
+
+  @override
+  String get player_fit_contain => 'Fit';
+
+  @override
+  String get player_fit_cover => 'Fullscreen';
+
+  @override
+  String get player_fit_fill => 'Fill';
+
+  @override
+  String get player_fit_height => '↕ Height';
+
+  @override
+  String get player_speed_title => 'Playback speed';
+
+  @override
+  String get player_speed_short => 'Speed';
+
+  @override
+  String get player_unlock => 'Unlock';
+
+  @override
+  String get player_capture => 'Capture';
+
+  @override
+  String get player_capture_saved => 'Capture saved';
+
+  @override
+  String get player_capture_failed => 'Capture failed';
+
+  @override
+  String get player_auto => 'Auto';
+
+  @override
+  String get player_portrait => 'Portrait';
+
+  @override
+  String get player_landscape_left => 'Landscape ←';
+
+  @override
+  String get player_landscape_right => 'Landscape →';
+
+  @override
+  String get player_orientation => 'Orientation';
+
+  @override
+  String player_rotation_toast(Object mode) {
+    return 'Rotation: $mode';
+  }
+
+  @override
+  String player_resume_at(Object time) {
+    return 'Resuming at $time';
+  }
+
+  @override
+  String get player_no_source_to_download => 'No source to download';
+
+  @override
+  String get player_already_downloaded =>
+      'This resolution is already downloaded';
+
+  @override
+  String get player_episode_not_in_library =>
+      'Episode not found in the library';
+
+  @override
+  String player_download_added(Object quality) {
+    return 'Download $quality added';
+  }
+
+  @override
+  String get player_download_duplicate =>
+      'This resolution is already downloaded or in progress';
+
+  @override
+  String get player_queue_failed => 'Unable to queue';
+
+  @override
+  String get player_quality_label => 'Quality';
+
+  @override
+  String get player_download_quality => 'Download · quality';
+
+  @override
+  String get player_no_quality => 'No quality';
+
+  @override
+  String player_quality_toast(Object quality) {
+    return 'Quality: $quality';
+  }
+
+  @override
+  String get player_track_none => 'None';
+
+  @override
+  String player_track_n(Object number) {
+    return 'Track $number';
+  }
+
+  @override
+  String player_subtitle_n(Object number) {
+    return 'Subtitle $number';
+  }
+
+  @override
+  String player_sub_n(Object number) {
+    return 'Sub $number';
+  }
+
+  @override
+  String get player_tab_playback => 'Playback';
+
+  @override
+  String get player_tab_audio => 'Audio';
+
+  @override
+  String get player_tab_subtitles => 'Subtitles';
+
+  @override
+  String get player_seek_interval => 'SEEK INTERVAL';
+
+  @override
+  String get player_video_adjust => 'VIDEO ADJUSTMENT';
+
+  @override
+  String get player_no_audio_track => 'No audio track';
+
+  @override
+  String get player_no_subtitle => 'No subtitle';
+
+  @override
+  String get player_disabled => 'Disabled';
+
+  @override
+  String get player_disable => 'Disable';
+
+  @override
+  String get player_bilingual => 'Bilingual';
+
+  @override
+  String get player_subtitle_offset => 'Subtitle offset';
+
+  @override
+  String get player_subtitle_style => 'Subtitle style';
+
+  @override
+  String get player_style_outline => 'Outline';
+
+  @override
+  String get player_style_background => 'Background';
+
+  @override
+  String get player_player_settings => 'Player settings';
+
+  @override
+  String get player_loop => 'Loop';
+
+  @override
+  String get player_loop_none => 'None';
+
+  @override
+  String get player_loop_one => 'One';
+
+  @override
+  String get player_loop_all => 'All';
+
+  @override
+  String get player_brightness => 'Brightness';
+
+  @override
+  String get player_more => 'More';
+
+  @override
+  String get player_audio_only => 'Audio only';
+
+  @override
+  String get player_mirror => 'Mirror';
+
+  @override
+  String get player_night_mode => 'Night mode';
+
+  @override
+  String get player_loop_episode => 'Episode';
+
+  @override
+  String get player_ab_repeat => 'A–B repeat';
+
+  @override
+  String get player_ab_set_a => 'Set A';
+
+  @override
+  String get player_ab_set_b => 'Set B';
+
+  @override
+  String get player_audio_track => 'Audio track';
+
+  @override
+  String get player_no_track => 'No track';
+
+  @override
+  String get player_episodes => 'Episodes';
+
+  @override
+  String get player_no_episode => 'No episode';
+
+  @override
+  String player_episode_n(Object number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String player_ep_short(Object number) {
+    return 'EP $number';
+  }
+
+  @override
+  String get player_next_episode_in => 'Next episode in';
+
+  @override
+  String get player_play_now => 'Play now';
+
+  @override
+  String get player_language => 'Language';
+
+  @override
+  String get player_webview_error => 'Watch player queue request failed';
 }

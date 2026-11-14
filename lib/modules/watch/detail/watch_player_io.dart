@@ -35,6 +35,9 @@ import 'package:watchtower/services/player_codec_error.dart';
 import 'package:watchtower/services/downloaded_video_preference.dart'
     as downloaded_video_preference;
 import 'package:watchtower/utils/chapter_link.dart';
+import 'package:watchtower/modules/watch/detail/language_display.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart'; // player controls use the Broken/Iconsax pack
 import 'package:cached_network_image/cached_network_image.dart';
@@ -114,13 +117,22 @@ const _kFitCycle = <BoxFit>[
   BoxFit.fitWidth,
   BoxFit.fitHeight,
 ];
-const _kFitNames = <BoxFit, String>{
-  BoxFit.contain: 'Ajuster',
-  BoxFit.cover: 'Plein écran',
-  BoxFit.fill: 'Remplir',
-  BoxFit.fitWidth: '16:9 →',
-  BoxFit.fitHeight: '↕ Hauteur',
-};
+String _fitLabel(BoxFit fit, AppLocalizations l10n) {
+  switch (fit) {
+    case BoxFit.contain:
+      return l10n.player_fit_contain;
+    case BoxFit.cover:
+      return l10n.player_fit_cover;
+    case BoxFit.fill:
+      return l10n.player_fit_fill;
+    case BoxFit.fitWidth:
+      return '16:9 →';
+    case BoxFit.fitHeight:
+      return l10n.player_fit_height;
+    default:
+      return l10n.player_fit_contain;
+  }
+}
 
 bool _isLocalVideoPath(String value) {
   if (value.isEmpty) return false;
@@ -2134,7 +2146,9 @@ class _FullscreenControlsOverlayState
         await widget.player.seek(Duration(milliseconds: resume.ms));
       } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
       if (mounted) {
-        _playerToast('Reprise à ${_fmt(Duration(milliseconds: resume.ms))}');
+        _playerToast(
+          context.l10n.player_resume_at(_fmt(Duration(milliseconds: resume.ms))),
+        );
       }
     });
   }
@@ -2210,18 +2224,16 @@ class _FullscreenControlsOverlayState
     }
   }
 
-  String _rotationModeLabel() {
+  String _rotationModeLabel(AppLocalizations l10n) {
     switch (_rotationMode) {
-      case 0:
-        return 'Auto';
       case 1:
-        return 'Portrait';
+        return l10n.player_portrait;
       case 2:
-        return 'Paysage ←';
+        return l10n.player_landscape_left;
       case 3:
-        return 'Paysage →';
+        return l10n.player_landscape_right;
       default:
-        return 'Auto';
+        return l10n.player_auto;
     }
   }
 
@@ -2251,7 +2263,9 @@ class _FullscreenControlsOverlayState
         ]);
         break;
     }
-    _playerToast('Rotation : ${_rotationModeLabel()}');
+    _playerToast(
+      context.l10n.player_rotation_toast(_rotationModeLabel(context.l10n)),
+    );
     _resetHideTimer();
   }
 
@@ -2440,7 +2454,7 @@ class _FullscreenControlsOverlayState
     final idx = _kFitCycle.indexOf(_fit);
     setState(() => _fit = _kFitCycle[(idx + 1) % _kFitCycle.length]);
     widget.fitNotifier?.value = _fit;
-    _playerToast(_kFitNames[_fit] ?? 'Ajuster');
+    _playerToast(_fitLabel(_fit, context.l10n));
     _resetHideTimer();
   }
 
@@ -2508,13 +2522,13 @@ class _FullscreenControlsOverlayState
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Vitesse de lecture',
-                      style: TextStyle(
+                      context.l10n.player_speed_title,
+                      style: const TextStyle(
                         color: Color(0xFF8E8E93),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -2861,11 +2875,11 @@ class _FullscreenControlsOverlayState
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Broken.lock, color: Colors.white, size: 16),
-                      SizedBox(width: 6),
+                    children: [
+                      const Icon(Broken.lock, color: Colors.white, size: 16),
+                      const SizedBox(width: 6),
                       Text(
-                        'Déverrouiller',
+                        context.l10n.player_unlock,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -2908,7 +2922,7 @@ class _FullscreenControlsOverlayState
                   children: [
                     _buildIconCircle(
                       icon: Broken.camera,
-                      tooltip: 'Capture',
+                      tooltip: context.l10n.player_capture,
                       onTap: () {
                         _resetScreenshotHudTimer();
                         _captureScreenshot();
@@ -2951,22 +2965,22 @@ class _FullscreenControlsOverlayState
                                       _buildRotOption(
                                         0,
                                         Icons.screen_rotation_rounded,
-                                        'Auto',
+                                        context.l10n.player_auto,
                                       ),
                                       _buildRotOption(
                                         1,
                                         Icons.stay_current_portrait_outlined,
-                                        'Portrait',
+                                        context.l10n.player_portrait,
                                       ),
                                       _buildRotOption(
                                         2,
                                         Icons.stay_current_landscape_outlined,
-                                        'Paysage ←',
+                                        context.l10n.player_landscape_left,
                                       ),
                                       _buildRotOption(
                                         3,
                                         Icons.screen_rotation_alt_outlined,
-                                        'Paysage →',
+                                        context.l10n.player_landscape_right,
                                       ),
                                     ],
                                   ),
@@ -2974,7 +2988,7 @@ class _FullscreenControlsOverlayState
                         ),
                         _buildIconCircle(
                           icon: _rotationModeIcon(),
-                          tooltip: 'Orientation',
+                          tooltip: context.l10n.player_orientation,
                           onTapDown: () => _hideTimer?.cancel(),
                           onTap: () {
                             _hideTimer?.cancel();
@@ -3031,8 +3045,8 @@ class _FullscreenControlsOverlayState
                         const SizedBox(width: 8),
                         Text(
                           _screenshotSuccess
-                              ? 'Capture sauvegardée'
-                              : 'Capture impossible',
+                              ? context.l10n.player_capture_saved
+                              : context.l10n.player_capture_failed,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -3437,7 +3451,7 @@ class _FullscreenControlsOverlayState
   // picker; the selected item is queued through the persistent download manager.
   Future<void> _startDownload() async {
     if (widget.loadedVideos.isEmpty) {
-      _playerToast('Aucune source à télécharger');
+      _playerToast(context.l10n.player_no_source_to_download);
       return;
     }
     setState(() => _downloadPickerMode = true);
@@ -3460,13 +3474,13 @@ class _FullscreenControlsOverlayState
 
   Future<void> _queuePlayerQualityDownload(wt.Video video) async {
     if (_isLocalVideoPath(video.url)) {
-      _playerToast('Cette résolution est déjà téléchargée');
+      _playerToast(context.l10n.player_already_downloaded);
       return;
     }
     final chapterId = widget.currentChapterId;
     final chapter = chapterId == null ? null : isar.chapters.getSync(chapterId);
     if (chapter == null) {
-      _playerToast('Épisode introuvable dans la bibliothèque');
+      _playerToast(context.l10n.player_episode_not_in_library);
       return;
     }
     try {
@@ -3479,8 +3493,10 @@ class _FullscreenControlsOverlayState
       if (!mounted) return;
       _playerToast(
         queued
-            ? 'Téléchargement ${_displayVideoQuality(video.quality)} ajouté'
-            : 'Cette résolution est déjà téléchargée ou en cours',
+            ? context.l10n.player_download_added(
+                _displayVideoQuality(video.quality),
+              )
+            : context.l10n.player_download_duplicate,
       );
     } catch (error, stackTrace) {
       AppLogger.log(
@@ -3490,7 +3506,7 @@ class _FullscreenControlsOverlayState
         error: error,
         stackTrace: stackTrace,
       );
-      if (mounted) _playerToast('Impossible de mettre en file');
+      if (mounted) _playerToast(context.l10n.player_queue_failed);
     }
   }
 
@@ -3951,7 +3967,7 @@ class _FullscreenControlsOverlayState
     final speedLabel = _speed == _speed.roundToDouble()
         ? '${_speed.toInt()}x'
         : '${_speed}x';
-    final fitLabel = _kFitNames[_fit] ?? 'Ajuster';
+    final fitLabel = _fitLabel(_fit, context.l10n);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
@@ -4084,7 +4100,7 @@ class _FullscreenControlsOverlayState
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
               child: Text(
-                'Vitesse',
+                context.l10n.player_speed_short,
                 style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 11,
@@ -4166,7 +4182,7 @@ class _FullscreenControlsOverlayState
       return _displayVideoQuality(_currentQuality!);
     if (widget.loadedVideos.isNotEmpty)
       return _displayVideoQuality(widget.loadedVideos.first.quality);
-    return 'Qualité';
+    return context.l10n.player_quality_label;
   }
 
   // ─── Quality picker — uses loadedVideos from parent ────────────────────────
@@ -4197,7 +4213,9 @@ class _FullscreenControlsOverlayState
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
                 child: Text(
-                  _downloadPickerMode ? 'Télécharger · qualité' : 'Qualité',
+                  _downloadPickerMode
+                      ? context.l10n.player_download_quality
+                      : context.l10n.player_quality_label,
                   style: TextStyle(
                     color: Colors.white54,
                     fontSize: 11,
@@ -4207,11 +4225,17 @@ class _FullscreenControlsOverlayState
               ),
               const Divider(height: 1, color: Colors.white12),
               if (videos.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
                   child: Text(
-                    'Aucune qualité',
-                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                    context.l10n.player_no_quality,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 13,
+                    ),
                   ),
                 )
               else
@@ -4234,7 +4258,9 @@ class _FullscreenControlsOverlayState
                             if (widget.onSwitchQuality != null)
                               await widget.onSwitchQuality!(v);
                             _playerToast(
-                              'Qualité : ${_displayVideoQuality(v.quality)}',
+                              context.l10n.player_quality_toast(
+                                _displayVideoQuality(v.quality),
+                              ),
                             );
                           },
                           child: AnimatedContainer(
@@ -4364,28 +4390,16 @@ class _FullscreenControlsOverlayState
 
 // ─── Audio track label helper ─────────────────────────────────────────────────
 
-String _audioTrackLabel(AudioTrack t, int index) {
-  if (t.id == 'no' || t.id == '-1') return 'Aucune';
+String _audioTrackLabel(AudioTrack t, int index, AppLocalizations l10n) {
+  if (t.id == 'no' || t.id == '-1') return l10n.player_track_none;
   if (t.title?.isNotEmpty == true) return t.title!;
-  final langMap = {
-    'fr': 'Français',
-    'ja': 'Japonais',
-    'jp': 'Japonais',
-    'en': 'Anglais',
-    'de': 'Allemand',
-    'es': 'Espagnol',
-    'pt': 'Portugais',
-    'it': 'Italien',
-    'ar': 'Arabe',
-    'zh': 'Chinois',
-    'ko': 'Coréen',
-    'ru': 'Russe',
-  };
   final lang = t.language?.toLowerCase() ?? '';
-  final mapped = langMap[lang];
-  if (mapped != null) return mapped;
-  if (lang.isNotEmpty) return lang.toUpperCase();
-  return 'Piste ${index + 1}';
+  if (lang.isNotEmpty) {
+    // kLanguageNames already carries the name in every UI language; the
+    // fallback keeps unknown tags readable as their ISO code.
+    return localizedLanguageLabel(lang, l10n.localeName);
+  }
+  return l10n.player_track_n(index + 1);
 }
 
 // ─── Toolbar chip button ───────────────────────────────────────────────────────
@@ -4518,10 +4532,10 @@ class _FullscreenSettingsSheetState
               indicatorColor: widget.accent,
               labelColor: Colors.white,
               unselectedLabelColor: const Color(0xFF8E8E93),
-              tabs: const [
-                Tab(text: 'Lecture'),
-                Tab(text: 'Audio'),
-                Tab(text: 'Sous-titres'),
+              tabs: [
+                Tab(text: context.l10n.player_tab_playback),
+                Tab(text: context.l10n.player_tab_audio),
+                Tab(text: context.l10n.player_tab_subtitles),
               ],
             ),
             SizedBox(
@@ -4533,8 +4547,8 @@ class _FullscreenSettingsSheetState
                   ListView(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     children: [
-                      const Text(
-                        'INTERVALLE DE NAVIGATION',
+                      Text(
+                        context.l10n.player_seek_interval,
                         style: TextStyle(
                           color: Color(0xFF8E8E93),
                           fontSize: 11,
@@ -4588,8 +4602,8 @@ class _FullscreenSettingsSheetState
                         }).toList(),
                       ),
                       const SizedBox(height: 18),
-                      const Text(
-                        'AJUSTEMENT VIDÉO',
+                      Text(
+                        context.l10n.player_video_adjust,
                         style: TextStyle(
                           color: Color(0xFF8E8E93),
                           fontSize: 11,
@@ -4602,7 +4616,7 @@ class _FullscreenSettingsSheetState
                         spacing: 8,
                         runSpacing: 8,
                         children: _kFitCycle.map((f) {
-                          final lbl = _kFitNames[f] ?? 'Ajuster';
+                          final lbl = _fitLabel(f, context.l10n);
                           return _FitOption(
                             label: lbl,
                             fit: f,
@@ -4625,10 +4639,10 @@ class _FullscreenSettingsSheetState
                     builder: (_, snap) {
                       final tracks = snap.data?.audio ?? [];
                       if (tracks.isEmpty) {
-                        return const Center(
+                        return Center(
                           child: Text(
-                            'Aucune piste audio',
-                            style: TextStyle(color: Colors.white54),
+                            context.l10n.player_no_audio_track,
+                            style: const TextStyle(color: Colors.white54),
                           ),
                         );
                       }
@@ -4641,7 +4655,9 @@ class _FullscreenSettingsSheetState
                           return ListTile(
                             dense: true,
                             title: Text(
-                              t.language ?? t.title ?? 'Piste ${i + 1}',
+                              t.language ??
+                                  t.title ??
+                                  context.l10n.player_track_n(i + 1),
                               style: TextStyle(
                                 color: sel ? Colors.white : Colors.white70,
                                 fontSize: 13,
@@ -4673,10 +4689,10 @@ class _FullscreenSettingsSheetState
                         snap.data?.subtitle ?? const <SubtitleTrack>[],
                       );
                       if (tracks.isEmpty) {
-                        return const Center(
+                        return Center(
                           child: Text(
-                            'Aucun sous-titre',
-                            style: TextStyle(color: Colors.white54),
+                            context.l10n.player_no_subtitle,
+                            style: const TextStyle(color: Colors.white54),
                           ),
                         );
                       }
@@ -4691,7 +4707,9 @@ class _FullscreenSettingsSheetState
                             title: Text(
                               t.language ??
                                   t.title ??
-                                  (i == 0 ? 'Désactivé' : 'Sous-titre $i'),
+                                  (i == 0
+                                      ? context.l10n.player_disabled
+                                      : context.l10n.player_subtitle_n(i)),
                               style: TextStyle(
                                 color: sel ? Colors.white : Colors.white70,
                                 fontSize: 13,
@@ -4942,7 +4960,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                               child: Padding(
                                 padding: const EdgeInsets.only(left: 16),
                                 child: Text(
-                                  'Audio',
+                                  context.l10n.player_tab_audio,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 14,
@@ -4963,8 +4981,8 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Text(
-                                      'Sous-titre',
+                                    Text(
+                                      context.l10n.player_tab_subtitles,
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 14,
@@ -5039,11 +5057,11 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                 padding: EdgeInsets.zero,
                                 children: [
                                   if (audioTracks.isEmpty)
-                                    const Padding(
-                                      padding: EdgeInsets.all(16),
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
                                       child: Text(
-                                        'Aucune piste',
-                                        style: TextStyle(
+                                        context.l10n.player_no_track,
+                                        style: const TextStyle(
                                           color: Colors.white54,
                                           fontSize: 12,
                                         ),
@@ -5056,7 +5074,8 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                           ? t.title!
                                           : (t.language?.isNotEmpty == true
                                                 ? t.language!
-                                                : 'Piste ${t.id}');
+                                                : context.l10n
+                                                    .player_track_n(t.id));
                                       return _TrackTile(
                                         label: label,
                                         selected: sel,
@@ -5087,9 +5106,9 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                     ),
                                     child: Row(
                                       children: [
-                                        const Expanded(
+                                        Expanded(
                                           child: Text(
-                                            'Bilingue',
+                                            context.l10n.player_bilingual,
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 13,
@@ -5116,11 +5135,11 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                   ),
                                   Container(height: 0.6, color: Colors.white12),
                                   if (subTracks.isEmpty)
-                                    const Padding(
-                                      padding: EdgeInsets.all(16),
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
                                       child: Text(
-                                        'Aucun sous-titre',
-                                        style: TextStyle(
+                                        context.l10n.player_no_subtitle,
+                                        style: const TextStyle(
                                           color: Colors.white54,
                                           fontSize: 12,
                                         ),
@@ -5128,7 +5147,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                     )
                                   else ...[
                                     _TrackTile(
-                                      label: 'Désactiver',
+                                      label: context.l10n.player_disable,
                                       selected:
                                           curSub.id == 'no' ||
                                           curSub.id == '-1',
@@ -5151,7 +5170,8 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                               ? t.title!
                                               : (t.language?.isNotEmpty == true
                                                     ? t.language!
-                                                    : 'Sub ${t.id}');
+                                                    : context.l10n
+                                                        .player_sub_n(t.id));
                                           return _TrackTile(
                                             label: label,
                                             selected: sel,
@@ -5176,7 +5196,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Décalage sous-titres',
+                                          context.l10n.player_subtitle_offset,
                                           style: const TextStyle(
                                             color: Colors.white70,
                                             fontSize: 11,
@@ -5280,8 +5300,8 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Style des sous-titres',
+                                        Text(
+                                          context.l10n.player_subtitle_style,
                                           style: TextStyle(
                                             color: Colors.white54,
                                             fontSize: 11,
@@ -5292,7 +5312,7 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                         Row(
                                           children: [
                                             _styleChip(
-                                              'Contour',
+                                              context.l10n.player_style_outline,
                                               !_subBoldBox,
                                               () {
                                                 setState(
@@ -5302,7 +5322,11 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                               },
                                             ),
                                             const SizedBox(width: 8),
-                                            _styleChip('Fond', _subBoldBox, () {
+                                            _styleChip(
+                                              context.l10n
+                                                  .player_style_background,
+                                              _subBoldBox,
+                                              () {
                                               setState(
                                                 () => _subBoldBox = true,
                                               );
@@ -5335,13 +5359,18 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                   ),
                                   Container(height: 0.6, color: Colors.white12),
                                   // ── Langue (pistes audio) — mêmes boxes que le picker ──
-                                  const Padding(
-                                    padding: EdgeInsets.fromLTRB(12, 10, 12, 2),
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      10,
+                                      12,
+                                      2,
+                                    ),
                                     child: Align(
                                       alignment: Alignment.centerLeft,
                                       child: Text(
-                                        'Langue',
-                                        style: TextStyle(
+                                        context.l10n.player_language,
+                                        style: const TextStyle(
                                           color: Colors.white54,
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
@@ -5405,7 +5434,11 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                                   ),
                                                 ),
                                                 child: Text(
-                                                  _audioTrackLabel(t, i),
+                                                  _audioTrackLabel(
+                                                    t,
+                                                    i,
+                                                    context.l10n,
+                                                  ),
                                                   style: TextStyle(
                                                     color: sel
                                                         ? widget.accent
@@ -5422,8 +5455,8 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                   Container(height: 0.6, color: Colors.white12),
                                   InkWell(
                                     onTap: () => widget.onDownload?.call(),
-                                    child: const Padding(
-                                      padding: EdgeInsets.symmetric(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
                                         horizontal: 12,
                                         vertical: 12,
                                       ),
@@ -5431,14 +5464,14 @@ class _SettingsPanelState extends ConsumerState<_SettingsPanel> {
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              'Télécharger',
-                                              style: TextStyle(
+                                              context.l10n.download,
+                                              style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 13,
                                               ),
                                             ),
                                           ),
-                                          Icon(
+                                          const Icon(
                                             Icons.chevron_right_rounded,
                                             color: Colors.white54,
                                             size: 16,
@@ -5631,7 +5664,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Réglages du lecteur',
+                              context.l10n.player_player_settings,
                               style: TextStyle(
                                 color: widget.accent,
                                 fontSize: 14,
@@ -5647,7 +5680,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                           children: [
                             // ── Intervalle de navigation ────────────────
                             if (widget.onSeekSeconds != null) ...[
-                              _sectionTitle('Intervalle de navigation'),
+                              _sectionTitle(context.l10n.player_seek_interval),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                                 child: Wrap(
@@ -5665,7 +5698,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                               Container(height: 0.6, color: Colors.white12),
                             ],
                             // ── Vitesse de lecture ──────────────────────
-                            _sectionTitle('Vitesse de lecture'),
+                            _sectionTitle(context.l10n.player_speed_title),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                               child: Wrap(
@@ -5690,7 +5723,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                             // ── Ajustement vidéo ────────────────────────
                             if (widget.onFit != null &&
                                 widget.fit != null) ...[
-                              _sectionTitle('Ajustement vidéo'),
+                              _sectionTitle(context.l10n.player_video_adjust),
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                                 child: Wrap(
@@ -5698,7 +5731,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                                   runSpacing: 8,
                                   children: _kFitCycle.map((fit) {
                                     return _chip(
-                                      _kFitNames[fit] ?? 'Ajuster',
+                                      _fitLabel(fit, context.l10n),
                                       fit == widget.fit,
                                       () => widget.onFit!(fit),
                                     );
@@ -5708,7 +5741,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                               Container(height: 0.6, color: Colors.white12),
                             ],
                             // ── Boucle ──────────────────────────────────
-                            _sectionTitle('Boucle'),
+                            _sectionTitle(context.l10n.player_loop),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                               child: Wrap(
@@ -5716,7 +5749,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                                 runSpacing: 8,
                                 children: [
                                   _chip(
-                                    'Aucune',
+                                    context.l10n.player_loop_none,
                                     playlistMode == PlaylistMode.none,
                                     () => setState(() {
                                       widget.player.setPlaylistMode(
@@ -5725,7 +5758,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                                     }),
                                   ),
                                   _chip(
-                                    'Une',
+                                    context.l10n.player_loop_one,
                                     playlistMode == PlaylistMode.single,
                                     () => setState(() {
                                       widget.player.setPlaylistMode(
@@ -5734,7 +5767,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                                     }),
                                   ),
                                   _chip(
-                                    'Tout',
+                                    context.l10n.player_loop_all,
                                     playlistMode == PlaylistMode.loop,
                                     () => setState(() {
                                       widget.player.setPlaylistMode(
@@ -5747,7 +5780,7 @@ class _PlayerSettingsPanelState extends State<_PlayerSettingsPanel> {
                             ),
                             Container(height: 0.6, color: Colors.white12),
                             // ── Luminosité ──────────────────────────────
-                            _sectionTitle('Luminosité'),
+                            _sectionTitle(context.l10n.player_brightness),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(12, 2, 16, 14),
                               child: Row(
@@ -7269,8 +7302,8 @@ class _MorePanelState extends State<_MorePanel> {
                     // Header
                     Row(
                       children: [
-                        const Text(
-                          'Plus',
+                        Text(
+                          context.l10n.player_more,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 15,
@@ -7293,17 +7326,17 @@ class _MorePanelState extends State<_MorePanel> {
                     const SizedBox(height: 14),
                     // Row 1: Audio tracks + Mirror + Night + Minuteur
                     _toggleTile(
-                      'Audio seul',
+                      context.l10n.player_audio_only,
                       widget.audioOnly,
                       () => widget.onAudioOnly(!widget.audioOnly),
                     ),
                     _toggleTile(
-                      'Miroir',
+                      context.l10n.player_mirror,
                       widget.mirrorMode,
                       () => widget.onMirror(!widget.mirrorMode),
                     ),
                     _toggleTile(
-                      'Mode nuit',
+                      context.l10n.player_night_mode,
                       widget.nightMode,
                       () => widget.onNight(!widget.nightMode),
                     ),
@@ -7311,8 +7344,8 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // Loop section
-                    const Text(
-                      'Boucle',
+                    Text(
+                      context.l10n.player_loop,
                       style: TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
@@ -7324,7 +7357,7 @@ class _MorePanelState extends State<_MorePanel> {
                       children: [
                         Expanded(
                           child: _toggleTile(
-                            'Épisode',
+                            context.l10n.player_loop_episode,
                             widget.loopOne,
                             () => widget.onLoopOne(!widget.loopOne),
                           ),
@@ -7332,7 +7365,7 @@ class _MorePanelState extends State<_MorePanel> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: _toggleTile(
-                            'Tout',
+                            context.l10n.player_loop_all,
                             widget.loopAll,
                             () => widget.onLoopAll(!widget.loopAll),
                           ),
@@ -7343,9 +7376,9 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // AB Repeat section
-                    const Text(
-                      'AB Répétition',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.player_ab_repeat,
+                      style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -7373,7 +7406,7 @@ class _MorePanelState extends State<_MorePanel> {
                               child: Text(
                                 widget.abStart != null
                                     ? 'A: ${_fmtDur(widget.abStart!)}'
-                                    : 'Déf. A',
+                                    : context.l10n.player_ab_set_a,
                                 style: TextStyle(
                                   color: widget.abStart != null
                                       ? widget.accent
@@ -7404,7 +7437,7 @@ class _MorePanelState extends State<_MorePanel> {
                               child: Text(
                                 widget.abEnd != null
                                     ? 'B: ${_fmtDur(widget.abEnd!)}'
-                                    : 'Déf. B',
+                                    : context.l10n.player_ab_set_b,
                                 style: TextStyle(
                                   color: widget.abEnd != null
                                       ? widget.accent
@@ -7445,8 +7478,8 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // Audio track
-                    const Text(
-                      'Piste audio',
+                    Text(
+                      context.l10n.player_audio_track,
                       style: TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
@@ -7455,9 +7488,12 @@ class _MorePanelState extends State<_MorePanel> {
                     ),
                     const SizedBox(height: 8),
                     if (audioTracks.isEmpty)
-                      const Text(
-                        'Aucune piste',
-                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                      Text(
+                        context.l10n.player_no_track,
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 12,
+                        ),
                       )
                     else
                       Wrap(
@@ -7488,7 +7524,7 @@ class _MorePanelState extends State<_MorePanel> {
                                     : null,
                               ),
                               child: Text(
-                                _audioTrackLabel(t, i),
+                                _audioTrackLabel(t, i, context.l10n),
                                 style: TextStyle(
                                   color: sel ? widget.accent : Colors.white70,
                                   fontSize: 12,
@@ -7502,9 +7538,9 @@ class _MorePanelState extends State<_MorePanel> {
                     const Divider(color: Colors.white12, height: 1),
                     const SizedBox(height: 10),
                     // Brightness slider
-                    const Text(
-                      'Luminosité',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.player_brightness,
+                      style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -7678,8 +7714,8 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Row(
                       children: [
-                        const Text(
-                          'Épisodes',
+                        Text(
+                          context.l10n.player_episodes,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -7702,10 +7738,10 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                   const Divider(color: Colors.white12, height: 1),
                   Expanded(
                     child: rows.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'Aucun épisode',
-                              style: TextStyle(color: Colors.white38),
+                              context.l10n.player_no_episode,
+                              style: const TextStyle(color: Colors.white38),
                             ),
                           )
                         : ListView.builder(
@@ -7738,7 +7774,9 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Saison ${row.season}',
+                                        context.l10n.media_season_n(
+                                          row.season ?? 0,
+                                        ),
                                         style: const TextStyle(
                                           color: Colors.white70,
                                           fontSize: 13,
@@ -7840,7 +7878,7 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    ch.name ?? 'Épisode ${epNum ?? '?'}',
+                    ch.name ?? context.l10n.player_episode_n(epNum ?? 0),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -7853,7 +7891,7 @@ class _EpisodePanelState extends State<_EpisodePanel> {
                   Text(
                     ch.duration?.isNotEmpty == true
                         ? ch.duration!
-                        : 'Épisode ${epNum ?? '?'}',
+                        : context.l10n.player_episode_n(epNum ?? 0),
                     style: TextStyle(
                       color: isCur
                           ? widget.accent.withValues(alpha: 0.8)
@@ -7867,7 +7905,7 @@ class _EpisodePanelState extends State<_EpisodePanel> {
             Padding(
               padding: const EdgeInsets.only(left: 6),
               child: Text(
-                'EP ${epNum ?? '?'}',
+                context.l10n.player_ep_short(epNum ?? 0),
                 style: TextStyle(
                   color: isCur ? widget.accent : Colors.white24,
                   fontSize: 11,
@@ -7934,9 +7972,12 @@ class _NextEpCard extends StatelessWidget {
               children: [
                 const Icon(Broken.next, color: Colors.white70, size: 16),
                 const SizedBox(width: 6),
-                const Text(
-                  'Épisode suivant dans',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                Text(
+                  context.l10n.player_next_episode_in,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -7976,8 +8017,8 @@ class _NextEpCard extends StatelessWidget {
                             color: accent,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
-                            'Lire maintenant',
+                          child: Text(
+                            context.l10n.player_play_now,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -7989,8 +8030,8 @@ class _NextEpCard extends StatelessWidget {
                       const SizedBox(height: 5),
                       GestureDetector(
                         onTap: onCancel,
-                        child: const Text(
-                          'Annuler',
+                        child: Text(
+                          context.l10n.cancel,
                           style: TextStyle(color: Colors.white38, fontSize: 11),
                         ),
                       ),
@@ -8242,7 +8283,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _ReelPickerSheet(
-        title: 'Vitesse de lecture',
+        title: context.l10n.player_speed_title,
         options: _kAllSpeeds.map((s) => '${s}x').toList(),
         selected: '${_speed}x',
         onSelect: (s) => _setSpeed(double.parse(s.replaceAll('x', ''))),
@@ -8256,7 +8297,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _ReelPickerSheet(
-        title: 'Qualité',
+        title: context.l10n.player_quality_label,
         options: widget.loadedVideos.map((v) => v.quality ?? '').toList(),
         selected: _quality ?? '',
         onSelect: (label) {
@@ -8408,7 +8449,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                   children: [
                     _ReelActionButton(
                       icon: Broken.document_download,
-                      label: 'Télécharger',
+                      label: context.l10n.download,
                       onTap: () {},
                     ),
                     const SizedBox(height: 18),
@@ -8423,7 +8464,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                     const SizedBox(height: 18),
                     _ReelActionButton(
                       icon: Broken.share,
-                      label: 'Partager',
+                      label: context.l10n.media_share,
                       onTap: _share,
                     ),
                   ],
@@ -8519,7 +8560,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    '${_current.name ?? ''} / EP${_sorted.length.toString().padLeft(2, '0')}',
+                                    '${_current.name ?? ''} / ${context.l10n.player_ep_short(_sorted.length.toString().padLeft(2, '0'))}',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 12,
@@ -8614,7 +8655,7 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                               GestureDetector(
                                 onTap: _openQualitySheet,
                                 child: Text(
-                                  _quality ?? 'Auto',
+                                  _quality ?? context.l10n.player_auto,
                                   style: const TextStyle(
                                     color: Colors.white70,
                                     fontSize: 12,
@@ -8625,16 +8666,16 @@ class _ReelPlayerPageState extends State<_ReelPlayerPage> {
                               const SizedBox(width: 16),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(
+                                children: [
+                                  const Icon(
                                     Broken.subtitle,
                                     color: Colors.white70,
                                     size: 15,
                                   ),
-                                  SizedBox(width: 4),
+                                  const SizedBox(width: 4),
                                   Text(
-                                    'Langue',
-                                    style: TextStyle(
+                                    context.l10n.player_language,
+                                    style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 12,
                                     ),
@@ -8745,7 +8786,7 @@ class _ReelEpisodeSheet extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'EP01 / EP${episodes.length.toString().padLeft(2, '0')}',
+                    '${context.l10n.player_ep_short('01')} / ${context.l10n.player_ep_short(episodes.length.toString().padLeft(2, '0'))}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 14,

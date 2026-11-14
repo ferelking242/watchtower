@@ -9070,4 +9070,233 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_webview => 'WebView';
+
+  @override
+  String get player_fit_contain => 'Ajuster';
+
+  @override
+  String get player_fit_cover => 'Plein écran';
+
+  @override
+  String get player_fit_fill => 'Remplir';
+
+  @override
+  String get player_fit_height => '↕ Hauteur';
+
+  @override
+  String get player_speed_title => 'Vitesse de lecture';
+
+  @override
+  String get player_speed_short => 'Vitesse';
+
+  @override
+  String get player_unlock => 'Déverrouiller';
+
+  @override
+  String get player_capture => 'Capture';
+
+  @override
+  String get player_capture_saved => 'Capture sauvegardée';
+
+  @override
+  String get player_capture_failed => 'Capture impossible';
+
+  @override
+  String get player_auto => 'Auto';
+
+  @override
+  String get player_portrait => 'Portrait';
+
+  @override
+  String get player_landscape_left => 'Paysage ←';
+
+  @override
+  String get player_landscape_right => 'Paysage →';
+
+  @override
+  String get player_orientation => 'Orientation';
+
+  @override
+  String player_rotation_toast(Object mode) {
+    return 'Rotation : $mode';
+  }
+
+  @override
+  String player_resume_at(Object time) {
+    return 'Reprise à $time';
+  }
+
+  @override
+  String get player_no_source_to_download => 'Aucune source à télécharger';
+
+  @override
+  String get player_already_downloaded =>
+      'Cette résolution est déjà téléchargée';
+
+  @override
+  String get player_episode_not_in_library =>
+      'Épisode introuvable dans la bibliothèque';
+
+  @override
+  String player_download_added(Object quality) {
+    return 'Téléchargement $quality ajouté';
+  }
+
+  @override
+  String get player_download_duplicate =>
+      'Cette résolution est déjà téléchargée ou en cours';
+
+  @override
+  String get player_queue_failed => 'Impossible de mettre en file';
+
+  @override
+  String get player_quality_label => 'Qualité';
+
+  @override
+  String get player_download_quality => 'Télécharger · qualité';
+
+  @override
+  String get player_no_quality => 'Aucune qualité';
+
+  @override
+  String player_quality_toast(Object quality) {
+    return 'Qualité : $quality';
+  }
+
+  @override
+  String get player_track_none => 'Aucune';
+
+  @override
+  String player_track_n(Object number) {
+    return 'Piste $number';
+  }
+
+  @override
+  String player_subtitle_n(Object number) {
+    return 'Sous-titre $number';
+  }
+
+  @override
+  String player_sub_n(Object number) {
+    return 'Sub $number';
+  }
+
+  @override
+  String get player_tab_playback => 'Lecture';
+
+  @override
+  String get player_tab_audio => 'Audio';
+
+  @override
+  String get player_tab_subtitles => 'Sous-titres';
+
+  @override
+  String get player_seek_interval => 'INTERVALLE DE NAVIGATION';
+
+  @override
+  String get player_video_adjust => 'AJUSTEMENT VIDÉO';
+
+  @override
+  String get player_no_audio_track => 'Aucune piste audio';
+
+  @override
+  String get player_no_subtitle => 'Aucun sous-titre';
+
+  @override
+  String get player_disabled => 'Désactivé';
+
+  @override
+  String get player_disable => 'Désactiver';
+
+  @override
+  String get player_bilingual => 'Bilingue';
+
+  @override
+  String get player_subtitle_offset => 'Décalage sous-titres';
+
+  @override
+  String get player_subtitle_style => 'Style des sous-titres';
+
+  @override
+  String get player_style_outline => 'Contour';
+
+  @override
+  String get player_style_background => 'Fond';
+
+  @override
+  String get player_player_settings => 'Réglages du lecteur';
+
+  @override
+  String get player_loop => 'Boucle';
+
+  @override
+  String get player_loop_none => 'Aucune';
+
+  @override
+  String get player_loop_one => 'Une';
+
+  @override
+  String get player_loop_all => 'Tout';
+
+  @override
+  String get player_brightness => 'Luminosité';
+
+  @override
+  String get player_more => 'Plus';
+
+  @override
+  String get player_audio_only => 'Audio seul';
+
+  @override
+  String get player_mirror => 'Miroir';
+
+  @override
+  String get player_night_mode => 'Mode nuit';
+
+  @override
+  String get player_loop_episode => 'Épisode';
+
+  @override
+  String get player_ab_repeat => 'AB Répétition';
+
+  @override
+  String get player_ab_set_a => 'Déf. A';
+
+  @override
+  String get player_ab_set_b => 'Déf. B';
+
+  @override
+  String get player_audio_track => 'Piste audio';
+
+  @override
+  String get player_no_track => 'Aucune piste';
+
+  @override
+  String get player_episodes => 'Épisodes';
+
+  @override
+  String get player_no_episode => 'Aucun épisode';
+
+  @override
+  String player_episode_n(Object number) {
+    return 'Épisode $number';
+  }
+
+  @override
+  String player_ep_short(Object number) {
+    return 'EP $number';
+  }
+
+  @override
+  String get player_next_episode_in => 'Épisode suivant dans';
+
+  @override
+  String get player_play_now => 'Lire maintenant';
+
+  @override
+  String get player_language => 'Langue';
+
+  @override
+  String get player_webview_error =>
+      'Échec de la requête de mise en file du lecteur';
 }
