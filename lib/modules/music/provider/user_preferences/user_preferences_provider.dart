@@ -77,7 +77,7 @@ class UserPreferencesNotifier extends Notifier<PreferencesTableData> {
     }
 
     return paths.getDownloadsDirectory().then((dir) {
-      return join(dir!.path, "Spotube");
+      return join(dir!.path, "Watchtower");
     });
   }
 

@@ -102,8 +102,8 @@ packaging/
 *.ipynb
 
 # Server (built separately)
-server/
-server.py
+/server/
+/server.py
 
 # Empty ghost dirs
 watchtower/

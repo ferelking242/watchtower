@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:dio/dio.dart' hide Response;
@@ -30,12 +29,6 @@ final _deviceClients = Set.unmodifiable({
   YoutubeApiClient.mweb,
   YoutubeApiClient.safari,
 });
-
-String? get _randomUserAgent => _deviceClients
-    .elementAt(
-      Random().nextInt(_deviceClients.length),
-    )
-    .payload["context"]["client"]["userAgent"];
 
 /// Returns the YouTube user-agent that matches the client type embedded in
 /// [url]'s `c=` query parameter (e.g. ANDROID, IOS, MWEB).
@@ -130,11 +123,11 @@ class ServerPlaybackRoutes {
       );
     }
 
-    String url = track.url ??
-        await ref
-            .read(sourcedTrackProvider(track.query).notifier)
-            .swapWithNextSibling()
-            .then((track) => track.url!);
+    if (track.url == null) {
+      await ref
+          .read(sourcedTrackProvider(track.query).notifier)
+          .swapWithNextSibling();
+    }
 
     // Return a synthetic HEAD response instead of querying YouTube CDN.
     // Dart's HttpClient TLS fingerprint is rejected by YouTube CDN (→ 403).
@@ -187,7 +180,7 @@ class ServerPlaybackRoutes {
             .swapWithNextSibling()
             .then((track) => track.url!);
 
-    Options _buildOptions(String targetUrl) => Options(
+    Options buildOptions(String targetUrl) => Options(
           headers: {
             "user-agent": _userAgentForUrl(targetUrl),
             "Cache-Control": "max-age=3600",
@@ -204,7 +197,7 @@ class ServerPlaybackRoutes {
     // If GET fails (expired URL), we refresh and retry once.
     dio_lib.Response<ResponseBody> res;
     try {
-      res = await dio.get<ResponseBody>(url, options: _buildOptions(url));
+      res = await dio.get<ResponseBody>(url, options: buildOptions(url));
     } catch (e, stack) {
       AppLogger.reportError(e, stack);
 
@@ -215,7 +208,7 @@ class ServerPlaybackRoutes {
 
       url = sourcedTrack.url!;
       AppLogger.log.i("Refreshing ${track.query.name}: $url");
-      res = await dio.get<ResponseBody>(url, options: _buildOptions(url));
+      res = await dio.get<ResponseBody>(url, options: buildOptions(url));
     }
 
     // Check if the refreshed/initial URL is an m3u8 playlist — redirect

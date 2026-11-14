@@ -22,7 +22,7 @@ extension ChunkDownloaderDioExtension on Dio {
     final tempSaveDir = Directory(
       join(
         tempRootDir.path,
-        'Spotube',
+        'Watchtower',
         '.chunk_dl_${targetFile.uri.pathSegments.last}',
       ),
     );
@@ -71,7 +71,7 @@ extension ChunkDownloaderDioExtension on Dio {
         final len = int.tryParse(resp.headers[lengthHeader]?.first ?? '');
         if (len == null || len <= 1) {
           // can’t safely chunk — fallback
-          return download(
+          return await download(
             urlPath,
             savePath,
             onReceiveProgress: onReceiveProgress,
@@ -90,7 +90,7 @@ extension ChunkDownloaderDioExtension on Dio {
       }
 
       if (!supportsRange || connections <= 1) {
-        return download(
+        return await download(
           urlPath,
           savePath,
           onReceiveProgress: onReceiveProgress,

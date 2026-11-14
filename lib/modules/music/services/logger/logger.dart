@@ -10,7 +10,7 @@ import 'package:watchtower/utils/log/logger.dart' as wt;
 // ponytail: Spotube AppLogger = thin forwarder to wt.AppLogger.
 // No second Logger instance. getLogsPath() kept for logsProvider/logs.dart.
 
-class _WtLogForwarder {
+class WtLogForwarder {
   void t(Object? msg, {Object? error, StackTrace? stackTrace}) =>
       _emit(wt.LogLevel.debug, msg, error, stackTrace);
   void d(Object? msg, {Object? error, StackTrace? stackTrace}) =>
@@ -34,7 +34,7 @@ class _WtLogForwarder {
 }
 
 class AppLogger {
-  static final _WtLogForwarder log = _WtLogForwarder();
+  static final WtLogForwarder log = WtLogForwarder();
   static late final File logFile;
 
   static void initialize(bool verbose) {}

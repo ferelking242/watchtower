@@ -1,3 +1,6 @@
+// ISO 3166-1 alpha-2 market codes used by the metadata plugin API.
+// ignore_for_file: constant_identifier_names
+
 enum Market {
   AD,
   AE,

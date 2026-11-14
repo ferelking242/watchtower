@@ -1,3 +1,7 @@
+// Riverpod 2.x compatibility shims. The `StateProvider` factory intentionally
+// mirrors the removed Riverpod 2.x API name.
+// ignore_for_file: non_constant_identifier_names
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 abstract class FamilyAsyncNotifier<State, Arg> extends AsyncNotifier<State> {
@@ -24,23 +28,26 @@ extension AsyncValueCompat<T> on AsyncValue<T> {
   T? get valueOrNull => whenOrNull(data: (v) => v);
 }
 
-class _StateNotifier<T> extends Notifier<T> {
-  _StateNotifier(this._create);
+class StateNotifierCompat<T> extends Notifier<T> {
+  StateNotifierCompat(this._create);
   final T Function(Ref) _create;
 
   @override
   T build() => _create(ref);
 
+  /// Compat shim for Riverpod 2.x `StateProvider.notifier.state`.
+  void set(T value) => state = value;
+
   /// Compat shim: Riverpod 2.x StateProvider had an update() method.
   void update(T Function(T current) cb) => state = cb(state);
 }
 
-NotifierProvider<_StateNotifier<T>, T> StateProvider<T>(
+NotifierProvider<StateNotifierCompat<T>, T> StateProvider<T>(
   T Function(Ref) create, {
   String? name,
 }) {
-  return NotifierProvider<_StateNotifier<T>, T>(
-    () => _StateNotifier<T>(create),
+  return NotifierProvider<StateNotifierCompat<T>, T>(
+    () => StateNotifierCompat<T>(create),
     name: name,
   );
 }

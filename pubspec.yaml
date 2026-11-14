@@ -60,6 +60,7 @@ dependencies:
       url: https://github.com/ferelking242/quickjsR.git
       ref: 619c9f8afd00a810dbc0efd0f68f8901695a36c5
   http: ^1.6.0
+  http_parser: ^4.1.2
   re_editor: ^0.10.0
   re_highlight: ^0.0.3
   json_view: ^0.4.2
