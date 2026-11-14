@@ -13,12 +13,26 @@ plugin.smplug (ZIP)
 
 ## Plugin Repos
 
-| Plugin | Repo | Abilities | APIs |
+Every music plugin is published as a `.smplug` artifact inside the single
+shared **`watchtower-extensions`** catalogue repository, under `plugins/`.
+That repository is also what the Watchtower Marketplace reads its indexes
+from, so there is one place to publish a provider.
+
+| Plugin | Artifact | Abilities | APIs |
 |---|---|---|---|
-| **Spotify** | [spotube-plugin-spotify](https://github.com/ferelking242/spotube-plugin-spotify) | authentication, metadata | webview, localstorage, timezone |
-| **Apple Music** | [spotube-plugin-applemusic](https://github.com/ferelking242/spotube-plugin-applemusic) | authentication, metadata | webview, localstorage |
-| **Deezer** | [spotube-plugin-deezer](https://github.com/ferelking242/spotube-plugin-deezer) | authentication, metadata | webview, localstorage |
-| **YouTube Music** | [spotube-plugin-youtube-music](https://github.com/ferelking242/spotube-plugin-youtube-music) | authentication, metadata | webview, localstorage, timezone |
+| **Spotify** | `plugins/spotify.smplug` | authentication, metadata | webview, localstorage, timezone |
+| **Apple Music** | `plugins/applemusic.smplug` | authentication, metadata | webview, localstorage |
+| **Deezer** | `plugins/deezer.smplug` | authentication, metadata | webview, localstorage |
+| **YouTube Music** | `plugins/youtubemusic.smplug` | authentication, metadata | webview, localstorage, timezone |
+| **FLAC Music** | `plugins/flac.smplug` | audio-source | — |
+| **MusicBrainz** | `plugins/musicbrainz.smplug` | authentication, scrobbling, metadata | webview, localstorage |
+
+Catalogue: <https://github.com/ferelking242/watchtower-extensions>
+
+The build scripts below still expect a working copy of each plugin's source
+(Hetu `.ht` sources + `dependencies/`). Those sources live in the plugin's
+upstream repository; the compiled `.smplug` artifacts are what the catalogue
+ships.
 
 ## Building Locally
 
@@ -87,8 +101,8 @@ gh release create v1.0.0 plugin.smplug \
 
 Plugins are distributed via the **Watchtower Extensions** repository:
 
-1. Each plugin's `.smplug` is hosted in its GitHub Releases
-2. The `watchtower-extensions` repo has an `index/music.json` that lists all plugins with their download URLs
+1. Each plugin's `.smplug` is committed under `plugins/` in that repository
+2. The same repo's `index/music.json` lists all plugins with their download URLs
 3. Watchtower's Marketplace fetches this index and shows available plugins
 4. Users install plugins from the Marketplace → Music tab
 
@@ -98,10 +112,10 @@ Plugins are distributed via the **Watchtower Extensions** repository:
 {
   "id": 3001,
   "name": "Spotify",
-  "iconUrl": "https://cdn.simpleicons.org/spotify",
-  "version": "1.0.0",
-  "abilities": ["metadata", "audio-source"],
-  "upstream": "https://github.com/ferelking242/spotube-plugin-spotify/releases/latest/download/plugin.smplug"
+  "iconUrl": "https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main/assets/icons/music-3001.svg",
+  "version": "0.2.2",
+  "itemType": 3,
+  "upstream": "https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main/plugins/spotify.smplug"
 }
 ```
 

@@ -11,24 +11,31 @@ void main() {
   group('MetadataPluginRepository iconUrl', () {
     test('is optional and survives a round-trip through JSON', () {
       final withoutIcon = MetadataPluginRepository.fromJson({
-        'name': 'spotube-plugin-spotify',
+        'name': 'Spotify',
         'owner': 'ferelking242',
         'description': 'Spotify metadata',
-        'repoUrl': 'https://github.com/ferelking242/spotube-plugin-spotify',
-        'topics': <String>['spotube-plugin'],
+        'repoUrl': 'https://github.com/ferelking242/watchtower-extensions',
+        'topics': <String>['spotube-metadata-plugin'],
       });
       expect(withoutIcon.iconUrl, isNull);
+      expect(withoutIcon.downloadUrl, isNull);
 
       final withIcon = MetadataPluginRepository.fromJson({
-        'name': 'spotube-plugin-deezer',
+        'name': 'Deezer',
         'owner': 'ferelking242',
         'description': 'Deezer metadata',
-        'repoUrl': 'https://github.com/ferelking242/spotube-plugin-deezer',
-        'topics': <String>['spotube-plugin'],
+        'repoUrl': 'https://github.com/ferelking242/watchtower-extensions',
+        'topics': <String>['spotube-metadata-plugin'],
         'iconUrl': 'https://example.test/deezer.png',
+        'downloadUrl': 'https://example.test/deezer.smplug',
       });
       expect(withIcon.iconUrl, 'https://example.test/deezer.png');
       expect(withIcon.toJson()['iconUrl'], 'https://example.test/deezer.png');
+      expect(withIcon.downloadUrl, 'https://example.test/deezer.smplug');
+      expect(
+        withIcon.toJson()['downloadUrl'],
+        'https://example.test/deezer.smplug',
+      );
     });
 
     test('a repository without an icon still serialises', () {
@@ -36,8 +43,8 @@ void main() {
         name: 'legacy-plugin',
         owner: 'ferelking242',
         description: 'No icon published',
-        repoUrl: 'https://github.com/ferelking242/legacy-plugin',
-        topics: const <String>['spotube-plugin'],
+        repoUrl: 'https://github.com/ferelking242/watchtower-extensions',
+        topics: const <String>['spotube-metadata-plugin'],
       );
       expect(repo.toJson()['iconUrl'], isNull);
     });
@@ -77,6 +84,30 @@ void main() {
           reason: '${repo.name} must not depend on a third-party host',
         );
       }
+    });
+
+    test('every plugin declares a distinct .smplug download URL', () async {
+      final notifier = MetadataPluginRepositoriesNotifier();
+      final page = await notifier.fetch(0, 50);
+
+      final urls = <String>[];
+      for (final repo in page.items) {
+        expect(
+          repo.downloadUrl,
+          isNotNull,
+          reason: '${repo.name} must declare its artifact URL',
+        );
+        expect(repo.downloadUrl, endsWith('.smplug'));
+        expect(
+          repo.downloadUrl,
+          contains('watchtower-extensions'),
+          reason: 'the consolidated catalogue owns every music plugin',
+        );
+        urls.add(repo.downloadUrl!);
+      }
+
+      // Two plugins sharing an artifact URL would install the same bytecode.
+      expect(urls.toSet().length, urls.length);
     });
   });
 

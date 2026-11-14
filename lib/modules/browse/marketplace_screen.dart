@@ -3018,15 +3018,27 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
     final plugins = ref.watch(metadataPluginsProvider);
     final pluginsNotifier = ref.watch(metadataPluginsProvider.notifier);
 
+    // Every catalogue plugin shares one repository, so the direct artifact URL
+    // is the plugin's identity. Repository and compact-name comparisons keep
+    // plugins installed before the catalogue consolidation recognised too.
+    final downloadUrl = _repo.downloadUrl ?? _repo.repoUrl;
+    final entryKey = _MarketplaceScreenState._normCompact(_displayName);
+    bool matches(PluginConfiguration p) {
+      final repo = p.repository;
+      if (repo != null &&
+          repo.isNotEmpty &&
+          (repo == downloadUrl || repo == _repo.repoUrl)) {
+        return true;
+      }
+      final pluginKey = _MarketplaceScreenState._normCompact(p.name);
+      return pluginKey == entryKey ||
+          pluginKey.contains(entryKey) ||
+          entryKey.contains(pluginKey);
+    }
     final isInstalled =
-        plugins.asData?.value.plugins.any(
-          (p) => p.repository == _repo.repoUrl,
-        ) ??
-        false;
+        plugins.asData?.value.plugins.any(matches) ?? false;
     final installedConfig = isInstalled
-        ? plugins.asData?.value.plugins
-              .where((p) => p.repository == _repo.repoUrl)
-              .firstOrNull
+        ? plugins.asData?.value.plugins.where(matches).firstOrNull
         : null;
     final needsLogin =
         installedConfig?.abilities.contains(PluginAbilities.authentication) ??
@@ -3045,7 +3057,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
       onLongPress: isInstalled
           ? () async {
               final plugin = plugins.asData?.value.plugins
-                  .where((p) => p.repository == _repo.repoUrl)
+                  .where(matches)
                   .firstOrNull;
               if (plugin != null) {
                 await pluginsNotifier.removePlugin(plugin);
@@ -3141,7 +3153,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
                       setState(() => _installing = true);
                       try {
                         final pluginConfig = await pluginsNotifier
-                            .downloadAndCachePlugin(_repo.repoUrl);
+                            .downloadAndCachePlugin(downloadUrl);
                         if (!context.mounted) return;
                         if (_isOfficial) {
                           await pluginsNotifier.addPlugin(pluginConfig);

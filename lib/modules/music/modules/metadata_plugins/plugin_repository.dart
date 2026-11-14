@@ -114,7 +114,9 @@ import 'package:flutter/gestures.dart';
                         try {
                           isInstalling.value = true;
                           final pluginConfig = await pluginsNotifier
-                              .downloadAndCachePlugin(pluginRepo.repoUrl);
+                              .downloadAndCachePlugin(
+                                pluginRepo.downloadUrl ?? pluginRepo.repoUrl,
+                              );
 
                           if (!context.mounted) return;
                           final isOfficialPlugin = pluginRepo.owner == "KRTirtho";

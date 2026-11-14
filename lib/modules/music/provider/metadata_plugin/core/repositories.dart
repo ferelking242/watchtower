@@ -16,9 +16,17 @@ class _PageCache {
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
 
+/// Base URL of the shared extensions catalogue. Every music plugin lives in
+/// this single repository (its `plugins/*.smplug` release artifacts), which is
+/// the same repo the Marketplace reads its indexes from.
+const _kExtensionsRepoBase =
+    "https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main";
+
 /// Repository-hosted plugin icons published by the extensions catalogue.
-const _kPluginIconBase =
-    "https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main/assets/plugins/";
+const _kPluginIconBase = "$_kExtensionsRepoBase/assets/plugins/";
+
+/// Direct download URL of a music plugin artifact in the catalogue.
+String _kPluginUrl(String slug) => "$_kExtensionsRepoBase/plugins/$slug.smplug";
 
 class MetadataPluginRepositoriesNotifier
     extends PaginatedAsyncNotifier<MetadataPluginRepository> {
@@ -27,60 +35,66 @@ class MetadataPluginRepositoriesNotifier
   /// Static cache shared across all instances (survives hot-reload rebuilds).
   static final Map<int, _PageCache> _cache = {};
 
-  // ── Hardcoded plugin repositories ─────────────────────────────────────────
-  // Each plugin is forked into its own repo (ferelking242/spotube-plugin-*)
-  // and publishes a real .smplug in its GitHub release via CI. The marketplace
-  // installs the plugin straight from the latest release asset — no stubs.
-  // Using a hardcoded list completely avoids GitHub API rate-limiting (60 req/h
-  // unauthenticated) with zero network calls for repository discovery.
-  static const _kKnownRepos = [
+  // ── Catalogue-backed plugin repositories ──────────────────────────────────
+  // Every music plugin is published as a `.smplug` artifact inside the single
+  // shared `watchtower-extensions` repository (the same catalogue the
+  // Marketplace browses). The list is static so plugin discovery costs zero
+  // GitHub API calls (60 req/h unauthenticated) — the artifact URL is used
+  // directly. Adding a provider therefore means publishing its `.smplug` in
+  // that repo and appending one entry here.
+  static final _kKnownRepos = [
     (
-      name: "spotube-plugin-spotify",
+      name: "Spotify",
       owner: "ferelking242",
       description: "Spotify — métadonnées complètes + lecture (auth ARL).",
-      repoUrl: "https://github.com/ferelking242/spotube-plugin-spotify",
-      topics: <String>["spotube-plugin", "watchtower"],
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("spotify"),
+      topics: <String>["spotube-metadata-plugin", "spotube-audio-source-plugin"],
       iconUrl: "${_kPluginIconBase}spotify.png",
     ),
     (
-      name: "spotube-plugin-deezer",
+      name: "Deezer",
       owner: "ferelking242",
       description: "Deezer — métadonnées + lecture (auth ARL).",
-      repoUrl: "https://github.com/ferelking242/spotube-plugin-deezer",
-      topics: <String>["spotube-plugin", "watchtower"],
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("deezer"),
+      topics: <String>["spotube-metadata-plugin", "spotube-audio-source-plugin"],
       iconUrl: "${_kPluginIconBase}deezer.png",
     ),
     (
-      name: "spotube-plugin-applemusic",
+      name: "Apple Music",
       owner: "ferelking242",
       description: "Apple Music — métadonnées (titres, albums, playlists).",
-      repoUrl: "https://github.com/ferelking242/spotube-plugin-applemusic",
-      topics: <String>["spotube-plugin", "watchtower"],
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("applemusic"),
+      topics: <String>["spotube-metadata-plugin"],
       iconUrl: "${_kPluginIconBase}applemusic.png",
     ),
     (
-      name: "spotube-plugin-youtube-music",
+      name: "YouTube Music",
       owner: "ferelking242",
       description: "YouTube Music — métadonnées du catalogue YT Music.",
-      repoUrl: "https://github.com/ferelking242/spotube-plugin-youtube-music",
-      topics: <String>["spotube-plugin", "watchtower"],
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("youtubemusic"),
+      topics: <String>["spotube-metadata-plugin"],
       iconUrl: "${_kPluginIconBase}youtubemusic.png",
     ),
     (
-      name: "spotube-plugin-flac-audio",
+      name: "FLAC Music",
       owner: "ferelking242",
       description: "FLAC — source audio hi-fi (jusqu'à 24-bit/96kHz).",
-      repoUrl: "https://github.com/ferelking242/spotube-plugin-flac-audio",
-      topics: <String>["spotube-plugin", "watchtower"],
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("flac"),
+      topics: <String>["spotube-audio-source-plugin"],
       iconUrl: "${_kPluginIconBase}flac.png",
     ),
     (
-      name: "spotube-plugin-musicbrainz-listenbrainz",
+      name: "MusicBrainz",
       owner: "ferelking242",
       description: "MusicBrainz + ListenBrainz — métadonnées & scrobbling.",
-      repoUrl:
-          "https://github.com/ferelking242/spotube-plugin-musicbrainz-listenbrainz",
-      topics: <String>["spotube-plugin", "watchtower"],
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("musicbrainz"),
+      topics: <String>["spotube-metadata-plugin"],
       iconUrl: "${_kPluginIconBase}musicbrainz.png",
     ),
   ];
@@ -103,6 +117,7 @@ class MetadataPluginRepositoriesNotifier
                   owner: r.owner,
                   description: r.description,
                   repoUrl: r.repoUrl,
+                  downloadUrl: r.downloadUrl,
                   topics: r.topics,
                   iconUrl: r.iconUrl,
                 ),
