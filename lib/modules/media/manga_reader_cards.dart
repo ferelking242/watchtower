@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
@@ -787,8 +788,8 @@ class MangaReadingDirectionCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardTitle(
-            'Direction de lecture',
-            'Sens de lecture des planches.',
+            context.l10n.media_reading_direction_label,
+            context.l10n.media_reading_direction,
           ),
           const SizedBox(height: 12),
           Row(
@@ -892,8 +893,8 @@ class MangaReaderSettingsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardTitle(
-            'Réglages du reader',
-            'Personnalise ton expérience de lecture.',
+            context.l10n.media_reader_settings,
+            context.l10n.media_reader_settings_sub,
           ),
           const SizedBox(height: 10),
           for (var i = 0; i < rows.length; i++) ...[
@@ -936,8 +937,8 @@ class MangaReaderSettingsCard extends StatelessWidget {
             children: [
               Icon(Icons.brightness_6_rounded, size: 13, color: Colors.white54),
               const SizedBox(width: 8),
-              const Text(
-                'Luminosité',
+              Text(
+                context.l10n.media_brightness,
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 10.5,
@@ -1275,7 +1276,7 @@ class MangaChapterNavigationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      prevLabel ?? 'Chapitre précédent',
+                      prevLabel ?? context.l10n.media_previous_chapter,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1347,7 +1348,7 @@ class MangaChapterNavigationCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      nextLabel ?? 'Chapitre suivant',
+                      nextLabel ?? context.l10n.media_next_chapter_alt,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -1412,8 +1413,8 @@ class MangaQuickAccessCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardTitle(
-            'Accès rapide',
-            'Reprends là où tu t’es arrêté.',
+            context.l10n.media_quick_access,
+            context.l10n.media_resume_where_left,
           ),
           const SizedBox(height: 10),
           InkWell(
@@ -1445,7 +1446,7 @@ class MangaQuickAccessCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Reprendre la lecture',
+                          context.l10n.media_resume_reading,
                           style: TextStyle(
                             color: accent,
                             fontSize: 9,
@@ -1758,7 +1759,7 @@ class MangaReaderChapterListCard extends StatelessWidget {
                 child: Row(
                   children: [
                     _FilterChip(
-                      label: 'Tous',
+                      label: context.l10n.media_all,
                       selected: true,
                       accent: accent,
                     ),

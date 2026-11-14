@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
@@ -564,7 +565,7 @@ class SeasonDetailCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 10),
                 _EpisodeActionButton(
-                  label: 'Voir les épisodes',
+                  label: context.l10n.media_see_episodes,
                   onTap: season.onTap,
                 ),
               ],
@@ -788,7 +789,7 @@ class NextEpisodeHeroCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       _EpisodeActionButton(
-                        label: 'Voir la série',
+                        label: context.l10n.media_see_series,
                         onTap: entry.onTap,
                       ),
                     ],
@@ -893,7 +894,7 @@ class LatestEpisodeCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 8),
                   _EpisodeActionButton(
-                    label: entry.actionLabel ?? 'Voir la série',
+                    label: entry.actionLabel ?? context.l10n.media_see_series,
                     onTap: entry.onTap,
                   ),
                 ],
@@ -1451,7 +1452,7 @@ class UpNextCompactCard extends StatelessWidget {
                   ],
                   const SizedBox(height: 2),
                   Text(
-                    entry.subtitle ?? 'Épisode suivant',
+                    entry.subtitle ?? context.l10n.media_next_episode,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1666,7 +1667,7 @@ class SeriesBannerCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         _EpisodeActionButton(
-                          label: 'Voir la série',
+                          label: context.l10n.media_see_series,
                           onTap: season.onTap,
                         ),
                       ],
@@ -1890,7 +1891,7 @@ class _MiniEpisodeTile extends StatelessWidget {
           ),
           const SizedBox(height: 5),
           Text(
-            'Ép. ${entry.number ?? index}',
+            context.l10n.media_ep_short(entry.number ?? index),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -2051,7 +2052,7 @@ class _SeasonBannerBody extends StatelessWidget {
           children: [
             Flexible(
               child: _EpisodeActionButton(
-                label: 'Voir les épisodes',
+                label: context.l10n.media_see_episodes,
                 onTap: season.onTap,
               ),
             ),
@@ -2435,7 +2436,9 @@ class _EpisodeSwipeActions extends StatelessWidget {
         icon: entry.onDownload != null
             ? Icons.download_rounded
             : Icons.ios_share_rounded,
-        label: entry.onDownload != null ? 'Télécharger' : 'Partager',
+        label: entry.onDownload != null
+            ? context.l10n.download
+            : context.l10n.media_share,
       ),
       child: child,
     );

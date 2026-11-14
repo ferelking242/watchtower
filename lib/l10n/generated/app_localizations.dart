@@ -14602,6 +14602,228 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All >'**
   String get media_see_all_arrow;
+
+  /// No description provided for @media_weight_calculating.
+  ///
+  /// In en, this message translates to:
+  /// **'Computing size…'**
+  String get media_weight_calculating;
+
+  /// No description provided for @media_weight_known.
+  ///
+  /// In en, this message translates to:
+  /// **'Computing · {size} known'**
+  String media_weight_known(Object size);
+
+  /// No description provided for @media_weight_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Size unavailable'**
+  String get media_weight_unavailable;
+
+  /// No description provided for @media_weight_partial.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} known · partial estimate'**
+  String media_weight_partial(Object size);
+
+  /// No description provided for @media_weight_total.
+  ///
+  /// In en, this message translates to:
+  /// **'≈ {size} total'**
+  String media_weight_total(Object size);
+
+  /// No description provided for @media_no_video_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'No video selected.'**
+  String get media_no_video_selected;
+
+  /// No description provided for @media_download_n_videos.
+  ///
+  /// In en, this message translates to:
+  /// **'Download {count} video(s)'**
+  String media_download_n_videos(Object count);
+
+  /// No description provided for @media_auto_best.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (best)'**
+  String get media_auto_best;
+
+  /// No description provided for @media_if_missing.
+  ///
+  /// In en, this message translates to:
+  /// **'If missing'**
+  String get media_if_missing;
+
+  /// No description provided for @media_higher.
+  ///
+  /// In en, this message translates to:
+  /// **'Higher'**
+  String get media_higher;
+
+  /// No description provided for @media_exact.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact'**
+  String get media_exact;
+
+  /// No description provided for @media_formats_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching formats…'**
+  String get media_formats_loading;
+
+  /// No description provided for @media_format_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Format unavailable'**
+  String get media_format_unavailable;
+
+  /// No description provided for @media_all_fem.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get media_all_fem;
+
+  /// No description provided for @media_uncheck_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncheck all'**
+  String get media_uncheck_all;
+
+  /// No description provided for @media_check_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Check all'**
+  String get media_check_all;
+
+  /// No description provided for @media_episodes_ratio.
+  ///
+  /// In en, this message translates to:
+  /// **'{selected}/{total} episodes'**
+  String media_episodes_ratio(Object selected, Object total);
+
+  /// No description provided for @media_one_video.
+  ///
+  /// In en, this message translates to:
+  /// **'1 video'**
+  String get media_one_video;
+
+  /// No description provided for @media_fetching_parallel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching in parallel · {count} items'**
+  String media_fetching_parallel(Object count);
+
+  /// No description provided for @media_fetching.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching · {count} items'**
+  String media_fetching(Object count);
+
+  /// No description provided for @media_n_videos_size.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} videos · {size}'**
+  String media_n_videos_size(Object count, Object size);
+
+  /// No description provided for @media_comments_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} comments'**
+  String media_comments_count(Object count);
+
+  /// No description provided for @media_best.
+  ///
+  /// In en, this message translates to:
+  /// **'Best'**
+  String get media_best;
+
+  /// No description provided for @media_no_comment.
+  ///
+  /// In en, this message translates to:
+  /// **'No comment yet.'**
+  String get media_no_comment;
+
+  /// No description provided for @media_replies_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} reply(ies)'**
+  String media_replies_count(Object count);
+
+  /// No description provided for @media_replies_hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} hidden reply(ies)'**
+  String media_replies_hidden(Object count);
+
+  /// No description provided for @media_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter'**
+  String get media_chapter;
+
+  /// No description provided for @media_see_list.
+  ///
+  /// In en, this message translates to:
+  /// **'See the list'**
+  String get media_see_list;
+
+  /// No description provided for @media_reading_direction.
+  ///
+  /// In en, this message translates to:
+  /// **'Page reading direction.'**
+  String get media_reading_direction;
+
+  /// No description provided for @media_reader_settings_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Customise your reading experience.'**
+  String get media_reader_settings_sub;
+
+  /// No description provided for @media_previous_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous chapter'**
+  String get media_previous_chapter;
+
+  /// No description provided for @media_next_chapter_alt.
+  ///
+  /// In en, this message translates to:
+  /// **'Next chapter'**
+  String get media_next_chapter_alt;
+
+  /// No description provided for @media_reading_direction_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading direction'**
+  String get media_reading_direction_label;
+
+  /// No description provided for @media_see_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'See the episodes'**
+  String get media_see_episodes;
+
+  /// No description provided for @media_see_series.
+  ///
+  /// In en, this message translates to:
+  /// **'See the series'**
+  String get media_see_series;
+
+  /// No description provided for @media_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get media_share;
+
+  /// No description provided for @media_director_colon.
+  ///
+  /// In en, this message translates to:
+  /// **'Director: '**
+  String get media_director_colon;
 }
 
 class _AppLocalizationsDelegate

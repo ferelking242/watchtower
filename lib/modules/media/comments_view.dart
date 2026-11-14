@@ -4,6 +4,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/modules/widgets/zoomable_image_viewer.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
 
@@ -237,7 +238,7 @@ class _CommentsSectionState extends State<CommentsSection> {
           child: Row(
             children: [
               Text(
-                '$total commentaires',
+                context.l10n.media_comments_count(total),
                 style: TextStyle(
                   color: scheme.onSurface,
                   fontSize: 14,
@@ -257,9 +258,15 @@ class _CommentsSectionState extends State<CommentsSection> {
                   _sortMode = value;
                   _applySort();
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'best', child: Text('Meilleures')),
-                  PopupMenuItem(value: 'recent', child: Text('Récents')),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'best',
+                    child: Text(context.l10n.media_best),
+                  ),
+                  PopupMenuItem(
+                    value: 'recent',
+                    child: Text(context.l10n.media_recent),
+                  ),
                 ],
               ),
             ],
@@ -278,8 +285,8 @@ class _CommentsSectionState extends State<CommentsSection> {
                 const SizedBox(height: 10),
                 Text(
                   _failed
-                      ? 'Impossible de charger les commentaires.'
-                      : 'Aucun commentaire pour le moment.',
+                      ? context.l10n.media_comments_load_failed
+                      : context.l10n.media_no_comment,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
                 ),
@@ -287,7 +294,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                   const SizedBox(height: 12),
                   FilledButton.tonal(
                     onPressed: _load,
-                    child: const Text('Réessayer'),
+                    child: Text(context.l10n.retry),
                   ),
                 ],
               ],
@@ -485,8 +492,9 @@ class _CommentTile extends StatelessWidget {
                                     ),
                                   ),
                                   child: Text(
-                                    '${comment.replies.length} réponse'
-                                    '${comment.replies.length > 1 ? 's' : ''}',
+                                    context.l10n.media_replies_count(
+                                      comment.replies.length,
+                                    ),
                                     style: TextStyle(
                                       color: _threadColor,
                                       fontSize: 11,
@@ -504,9 +512,9 @@ class _CommentTile extends StatelessWidget {
                         ] else ...[
                           const SizedBox(height: 4),
                           Text(
-                            '${comment.replies.length} réponse'
-                            '${comment.replies.length > 1 ? 's' : ''} masquée'
-                            '${comment.replies.length > 1 ? 's' : ''}',
+                            context.l10n.media_replies_hidden(
+                              comment.replies.length,
+                            ),
                             style: TextStyle(color: grey, fontSize: 11),
                           ),
                         ],
@@ -649,9 +657,9 @@ class _CommentMediaThumb extends StatelessWidget {
                   const Icon(Icons.play_circle_outline_rounded,
                       color: Colors.white, size: 64),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Vidéo du commentaire',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  Text(
+                    context.l10n.media_comment_video,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Text(

@@ -8350,4 +8350,138 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_see_all_arrow => 'Tout >';
+
+  @override
+  String get media_weight_calculating => 'Calcul du poids…';
+
+  @override
+  String media_weight_known(Object size) {
+    return 'Calcul en cours · $size connus';
+  }
+
+  @override
+  String get media_weight_unavailable => 'Poids indisponible';
+
+  @override
+  String media_weight_partial(Object size) {
+    return '$size connus · estimation partielle';
+  }
+
+  @override
+  String media_weight_total(Object size) {
+    return '≈ $size au total';
+  }
+
+  @override
+  String get media_no_video_selected => 'Aucune vidéo sélectionnée.';
+
+  @override
+  String media_download_n_videos(Object count) {
+    return 'Télécharger $count vidéo(s)';
+  }
+
+  @override
+  String get media_auto_best => 'Auto (meilleure)';
+
+  @override
+  String get media_if_missing => 'Si absente';
+
+  @override
+  String get media_higher => 'Supérieure';
+
+  @override
+  String get media_exact => 'Exacte';
+
+  @override
+  String get media_formats_loading => 'Récupération des formats…';
+
+  @override
+  String get media_format_unavailable => 'Format indisponible';
+
+  @override
+  String get media_all_fem => 'Toutes';
+
+  @override
+  String get media_uncheck_all => 'Tout décocher';
+
+  @override
+  String get media_check_all => 'Tout cocher';
+
+  @override
+  String media_episodes_ratio(Object selected, Object total) {
+    return '$selected/$total épisodes';
+  }
+
+  @override
+  String get media_one_video => '1 vidéo';
+
+  @override
+  String media_fetching_parallel(Object count) {
+    return 'Récupération en parallèle · $count éléments';
+  }
+
+  @override
+  String media_fetching(Object count) {
+    return 'Récupération · $count éléments';
+  }
+
+  @override
+  String media_n_videos_size(Object count, Object size) {
+    return '$count vidéos · $size';
+  }
+
+  @override
+  String media_comments_count(Object count) {
+    return '$count commentaires';
+  }
+
+  @override
+  String get media_best => 'Meilleures';
+
+  @override
+  String get media_no_comment => 'Aucun commentaire pour le moment.';
+
+  @override
+  String media_replies_count(Object count) {
+    return '$count réponse(s)';
+  }
+
+  @override
+  String media_replies_hidden(Object count) {
+    return '$count réponse(s) masquée(s)';
+  }
+
+  @override
+  String get media_chapter => 'Chapitre';
+
+  @override
+  String get media_see_list => 'Voir la liste';
+
+  @override
+  String get media_reading_direction => 'Sens de lecture des planches.';
+
+  @override
+  String get media_reader_settings_sub =>
+      'Personnalise ton expérience de lecture.';
+
+  @override
+  String get media_previous_chapter => 'Chapitre précédent';
+
+  @override
+  String get media_next_chapter_alt => 'Chapitre suivant';
+
+  @override
+  String get media_reading_direction_label => 'Direction de lecture';
+
+  @override
+  String get media_see_episodes => 'Voir les épisodes';
+
+  @override
+  String get media_see_series => 'Voir la série';
+
+  @override
+  String get media_share => 'Partager';
+
+  @override
+  String get media_director_colon => 'Réalisateur : ';
 }

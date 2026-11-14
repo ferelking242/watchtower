@@ -8259,4 +8259,137 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get media_see_all_arrow => 'All >';
+
+  @override
+  String get media_weight_calculating => 'Computing size…';
+
+  @override
+  String media_weight_known(Object size) {
+    return 'Computing · $size known';
+  }
+
+  @override
+  String get media_weight_unavailable => 'Size unavailable';
+
+  @override
+  String media_weight_partial(Object size) {
+    return '$size known · partial estimate';
+  }
+
+  @override
+  String media_weight_total(Object size) {
+    return '≈ $size total';
+  }
+
+  @override
+  String get media_no_video_selected => 'No video selected.';
+
+  @override
+  String media_download_n_videos(Object count) {
+    return 'Download $count video(s)';
+  }
+
+  @override
+  String get media_auto_best => 'Auto (best)';
+
+  @override
+  String get media_if_missing => 'If missing';
+
+  @override
+  String get media_higher => 'Higher';
+
+  @override
+  String get media_exact => 'Exact';
+
+  @override
+  String get media_formats_loading => 'Fetching formats…';
+
+  @override
+  String get media_format_unavailable => 'Format unavailable';
+
+  @override
+  String get media_all_fem => 'All';
+
+  @override
+  String get media_uncheck_all => 'Uncheck all';
+
+  @override
+  String get media_check_all => 'Check all';
+
+  @override
+  String media_episodes_ratio(Object selected, Object total) {
+    return '$selected/$total episodes';
+  }
+
+  @override
+  String get media_one_video => '1 video';
+
+  @override
+  String media_fetching_parallel(Object count) {
+    return 'Fetching in parallel · $count items';
+  }
+
+  @override
+  String media_fetching(Object count) {
+    return 'Fetching · $count items';
+  }
+
+  @override
+  String media_n_videos_size(Object count, Object size) {
+    return '$count videos · $size';
+  }
+
+  @override
+  String media_comments_count(Object count) {
+    return '$count comments';
+  }
+
+  @override
+  String get media_best => 'Best';
+
+  @override
+  String get media_no_comment => 'No comment yet.';
+
+  @override
+  String media_replies_count(Object count) {
+    return '$count reply(ies)';
+  }
+
+  @override
+  String media_replies_hidden(Object count) {
+    return '$count hidden reply(ies)';
+  }
+
+  @override
+  String get media_chapter => 'Chapter';
+
+  @override
+  String get media_see_list => 'See the list';
+
+  @override
+  String get media_reading_direction => 'Page reading direction.';
+
+  @override
+  String get media_reader_settings_sub => 'Customise your reading experience.';
+
+  @override
+  String get media_previous_chapter => 'Previous chapter';
+
+  @override
+  String get media_next_chapter_alt => 'Next chapter';
+
+  @override
+  String get media_reading_direction_label => 'Reading direction';
+
+  @override
+  String get media_see_episodes => 'See the episodes';
+
+  @override
+  String get media_see_series => 'See the series';
+
+  @override
+  String get media_share => 'Share';
+
+  @override
+  String get media_director_colon => 'Director: ';
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
@@ -268,7 +269,7 @@ class MangaChapterCard extends StatelessWidget {
               left: 10,
               top: 10,
               child: _Chip(
-                item.subtitle ?? 'Chapitre',
+                item.subtitle ?? context.l10n.media_chapter,
                 color: accent,
                 solid: true,
               ),
@@ -489,7 +490,7 @@ class MangaChapterListCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Tous les chapitres',
+                  context.l10n.media_all_chapters,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -746,7 +747,7 @@ class MangaLatestReleaseCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Dernières sorties',
+                  context.l10n.media_latest_releases,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -888,7 +889,7 @@ class MangaReleaseTimelineCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Calendrier des sorties',
+                  context.l10n.media_release_calendar,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12.5,
@@ -1288,8 +1289,8 @@ class MangaChapterRangeCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text(
-                  'Voir la liste',
+                child: Text(
+                  context.l10n.media_see_list,
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
@@ -1466,7 +1467,7 @@ class MangaNewChapterCard extends StatelessWidget {
               left: 10,
               top: 10,
               child: _Chip(
-                item.statusLabel ?? 'Nouveau chapitre',
+                item.statusLabel ?? context.l10n.media_new_chapter,
                 color: const Color(0xFF2ED573),
                 solid: true,
               ),
@@ -1689,7 +1690,7 @@ class MangaChapterNextCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Prochain chapitre',
+                      context.l10n.media_next_chapter,
                       style: const TextStyle(
                         color: Colors.white38,
                         fontSize: 9,
@@ -1756,14 +1757,18 @@ class MangaChapterNextCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Broken.notification, size: 12, color: Colors.white70),
-                  SizedBox(width: 6),
+                  const Icon(
+                    Broken.notification,
+                    size: 12,
+                    color: Colors.white70,
+                  ),
+                  const SizedBox(width: 6),
                   Text(
-                    'Me le rappeler',
-                    style: TextStyle(
+                    context.l10n.media_remind_me,
+                    style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1830,7 +1835,7 @@ class MangaChapterSearchCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Résultats récents',
+            context.l10n.media_recent_results,
             style: const TextStyle(
               color: Colors.white38,
               fontSize: 9,

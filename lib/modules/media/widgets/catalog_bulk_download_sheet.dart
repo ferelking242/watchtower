@@ -13,6 +13,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart'
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart'
     show QualityFallback;
 import 'package:watchtower/modules/media/extension_image_headers.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/widgets/bulk_download_formats.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 import 'package:watchtower/services/get_detail.dart';
@@ -505,18 +506,19 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         !row.completedSizeResolutions.contains(key);
   });
 
-  String get _selectedSizeSummary {
+  String _selectedSizeSummary(BuildContext context) {
+    final l10n = context.l10n;
     final bytes = _estimatedSelectedBytes;
     final missing = _unestimatedSelectedVideos;
     final label = formatVideoBytes(bytes);
     if (_selectedSizesLoading) {
       return label == null
-          ? 'Calcul du poids…'
-          : 'Calcul en cours · $label connus';
+          ? l10n.media_weight_calculating
+          : l10n.media_weight_known(label);
     }
-    if (label == null) return 'Poids indisponible';
-    if (missing > 0) return '$label connus · estimation partielle';
-    return '≈ $label au total';
+    if (label == null) return l10n.media_weight_unavailable;
+    if (missing > 0) return l10n.media_weight_partial(label);
+    return l10n.media_weight_total(label);
   }
 
   void _confirm() {
@@ -542,7 +544,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     }
     if (items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucune vidéo sélectionnée.')),
+        SnackBar(content: Text(context.l10n.media_no_video_selected)),
       );
       return;
     }
@@ -585,7 +587,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
             children: [
               Expanded(
                 child: Text(
-                  'Télécharger ${widget.items.length} vidéo(s)',
+                  context.l10n.media_download_n_videos(widget.items.length),
                   style: TextStyle(
                     color: cs.onSurface,
                     fontSize: 16,
@@ -604,12 +606,12 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
             children: [
               Expanded(
                 child: _BulkDropdown<String?>(
-                  label: 'Qualité (toutes)',
+                  label: context.l10n.media_quality_all,
                   value: _bulkQuality,
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('Auto (meilleure)'),
+                      child: Text(context.l10n.media_auto_best),
                     ),
                     for (final q in _formats)
                       DropdownMenuItem<String?>(value: q, child: Text(q)),
@@ -620,20 +622,20 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: _BulkDropdown<QualityFallback>(
-                  label: 'Si absente',
+                  label: context.l10n.media_if_missing,
                   value: _bulkFallback,
-                  items: const [
+                  items: [
                     DropdownMenuItem(
                       value: QualityFallback.higher,
-                      child: Text('Supérieure'),
+                      child: Text(context.l10n.media_higher),
                     ),
                     DropdownMenuItem(
                       value: QualityFallback.lower,
-                      child: Text('Inférieure'),
+                      child: Text(context.l10n.media_lower),
                     ),
                     DropdownMenuItem(
                       value: QualityFallback.exact,
-                      child: Text('Exacte'),
+                      child: Text(context.l10n.media_exact),
                     ),
                   ],
                   onChanged: (v) => _applyBulkFallback(v),
@@ -646,12 +648,12 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
             children: [
               Expanded(
                 child: _BulkDropdown<String?>(
-                  label: 'Langue (toutes)',
+                  label: context.l10n.media_language_all,
                   value: _bulkLanguage,
                   items: [
-                    const DropdownMenuItem<String?>(
+                    DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('Toutes les langues'),
+                      child: Text(context.l10n.media_all_languages),
                     ),
                     for (final l in _headerLanguages)
                       DropdownMenuItem<String?>(value: l, child: Text(l)),
@@ -761,10 +763,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
           ),
           subtitle: Text(
             row.loading || row.formatsLoading
-                ? 'Récupération des formats…'
+                ? context.l10n.media_formats_loading
                 : row.error != null
-                ? 'Format indisponible'
-                : _rowSubtitle(row, isSeries),
+                ? context.l10n.media_format_unavailable
+                : _rowSubtitle(context, row, isSeries),
             style: TextStyle(
               color: row.error != null ? mbRed : cs.onSurfaceVariant,
               fontSize: 11.5,
@@ -785,12 +787,12 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                 children: [
                   Expanded(
                     child: _BulkDropdown<String?>(
-                      label: 'Langue',
+                      label: context.l10n.media_language,
                       value: row.language,
                       items: [
-                        const DropdownMenuItem<String?>(
+                        DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('Toutes'),
+                          child: Text(context.l10n.media_all_fem),
                         ),
                         for (final l in row.languages)
                           DropdownMenuItem<String?>(value: l, child: Text(l)),
@@ -801,12 +803,12 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _BulkDropdown<String?>(
-                      label: 'Saison',
+                      label: context.l10n.media_season,
                       value: row.season,
                       items: [
-                        const DropdownMenuItem<String?>(
+                        DropdownMenuItem<String?>(
                           value: null,
-                          child: Text('Toutes'),
+                          child: Text(context.l10n.media_all_fem),
                         ),
                         for (final s in row.seasons)
                           DropdownMenuItem<String?>(value: s, child: Text(s)),
@@ -823,7 +825,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               Row(
                 children: [
                   Text(
-                    'Épisodes',
+                    context.l10n.episodes,
                     style: TextStyle(
                       color: cs.onSurface,
                       fontSize: 12.5,
@@ -842,8 +844,8 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                     }),
                     child: Text(
                       row.visibleIndices.every(row.selected.contains)
-                          ? 'Tout décocher'
-                          : 'Tout cocher',
+                          ? context.l10n.media_uncheck_all
+                          : context.l10n.media_check_all,
                     ),
                   ),
                 ],
@@ -856,7 +858,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                   title: Text(
                     row.chapters[i].name?.trim().isNotEmpty == true
                         ? row.chapters[i].name!.trim()
-                        : 'Épisode ${i + 1}',
+                        : context.l10n.media_episode_n(i + 1),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: cs.onSurface, fontSize: 12.5),
@@ -879,10 +881,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   /// Row subtitle: episode count for a series, `1 vidéo` for a film, plus the
   /// size of the chosen quality (and a note when some resolutions are already
   /// downloaded and therefore hidden from the picker).
-  String _rowSubtitle(_ResolvedVideo row, bool isSeries) {
+  String _rowSubtitle(BuildContext context, _ResolvedVideo row, bool isSeries) {
+    final l10n = context.l10n;
     final base = isSeries
-        ? '${row.selected.length}/${row.chapters.length} épisodes'
-        : '1 vidéo';
+        ? l10n.media_episodes_ratio(row.selected.length, row.chapters.length)
+        : l10n.media_one_video;
     final parts = <String>[base];
     final perVideo = _selectedSizeBytes(row);
     final size = perVideo == null
@@ -890,7 +893,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         : formatVideoBytes(perVideo * row.selected.length);
     if (size != null) parts.add('≈ $size');
     if (row.downloadedKeys.isNotEmpty)
-      parts.add('déjà téléchargé(s) masqué(s)');
+      parts.add(context.l10n.media_already_downloaded_hidden);
     return parts.join(' · ');
   }
 
@@ -1034,8 +1037,15 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                     const SizedBox(height: 2),
                     Text(
                       _resolvingRows
-                          ? '${kIsWeb ? 'Récupération' : 'Récupération en parallèle'} · ${widget.items.length} éléments'
-                          : '$_totalSelected vidéos · $_selectedSizeSummary',
+                          ? (kIsWeb
+                                ? context.l10n.media_fetching(widget.items.length)
+                                : context.l10n.media_fetching_parallel(
+                                    widget.items.length,
+                                  ))
+                          : context.l10n.media_n_videos_size(
+                              _totalSelected,
+                              _selectedSizeSummary(context),
+                            ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

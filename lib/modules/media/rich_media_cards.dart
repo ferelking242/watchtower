@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
@@ -200,8 +201,8 @@ class MovieDetailsCard extends StatelessWidget {
           ],
           if (item.description?.trim().isNotEmpty == true) ...[
             const SizedBox(height: 12),
-            const Text(
-              'Résumé',
+            Text(
+              context.l10n.media_summary,
               style: TextStyle(
                 color: Colors.white60,
                 fontSize: 10,
@@ -583,8 +584,8 @@ class ExpandedMovieCard extends StatelessWidget {
                           fontSize: 10,
                         ),
                         children: [
-                          const TextSpan(
-                            text: 'Rééalisateur : ',
+                          TextSpan(
+                            text: context.l10n.media_director_colon,
                             style: TextStyle(
                               color: Colors.white54,
                               fontWeight: FontWeight.w700,
@@ -965,7 +966,7 @@ class _HoverMovieCardState extends State<HoverMovieCard> {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        item.description ?? 'Aucun résumé disponible.',
+                        item.description ?? context.l10n.media_no_summary,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1104,7 +1105,7 @@ class MovieQuickView extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Résumé rapide',
+                  context.l10n.media_quick_summary,
                   style: TextStyle(
                     color: accent,
                     fontSize: 10,
@@ -1113,7 +1114,7 @@ class MovieQuickView extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  item.description ?? 'Aucun résumé disponible.',
+                  item.description ?? context.l10n.media_no_summary,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1359,7 +1360,7 @@ class MovieDetailsModal extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              item.description ?? 'Aucun résumé disponible.',
+              item.description ?? context.l10n.media_no_summary,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
