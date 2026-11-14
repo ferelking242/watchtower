@@ -191,17 +191,17 @@ class _CompositeCollectionCard extends StatelessWidget {
               : width;
           // Hauteur et colonne latérale dérivées de la largeur : la carte
           // reste lisible du téléphone (320 px) à la TV (1900 px). La carte
-          // principale cède un peu de place à la colonne latérale pour que
-          // les trois mini-tuiles gardent une vraie taille au lieu d'être
+          // principale cède de la place à la colonne latérale (≈ 54 %) pour
+          // que les trois mini-tuiles gardent une vraie taille au lieu d'être
           // écrasées en bandes.
-          final height = (available * 0.38).clamp(140.0, 236.0);
+          final height = (available * 0.44).clamp(150.0, 268.0);
           // `sideWidth` sert de plancher ; le plafond évite que la colonne ne
           // dévore la tuile principale sur très grand écran. La colonne latérale
           // est volontairement généreuse (mini-tuiles lisibles) : la tuile
           // principale se resserre d'autant.
           final side = sideAsRows
-              ? (available * 0.52).clamp(sideWidth, 340.0)
-              : (available * 0.48).clamp(sideWidth, 320.0);
+              ? (available * 0.56).clamp(sideWidth, 380.0)
+              : (available * 0.54).clamp(sideWidth, 360.0);
           return Row(
             children: [
               Expanded(
