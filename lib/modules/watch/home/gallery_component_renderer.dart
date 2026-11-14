@@ -1032,10 +1032,6 @@ class GalleryComponentRenderer {
           width: w ?? 360,
           columns: ctx.number('columns') ?? 2,
           scroll: ctx.flag('scroll'),
-          flat: ctx.flag('flat', fallback: true),
-          title: ctx.header ?? 'Univers par pays / langue',
-          subtitle:
-              ctx.text('subtitle') ?? 'Explorez des contenus du monde entier.',
         );
       case 'home-my-list':
         return HomeMyListCard(
@@ -1177,10 +1173,12 @@ class GalleryComponentRenderer {
           GenreTileGrid(tiles: _genreGridTiles(ctx, items)),
         );
       case 'watch-providers-rail':
-        return ProviderRail(
-          title: title,
-          providers: _providerTiles(ctx, items),
-          onSeeAll: seeAll,
+        return _withHeader(
+          ctx,
+          ProviderRail(
+            providers: _providerTiles(ctx, items),
+            onSeeAll: seeAll,
+          ),
         );
 
       // ── Manga catalogue list (vertical, like search results) ──

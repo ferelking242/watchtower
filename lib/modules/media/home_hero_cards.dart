@@ -631,15 +631,10 @@ class HomePopularRailCard extends StatelessWidget {
     super.key,
     required this.items,
     this.width = 620,
-    this.title = 'Populaire à regarder',
   });
 
   final List<HomePopularEntry> items;
   final double width;
-
-  /// Conservé pour la compatibilité : le titre est désormais rendu par la
-  /// section, jamais par la carte.
-  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -804,19 +799,12 @@ class HomeLanguageGridCard extends StatelessWidget {
     super.key,
     required this.chips,
     this.width = 360,
-    this.onSeeAll,
-    this.title = 'Univers par pays / langue',
-    this.subtitle = 'Explorez des contenus du monde entier.',
     this.columns = 2,
     this.scroll = false,
-    this.flat = true,
   });
 
   final List<HomeCountryChip> chips;
   final double width;
-  final VoidCallback? onSeeAll;
-  final String title;
-  final String subtitle;
 
   /// Colonnes de la grille de pays (2 par défaut).
   final int columns;
@@ -825,15 +813,8 @@ class HomeLanguageGridCard extends StatelessWidget {
   /// grille. Utile quand la carte est posée dans une rangée étroite.
   final bool scroll;
 
-  /// Carte intégrée à une page : pas de panneau autour. Conservé pour la
-  /// compatibilité des layouts existants ; la carte n'affiche de toute façon
-  /// plus de panneau.
-  final bool flat;
-
   @override
   Widget build(BuildContext context) {
-    // La carte n'est jamais encadrée : le paramètre `flat` est accepté pour
-    // ne pas casser les layouts JSON existants, mais ignoré.
     const spacing = 8.0;
     if (scroll) {
       return SizedBox(

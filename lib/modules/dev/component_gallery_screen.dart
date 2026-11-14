@@ -8610,7 +8610,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.hmCountries,
     layoutComponent: 'home-language-grid',
     result: (_) => HomeLanguageGridCard(
-      onSeeAll: () {},
       chips: const [
         HomeCountryChip(
           label: 'États-Unis',
@@ -9885,6 +9884,106 @@ List<_ComponentSpec> _buildComponents() => [
           ),
         ],
       ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Grand format paysage',
+    className: 'AppSectionHeader + LandscapeCard',
+    path: 'lib/modules/media/landscape_cards.dart',
+    usage: 'En-tête + rail de grandes cartes paysage (`showcase`)',
+    icon: Icons.panorama_horizontal_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'À la une',
+      subtitle: 'Grand format',
+      icon: Icons.panorama_horizontal_outlined,
+      child: LandscapeShowcaseSection(
+        title: 'À la une',
+        subtitle: 'Grand format',
+        icon: Icons.panorama_horizontal_outlined,
+        width: 900,
+        items: [
+          _lsEntry(
+            'Dune: Part Two',
+            'Action · Aventure · Science-fiction',
+            '2h 46m',
+            '8.7',
+            _backdropDune,
+          ),
+          _lsEntry(
+            'The Batman',
+            'Action · Policier',
+            '2h 56m',
+            '7.8',
+            _backdropInterstellar,
+          ),
+          _lsEntry(
+            'Interstellar',
+            'Drame · Science-fiction',
+            '2h 49m',
+            '8.6',
+            _backdropOppenheimer,
+          ),
+        ],
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Grille catalogue',
+    className: 'AppSectionHeader + PosterCard',
+    path: 'lib/modules/media/content_cards.dart',
+    usage: 'En-tête + grille de posters nus (`columns`, `spacingX/Y`)',
+    icon: Icons.grid_view_rounded,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Catalogue',
+      subtitle: '4 colonnes',
+      icon: Icons.grid_view_rounded,
+      child: SizedBox(
+        width: 620,
+        child: GridView.count(
+          crossAxisCount: 4,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.62,
+          children: [
+            for (final item in _tmdbItems.take(8))
+              PosterCard(
+                item: ContentItem.fromTmdb(item),
+                onTap: () {},
+              ),
+          ],
+        ),
+      ),
+    ),
+  ),
+  _ComponentSpec(
+    section: 'SECTIONS PRÉFABRIQUÉES',
+    title: 'Prochain épisode',
+    className: 'AppSectionHeader + NextEpisodeCard',
+    path: 'lib/modules/media/streaming_cards.dart',
+    usage: 'En-tête + carte « épisode suivant » nue',
+    icon: Icons.upcoming_outlined,
+    kind: _PreviewKind.prefabSection,
+    result: (_) => _PrefabSection(
+      title: 'Prochain épisode',
+      subtitle: 'Disponible bientôt',
+      icon: Icons.upcoming_outlined,
+      child: _prefabRow([
+        for (final item in _tmdbItems.take(4))
+          NextEpisodeCard(
+            data: _streamCardData(
+              item,
+              seriesMeta: 'S2 • Ép. 3',
+              extraMeta: 'La nuit la plus longue',
+            ),
+            availableLabel: 'Dans 5 min',
+          ),
+      ]),
     ),
   ),
 ];
