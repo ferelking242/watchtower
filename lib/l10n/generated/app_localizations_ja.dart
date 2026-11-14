@@ -9368,4 +9368,68 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get discover_this_search => 'this search';
+
+  @override
+  String get discover_search_start_hint => 'Type your search to start.';
+
+  @override
+  String get discover_what_to_read => 'What do you want to read?';
+
+  @override
+  String get discover_what_to_watch => 'What do you want to watch?';
+
+  @override
+  String get discover_preview_unavailable => 'Preview unavailable';
+
+  @override
+  String get discover_channels => 'CHANNELS';
+
+  @override
+  String get discover_actresses => 'ACTRESSES';
+
+  @override
+  String get discover_videos => 'VIDEOS';
+
+  @override
+  String get discover_tmdb_tab_all => 'All';
+
+  @override
+  String get discover_tmdb_tab_movies => 'Movies';
+
+  @override
+  String get discover_tmdb_tab_series => 'Series';
+
+  @override
+  String get discover_tmdb_tab_people => 'Celebrities';
+
+  @override
+  String get discover_tmdb_tab_collections => 'Collections';
+
+  @override
+  String get discover_tmdb_hint_movie => 'Search a movie…';
+
+  @override
+  String get discover_tmdb_hint_series => 'Search a series…';
+
+  @override
+  String get discover_tmdb_hint_all => 'Movie, series or celebrity…';
+
+  @override
+  String get discover_tmdb_unavailable => 'Search unavailable';
+
+  @override
+  String get discover_tmdb_no_celebrity => 'No celebrity';
+
+  @override
+  String get discover_tmdb_try_another_name => 'Try another name.';
+
+  @override
+  String get discover_tmdb_no_collection => 'No collection';
+
+  @override
+  String get discover_tmdb_no_collection_match =>
+      'No saga or collection matches.';
+
+  @override
+  String get discover_tmdb_try_another_title => 'Try another title.';
 }

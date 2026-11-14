@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/widgets/kaomoji_empty.dart';
@@ -26,12 +27,25 @@ class ExtensionSearchPreview extends StatelessWidget {
   final VoidCallback onRetry;
   final ValueChanged<MManga> onOpen;
 
+  // Group identity is stable; the label is resolved at render time so the
+  // buckets are not keyed on a translated string.
   String _groupFor(MManga item) {
     final path = Uri.tryParse(item.link ?? '')?.path.toLowerCase() ?? '';
-    if (path.contains('/channels/')) return 'CHAÎNES';
+    if (path.contains('/channels/')) return 'channels';
     if (path.contains('/pornstars/') || path.contains('/actresses/'))
-      return 'ACTRICES';
-    return 'VIDÉOS';
+      return 'actresses';
+    return 'videos';
+  }
+
+  String _groupLabel(BuildContext context, String group) {
+    switch (group) {
+      case 'channels':
+        return context.l10n.discover_channels;
+      case 'actresses':
+        return context.l10n.discover_actresses;
+      default:
+        return context.l10n.discover_videos;
+    }
   }
 
   @override
@@ -41,9 +55,9 @@ class ExtensionSearchPreview extends StatelessWidget {
         query.trim().length >= 2 &&
         (loading || items.isNotEmpty || errorMessage != null);
     final groups = <String, List<MManga>>{
-      'CHAÎNES': [],
-      'ACTRICES': [],
-      'VIDÉOS': [],
+      'channels': [],
+      'actresses': [],
+      'videos': [],
     };
     for (final item in items) {
       groups[_groupFor(item)]!.add(item);
@@ -85,10 +99,10 @@ class ExtensionSearchPreview extends StatelessWidget {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const KaomojiEmpty(
+                                KaomojiEmpty(
                                   kaomoji: '(╥﹏╥)',
                                   size: 21,
-                                  message: 'Aperçu indisponible',
+                                  message: context.l10n.discover_preview_unavailable,
                                 ),
                                 const SizedBox(height: 5),
                                 Text(
@@ -107,7 +121,7 @@ class ExtensionSearchPreview extends StatelessWidget {
                                     Icons.refresh_rounded,
                                     size: 15,
                                   ),
-                                  label: const Text('Réessayer'),
+                                  label: Text(context.l10n.discover_retry),
                                   style: TextButton.styleFrom(
                                     visualDensity: VisualDensity.compact,
                                   ),
@@ -130,7 +144,7 @@ class ExtensionSearchPreview extends StatelessWidget {
                                     5,
                                   ),
                                   child: Text(
-                                    entry.key,
+                                    _groupLabel(context, entry.key),
                                     style: TextStyle(
                                       color: colors.primary,
                                       fontSize: 10,
@@ -170,7 +184,7 @@ class _ExtensionSearchPreviewRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final isVideo = group == 'VIDÉOS';
+    final isVideo = group == 'videos';
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -190,7 +204,7 @@ class _ExtensionSearchPreviewRow extends StatelessWidget {
                   Text(
                     item.name?.trim().isNotEmpty == true
                         ? item.name!.trim()
-                        : 'Sans titre',
+                        : context.l10n.browse_untitled,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(

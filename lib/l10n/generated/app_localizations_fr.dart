@@ -9537,4 +9537,68 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get discover_this_search => 'cette recherche';
+
+  @override
+  String get discover_search_start_hint => 'Tape ta recherche pour commencer.';
+
+  @override
+  String get discover_what_to_read => 'Que veux-tu lire ?';
+
+  @override
+  String get discover_what_to_watch => 'Que veux-tu regarder ?';
+
+  @override
+  String get discover_preview_unavailable => 'Aperçu indisponible';
+
+  @override
+  String get discover_channels => 'CHAÎNES';
+
+  @override
+  String get discover_actresses => 'ACTRICES';
+
+  @override
+  String get discover_videos => 'VIDÉOS';
+
+  @override
+  String get discover_tmdb_tab_all => 'Tout';
+
+  @override
+  String get discover_tmdb_tab_movies => 'Films';
+
+  @override
+  String get discover_tmdb_tab_series => 'Séries';
+
+  @override
+  String get discover_tmdb_tab_people => 'Célébrités';
+
+  @override
+  String get discover_tmdb_tab_collections => 'Collections';
+
+  @override
+  String get discover_tmdb_hint_movie => 'Rechercher un film…';
+
+  @override
+  String get discover_tmdb_hint_series => 'Rechercher une série…';
+
+  @override
+  String get discover_tmdb_hint_all => 'Film, série ou célébrité…';
+
+  @override
+  String get discover_tmdb_unavailable => 'Recherche indisponible';
+
+  @override
+  String get discover_tmdb_no_celebrity => 'Aucune célébrité';
+
+  @override
+  String get discover_tmdb_try_another_name => 'Essaie un autre nom.';
+
+  @override
+  String get discover_tmdb_no_collection => 'Aucune collection';
+
+  @override
+  String get discover_tmdb_no_collection_match =>
+      'Aucune saga ou collection ne correspond.';
+
+  @override
+  String get discover_tmdb_try_another_title => 'Essaie un autre titre.';
 }

@@ -5,6 +5,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Shared search chrome used by every search surface (TMDB hub search,
 /// extension search, manga search).
@@ -24,7 +25,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 class SharedSearchHeader extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode? focusNode;
-  final String hint;
+  final String? hint;
   final VoidCallback onBack;
   final ValueChanged<String> onSubmit;
   final ValueChanged<String> onChanged;
@@ -50,7 +51,7 @@ class SharedSearchHeader extends StatelessWidget {
     required this.onSubmit,
     required this.onChanged,
     this.focusNode,
-    this.hint = 'Rechercher…',
+    this.hint,
     this.onMic,
     this.leading,
     this.foregroundColor,
@@ -87,7 +88,7 @@ class SharedSearchHeader extends StatelessWidget {
                 style: TextStyle(color: foreground, fontSize: 14.5),
                 cursorColor: accent,
                 decoration: InputDecoration(
-                  hintText: hint,
+                  hintText: hint ?? context.l10n.discover_search,
                   hintStyle: TextStyle(
                     color: foreground.withValues(alpha: 0.55),
                     fontSize: 13.5,
@@ -291,7 +292,7 @@ class SharedSearchEmptyState extends StatefulWidget {
   final List<SharedSearchHotTab> hotTabs;
   final ValueChanged<String> onSearch;
   final VoidCallback onClearRecents;
-  final String hintText;
+  final String? hintText;
 
   const SharedSearchEmptyState({
     required this.recentSearches,
@@ -299,7 +300,7 @@ class SharedSearchEmptyState extends StatefulWidget {
     required this.hotTabs,
     required this.onSearch,
     required this.onClearRecents,
-    this.hintText = 'Que veux-tu regarder ?',
+    this.hintText,
     super.key,
   });
 
@@ -318,8 +319,8 @@ class _SharedSearchEmptyStateState extends State<SharedSearchEmptyState> {
         if (recent.isNotEmpty) _historyHeader(recent),
         Expanded(
           child: SharedSearchEmptyAnimation(
-            title: widget.hintText,
-            message: 'Tape ta recherche pour commencer.',
+            title: widget.hintText ?? context.l10n.discover_search,
+            message: context.l10n.discover_search_start_hint,
           ),
         ),
       ],
@@ -339,8 +340,8 @@ class _SharedSearchEmptyStateState extends State<SharedSearchEmptyState> {
               children: [
                 Icon(Broken.clock_1, size: 17, color: cs.primary),
                 const SizedBox(width: 8),
-                const Text(
-                  'Historique',
+                Text(
+                  context.l10n.history,
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -354,7 +355,7 @@ class _SharedSearchEmptyStateState extends State<SharedSearchEmptyState> {
                     visualDensity: VisualDensity.compact,
                     foregroundColor: Colors.white54,
                   ),
-                  child: const Text('Effacer'),
+                  child: Text(context.l10n.discover_clear),
                 ),
                 Icon(
                   _historyOpen ? Broken.arrow_up_1 : Broken.arrow_down_1,

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -10,7 +9,9 @@ import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
@@ -32,8 +33,12 @@ import 'package:watchtower/modules/media/extension_image_headers.dart';
 /// Same chrome as the TMDB search (chevron back, compact field with the mic
 /// inside, filter + three-dots outside). Empty state: recent searches, popular
 /// & latest of the extension as ranked hot tabs. Results use tabs declared by
-/// the extension when present; otherwise the screen keeps its legacy "Tout"
+/// the extension when present; otherwise the screen keeps its legacy "all"
 /// tab plus result-derived tabs (genres, author/language, etc.).
+/// Sentinel key of the "all results" tab. It is compared against, never shown:
+/// the tab renders [AppLocalizations.discover_all] instead.
+const String _kAllTab = 'all';
+
 class ExtensionSearchScreen extends ConsumerStatefulWidget {
   final Source source;
   final VoidCallback onClose;
@@ -79,7 +84,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   final _seen = <String>{};
 
   late TabController _tabs;
-  List<String> _tabLabels = const ['Tout'];
+  List<String> _tabLabels = const [_kAllTab];
   List<SearchTabLayout> _searchTabs = const [];
   String? _activeSearchTabId;
   final Map<String, List<MManga>> _searchTabResults = {};
@@ -230,7 +235,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _searchTabPages.clear();
         _searchTabHasNext.clear();
         _loadedSearchTabs.clear();
-        _setTabLabels(const ['Tout']);
+        _setTabLabels(const [_kAllTab]);
       });
     } else if (!_searchPreviewEnabled && query.isEmpty && _query.isNotEmpty) {
       setState(() {
@@ -248,7 +253,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         _searchTabPages.clear();
         _searchTabHasNext.clear();
         _loadedSearchTabs.clear();
-        _setTabLabels(const ['Tout']);
+        _setTabLabels(const [_kAllTab]);
       });
     } else {
       setState(() {});
@@ -324,7 +329,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   }
 
   void _setTabLabels(List<String> labels) {
-    final nextLabels = labels.isEmpty ? const ['Tout'] : labels;
+    final nextLabels = labels.isEmpty ? const [_kAllTab] : labels;
     if (_tabs.length != nextLabels.length) {
       final previous = _tabs;
       _tabs = TabController(length: nextLabels.length, vsync: this);
@@ -375,7 +380,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _loadedSearchTabs.clear();
       _setTabLabels(
         _searchTabs.isEmpty
-            ? const ['Tout']
+            ? const [_kAllTab]
             : _searchTabs.map((tab) => tab.title).toList(growable: false),
       );
     });
@@ -577,7 +582,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   /// "En cours" (latest) vs "Populaires" style groupings only when data
   /// supports it.
   List<String> _deriveTabs(List<MManga> items) {
-    final tabs = <String>['Tout'];
+    final tabs = <String>[_kAllTab];
     final genres = <String>{};
     for (final item in items) {
       for (final g in item.genre ?? const <String>[]) {
@@ -588,8 +593,11 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     return tabs;
   }
 
+  String _tabDisplayLabel(String label) =>
+      label == _kAllTab ? context.l10n.discover_all : label;
+
   bool _matchesTab(MManga item, String tab) {
-    if (tab == 'Tout') return true;
+    if (tab == _kAllTab) return true;
     return (item.genre ?? const <String>[]).any(
       (g) => g.trim().toLowerCase() == tab.toLowerCase(),
     );
@@ -677,7 +685,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       _searchTabPages.clear();
       _searchTabHasNext.clear();
       _loadedSearchTabs.clear();
-      _setTabLabels(const ['Tout']);
+      _setTabLabels(const [_kAllTab]);
     });
     _focus.requestFocus();
   }
@@ -780,8 +788,9 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                     child: SharedSearchHeader(
                       controller: _controller,
                       focusNode: _focus,
-                      hint:
-                          'Rechercher dans ${widget.source.name ?? 'l’extension'}',
+                      hint: context.l10n.discover_search_in(
+                        widget.source.name ?? '',
+                      ),
                       onBack: _onBack,
                       onMic: _startVoiceSearch,
                       onSubmit: _runSearch,
@@ -853,7 +862,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
         await clearRecentSearches(_recentKey);
         if (mounted) setState(() => _recent = []);
       },
-      hintText: 'Que veux-tu lire ?',
+      hintText: context.l10n.discover_what_to_read,
     );
   }
 
@@ -896,7 +905,10 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
               fontWeight: FontWeight.w800,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            tabs: [for (final label in _tabLabels) Tab(text: label)],
+            tabs: [
+              for (final label in _tabLabels)
+                Tab(text: _tabDisplayLabel(label)),
+            ],
           ),
         Expanded(
           child: TabBarView(
@@ -936,8 +948,8 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
       );
     } else if (_results == null || _results!.isEmpty) {
       content = SharedSearchEmptyAnimation(
-        title: 'Aucun résultat',
-        message: 'Rien ne correspond à « $_query ».',
+        title: context.l10n.discover_no_result,
+        message: context.l10n.watch_home_nothing_matches_query(_query),
       );
     } else {
       content = _ExtensionResultsGrid(
@@ -967,7 +979,9 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           onTap: (index) => unawaited(_selectSearchTab(index)),
-          tabs: [for (final label in _tabLabels) Tab(text: label)],
+          tabs: [
+            for (final label in _tabLabels) Tab(text: _tabDisplayLabel(label)),
+          ],
         ),
         Expanded(child: content),
       ],
@@ -1189,7 +1203,7 @@ class _ExtensionSearchMessage extends StatelessWidget {
                   backgroundColor: accent,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Réessayer'),
+                child: Text(context.l10n.discover_retry),
               ),
             ],
           ],

@@ -8,6 +8,7 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Context that customises the search page per hub:
 /// - movie hub → Films-first tab order and movie rails,
@@ -63,13 +64,22 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
 
   late final TabController _tabs;
 
-  static const _tabLabels = [
-    'Tout',
-    'Films',
-    'Séries',
-    'Célébrités',
-    'Collections',
-  ];
+  static const _tabCount = 5;
+
+  String _tabLabel(int index) {
+    switch (index) {
+      case 1:
+        return context.l10n.discover_tmdb_tab_movies;
+      case 2:
+        return context.l10n.discover_tmdb_tab_series;
+      case 3:
+        return context.l10n.discover_tmdb_tab_people;
+      case 4:
+        return context.l10n.discover_tmdb_tab_collections;
+      default:
+        return context.l10n.discover_tmdb_tab_all;
+    }
+  }
 
   @override
   void initState() {
@@ -77,7 +87,7 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
     _context = widget.hub ?? FlixSearchContext.generic;
     _controller = TextEditingController(text: widget.initialQuery ?? '');
     _loadRecent();
-    _tabs = TabController(length: _tabLabels.length, vsync: this);
+    _tabs = TabController(length: _tabCount, vsync: this);
 
     final initial = widget.initialQuery?.trim() ?? '';
     if (initial.isNotEmpty) {
@@ -216,10 +226,10 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
     );
   }
 
-  String get _hint => switch (_context) {
-    FlixSearchContext.movies => 'Rechercher un film…',
-    FlixSearchContext.series => 'Rechercher une série…',
-    FlixSearchContext.generic => 'Film, série ou célébrité…',
+  String _hint(BuildContext context) => switch (_context) {
+    FlixSearchContext.movies => context.l10n.discover_tmdb_hint_movie,
+    FlixSearchContext.series => context.l10n.discover_tmdb_hint_series,
+    FlixSearchContext.generic => context.l10n.discover_tmdb_hint_all,
   };
 
   @override
@@ -240,7 +250,7 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
               SharedSearchHeader(
                 controller: _controller,
                 focusNode: _focus,
-                hint: _hint,
+                hint: _hint(context),
                 onBack: _onBack,
                 onMic: _startVoiceSearch,
                 onSubmit: _runSearch,
@@ -266,7 +276,7 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
         await clearRecentSearches(_recentKey);
         if (mounted) setState(() => _recent = []);
       },
-      hintText: 'Que veux-tu regarder ?',
+      hintText: context.l10n.discover_what_to_watch,
     );
   }
 
@@ -279,15 +289,15 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
     if (_multiError != null) {
       return _SearchMessage(
         icon: Broken.warning_2,
-        title: 'Recherche indisponible',
+        title: context.l10n.discover_tmdb_unavailable,
         message: '$_multiError',
         onRetry: () => _runSearch(_query),
       );
     }
     if (_multiResults == null || _multiResults!.isEmpty) {
       return SharedSearchEmptyAnimation(
-        title: 'Aucun résultat',
-        message: 'Rien ne correspond à « $_query ».',
+        title: context.l10n.discover_no_result,
+        message: context.l10n.watch_home_nothing_matches_query(_query),
       );
     }
     return NotificationListener<ScrollNotification>(
@@ -310,7 +320,9 @@ class _TmdbSearchScreenState extends State<TmdbSearchScreen>
               fontWeight: FontWeight.w800,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            tabs: [for (final label in _tabLabels) Tab(text: label)],
+            tabs: [
+              for (var i = 0; i < _tabCount; i++) Tab(text: _tabLabel(i)),
+            ],
           ),
           Expanded(
             child: TabBarView(
@@ -378,7 +390,9 @@ class _AllResultsList extends StatelessWidget {
           TmdbMultiKind.person => _PersonRow(person: r.person!),
           _ => _MediaRow(
             media: r.media!,
-            badge: r.kind == TmdbMultiKind.tv ? 'Série' : 'Film',
+            badge: r.kind == TmdbMultiKind.tv
+                ? context.l10n.media_series
+                : context.l10n.media_movies,
             accent: accent,
           ),
         };
@@ -520,9 +534,9 @@ class _MediaResultsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (media.isEmpty) {
-      return const _SearchMessage(
-        title: 'Aucun résultat',
-        message: 'Essaie un autre titre.',
+      return _SearchMessage(
+        title: context.l10n.discover_no_result,
+        message: context.l10n.discover_tmdb_try_another_title,
       );
     }
     return GridView.builder(
@@ -627,9 +641,9 @@ class _PeopleResultsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (people.isEmpty) {
-      return const _SearchMessage(
-        title: 'Aucune célébrité',
-        message: 'Essaie un autre nom.',
+      return _SearchMessage(
+        title: context.l10n.discover_tmdb_no_celebrity,
+        message: context.l10n.discover_tmdb_try_another_name,
       );
     }
     return ListView.separated(
@@ -681,9 +695,9 @@ class _CollectionsResultsListState extends State<_CollectionsResultsList> {
     final collections = _collections;
     if (collections == null) return const SharedSearchShimmerList(rows: 5);
     if (collections.isEmpty) {
-      return const _SearchMessage(
-        title: 'Aucune collection',
-        message: 'Aucune sagas ou collections ne correspondent.',
+      return _SearchMessage(
+        title: context.l10n.discover_tmdb_no_collection,
+        message: context.l10n.discover_tmdb_no_collection_match,
       );
     }
     return ListView.separated(
@@ -926,7 +940,7 @@ class _SearchMessage extends StatelessWidget {
                   backgroundColor: accent,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Réessayer'),
+                child: Text(context.l10n.discover_retry),
               ),
             ],
           ],

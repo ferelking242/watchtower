@@ -16696,6 +16696,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'this search'**
   String get discover_this_search;
+
+  /// No description provided for @discover_search_start_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type your search to start.'**
+  String get discover_search_start_hint;
+
+  /// No description provided for @discover_what_to_read.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you want to read?'**
+  String get discover_what_to_read;
+
+  /// No description provided for @discover_what_to_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'What do you want to watch?'**
+  String get discover_what_to_watch;
+
+  /// No description provided for @discover_preview_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview unavailable'**
+  String get discover_preview_unavailable;
+
+  /// No description provided for @discover_channels.
+  ///
+  /// In en, this message translates to:
+  /// **'CHANNELS'**
+  String get discover_channels;
+
+  /// No description provided for @discover_actresses.
+  ///
+  /// In en, this message translates to:
+  /// **'ACTRESSES'**
+  String get discover_actresses;
+
+  /// No description provided for @discover_videos.
+  ///
+  /// In en, this message translates to:
+  /// **'VIDEOS'**
+  String get discover_videos;
+
+  /// No description provided for @discover_tmdb_tab_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get discover_tmdb_tab_all;
+
+  /// No description provided for @discover_tmdb_tab_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get discover_tmdb_tab_movies;
+
+  /// No description provided for @discover_tmdb_tab_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get discover_tmdb_tab_series;
+
+  /// No description provided for @discover_tmdb_tab_people.
+  ///
+  /// In en, this message translates to:
+  /// **'Celebrities'**
+  String get discover_tmdb_tab_people;
+
+  /// No description provided for @discover_tmdb_tab_collections.
+  ///
+  /// In en, this message translates to:
+  /// **'Collections'**
+  String get discover_tmdb_tab_collections;
+
+  /// No description provided for @discover_tmdb_hint_movie.
+  ///
+  /// In en, this message translates to:
+  /// **'Search a movie…'**
+  String get discover_tmdb_hint_movie;
+
+  /// No description provided for @discover_tmdb_hint_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Search a series…'**
+  String get discover_tmdb_hint_series;
+
+  /// No description provided for @discover_tmdb_hint_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie, series or celebrity…'**
+  String get discover_tmdb_hint_all;
+
+  /// No description provided for @discover_tmdb_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Search unavailable'**
+  String get discover_tmdb_unavailable;
+
+  /// No description provided for @discover_tmdb_no_celebrity.
+  ///
+  /// In en, this message translates to:
+  /// **'No celebrity'**
+  String get discover_tmdb_no_celebrity;
+
+  /// No description provided for @discover_tmdb_try_another_name.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another name.'**
+  String get discover_tmdb_try_another_name;
+
+  /// No description provided for @discover_tmdb_no_collection.
+  ///
+  /// In en, this message translates to:
+  /// **'No collection'**
+  String get discover_tmdb_no_collection;
+
+  /// No description provided for @discover_tmdb_no_collection_match.
+  ///
+  /// In en, this message translates to:
+  /// **'No saga or collection matches.'**
+  String get discover_tmdb_no_collection_match;
+
+  /// No description provided for @discover_tmdb_try_another_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another title.'**
+  String get discover_tmdb_try_another_title;
 }
 
 class _AppLocalizationsDelegate
