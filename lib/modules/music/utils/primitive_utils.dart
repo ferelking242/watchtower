@@ -50,4 +50,23 @@ abstract class PrimitiveUtils {
   static String toSafeFileName(String str) {
     return str.replaceAll(RegExp(r'[/\?%*:|"<>]'), ' ');
   }
+
+  /// Lower-cases and strips every non-alphanumeric character so plugin names
+  /// can be compared across the catalogue and the installed plugin list, where
+  /// the same plugin is spelled differently ("MusicBrainz" vs
+  /// "Musicbrainz and Listenbrainz", "FLAC Music" vs "Flac Downloader Audio").
+  static String compactName(String str) =>
+      str.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  /// Whether two plugin names refer to the same plugin. Catalogue entries use
+  /// a short display name ("MusicBrainz") while the plugin manifest may carry
+  /// the full one ("Musicbrainz and Listenbrainz"), so equality of the compact
+  /// forms or containment in either direction both count. Empty names never
+  /// match: a missing name must not collapse every plugin into one.
+  static bool namesLikelySame(String a, String b) {
+    final ca = compactName(a);
+    final cb = compactName(b);
+    if (ca.isEmpty || cb.isEmpty) return false;
+    return ca == cb || ca.contains(cb) || cb.contains(ca);
+  }
 }

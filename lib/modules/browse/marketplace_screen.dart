@@ -38,6 +38,7 @@ import 'package:watchtower/modules/more/settings/browse/extension_repositories_s
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
+import 'package:watchtower/modules/music/utils/primitive_utils.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
@@ -588,9 +589,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   // ── Data load ─────────────────────────────────────────────────────────────────
 
-  static String _normCompact(String s) =>
-      s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-
   /// Finds the installed music plugin matching a marketplace entry.
   /// Matching by exact slug fails for entries like "MusicBrainz" vs the
   /// plugin "Musicbrainz and Listenbrainz" (slug `musicbrainz-and-listenbrainz`)
@@ -601,7 +599,6 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     final plugins =
         ref.read(metadataPluginsProvider).value?.plugins ?? const [];
     if (plugins.isEmpty) return null;
-    final entryName = _normCompact(entry.name);
     final urls =
         <String>{entry.repoUrl, if (entry.upstream.isNotEmpty) entry.upstream}
             .where((u) => u.isNotEmpty)
@@ -610,8 +607,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     for (final p in plugins) {
       final repo = p.repository?.replaceAll(RegExp(r'/+$'), '');
       if (repo != null && repo.isNotEmpty && urls.contains(repo)) return p;
-      final pn = _normCompact(p.name);
-      if (pn == entryName) return p;
+      if (PrimitiveUtils.namesLikelySame(p.name, entry.name)) return p;
     }
     return null;
   }
@@ -3019,10 +3015,9 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
     final pluginsNotifier = ref.watch(metadataPluginsProvider.notifier);
 
     // Every catalogue plugin shares one repository, so the direct artifact URL
-    // is the plugin's identity. Repository and compact-name comparisons keep
-    // plugins installed before the catalogue consolidation recognised too.
+    // is the plugin's identity. Name comparison keeps plugins installed before
+    // the catalogue consolidation recognised too.
     final downloadUrl = _repo.downloadUrl ?? _repo.repoUrl;
-    final entryKey = _MarketplaceScreenState._normCompact(_displayName);
     bool matches(PluginConfiguration p) {
       final repo = p.repository;
       if (repo != null &&
@@ -3030,10 +3025,7 @@ class _MusicPluginCardState extends ConsumerState<_MusicPluginCard> {
           (repo == downloadUrl || repo == _repo.repoUrl)) {
         return true;
       }
-      final pluginKey = _MarketplaceScreenState._normCompact(p.name);
-      return pluginKey == entryKey ||
-          pluginKey.contains(entryKey) ||
-          entryKey.contains(pluginKey);
+      return PrimitiveUtils.namesLikelySame(p.name, _displayName);
     }
     final isInstalled =
         plugins.asData?.value.plugins.any(matches) ?? false;

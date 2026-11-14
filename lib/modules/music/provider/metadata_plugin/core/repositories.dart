@@ -97,6 +97,33 @@ class MetadataPluginRepositoriesNotifier
       topics: <String>["spotube-metadata-plugin"],
       iconUrl: "${_kPluginIconBase}musicbrainz.png",
     ),
+    (
+      name: "YouTube Audio",
+      owner: "ferelking242",
+      description: "YouTube Audio — résolution audio (source par défaut).",
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("youtubeaudio"),
+      topics: <String>["spotube-audio-source-plugin"],
+      iconUrl: "${_kPluginIconBase}youtubeaudio.png",
+    ),
+    (
+      name: "JioSaavn",
+      owner: "ferelking242",
+      description: "JioSaavn — résolution des flux audio.",
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("jiosaavn"),
+      topics: <String>["spotube-audio-source-plugin"],
+      iconUrl: "${_kPluginIconBase}jiosaavn.png",
+    ),
+    (
+      name: "DAB Music",
+      owner: "ferelking242",
+      description: "DAB Music — radios numériques et flux audio publics.",
+      repoUrl: "https://github.com/ferelking242/watchtower-extensions",
+      downloadUrl: _kPluginUrl("dabmusic"),
+      topics: <String>["spotube-audio-source-plugin"],
+      iconUrl: "${_kPluginIconBase}dabmusic.png",
+    ),
   ];
 
   @override

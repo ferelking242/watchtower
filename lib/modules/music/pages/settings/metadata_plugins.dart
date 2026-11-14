@@ -19,6 +19,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/utils/common.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/modules/music/utils/platform.dart';
+import 'package:watchtower/modules/music/utils/primitive_utils.dart';
 import 'package:very_good_infinite_list/very_good_infinite_list.dart';
 import 'package:sliver_tools/sliver_tools.dart';
 
@@ -40,14 +41,23 @@ class SettingsMetadataProviderPage extends HookConsumerWidget {
 
     final pluginRepos = useMemoized(
       () {
-        final installedPluginIds = plugins.asData?.value.plugins
-                .map((e) => e.repository)
-                .nonNulls
-                .toList() ??
-            [];
+        final installedPlugins =
+            plugins.asData?.value.plugins ?? const <PluginConfiguration>[];
         final pluginRepos = pluginReposSnapshot.asData?.value.items ?? [];
+        // Every catalogue entry shares one repository URL, so "already
+        // installed" is decided by the artifact URL (downloadUrl), falling
+        // back to a compact-name match for plugins installed before the
+        // catalogue consolidation.
+        bool isInstalled(MetadataPluginRepository repo) {
+          final artifact = repo.downloadUrl ?? repo.repoUrl;
+          return installedPlugins.any((p) {
+            if (p.repository != null && p.repository == artifact) return true;
+            return PrimitiveUtils.namesLikelySame(p.name, repo.name);
+          });
+        }
+
         final availablePlugins = pluginRepos
-            .whereNot((repo) => installedPluginIds.contains(repo.repoUrl))
+            .whereNot(isInstalled)
             .where((repo) {
               if (tabState.value == 0) return true;
               return repo.topics.contains(
