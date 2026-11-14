@@ -1438,6 +1438,26 @@ must not leak into watch code paths or logs:
   `Cache restored from key: rust-Linux-…` **et** une taille de cache de
   plusieurs centaines de Mo (un cache cible vide = toujours ~64 Mo).
 
+- **Mesuré (11 nov.)** : `Build Release APK` #730 (10m51s) vs #745 (27m27s).
+  Les deux runs utilisent **le même workflow** (aucun diff) ; tout l'écart est
+  dans l'étape `Build APK` (424 s → 1338 s). Le log montre
+  `Cache not found for input keys: gradle-…` au run lent contre
+  `Cache restored from key: gradle-…` au run rapide. Le budget est donc la
+  seule variable : **ne jamais attribuer ce saut à une régression de code**
+  avant d'avoir comparé le hit/miss Gradle.
+- Entrées évictables constatées (total 9,66 Go / 10 Go) : une clé Gradle de
+  4,37 Go, **1,24 Go de NDK** dont la moitié inutile (27.0.12077973 n'est
+  référencé nulle part ; `flutter.ndkVersion` = 28.2.13676358), et des caches
+  pub dupliqués (`subosito/flutter-action` avec `pub-cache: true` stocke déjà
+  `~/.pub-cache`, donc l'étape `Cache pub packages` explicite était un doublon
+  de ~450 Mo par OS).
+- Règle : un seul propriétaire par dossier de cache. Si un `uses:` stocke déjà
+  un chemin, ne pas ajouter d'étape `actions/cache` sur le même chemin.
+- **Corrigé** : NDK 27 retiré des clés NDK (clé renommée
+  `android-sdk-extras-ndk28-cmake-`), étapes pub dupliquées supprimées
+  (Linux, Windows, iOS-simulator). But : rester nettement sous 10 Go pour que
+  l'entrée Gradle ne soit plus évincée.
+
 ## Lecture partielle : un épisode interrompu se joue sur sa vraie timeline
 - Le `.mp4` fusionné n'existe qu'après la fusion ; un téléchargement HLS
   interrompu n'offre donc aucun fichier jouable. Les fragments présents sont
@@ -1477,6 +1497,7 @@ must not leak into watch code paths or logs:
   contourne volontairement le filtre « source active » de ce dernier : un
   épisode téléchargé doit se lire depuis le disque même si sa source a été
   supprimée, et un épisode partiel lit les fragments déjà présents.
+
 
 
 ## ZeusDL / téléchargement de liens (ne pas régresser)

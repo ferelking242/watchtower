@@ -73,17 +73,15 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: Cache Android SDK extras (NDK, CMake)
+      - name: Cache Android SDK extras (NDK 28.2, CMake)
         uses: actions/cache@v5
         with:
           path: |
-            /usr/local/lib/android/sdk/ndk/27.0.12077973
             /usr/local/lib/android/sdk/ndk/28.2.13676358
             /usr/local/lib/android/sdk/cmake/3.22.1
-          key: android-sdk-extras-ndk27-ndk28-cmake-${{ runner.os }}
+          key: android-sdk-extras-ndk28-cmake-${{ runner.os }}
           restore-keys: |
-            android-sdk-extras-ndk27-ndk28-cmake-
-            android-sdk-extras-ndk27-cmake-
+            android-sdk-extras-ndk28-cmake-
 
       # Cache p7zip binary — avoids ~40s apt-get install on every run
       - name: Cache p7zip
@@ -224,17 +222,15 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: Cache Android SDK extras (NDK, CMake)
+      - name: Cache Android SDK extras (NDK 28.2, CMake)
         uses: actions/cache@v5
         with:
           path: |
-            /usr/local/lib/android/sdk/ndk/27.0.12077973
             /usr/local/lib/android/sdk/ndk/28.2.13676358
             /usr/local/lib/android/sdk/cmake/3.22.1
-          key: android-sdk-extras-ndk27-ndk28-cmake-${{ runner.os }}
+          key: android-sdk-extras-ndk28-cmake-${{ runner.os }}
           restore-keys: |
-            android-sdk-extras-ndk27-ndk28-cmake-
-            android-sdk-extras-ndk27-cmake-
+            android-sdk-extras-ndk28-cmake-
 
       - name: Cache p7zip
         id: p7zip-cache
@@ -692,15 +688,6 @@ jobs:
       - name: Install Rust (needed for rust_lib_watchtower FFI plugin via cargokit)
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache pub packages
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.pub-cache
-            ${{ env.LOCALAPPDATA }}\Pub\Cache
-          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: pub-${{ runner.os }}-
-
       - name: Cache Rust (Windows x64)
         uses: actions/cache@v5
         with:
@@ -774,13 +761,6 @@ jobs:
             build/ios/derived/Build/Intermediates.noindex/Pods.build
           key: rust-macos-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
           restore-keys: rust-macos-${{ runner.os }}-
-      - name: Cache pub
-        uses: actions/cache@v5
-        with:
-          path: ~/.pub-cache
-          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: pub-${{ runner.os }}-
-
       - name: Cache CocoaPods spec repo
         uses: actions/cache@v5
         with:
@@ -1094,11 +1074,10 @@ jobs:
         with:
           targets: aarch64-apple-ios-sim,x86_64-apple-ios
 
-      - name: Cache pub and CocoaPods
+      - name: Cache CocoaPods and Pods
         uses: actions/cache@v5
         with:
           path: |
-            ~/.pub-cache
             ~/.cocoapods
             ios/Pods
           key: ios-simulator-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'ios/Podfile', 'ios/Podfile.lock') }}
@@ -1173,17 +1152,15 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: Cache Android SDK extras (NDK, CMake)
+      - name: Cache Android SDK extras (NDK 28.2, CMake)
         uses: actions/cache@v5
         with:
           path: |
-            /usr/local/lib/android/sdk/ndk/27.0.12077973
             /usr/local/lib/android/sdk/ndk/28.2.13676358
             /usr/local/lib/android/sdk/cmake/3.22.1
-          key: android-sdk-extras-ndk27-ndk28-cmake-${{ runner.os }}
+          key: android-sdk-extras-ndk28-cmake-${{ runner.os }}
           restore-keys: |
-            android-sdk-extras-ndk27-ndk28-cmake-
-            android-sdk-extras-ndk27-cmake-
+            android-sdk-extras-ndk28-cmake-
 
       - name: Install Rust Android cross targets
         uses: dtolnay/rust-toolchain@stable

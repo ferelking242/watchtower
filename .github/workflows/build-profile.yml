@@ -62,17 +62,15 @@ jobs:
           restore-keys: rust-android-arm64-${{ runner.os }}-
 
       # Cache Android NDK 27 + CMake 3.22.1 — telecharges par Gradle a chaque run
-      - name: Cache Android SDK extras (NDK 27, CMake)
+      - name: Cache Android SDK extras (NDK 28.2, CMake)
         uses: actions/cache@v5
         with:
           path: |
-            /usr/local/lib/android/sdk/ndk/27.0.12077973
             /usr/local/lib/android/sdk/ndk/28.2.13676358
             /usr/local/lib/android/sdk/cmake/3.22.1
-          key: android-sdk-extras-ndk27-ndk28-cmake-${{ runner.os }}
+          key: android-sdk-extras-ndk28-cmake-${{ runner.os }}
           restore-keys: |
-            android-sdk-extras-ndk27-ndk28-cmake-
-            android-sdk-extras-ndk27-cmake-
+            android-sdk-extras-ndk28-cmake-
 
       # Cache .dart_tool/flutter_build uniquement (pas tout .dart_tool — évite les stale metadata).
       # Clé exacte: OS + Flutter version + mode + sources Dart. Sans restore-keys → zéro stale kernel.
