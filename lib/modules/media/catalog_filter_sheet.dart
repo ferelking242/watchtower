@@ -1,18 +1,21 @@
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+
 /// Denseur d'affichage choisi dans la section « Affichage » de la feuille.
 ///
 /// Les modes reprennent ceux de la bibliothèque pour que toutes les surfaces
 /// catalogue (recherche, « voir tout », studios) exposent le même jeu.
 enum CatalogLayout { grid, comfortable, list, compact, coverOnly }
 
-/// Libellé français d'un [CatalogLayout], partagé par toutes les surfaces qui
-/// proposent le sélecteur « Affichage » (catalogue, recherche, studios).
-String catalogLayoutLabel(CatalogLayout layout) => switch (layout) {
-  CatalogLayout.grid => 'Grille',
-  CatalogLayout.comfortable => 'Grille espacée',
-  CatalogLayout.list => 'Liste',
-  CatalogLayout.compact => 'Grille compacte',
-  CatalogLayout.coverOnly => 'Grille avec seulement la couverture',
-};
+/// Localised label of a [CatalogLayout], shared by every surface that offers
+/// the "Display" picker (catalogue, search, studios).
+String catalogLayoutLabel(AppLocalizations l10n, CatalogLayout layout) =>
+    switch (layout) {
+      CatalogLayout.grid => l10n.settings_layout_grid,
+      CatalogLayout.comfortable => l10n.media_grid_comfortable,
+      CatalogLayout.list => l10n.settings_layout_list,
+      CatalogLayout.compact => l10n.media_grid_compact,
+      CatalogLayout.coverOnly => l10n.media_grid_cover_only,
+    };
 
 /// Nombre de colonnes effectif d'une grille de catalogue : un réglage explicite
 /// (1–6) l'emporte, sinon le mode d'affichage ajuste le nombre de colonnes de

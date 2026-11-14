@@ -4634,7 +4634,9 @@ class _MarketplaceFilterButton extends StatelessWidget {
       icon: Icon(
         Broken.filter,
         size: 19,
-        color: active ? cs.primary : cs.onSurfaceVariant,
+        color: active
+            ? cs.primary
+            : cs.onSurface.withValues(alpha: 0.45),
       ),
     );
   }

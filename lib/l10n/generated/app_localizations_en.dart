@@ -7457,4 +7457,654 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_remote_server_subtitle =>
       'Connect your device to sync the library';
+
+  @override
+  String get media_filters_title => 'Filters';
+
+  @override
+  String media_filters_active(Object count) {
+    return 'Filters · $count active';
+  }
+
+  @override
+  String get media_clear_filters => 'Remove filters';
+
+  @override
+  String get media_apply => 'Apply';
+
+  @override
+  String get media_done => 'Done';
+
+  @override
+  String get media_display_mode => 'Display mode';
+
+  @override
+  String get media_items_per_row => 'Items per row';
+
+  @override
+  String get media_columns_count => 'Number of columns';
+
+  @override
+  String media_columns_n(Object count) {
+    return '$count columns';
+  }
+
+  @override
+  String get media_columns_one => '1 column';
+
+  @override
+  String get media_automatic => 'Automatic';
+
+  @override
+  String get media_years => 'Years';
+
+  @override
+  String get media_all_years => 'All years';
+
+  @override
+  String get media_genres => 'Genres';
+
+  @override
+  String get media_rating => 'Rating';
+
+  @override
+  String get media_sort => 'Sort';
+
+  @override
+  String get media_search_option => 'Search an option…';
+
+  @override
+  String get media_search_page => 'Search in this page…';
+
+  @override
+  String get media_all => 'All';
+
+  @override
+  String get media_all_durations => 'All durations';
+
+  @override
+  String get media_all_languages => 'All languages';
+
+  @override
+  String get media_all_qualities => 'All qualities';
+
+  @override
+  String get media_language => 'Language';
+
+  @override
+  String get media_upper => 'Upper';
+
+  @override
+  String get media_lower => 'Lower';
+
+  @override
+  String get media_deselect_all => 'Deselect all';
+
+  @override
+  String get media_download_all => 'Download all';
+
+  @override
+  String media_download_count(Object count) {
+    return 'Download $count item(s)';
+  }
+
+  @override
+  String media_download_selection(Object count) {
+    return 'Download selection ($count)';
+  }
+
+  @override
+  String get media_custom_download => 'Custom download';
+
+  @override
+  String get media_item_count => 'Number of items';
+
+  @override
+  String get media_enter_positive => 'Enter a number greater than zero.';
+
+  @override
+  String get media_nothing_downloadable => 'No downloadable item.';
+
+  @override
+  String get media_no_selection => 'No video selected.';
+
+  @override
+  String media_episodes_count(Object count) {
+    return '$count episodes';
+  }
+
+  @override
+  String get media_episode => 'Episode';
+
+  @override
+  String media_episode_n(Object number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String media_ep_short(Object number) {
+    return 'Ep. $number';
+  }
+
+  @override
+  String get media_season => 'Season';
+
+  @override
+  String get media_series => 'Series';
+
+  @override
+  String get media_tv_movie => 'TV movie';
+
+  @override
+  String get media_reality => 'Reality TV';
+
+  @override
+  String get media_top_rated => 'Top rated';
+
+  @override
+  String get media_new_releases => 'New releases';
+
+  @override
+  String get media_most_popular => 'Most popular';
+
+  @override
+  String get media_top_10_week => 'Top 10 this week';
+
+  @override
+  String get media_discover => 'Discover';
+
+  @override
+  String get media_watch_this_week => 'Watch this week';
+
+  @override
+  String get media_watch_tonight => 'Watch tonight';
+
+  @override
+  String get media_categories => 'Categories';
+
+  @override
+  String get media_no_result => 'No result';
+
+  @override
+  String get media_no_result_filters => 'No result for these filters';
+
+  @override
+  String get media_load_failed => 'Unable to load \$title right now.';
+
+  @override
+  String get media_no_summary => 'No summary available.';
+
+  @override
+  String get media_no_synopsis => 'No synopsis available.';
+
+  @override
+  String get media_no_similar => 'No similar title available.';
+
+  @override
+  String get media_no_wallpaper => 'No wallpaper available.';
+
+  @override
+  String get media_no_episode => 'No episode available.';
+
+  @override
+  String get media_no_comments => 'No comments yet.';
+
+  @override
+  String get media_comments_load_failed => 'Unable to load the comments.';
+
+  @override
+  String get media_episodes_load_failed => 'Unable to load the episodes.';
+
+  @override
+  String get media_people_load_failed => 'Unable to load the cast.';
+
+  @override
+  String get media_details => 'Details';
+
+  @override
+  String get media_details_unavailable => 'Details unavailable.';
+
+  @override
+  String get media_duration => 'Duration';
+
+  @override
+  String get media_episode_duration => 'Episode duration';
+
+  @override
+  String get media_release_date => 'Release date';
+
+  @override
+  String get media_first_air_date => 'First air date';
+
+  @override
+  String get media_last_episode => 'Last episode';
+
+  @override
+  String get media_original_language => 'Original language';
+
+  @override
+  String get media_spoken_languages => 'Spoken languages';
+
+  @override
+  String get media_networks => 'Networks';
+
+  @override
+  String get media_created_by => 'Created by';
+
+  @override
+  String get media_where_to_watch => 'Where to watch';
+
+  @override
+  String get media_popularity => 'Popularity';
+
+  @override
+  String get media_add_to_list => 'Add to my list';
+
+  @override
+  String get media_watch_series => 'Watch the series';
+
+  @override
+  String get media_watch_episodes => 'Watch the episodes';
+
+  @override
+  String get media_watch_season => 'Watch the season';
+
+  @override
+  String get media_view_all_languages => 'View all languages';
+
+  @override
+  String get media_retry => 'Retry';
+
+  @override
+  String get media_loading_failed_retry => 'Loading failed · Retry';
+
+  @override
+  String get media_prev_chapter => 'Previous chapter';
+
+  @override
+  String get media_next_chapter => 'Next chapter';
+
+  @override
+  String get media_next_episode => 'Next episode';
+
+  @override
+  String get media_new_chapter => 'New chapter';
+
+  @override
+  String get media_next_chapter_soon => 'Next chapter';
+
+  @override
+  String get media_latest_releases => 'Latest releases';
+
+  @override
+  String get media_release_calendar => 'Release calendar';
+
+  @override
+  String get media_recent_results => 'Recent results';
+
+  @override
+  String get media_resume_reading => 'Resume reading';
+
+  @override
+  String get media_quick_access => 'Quick access';
+
+  @override
+  String get media_reader_settings => 'Reader settings';
+
+  @override
+  String get media_brightness => 'Brightness';
+
+  @override
+  String get media_volumes_preview => 'Volumes preview';
+
+  @override
+  String get media_upcoming_volumes => 'Upcoming volumes';
+
+  @override
+  String get media_other_works => 'Other works in the universe';
+
+  @override
+  String get media_editions_by_language => 'Editions by language';
+
+  @override
+  String get media_universe_by_country => 'Universe by country / language';
+
+  @override
+  String get media_trailers => 'Trailers and videos';
+
+  @override
+  String get media_video => 'Video';
+
+  @override
+  String get media_soon => 'Soon';
+
+  @override
+  String get media_tv => 'TV';
+
+  @override
+  String get media_announced => 'Announced';
+
+  @override
+  String get media_cancelled => 'Cancelled';
+
+  @override
+  String get media_completed => 'Completed';
+
+  @override
+  String get media_dropped => 'Dropped';
+
+  @override
+  String get media_status_ongoing => 'Ongoing';
+
+  @override
+  String get media_available_channels => 'Available channels';
+
+  @override
+  String get media_open_channel_failed => 'Unable to open the channel';
+
+  @override
+  String get media_world_channels =>
+      'Access the official channel pages from Watchtower.';
+
+  @override
+  String get media_world_content => 'Explore content from around the world.';
+
+  @override
+  String get media_european_news => 'European news';
+
+  @override
+  String get media_international_news => 'International news';
+
+  @override
+  String get media_no_network => 'No network connection';
+
+  @override
+  String get media_connect_internet =>
+      'Connect to the Internet to load \$title.';
+
+  @override
+  String get media_check_connection => 'Check your Wi-Fi or mobile data.';
+
+  @override
+  String get media_catalog_load_failed =>
+      'Unable to load the catalogue. Try again later.';
+
+  @override
+  String get media_hub_unavailable => '\$title is temporarily unavailable';
+
+  @override
+  String get media_refine_with_tags => 'Refine your search with the tags.';
+
+  @override
+  String get media_find_favourite_genres => 'Find your favourite genres.';
+
+  @override
+  String get media_personalise_reading =>
+      'Personalise your reading experience.';
+
+  @override
+  String get media_resume_where_left => 'Pick up where you left off.';
+
+  @override
+  String get media_official_manga =>
+      'Official manga available on legal platforms.';
+
+  @override
+  String get media_no_badge => 'No badge published by this source.';
+
+  @override
+  String get media_remind_me => 'Remind me';
+
+  @override
+  String get media_computing_size => 'Computing size…';
+
+  @override
+  String get media_fetching_formats => 'Fetching formats…';
+
+  @override
+  String get media_background => 'Background';
+
+  @override
+  String get media_collapse => 'Collapse';
+
+  @override
+  String get media_expand => 'Expand';
+
+  @override
+  String media_videos_processed(Object done, Object total) {
+    return '$done/$total videos processed';
+  }
+
+  @override
+  String media_videos_selected(Object size, Object total) {
+    return '$total videos · $size';
+  }
+
+  @override
+  String get media_selection_mode => 'Multiple selection';
+
+  @override
+  String get media_finish_selection => 'Finish selection';
+
+  @override
+  String get media_quality_all => 'Quality (all)';
+
+  @override
+  String get media_language_all => 'Language (all)';
+
+  @override
+  String get media_in_5_min => 'In 5 min';
+
+  @override
+  String get media_quick_summary => 'Quick summary';
+
+  @override
+  String get media_summary => 'Summary';
+
+  @override
+  String get media_creator => 'Creator:';
+
+  @override
+  String get media_read_direction => 'Panel reading direction.';
+
+  @override
+  String get media_official_badge => 'SERIES';
+
+  @override
+  String get media_recent => 'Recent';
+
+  @override
+  String get media_bulk_download => 'Download';
+
+  @override
+  String media_show_more(Object count) {
+    return 'Show more ($count left)';
+  }
+
+  @override
+  String get media_comment_video => 'Comment video';
+
+  @override
+  String media_replies(Object count) {
+    return '$count replies';
+  }
+
+  @override
+  String media_videos_count(Object count) {
+    return '$count videos';
+  }
+
+  @override
+  String media_elements_count(Object count) {
+    return '$count items';
+  }
+
+  @override
+  String media_element_n(Object number) {
+    return 'Item $number';
+  }
+
+  @override
+  String get media_queue_added => 'Downloads added to the queue: ';
+
+  @override
+  String media_queue_cancelled(Object queued) {
+    return 'Cancelled · $queued added, ';
+  }
+
+  @override
+  String media_queue_failed(Object failed, Object remaining) {
+    return '$failed failed, $remaining remaining.';
+  }
+
+  @override
+  String get media_series_suffix => 'series';
+
+  @override
+  String get media_february => 'February';
+
+  @override
+  String get media_august => 'August';
+
+  @override
+  String get media_december => 'December';
+
+  @override
+  String get media_comedy => 'Comedy';
+
+  @override
+  String get media_already_downloaded_hidden => 'already downloaded hidden';
+
+  @override
+  String get media_first_card => 'first card';
+
+  @override
+  String get media_censored_hint =>
+      'Whether the video is censored, uncensored or leaked.';
+
+  @override
+  String get media_audio_language_hint => 'Video language';
+
+  @override
+  String get media_country_flag_hint =>
+      'Flag of the country associated with the published language.';
+
+  @override
+  String get media_subtitle_flag_hint =>
+      'Flag of the available subtitle language.';
+
+  @override
+  String get media_dub_flag_hint => 'Flag of the available dub language.';
+
+  @override
+  String get media_platforms => 'See platforms';
+
+  @override
+  String get media_stats => 'See statistics';
+
+  @override
+  String get media_teams => 'See all teams';
+
+  @override
+  String get media_collection => 'See the collection';
+
+  @override
+  String get media_list => 'See the list';
+
+  @override
+  String get media_more_like => 'Top 20 series like Superman…';
+
+  @override
+  String get media_all_chapters => 'All chapters';
+
+  @override
+  String media_episode_count(Object count) {
+    return '$count episodes';
+  }
+
+  @override
+  String get media_episodes => 'Episodes';
+
+  @override
+  String get media_grid_comfortable => 'Spaced grid';
+
+  @override
+  String get media_grid_compact => 'Compact grid';
+
+  @override
+  String get media_grid_cover_only => 'Cover-only grid';
+
+  @override
+  String get media_download_nb => 'Download nb';
+
+  @override
+  String get media_badge_language => 'Video language';
+
+  @override
+  String get media_download_failed => 'Download failed';
+
+  @override
+  String get media_classic => 'Classic';
+
+  @override
+  String get media_type => 'Type';
+
+  @override
+  String get media_text_filter_hint => 'Type…';
+
+  @override
+  String get media_love_shows => 'Love shows';
+
+  @override
+  String get media_talk_shows => 'Talk shows';
+
+  @override
+  String get media_extension_only =>
+      'Download only available for extension catalogues.';
+
+  @override
+  String get media_status_paused => 'On hiatus';
+
+  @override
+  String media_queue_queued(Object count) {
+    return '$count download(s) queued, ';
+  }
+
+  @override
+  String media_queue_failed_short(Object count) {
+    return '$count failed';
+  }
+
+  @override
+  String get media_anime => 'Anime';
+
+  @override
+  String get media_manga => 'Manga';
+
+  @override
+  String get media_movie => 'Movie';
+
+  @override
+  String get media_animation => 'Animation';
+
+  @override
+  String get media_documentary => 'Documentary';
+
+  @override
+  String get media_popular => 'Popular';
+
+  @override
+  String get media_trending => 'Trending';
+
+  @override
+  String get media_favorites => 'Favorites';
+
+  @override
+  String get media_a_z => 'A — Z';
+
+  @override
+  String get media_options => 'Options';
+
+  @override
+  String get media_selection => 'Selection';
 }

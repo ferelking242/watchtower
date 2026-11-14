@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 /// Overlay counterparts of the filter bottom sheets.
@@ -158,7 +159,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
           _OverlaySearchField(
             key: const ValueKey('extension-filter-search'),
             value: widget.searchValue,
-            hint: 'Rechercher…',
+            hint: context.l10n.search,
             onChanged: widget.onSearchChanged!,
           ),
         AnimatedSize(
@@ -209,17 +210,17 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
       children: [
         AdaptiveOverlaySection(
           title: _activeCount > 0
-              ? 'Filtres · $_activeCount actif(s)'
-              : 'Filtres',
+              ? context.l10n.media_filters_active(_activeCount)
+              : context.l10n.media_filters_title,
         ),
         if (showDisplay) ...[
           AdaptiveOverlayItem(
-            label: 'Affichage',
+            label: context.l10n.display,
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  catalogLayoutLabel(_layout),
+                  catalogLayoutLabel(context.l10n, _layout),
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.primary,
@@ -238,7 +239,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
           const AdaptiveOverlayDivider(),
           AdaptiveOverlayItem(
             icon: Broken.close_circle,
-            label: 'Retirer les filtres',
+            label: context.l10n.media_clear_filters,
             onTap: _reset,
           ),
         ],
@@ -251,25 +252,28 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Affichage', () => setState(() => _drillIndex = null)),
-        const AdaptiveOverlaySection(title: 'Mode d\'affichage'),
+        _backHeader(
+          context.l10n.display,
+          () => setState(() => _drillIndex = null),
+        ),
+        AdaptiveOverlaySection(title: context.l10n.media_display_mode),
         for (final layout in CatalogLayout.values)
           AdaptiveOverlayItem(
-            label: catalogLayoutLabel(layout),
+            label: catalogLayoutLabel(context.l10n, layout),
             selected: _layout == layout,
             onTap: () {
               setState(() => _layout = layout);
               widget.onLayoutChanged?.call(layout);
             },
           ),
-        const AdaptiveOverlaySection(title: 'Éléments par ligne'),
+        AdaptiveOverlaySection(title: context.l10n.media_items_per_row),
         for (final columns in const [0, 1, 2, 3, 4, 5, 6])
           AdaptiveOverlayItem(
             label: columns == 0
-                ? 'Automatique'
+                ? context.l10n.media_automatic
                 : columns == 1
-                ? '1 colonne'
-                : '$columns colonnes',
+                ? context.l10n.media_columns_one
+                : context.l10n.media_columns_n(columns),
             selected: _columns == columns,
             onTap: () {
               setState(() => _columns = columns);
@@ -428,7 +432,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
                 onChanged: (value) =>
                     setState(() => _optionSearchQuery = value),
                 decoration: InputDecoration(
-                  hintText: 'Rechercher une option…',
+                  hintText: context.l10n.media_search_option,
                   prefixIcon: const Icon(Icons.search, size: 18),
                   isDense: true,
                   filled: true,
@@ -447,7 +451,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
             SizedBox(
               height: 300,
               child: indexes.isEmpty
-                  ? const Center(child: Text('Aucun résultat'))
+                  ? Center(child: Text(context.l10n.no_result))
                   : ListView.builder(
                       itemCount: indexes.length,
                       itemBuilder: (context, row) {
@@ -567,7 +571,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
           const AdaptiveOverlayDivider(),
           AdaptiveOverlayItem(
             icon: Broken.tick_circle,
-            label: 'Terminé',
+            label: context.l10n.media_done,
             onTap: () => setState(() => _drillIndex = null),
           ),
         ],
@@ -779,7 +783,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
           _OverlaySearchField(
             key: const ValueKey('catalog-filter-search'),
             value: widget.searchValue,
-            hint: 'Rechercher dans cette page…',
+            hint: context.l10n.media_search_page,
             onChanged: widget.onSearchChanged!,
           ),
         AnimatedSize(
@@ -827,7 +831,8 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
     );
   }
 
-  String _layoutLabel(CatalogLayout layout) => catalogLayoutLabel(layout);
+  String _layoutLabel(BuildContext context, CatalogLayout layout) =>
+      catalogLayoutLabel(context.l10n, layout);
 
   Widget _buildRoot() {
     final d = _draft;
@@ -840,7 +845,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         .map((o) => o.label)
         .firstOrNull;
     final yearsLabel = d.minYear == null && d.maxYear == null
-        ? 'Toutes'
+        ? context.l10n.media_all
         : d.minYear == d.maxYear
         ? '${d.minYear}'
         : '${d.minYear ?? '…'} — ${d.maxYear ?? '…'}';
@@ -869,42 +874,52 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AdaptiveOverlaySection(title: 'Filtres'),
+        AdaptiveOverlaySection(title: context.l10n.media_filters_title),
         if (widget.showLayoutSection) ...[
-          row('Affichage', _layoutLabel(d.layout), _CatalogLevel.layout),
           row(
-            'Nombre de colonnes',
-            d.columns == 0 ? 'Auto' : '${d.columns}',
+            context.l10n.display,
+            _layoutLabel(context, d.layout),
+            _CatalogLevel.layout,
+          ),
+          row(
+            context.l10n.media_columns_count,
+            d.columns == 0 ? context.l10n.automaic : '${d.columns}',
             _CatalogLevel.columns,
           ),
         ],
         if (widget.showTypeSection && widget.typeOptions.isNotEmpty)
           row(widget.typeSectionLabel, typeLabel ?? d.type, _CatalogLevel.type),
         if (widget.showYearsSection)
-          row('Années', yearsLabel, _CatalogLevel.years),
+          row(context.l10n.media_years, yearsLabel, _CatalogLevel.years),
         if (widget.showGenreSection && widget.genreOptions.isNotEmpty)
           row(
-            'Genres',
-            d.genres.isEmpty ? 'Tous' : '${d.genres.length}',
+            context.l10n.media_genres,
+            d.genres.isEmpty ? context.l10n.media_all : '${d.genres.length}',
             _CatalogLevel.genres,
           ),
         if (widget.showRatingSection)
           row(
-            'Note',
-            d.minRating > 0 ? '${d.minRating.toInt()}+' : 'Toutes',
+            context.l10n.media_rating,
+            d.minRating > 0
+                ? '${d.minRating.toInt()}+'
+                : context.l10n.media_all,
             _CatalogLevel.rating,
           ),
         if (widget.showSortSection)
-          row('Ordre', sortLabel ?? d.sortMode, _CatalogLevel.sort),
+          row(
+            context.l10n.media_sort,
+            sortLabel ?? d.sortMode,
+            _CatalogLevel.sort,
+          ),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.tick_circle,
-          label: 'Appliquer',
+          label: context.l10n.media_apply,
           onTap: _apply,
         ),
         AdaptiveOverlayItem(
           icon: Broken.close_circle,
-          label: 'Retirer les filtres',
+          label: context.l10n.media_clear_filters,
           onTap: () {
             setState(() {
               _draft.reset();
@@ -923,10 +938,10 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Affichage'),
+        _backHeader(context.l10n.display),
         for (final layout in CatalogLayout.values)
           AdaptiveOverlayItem(
-            label: _layoutLabel(layout),
+            label: _layoutLabel(context, layout),
             selected: _draft.layout == layout,
             onTap: () {
               _update(() => _draft.layout = layout);
@@ -942,14 +957,14 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Nombre de colonnes'),
+        _backHeader(context.l10n.media_columns_count),
         for (final columns in const [0, 1, 2, 3, 4, 5, 6])
           AdaptiveOverlayItem(
             label: columns == 0
-                ? 'Automatique'
+                ? context.l10n.media_automatic
                 : columns == 1
-                ? '1 colonne'
-                : '$columns colonnes',
+                ? context.l10n.media_columns_one
+                : context.l10n.media_columns_n(columns),
             selected: _draft.columns == columns,
             onTap: () {
               _update(() => _draft.columns = columns);
@@ -987,28 +1002,28 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Années'),
+        _backHeader(context.l10n.media_years),
         AdaptiveOverlayItem(
-          label: 'Toutes les années',
+          label: context.l10n.media_all_years,
           selected: _draft.minYear == null && _draft.maxYear == null,
           onTap: () => _update(() {
             _draft.minYear = null;
             _draft.maxYear = null;
           }),
         ),
-        for (final (label, start, end) in const [
+        for (final (label, start, end) in [
           ('2020s', 2020, 2029),
           ('2010s', 2010, 2019),
           ('2000s', 2000, 2009),
-          ('Classique', 0, 1999),
+          (context.l10n.media_classic, 0, 1999),
         ])
           AdaptiveOverlayItem(
             label: label,
-            selected: label == 'Classique'
+            selected: label == context.l10n.media_classic
                 ? (_draft.minYear == null && _draft.maxYear == 1999)
                 : decadeSelected(start),
             onTap: () => _update(() {
-              if (label == 'Classique') {
+              if (label == context.l10n.media_classic) {
                 final active = _draft.minYear == null && _draft.maxYear == 1999;
                 _draft.minYear = active ? null : 0;
                 _draft.maxYear = active ? null : 1999;
@@ -1020,7 +1035,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
             }),
           ),
         const AdaptiveOverlayDivider(),
-        AdaptiveOverlaySection(title: 'Toutes les années'),
+        AdaptiveOverlaySection(title: context.l10n.media_all_years),
         for (var year = now; year >= 2000; year--)
           AdaptiveOverlayItem(
             label: '$year',
@@ -1040,7 +1055,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Genres'),
+        _backHeader(context.l10n.media_genres),
         for (final genre in widget.genreOptions)
           AdaptiveOverlayItem(
             label: genre,
@@ -1054,7 +1069,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.tick_circle,
-          label: 'Terminé',
+          label: context.l10n.media_done,
           onTap: () => setState(() => _level = _CatalogLevel.root),
         ),
       ],
@@ -1066,9 +1081,9 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Note'),
-        for (final (rating, label) in const [
-          (0.0, 'Toutes'),
+        _backHeader(context.l10n.media_rating),
+        for (final (rating, label) in [
+          (0.0, context.l10n.media_all),
           (6.0, '6+'),
           (7.0, '7+'),
           (8.0, '8+'),
@@ -1091,7 +1106,7 @@ class _CatalogFilterOverlayState extends State<CatalogFilterOverlay> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Ordre'),
+        _backHeader(context.l10n.media_sort),
         for (final option in widget.sortOptions)
           AdaptiveOverlayItem(
             label: option.label,

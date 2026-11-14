@@ -13162,6 +13162,1212 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Connect your device to sync the library'**
   String get settings_remote_server_subtitle;
+
+  /// No description provided for @media_filters_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get media_filters_title;
+
+  /// No description provided for @media_filters_active.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters · {count} active'**
+  String media_filters_active(Object count);
+
+  /// No description provided for @media_clear_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove filters'**
+  String get media_clear_filters;
+
+  /// No description provided for @media_apply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get media_apply;
+
+  /// No description provided for @media_done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get media_done;
+
+  /// No description provided for @media_display_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Display mode'**
+  String get media_display_mode;
+
+  /// No description provided for @media_items_per_row.
+  ///
+  /// In en, this message translates to:
+  /// **'Items per row'**
+  String get media_items_per_row;
+
+  /// No description provided for @media_columns_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of columns'**
+  String get media_columns_count;
+
+  /// No description provided for @media_columns_n.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} columns'**
+  String media_columns_n(Object count);
+
+  /// No description provided for @media_columns_one.
+  ///
+  /// In en, this message translates to:
+  /// **'1 column'**
+  String get media_columns_one;
+
+  /// No description provided for @media_automatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get media_automatic;
+
+  /// No description provided for @media_years.
+  ///
+  /// In en, this message translates to:
+  /// **'Years'**
+  String get media_years;
+
+  /// No description provided for @media_all_years.
+  ///
+  /// In en, this message translates to:
+  /// **'All years'**
+  String get media_all_years;
+
+  /// No description provided for @media_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get media_genres;
+
+  /// No description provided for @media_rating.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating'**
+  String get media_rating;
+
+  /// No description provided for @media_sort.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort'**
+  String get media_sort;
+
+  /// No description provided for @media_search_option.
+  ///
+  /// In en, this message translates to:
+  /// **'Search an option…'**
+  String get media_search_option;
+
+  /// No description provided for @media_search_page.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in this page…'**
+  String get media_search_page;
+
+  /// No description provided for @media_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get media_all;
+
+  /// No description provided for @media_all_durations.
+  ///
+  /// In en, this message translates to:
+  /// **'All durations'**
+  String get media_all_durations;
+
+  /// No description provided for @media_all_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'All languages'**
+  String get media_all_languages;
+
+  /// No description provided for @media_all_qualities.
+  ///
+  /// In en, this message translates to:
+  /// **'All qualities'**
+  String get media_all_qualities;
+
+  /// No description provided for @media_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get media_language;
+
+  /// No description provided for @media_upper.
+  ///
+  /// In en, this message translates to:
+  /// **'Upper'**
+  String get media_upper;
+
+  /// No description provided for @media_lower.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower'**
+  String get media_lower;
+
+  /// No description provided for @media_deselect_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect all'**
+  String get media_deselect_all;
+
+  /// No description provided for @media_download_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Download all'**
+  String get media_download_all;
+
+  /// No description provided for @media_download_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Download {count} item(s)'**
+  String media_download_count(Object count);
+
+  /// No description provided for @media_download_selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Download selection ({count})'**
+  String media_download_selection(Object count);
+
+  /// No description provided for @media_custom_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom download'**
+  String get media_custom_download;
+
+  /// No description provided for @media_item_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of items'**
+  String get media_item_count;
+
+  /// No description provided for @media_enter_positive.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a number greater than zero.'**
+  String get media_enter_positive;
+
+  /// No description provided for @media_nothing_downloadable.
+  ///
+  /// In en, this message translates to:
+  /// **'No downloadable item.'**
+  String get media_nothing_downloadable;
+
+  /// No description provided for @media_no_selection.
+  ///
+  /// In en, this message translates to:
+  /// **'No video selected.'**
+  String get media_no_selection;
+
+  /// No description provided for @media_episodes_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} episodes'**
+  String media_episodes_count(Object count);
+
+  /// No description provided for @media_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode'**
+  String get media_episode;
+
+  /// No description provided for @media_episode_n.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number}'**
+  String media_episode_n(Object number);
+
+  /// No description provided for @media_ep_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Ep. {number}'**
+  String media_ep_short(Object number);
+
+  /// No description provided for @media_season.
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get media_season;
+
+  /// No description provided for @media_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Series'**
+  String get media_series;
+
+  /// No description provided for @media_tv_movie.
+  ///
+  /// In en, this message translates to:
+  /// **'TV movie'**
+  String get media_tv_movie;
+
+  /// No description provided for @media_reality.
+  ///
+  /// In en, this message translates to:
+  /// **'Reality TV'**
+  String get media_reality;
+
+  /// No description provided for @media_top_rated.
+  ///
+  /// In en, this message translates to:
+  /// **'Top rated'**
+  String get media_top_rated;
+
+  /// No description provided for @media_new_releases.
+  ///
+  /// In en, this message translates to:
+  /// **'New releases'**
+  String get media_new_releases;
+
+  /// No description provided for @media_most_popular.
+  ///
+  /// In en, this message translates to:
+  /// **'Most popular'**
+  String get media_most_popular;
+
+  /// No description provided for @media_top_10_week.
+  ///
+  /// In en, this message translates to:
+  /// **'Top 10 this week'**
+  String get media_top_10_week;
+
+  /// No description provided for @media_discover.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover'**
+  String get media_discover;
+
+  /// No description provided for @media_watch_this_week.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch this week'**
+  String get media_watch_this_week;
+
+  /// No description provided for @media_watch_tonight.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch tonight'**
+  String get media_watch_tonight;
+
+  /// No description provided for @media_categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get media_categories;
+
+  /// No description provided for @media_no_result.
+  ///
+  /// In en, this message translates to:
+  /// **'No result'**
+  String get media_no_result;
+
+  /// No description provided for @media_no_result_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'No result for these filters'**
+  String get media_no_result_filters;
+
+  /// No description provided for @media_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load \$title right now.'**
+  String get media_load_failed;
+
+  /// No description provided for @media_no_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'No summary available.'**
+  String get media_no_summary;
+
+  /// No description provided for @media_no_synopsis.
+  ///
+  /// In en, this message translates to:
+  /// **'No synopsis available.'**
+  String get media_no_synopsis;
+
+  /// No description provided for @media_no_similar.
+  ///
+  /// In en, this message translates to:
+  /// **'No similar title available.'**
+  String get media_no_similar;
+
+  /// No description provided for @media_no_wallpaper.
+  ///
+  /// In en, this message translates to:
+  /// **'No wallpaper available.'**
+  String get media_no_wallpaper;
+
+  /// No description provided for @media_no_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'No episode available.'**
+  String get media_no_episode;
+
+  /// No description provided for @media_no_comments.
+  ///
+  /// In en, this message translates to:
+  /// **'No comments yet.'**
+  String get media_no_comments;
+
+  /// No description provided for @media_comments_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the comments.'**
+  String get media_comments_load_failed;
+
+  /// No description provided for @media_episodes_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the episodes.'**
+  String get media_episodes_load_failed;
+
+  /// No description provided for @media_people_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the cast.'**
+  String get media_people_load_failed;
+
+  /// No description provided for @media_details.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get media_details;
+
+  /// No description provided for @media_details_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Details unavailable.'**
+  String get media_details_unavailable;
+
+  /// No description provided for @media_duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get media_duration;
+
+  /// No description provided for @media_episode_duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode duration'**
+  String get media_episode_duration;
+
+  /// No description provided for @media_release_date.
+  ///
+  /// In en, this message translates to:
+  /// **'Release date'**
+  String get media_release_date;
+
+  /// No description provided for @media_first_air_date.
+  ///
+  /// In en, this message translates to:
+  /// **'First air date'**
+  String get media_first_air_date;
+
+  /// No description provided for @media_last_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Last episode'**
+  String get media_last_episode;
+
+  /// No description provided for @media_original_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Original language'**
+  String get media_original_language;
+
+  /// No description provided for @media_spoken_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'Spoken languages'**
+  String get media_spoken_languages;
+
+  /// No description provided for @media_networks.
+  ///
+  /// In en, this message translates to:
+  /// **'Networks'**
+  String get media_networks;
+
+  /// No description provided for @media_created_by.
+  ///
+  /// In en, this message translates to:
+  /// **'Created by'**
+  String get media_created_by;
+
+  /// No description provided for @media_where_to_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Where to watch'**
+  String get media_where_to_watch;
+
+  /// No description provided for @media_popularity.
+  ///
+  /// In en, this message translates to:
+  /// **'Popularity'**
+  String get media_popularity;
+
+  /// No description provided for @media_add_to_list.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to my list'**
+  String get media_add_to_list;
+
+  /// No description provided for @media_watch_series.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch the series'**
+  String get media_watch_series;
+
+  /// No description provided for @media_watch_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch the episodes'**
+  String get media_watch_episodes;
+
+  /// No description provided for @media_watch_season.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch the season'**
+  String get media_watch_season;
+
+  /// No description provided for @media_view_all_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'View all languages'**
+  String get media_view_all_languages;
+
+  /// No description provided for @media_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get media_retry;
+
+  /// No description provided for @media_loading_failed_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading failed · Retry'**
+  String get media_loading_failed_retry;
+
+  /// No description provided for @media_prev_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous chapter'**
+  String get media_prev_chapter;
+
+  /// No description provided for @media_next_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Next chapter'**
+  String get media_next_chapter;
+
+  /// No description provided for @media_next_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Next episode'**
+  String get media_next_episode;
+
+  /// No description provided for @media_new_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'New chapter'**
+  String get media_new_chapter;
+
+  /// No description provided for @media_next_chapter_soon.
+  ///
+  /// In en, this message translates to:
+  /// **'Next chapter'**
+  String get media_next_chapter_soon;
+
+  /// No description provided for @media_latest_releases.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest releases'**
+  String get media_latest_releases;
+
+  /// No description provided for @media_release_calendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Release calendar'**
+  String get media_release_calendar;
+
+  /// No description provided for @media_recent_results.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent results'**
+  String get media_recent_results;
+
+  /// No description provided for @media_resume_reading.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume reading'**
+  String get media_resume_reading;
+
+  /// No description provided for @media_quick_access.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick access'**
+  String get media_quick_access;
+
+  /// No description provided for @media_reader_settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Reader settings'**
+  String get media_reader_settings;
+
+  /// No description provided for @media_brightness.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness'**
+  String get media_brightness;
+
+  /// No description provided for @media_volumes_preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Volumes preview'**
+  String get media_volumes_preview;
+
+  /// No description provided for @media_upcoming_volumes.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming volumes'**
+  String get media_upcoming_volumes;
+
+  /// No description provided for @media_other_works.
+  ///
+  /// In en, this message translates to:
+  /// **'Other works in the universe'**
+  String get media_other_works;
+
+  /// No description provided for @media_editions_by_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Editions by language'**
+  String get media_editions_by_language;
+
+  /// No description provided for @media_universe_by_country.
+  ///
+  /// In en, this message translates to:
+  /// **'Universe by country / language'**
+  String get media_universe_by_country;
+
+  /// No description provided for @media_trailers.
+  ///
+  /// In en, this message translates to:
+  /// **'Trailers and videos'**
+  String get media_trailers;
+
+  /// No description provided for @media_video.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get media_video;
+
+  /// No description provided for @media_soon.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon'**
+  String get media_soon;
+
+  /// No description provided for @media_tv.
+  ///
+  /// In en, this message translates to:
+  /// **'TV'**
+  String get media_tv;
+
+  /// No description provided for @media_announced.
+  ///
+  /// In en, this message translates to:
+  /// **'Announced'**
+  String get media_announced;
+
+  /// No description provided for @media_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get media_cancelled;
+
+  /// No description provided for @media_completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get media_completed;
+
+  /// No description provided for @media_dropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Dropped'**
+  String get media_dropped;
+
+  /// No description provided for @media_status_ongoing.
+  ///
+  /// In en, this message translates to:
+  /// **'Ongoing'**
+  String get media_status_ongoing;
+
+  /// No description provided for @media_available_channels.
+  ///
+  /// In en, this message translates to:
+  /// **'Available channels'**
+  String get media_available_channels;
+
+  /// No description provided for @media_open_channel_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to open the channel'**
+  String get media_open_channel_failed;
+
+  /// No description provided for @media_world_channels.
+  ///
+  /// In en, this message translates to:
+  /// **'Access the official channel pages from Watchtower.'**
+  String get media_world_channels;
+
+  /// No description provided for @media_world_content.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore content from around the world.'**
+  String get media_world_content;
+
+  /// No description provided for @media_european_news.
+  ///
+  /// In en, this message translates to:
+  /// **'European news'**
+  String get media_european_news;
+
+  /// No description provided for @media_international_news.
+  ///
+  /// In en, this message translates to:
+  /// **'International news'**
+  String get media_international_news;
+
+  /// No description provided for @media_no_network.
+  ///
+  /// In en, this message translates to:
+  /// **'No network connection'**
+  String get media_no_network;
+
+  /// No description provided for @media_connect_internet.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to the Internet to load \$title.'**
+  String get media_connect_internet;
+
+  /// No description provided for @media_check_connection.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your Wi-Fi or mobile data.'**
+  String get media_check_connection;
+
+  /// No description provided for @media_catalog_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the catalogue. Try again later.'**
+  String get media_catalog_load_failed;
+
+  /// No description provided for @media_hub_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'\$title is temporarily unavailable'**
+  String get media_hub_unavailable;
+
+  /// No description provided for @media_refine_with_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Refine your search with the tags.'**
+  String get media_refine_with_tags;
+
+  /// No description provided for @media_find_favourite_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Find your favourite genres.'**
+  String get media_find_favourite_genres;
+
+  /// No description provided for @media_personalise_reading.
+  ///
+  /// In en, this message translates to:
+  /// **'Personalise your reading experience.'**
+  String get media_personalise_reading;
+
+  /// No description provided for @media_resume_where_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick up where you left off.'**
+  String get media_resume_where_left;
+
+  /// No description provided for @media_official_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Official manga available on legal platforms.'**
+  String get media_official_manga;
+
+  /// No description provided for @media_no_badge.
+  ///
+  /// In en, this message translates to:
+  /// **'No badge published by this source.'**
+  String get media_no_badge;
+
+  /// No description provided for @media_remind_me.
+  ///
+  /// In en, this message translates to:
+  /// **'Remind me'**
+  String get media_remind_me;
+
+  /// No description provided for @media_computing_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Computing size…'**
+  String get media_computing_size;
+
+  /// No description provided for @media_fetching_formats.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching formats…'**
+  String get media_fetching_formats;
+
+  /// No description provided for @media_background.
+  ///
+  /// In en, this message translates to:
+  /// **'Background'**
+  String get media_background;
+
+  /// No description provided for @media_collapse.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse'**
+  String get media_collapse;
+
+  /// No description provided for @media_expand.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand'**
+  String get media_expand;
+
+  /// No description provided for @media_videos_processed.
+  ///
+  /// In en, this message translates to:
+  /// **'{done}/{total} videos processed'**
+  String media_videos_processed(Object done, Object total);
+
+  /// No description provided for @media_videos_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'{total} videos · {size}'**
+  String media_videos_selected(Object size, Object total);
+
+  /// No description provided for @media_selection_mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiple selection'**
+  String get media_selection_mode;
+
+  /// No description provided for @media_finish_selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish selection'**
+  String get media_finish_selection;
+
+  /// No description provided for @media_quality_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality (all)'**
+  String get media_quality_all;
+
+  /// No description provided for @media_language_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Language (all)'**
+  String get media_language_all;
+
+  /// No description provided for @media_in_5_min.
+  ///
+  /// In en, this message translates to:
+  /// **'In 5 min'**
+  String get media_in_5_min;
+
+  /// No description provided for @media_quick_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick summary'**
+  String get media_quick_summary;
+
+  /// No description provided for @media_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Summary'**
+  String get media_summary;
+
+  /// No description provided for @media_creator.
+  ///
+  /// In en, this message translates to:
+  /// **'Creator:'**
+  String get media_creator;
+
+  /// No description provided for @media_read_direction.
+  ///
+  /// In en, this message translates to:
+  /// **'Panel reading direction.'**
+  String get media_read_direction;
+
+  /// No description provided for @media_official_badge.
+  ///
+  /// In en, this message translates to:
+  /// **'SERIES'**
+  String get media_official_badge;
+
+  /// No description provided for @media_recent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get media_recent;
+
+  /// No description provided for @media_bulk_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get media_bulk_download;
+
+  /// No description provided for @media_show_more.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more ({count} left)'**
+  String media_show_more(Object count);
+
+  /// No description provided for @media_comment_video.
+  ///
+  /// In en, this message translates to:
+  /// **'Comment video'**
+  String get media_comment_video;
+
+  /// No description provided for @media_replies.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} replies'**
+  String media_replies(Object count);
+
+  /// No description provided for @media_videos_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} videos'**
+  String media_videos_count(Object count);
+
+  /// No description provided for @media_elements_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items'**
+  String media_elements_count(Object count);
+
+  /// No description provided for @media_element_n.
+  ///
+  /// In en, this message translates to:
+  /// **'Item {number}'**
+  String media_element_n(Object number);
+
+  /// No description provided for @media_queue_added.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads added to the queue: '**
+  String get media_queue_added;
+
+  /// No description provided for @media_queue_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled · {queued} added, '**
+  String media_queue_cancelled(Object queued);
+
+  /// No description provided for @media_queue_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'{failed} failed, {remaining} remaining.'**
+  String media_queue_failed(Object failed, Object remaining);
+
+  /// No description provided for @media_series_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **'series'**
+  String get media_series_suffix;
+
+  /// No description provided for @media_february.
+  ///
+  /// In en, this message translates to:
+  /// **'February'**
+  String get media_february;
+
+  /// No description provided for @media_august.
+  ///
+  /// In en, this message translates to:
+  /// **'August'**
+  String get media_august;
+
+  /// No description provided for @media_december.
+  ///
+  /// In en, this message translates to:
+  /// **'December'**
+  String get media_december;
+
+  /// No description provided for @media_comedy.
+  ///
+  /// In en, this message translates to:
+  /// **'Comedy'**
+  String get media_comedy;
+
+  /// No description provided for @media_already_downloaded_hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'already downloaded hidden'**
+  String get media_already_downloaded_hidden;
+
+  /// No description provided for @media_first_card.
+  ///
+  /// In en, this message translates to:
+  /// **'first card'**
+  String get media_first_card;
+
+  /// No description provided for @media_censored_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether the video is censored, uncensored or leaked.'**
+  String get media_censored_hint;
+
+  /// No description provided for @media_audio_language_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Video language'**
+  String get media_audio_language_hint;
+
+  /// No description provided for @media_country_flag_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Flag of the country associated with the published language.'**
+  String get media_country_flag_hint;
+
+  /// No description provided for @media_subtitle_flag_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Flag of the available subtitle language.'**
+  String get media_subtitle_flag_hint;
+
+  /// No description provided for @media_dub_flag_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Flag of the available dub language.'**
+  String get media_dub_flag_hint;
+
+  /// No description provided for @media_platforms.
+  ///
+  /// In en, this message translates to:
+  /// **'See platforms'**
+  String get media_platforms;
+
+  /// No description provided for @media_stats.
+  ///
+  /// In en, this message translates to:
+  /// **'See statistics'**
+  String get media_stats;
+
+  /// No description provided for @media_teams.
+  ///
+  /// In en, this message translates to:
+  /// **'See all teams'**
+  String get media_teams;
+
+  /// No description provided for @media_collection.
+  ///
+  /// In en, this message translates to:
+  /// **'See the collection'**
+  String get media_collection;
+
+  /// No description provided for @media_list.
+  ///
+  /// In en, this message translates to:
+  /// **'See the list'**
+  String get media_list;
+
+  /// No description provided for @media_more_like.
+  ///
+  /// In en, this message translates to:
+  /// **'Top 20 series like Superman…'**
+  String get media_more_like;
+
+  /// No description provided for @media_all_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'All chapters'**
+  String get media_all_chapters;
+
+  /// No description provided for @media_episode_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} episodes'**
+  String media_episode_count(Object count);
+
+  /// No description provided for @media_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes'**
+  String get media_episodes;
+
+  /// No description provided for @media_grid_comfortable.
+  ///
+  /// In en, this message translates to:
+  /// **'Spaced grid'**
+  String get media_grid_comfortable;
+
+  /// No description provided for @media_grid_compact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact grid'**
+  String get media_grid_compact;
+
+  /// No description provided for @media_grid_cover_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover-only grid'**
+  String get media_grid_cover_only;
+
+  /// No description provided for @media_download_nb.
+  ///
+  /// In en, this message translates to:
+  /// **'Download nb'**
+  String get media_download_nb;
+
+  /// No description provided for @media_badge_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Video language'**
+  String get media_badge_language;
+
+  /// No description provided for @media_download_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get media_download_failed;
+
+  /// No description provided for @media_classic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get media_classic;
+
+  /// No description provided for @media_type.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get media_type;
+
+  /// No description provided for @media_text_filter_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type…'**
+  String get media_text_filter_hint;
+
+  /// No description provided for @media_love_shows.
+  ///
+  /// In en, this message translates to:
+  /// **'Love shows'**
+  String get media_love_shows;
+
+  /// No description provided for @media_talk_shows.
+  ///
+  /// In en, this message translates to:
+  /// **'Talk shows'**
+  String get media_talk_shows;
+
+  /// No description provided for @media_extension_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Download only available for extension catalogues.'**
+  String get media_extension_only;
+
+  /// No description provided for @media_status_paused.
+  ///
+  /// In en, this message translates to:
+  /// **'On hiatus'**
+  String get media_status_paused;
+
+  /// No description provided for @media_queue_queued.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} download(s) queued, '**
+  String media_queue_queued(Object count);
+
+  /// No description provided for @media_queue_failed_short.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} failed'**
+  String media_queue_failed_short(Object count);
+
+  /// No description provided for @media_anime.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get media_anime;
+
+  /// No description provided for @media_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get media_manga;
+
+  /// No description provided for @media_movie.
+  ///
+  /// In en, this message translates to:
+  /// **'Movie'**
+  String get media_movie;
+
+  /// No description provided for @media_animation.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation'**
+  String get media_animation;
+
+  /// No description provided for @media_documentary.
+  ///
+  /// In en, this message translates to:
+  /// **'Documentary'**
+  String get media_documentary;
+
+  /// No description provided for @media_popular.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular'**
+  String get media_popular;
+
+  /// No description provided for @media_trending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending'**
+  String get media_trending;
+
+  /// No description provided for @media_favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get media_favorites;
+
+  /// No description provided for @media_a_z.
+  ///
+  /// In en, this message translates to:
+  /// **'A — Z'**
+  String get media_a_z;
+
+  /// No description provided for @media_options.
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get media_options;
+
+  /// No description provided for @media_selection.
+  ///
+  /// In en, this message translates to:
+  /// **'Selection'**
+  String get media_selection;
 }
 
 class _AppLocalizationsDelegate

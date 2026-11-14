@@ -14,6 +14,8 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/modules/watch/home/extension_person_route.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
@@ -171,7 +173,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     isTv: widget.isTv,
                   ),
                   RankedMovies(
-                    title: 'Top 10 cette semaine',
+                    title: context.l10n.media_top_10_week,
                     items: _trending.take(10).toList(growable: false),
                   ),
                   ScrollingLandscapeMovies(
@@ -187,11 +189,11 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     isTv: widget.isTv,
                   ),
                   FeaturedMovieRail(
-                    title: 'À découvrir',
+                    title: context.l10n.media_discover,
                     items: [..._popular, ..._trending],
                   ),
                   TmdbFeaturedStack(
-                    title: 'À voir cette semaine',
+                    title: context.l10n.media_watch_this_week,
                     icon: Icons.event_available_rounded,
                     color: const Color(0xFF00B894),
                     items: [
@@ -209,7 +211,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     imageSource: [..._trending, ..._popular, ..._topRated],
                   ),
                   TmdbTagListSection(
-                    title: 'Catégories',
+                    title: context.l10n.media_categories,
                     tags: tmdbCategoryTags,
                     isTv: widget.isTv,
                   ),
@@ -360,7 +362,7 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                     discoverPath: '/movie/top_rated',
                   ),
                   RankedMovies(
-                    title: 'Top 10 cette semaine',
+                    title: context.l10n.media_top_10_week,
                     items: widget.home.trendingMovies
                         .take(10)
                         .toList(growable: false),
@@ -376,14 +378,14 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                     discoverPath: '/movie/upcoming',
                   ),
                   FeaturedMovieRail(
-                    title: 'À découvrir',
+                    title: context.l10n.media_discover,
                     items: [
                       ...widget.home.popularMovies,
                       ...widget.home.trendingMovies,
                     ],
                   ),
                   TmdbFeaturedStack(
-                    title: 'À voir cette semaine',
+                    title: context.l10n.media_watch_this_week,
                     icon: Icons.event_available_rounded,
                     color: const Color(0xFF00B894),
                     items: [
@@ -553,7 +555,7 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                   isTv: true,
                 ),
                 TmdbFeaturedStack(
-                  title: 'À voir cette semaine',
+                  title: context.l10n.media_watch_this_week,
                   icon: Icons.event_available_rounded,
                   color: const Color(0xFF00B894),
                   items: [
@@ -574,7 +576,7 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                   ],
                 ),
                 TmdbTagListSection(
-                  title: 'Catégories',
+                  title: context.l10n.media_categories,
                   tags: tmdbCategoryTags,
                   isTv: true,
                 ),
@@ -1517,17 +1519,17 @@ class RealityAndTalkSections extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppDiscoverRail(
-          title: 'Téléréalité',
+          title: context.l10n.media_reality,
           isTv: isTv,
           query: tmdbRealityTvQuery,
         ),
         AppDiscoverRail(
-          title: "Shows d'amour",
+          title: context.l10n.media_love_shows,
           isTv: isTv,
           query: tmdbLoveRealityTvQuery,
         ),
         AppDiscoverRail(
-          title: 'Talk-shows',
+          title: context.l10n.media_talk_shows,
           isTv: isTv,
           query: tmdbTalkShowQuery,
         ),
@@ -1788,25 +1790,29 @@ abstract final class CatalogBulkDownload {
     }
   }
 
-  static List<PopupMenuEntry<CatalogBulkDownloadAction>> menuItems() => [
+  static List<PopupMenuEntry<CatalogBulkDownloadAction>> menuItems(
+    BuildContext context,
+  ) {
+    final l10n = context.l10n;
+    return [
     PopupMenuItem(
       value: CatalogBulkDownloadAction.download,
-      child: _menuRow(Broken.document_download, 'Télécharger'),
+      child: _menuRow(Broken.document_download, l10n.download),
     ),
     PopupMenuItem(
       value: CatalogBulkDownloadAction.downloadAll,
-      child: _menuRow(Broken.folder_add, 'Tout télécharger'),
+      child: _menuRow(Broken.folder_add, l10n.media_download_all),
     ),
     const PopupMenuDivider(),
     // Sous-options « Télécharger nb » : nb premiers éléments chargés.
-    const PopupMenuItem(
+    PopupMenuItem(
       enabled: false,
       value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
       child: Padding(
-        padding: EdgeInsets.only(left: 26),
+        padding: const EdgeInsets.only(left: 26),
         child: Text(
-          'Télécharger nb',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          l10n.media_download_nb,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),
     ),
@@ -1822,21 +1828,23 @@ abstract final class CatalogBulkDownload {
         value: action,
         child: Padding(
           padding: const EdgeInsets.only(left: 26),
-          child: _menuRow(Broken.arrow_right_2, '$count éléments'),
+          child: _menuRow(Broken.arrow_right_2, l10n.media_elements_count(count)),
         ),
       ),
-  ];
+    ];
+  }
 
   /// Same menu as [menuItems] without the download entries, for surfaces that
   /// show a three-dot button but queue nothing (extension person pages).
-  static List<PopupMenuEntry<CatalogBulkDownloadAction>> selectionMenuItems() =>
-      [
-        PopupMenuItem(
-          value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
-          enabled: false,
-          child: _menuRow(Broken.folder_add, 'Sélection'),
-        ),
-      ];
+  static List<PopupMenuEntry<CatalogBulkDownloadAction>> selectionMenuItems(
+    BuildContext context,
+  ) => [
+    PopupMenuItem(
+      value: CatalogBulkDownloadAction.downloadsSubMenuHeader,
+      enabled: false,
+      child: _menuRow(Broken.folder_add, context.l10n.media_selection),
+    ),
+  ];
 
   static List<MManga> _downloadTargets(List<MManga> items) => [
     for (final item in items)
@@ -1851,10 +1859,11 @@ abstract final class CatalogBulkDownload {
     Source? source,
     List<MManga> items,
   ) async {
+    final l10n = context.l10n;
     final available = _downloadTargets(items).length;
     if (available == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun élément téléchargeable.')),
+        SnackBar(content: Text(l10n.media_nothing_downloadable)),
       );
       return;
     }
@@ -1864,7 +1873,7 @@ abstract final class CatalogBulkDownload {
     final requested = await showDialog<int>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Téléchargement personnalisé'),
+        title: Text(l10n.media_custom_download),
         content: Form(
           key: formKey,
           child: Column(
@@ -1878,14 +1887,14 @@ abstract final class CatalogBulkDownload {
                 autofocus: true,
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Nombre d’éléments',
+                decoration: InputDecoration(
+                  labelText: l10n.media_item_count,
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
                   final number = int.tryParse(value?.trim() ?? '');
                   if (number == null || number < 1) {
-                    return 'Entre un nombre supérieur à zéro.';
+                    return l10n.media_enter_positive;
                   }
                   return null;
                 },
@@ -1905,7 +1914,7 @@ abstract final class CatalogBulkDownload {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -1940,13 +1949,10 @@ abstract final class CatalogBulkDownload {
     List<MManga> catalogueItems, {
     int? count,
   }) async {
+    final l10n = context.l10n;
     if (source == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Téléchargement disponible uniquement pour les catalogues d’extension.',
-          ),
-        ),
+        SnackBar(content: Text(l10n.media_extension_only)),
       );
       return;
     }
@@ -1954,7 +1960,7 @@ abstract final class CatalogBulkDownload {
     final targets = count == null ? available : available.take(count).toList();
     if (targets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun élément téléchargeable.')),
+        SnackBar(content: Text(l10n.media_nothing_downloadable)),
       );
       return;
     }
@@ -1980,11 +1986,11 @@ abstract final class CatalogBulkDownload {
         ...entry.chapters.map((chapter) {
           final itemTitle = entry.item.name?.trim().isNotEmpty == true
               ? entry.item.name!.trim()
-              : 'Vidéo';
+              : l10n.media_video;
           if (entry.chapters.length == 1) return itemTitle;
           final episodeTitle = chapter.name?.trim().isNotEmpty == true
               ? chapter.name!.trim()
-              : 'Épisode';
+              : l10n.media_episode;
           return '$itemTitle · $episodeTitle';
         }),
     ];
@@ -2056,14 +2062,15 @@ abstract final class CatalogBulkDownload {
           SnackBar(
             content: Text(
               cancelled
-                  ? 'Annulé · $queued ajouté(s), '
-                        '$failed échec(s), $remaining restant(s).'
+                  ? '${l10n.media_queue_cancelled('$queued')}'
+                        '${l10n.media_queue_failed('$failed', '$remaining')}'
                         '$weightSummary'
                   : failed == 0
-                  ? 'Téléchargements ajoutés à la file : '
-                        '$queued vidéo(s)$weightSummary.'
-                  : '$queued téléchargement(s) mis en file, '
-                        '$failed échec(s)$weightSummary.',
+                  ? '${l10n.media_queue_added}'
+                        '${l10n.media_videos_count('$queued')}$weightSummary.'
+                  : '${l10n.media_queue_queued('$queued')}'
+                        '${l10n.media_queue_failed_short('$failed')}'
+                        '$weightSummary.',
             ),
           ),
         );
@@ -2269,17 +2276,17 @@ class _CatalogDownloadMenuOverlayState
     action();
   }
 
-  Widget _backHeader() => InkWell(
+  Widget _backHeader(BuildContext context) => InkWell(
     onTap: () => setState(() => _showDownloadOptions = false),
-    child: const Padding(
-      padding: EdgeInsets.fromLTRB(10, 10, 16, 6),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(10, 10, 16, 6),
       child: Row(
         children: [
-          Icon(Broken.arrow_left_2, size: 16),
-          SizedBox(width: 6),
+          const Icon(Broken.arrow_left_2, size: 16),
+          const SizedBox(width: 6),
           Text(
-            'Télécharger',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            context.l10n.media_bulk_download,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -2288,16 +2295,17 @@ class _CatalogDownloadMenuOverlayState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (!_showDownloadOptions) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const AdaptiveOverlaySection(title: 'Options'),
+          AdaptiveOverlaySection(title: l10n.media_options),
           if (widget.onRefresh != null)
             AdaptiveOverlayItem(
               icon: Icons.refresh_rounded,
-              label: 'Actualiser',
+              label: l10n.refresh,
               onTap: () => _runAction(widget.onRefresh!),
             ),
           if (widget.onSelectMultiple != null)
@@ -2306,14 +2314,14 @@ class _CatalogDownloadMenuOverlayState
                   ? Broken.close_circle
                   : Broken.tick_circle,
               label: widget.selectionActive
-                  ? 'Terminer la sélection'
-                  : 'Sélection multiple',
+                  ? l10n.media_finish_selection
+                  : l10n.media_selection_mode,
               onTap: () => _runAction(widget.onSelectMultiple!),
             ),
           if (widget.onDownloadSelection != null && widget.selectedCount > 0)
             AdaptiveOverlayItem(
               icon: Broken.document_download,
-              label: 'Télécharger la sélection (${widget.selectedCount})',
+              label: l10n.media_download_selection(widget.selectedCount),
               onTap: () => _runAction(widget.onDownloadSelection!),
             ),
           if (widget.onRefresh != null ||
@@ -2322,7 +2330,7 @@ class _CatalogDownloadMenuOverlayState
             const AdaptiveOverlayDivider(),
           AdaptiveOverlayItem(
             icon: Broken.document_download,
-            label: 'Télécharger',
+            label: l10n.media_bulk_download,
             trailing: const Icon(Broken.arrow_right_3, size: 14),
             onTap: () => setState(() => _showDownloadOptions = true),
           ),
@@ -2339,10 +2347,10 @@ class _CatalogDownloadMenuOverlayState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader(),
+        _backHeader(context),
         AdaptiveOverlayItem(
           icon: Broken.folder_add,
-          label: 'Tout télécharger',
+          label: l10n.media_download_all,
           onTap: () => select(CatalogBulkDownloadAction.downloadAll),
         ),
         const AdaptiveOverlayDivider(),
@@ -2355,7 +2363,7 @@ class _CatalogDownloadMenuOverlayState
           (CatalogBulkDownloadAction.download250, 250),
         ])
           AdaptiveOverlayItem(
-            label: '$count éléments',
+            label: l10n.media_elements_count(count),
             onTap: () => select(action),
           ),
         AdaptiveOverlayItem(
@@ -2681,47 +2689,47 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
 
   // ── Feuille de filtres multi-niveaux (composant partagé avec la Librairie) ──
 
-  List<CatalogTypeOption> get _typeOptions => _isAnilist
-      ? const [
-          CatalogTypeOption('Tout', 'all'),
-          CatalogTypeOption('Anime', 'anime'),
-          CatalogTypeOption('Manga', 'manga'),
+  List<CatalogTypeOption> _typeOptions(AppLocalizations l10n) => _isAnilist
+      ? [
+          CatalogTypeOption(l10n.media_all, 'all'),
+          CatalogTypeOption(l10n.media_anime, 'anime'),
+          CatalogTypeOption(l10n.media_manga, 'manga'),
         ]
-      : const [
-          CatalogTypeOption('Tout', 'all'),
-          CatalogTypeOption('Film', 'movie'),
-          CatalogTypeOption('Série', 'tv'),
-          CatalogTypeOption('Animation', 'animation'),
-          CatalogTypeOption('Documentaire', 'documentaire'),
-          CatalogTypeOption('Téléfilm', 'telefilm'),
+      : [
+          CatalogTypeOption(l10n.media_all, 'all'),
+          CatalogTypeOption(l10n.media_movie, 'movie'),
+          CatalogTypeOption(l10n.media_series, 'tv'),
+          CatalogTypeOption(l10n.media_animation, 'animation'),
+          CatalogTypeOption(l10n.media_documentary, 'documentaire'),
+          CatalogTypeOption(l10n.media_tv_movie, 'telefilm'),
         ];
 
-  List<CatalogSortOption> get _sortOptions => _isAnilist
-      ? const [
-          CatalogSortOption('Populaire', 'popular'),
-          CatalogSortOption('Mieux notés', 'rating'),
-          CatalogSortOption('Tendance', 'trending'),
-          CatalogSortOption('Nouveautés', 'newest'),
-          CatalogSortOption('Favoris', 'favorites'),
-          CatalogSortOption('A — Z', 'title'),
+  List<CatalogSortOption> _sortOptions(AppLocalizations l10n) => _isAnilist
+      ? [
+          CatalogSortOption(l10n.media_popular, 'popular'),
+          CatalogSortOption(l10n.media_top_rated, 'rating'),
+          CatalogSortOption(l10n.media_trending, 'trending'),
+          CatalogSortOption(l10n.media_new_releases, 'newest'),
+          CatalogSortOption(l10n.media_favorites, 'favorites'),
+          CatalogSortOption(l10n.media_a_z, 'title'),
         ]
       : _isExtension
-      ? const [
-          CatalogSortOption('Populaire', 'popular'),
-          CatalogSortOption('A — Z', 'title'),
+      ? [
+          CatalogSortOption(l10n.media_popular, 'popular'),
+          CatalogSortOption(l10n.media_a_z, 'title'),
         ]
-      : const [
-          CatalogSortOption('Populaire', 'popular'),
-          CatalogSortOption('Mieux notés', 'rating'),
-          CatalogSortOption('A — Z', 'title'),
+      : [
+          CatalogSortOption(l10n.media_popular, 'popular'),
+          CatalogSortOption(l10n.media_top_rated, 'rating'),
+          CatalogSortOption(l10n.media_a_z, 'title'),
         ];
 
-  List<String> get _fixedGenreOptions {
+  List<String> _fixedGenreOptions(AppLocalizations l10n) {
     if (_isAnilist) {
-      return const [
+      return [
         'Action',
         'Aventure',
-        'Comédie',
+        l10n.media_comedy,
         'Drame',
         'Ecchi',
         'Fantasy',
@@ -2764,8 +2772,13 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
             isLabelVisible: activeCount > 0,
             label: Text('$activeCount'),
             child: Icon(
-              Broken.filter,
-              color: activeCount > 0 ? Colors.orange : null,
+              Broken.slider_horizontal,
+              size: 18,
+              color: activeCount > 0
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurface.withValues(
+                      alpha: 0.45,
+                    ),
             ),
           ),
         ),
@@ -2787,17 +2800,20 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Icon(
-          Broken.filter,
-          color: _filter.isDefault ? null : Colors.orange,
+          Broken.slider_horizontal,
+          size: 18,
+          color: _filter.isDefault
+              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)
+              : Theme.of(context).colorScheme.primary,
         ),
       ),
       contentBuilder: (close) => CatalogFilterOverlay(
         initial: _filter,
-        typeOptions: _typeOptions,
-        sortOptions: _sortOptions,
+        typeOptions: _typeOptions(context.l10n),
+        sortOptions: _sortOptions(context.l10n),
         genreOptions: _isExtension
             ? _extensionGenreOptions()
-            : _fixedGenreOptions,
+            : _fixedGenreOptions(context.l10n),
         showTypeSection: !_isExtension,
         showYearsSection: !_isExtension,
         showRatingSection: !_isExtension,
@@ -2994,7 +3010,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
       child: Text(
-        isFrench ? 'Les plus populaires' : 'Most Popular',
+        context.l10n.media_most_popular,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurface,
           fontSize: 15,
@@ -3116,11 +3132,11 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   String? _extensionRowMetadata(MManga item) {
     final line = [
       switch (item.status) {
-        Status.ongoing => 'En cours',
-        Status.completed => 'Terminé',
-        Status.onHiatus => 'En pause',
-        Status.canceled => 'Abandonné',
-        Status.publishingFinished => 'Terminé',
+        Status.ongoing => context.l10n.media_status_ongoing,
+        Status.completed => context.l10n.media_completed,
+        Status.onHiatus => context.l10n.media_status_paused,
+        Status.canceled => context.l10n.media_dropped,
+        Status.publishingFinished => context.l10n.media_completed,
         _ => null,
       },
       item.genre
@@ -3151,7 +3167,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     if (items.isEmpty) {
       return Center(
         child: Text(
-          'Aucun résultat',
+          context.l10n.media_no_result,
           style: TextStyle(color: cs.onSurfaceVariant),
         ),
       );
@@ -3161,7 +3177,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     if (visible.isEmpty) {
       return Center(
         child: Text(
-          'Aucun résultat pour ces filtres',
+          context.l10n.media_no_result_filters,
           style: TextStyle(color: cs.onSurfaceVariant),
         ),
       );
@@ -3269,7 +3285,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     if (items.isEmpty) {
       return Center(
         child: Text(
-          'Aucun résultat',
+          context.l10n.media_no_result,
           style: TextStyle(color: cs.onSurfaceVariant),
         ),
       );
@@ -3551,7 +3567,7 @@ class _CatalogError extends StatelessWidget {
         title: 'Catalogue indisponible',
         message: 'Impossible de charger $title pour le moment.',
         icon: Broken.wifi,
-        actionLabel: 'Réessayer',
+        actionLabel: context.l10n.retry,
         onAction: onRetry,
       ),
     );
