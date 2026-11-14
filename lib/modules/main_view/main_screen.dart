@@ -35,6 +35,7 @@ import 'package:watchtower/modules/home/widgets/home_header.dart'
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/isar_batch.dart';
+import 'package:watchtower/ui/responsive/breakpoints.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
@@ -1301,15 +1302,23 @@ class _TabletLayoutState extends State<_TabletLayout> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    // Give PC and Android TV layouts larger targets and labels when there is
-    // enough room, while keeping tablet-sized windows compact.
+    final sizeClass = windowSizeClassFor(screenWidth);
+    // PC and Android TV get larger targets, icons and labels than a tablet in
+    // landscape: a mouse pointer and a big monitor need a bigger hit area than
+    // a thumb, and small 12px labels are unreadable on a 1440p panel.
     final showLabels = screenWidth >= 1240;
     final sidebarWidth = showLabels
-        ? (screenWidth * 0.17).clamp(208.0, 264.0).toDouble()
-        : (screenWidth * 0.10).clamp(82.0, 112.0).toDouble();
+        ? (screenWidth * 0.18).clamp(232.0, 320.0).toDouble()
+        : (screenWidth * 0.10).clamp(88.0, 120.0).toDouble();
     final railWidth = _railWidth(sidebarWidth);
-    final iconSize = screenWidth >= 900 ? 28.0 : 25.0;
-    final itemHeight = showLabels ? 58.0 : 66.0;
+    final iconSize = switch (sizeClass) {
+      WindowSizeClass.extraLarge => 30.0,
+      WindowSizeClass.large => 29.0,
+      WindowSizeClass.expanded => 27.0,
+      _ => 25.0,
+    };
+    final itemHeight = showLabels ? 62.0 : 70.0;
+    final labelFontSize = showLabels ? 15.5 : 13.0;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final location = widget.location;
@@ -1350,8 +1359,8 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                 bottom: 12,
                               ),
                               child: SizedBox(
-                                width: showLabels ? 48 : 44,
-                                height: showLabels ? 48 : 44,
+                                width: showLabels ? 54 : 46,
+                                height: showLabels ? 54 : 46,
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(13),
                                   child: Image.asset(
@@ -1382,7 +1391,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                         verticalPadding: 14,
                                         horizontalPadding: 16,
                                         minHeight: itemHeight,
-                                        labelFontSize: 14.5,
+                                        labelFontSize: labelFontSize,
                                         onTap: () =>
                                             widget.route.go(item.route),
                                       ),
@@ -1415,7 +1424,7 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                 verticalPadding: 14,
                                 horizontalPadding: 16,
                                 minHeight: itemHeight,
-                                labelFontSize: 14.5,
+                                labelFontSize: labelFontSize,
                                 onTap: () => widget.route.go(item.route),
                               ),
                             ),
@@ -1429,8 +1438,8 @@ class _TabletLayoutState extends State<_TabletLayout> {
                                 onTap: () => showAccountSheet(context),
                                 borderRadius: BorderRadius.circular(24),
                                 child: Container(
-                                  width: showLabels ? 46 : 42,
-                                  height: showLabels ? 46 : 42,
+                                  width: showLabels ? 52 : 44,
+                                  height: showLabels ? 52 : 44,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     gradient: LinearGradient(

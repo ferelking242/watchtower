@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/modules/more/settings/advanced/providers/ui_scale_provider.dart';
 import 'package:watchtower/ui/widgets/desktop_shortcuts.dart';
 
 GoRouter _router({String initial = '/WatchtowerHome'}) => GoRouter(
@@ -31,10 +33,12 @@ GoRouter _router({String initial = '/WatchtowerHome'}) => GoRouter(
 
 Future<void> _pump(WidgetTester tester, GoRouter router) async {
   await tester.pumpWidget(
-    MaterialApp.router(
-      routerConfig: router,
-      builder: (context, child) =>
-          DesktopShortcuts(router: router, child: child!),
+    ProviderScope(
+      child: MaterialApp.router(
+        routerConfig: router,
+        builder: (context, child) =>
+            DesktopShortcuts(router: router, child: child!),
+      ),
     ),
   );
   await tester.pump();
@@ -112,6 +116,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(router.state.uri.path, '/animePlayerView');
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Ctrl +/-/0 change the UI scale', (tester) async {
+    debugDefaultTargetPlatformOverride = desktop;
+    final router = _router();
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) =>
+              DesktopShortcuts(router: router, child: child!),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(container.read(uiScaleProvider), 1.0);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+    await tester.pumpAndSettle();
+    expect(container.read(uiScaleProvider), greaterThan(1.0));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+    await tester.sendKeyEvent(LogicalKeyboardKey.minus);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+    await tester.pumpAndSettle();
+    expect(container.read(uiScaleProvider), 1.0);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+    await tester.pumpAndSettle();
+    expect(container.read(uiScaleProvider), greaterThan(1.0));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit0);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+    await tester.pumpAndSettle();
+    expect(container.read(uiScaleProvider), 1.0);
+
     debugDefaultTargetPlatformOverride = null;
   });
 }

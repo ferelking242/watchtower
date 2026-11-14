@@ -24,6 +24,7 @@ import 'package:watchtower/modules/home/widgets/tmdb_production_sections.dart';
 import 'package:watchtower/modules/main_view/widgets/glass_button.dart';
 import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/ui/responsive/breakpoints.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab enum — stays in sync with kHomeTabs / kHomeTabIcons in home_header.dart
@@ -1337,16 +1338,25 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final cls = windowSizeClassOf(context);
+    // Section headers are the page's signposts: on a desktop window they need
+    // to be visibly bigger so they still read as a hierarchy next to the
+    // larger covers.
+    final desktop = cls.index >= WindowSizeClass.expanded.index;
+    final titleSize = desktop ? 19.0 : 17.0;
+    final iconBox = desktop ? 36.0 : 32.0;
+    final iconSize = desktop ? 19.0 : 17.0;
+    final gutter = cls.pagePadding;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 16, 10),
+      padding: EdgeInsets.fromLTRB(gutter, 18, gutter, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Gradient accent bar
           Container(
-            width: 3,
-            height: 22,
+            width: desktop ? 4 : 3,
+            height: desktop ? 26 : 22,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -1359,8 +1369,8 @@ class _SectionHeader extends StatelessWidget {
           const SizedBox(width: 10),
           // Icon with gradient background
           Container(
-            width: 32,
-            height: 32,
+            width: iconBox,
+            height: iconBox,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -1376,7 +1386,7 @@ class _SectionHeader extends StatelessWidget {
                 width: 0.8,
               ),
             ),
-            child: Icon(icon, size: 17, color: color),
+            child: Icon(icon, size: iconSize, color: color),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1386,7 +1396,7 @@ class _SectionHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: tt.titleMedium?.copyWith(
                 fontWeight: FontWeight.w800,
-                fontSize: 17,
+                fontSize: titleSize,
                 letterSpacing: -0.4,
               ),
             ),
@@ -1465,7 +1475,7 @@ class _Row extends StatelessWidget {
             height: 196,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => PosterCard(
@@ -1522,7 +1532,7 @@ class _MixedRow extends StatelessWidget {
             height: 218,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => i == 0
@@ -1583,7 +1593,7 @@ class _RankedRow extends StatelessWidget {
             height: 196,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => RankedDiscoveryCard(
@@ -1631,19 +1641,24 @@ class _SpotlightSectionState extends State<_SpotlightSection> {
   // ── PC grid (2 or 3 columns, landscape aspect) ──────────────────────────
 
   Widget _buildPcGrid(double width) {
-    final crossCount = width >= 1100 ? 3 : 2;
+    final gutter = windowSizeClassFor(width).pagePadding;
+    final crossCount = width >= 1600
+        ? 4
+        : width >= 1100
+        ? 3
+        : 2;
     final maxItems = widget.items.length > crossCount * 2
         ? crossCount * 2
         : widget.items.length;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 12),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: crossCount,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
           childAspectRatio: 16 / 9,
         ),
         itemCount: maxItems,
@@ -1762,7 +1777,7 @@ class _SagaRow extends StatelessWidget {
             height: 140,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, i) => SagaDiscoveryCard(
@@ -1809,7 +1824,7 @@ class _LandscapeRow extends StatelessWidget {
             height: 148,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, i) => LandscapeDiscoveryCard(
@@ -1868,7 +1883,7 @@ class _AsiaChips extends StatelessWidget {
           height: 38,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
             itemCount: chips.length,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
@@ -2220,7 +2235,7 @@ class _TmdbRow extends StatelessWidget {
             height: 195,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) {
@@ -2277,7 +2292,12 @@ class _TmdbUpcomingGrid extends StatelessWidget {
             height: 550,
             child: GridView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: EdgeInsets.fromLTRB(
+                windowSizeClassOf(context).pagePadding,
+                0,
+                windowSizeClassOf(context).pagePadding,
+                8,
+              ),
               itemCount: items.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
@@ -2340,7 +2360,7 @@ class _TmdbTonightSection extends StatelessWidget {
               color: const Color(0xFF6C5CE7),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               child: GestureDetector(
                 onTap: () => onTap(featured),
                 child: ClipRRect(
@@ -2418,7 +2438,7 @@ class _TmdbTonightSection extends StatelessWidget {
             if (picks.isNotEmpty) ...[
               const SizedBox(height: 10),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2501,7 +2521,7 @@ class _TmdbLandscapeRow extends StatelessWidget {
             height: 148,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (_, i) {
@@ -2554,7 +2574,7 @@ class _TmdbRankedRow extends StatelessWidget {
             height: 200,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
