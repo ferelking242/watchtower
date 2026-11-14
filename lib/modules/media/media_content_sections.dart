@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:watchtower/providers/l10n_providers.dart';
+
 import 'app_ui_components.dart';
 import 'content_cards.dart';
 
@@ -147,7 +149,7 @@ class MediaPosterRail extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: onSeeAll == null ? null : 'All >',
+          actionLabel: onSeeAll == null ? null : context.l10n.media_see_all_arrow,
           onAction: onSeeAll,
           trailing: trailing,
           leadingIcon: leadingIcon,
@@ -225,7 +227,7 @@ class MediaLandscapeRail extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: onSeeAll == null ? null : 'All >',
+          actionLabel: onSeeAll == null ? null : context.l10n.media_see_all_arrow,
           onAction: onSeeAll,
           trailing: trailing,
           leadingIcon: leadingIcon,
@@ -278,7 +280,7 @@ class MediaRankedRail extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: onSeeAll == null ? null : 'All >',
+          actionLabel: onSeeAll == null ? null : context.l10n.media_see_all_arrow,
           onAction: onSeeAll,
           trailing: trailing,
         ),
@@ -355,7 +357,7 @@ class _MediaBannerRailState extends State<MediaBannerRail> {
       children: [
         AppSectionHeader(
           title: widget.title,
-          actionLabel: widget.onSeeAll == null ? null : 'All >',
+          actionLabel: widget.onSeeAll == null ? null : context.l10n.media_see_all_arrow,
           onAction: widget.onSeeAll,
           trailing: widget.trailing,
         ),
@@ -547,7 +549,7 @@ class MediaGridSection extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: onSeeAll == null ? null : 'All >',
+          actionLabel: onSeeAll == null ? null : context.l10n.media_see_all_arrow,
           onAction: onSeeAll,
           trailing: trailing,
           leadingIcon: leadingIcon,

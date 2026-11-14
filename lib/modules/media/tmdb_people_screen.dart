@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,7 +18,9 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/extension_image_headers.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_detail.dart';
@@ -57,9 +60,9 @@ class _TmdbCastCrewScreenState extends State<TmdbCastCrewScreen> {
             return const _PeopleLoading();
           }
           if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(
+            return Center(
               child: Text(
-                'Impossible de charger la distribution.',
+                context.l10n.media_cast_load_failed,
                 style: TextStyle(color: Colors.white70),
               ),
             );
@@ -233,7 +236,7 @@ class _CastCrewPeopleList extends StatelessWidget {
             ? 'Job : ${crewPerson!.job.isNotEmpty ? crewPerson.job : 'N/A'}'
             : 'As : ${castPerson!.character.isNotEmpty ? castPerson.character : 'N/A'}';
         final episodeLabel = !crew && media.mediaType == 'tv' && (details.numberOfEpisodes ?? 0) > 0
-            ? '${details.numberOfEpisodes} épisodes'
+            ? context.l10n.media_episodes_count(details.numberOfEpisodes ?? 0)
             : null;
         return _CastCrewPersonCard(
           imageUrl: personImage,
@@ -419,9 +422,9 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
             return const _PeopleLoading();
           }
           if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(
+            return Center(
               child: Text(
-                'Impossible de charger cette fiche.',
+                context.l10n.media_load_page_failed,
                 style: TextStyle(color: Colors.white70),
               ),
             );
@@ -495,13 +498,13 @@ class _TmdbPersonScreenState extends ConsumerState<TmdbPersonScreen>
     switch (_tabController.index) {
       case 1:
         return _PersonCreditsGrid(
-          title: 'films',
+          title: context.l10n.media_films,
           credits: person.movies,
           onTap: (media) => context.push('/flixMediaDetail', extra: media),
         );
       case 2:
         return _PersonCreditsGrid(
-          title: 'séries',
+          title: context.l10n.media_series_lower,
           credits: person.tvShows,
           onTap: (media) => context.push('/flixMediaDetail', extra: media),
         );
@@ -1063,8 +1066,8 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
 
   /// Length presets carried by the sheet's "type" section: the values are the
   /// minimum minutes a video must run for, and `all` clears the filter.
-  List<CatalogTypeOption> get _typeOptions => const [
-    CatalogTypeOption('Toutes les durées', 'all'),
+  List<CatalogTypeOption> _typeOptions(AppLocalizations l10n) => [
+    CatalogTypeOption(l10n.media_all_durations, 'all'),
     CatalogTypeOption('10 min +', '10'),
     CatalogTypeOption('20 min +', '20'),
     CatalogTypeOption('40 min +', '40'),
@@ -1075,18 +1078,24 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
       menuWidth: 300,
       trigger: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Icon(Broken.filter, color: _filter.isDefault ? null : Colors.orange),
+        child: Icon(
+          Broken.slider_horizontal,
+          size: 18,
+          color: _filter.isDefault
+              ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45)
+              : Theme.of(context).colorScheme.primary,
+        ),
       ),
       contentBuilder: (close) => CatalogFilterOverlay(
         initial: _filter,
-        typeOptions: _typeOptions,
+        typeOptions: _typeOptions(context.l10n),
         sortOptions: const [],
         genreOptions: const [],
         showYearsSection: false,
         showRatingSection: false,
         showGenreSection: false,
         showSortSection: false,
-        typeSectionLabel: 'Durée',
+        typeSectionLabel: context.l10n.media_duration,
         close: close,
         onChanged: (value) => setState(() => _filter = value),
         searchValue: _searchQuery,
@@ -1224,7 +1233,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
           children: [
             Expanded(
               child: Text(
-                _countLabel(videos.length, isFrench),
+                _countLabel(context, videos.length),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 18,
@@ -1254,16 +1263,13 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
   /// "Afficher plus" bar: the tab is one scroll box, so the full list is only
   /// laid out on demand.
   Widget _buildShowMore(int total) {
-    final isFrench = Localizations.localeOf(context).languageCode == 'fr';
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: Center(
         child: OutlinedButton(
           onPressed: () => setState(() => _renderLimit += _renderStep),
           child: Text(
-            isFrench
-                ? 'Afficher plus (${total - _renderLimit} restantes)'
-                : 'Show more (${total - _renderLimit} left)',
+            context.l10n.media_show_more(total - _renderLimit),
           ),
         ),
       ),
@@ -1273,17 +1279,18 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
   /// Header count. Shows the extension's announced total when it provides one
   /// (XVideos `nb_videos`), otherwise the number of cards loaded, with a `+`
   /// while more pages remain.
-  String _countLabel(int loaded, bool isFrench) {
+  String _countLabel(BuildContext context, int loaded) {
+    final l10n = context.l10n;
     final total = _total;
     if (total != null && total > loaded) {
-      return isFrench
-          ? '$loaded / $total vidéos${_hasMore ? '…' : ''}'
-          : '$loaded / $total videos${_hasMore ? '…' : ''}';
+      return l10n.media_videos_loaded(
+        loaded,
+        total,
+        _hasMore ? '…' : '',
+      );
     }
     final count = total != null && total > 0 ? total : loaded;
-    return isFrench
-        ? '$count vidéos${_hasMore ? '+' : ''}'
-        : '$count videos${_hasMore ? '+' : ''}';
+    return '${l10n.media_videos_count(count)}${_hasMore ? '+' : ''}';
   }
 
   Widget _buildFooter(BuildContext context) {
@@ -1302,7 +1309,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
               }
             },
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: Text(isFrench ? 'Chargement échoué · Réessayer' : 'Load failed · Retry'),
+            label: Text(context.l10n.media_load_failed_retry),
           ),
         ),
       );
@@ -1315,11 +1322,11 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
 
   Widget _buildItems(BuildContext context, List<MChapter> visible) {
     if (visible.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 28),
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 28),
         child: Center(
           child: Text(
-            'Aucune vidéo ne correspond au filtre.',
+            context.l10n.media_no_video_filter,
             style: TextStyle(color: Colors.white54, fontSize: 13),
           ),
         ),
@@ -1769,13 +1776,17 @@ class _PersonInfoGrid extends StatelessWidget {
     final cards = <_PersonInfoData>[
       _PersonInfoData(
         icon: Broken.cake,
-        label: 'Age',
+        label: context.l10n.media_age,
         value: _age(person.birthday, person.deathday),
       ),
-      _PersonInfoData(icon: Broken.calendar, label: 'Born on', value: _formatDate(person.birthday)),
+      _PersonInfoData(
+        icon: Broken.calendar,
+        label: context.l10n.media_born_on,
+        value: _formatDate(context, person.birthday),
+      ),
       _PersonInfoData(
         icon: Broken.location,
-        label: 'From',
+        label: context.l10n.media_from,
         value: person.placeOfBirth?.trim().isNotEmpty == true ? person.placeOfBirth! : '—',
       ),
     ];
@@ -2093,24 +2104,12 @@ class _PersonCreditCard extends StatelessWidget {
   }
 }
 
-String _formatDate(String? raw) {
+String _formatDate(BuildContext context, String? raw) {
   final date = raw == null ? null : DateTime.tryParse(raw);
   if (date == null) return '—';
-  const months = [
-    'janvier',
-    'février',
-    'mars',
-    'avril',
-    'mai',
-    'juin',
-    'juillet',
-    'août',
-    'septembre',
-    'octobre',
-    'novembre',
-    'décembre',
-  ];
-  return '${date.day} ${months[date.month - 1]}, ${date.year}';
+  return DateFormat.yMMMMd(
+    Localizations.localeOf(context).toLanguageTag(),
+  ).format(date);
 }
 
 String _age(String? birthday, String? deathday) {

@@ -11,7 +11,9 @@ import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/tmdb_cards.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 class TmdbMediaDetailScreen extends StatefulWidget {
   final TmdbMedia media;
@@ -339,7 +341,7 @@ class _DetailContentState extends State<_DetailContent> {
                     ),
                     const SizedBox(width: 4),
                     IconButton(
-                      tooltip: 'Voir les statistiques',
+                      tooltip: context.l10n.media_stats,
                       onPressed: () => _showDetailsSheet(context),
                       icon: const Icon(
                         Broken.arrow_right_3,
@@ -395,7 +397,7 @@ class _DetailContentState extends State<_DetailContent> {
                               Broken.document_download,
                               size: 19,
                             ),
-                            label: const Text('Télécharger'),
+                            label: Text(context.l10n.download),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
                               backgroundColor: Colors.white.withValues(
@@ -420,8 +422,8 @@ class _DetailContentState extends State<_DetailContent> {
                           child: IconButton(
                             onPressed: onFavoriteChanged,
                             tooltip: isFavorite
-                                ? 'Retirer de ma liste'
-                                : 'Ajouter à ma liste',
+                                ? context.l10n.media_remove_from_list
+                                : context.l10n.media_add_to_list,
                             style: IconButton.styleFrom(
                               foregroundColor: Colors.white,
                               backgroundColor: Colors.white.withValues(
@@ -459,7 +461,7 @@ class _DetailContentState extends State<_DetailContent> {
                 _ExpandableSynopsis(
                   text: media.overview?.isNotEmpty == true
                       ? media.overview!
-                      : 'Aucun synopsis disponible.',
+                      : context.l10n.media_no_synopsis,
                 ),
                 const SizedBox(height: 25),
                 _CastSection(media: media, cast: details.cast),
@@ -532,7 +534,7 @@ class _TabBody extends StatelessWidget {
           const SizedBox(height: 28),
           _RecommendationsSection(
             title: 'Similaires',
-            emptyMessage: 'Aucun titre similaire disponible.',
+            emptyMessage: context.l10n.media_no_similar,
             items: details.similar,
           ),
           const SizedBox(height: 28),
@@ -559,7 +561,11 @@ class _DetailTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = ['Média', 'Recommandations', isTv ? 'Épisodes' : 'Détails'];
+    final labels = [
+      context.l10n.media_media,
+      context.l10n.recommendations,
+      isTv ? context.l10n.episodes : context.l10n.media_details,
+    ];
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -640,7 +646,9 @@ class _ExpandableSynopsisState extends State<_ExpandableSynopsis> {
             alignment: Alignment.center,
             child: IconButton(
               visualDensity: VisualDensity.compact,
-              tooltip: _expanded ? 'Réduire' : 'Lire plus',
+              tooltip: _expanded
+                  ? context.l10n.media_collapse
+                  : context.l10n.media_read_more,
               onPressed: () => setState(() => _expanded = !_expanded),
               icon: AnimatedRotation(
                 turns: _expanded ? .5 : 0,
@@ -673,11 +681,11 @@ class _MediaSection extends StatelessWidget {
                     '/flixWallpapers',
                     extra: details.backdropPaths,
                   ),
-                  child: Text('Tout  ›'),
+                  child: Text('${context.l10n.media_see_all}  ›'),
                 )
               : null,
           child: details.backdropPaths.isEmpty
-              ? const _EmptySection(message: 'Aucun wallpaper disponible.')
+              ? _EmptySection(message: context.l10n.media_no_wallpaper)
               : SizedBox(
                   height: 154,
                   child: ListView.separated(
@@ -734,14 +742,14 @@ class TmdbWallpaperGalleryScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       appBar: AppBar(
-        title: Text('Wallpapers (${paths.length})'),
+        title: Text(context.l10n.media_wallpapers_count(paths.length)),
         backgroundColor: const Color(0xFF0B0B11),
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
       body: paths.isEmpty
-          ? const _EmptySection(message: 'Aucun wallpaper disponible.')
+          ? _EmptySection(message: context.l10n.media_no_wallpaper)
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 32),
               itemCount: rows,
@@ -872,7 +880,7 @@ class _SeasonsSummary extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${season.episodeCount} épisodes',
+                    context.l10n.media_episodes_count(season.episodeCount),
                     style: const TextStyle(color: Colors.white54, fontSize: 11),
                   ),
                 ],
@@ -1015,13 +1023,13 @@ class _EpisodesSectionState extends State<_EpisodesSection> {
   @override
   Widget build(BuildContext context) {
     if (_seasons.isEmpty) {
-      return const _EmptySection(message: 'Aucun épisode disponible.');
+      return _EmptySection(message: context.l10n.media_no_episode);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Section(
-          title: 'Épisodes',
+          title: context.l10n.episodes,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -1062,13 +1070,13 @@ class _EpisodesSectionState extends State<_EpisodesSection> {
               );
             }
             if (snapshot.hasError) {
-              return const _EmptySection(
-                message: 'Impossible de charger les épisodes.',
+              return _EmptySection(
+                message: context.l10n.media_episodes_load_failed,
               );
             }
             final episodes = snapshot.data ?? const <TmdbEpisode>[];
             if (episodes.isEmpty) {
-              return const _EmptySection(message: 'Aucun épisode disponible.');
+              return _EmptySection(message: context.l10n.media_no_episode);
             }
             return Column(
               children: episodes
@@ -1210,10 +1218,10 @@ class _VideosSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (videos.isEmpty) {
-      return const _EmptySection(message: 'Aucune bande-annonce disponible.');
+      return _EmptySection(message: context.l10n.media_no_trailer);
     }
     return _Section(
-      title: 'Trailers et vidéos',
+      title: context.l10n.media_trailers,
       child: SizedBox(
         height: 166,
         child: ListView.separated(
@@ -1297,66 +1305,76 @@ class _DetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final type = media.mediaType == 'movie' ? 'Film' : 'Série';
-    final status = _formatTmdbStatus(details.status);
+    final l10n = context.l10n;
+    final type = media.mediaType == 'movie'
+        ? l10n.media_movie
+        : l10n.media_series;
+    final status = _formatTmdbStatus(l10n, details.status);
     final rows = <MapEntry<String, String>>[
-      MapEntry('Titre', media.displayTitle),
+      MapEntry(l10n.media_title, media.displayTitle),
       if (details.originalTitle?.isNotEmpty == true)
-        MapEntry('Titre original', details.originalTitle!),
-      if (media.mediaType.isNotEmpty) MapEntry('Type', type),
+        MapEntry(l10n.media_original_title, details.originalTitle!),
+      if (media.mediaType.isNotEmpty) MapEntry(l10n.media_type, type),
       if (media.releaseDate?.isNotEmpty == true)
-        MapEntry('Date de sortie', media.releaseDate!),
+        MapEntry(l10n.media_release_date, media.releaseDate!),
       if (media.firstAirDate?.isNotEmpty == true)
-        MapEntry('Première diffusion', media.firstAirDate!),
+        MapEntry(l10n.media_first_air_date, media.firstAirDate!),
       if (details.lastAirDate?.isNotEmpty == true)
-        MapEntry('Dernier épisode', details.lastAirDate!),
-      if (details.type?.isNotEmpty == true) MapEntry('Format', details.type!),
-      if (details.status?.isNotEmpty == true) MapEntry('Statut', status),
+        MapEntry(l10n.media_last_episode, details.lastAirDate!),
+      if (details.type?.isNotEmpty == true)
+        MapEntry(l10n.media_format, details.type!),
+      if (details.status?.isNotEmpty == true)
+        MapEntry(l10n.media_status, status),
       if (details.runtime != null && details.runtime! > 0)
-        MapEntry('Durée', '${details.runtime} min'),
+        MapEntry(l10n.media_duration, '${details.runtime} min'),
       if (details.episodeRunTimes.isNotEmpty)
-        MapEntry('Durée épisode', '${details.episodeRunTimes.join('–')} min'),
+        MapEntry(
+          l10n.media_episode_duration,
+          '${details.episodeRunTimes.join('–')} min',
+        ),
       if (details.numberOfSeasons != null)
-        MapEntry('Saisons', '${details.numberOfSeasons}'),
+        MapEntry(l10n.media_seasons, '${details.numberOfSeasons}'),
       if (details.numberOfEpisodes != null)
-        MapEntry('Épisodes', '${details.numberOfEpisodes}'),
+        MapEntry(l10n.episodes, '${details.numberOfEpisodes}'),
       if (media.originalLanguage?.isNotEmpty == true)
-        MapEntry('Langue originale', media.originalLanguage!.toUpperCase()),
+        MapEntry(l10n.media_original_language, media.originalLanguage!.toUpperCase()),
       if (details.spokenLanguages.isNotEmpty)
-        MapEntry('Langues parlées', details.spokenLanguages.join(', ')),
+        MapEntry(l10n.media_spoken_languages, details.spokenLanguages.join(', ')),
       if (details.originCountries.isNotEmpty)
-        MapEntry('Pays d’origine', details.originCountries.join(', ')),
-      if (media.voteCount != null) MapEntry('Votes TMDB', '${media.voteCount}'),
+        MapEntry(l10n.media_origin_countries, details.originCountries.join(', ')),
+      if (media.voteCount != null)
+        MapEntry(l10n.media_votes_tmdb, '${media.voteCount}'),
       if (media.voteAverage != null)
-        MapEntry('Note TMDB', media.voteAverage!.toStringAsFixed(1)),
+        MapEntry(l10n.media_rating_tmdb, media.voteAverage!.toStringAsFixed(1)),
       if (media.popularity != null || details.popularity != null)
         MapEntry(
-          'Popularité',
+          l10n.media_popularity,
           (details.popularity ?? media.popularity)!.toStringAsFixed(2),
         ),
       if (details.budget != null && details.budget! > 0)
-        MapEntry('Budget', _formatMoney(details.budget!)),
+        MapEntry(l10n.media_budget, _formatMoney(details.budget!)),
       if (details.revenue != null && details.revenue! > 0)
-        MapEntry('Recettes', _formatMoney(details.revenue!)),
+        MapEntry(l10n.media_revenue, _formatMoney(details.revenue!)),
       if (details.inProduction?.isNotEmpty == true)
-        MapEntry('En production', details.inProduction!),
+        MapEntry(l10n.media_in_production, details.inProduction!),
       if (details.homepage?.isNotEmpty == true)
-        MapEntry('Site officiel', details.homepage!),
-      if (details.imdbId?.isNotEmpty == true) MapEntry('IMDb', details.imdbId!),
+        MapEntry(l10n.media_official_site, details.homepage!),
+      if (details.imdbId?.isNotEmpty == true)
+        MapEntry('IMDb', details.imdbId!),
       if (details.productionCountries.isNotEmpty)
-        MapEntry('Pays', details.productionCountries.join(', ')),
+        MapEntry(l10n.media_countries, details.productionCountries.join(', ')),
       if (details.productionCompanies.isNotEmpty)
-        MapEntry('Production', details.productionCompanies.join(', ')),
+        MapEntry(l10n.media_production, details.productionCompanies.join(', ')),
       if (details.networks.isNotEmpty)
-        MapEntry('Réseaux', details.networks.join(', ')),
+        MapEntry(l10n.media_networks, details.networks.join(', ')),
       if (details.createdBy.isNotEmpty)
-        MapEntry('Créé par', details.createdBy.join(', ')),
+        MapEntry(l10n.media_created_by, details.createdBy.join(', ')),
     ];
     if (rows.isEmpty) {
-      return const _EmptySection(message: 'Détails indisponibles.');
+      return _EmptySection(message: l10n.media_details_unavailable);
     }
     return _Section(
-      title: 'Informations',
+      title: l10n.media_information,
       child: Column(
         children: [
           for (final row in rows)
@@ -1391,14 +1409,14 @@ class _DetailsSection extends StatelessWidget {
   }
 }
 
-String _formatTmdbStatus(String? value) {
+String _formatTmdbStatus(AppLocalizations l10n, String? value) {
   return switch (value) {
-    'Released' => 'Sorti',
-    'Returning Series' => 'En cours',
-    'Ended' => 'Terminée',
-    'Canceled' || 'Cancelled' => 'Annulée',
-    'In Production' => 'En production',
-    'Planned' => 'Prévue',
+    'Released' => l10n.media_released,
+    'Returning Series' => l10n.media_status_ongoing2,
+    'Ended' => l10n.media_completed,
+    'Canceled' || 'Cancelled' => l10n.media_cancelled,
+    'In Production' => l10n.media_in_production,
+    'Planned' => l10n.media_announced,
     _ => value ?? '—',
   };
 }
@@ -1459,7 +1477,7 @@ class _ProvidersSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (providers.isEmpty) return const SizedBox.shrink();
     return _Section(
-      title: 'Où regarder',
+      title: context.l10n.media_where_to_watch,
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
@@ -1857,21 +1875,21 @@ class _DetailError extends StatelessWidget {
           children: [
             const Icon(Broken.wifi, color: Colors.white54, size: 44),
             const SizedBox(height: 14),
-            const Text(
-              'Impossible de charger cette fiche',
+            Text(
+              context.l10n.media_load_title_failed,
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white, fontSize: 18),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Réessayez lorsque la connexion sera disponible.',
+            Text(
+              context.l10n.media_retry_when_online,
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white60),
             ),
             const SizedBox(height: 18),
             FilledButton.tonal(
               onPressed: onRetry,
-              child: const Text('Réessayer'),
+              child: Text(context.l10n.retry),
             ),
             if (error != null) ...[
               const SizedBox(height: 10),

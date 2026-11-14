@@ -8228,4 +8228,126 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_selection => 'Sélection';
+
+  @override
+  String get media_remove_from_list => 'Retirer de ma liste';
+
+  @override
+  String get media_similar => 'Similaires';
+
+  @override
+  String get media_media => 'Média';
+
+  @override
+  String get media_read_more => 'Lire plus';
+
+  @override
+  String get media_see_all => 'Tout';
+
+  @override
+  String media_wallpapers_count(Object count) {
+    return 'Wallpapers ($count)';
+  }
+
+  @override
+  String get media_no_trailer => 'Aucune bande-annonce disponible.';
+
+  @override
+  String get media_information => 'Informations';
+
+  @override
+  String get media_title => 'Titre';
+
+  @override
+  String get media_original_title => 'Titre original';
+
+  @override
+  String get media_format => 'Format';
+
+  @override
+  String get media_status => 'Statut';
+
+  @override
+  String get media_seasons => 'Saisons';
+
+  @override
+  String get media_origin_countries => 'Pays d’origine';
+
+  @override
+  String get media_votes_tmdb => 'Votes TMDB';
+
+  @override
+  String get media_rating_tmdb => 'Note TMDB';
+
+  @override
+  String get media_budget => 'Budget';
+
+  @override
+  String get media_revenue => 'Recettes';
+
+  @override
+  String get media_in_production => 'En production';
+
+  @override
+  String get media_official_site => 'Site officiel';
+
+  @override
+  String get media_countries => 'Pays';
+
+  @override
+  String get media_production => 'Production';
+
+  @override
+  String get media_released => 'Sorti';
+
+  @override
+  String get media_status_ongoing2 => 'En cours';
+
+  @override
+  String get media_load_title_failed => 'Impossible de charger cette fiche';
+
+  @override
+  String get media_retry_when_online =>
+      'Réessayez lorsque la connexion sera disponible.';
+
+  @override
+  String get media_cast_load_failed => 'Impossible de charger la distribution.';
+
+  @override
+  String get media_load_page_failed => 'Impossible de charger cette fiche.';
+
+  @override
+  String get media_series_lower => 'séries';
+
+  @override
+  String get media_no_video_filter => 'Aucune vidéo ne correspond au filtre.';
+
+  @override
+  String get media_load_failed_retry => 'Chargement échoué · Réessayer';
+
+  @override
+  String get media_job => 'Métier';
+
+  @override
+  String get media_as => 'Rôle';
+
+  @override
+  String get media_born_on => 'Naissance';
+
+  @override
+  String get media_age => 'Âge';
+
+  @override
+  String get media_from => 'Origine';
+
+  @override
+  String get media_films => 'films';
+
+  @override
+  String media_videos_loaded(Object loaded, Object more, Object total) {
+    return '$loaded / $total vidéos$more';
+  }
+
+  @override
+  String get media_see_all_arrow => 'Tout >';
 }

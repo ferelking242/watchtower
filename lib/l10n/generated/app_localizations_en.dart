@@ -8107,4 +8107,126 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get media_selection => 'Selection';
+
+  @override
+  String get media_remove_from_list => 'Remove from my list';
+
+  @override
+  String get media_similar => 'Similar';
+
+  @override
+  String get media_media => 'Media';
+
+  @override
+  String get media_read_more => 'Read more';
+
+  @override
+  String get media_see_all => 'All';
+
+  @override
+  String media_wallpapers_count(Object count) {
+    return 'Wallpapers ($count)';
+  }
+
+  @override
+  String get media_no_trailer => 'No trailer available.';
+
+  @override
+  String get media_information => 'Information';
+
+  @override
+  String get media_title => 'Title';
+
+  @override
+  String get media_original_title => 'Original title';
+
+  @override
+  String get media_format => 'Format';
+
+  @override
+  String get media_status => 'Status';
+
+  @override
+  String get media_seasons => 'Seasons';
+
+  @override
+  String get media_origin_countries => 'Origin countries';
+
+  @override
+  String get media_votes_tmdb => 'TMDB votes';
+
+  @override
+  String get media_rating_tmdb => 'TMDB rating';
+
+  @override
+  String get media_budget => 'Budget';
+
+  @override
+  String get media_revenue => 'Revenue';
+
+  @override
+  String get media_in_production => 'In production';
+
+  @override
+  String get media_official_site => 'Official site';
+
+  @override
+  String get media_countries => 'Countries';
+
+  @override
+  String get media_production => 'Production';
+
+  @override
+  String get media_released => 'Released';
+
+  @override
+  String get media_status_ongoing2 => 'Ongoing';
+
+  @override
+  String get media_load_title_failed => 'Unable to load this page';
+
+  @override
+  String get media_retry_when_online =>
+      'Try again when the connection is available.';
+
+  @override
+  String get media_cast_load_failed => 'Unable to load the cast.';
+
+  @override
+  String get media_load_page_failed => 'Unable to load this page.';
+
+  @override
+  String get media_series_lower => 'series';
+
+  @override
+  String get media_no_video_filter => 'No video matches the filter.';
+
+  @override
+  String get media_load_failed_retry => 'Load failed · Retry';
+
+  @override
+  String get media_job => 'Job';
+
+  @override
+  String get media_as => 'As';
+
+  @override
+  String get media_born_on => 'Born on';
+
+  @override
+  String get media_age => 'Age';
+
+  @override
+  String get media_from => 'From';
+
+  @override
+  String get media_films => 'movies';
+
+  @override
+  String media_videos_loaded(Object loaded, Object more, Object total) {
+    return '$loaded / $total videos$more';
+  }
+
+  @override
+  String get media_see_all_arrow => 'All >';
 }
