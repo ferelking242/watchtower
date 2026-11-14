@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart';
   import 'package:watchtower/modules/music/components/markdown/markdown.dart';
   import 'package:watchtower/modules/music/extensions/context.dart';
   import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+  import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
   import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
   import 'package:url_launcher/url_launcher_string.dart';
   import 'package:change_case/change_case.dart';
@@ -119,7 +120,7 @@ import 'package:flutter/gestures.dart';
                               );
 
                           if (!context.mounted) return;
-                          final isOfficialPlugin = pluginRepo.owner == "KRTirtho";
+                          final isOfficialPlugin = pluginRepo.owner == kOfficialPluginOwner;
 
                           final isAllowed = isOfficialPlugin
                               ? true
@@ -232,7 +233,7 @@ import 'package:flutter/gestures.dart';
                 ),
               ),
             ),
-            if (pluginRepo.owner != "KRTirtho")
+            if (pluginRepo.owner != kOfficialPluginOwner)
               Text.rich(
                 TextSpan(
                   children: [
@@ -256,7 +257,7 @@ import 'package:flutter/gestures.dart';
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (pluginRepo.owner == "KRTirtho")
+                if (pluginRepo.owner == kOfficialPluginOwner)
                   _badgePrimary(context, child: Text(context.l10n.official))
                 else ...[
                   Text(

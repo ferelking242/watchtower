@@ -109,6 +109,28 @@ void main() {
       // Two plugins sharing an artifact URL would install the same bytecode.
       expect(urls.toSet().length, urls.length);
     });
+
+    // The "official" badge and the install-without-warning shortcut both key
+    // off the owner. After the catalogue consolidation every first-party
+    // plugin is owned by `ferelking242`; a stale `KRTirtho` check silently
+    // demoted every plugin to third-party. Pin the shared constant instead.
+    test('every known repository is owned by the official catalogue', () async {
+      final notifier = MetadataPluginRepositoriesNotifier();
+      final page = await notifier.fetch(0, 50);
+
+      for (final repo in page.items) {
+        expect(
+          repo.owner,
+          kOfficialPluginOwner,
+          reason: '${repo.name} must carry the official owner',
+        );
+        expect(
+          repo.repoUrl,
+          contains(kOfficialPluginOwner),
+          reason: '${repo.name} must live in the official catalogue',
+        );
+      }
+    });
   });
 
   group('CatalogIcon', () {

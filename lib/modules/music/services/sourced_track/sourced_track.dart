@@ -182,17 +182,6 @@ class SourcedTrack extends BasicSourcedTrack {
         .toList();
   }
 
-  static Future<List<SpotubeAudioSourceMatchObject>> fetchSiblings({
-    required SpotubeFullTrackObject query,
-    required Ref ref,
-  }) async {
-    final backends = await ref.read(audioSourceBackendsProvider.future);
-    if (backends.isEmpty) {
-      throw MetadataPluginException.noDefaultAudioSourcePlugin();
-    }
-    return _fetchSiblingsFor(backends.first, query);
-  }
-
   static Future<List<SpotubeAudioSourceMatchObject>> _fetchSiblingsFor(
     AudioSourceBackend backend,
     SpotubeFullTrackObject query,
@@ -214,7 +203,11 @@ class SourcedTrack extends BasicSourcedTrack {
     if (siblings.isNotEmpty) {
       return this;
     }
-    final fetchedSiblings = await fetchSiblings(ref: ref, query: query);
+    // Fetch from the backend that actually resolved this track, not blindly the
+    // primary one, so a track resolved by a fallback provider still swaps
+    // within the same provider.
+    final backend = await _backendForSource();
+    final fetchedSiblings = await _fetchSiblingsFor(backend, query);
 
     return SourcedTrack(
       ref: ref,

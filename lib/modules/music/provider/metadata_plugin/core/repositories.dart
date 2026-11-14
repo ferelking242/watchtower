@@ -22,6 +22,13 @@ class _PageCache {
 const _kExtensionsRepoBase =
     "https://raw.githubusercontent.com/ferelking242/watchtower-extensions/main";
 
+/// GitHub owner of the official extensions catalogue. Every first-party music
+/// plugin is published under this account (in `watchtower-extensions`), so it
+/// is the single source of truth for the "official" badge. Plugins previously
+/// published under the upstream `KRTirtho` account were migrated here during
+/// the catalogue consolidation.
+const kOfficialPluginOwner = "ferelking242";
+
 /// Repository-hosted plugin icons published by the extensions catalogue.
 const _kPluginIconBase = "$_kExtensionsRepoBase/assets/plugins/";
 

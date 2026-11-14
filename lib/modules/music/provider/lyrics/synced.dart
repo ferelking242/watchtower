@@ -17,9 +17,17 @@ class SyncedLyricsNotifier
     extends FamilyAsyncNotifier<SubtitleSimple, SpotubeTrackObject?> {
   SpotubeTrackObject get _track => arg!;
 
+  /// Ordered lyrics providers. Each returns `null` (or a lyrics list that is
+  /// empty) when it has nothing for the track, so the chain falls through to
+  /// the next provider instead of giving up on the first miss.
+  List<Future<SubtitleSimple?> Function()> get _providers => [
+        _fetchLrcLib,
+        _fetchLyricsOvh,
+      ];
+
   /// Lyrics credits: [lrclib.net](https://lrclib.net) and their contributors
   /// Thanks for their generous public API
-  Future<SubtitleSimple> getLRCLibLyrics() async {
+  Future<SubtitleSimple?> _fetchLrcLib() async {
     final packageInfo = await PackageInfo.fromPlatform();
 
     final res = await globalDio.getUri(
@@ -44,15 +52,7 @@ class SyncedLyricsNotifier
       ),
     );
 
-    if (res.statusCode != 200) {
-      return SubtitleSimple(
-        lyrics: [],
-        name: _track.name,
-        uri: res.realUri,
-        rating: 0,
-        provider: "LRCLib",
-      );
-    }
+    if (res.statusCode != 200) return null;
 
     final json = res.data as Map<String, dynamic>;
 
@@ -74,18 +74,68 @@ class SyncedLyricsNotifier
       );
     }
 
-    final plainLyrics = (json["plainLyrics"] as String)
-        .split("\n")
-        .map((line) => LyricSlice(text: line, time: Duration.zero))
-        .toList();
+    final plainLyricsRaw = json["plainLyrics"] as String?;
+    if (plainLyricsRaw == null || plainLyricsRaw.isEmpty) return null;
 
     return SubtitleSimple(
-      lyrics: plainLyrics,
+      lyrics: plainLyricsRaw
+          .split("\n")
+          .map((line) => LyricSlice(text: line, time: Duration.zero))
+          .toList(),
       name: _track.name,
       uri: res.realUri,
       rating: 0,
       provider: "LRCLib",
     );
+  }
+
+  /// [lyrics.ovh](https://lyrics.ovh) — free, no-key plain-lyrics fallback for
+  /// tracks LRCLib does not index. Results are unsynced (rating 0).
+  Future<SubtitleSimple?> _fetchLyricsOvh() async {
+    final res = await globalDio.getUri(
+      Uri(
+        scheme: "https",
+        host: "api.lyrics.ovh",
+        pathSegments: ["v1", _track.artists.first.name, _track.name],
+      ),
+      options: Options(responseType: ResponseType.json),
+    );
+
+    if (res.statusCode != 200) return null;
+
+    final json = res.data as Map<String, dynamic>;
+    final raw = json["lyrics"] as String?;
+    if (raw == null || raw.trim().isEmpty) return null;
+
+    final lines = raw
+        .split("\n")
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .map((line) => LyricSlice(text: line, time: Duration.zero))
+        .toList();
+    if (lines.isEmpty) return null;
+
+    return SubtitleSimple(
+      lyrics: lines,
+      name: _track.name,
+      uri: res.realUri,
+      rating: 0,
+      provider: "Lyrics.ovh",
+    );
+  }
+
+  /// Runs the providers in priority order and returns the first non-empty
+  /// result, or `null` when every provider misses.
+  Future<SubtitleSimple?> _fetchLyrics() async {
+    for (final provider in _providers) {
+      try {
+        final result = await provider();
+        if (result != null && result.lyrics.isNotEmpty) return result;
+      } catch (e, stackTrace) {
+        AppLogger.reportError(e, stackTrace);
+      }
+    }
+    return null;
   }
 
   @override
@@ -108,10 +158,10 @@ class SyncedLyricsNotifier
       if (lyrics == null ||
           lyrics.lyrics.isEmpty ||
           lyrics.lyrics.length <= 5) {
-        lyrics = await getLRCLibLyrics();
+        lyrics = await _fetchLyrics();
       }
 
-      if (lyrics.lyrics.isEmpty) {
+      if (lyrics == null || lyrics.lyrics.isEmpty) {
         throw Exception("Unable to find lyrics");
       }
 
