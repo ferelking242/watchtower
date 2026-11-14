@@ -6475,4 +6475,112 @@ class AppLocalizationsAs extends AppLocalizations {
 
   @override
   String get downloads_folder_not_created => 'Folder not created yet';
+
+  @override
+  String get library_settings_title => 'Library';
+
+  @override
+  String get library_settings_section_updates => 'Updates';
+
+  @override
+  String get library_settings_section_behavior => 'Behavior';
+
+  @override
+  String get library_settings_categories_subtitle =>
+      'Create, rename and delete your categories';
+
+  @override
+  String get library_settings_edit_categories_subtitle =>
+      'Reorder and assign titles';
+
+  @override
+  String get library_settings_default_category => 'Default category';
+
+  @override
+  String get library_settings_per_category_sort =>
+      'Keep sort settings per category';
+
+  @override
+  String get library_settings_update_restrictions =>
+      'Hardware restrictions for automatic updates';
+
+  @override
+  String get library_settings_restrictions => 'Restrictions';
+
+  @override
+  String library_settings_restrictions_summary(Object list) {
+    return 'Restrictions: $list';
+  }
+
+  @override
+  String library_settings_categories_summary(Object exclude, Object include) {
+    return 'Include: $include\nExclude: $exclude';
+  }
+
+  @override
+  String get library_settings_auto_refresh_metadata =>
+      'Automatically refresh metadata';
+
+  @override
+  String get library_settings_check_new_cover =>
+      'Check for a new cover or synopsis on library updates';
+
+  @override
+  String get library_settings_unread_badge =>
+      'Show the unread chapter count on the updates icon';
+
+  @override
+  String get library_settings_swipe_left => 'Left swipe action';
+
+  @override
+  String get library_settings_swipe_right => 'Right swipe action';
+
+  @override
+  String get library_settings_mark_duplicate =>
+      'Mark a duplicate chapter as read';
+
+  @override
+  String get library_settings_hide_missing => 'Hide missing chapter indicators';
+
+  @override
+  String get library_settings_include => 'Include';
+
+  @override
+  String get library_settings_exclude => 'Exclude';
+
+  @override
+  String get library_settings_no_category => 'No category.';
+
+  @override
+  String get library_settings_everything => 'Everything';
+
+  @override
+  String get library_settings_charging_only => 'Only while charging';
+
+  @override
+  String get library_settings_manual => 'Manual';
+
+  @override
+  String get library_settings_every_2_days => 'Every 2 days';
+
+  @override
+  String get library_settings_every_2_weeks => 'Every 2 weeks';
+
+  @override
+  String get library_settings_every_month => 'Every month';
+
+  @override
+  String get library_settings_smart_new_chapters => 'New chapters only';
+
+  @override
+  String get library_settings_always => 'Always';
+
+  @override
+  String get library_settings_mark_chapter => 'Mark chapter';
+
+  @override
+  String get library_settings_mark_as_read => 'Mark as read';
+
+  @override
+  String get library_settings_swipe_none => 'None';
 }

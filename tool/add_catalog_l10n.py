@@ -1477,6 +1477,72 @@ SETTINGS_HUB = [
 # Downloads sub-pages and the download manager rows. The row titles were
 # already partly localised; these fill in the remaining descriptions, dialogs
 # and status lines so the screen renders entirely from the catalogue.
+# Library settings page. The option lists in the provider carried French
+# labels; they became value-only lists plus l10n label resolvers.
+LIBRARY_SETTINGS = [
+    ("library_settings_title", "Library", "Bibliothèque"),
+    ("library_settings_section_updates", "Updates", "Mises à jour"),
+    ("library_settings_section_behavior", "Behavior", "Comportement"),
+    ("library_settings_categories_subtitle",
+     "Create, rename and delete your categories",
+     "Créer, renommer et supprimer vos catégories"),
+    ("library_settings_edit_categories_subtitle",
+     "Reorder and assign titles", "Réorganiser et affecter les titres"),
+    ("library_settings_default_category", "Default category",
+     "Catégorie par défaut"),
+    ("library_settings_per_category_sort",
+     "Keep sort settings per category",
+     "Rendre les réglages de tri propres à chaque catégorie"),
+    ("library_settings_update_restrictions",
+     "Hardware restrictions for automatic updates",
+     "Restrictions matérielles pour les mises à jour automatiques"),
+    ("library_settings_restrictions", "Restrictions", "Restrictions"),
+    ("library_settings_restrictions_summary",
+     "Restrictions: {list}", "Restrictions : {list}"),
+    ("library_settings_categories_summary",
+     "Include: {include}\nExclude: {exclude}",
+     "Inclure : {include}\nExclure : {exclude}"),
+    ("library_settings_auto_refresh_metadata",
+     "Automatically refresh metadata",
+     "Actualiser automatiquement les métadonnées"),
+    ("library_settings_check_new_cover",
+     "Check for a new cover or synopsis on library updates",
+     "Vérifier s’il y a une nouvelle couverture ou synopsis lors des mises à jour de la bibliothèque"),
+    ("library_settings_unread_badge",
+     "Show the unread chapter count on the updates icon",
+     "Afficher le nombre de chapitres non lus sur l’icône des mises à jour"),
+    ("library_settings_swipe_left", "Left swipe action",
+     "Action de glisser à gauche"),
+    ("library_settings_swipe_right", "Right swipe action",
+     "Action de glisser à droite"),
+    ("library_settings_mark_duplicate",
+     "Mark a duplicate chapter as read",
+     "Marquer un chapitre dupliqué comme lu"),
+    ("library_settings_hide_missing",
+     "Hide missing chapter indicators",
+     "Masquer les indicateurs de chapitre manquants"),
+    ("library_settings_include", "Include", "Inclure"),
+    ("library_settings_exclude", "Exclude", "Exclure"),
+    ("library_settings_no_category", "No category.",
+     "Aucune catégorie."),
+    ("library_settings_everything", "Everything", "Tout"),
+    ("library_settings_charging_only", "Only while charging",
+     "Uniquement en charge"),
+    ("library_settings_manual", "Manual", "Manuelle"),
+    ("library_settings_every_2_days", "Every 2 days",
+     "Tous les 2 jours"),
+    ("library_settings_every_2_weeks", "Every 2 weeks",
+     "Toutes les 2 semaines"),
+    ("library_settings_every_month", "Every month", "Chaque mois"),
+    ("library_settings_smart_new_chapters", "New chapters only",
+     "Nouveaux chapitres uniquement"),
+    ("library_settings_always", "Always", "Toujours"),
+    ("library_settings_mark_chapter", "Mark chapter",
+     "Marquer le chapitre"),
+    ("library_settings_mark_as_read", "Mark as read", "Marquer comme lu"),
+    ("library_settings_swipe_none", "None", "Aucun(e)"),
+]
+
 DOWNLOADS_EXTRA = [
     ("downloads_simultaneous_title", "Simultaneous downloads",
      "Téléchargements simultanés"),
@@ -1701,6 +1767,8 @@ en_entries += [(key, en) for key, en, _ in SETTINGS_INDEX]
 fr_entries += [(key, fr) for key, _, fr in SETTINGS_INDEX]
 en_entries += [(key, en) for key, en, _ in DOWNLOADS_EXTRA]
 fr_entries += [(key, fr) for key, _, fr in DOWNLOADS_EXTRA]
+en_entries += [(key, en) for key, en, _ in LIBRARY_SETTINGS]
+fr_entries += [(key, fr) for key, _, fr in LIBRARY_SETTINGS]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

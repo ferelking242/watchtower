@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/services/library_swipe_actions.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Wraps a library entry so the configured left/right swipe actions run.
 ///
@@ -81,7 +82,7 @@ class _SwipeBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = action >= 0 && action < kLibrarySwipeActions.length
-        ? kLibrarySwipeActions[action]
+        ? librarySwipeActionLabel(context.l10n, action)
         : '';
     final icon = switch (action) {
       0 || 1 => Icons.done_all,

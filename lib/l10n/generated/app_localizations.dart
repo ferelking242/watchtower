@@ -11380,6 +11380,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Folder not created yet'**
   String get downloads_folder_not_created;
+
+  /// No description provided for @library_settings_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get library_settings_title;
+
+  /// No description provided for @library_settings_section_updates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates'**
+  String get library_settings_section_updates;
+
+  /// No description provided for @library_settings_section_behavior.
+  ///
+  /// In en, this message translates to:
+  /// **'Behavior'**
+  String get library_settings_section_behavior;
+
+  /// No description provided for @library_settings_categories_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create, rename and delete your categories'**
+  String get library_settings_categories_subtitle;
+
+  /// No description provided for @library_settings_edit_categories_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reorder and assign titles'**
+  String get library_settings_edit_categories_subtitle;
+
+  /// No description provided for @library_settings_default_category.
+  ///
+  /// In en, this message translates to:
+  /// **'Default category'**
+  String get library_settings_default_category;
+
+  /// No description provided for @library_settings_per_category_sort.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep sort settings per category'**
+  String get library_settings_per_category_sort;
+
+  /// No description provided for @library_settings_update_restrictions.
+  ///
+  /// In en, this message translates to:
+  /// **'Hardware restrictions for automatic updates'**
+  String get library_settings_update_restrictions;
+
+  /// No description provided for @library_settings_restrictions.
+  ///
+  /// In en, this message translates to:
+  /// **'Restrictions'**
+  String get library_settings_restrictions;
+
+  /// No description provided for @library_settings_restrictions_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Restrictions: {list}'**
+  String library_settings_restrictions_summary(Object list);
+
+  /// No description provided for @library_settings_categories_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Include: {include}\nExclude: {exclude}'**
+  String library_settings_categories_summary(Object exclude, Object include);
+
+  /// No description provided for @library_settings_auto_refresh_metadata.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically refresh metadata'**
+  String get library_settings_auto_refresh_metadata;
+
+  /// No description provided for @library_settings_check_new_cover.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for a new cover or synopsis on library updates'**
+  String get library_settings_check_new_cover;
+
+  /// No description provided for @library_settings_unread_badge.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the unread chapter count on the updates icon'**
+  String get library_settings_unread_badge;
+
+  /// No description provided for @library_settings_swipe_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left swipe action'**
+  String get library_settings_swipe_left;
+
+  /// No description provided for @library_settings_swipe_right.
+  ///
+  /// In en, this message translates to:
+  /// **'Right swipe action'**
+  String get library_settings_swipe_right;
+
+  /// No description provided for @library_settings_mark_duplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark a duplicate chapter as read'**
+  String get library_settings_mark_duplicate;
+
+  /// No description provided for @library_settings_hide_missing.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide missing chapter indicators'**
+  String get library_settings_hide_missing;
+
+  /// No description provided for @library_settings_include.
+  ///
+  /// In en, this message translates to:
+  /// **'Include'**
+  String get library_settings_include;
+
+  /// No description provided for @library_settings_exclude.
+  ///
+  /// In en, this message translates to:
+  /// **'Exclude'**
+  String get library_settings_exclude;
+
+  /// No description provided for @library_settings_no_category.
+  ///
+  /// In en, this message translates to:
+  /// **'No category.'**
+  String get library_settings_no_category;
+
+  /// No description provided for @library_settings_everything.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything'**
+  String get library_settings_everything;
+
+  /// No description provided for @library_settings_charging_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Only while charging'**
+  String get library_settings_charging_only;
+
+  /// No description provided for @library_settings_manual.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual'**
+  String get library_settings_manual;
+
+  /// No description provided for @library_settings_every_2_days.
+  ///
+  /// In en, this message translates to:
+  /// **'Every 2 days'**
+  String get library_settings_every_2_days;
+
+  /// No description provided for @library_settings_every_2_weeks.
+  ///
+  /// In en, this message translates to:
+  /// **'Every 2 weeks'**
+  String get library_settings_every_2_weeks;
+
+  /// No description provided for @library_settings_every_month.
+  ///
+  /// In en, this message translates to:
+  /// **'Every month'**
+  String get library_settings_every_month;
+
+  /// No description provided for @library_settings_smart_new_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'New chapters only'**
+  String get library_settings_smart_new_chapters;
+
+  /// No description provided for @library_settings_always.
+  ///
+  /// In en, this message translates to:
+  /// **'Always'**
+  String get library_settings_always;
+
+  /// No description provided for @library_settings_mark_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark chapter'**
+  String get library_settings_mark_chapter;
+
+  /// No description provided for @library_settings_mark_as_read.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as read'**
+  String get library_settings_mark_as_read;
+
+  /// No description provided for @library_settings_swipe_none.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get library_settings_swipe_none;
 }
 
 class _AppLocalizationsDelegate

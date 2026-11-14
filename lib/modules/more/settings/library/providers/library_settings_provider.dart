@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
 
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+
 /// Library settings persisted in the `library_settings` Hive box.
 ///
 /// The keys mirror Mihon's library section so the two stay comparable:
@@ -33,17 +35,34 @@ final libraryUpdateIntervalProvider =
   LibraryUpdateIntervalNotifier.new,
 );
 
-/// Human-readable labels for [libraryUpdateIntervalProvider], in hours.
-const kLibraryUpdateIntervalOptions = <int, String>{
-  0: 'Manuelle',
-  6: 'Toutes les 6 heures',
-  12: 'Toutes les 12 heures',
-  24: 'Tous les jours',
-  48: 'Tous les 2 jours',
-  168: 'Chaque semaine',
-  336: 'Toutes les 2 semaines',
-  720: 'Chaque mois',
-};
+/// Update intervals offered by [libraryUpdateIntervalProvider], in hours.
+/// Labels are resolved through [libraryUpdateIntervalLabel] so the picker
+/// renders in the active locale.
+const kLibraryUpdateIntervalOptions = <int>[
+  0,
+  6,
+  12,
+  24,
+  48,
+  168,
+  336,
+  720,
+];
+
+/// Localised label for an interval value from [kLibraryUpdateIntervalOptions].
+String libraryUpdateIntervalLabel(AppLocalizations l10n, int hours) {
+  return switch (hours) {
+    0 => l10n.library_settings_manual,
+    6 => l10n.every_6_hours,
+    12 => l10n.every_12_hours,
+    24 => l10n.daily,
+    48 => l10n.library_settings_every_2_days,
+    168 => l10n.weekly,
+    336 => l10n.library_settings_every_2_weeks,
+    720 => l10n.library_settings_every_month,
+    _ => l10n.library_settings_manual,
+  };
+}
 
 // ── Restriction: only on Wi-Fi ───────────────────────────────────────────────
 
@@ -130,11 +149,18 @@ final librarySmartUpdateProvider =
   LibrarySmartUpdateNotifier.new,
 );
 
-const kLibrarySmartUpdateLabels = <String>[
-  'Aucun(e)',
-  'Nouveaux chapitres uniquement',
-  'Toujours',
-];
+/// Smart-update modes, indexed by value. Labels come from
+/// [librarySmartUpdateLabel] so the picker renders in the active locale.
+const kLibrarySmartUpdateValues = <int>[0, 1, 2];
+
+/// Localised label for a value from [kLibrarySmartUpdateValues].
+String librarySmartUpdateLabel(AppLocalizations l10n, int value) {
+  return switch (value) {
+    1 => l10n.library_settings_smart_new_chapters,
+    2 => l10n.library_settings_always,
+    _ => l10n.library_settings_swipe_none,
+  };
+}
 
 // ── Show unread chapter badge on the updates icon ────────────────────────────
 
@@ -155,15 +181,22 @@ final libraryUnreadBadgeProvider =
 
 // ── Swipe left / right actions ───────────────────────────────────────────────
 
-/// Actions available for the left/right swipe gesture, Mihon-style.
-const kLibrarySwipeActions = <String>[
-  'Marquer le chapitre',
-  'Marquer comme lu',
-  'Aucun(e)',
-  'Ajouter à la bibliothèque',
-  'Télécharger',
-  'Partager',
-];
+/// Actions available for the left/right swipe gesture, Mihon-style. The list
+/// carries values only; labels resolve through [librarySwipeActionLabel].
+const kLibrarySwipeActions = <int>[0, 1, 2, 3, 4, 5];
+
+/// Localised label for a value from [kLibrarySwipeActions].
+String librarySwipeActionLabel(AppLocalizations l10n, int action) {
+  return switch (action) {
+    0 => l10n.library_settings_mark_chapter,
+    1 => l10n.library_settings_mark_as_read,
+    2 => l10n.library_settings_swipe_none,
+    3 => l10n.add_to_library,
+    4 => l10n.download,
+    5 => l10n.share,
+    _ => l10n.library_settings_swipe_none,
+  };
+}
 
 class LibrarySwipeLeftNotifier extends Notifier<int> {
   @override

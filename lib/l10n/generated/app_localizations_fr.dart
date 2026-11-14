@@ -6568,4 +6568,114 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get downloads_folder_not_created => 'Dossier non encore créé';
+
+  @override
+  String get library_settings_title => 'Bibliothèque';
+
+  @override
+  String get library_settings_section_updates => 'Mises à jour';
+
+  @override
+  String get library_settings_section_behavior => 'Comportement';
+
+  @override
+  String get library_settings_categories_subtitle =>
+      'Créer, renommer et supprimer vos catégories';
+
+  @override
+  String get library_settings_edit_categories_subtitle =>
+      'Réorganiser et affecter les titres';
+
+  @override
+  String get library_settings_default_category => 'Catégorie par défaut';
+
+  @override
+  String get library_settings_per_category_sort =>
+      'Rendre les réglages de tri propres à chaque catégorie';
+
+  @override
+  String get library_settings_update_restrictions =>
+      'Restrictions matérielles pour les mises à jour automatiques';
+
+  @override
+  String get library_settings_restrictions => 'Restrictions';
+
+  @override
+  String library_settings_restrictions_summary(Object list) {
+    return 'Restrictions : $list';
+  }
+
+  @override
+  String library_settings_categories_summary(Object exclude, Object include) {
+    return 'Inclure : $include\nExclure : $exclude';
+  }
+
+  @override
+  String get library_settings_auto_refresh_metadata =>
+      'Actualiser automatiquement les métadonnées';
+
+  @override
+  String get library_settings_check_new_cover =>
+      'Vérifier s’il y a une nouvelle couverture ou synopsis lors des mises à jour de la bibliothèque';
+
+  @override
+  String get library_settings_unread_badge =>
+      'Afficher le nombre de chapitres non lus sur l’icône des mises à jour';
+
+  @override
+  String get library_settings_swipe_left => 'Action de glisser à gauche';
+
+  @override
+  String get library_settings_swipe_right => 'Action de glisser à droite';
+
+  @override
+  String get library_settings_mark_duplicate =>
+      'Marquer un chapitre dupliqué comme lu';
+
+  @override
+  String get library_settings_hide_missing =>
+      'Masquer les indicateurs de chapitre manquants';
+
+  @override
+  String get library_settings_include => 'Inclure';
+
+  @override
+  String get library_settings_exclude => 'Exclure';
+
+  @override
+  String get library_settings_no_category => 'Aucune catégorie.';
+
+  @override
+  String get library_settings_everything => 'Tout';
+
+  @override
+  String get library_settings_charging_only => 'Uniquement en charge';
+
+  @override
+  String get library_settings_manual => 'Manuelle';
+
+  @override
+  String get library_settings_every_2_days => 'Tous les 2 jours';
+
+  @override
+  String get library_settings_every_2_weeks => 'Toutes les 2 semaines';
+
+  @override
+  String get library_settings_every_month => 'Chaque mois';
+
+  @override
+  String get library_settings_smart_new_chapters =>
+      'Nouveaux chapitres uniquement';
+
+  @override
+  String get library_settings_always => 'Toujours';
+
+  @override
+  String get library_settings_mark_chapter => 'Marquer le chapitre';
+
+  @override
+  String get library_settings_mark_as_read => 'Marquer comme lu';
+
+  @override
+  String get library_settings_swipe_none => 'Aucun(e)';
 }
