@@ -3358,7 +3358,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get browse_more_options => 'More options';
 
   @override
-  String get browse_custom_sections => 'My sections';
+  String get browse_custom_sections => 'Mis secciones';
 
   @override
   String get browse_marketplace => 'Marketplace';
@@ -7558,6 +7558,9 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get browse_more_options => 'More options';
+
+  @override
+  String get browse_custom_sections => 'Mis secciones';
 
   @override
   String get browse_marketplace => 'Marketplace';

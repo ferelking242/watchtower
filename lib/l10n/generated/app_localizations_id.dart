@@ -3336,7 +3336,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get browse_more_options => 'More options';
 
   @override
-  String get browse_custom_sections => 'My sections';
+  String get browse_custom_sections => 'Bagian saya';
 
   @override
   String get browse_marketplace => 'Marketplace';

@@ -3260,7 +3260,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get browse_more_options => 'More options';
 
   @override
-  String get browse_custom_sections => 'My sections';
+  String get browse_custom_sections => '我的分区';
 
   @override
   String get browse_marketplace => 'Marketplace';

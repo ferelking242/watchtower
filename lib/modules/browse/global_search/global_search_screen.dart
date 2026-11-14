@@ -74,6 +74,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
   /// titles the user is actually looking at.
   final Map<int?, List<MManga>> _sourceResults = {};
 
+  /// Best relevance score among a source's matched rows, used to order the
+  /// extensions so the most on-point ones come first.
+  final Map<int?, int> _matchScores = {};
+
   late final List<Source> _allSources = () {
     final onlyPinned = ref.read(onlyIncludePinnedSourceStateProvider);
     final sources = isar.sources
@@ -229,7 +233,15 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
       logLevel: LogLevel.info,
       tag: LogTag.search,
     );
-    setState(() => _query = submitted);
+    setState(() {
+      _query = submitted;
+      // A new query invalidates the previous counts/scores/results: leaving
+      // them would both mis-order the rows and let the download sheet offer
+      // the previous query's titles.
+      _matchCounts.clear();
+      _matchScores.clear();
+      _sourceResults.clear();
+    });
   }
 
   void _startVoiceSearch() {
@@ -346,6 +358,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   case _GlobalSearchMenuAction.refresh:
                     setState(() {
                       _matchCounts.clear();
+                      _matchScores.clear();
                       _searchVersion++;
                     });
                     break;
@@ -483,7 +496,17 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
         withResults.add(source);
       }
     }
+    // Rank the extensions that answered: pinned first, then by how well their
+    // best row matches the query (a near-exact title beats a loose hit), and
+    // only then by the number of matches — a source that returns one exact hit
+    // is more useful than one that returns twenty near-misses.
     withResults.sort((a, b) {
+      final pinA = a.isPinned == true ? 1 : 0;
+      final pinB = b.isPinned == true ? 1 : 0;
+      if (pinA != pinB) return pinB.compareTo(pinA);
+      final sa = _matchScores[a.id] ?? 0;
+      final sb = _matchScores[b.id] ?? 0;
+      if (sa != sb) return sb.compareTo(sa);
       final ca = _matchCounts[a.id] ?? -1;
       final cb = _matchCounts[b.id] ?? -1;
       return cb.compareTo(ca);
@@ -544,6 +567,16 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           setState(() {
             _matchCounts[source.id] = items.length;
             _sourceResults[source.id] = items;
+            // Best relevance among this source's rows, so the list can put the
+            // most on-point extension first.
+            var best = 0;
+            for (final item in items) {
+              final name = item.name;
+              if (name == null) continue;
+              final score = titleMatchScore(query, name);
+              if (score > best) best = score;
+            }
+            _matchScores[source.id] = best;
           });
         },
       ),
@@ -1003,18 +1036,39 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
   /// Intelligent retry: the exact title returned nothing, so try known
   /// alternative titles ("attaque des titans" → "shingeki no kyojin") and
   /// accent-stripped variants until a row matches.
+  ///
+  /// Results found under each variant are merged and de-duplicated by name +
+  /// link, so a source that files "Naruto" under one spelling and
+  /// "Naruto Shippuden" under another shows both instead of only the last one
+  /// searched.
   Future<void> _intelligentRetry() async {
     setState(() {
       _isLoading = true;
       _retrying = true;
     });
     final variants = intelligentQueryVariants(widget.query);
+    final merged = <String, MManga>{};
     for (final variant in variants) {
       if (normalizeTitle(variant) == normalizeTitle(widget.query)) continue;
       await _init(overrideQuery: variant);
-      if (_visibleResults.isNotEmpty) return;
+      for (final m in _visibleResults) {
+        final key = '${m.name}\u0000${m.link}';
+        merged.putIfAbsent(key, () => m);
+      }
+      if (merged.isNotEmpty) break;
     }
-    if (mounted) setState(() => _isLoading = false);
+    if (!mounted) return;
+    setState(() {
+      if (merged.isNotEmpty && pages != null) {
+        pages = MPages(
+          list: merged.values.toList(growable: false),
+          hasNextPage: false,
+        );
+      }
+      _isLoading = false;
+      _retrying = false;
+    });
+    widget.onResolved?.call(_visibleResults);
   }
 
   @override

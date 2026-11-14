@@ -3366,7 +3366,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get browse_more_options => 'More options';
 
   @override
-  String get browse_custom_sections => 'My sections';
+  String get browse_custom_sections => 'Мои разделы';
 
   @override
   String get browse_marketplace => 'Marketplace';
