@@ -199,7 +199,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             setSheetState(() {
               busy = true;
               progress = null;
-              statusText = 'Résolution du lien…';
+              statusText = context2.l10n.download_resolving_link;
             });
             try {
               final service = const LinkDownloadService();
@@ -222,22 +222,24 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 setSheetState(() {
                   busy = false;
                   progress = 1;
-                  statusText = 'Terminé → ${result.filePath}';
+                  statusText = context2.l10n
+                      .download_done_path(result.filePath ?? '');
                 });
                 ScaffoldMessenger.of(context2).showSnackBar(
-                  const SnackBar(content: Text('Téléchargement terminé')),
+                  SnackBar(content: Text(context2.l10n.download_finished)),
                 );
               } else {
                 setSheetState(() {
                   busy = false;
-                  statusText = result.message ?? 'Échec du téléchargement';
+                  statusText =
+                      result.message ?? context2.l10n.download_failed;
                 });
               }
             } catch (e) {
               if (!context2.mounted) return;
               setSheetState(() {
                 busy = false;
-                statusText = 'Erreur : $e';
+                statusText = context2.l10n.error_generic('$e');
               });
             }
           }
@@ -265,19 +267,21 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Coller un lien',
-                  style: TextStyle(
+                Text(
+                  context2.l10n.download_paste_link,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Fichier direct (.mp4, .m3u8) ou page TikTok / Facebook / '
-                  'Instagram. Les pages sont résolues automatiquement.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
+                Text(
+                  context2.l10n.download_paste_link_hint,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF9E9E9E),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -292,7 +296,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                     prefixIcon: const Icon(Icons.link_rounded, size: 18),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.content_paste_rounded, size: 18),
-                      tooltip: 'Coller',
+                      tooltip: context2.l10n.download_paste,
                       onPressed: () async {
                         final data = await Clipboard.getData('text/plain');
                         final text = data?.text;
@@ -318,7 +322,8 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                           size: 14, color: Color(0xFF1DB954)),
                       const SizedBox(width: 6),
                       Text(
-                        'Plateforme détectée : ${platform.label}',
+                        context2.l10n
+                            .download_platform_detected(platform.label),
                         style: const TextStyle(
                           fontSize: 11,
                           color: Color(0xFF1DB954),
@@ -354,7 +359,11 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.download_rounded, size: 18),
-                    label: Text(busy ? 'Téléchargement…' : 'Télécharger'),
+                    label: Text(
+                      busy
+                          ? context2.l10n.download_downloading
+                          : context2.l10n.download,
+                    ),
                   ),
                 ),
               ],
@@ -481,7 +490,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
               // ── Coller un lien — direct/social download ────────────────
               IconButton(
                 icon: const Icon(Icons.link_rounded),
-                tooltip: 'Coller un lien',
+                tooltip: context.l10n.download_paste_link,
                 onPressed: () => _showPasteLinkSheet(context),
               ),
               // ── Transfert pill — solid gradient, MovieBox style ─────────
@@ -1027,7 +1036,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   if (_openType != null)
                     IconButton(
                       icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                      tooltip: 'Retour',
+                      tooltip: context.l10n.go_back,
                       visualDensity: VisualDensity.compact,
                       onPressed: () => setState(() => _openType = null),
                     )
@@ -1118,7 +1127,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                       const SizedBox(width: 8),
                       _ActionBtn(
                         icon: Icons.pause_rounded,
-                        label: 'Pause',
+                        label: l10n.pause,
                         color: Colors.orange,
                         onTap: () {
                           Navigator.pop(context);
@@ -1260,7 +1269,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 8),
                   _SimultaneousRow(
                     icon: Icons.music_note_outlined,
-                    label: 'Musique',
+                    label: context.l10n.music_word,
                     iconColor: scheme.primary,
                     total: musicTotal,
                     perSource: musicPerSrc,
@@ -2610,7 +2619,7 @@ class _GroupedDownloadTabListState
         alignment: Alignment.centerRight,
         color: Colors.orange.shade700,
         icon: allPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-        label: allPaused ? 'Reprendre' : 'Pause',
+        label: allPaused ? context.l10n.resume : context.l10n.pause,
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
@@ -3236,7 +3245,7 @@ class _GroupedDownloadTabListState
             ),
             const SizedBox(height: 4),
             Text(
-              isPaused ? 'Reprendre' : 'Pause',
+              isPaused ? context.l10n.resume : context.l10n.pause,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 11,
@@ -4859,7 +4868,7 @@ class _PauseResumeAllFab extends ConsumerWidget {
 
     if (allPaused) {
       return FloatingActionButton(
-        tooltip: 'Reprendre tout',
+        tooltip: context.l10n.download_resume_all,
         onPressed: () {
           for (final id in activeIds.where(isPaused)) {
             unawaited(
@@ -4877,7 +4886,7 @@ class _PauseResumeAllFab extends ConsumerWidget {
       );
     } else if (anyActive) {
       return FloatingActionButton(
-        tooltip: 'Tout mettre en pause',
+        tooltip: context.l10n.download_pause_all,
         onPressed: () {
           for (final id in activeIds) {
             unawaited(

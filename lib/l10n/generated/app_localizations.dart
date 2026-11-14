@@ -19462,6 +19462,402 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Menu — History, Updates, Schedule & more'**
   String get nav_desc_menu;
+
+  /// No description provided for @history_layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get history_layout;
+
+  /// No description provided for @history_list.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get history_list;
+
+  /// No description provided for @history_grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid'**
+  String get history_grid;
+
+  /// No description provided for @history_sort_by.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort by'**
+  String get history_sort_by;
+
+  /// No description provided for @history_sort_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get history_sort_title;
+
+  /// No description provided for @history_period.
+  ///
+  /// In en, this message translates to:
+  /// **'Period'**
+  String get history_period;
+
+  /// No description provided for @history_period_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get history_period_all;
+
+  /// No description provided for @history_period_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get history_period_today;
+
+  /// No description provided for @history_period_week.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get history_period_week;
+
+  /// No description provided for @history_period_month.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get history_period_month;
+
+  /// No description provided for @history_remove_entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from history'**
+  String get history_remove_entry;
+
+  /// No description provided for @download_finished.
+  ///
+  /// In en, this message translates to:
+  /// **'Download finished'**
+  String get download_finished;
+
+  /// No description provided for @download_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get download_failed;
+
+  /// No description provided for @download_platform_detected.
+  ///
+  /// In en, this message translates to:
+  /// **'Detected platform: {platform}'**
+  String download_platform_detected(Object platform);
+
+  /// No description provided for @download_paste_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a link'**
+  String get download_paste_link;
+
+  /// No description provided for @download_resume_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume all'**
+  String get download_resume_all;
+
+  /// No description provided for @download_pause_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause all'**
+  String get download_pause_all;
+
+  /// No description provided for @binary_info_title.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} — Information'**
+  String binary_info_title(Object name);
+
+  /// No description provided for @binary_settings_title.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} — Settings'**
+  String binary_settings_title(Object name);
+
+  /// No description provided for @binary_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get binary_source;
+
+  /// No description provided for @binary_source_bundled.
+  ///
+  /// In en, this message translates to:
+  /// **'Bundled (shipped in the APK)'**
+  String get binary_source_bundled;
+
+  /// No description provided for @binary_source_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded from the marketplace'**
+  String get binary_source_marketplace;
+
+  /// No description provided for @binary_native_path.
+  ///
+  /// In en, this message translates to:
+  /// **'Native path (jniLibs)'**
+  String get binary_native_path;
+
+  /// No description provided for @binary_native_path_bundled.
+  ///
+  /// In en, this message translates to:
+  /// **'Native path (bundled)'**
+  String get binary_native_path_bundled;
+
+  /// No description provided for @binary_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get binary_size;
+
+  /// No description provided for @binary_size_unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown'**
+  String get binary_size_unknown;
+
+  /// No description provided for @binary_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'not available'**
+  String get binary_unavailable;
+
+  /// No description provided for @binary_bundled_note.
+  ///
+  /// In en, this message translates to:
+  /// **'This binary is bundled with the app. No download is required.\nIt will be updated with future app versions.'**
+  String get binary_bundled_note;
+
+  /// No description provided for @binary_override_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Override (marketplace)'**
+  String get binary_override_marketplace;
+
+  /// No description provided for @binary_override_manual.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual override'**
+  String get binary_override_manual;
+
+  /// No description provided for @binary_override_note.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop your own binary into \"Manual override\" — it will be used first.'**
+  String get binary_override_note;
+
+  /// No description provided for @binary_uninstall_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall?'**
+  String get binary_uninstall_title;
+
+  /// No description provided for @binary_uninstall_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from the device?'**
+  String binary_uninstall_body(Object name);
+
+  /// No description provided for @binary_uninstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstall'**
+  String get binary_uninstall;
+
+  /// No description provided for @binary_badge_bundled.
+  ///
+  /// In en, this message translates to:
+  /// **'Bundled'**
+  String get binary_badge_bundled;
+
+  /// No description provided for @binary_badge_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'installed'**
+  String get binary_badge_installed;
+
+  /// No description provided for @binary_bundled_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Bundled · {size}'**
+  String binary_bundled_short(Object size);
+
+  /// No description provided for @binary_not_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not installed'**
+  String get binary_not_installed;
+
+  /// No description provided for @binary_reinstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Reinstall'**
+  String get binary_reinstall;
+
+  /// No description provided for @binary_reinstall_update.
+  ///
+  /// In en, this message translates to:
+  /// **'Reinstall / update'**
+  String get binary_reinstall_update;
+
+  /// No description provided for @binary_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get binary_install;
+
+  /// No description provided for @binary_installed_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed ✓'**
+  String get binary_installed_ok;
+
+  /// No description provided for @binary_uninstalled_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'Uninstalled'**
+  String get binary_uninstalled_ok;
+
+  /// No description provided for @binary_connecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get binary_connecting;
+
+  /// No description provided for @binary_extracting.
+  ///
+  /// In en, this message translates to:
+  /// **'Extracting…'**
+  String get binary_extracting;
+
+  /// No description provided for @binary_empty_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded file is empty'**
+  String get binary_empty_download;
+
+  /// No description provided for @binary_empty_zip.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty ZIP'**
+  String get binary_empty_zip;
+
+  /// No description provided for @binary_invalid_install.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid installation'**
+  String get binary_invalid_install;
+
+  /// No description provided for @binary_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String binary_error(Object error);
+
+  /// No description provided for @binary_redirect_no_location.
+  ///
+  /// In en, this message translates to:
+  /// **'Redirect without Location'**
+  String get binary_redirect_no_location;
+
+  /// No description provided for @binary_http_status.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP {status}'**
+  String binary_http_status(Object status);
+
+  /// No description provided for @binary_architecture.
+  ///
+  /// In en, this message translates to:
+  /// **'CPU architecture'**
+  String get binary_architecture;
+
+  /// No description provided for @binary_detected.
+  ///
+  /// In en, this message translates to:
+  /// **'Detected: {arch}'**
+  String binary_detected(Object arch);
+
+  /// No description provided for @binary_detecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Detecting…'**
+  String get binary_detecting;
+
+  /// No description provided for @binary_recommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for this device'**
+  String get binary_recommended;
+
+  /// No description provided for @binary_reset_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset (auto)'**
+  String get binary_reset_auto;
+
+  /// No description provided for @download_resolving_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolving the link…'**
+  String get download_resolving_link;
+
+  /// No description provided for @download_done_path.
+  ///
+  /// In en, this message translates to:
+  /// **'Done → {path}'**
+  String download_done_path(Object path);
+
+  /// No description provided for @error_generic.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String error_generic(Object error);
+
+  /// No description provided for @download_paste_link_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct file (.mp4, .m3u8) or a TikTok / Facebook / Instagram page. Pages are resolved automatically.'**
+  String get download_paste_link_hint;
+
+  /// No description provided for @download_paste.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste'**
+  String get download_paste;
+
+  /// No description provided for @download_downloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get download_downloading;
+
+  /// No description provided for @pause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get pause;
+
+  /// No description provided for @music_word.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get music_word;
+
+  /// No description provided for @binaries_aria2c_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'High-performance multi-segment HTTP/FTP/Magnet downloader.'**
+  String get binaries_aria2c_desc;
+
+  /// No description provided for @binaries_zeus_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Python runtime that extracts TikTok, Facebook, Instagram… without a watermark.'**
+  String get binaries_zeus_desc;
 }
 
 class _AppLocalizationsDelegate

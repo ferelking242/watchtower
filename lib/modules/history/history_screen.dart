@@ -190,6 +190,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
   // Inline panel rendered by [AdaptiveOverlayMenuButton] — replaces the old
   // modal bottom sheet so filter/sort/layout share the Library chrome.
   Widget _buildFilterPanel(BuildContext context, VoidCallback close) {
+    final l10n = l10nLocalizations(context)!;
     final cs = Theme.of(context).colorScheme;
     return StatefulBuilder(
       builder: (context, setPanelState) {
@@ -202,14 +203,14 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AdaptiveOverlaySection(title: 'Disposition'),
+            AdaptiveOverlaySection(title: l10n.history_layout),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
                   Expanded(
                     child: _LayoutCard(
-                      label: 'Liste',
+                      label: l10n.history_list,
                       icon: Broken.row_vertical,
                       selected: _layout == _HistoryLayout.list,
                       onTap: () =>
@@ -219,7 +220,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _LayoutCard(
-                      label: 'Grille',
+                      label: l10n.history_grid,
                       icon: Broken.grid_2,
                       selected: _layout == _HistoryLayout.grid,
                       onTap: () =>
@@ -229,7 +230,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                 ],
               ),
             ),
-            const AdaptiveOverlaySection(title: 'Trier par'),
+            AdaptiveOverlaySection(title: l10n.history_sort_by),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
@@ -242,7 +243,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                   ),
                   const SizedBox(width: 8),
                   _SelectChip(
-                    label: 'Titre',
+                    label: l10n.history_sort_title,
                     icon: Broken.sort,
                     selected: _sort == _HistorySort.title,
                     onTap: () => update(() => _sort = _HistorySort.title),
@@ -250,31 +251,31 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                 ],
               ),
             ),
-            const AdaptiveOverlaySection(title: 'Période'),
+            AdaptiveOverlaySection(title: l10n.history_period),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 _SelectChip(
-                  label: 'Tout',
+                  label: l10n.history_period_all,
                   icon: Broken.category,
                   selected: _filter == _HistoryFilter.all,
                   onTap: () => update(() => _filter = _HistoryFilter.all),
                 ),
                 _SelectChip(
-                  label: "Aujourd'hui",
+                  label: l10n.history_period_today,
                   icon: Broken.calendar_tick,
                   selected: _filter == _HistoryFilter.today,
                   onTap: () => update(() => _filter = _HistoryFilter.today),
                 ),
                 _SelectChip(
-                  label: 'Cette semaine',
+                  label: l10n.history_period_week,
                   icon: Broken.calendar_2,
                   selected: _filter == _HistoryFilter.thisWeek,
                   onTap: () => update(() => _filter = _HistoryFilter.thisWeek),
                 ),
                 _SelectChip(
-                  label: 'Ce mois-ci',
+                  label: l10n.history_period_month,
                   icon: Broken.calendar,
                   selected: _filter == _HistoryFilter.thisMonth,
                   onTap: () => update(() => _filter = _HistoryFilter.thisMonth),
@@ -302,7 +303,7 @@ class _HistoryScreenState extends BaseLibraryTabScreenState<HistoryScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Réinitialiser'),
+                  child: Text(l10n.reset),
                 ),
               ),
             ),
@@ -686,7 +687,7 @@ class _HistoryListItem extends ConsumerWidget {
                 onPressed: onDelete,
                 icon: Icon(Broken.trash,
                     size: 22, color: cs.onSurfaceVariant),
-                tooltip: 'Supprimer de l\'historique',
+                tooltip: context.l10n.history_remove_entry,
               ),
             ],
           ),

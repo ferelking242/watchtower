@@ -3057,6 +3057,108 @@ HOME_L10N = [
 ]
 
 
+# ── History / download queue / binary engine surfaces ────────────────────────
+
+HISTORY_MISC = [
+    ("history_layout", "Layout", "Disposition"),
+    ("history_list", "List", "Liste"),
+    ("history_grid", "Grid", "Grille"),
+    ("history_sort_by", "Sort by", "Trier par"),
+    ("history_sort_title", "Title", "Titre"),
+    ("history_period", "Period", "Période"),
+    ("history_period_all", "All", "Tout"),
+    ("history_period_today", "Today", "Aujourd’hui"),
+    ("history_period_week", "This week", "Cette semaine"),
+    ("history_period_month", "This month", "Ce mois-ci"),
+    ("history_remove_entry", "Remove from history", "Supprimer de l’historique"),
+    ("download_finished", "Download finished", "Téléchargement terminé"),
+    ("download_failed", "Download failed", "Échec du téléchargement"),
+    ("download_platform_detected", "Detected platform: {platform}",
+     "Plateforme détectée : {platform}"),
+    ("download_paste_link", "Paste a link", "Coller un lien"),
+    ("download_resume_all", "Resume all", "Reprendre tout"),
+    ("download_pause_all", "Pause all", "Tout mettre en pause"),
+    ("binary_info_title", "{name} — Information", "{name} — Informations"),
+    ("binary_settings_title", "{name} — Settings", "{name} — Paramètres"),
+    ("binary_source", "Source", "Source"),
+    ("binary_source_bundled", "Bundled (shipped in the APK)",
+     "Embarqué (intégré à l’APK)"),
+    ("binary_source_marketplace", "Downloaded from the marketplace",
+     "Téléchargé depuis le marketplace"),
+    ("binary_native_path", "Native path (jniLibs)",
+     "Chemin natif (jniLibs)"),
+    ("binary_native_path_bundled", "Native path (bundled)",
+     "Chemin natif (embarqué)"),
+    ("binary_size", "Size", "Taille"),
+    ("binary_size_unknown", "unknown", "inconnu"),
+    ("binary_unavailable", "not available", "non disponible"),
+    ("binary_bundled_note",
+     "This binary is bundled with the app. No download is required.\n"
+     "It will be updated with future app versions.",
+     "Ce binaire est intégré à l’application. Aucun téléchargement requis.\n"
+     "Il sera mis à jour avec les futures versions de l’application."),
+    ("binary_override_marketplace", "Override (marketplace)",
+     "Remplacement (marketplace)"),
+    ("binary_override_manual", "Manual override", "Remplacement manuel"),
+    ("binary_override_note",
+     'Drop your own binary into "Manual override" — it will be used first.',
+     "Placez votre propre binaire à « Remplacement manuel » — il sera utilisé "
+     "en priorité."),
+    ("binary_uninstall_title", "Uninstall?", "Désinstaller ?"),
+    ("binary_uninstall_body", "Remove {name} from the device?",
+     "Supprimer {name} de l’appareil ?"),
+    ("binary_uninstall", "Uninstall", "Désinstaller"),
+    ("binary_badge_bundled", "Bundled", "Embarqué"),
+    ("binary_badge_installed", "installed", "installé"),
+    ("binary_bundled_short", "Bundled · {size}", "Intégré · {size}"),
+    ("binary_not_installed", "Not installed", "Non installé"),
+    ("binary_reinstall", "Reinstall", "Réinstaller"),
+    ("binary_reinstall_update", "Reinstall / update",
+     "Réinstaller / mettre à jour"),
+    ("binary_install", "Install", "Installer"),
+    ("binary_installed_ok", "Installed ✓", "Installé ✓"),
+    ("binary_uninstalled_ok", "Uninstalled", "Désinstallé"),
+    ("binary_connecting", "Connecting…", "Connexion…"),
+    ("binary_extracting", "Extracting…", "Extraction…"),
+    ("binary_empty_download", "Downloaded file is empty",
+     "Fichier téléchargé vide"),
+    ("binary_empty_zip", "Empty ZIP", "ZIP vide"),
+    ("binary_invalid_install", "Invalid installation",
+     "Installation invalide"),
+    ("binary_error", "Error: {error}", "Erreur : {error}"),
+    ("binary_redirect_no_location", "Redirect without Location",
+     "Redirection sans Location"),
+    ("binary_http_status", "HTTP {status}", "HTTP {status}"),
+    ("binary_architecture", "CPU architecture", "Architecture CPU"),
+    ("binary_detected", "Detected: {arch}", "Détecté : {arch}"),
+    ("binary_detecting", "Detecting…", "Détection en cours…"),
+    ("binary_recommended", "Recommended for this device",
+     "Recommandé pour cet appareil"),
+    ("binary_reset_auto", "Reset (auto)", "Réinitialiser (auto)"),
+    ("download_resolving_link", "Resolving the link…",
+     "Résolution du lien…"),
+    ("download_done_path", "Done → {path}", "Terminé → {path}"),
+    ("error_generic", "Error: {error}", "Erreur : {error}"),
+    ("download_paste_link_hint",
+     "Direct file (.mp4, .m3u8) or a TikTok / Facebook / Instagram page. "
+     "Pages are resolved automatically.",
+     "Fichier direct (.mp4, .m3u8) ou page TikTok / Facebook / Instagram. "
+     "Les pages sont résolues automatiquement."),
+    ("download_paste", "Paste", "Coller"),
+    ("download_downloading", "Downloading…", "Téléchargement…"),
+    ("pause", "Pause", "Pause"),
+    ("music_word", "Music", "Musique"),
+    ("binaries_aria2c_desc",
+     "High-performance multi-segment HTTP/FTP/Magnet downloader.",
+     "Téléchargement HTTP/FTP/Magnet multi-segment haute performance."),
+    ("binaries_zeus_desc",
+     "Python runtime that extracts TikTok, Facebook, Instagram… without a "
+     "watermark.",
+     "Runtime Python pour extraire TikTok, Facebook, Instagram… sans "
+     "filigrane."),
+]
+
+
 # ── Navigation destinations and dock labels ───────────────────────────────────
 
 NAV = [
@@ -3794,6 +3896,8 @@ en_entries += [(key, en) for key, en, _ in MORE_HUB]
 fr_entries += [(key, fr) for key, _, fr in MORE_HUB]
 en_entries += [(key, en) for key, en, _ in NAV]
 fr_entries += [(key, fr) for key, _, fr in NAV]
+en_entries += [(key, en) for key, en, _ in HISTORY_MISC]
+fr_entries += [(key, fr) for key, _, fr in HISTORY_MISC]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

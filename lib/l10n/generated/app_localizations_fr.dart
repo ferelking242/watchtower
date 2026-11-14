@@ -11064,4 +11064,227 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get nav_desc_menu =>
       'Menu — Historique, Mises à jour, Planning et plus';
+
+  @override
+  String get history_layout => 'Disposition';
+
+  @override
+  String get history_list => 'Liste';
+
+  @override
+  String get history_grid => 'Grille';
+
+  @override
+  String get history_sort_by => 'Trier par';
+
+  @override
+  String get history_sort_title => 'Titre';
+
+  @override
+  String get history_period => 'Période';
+
+  @override
+  String get history_period_all => 'Tout';
+
+  @override
+  String get history_period_today => 'Aujourd’hui';
+
+  @override
+  String get history_period_week => 'Cette semaine';
+
+  @override
+  String get history_period_month => 'Ce mois-ci';
+
+  @override
+  String get history_remove_entry => 'Supprimer de l’historique';
+
+  @override
+  String get download_finished => 'Téléchargement terminé';
+
+  @override
+  String get download_failed => 'Échec du téléchargement';
+
+  @override
+  String download_platform_detected(Object platform) {
+    return 'Plateforme détectée : $platform';
+  }
+
+  @override
+  String get download_paste_link => 'Coller un lien';
+
+  @override
+  String get download_resume_all => 'Reprendre tout';
+
+  @override
+  String get download_pause_all => 'Tout mettre en pause';
+
+  @override
+  String binary_info_title(Object name) {
+    return '$name — Informations';
+  }
+
+  @override
+  String binary_settings_title(Object name) {
+    return '$name — Paramètres';
+  }
+
+  @override
+  String get binary_source => 'Source';
+
+  @override
+  String get binary_source_bundled => 'Embarqué (intégré à l’APK)';
+
+  @override
+  String get binary_source_marketplace => 'Téléchargé depuis le marketplace';
+
+  @override
+  String get binary_native_path => 'Chemin natif (jniLibs)';
+
+  @override
+  String get binary_native_path_bundled => 'Chemin natif (embarqué)';
+
+  @override
+  String get binary_size => 'Taille';
+
+  @override
+  String get binary_size_unknown => 'inconnu';
+
+  @override
+  String get binary_unavailable => 'non disponible';
+
+  @override
+  String get binary_bundled_note =>
+      'Ce binaire est intégré à l’application. Aucun téléchargement requis.\nIl sera mis à jour avec les futures versions de l’application.';
+
+  @override
+  String get binary_override_marketplace => 'Remplacement (marketplace)';
+
+  @override
+  String get binary_override_manual => 'Remplacement manuel';
+
+  @override
+  String get binary_override_note =>
+      'Placez votre propre binaire à « Remplacement manuel » — il sera utilisé en priorité.';
+
+  @override
+  String get binary_uninstall_title => 'Désinstaller ?';
+
+  @override
+  String binary_uninstall_body(Object name) {
+    return 'Supprimer $name de l’appareil ?';
+  }
+
+  @override
+  String get binary_uninstall => 'Désinstaller';
+
+  @override
+  String get binary_badge_bundled => 'Embarqué';
+
+  @override
+  String get binary_badge_installed => 'installé';
+
+  @override
+  String binary_bundled_short(Object size) {
+    return 'Intégré · $size';
+  }
+
+  @override
+  String get binary_not_installed => 'Non installé';
+
+  @override
+  String get binary_reinstall => 'Réinstaller';
+
+  @override
+  String get binary_reinstall_update => 'Réinstaller / mettre à jour';
+
+  @override
+  String get binary_install => 'Installer';
+
+  @override
+  String get binary_installed_ok => 'Installé ✓';
+
+  @override
+  String get binary_uninstalled_ok => 'Désinstallé';
+
+  @override
+  String get binary_connecting => 'Connexion…';
+
+  @override
+  String get binary_extracting => 'Extraction…';
+
+  @override
+  String get binary_empty_download => 'Fichier téléchargé vide';
+
+  @override
+  String get binary_empty_zip => 'ZIP vide';
+
+  @override
+  String get binary_invalid_install => 'Installation invalide';
+
+  @override
+  String binary_error(Object error) {
+    return 'Erreur : $error';
+  }
+
+  @override
+  String get binary_redirect_no_location => 'Redirection sans Location';
+
+  @override
+  String binary_http_status(Object status) {
+    return 'HTTP $status';
+  }
+
+  @override
+  String get binary_architecture => 'Architecture CPU';
+
+  @override
+  String binary_detected(Object arch) {
+    return 'Détecté : $arch';
+  }
+
+  @override
+  String get binary_detecting => 'Détection en cours…';
+
+  @override
+  String get binary_recommended => 'Recommandé pour cet appareil';
+
+  @override
+  String get binary_reset_auto => 'Réinitialiser (auto)';
+
+  @override
+  String get download_resolving_link => 'Résolution du lien…';
+
+  @override
+  String download_done_path(Object path) {
+    return 'Terminé → $path';
+  }
+
+  @override
+  String error_generic(Object error) {
+    return 'Erreur : $error';
+  }
+
+  @override
+  String get download_paste_link_hint =>
+      'Fichier direct (.mp4, .m3u8) ou page TikTok / Facebook / Instagram. Les pages sont résolues automatiquement.';
+
+  @override
+  String get download_paste => 'Coller';
+
+  @override
+  String get download_downloading => 'Téléchargement…';
+
+  @override
+  String get pause => 'Pause';
+
+  @override
+  String get music_word => 'Musique';
+
+  @override
+  String get binaries_aria2c_desc =>
+      'Téléchargement HTTP/FTP/Magnet multi-segment haute performance.';
+
+  @override
+  String get binaries_zeus_desc =>
+      'Runtime Python pour extraire TikTok, Facebook, Instagram… sans filigrane.';
 }

@@ -6,6 +6,8 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
   import 'package:path_provider/path_provider.dart';
   import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
   import 'package:watchtower/services/download_manager/engines/zeus_binary_manager.dart';
+  import 'package:watchtower/l10n/generated/app_localizations.dart';
+  import 'package:watchtower/providers/l10n_providers.dart';
   import 'package:watchtower/utils/log/logger.dart';
 
 const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
@@ -19,12 +21,10 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
   class _ToolDef {
     final String name;
     final String label;
-    final String description;
     final IconData icon;
     const _ToolDef({
       required this.name,
       required this.label,
-      required this.description,
       required this.icon,
     });
   }
@@ -33,10 +33,13 @@ const _binaryUtilsChannel = MethodChannel('com.watchtower.app.binary_utils');
     _ToolDef(
       name: 'aria2c',
       label: 'aria2c',
-      description: 'Téléchargement HTTP/FTP/Magnet multi-segment haute performance.',
       icon: Icons.downloading_rounded,
     ),
   ];
+
+  /// Drives the colour of a card's status line. Storing the kind (not a
+  /// message substring) keeps the styling independent of the active locale.
+  enum _BinStatusKind { none, success, neutral, error }
 
   // ---------------------------------------------------------------------------
   // Architecture
@@ -142,6 +145,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
     final Map<String, String?> _sizes = {};
     final Map<String, double> _progress = {};
     final Map<String, String> _statusMsg = {};
+    final Map<String, _BinStatusKind> _statusKind = {};
     final Map<String, String> _progressLabel = {};
     final Map<String, String?> _bundledSizes = {};
     String? _nativeDir;
@@ -181,8 +185,9 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
       if (_progress.containsKey(tool.name)) return;
       setState(() {
         _progress[tool.name] = 0;
-        _progressLabel[tool.name] = 'Connexion…';
+        _progressLabel[tool.name] = context.l10n.binary_connecting;
         _statusMsg.remove(tool.name);
+        _statusKind.remove(tool.name);
       });
       final client = http.Client();
       try {
@@ -204,12 +209,14 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
           final res = await client.send(req).timeout(const Duration(seconds: 30));
           if (res.statusCode >= 300 && res.statusCode < 400) {
             final loc = res.headers['location'];
-            if (loc == null) throw 'Redirection sans Location';
+            if (loc == null) throw context.l10n.binary_redirect_no_location;
             await res.stream.drain<void>();
             uri = uri.resolve(loc);
             continue;
           }
-          if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
+          if (res.statusCode != 200) {
+            throw context.l10n.binary_http_status('${res.statusCode}');
+          }
 
           final total = res.contentLength ?? 0;
           final sink = tmpFile.openWrite();
@@ -230,18 +237,22 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         }
 
         if (!await tmpFile.exists() || await tmpFile.length() == 0) {
-          throw 'Fichier téléchargé vide';
+          throw context.l10n.binary_empty_download;
         }
 
         if (isZip) {
-          if (mounted) setState(() => _progressLabel[tool.name] = 'Extraction…');
+          if (mounted) {
+            setState(
+              () => _progressLabel[tool.name] = context.l10n.binary_extracting,
+            );
+          }
           try {
             final archive = ZipDecoder().decodeBytes(await tmpFile.readAsBytes());
             ArchiveFile? best;
             for (final f in archive) {
               if (f.isFile && (best == null || f.size > best.size)) best = f;
             }
-            if (best == null) throw 'ZIP vide';
+            if (best == null) throw context.l10n.binary_empty_zip;
             await dstFile.writeAsBytes(best.content as List<int>, flush: true);
           } finally {
             await tmpFile.delete().catchError((_) {});
@@ -252,7 +263,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         }
 
         if (!await dstFile.exists() || await dstFile.length() == 0) {
-          throw 'Installation invalide';
+          throw context.l10n.binary_invalid_install;
         }
         try { await Process.run('chmod', ['+x', dstFile.path]); } catch (_) {}
 
@@ -263,7 +274,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         setState(() {
           _progress.remove(tool.name);
           _progressLabel.remove(tool.name);
-          _statusMsg[tool.name] = 'Installé ✓  ($sz)';
+          _statusMsg[tool.name] = '${context.l10n.binary_installed_ok}  ($sz)';
+          _statusKind[tool.name] = _BinStatusKind.success;
           _sizes[tool.name] = sz;
         });
       } catch (e) {
@@ -272,7 +284,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
         setState(() {
           _progress.remove(tool.name);
           _progressLabel.remove(tool.name);
-          _statusMsg[tool.name] = 'Erreur : $e';
+          _statusMsg[tool.name] = context.l10n.binary_error('$e');
+          _statusKind[tool.name] = _BinStatusKind.error;
         });
       } finally {
         client.close();
@@ -290,7 +303,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
       }
       if (mounted) setState(() {
         _sizes.remove(tool.name);
-        _statusMsg[tool.name] = 'Désinstallé';
+        _statusMsg[tool.name] = context.l10n.binary_uninstalled_ok;
+        _statusKind[tool.name] = _BinStatusKind.neutral;
       });
     }
 
@@ -321,8 +335,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Architecture CPU',
+                  Text(
+                    context.l10n.binary_architecture,
                     style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white,
                     ),
@@ -330,8 +344,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                   const SizedBox(height: 4),
                   Text(
                     detected != null
-                      ? 'Détecté : ${detected.abiName}'
-                      : 'Détection en cours…',
+                      ? context.l10n.binary_detected(detected.abiName)
+                      : context.l10n.binary_detecting,
                     style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
                   ),
                   const SizedBox(height: 16),
@@ -375,8 +389,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                                 ),
                                 if (detected == arch) ...[
                                   const SizedBox(height: 2),
-                                  const Text(
-                                    'Recommandé pour cet appareil',
+                                  Text(
+                                    context.l10n.binary_recommended,
                                     style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
                                   ),
                                 ],
@@ -396,9 +410,9 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                         setState(() => _archOverrides.remove(tool.name));
                         Navigator.pop(ctx2);
                       },
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'Réinitialiser (auto)',
+                          context.l10n.binary_reset_auto,
                           style: TextStyle(
                             fontSize: 12, color: Color(0xFF9E9E9E),
                             decoration: TextDecoration.underline,
@@ -439,24 +453,30 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
               Row(children: [
                 Icon(tool.icon, size: 20, color: Colors.tealAccent.shade200),
                 const SizedBox(width: 8),
-                Text('${tool.label} — Informations',
+                Text(context.l10n.binary_info_title(tool.label),
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
               ]),
               const SizedBox(height: 16),
               if (isBundled) ...[
                 _SettingsRow(
                   icon: Icons.inventory_2_rounded,
-                  label: 'Source',
-                  value: 'Embarqué (intégré à l\'APK)',
+                  label: context.l10n.binary_source,
+                  value: context.l10n.binary_source_bundled,
                 ),
                 const SizedBox(height: 8),
                 _SettingsRow(
                   icon: Icons.folder_zip_rounded,
-                  label: 'Chemin natif (jniLibs)',
-                  value: nativeDir != null ? '$nativeDir/$libName' : 'non disponible',
+                  label: context.l10n.binary_native_path,
+                  value: nativeDir != null
+                      ? '$nativeDir/$libName'
+                      : context.l10n.binary_unavailable,
                 ),
                 const SizedBox(height: 8),
-                _SettingsRow(icon: Icons.storage_rounded, label: 'Taille', value: bundledSize),
+                _SettingsRow(
+                  icon: Icons.storage_rounded,
+                  label: context.l10n.binary_size,
+                  value: bundledSize,
+                ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(10),
@@ -465,16 +485,27 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
                   ),
-                  child: const Text(
-                    'Ce binaire est intégré à l\'application. Aucun téléchargement requis.\n'
-                    'Il sera mis à jour avec les futures versions de l\'application.',
-                    style: TextStyle(fontSize: 11, color: Colors.teal, height: 1.5),
+                  child: Text(
+                    context.l10n.binary_bundled_note,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.teal,
+                      height: 1.5,
+                    ),
                   ),
                 ),
               ] else ...[
-                _SettingsRow(icon: Icons.cloud_download_rounded, label: 'Source', value: 'Téléchargé depuis le marketplace'),
+                _SettingsRow(
+                  icon: Icons.cloud_download_rounded,
+                  label: context.l10n.binary_source,
+                  value: context.l10n.binary_source_marketplace,
+                ),
                 const SizedBox(height: 8),
-                _SettingsRow(icon: Icons.storage_rounded, label: 'Taille', value: _sizes[tool.name] ?? 'inconnu'),
+                _SettingsRow(
+                  icon: Icons.storage_rounded,
+                  label: context.l10n.binary_size,
+                  value: _sizes[tool.name] ?? context.l10n.binary_size_unknown,
+                ),
               ],
             ],
           ),
@@ -512,7 +543,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
               ),
               const SizedBox(height: 16),
               Text(
-                '${tool.label} — Paramètres',
+                context.l10n.binary_settings_title(tool.label),
                 style: const TextStyle(
                   fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white,
                 ),
@@ -521,26 +552,30 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
               if (nativeDir != null) ...[
                 _SettingsRow(
                   icon: Icons.inventory_2_rounded,
-                  label: 'Chemin natif (embarqué)',
+                  label: context.l10n.binary_native_path_bundled,
                   value: '$nativeDir/$libName',
                 ),
                 const SizedBox(height: 8),
               ],
               _SettingsRow(
                 icon: Icons.folder_open_rounded,
-                label: 'Remplacement (marketplace)',
+                label: context.l10n.binary_override_marketplace,
                 value: path,
               ),
               const SizedBox(height: 8),
               _SettingsRow(
                 icon: Icons.swap_horiz_rounded,
-                label: 'Remplacement manuel',
+                label: context.l10n.binary_override_manual,
                 value: publicPath,
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Placez votre propre binaire à "Remplacement manuel" — il sera utilisé en priorité.',
-                style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E), height: 1.5),
+              Text(
+                context.l10n.binary_override_note,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF9E9E9E),
+                  height: 1.5,
+                ),
               ),
             ],
           ),
@@ -564,6 +599,8 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
               progress: _progress[tool.name],
               progressLabel: _progressLabel[tool.name],
               statusMsg: _statusMsg[tool.name],
+              statusKind:
+                  _statusKind[tool.name] ?? _BinStatusKind.none,
               arch: _archFor(tool.name),
               isArchAuto: _archOverrides[tool.name] == null,
               archDetected: _detectedArch,
@@ -574,13 +611,29 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                   context: context,
                   builder: (_) => AlertDialog(
                     backgroundColor: const Color(0xFF1C1C1C),
-                    title: const Text('Désinstaller ?', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-                    content: Text("Supprimer ${tool.label} de l'appareil ?", style: const TextStyle(color: Color(0xFF9E9E9E))),
+                    title: Text(
+                      context.l10n.binary_uninstall_title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    content: Text(
+                      context.l10n.binary_uninstall_body(tool.label),
+                      style: const TextStyle(color: Color(0xFF9E9E9E)),
+                    ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: Text(context.l10n.cancel),
+                      ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Désinstaller', style: TextStyle(color: Colors.red)),
+                        child: Text(
+                          context.l10n.binary_uninstall,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       ),
                     ],
                   ),
@@ -612,6 +665,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
     final double? progress;
     final String? progressLabel;
     final String? statusMsg;
+    final _BinStatusKind statusKind;
     final _Arch arch;
     final bool isArchAuto;
     final _Arch? archDetected;
@@ -630,6 +684,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
       required this.progress,
       required this.progressLabel,
       required this.statusMsg,
+      required this.statusKind,
       required this.arch,
       required this.isArchAuto,
       required this.archDetected,
@@ -687,19 +742,25 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                         ),
                         if (isBundled) ...[
                           const SizedBox(width: 8),
-                          _SmallBadge(label: 'Embarqué', color: Colors.teal),
+                          _SmallBadge(
+                            label: context.l10n.binary_badge_bundled,
+                            color: Colors.teal,
+                          ),
                         ] else if (isInstalled) ...[
                           const SizedBox(width: 8),
-                          _SmallBadge(label: 'installé', color: Colors.green),
+                          _SmallBadge(
+                            label: context.l10n.binary_badge_installed,
+                            color: Colors.green,
+                          ),
                         ],
                       ]),
                       const SizedBox(height: 2),
                       Text(
                         isBundled
-                            ? 'Intégré · $bundledSize'
+                            ? context.l10n.binary_bundled_short(bundledSize!)
                             : isInstalled
-                                ? installedSize!
-                                : 'Non installé',
+                            ? installedSize!
+                            : context.l10n.binary_not_installed,
                         style: TextStyle(
                           fontSize: 12,
                           color: isBundled
@@ -742,20 +803,32 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                             if (v == 'uninstall') onUninstall();
                           },
                           itemBuilder: (_) => [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'reinstall',
                               child: Row(children: [
-                                Icon(Icons.refresh_rounded, size: 16, color: Colors.white70),
-                                SizedBox(width: 10),
-                                Text('Réinstaller', style: TextStyle(color: Colors.white, fontSize: 13)),
+                                const Icon(Icons.refresh_rounded, size: 16, color: Colors.white70),
+                                const SizedBox(width: 10),
+                                Text(
+                                  context.l10n.binary_reinstall,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ]),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'uninstall',
                               child: Row(children: [
-                                Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
-                                SizedBox(width: 10),
-                                Text('Désinstaller', style: TextStyle(color: Colors.red, fontSize: 13)),
+                                const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.red),
+                                const SizedBox(width: 10),
+                                Text(
+                                  context.l10n.binary_uninstall,
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 13,
+                                  ),
+                                ),
                               ]),
                             ),
                           ],
@@ -784,7 +857,7 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
             const SizedBox(height: 10),
             // ── Description ───────────────────────────────────────────────────
             Text(
-              tool.description,
+              context.l10n.binaries_aria2c_desc,
               style: const TextStyle(fontSize: 13, color: Color(0xFF9E9E9E), height: 1.45),
             ),
             const SizedBox(height: 8),
@@ -873,11 +946,12 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
                 statusMsg!,
                 style: TextStyle(
                   fontSize: 12,
-                  color: statusMsg!.contains('Erreur')
-                      ? cs.error
-                      : statusMsg!.contains('Désinstallé')
-                          ? const Color(0xFF9E9E9E)
-                          : Colors.green.shade600,
+                  color: switch (statusKind) {
+                    _BinStatusKind.error => cs.error,
+                    _BinStatusKind.neutral => const Color(0xFF9E9E9E),
+                    _BinStatusKind.success || _BinStatusKind.none =>
+                      Colors.green.shade600,
+                  },
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1049,7 +1123,7 @@ class _ZeusRuntimeCardState extends State<_ZeusRuntimeCard> {
     if (_progress != null) return;
     setState(() {
       _progress = 0;
-      _progressLabel = 'Connexion…';
+      _progressLabel = context.l10n.binary_connecting;
       _status = null;
     });
     final mgr = ZeusBinaryManager.instance;
@@ -1073,14 +1147,16 @@ class _ZeusRuntimeCardState extends State<_ZeusRuntimeCard> {
     setState(() {
       _progress = null;
       _progressLabel = null;
-      _status = ok ? 'Installé ✓' : 'Échec du téléchargement';
+      _status = ok ? context.l10n.binary_installed_ok : context.l10n.download_failed;
     });
     await _refresh();
   }
 
   Future<void> _uninstall() async {
     await ZeusBinaryManager.instance.uninstall();
-    if (mounted) setState(() => _status = 'Désinstallé');
+    if (mounted) {
+      setState(() => _status = context.l10n.binary_uninstalled_ok);
+    }
     await _refresh();
   }
 
@@ -1102,18 +1178,21 @@ class _ZeusRuntimeCardState extends State<_ZeusRuntimeCard> {
             children: [
               const Icon(Icons.terminal_rounded, size: 20, color: green),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ZeusDL',
+                    const Text('ZeusDL',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                             color: Colors.white)),
                     Text(
-                      'Runtime Python pour extraire TikTok, Facebook, Instagram… sans filigrane.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF9E9E9E)),
+                      context.l10n.binaries_zeus_desc,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF9E9E9E),
+                      ),
                     ),
                   ],
                 ),
@@ -1136,19 +1215,24 @@ class _ZeusRuntimeCardState extends State<_ZeusRuntimeCard> {
             Row(
               children: [
                 Text(
-                  _installed ? 'Installé${_size != null ? ' ($_size)' : ''}' : 'Non installé',
+                  _installed
+                      ? '${context.l10n.binary_installed_ok}${_size != null ? ' ($_size)' : ''}'
+                      : context.l10n.binary_not_installed,
                   style: const TextStyle(fontSize: 12, color: Color(0xFF9E9E9E)),
                 ),
                 const Spacer(),
                 TextButton(
                   onPressed: _installed ? _uninstall : _install,
-                  child: Text(_installed ? 'Désinstaller' : 'Installer',
+                  child: Text(
+                      _installed
+                          ? context.l10n.binary_uninstall
+                          : context.l10n.binary_install,
                       style: TextStyle(color: _installed ? Colors.red : green)),
                 ),
                 if (_installed)
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, size: 18, color: green),
-                    tooltip: 'Réinstaller / mettre à jour',
+                    tooltip: context.l10n.binary_reinstall_update,
                     onPressed: _install,
                   ),
               ],
