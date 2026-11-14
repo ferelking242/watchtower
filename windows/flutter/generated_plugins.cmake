@@ -7,7 +7,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   bonsoir_windows
   connectivity_plus
   desktop_webview_window
-  dynamic_color
   ffmpeg_kit_flutter_new
   file_selector_windows
   flutter_inappwebview_windows
@@ -18,7 +17,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_tts
   isar_community_flutter_libs
   local_auth_windows
-  local_notifier
   media_kit_libs_windows_video
   media_kit_video
   permission_handler_windows
@@ -39,7 +37,6 @@ list(APPEND FLUTTER_FFI_PLUGIN_LIST
   flutter_discord_rpc_fork
   metadata_god
   rust_lib_watchtower
-  smtc_windows
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

@@ -23,7 +23,6 @@ dependencies:
   extended_image: ^10.0.0
   photo_view: ^0.15.0
   grouped_list: ^6.0.0
-  flutter_popup: ^3.3.9
   intl: ^0.20.2
   google_fonts: ^8.0.2
   url_launcher: ^6.3.1
@@ -97,7 +96,6 @@ dependencies:
   speech_to_text: ^7.0.0
   flutter_svg: ^2.0.17
   lottie: ^3.1.0
-  flutter_speed_dial: ^7.0.0
   shared_preferences: ^2.3.5
   shelf: ^1.4.1
   shelf_router: ^1.1.4
@@ -113,8 +111,6 @@ dependencies:
   excel: ^4.0.6
   excel2003: ^1.0.0
   xml: ^6.6.1
-  receive_sharing_intent: ^1.8.1
-  dynamic_color: ^1.7.0
   sqflite: ^2.3.3+1
   ftpconnect: ^2.0.10
   dart_lz4: ^1.0.0
@@ -137,7 +133,6 @@ dependencies:
     git:
       ref: cfd570035bf393de541d32e9b28808b5d7e602df
       url: https://github.com/ferelking242/flutter-draggable-scrollbar.git
-  flutter_undraw: ^0.2.1
   palette_generator: ^0.3.3
   cached_network_image: ^3.3.1
   flutter_cache_manager: ^3.3.0
@@ -148,7 +143,6 @@ dependencies:
   lrc: ^1.0.2
   metadata_god: ^1.1.0
   duration: ^3.0.12
-  smtc_windows: ^1.1.0
   titlebar_buttons: ^1.0.0
   drift: ^2.21.0
   sqlite3: ^2.4.3
@@ -195,13 +189,8 @@ dependencies:
   logger: ^2.0.2
   wikipedia_api: ^0.1.0
   file_selector: ^1.0.3
-  flutter_sharing_intent: ^1.1.0
   home_widget: ^0.9.2
-  local_notifier: ^0.1.6
   tray_manager: ^0.5.0
-  disable_battery_optimization:
-    git:
-      url: https://github.com/ferelking242/Disable-Battery-Optimizations.git
   flutter_broadcasts:
     git:
       url: https://github.com/ferelking242/flutter_broadcasts.git
@@ -283,18 +272,6 @@ flutter:
     - packages/hetu_std/assets/bytecode/std.out
     - packages/hetu_otp_util/assets/bytecode/otp_util.out
     - packages/hetu_spotube_plugin/assets/bytecode/spotube_plugin.out
-    - packages/flutter_undraw/assets/undraw/access_denied.svg
-    - packages/flutter_undraw/assets/undraw/fixing_bugs.svg
-    - packages/flutter_undraw/assets/undraw/secure_login.svg
-    - packages/flutter_undraw/assets/undraw/explore.svg
-    - packages/flutter_undraw/assets/undraw/dreamer.svg
-    - packages/flutter_undraw/assets/undraw/happy_music.svg
-    - packages/flutter_undraw/assets/undraw/follow_me_drone.svg
-    - packages/flutter_undraw/assets/undraw/taken.svg
-    - packages/flutter_undraw/assets/undraw/empty.svg
-    - packages/flutter_undraw/assets/undraw/no_data.svg
-    - packages/flutter_undraw/assets/undraw/process.svg
-    - packages/flutter_undraw/assets/undraw/stars.svg
 
   fonts:
     - family: Cookie
