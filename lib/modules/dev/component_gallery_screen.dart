@@ -271,7 +271,14 @@ const _orderedGallerySections = <String>[
   'BADGES',
   'ACCUEIL & LECTURE',
   'EXTENSIONS WATCH',
-  'MANGA & LECTURE',
+  // Le manga est découpé par usage (chapitres, genres, reader, relations,
+  // statistiques, accueil) : une seule section de 80 entrées était illisible.
+  'MANGA · ACCUEIL',
+  'MANGA · CHAPITRES & VOLUMES',
+  'MANGA · GENRES & MÉTADONNÉES',
+  'MANGA · READER',
+  'MANGA · UNIVERS & RELATIONS',
+  'MANGA · STATISTIQUES',
 ];
 
 /// These entries are screen-specific samples, not reusable cards or sections.
@@ -1401,6 +1408,11 @@ IconData _sectionIcon(String section) {
     return Icons.collections_bookmark_outlined;
   if (section.contains('ÉPISODES')) return Icons.subtitles_outlined;
   if (section.contains('CLASSEMENTS')) return Icons.leaderboard_outlined;
+  if (section.contains('MANGA · READER')) return Icons.chrome_reader_mode_outlined;
+  if (section.contains('MANGA · CHAPITRES')) return Icons.menu_book_outlined;
+  if (section.contains('MANGA · GENRES')) return Icons.category_outlined;
+  if (section.contains('MANGA · UNIVERS')) return Icons.hub_outlined;
+  if (section.contains('MANGA · STATISTIQUES')) return Icons.insights_rounded;
   if (section.contains('MANGA')) return Icons.menu_book_outlined;
   if (section.contains('RECHERCHE')) return Icons.search_rounded;
   if (section.contains('HISTORIQUE')) return Icons.history_rounded;
@@ -6064,7 +6076,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Carte d\'un chapitre individuel',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.menu_book_outlined,
     kind: _PreviewKind.mgChapter,
     layoutComponent: 'chapterCard',
@@ -6083,7 +6095,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterReleaseCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Nouveaux chapitres',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.live_tv_outlined,
     kind: _PreviewKind.mgRelease,
     result: (_) => MangaChapterReleaseCard(
@@ -6117,7 +6129,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterListCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Liste complète des chapitres',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.format_list_numbered_rounded,
     kind: _PreviewKind.mgChapterList,
     result: (_) => MangaChapterListCard(
@@ -6155,7 +6167,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterGroupCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Groupement par arc ou partie',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.auto_stories_outlined,
     kind: _PreviewKind.mgGroup,
     result: (_) => MangaChapterGroupCard(
@@ -6172,7 +6184,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaLatestReleaseCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Dernières sorties avec aperçu',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.update_rounded,
     kind: _PreviewKind.mgLatest,
     result: (_) => MangaLatestReleaseCard(
@@ -6207,7 +6219,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReleaseTimelineCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Frise des sorties (calendrier)',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.calendar_today_outlined,
     kind: _PreviewKind.mgTimeline,
     result: (_) => MangaReleaseTimelineCard(
@@ -6244,7 +6256,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterVolumeCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Carte d\'un volume / tome',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.auto_stories_outlined,
     kind: _PreviewKind.mgVolume,
     result: (_) => MangaChapterVolumeCard(
@@ -6262,7 +6274,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterBadge',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Badge de chapitre / statut',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.local_offer_outlined,
     kind: _PreviewKind.mgBadge,
     result: (_) => MangaChapterBadge(
@@ -6283,7 +6295,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterRangeCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Plage de chapitres (ex : 100-110)',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.format_list_numbered_rounded,
     kind: _PreviewKind.mgRange,
     result: (_) => MangaChapterRangeCard(
@@ -6302,7 +6314,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterTimelineCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Chronologie des chapitres',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.flag_rounded,
     kind: _PreviewKind.mgChapterTimeline,
     result: (_) => MangaChapterTimelineCard(
@@ -6340,7 +6352,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaNewChapterCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Mise en avant d\'un nouveau chapitre',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.fiber_new_rounded,
     kind: _PreviewKind.mgNew,
     result: (_) => MangaNewChapterCard(
@@ -6358,7 +6370,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterProgressCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Progression de lecture par chapitre',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.speed_rounded,
     kind: _PreviewKind.mgProgress,
     result: (_) => MangaChapterProgressCard(
@@ -6378,7 +6390,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterNextCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Prochain chapitre à venir',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.schedule_rounded,
     kind: _PreviewKind.mgNext,
     result: (_) => MangaChapterNextCard(
@@ -6396,7 +6408,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterSearchCard',
     path: 'lib/modules/media/manga_chapter_cards.dart',
     usage: 'Recherche de chapitre spécifique',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.manage_search_rounded,
     kind: _PreviewKind.mgSearch,
     result: (_) => const MangaChapterSearchCard(
@@ -6409,7 +6421,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaVolumeCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Poster + tome + note + chip VF',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.auto_stories_outlined,
     kind: _PreviewKind.volCard,
     result: (_) => MangaVolumeCard(
@@ -6429,7 +6441,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaVolumeListCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Parcourir tous les tomes d\'un manga',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.menu_book_outlined,
     kind: _PreviewKind.volList,
     result: (_) => MangaVolumeListCard(
@@ -6472,7 +6484,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaVolumePreviewCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Couvertures superposées + plage de tomes',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.collections_outlined,
     kind: _PreviewKind.volPreview,
     result: (_) => MangaVolumePreviewCard(
@@ -6506,7 +6518,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaSpecialEditionCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Éditions collector, limitées et variantes',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.local_offer_outlined,
     kind: _PreviewKind.volSpecial,
     result: (_) => MangaSpecialEditionCard(
@@ -6524,7 +6536,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaFormatCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Tankōbon, Omnibus, Intégrale…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.category_rounded,
     kind: _PreviewKind.volFormat,
     result: (_) => MangaFormatCard(
@@ -6540,7 +6552,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaEditionLanguageCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Disponibilités VO/VF par langue',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.language_rounded,
     kind: _PreviewKind.volLang,
     result: (_) => const MangaEditionLanguageCard(
@@ -6558,7 +6570,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaCollectionTrackerCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Bibliothèque de tomes avec progression',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.auto_stories_outlined,
     kind: _PreviewKind.volTracker,
     result: (_) => MangaCollectionTrackerCard(
@@ -6583,7 +6595,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaUpcomingVolumeCard',
     path: 'lib/modules/media/manga_volume_cards.dart',
     usage: 'Prochaines sorties de volumes',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · CHAPITRES & VOLUMES',
     icon: Icons.event_rounded,
     kind: _PreviewKind.volUpcoming,
     result: (_) => MangaUpcomingVolumeCard(
@@ -6622,7 +6634,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaGenresCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'Genres avec compteurs de mangas',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.category_rounded,
     kind: _PreviewKind.genGenres,
     result: (_) => MangaGenresCard(
@@ -6664,7 +6676,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaDemographicsCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'Shōnen, Shōjo, Seinen, Josei…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.group_rounded,
     kind: _PreviewKind.genDemo,
     result: (_) => MangaDemographicsCard(
@@ -6708,7 +6720,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaThemesCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'École, Isekai, Reincarnation…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.auto_awesome_outlined,
     kind: _PreviewKind.genThemes,
     result: (_) => MangaThemesCard(
@@ -6752,7 +6764,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaUniverseShowcaseCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'Sagas et univers incontournables',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.collections_outlined,
     kind: _PreviewKind.genShowcase,
     result: (_) => MangaUniverseShowcaseCard(
@@ -6805,7 +6817,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaTagsCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'Tags d\'affinage de recherche',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.local_offer_outlined,
     kind: _PreviewKind.genTags,
     result: (_) => MangaTagsCard(
@@ -6855,7 +6867,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaLanguagesCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'Langues, équipes de scanlation, statuts',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.language_rounded,
     kind: _PreviewKind.genLangs,
     result: (_) => MangaLanguagesCard(
@@ -6929,7 +6941,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaPublishersCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'Shueisha, Kodansha, Viz Media…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.business_rounded,
     kind: _PreviewKind.genPublishers,
     result: (_) => MangaPublishersCard(
@@ -6973,7 +6985,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaLanguageNewsCard',
     path: 'lib/modules/media/manga_genre_cards.dart',
     usage: 'Derniers ajouts par langue',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · GENRES & MÉTADONNÉES',
     icon: Icons.language_rounded,
     kind: _PreviewKind.genLangNews,
     result: (_) => const MangaLanguageNewsCard(
@@ -7013,7 +7025,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReaderCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Accès rapide à la lecture d\'un manga',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.menu_book_outlined,
     kind: _PreviewKind.rdReader,
     result: (_) => MangaReaderCard(
@@ -7031,7 +7043,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaPageCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Une page en haute qualité',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.image_outlined,
     kind: _PreviewKind.rdPage,
     result: (_) =>
@@ -7042,7 +7054,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaPagePreviewCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Navigation rapide entre planches',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.play_circle_outline,
     kind: _PreviewKind.rdPreview,
     result: (_) => MangaPagePreviewCard(
@@ -7072,7 +7084,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaPageStripCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Lecture en bandeau (strip)',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.slideshow_rounded,
     kind: _PreviewKind.rdStrip,
     result: (_) => MangaPageStripCard(
@@ -7102,7 +7114,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaDoublePageCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Affichage double page écran large',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.auto_stories_outlined,
     kind: _PreviewKind.rdDouble,
     result: (_) => const MangaDoublePageCard(
@@ -7119,7 +7131,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReadingModeCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Classique, double page, vertical, scroll',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.tune_rounded,
     kind: _PreviewKind.rdMode,
     result: (_) => MangaReadingModeCard(
@@ -7154,7 +7166,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReadingDirectionCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'De droite à gauche / de gauche à droite',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.swap_horiz_rounded,
     kind: _PreviewKind.rdDirection,
     result: (_) => MangaReadingDirectionCard(
@@ -7179,7 +7191,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReaderSettingsCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Texte, police, luminosité, qualité',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.settings_rounded,
     kind: _PreviewKind.rdSettings,
     result: (_) => MangaReaderSettingsCard(
@@ -7214,7 +7226,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaPageProgressCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Avancement global de la lecture',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.speed_rounded,
     kind: _PreviewKind.rdRing,
     result: (_) => const MangaPageProgressCard(
@@ -7229,7 +7241,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReadingProgressCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Progression du chapitre avec marque-page',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.bookmark_rounded,
     kind: _PreviewKind.rdChapterProgress,
     result: (_) => MangaReadingProgressCard(
@@ -7247,7 +7259,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaChapterNavigationCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Chapitre précédent / suivant',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.swap_horiz_rounded,
     kind: _PreviewKind.rdNav,
     result: (_) => const MangaChapterNavigationCard(
@@ -7265,7 +7277,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaQuickAccessCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Reprise + favoris + raccourcis',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.rocket_launch_rounded,
     kind: _PreviewKind.rdQuick,
     result: (_) => MangaQuickAccessCard(
@@ -7303,7 +7315,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReaderFloatingCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Barre d\'outils en lecture',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.tune_rounded,
     kind: _PreviewKind.rdFloating,
     result: (_) => MangaReaderFloatingCard(
@@ -7325,7 +7337,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReaderChapterListCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Filtres Tous / Lu / Non lu',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.format_list_numbered_rounded,
     kind: _PreviewKind.rdChapterList,
     result: (_) => MangaReaderChapterListCard(
@@ -7364,7 +7376,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReaderHistoryCard',
     path: 'lib/modules/media/manga_reader_cards.dart',
     usage: 'Derniers chapitres lus',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · READER',
     icon: Icons.history_rounded,
     kind: _PreviewKind.rdHistory,
     result: (_) => MangaReaderHistoryCard(
@@ -7407,7 +7419,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaRelationTypeCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Main story, Préquelle, Suite, Spin-off…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.hub_outlined,
     kind: _PreviewKind.uniTypes,
     result: (_) => MangaRelationTypeCard(
@@ -7469,7 +7481,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaUniverseTimelineCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Mondes et chronologies des séries',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.public_rounded,
     kind: _PreviewKind.uniTimeline,
     result: (_) => MangaUniverseTimelineCard(
@@ -7505,7 +7517,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaLinkedSeriesCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Univers partagés (Naruto → Boruto…)',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.travel_explore_rounded,
     kind: _PreviewKind.uniLinked,
     result: (_) => MangaLinkedSeriesCard(
@@ -7549,7 +7561,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaRelationListCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Crossover, remake, sequel/préquel…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.hub_outlined,
     kind: _PreviewKind.uniRelationList,
     result: (_) => MangaRelationListCard(
@@ -7611,7 +7623,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaSameUniverseCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Toutes les œuvres d\'un même monde',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.public_rounded,
     kind: _PreviewKind.uniSame,
     result: (_) => MangaSameUniverseCard(
@@ -7651,7 +7663,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaUniverseChronologyCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Timeline des événements',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.event_available_rounded,
     kind: _PreviewKind.uniChrono,
     result: (_) => MangaUniverseChronologyCard(
@@ -7689,7 +7701,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaFranchiseUniversesCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Grandes franchises et leurs mondes',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.verified_rounded,
     kind: _PreviewKind.uniFranchise,
     result: (_) => MangaFranchiseUniversesCard(
@@ -7733,7 +7745,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaCharacterRelationsCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Amis, rivaux, amour, famille…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.group_rounded,
     kind: _PreviewKind.uniChars,
     result: (_) => MangaCharacterRelationsCard(
@@ -7767,7 +7779,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaUniverseMapCard',
     path: 'lib/modules/media/manga_universe_cards.dart',
     usage: 'Mondes et connexions',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · UNIVERS & RELATIONS',
     icon: Icons.travel_explore_rounded,
     kind: _PreviewKind.uniMap,
     result: (_) => MangaUniverseMapCard(
@@ -7812,7 +7824,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaStatusCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'En cours, Terminé, En pause…',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.person_outline,
     kind: _PreviewKind.stStatus,
     result: (_) => const MangaStatusCard(
@@ -7841,7 +7853,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaSerializationCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Magazines de prépublication',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.auto_stories_outlined,
     kind: _PreviewKind.stSerial,
     result: (_) => MangaSerializationCard(
@@ -7880,7 +7892,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaFrequencyCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Chapitres sortant par période',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.event_rounded,
     kind: _PreviewKind.stFrequency,
     result: (_) => const MangaFrequencyCard(
@@ -7899,7 +7911,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaGlobalStatsCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Chiffres clés de la communauté',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.speed_rounded,
     kind: _PreviewKind.stGlobal,
     result: (_) => const MangaGlobalStatsCard(
@@ -7937,7 +7949,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaPopularityCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Mangas les plus populaires (+%)',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.whatshot_rounded,
     kind: _PreviewKind.stPopularity,
     result: (_) => MangaPopularityCard(
@@ -7986,7 +7998,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaFollowersCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Posters + compteurs de followers',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.group_rounded,
     kind: _PreviewKind.stFollowers,
     result: (_) => MangaFollowersCard(
@@ -8025,7 +8037,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaItemStatsCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Détails complets d\'une œuvre',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.menu_book_outlined,
     kind: _PreviewKind.stItem,
     result: (_) => MangaItemStatsCard(
@@ -8045,7 +8057,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaStatsGridCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Vue d\'ensemble rapide des données',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.grid_view_rounded,
     kind: _PreviewKind.stGrid,
     result: (_) => const MangaStatsGridCard(
@@ -8095,7 +8107,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaCategoryRankingCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Populaire, note, nouveautés, followers',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.emoji_events_outlined,
     kind: _PreviewKind.stRanking,
     result: (_) => MangaCategoryRankingCard(
@@ -8145,7 +8157,7 @@ List<_ComponentSpec> _buildComponents() => [
     className: 'MangaReportsCard',
     path: 'lib/modules/media/manga_stats_cards.dart',
     usage: 'Analyses et tendances',
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     icon: Icons.insights_rounded,
     kind: _PreviewKind.stReports,
     result: (_) => const MangaReportsCard(
@@ -8515,7 +8527,6 @@ List<_ComponentSpec> _buildComponents() => [
     kind: _PreviewKind.hmCountries,
     layoutComponent: 'home-language-grid',
     result: (_) => HomeLanguageGridCard(
-      flat: false,
       onSeeAll: () {},
       chips: const [
         HomeCountryChip(
@@ -9131,7 +9142,7 @@ List<_ComponentSpec> _buildComponents() => [
   ),
   ..._additionalExtensionLayoutComponents(),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Carte manga',
     className: 'MangaImageCardWidget',
     path: 'lib/modules/widgets/manga_image_card_widget.dart',
@@ -9150,7 +9161,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Tuile manga liste',
     className: 'MangaImageCardListTileWidget',
     path: 'lib/modules/widgets/manga_image_card_widget.dart',
@@ -9168,7 +9179,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Vedette manga',
     className: 'MangaFeaturedCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9185,7 +9196,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Carte manga avec sous-titre',
     className: 'MangaChapterCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9202,7 +9213,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Reprise de lecture',
     className: 'MangaResumeCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9220,7 +9231,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Spotlight manga',
     className: 'MangaSpotlightCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9237,7 +9248,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Genre manga',
     className: 'MangaGenreCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9255,7 +9266,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Ligne mise à jour',
     className: 'MangaUpdateRow',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9273,7 +9284,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Bannière manga',
     className: 'MangaBannerCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9289,7 +9300,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Top 3 manga',
     className: 'MangaTop3Card',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9309,7 +9320,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Mise à jour chapitres',
     className: 'MangaLatestUpdateCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9331,7 +9342,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Top Ranking manga',
     className: 'MangaRankingCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9349,7 +9360,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Vote communautaire',
     className: 'MangaVoteCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9369,7 +9380,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Collection communautaire',
     className: 'MangaCollectionShowcaseCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9394,7 +9405,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · ACCUEIL',
     title: 'Liste tendance',
     className: 'MangaTrendingListCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9419,7 +9430,7 @@ List<_ComponentSpec> _buildComponents() => [
     ),
   ),
   _ComponentSpec(
-    section: 'MANGA & LECTURE',
+    section: 'MANGA · STATISTIQUES',
     title: 'Groupe de scan',
     className: 'MangaScanGroupCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',

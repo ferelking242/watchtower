@@ -538,7 +538,6 @@ class AppHeroPlayPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconSize = compact ? 18.0 : 22.0;
-    final fontSize = compact ? 12.0 : 14.0;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(compact ? 8 : 10),

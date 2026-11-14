@@ -79,7 +79,6 @@ class MovieDetailsCard extends StatelessWidget {
     return Container(
       width: width,
       padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -325,11 +324,10 @@ class MovieDetailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = data.item;
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: width,
-      decoration: _cardDecoration(accent),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1016,8 +1014,8 @@ class MovieQuickView extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: width,
-      decoration: _cardDecoration(accent),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1434,14 +1432,6 @@ String _metaLine(RichMediaCardData data) {
     if (data.genres != null && data.genres!.isNotEmpty) data.genres!,
   ];
   return parts.join(' · ');
-}
-
-BoxDecoration _cardDecoration(Color accent) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: accent.withValues(alpha: .35)),
-  );
 }
 
 class _PrimaryAction extends StatelessWidget {

@@ -473,52 +473,12 @@ class MangaChapterListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.format_list_numbered_rounded,
-                size: 14,
-                color: Colors.white54,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  context.l10n.media_all_chapters,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: .16),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  countLabel ?? '${items.length}',
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 7),
             _NumberedChapterRow(item: items[i]),
@@ -743,47 +703,6 @@ class MangaLatestReleaseCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.l10n.media_latest_releases,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              if (onSeeAll != null)
-                InkWell(
-                  onTap: onSeeAll,
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.all(3),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Voir tout',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(width: 2),
-                        Icon(
-                          Broken.arrow_right_3,
-                          size: 12,
-                          color: Colors.white54,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             _LatestRow(item: items[i]),
@@ -878,42 +797,12 @@ class MangaReleaseTimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.l10n.media_release_calendar,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.calendar_today_outlined,
-                size: 13,
-                color: accent,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            monthLabel,
-            style: TextStyle(
-              color: accent,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 7),
             _CalendarRow(item: items[i]),

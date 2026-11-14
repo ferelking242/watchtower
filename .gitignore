@@ -110,3 +110,6 @@ watchtower/
 
 # Misc scratch
 colab_deploy.ipynb
+
+# Agent memory
+.openhands/memory/

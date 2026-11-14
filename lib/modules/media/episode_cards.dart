@@ -145,7 +145,6 @@ class CompactEpisodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     final header = [
       if (entry.meta != null && entry.meta!.isNotEmpty) entry.meta!,
       if (entry.duration != null && entry.duration!.isNotEmpty) entry.duration!,
@@ -153,7 +152,6 @@ class CompactEpisodeCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -340,7 +338,6 @@ class EpisodePreviewCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -490,12 +487,8 @@ class SeasonDetailCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .09)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -591,12 +584,8 @@ class FeaturedEpisodeCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       height: width * 1.35,
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -705,12 +694,8 @@ class NextEpisodeHeroCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: .3)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: AspectRatio(
         aspectRatio: 2.1,
         child: Stack(
@@ -817,12 +802,8 @@ class LatestEpisodeCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: .3)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: AspectRatio(
         aspectRatio: 1.9,
         child: Stack(
@@ -942,7 +923,6 @@ class SeasonSelectorCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
       child: Row(
         children: [
           if (active != null)
@@ -1187,11 +1167,9 @@ class _EpisodeListPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
       child: Column(
         children: [
           for (var i = 0; i < episodes.length; i++) ...[
@@ -1402,12 +1380,8 @@ class UpNextCompactCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: AspectRatio(
         aspectRatio: 3 / 2,
         child: Stack(
@@ -1497,11 +1471,9 @@ class SeasonEpisodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(10),
-      decoration: _episodePanelDecoration(accent),
       child: Row(
         children: [
           SizedBox(
@@ -1604,12 +1576,8 @@ class SeriesBannerCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: AspectRatio(
         aspectRatio: 2.5,
         child: Stack(
@@ -2173,14 +2141,6 @@ class _SeasonGridTile extends StatelessWidget {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _episodePanelDecoration(Color accent) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: Colors.white.withValues(alpha: .09)),
-  );
-}
-
 const Color _episodeWatchedColor = Color(0xFF34D399);
 
 class _EpisodeGradient extends StatelessWidget {
@@ -2351,17 +2311,16 @@ class _EpisodeProgressBar extends StatelessWidget {
   const _EpisodeProgressBar({
     required this.value,
     required this.accent,
-    this.height = 5,
     this.square = false,
   });
 
   final double value;
   final Color accent;
-  final double height;
   final bool square;
 
   @override
   Widget build(BuildContext context) {
+    const height = 5.0;
     final factor = value.isNaN || value < 0 ? 0.0 : (value > 1 ? 1.0 : value);
     return SizedBox(
       height: height,

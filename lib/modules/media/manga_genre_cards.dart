@@ -161,14 +161,6 @@ class MangaLangEntry {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: accent.withValues(alpha: .18)),
-  );
-}
-
 /// ── 1. MangaGenresCard ──────────────────────────────────────────────────
 /// Grille de genres avec compteurs.
 class MangaGenresCard extends StatelessWidget {
@@ -588,8 +580,6 @@ class MangaTagsCard extends StatelessWidget {
     this.onSeeAll,
     this.title = 'Tags',
     this.subtitle = 'Affinez vos recherches avec les tags.',
-    this.showHeader = true,
-    this.showPanel = true,
     this.columns = 2,
     this.compact = false,
   });
@@ -599,26 +589,22 @@ class MangaTagsCard extends StatelessWidget {
   final VoidCallback? onSeeAll;
   final String title;
   final String subtitle;
-  final bool showHeader;
-  final bool showPanel;
   final int columns;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    // Carte nue : jamais de panneau, la section hôte fournit le cadre.
     return Container(
-      width: showPanel ? null : double.infinity,
       constraints: BoxConstraints(maxWidth: width),
-      padding: showPanel ? const EdgeInsets.all(12) : EdgeInsets.zero,
-      decoration: showPanel ? _panelDecoration(accent) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
               final count = columns.clamp(1, 5);
-              final spacing = showPanel ? 7.0 : 8.0;
+              const spacing = 8.0;
               final tileWidth = (constraints.maxWidth -
                       spacing * (count - 1)) /
                   count;

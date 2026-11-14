@@ -181,28 +181,27 @@ class _CompositeCollectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
-      width: flat ? width : null,
+      width: width,
       constraints: BoxConstraints(maxWidth: width),
-      padding: EdgeInsets.all(flat ? 0 : 10),
-      decoration: flat ? null : _collectionDecoration(accent),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final available = constraints.maxWidth.isFinite
               ? constraints.maxWidth
               : width;
           // Hauteur et colonne latérale dérivées de la largeur : la carte
-          // reste lisible de 320 px (téléphone) à 1900 px (TV) sans jamais
-          // écraser la tuile principale ni réduire les mini-tuiles à néant.
-          final height = (available * 0.34).clamp(124.0, 200.0);
-          // Les trois mini-tuiles occupent environ 40 % de la carte : assez
-          // larges pour rester nettes, la tuile principale gardant la
-          // majorité. `sideWidth` sert de plancher, le plafond évite que la
-          // colonne ne dévore la tuile principale sur très grand écran.
+          // reste lisible du téléphone (320 px) à la TV (1900 px). La carte
+          // principale cède un peu de place à la colonne latérale pour que
+          // les trois mini-tuiles gardent une vraie taille au lieu d'être
+          // écrasées en bandes.
+          final height = (available * 0.38).clamp(140.0, 236.0);
+          // `sideWidth` sert de plancher ; le plafond évite que la colonne ne
+          // dévore la tuile principale sur très grand écran. La colonne latérale
+          // est volontairement généreuse (mini-tuiles lisibles) : la tuile
+          // principale se resserre d'autant.
           final side = sideAsRows
-              ? (available * 0.46).clamp(sideWidth, 320.0)
-              : (available * 0.40).clamp(sideWidth, 260.0);
+              ? (available * 0.52).clamp(sideWidth, 340.0)
+              : (available * 0.48).clamp(sideWidth, 320.0);
           return Row(
             children: [
               Expanded(
@@ -419,12 +418,8 @@ class FeaturedCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: .3)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -525,12 +520,8 @@ class SpotlightCard extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -622,6 +613,10 @@ class UniverseCarouselCard extends StatelessWidget {
     final visible = universes.take(3).toList(growable: false);
     if (visible.isEmpty) return const SizedBox.shrink();
     const gap = 10.0;
+    // Carte nue : aucun panneau autour. Les trois visuels sont répartis à
+    // largeur égale et inclinés progressivement vers le haut à droite (le
+    // dernier visuel est le plus haut et le plus penché), ce qui donne la
+    // lecture « éventail » sans boîte de fond.
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: width),
       child: LayoutBuilder(
@@ -635,18 +630,28 @@ class UniverseCarouselCard extends StatelessWidget {
           // Hauteur dérivée de la largeur de tuile (format ~3:4) : les trois
           // visuels restent équilibrés et lisibles sur toutes les tailles.
           final tileHeight = (tileWidth * 1.2).clamp(96.0, height);
+          // Le décalage vertical laisse la place au visuel le plus haut, qui
+          // dépasse de la hauteur de tuile quand il est incliné.
+          final lift = tileHeight * tilt * 2;
           return SizedBox(
-            height: tileHeight,
+            height: tileHeight + lift,
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 for (var i = 0; i < visible.length; i++) ...[
                   if (i > 0) const SizedBox(width: gap),
                   Expanded(
-                    child: Transform.rotate(
-                      // Trois paliers croissants pour lire la perspective.
-                      angle: tilt * (i - 1),
-                      child: _UniverseTile(entry: visible[i], height: tileHeight),
+                    child: Transform.translate(
+                      // Chaque visuel monte un peu plus que le précédent :
+                      // la rangée « penche » vers le haut à droite.
+                      offset: Offset(0, -lift * i / (visible.length - 1)),
+                      child: Transform.rotate(
+                        angle: tilt * i,
+                        child: _UniverseTile(
+                          entry: visible[i],
+                          height: tileHeight,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -757,13 +762,6 @@ class _UniverseTile extends StatelessWidget {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _collectionDecoration(Color accent) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: Colors.white.withValues(alpha: .09)),
-  );
-}
 
 class _TileGradient extends StatelessWidget {
   const _TileGradient({this.opacity = .85});

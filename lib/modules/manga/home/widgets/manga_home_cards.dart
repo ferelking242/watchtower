@@ -209,7 +209,7 @@ class MangaResumeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF15171D),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -577,7 +577,7 @@ class MangaLatestUpdateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = chapters.take(3).toList(growable: false);
     return Material(
-      color: const Color(0xFF15171D),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -815,81 +815,58 @@ class _MangaRankingCardState extends State<MangaRankingCard> {
     final items = widget.items.take(5).toList(growable: false);
     if (items.isEmpty) return const SizedBox.shrink();
     final accent = Theme.of(context).colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.emoji_events_outlined, color: accent, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                widget.title ?? 'Top Ranking',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: .35),
+            borderRadius: BorderRadius.circular(14),
           ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .35),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                for (var i = 0; i < widget.periods.length; i++)
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _period = i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                        decoration: BoxDecoration(
-                          color: _period == i ? accent : Colors.transparent,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Text(
-                          widget.periods[i],
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: _period == i ? Colors.white : Colors.white60,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                          ),
+          child: Row(
+            children: [
+              for (var i = 0; i < widget.periods.length; i++)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _period = i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      decoration: BoxDecoration(
+                        color: _period == i ? accent : Colors.transparent,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Text(
+                        widget.periods[i],
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _period == i ? Colors.white : Colors.white60,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-          const SizedBox(height: 8),
-          for (var i = 0; i < items.length; i++)
-            _MangaRankRow(
-              rank: i + 1,
-              item: items[i],
-              rankColor: i < 3
-                  ? _rankColors[i]
-                  : Colors.white.withValues(alpha: .10),
-              rankTextColor: i < 3 && i != 1
-                  ? Colors.white
-                  : (i == 1 ? Colors.black87 : Colors.white),
-              highlighted: i == 1,
-              onTap: () => widget.onOpen(i),
-            ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < items.length; i++)
+          _MangaRankRow(
+            rank: i + 1,
+            item: items[i],
+            rankColor: i < 3
+                ? _rankColors[i]
+                : Colors.white.withValues(alpha: .10),
+            rankTextColor: i < 3 && i != 1
+                ? Colors.white
+                : (i == 1 ? Colors.black87 : Colors.white),
+            highlighted: i == 1,
+            onTap: () => widget.onOpen(i),
+          ),
+      ],
     );
   }
 }
@@ -1053,7 +1030,7 @@ class MangaVoteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF15171D),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(18),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1220,7 +1197,7 @@ class MangaCollectionShowcaseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final visible = covers.take(9).toList(growable: false);
     return Material(
-      color: const Color(0xFF15171D),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1416,7 +1393,7 @@ class MangaTrendingListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final visible = covers.take(6).toList(growable: false);
     return Material(
-      color: const Color(0xFF15171D),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1556,7 +1533,7 @@ class MangaScanGroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final visible = covers.take(5).toList(growable: false);
     return Material(
-      color: const Color(0xFF15171D),
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

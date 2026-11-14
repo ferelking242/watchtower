@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
 /// Cartes « Ranking / Top 10 » — sections de classements (films, séries,
 /// animés, genres, pays, décennies…).
 ///
-/// Chaque carte affiche un en-tête (icône + titre + sous-titre + « Voir
-/// tout ») et une rangée horizontale défilante de tuiles classées.
+/// Carte nue : elle ne dessine qu'une rangée horizontale défilante de tuiles
+/// classées. Le titre, le sous-titre, l'icône et le « Voir tout » appartiennent
+/// à la section hôte, jamais à la carte.
 /// ─────────────────────────────────────────────────────────────────────────
 
 /// Entrée d'un classement : poster numéroté ou tuile libellée.
@@ -118,16 +118,8 @@ class _RankingSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: flat ? width : null,
+      width: width,
       constraints: BoxConstraints(maxWidth: width),
-      padding: EdgeInsets.all(flat ? 0 : 12),
-      decoration: flat
-          ? null
-          : BoxDecoration(
-              color: const Color(0xFF15171D),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: .09)),
-            ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(

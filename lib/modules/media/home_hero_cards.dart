@@ -105,14 +105,6 @@ class HomeCountryChip {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _panelDecoration(Color accent, {double radius = 16}) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(color: accent.withValues(alpha: .18)),
-  );
-}
-
 class _RatingChip extends StatelessWidget {
   const _RatingChip(this.label);
 
@@ -205,7 +197,6 @@ class HomeHeroBannerCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      decoration: _panelDecoration(accent, radius: 18),
       padding: const EdgeInsets.all(8),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(13),
@@ -578,7 +569,6 @@ class _GenreCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: 96,
-        decoration: _panelDecoration(accent, radius: 12),
         padding: const EdgeInsets.all(5),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

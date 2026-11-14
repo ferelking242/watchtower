@@ -698,8 +698,6 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                 child: MangaTagsCard(
                   title: '',
                   width: fullCardWidth,
-                  showHeader: false,
-                  showPanel: false,
                   compact: true,
                   columns: 3,
                   tags: [

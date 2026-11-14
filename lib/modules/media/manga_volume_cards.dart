@@ -365,35 +365,6 @@ class MangaVolumePreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.collections_outlined,
-                size: 14,
-                color: Colors.white54,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Aperçu des volumes',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const Spacer(),
-              if (items.isNotEmpty)
-                Text(
-                  items.first.tomeLabel ?? '',
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
           SizedBox(
             height: 132,
             child: Stack(
@@ -693,25 +664,6 @@ class MangaEditionLanguageCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.language_rounded,
-                size: 14,
-                color: Colors.white54,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Éditions par langue',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
           for (var i = 0; i < rows.length; i++) ...[
             if (i > 0) const SizedBox(height: 7),
             Row(
@@ -812,25 +764,6 @@ class MangaCollectionTrackerCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.auto_stories_outlined,
-                size: 14,
-                color: Colors.white54,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Suivi de collection',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1011,67 +944,6 @@ class MangaUpcomingVolumeCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.event_rounded,
-                size: 14,
-                color: Colors.white54,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Volumes à venir',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      'Prochaines sorties de volumes.',
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (onSeeAll != null)
-                InkWell(
-                  onTap: onSeeAll,
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.all(3),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Voir tout',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(width: 2),
-                        Icon(
-                          Broken.arrow_right_3,
-                          size: 12,
-                          color: Colors.white54,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0) const SizedBox(height: 8),
             _UpcomingRow(item: items[i]),

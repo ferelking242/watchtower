@@ -118,8 +118,8 @@ class ContinueWatchingCard extends StatelessWidget {
 
     return Container(
       width: width,
-      decoration: _streamCardDecoration(accent),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -345,12 +345,8 @@ class ResumeWatchingCard extends StatelessWidget {
     return Container(
       width: width,
       height: width * 1.3,
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -507,11 +503,10 @@ class WatchAgainCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: width,
-      decoration: _streamCardDecoration(accent),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -607,8 +602,8 @@ class NowPlayingCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      decoration: _streamCardDecoration(accent),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -726,12 +721,8 @@ class UpNextCard extends StatelessWidget {
     return Container(
       width: width,
       height: width * 1.28,
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: accent.withValues(alpha: .3)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -844,12 +835,8 @@ class NextEpisodeCard extends StatelessWidget {
     return Container(
       width: width,
       height: width * 1.28,
-      decoration: BoxDecoration(
-        color: const Color(0xFF15171D),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
-      ),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -954,11 +941,9 @@ class EpisodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: width,
       padding: const EdgeInsets.all(12),
-      decoration: _streamCardDecoration(accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1111,8 +1096,8 @@ class SeasonCard extends StatelessWidget {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: width,
-      decoration: _streamCardDecoration(accent),
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1444,8 +1429,6 @@ class ProgressMediaCard extends StatelessWidget {
 
     return Container(
       constraints: BoxConstraints(maxWidth: width),
-      padding: EdgeInsets.all(flat ? 0 : 10),
-      decoration: flat ? null : _streamCardDecoration(accent),
       child: Row(
         children: [
           if (flip) ...[
@@ -1473,13 +1456,6 @@ class ProgressMediaCard extends StatelessWidget {
 /// Briques internes partagées
 /// ─────────────────────────────────────────────────────────────────────────
 
-BoxDecoration _streamCardDecoration(Color accent) {
-  return BoxDecoration(
-    color: const Color(0xFF15171D),
-    borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: Colors.white.withValues(alpha: .09)),
-  );
-}
 
 class _StreamBottomGradient extends StatelessWidget {
   const _StreamBottomGradient({this.opacity = .85});
