@@ -17,6 +17,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
@@ -336,8 +337,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     if (mode.isHeavy) {
       botToast(
         mode == LogMode.extreme
-            ? '⚡ Extreme – tout est logué. RAM +++. À utiliser avec précaution.'
-            : '⚠ Mode Debug actif – consommation RAM élevée',
+            ? l10nLocalizations(context)!.log_viewer_mode_extreme
+            : l10nLocalizations(context)!.log_viewer_mode_debug_warn,
         second: 5,
       );
     }
@@ -474,7 +475,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     try {
       final src = await _findLogFile();
       if (src == null) {
-        botToast('Aucun fichier log trouvé');
+        botToast(l10nLocalizations(context)!.log_viewer_no_file);
         return;
       }
       final ts = DateTime.now()
@@ -510,7 +511,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       final outFile = File(path.join(target.path, fileName));
       await outFile.writeAsString(content);
 
-      botToast('Enregistré : ${outFile.path}');
+      botToast(l10nLocalizations(context)!.log_viewer_saved(outFile.path));
 
       if (kIsWeb || !Platform.isAndroid ||
           !outFile.path.startsWith('/storage/emulated/0/Download')) {
@@ -526,7 +527,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         );
       }
     } catch (e) {
-      botToast('Erreur téléchargement : $e');
+      botToast(l10nLocalizations(context)!.log_viewer_download_error('$e'));
     }
   }
 
@@ -543,13 +544,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         ),
       );
     } else {
-      botToast('Aucun fichier log trouvé');
+      botToast(l10nLocalizations(context)!.log_viewer_no_file);
     }
   }
 
   Future<void> _copyAll() async {
     await Clipboard.setData(ClipboardData(text: _rawContent));
-    botToast('Logs copiés dans le presse-papiers');
+    botToast(l10nLocalizations(context)!.log_viewer_copied);
   }
 
   void _clearParsedState() {
@@ -580,7 +581,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             Icon(Broken.code_1, size: 18, color: cs.primary),
             const SizedBox(width: 8),
             Text(
-              'Logs',
+              l10nLocalizations(context)!.log_viewer_title,
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -601,12 +602,12 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Copier tout',
+            tooltip: l10nLocalizations(context)!.log_viewer_copy_all,
             icon: const Icon(Broken.copy, size: 20),
             onPressed: _loading ? null : _copyAll,
           ),
           ArrowPopupMenuButton<String>(
-            tooltip: 'Télécharger / Partager',
+            tooltip: l10nLocalizations(context)!.log_viewer_download_share,
             icon: const Icon(Broken.document_download, size: 20),
             onSelected: (v) {
               switch (v) {
@@ -621,40 +622,40 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   break;
               }
             },
-            itemBuilder: (_) => const [
+            itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'txt',
                 child: ListTile(
                   dense: true,
-                  leading: Icon(Broken.document_text, size: 18),
-                  title: Text('Télécharger .txt'),
+                  leading: const Icon(Broken.document_text, size: 18),
+                  title: Text(l10nLocalizations(context)!.log_viewer_download_txt),
                 ),
               ),
               PopupMenuItem(
                 value: 'md',
                 child: ListTile(
                   dense: true,
-                  leading: Icon(Broken.document_1, size: 18),
-                  title: Text('Télécharger .md'),
+                  leading: const Icon(Broken.document_1, size: 18),
+                  title: Text(l10nLocalizations(context)!.log_viewer_download_md),
                 ),
               ),
               PopupMenuItem(
                 value: 'share',
                 child: ListTile(
                   dense: true,
-                  leading: Icon(Broken.share, size: 18),
-                  title: Text('Partager'),
+                  leading: const Icon(Broken.share, size: 18),
+                  title: Text(l10nLocalizations(context)!.log_viewer_share),
                 ),
               ),
             ],
           ),
           IconButton(
-            tooltip: 'Rafraîchir',
+            tooltip: l10nLocalizations(context)!.log_viewer_refresh,
             icon: const Icon(Broken.refresh, size: 20),
             onPressed: _loadLogs,
           ),
           PopupMenuButton<String>(
-            tooltip: 'Options',
+            tooltip: l10nLocalizations(context)!.log_viewer_options,
             icon: const Icon(Broken.more_2, size: 20),
             onSelected: (v) {
               if (v == 'refresh') _loadLogs();
@@ -667,19 +668,50 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               });
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'refresh', child: ListTile(dense: true, leading: Icon(Broken.refresh, size: 18), title: Text('Rafraîchir'))),
+              PopupMenuItem(
+                value: 'refresh',
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Broken.refresh, size: 18),
+                  title: Text(l10nLocalizations(context)!.log_viewer_refresh),
+                ),
+              ),
               PopupMenuItem(
                 value: 'overlay',
                 child: ValueListenableBuilder<bool>(
                   valueListenable: LogOverlayController.instance.visibleListenable,
-                  builder: (_, v, _) => ListTile(dense: true, leading: Icon(v ? Broken.monitor : Broken.video_slash, size: 18, color: v ? Colors.greenAccent : null), title: Text(v ? 'Cacher overlay' : 'Overlay live')),
+                  builder: (_, v, _) => ListTile(
+                    dense: true,
+                    leading: Icon(v ? Broken.monitor : Broken.video_slash,
+                        size: 18, color: v ? Colors.greenAccent : null),
+                    title: Text(v
+                        ? l10nLocalizations(context)!.log_viewer_overlay_hide
+                        : l10nLocalizations(context)!.log_viewer_overlay_live),
+                  ),
                 ),
               ),
               PopupMenuItem(
                 value: 'scroll',
-                child: ListTile(dense: true, leading: Icon(_autoScroll ? Broken.arrow_down : Broken.arrow_up, size: 18, color: _autoScroll ? cs.primary : null), title: Text(_autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF')),
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(
+                      _autoScroll ? Broken.arrow_down : Broken.arrow_up,
+                      size: 18,
+                      color: _autoScroll ? cs.primary : null),
+                  title: Text(_autoScroll
+                      ? l10nLocalizations(context)!.log_viewer_autoscroll_on
+                      : l10nLocalizations(context)!.log_viewer_autoscroll_off),
+                ),
               ),
-              const PopupMenuItem(value: 'clear', child: ListTile(dense: true, leading: Icon(Broken.trash, size: 18, color: Colors.red), title: Text('Vider les logs'))),
+              PopupMenuItem(
+                value: 'clear',
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Broken.trash, size: 18, color: Colors.red),
+                  title: Text(
+                      l10nLocalizations(context)!.log_viewer_clear_logs),
+                ),
+              ),
             ],
           ),
         ],
@@ -698,7 +730,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                           .clamp(160.0, 290.0)
                           .toDouble(),
                       trigger: Tooltip(
-                        message: 'Filtres',
+                        message: l10nLocalizations(context)!.log_viewer_filters,
                         child: Padding(
                           padding: const EdgeInsets.all(10),
                           child: Icon(
@@ -752,8 +784,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                       const SizedBox(height: 12),
                       Text(
                         _lines.isEmpty
-                            ? 'Aucun log enregistré'
-                            : 'Aucun résultat',
+                            ? l10nLocalizations(context)!.log_viewer_no_log
+                            : l10nLocalizations(context)!.log_viewer_no_result,
                         style: TextStyle(
                           color: cs.onSurface.withValues(alpha: 0.4),
                           fontSize: 14,
@@ -767,7 +799,8 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                         TextButton.icon(
                           onPressed: _clearFilters,
                           icon: const Icon(Broken.refresh_left_square, size: 16),
-                          label: const Text('Effacer les filtres'),
+                          label: Text(
+                              l10nLocalizations(context)!.log_viewer_clear_filters),
                         ),
                       ],
                     ],
@@ -784,7 +817,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
       floatingActionButton: _loading
           ? null
           : FloatingActionButton.small(
-              tooltip: 'Aller en bas',
+              tooltip: l10nLocalizations(context)!.log_viewer_scroll_bottom,
               onPressed: _scrollToBottom,
               child: const Icon(Broken.arrow_down),
             ),
@@ -794,7 +827,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         child: Row(
           children: [
             Text(
-              '${_filtered.length} ligne${_filtered.length != 1 ? 's' : ''}',
+              _filtered.length != 1
+                  ? l10nLocalizations(context)!
+                      .log_viewer_lines(_filtered.length.toString())
+                  : l10nLocalizations(context)!
+                      .log_viewer_line(_filtered.length.toString()),
               style: TextStyle(
                 fontSize: 11,
                 color: cs.onSurface.withValues(alpha: 0.5),
@@ -803,7 +840,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             ),
             if (_search.text.isNotEmpty) ...[
               Text(
-                ' · filtre: "${_search.text}"',
+                l10nLocalizations(context)!.log_viewer_filter(_search.text),
                 style: TextStyle(
                   fontSize: 11,
                   color: cs.primary.withValues(alpha: 0.7),
@@ -814,7 +851,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
             const Spacer(),
             if (_errorCount > 0)
               Text(
-                '$_errorCount erreur${_errorCount != 1 ? 's' : ''}',
+                _errorCount != 1
+                    ? l10nLocalizations(context)!
+                        .log_viewer_errors(_errorCount.toString())
+                    : l10nLocalizations(context)!
+                        .log_viewer_error(_errorCount.toString()),
                 style: const TextStyle(
                   fontSize: 11,
                   color: Colors.red,
@@ -828,7 +869,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               ),
             if (_warnCount > 0)
               Text(
-                '$_warnCount warning${_warnCount != 1 ? 's' : ''}',
+                _warnCount != 1
+                    ? l10nLocalizations(context)!
+                        .log_viewer_warnings(_warnCount.toString())
+                    : l10nLocalizations(context)!
+                        .log_viewer_warning(_warnCount.toString()),
                 style: const TextStyle(
                   fontSize: 11,
                   color: Colors.orange,
@@ -896,7 +941,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
               controller: _search,
               style: GoogleFonts.jetBrainsMono(fontSize: 12),
               decoration: InputDecoration(
-                hintText: 'Filtrer les logs…',
+                hintText: l10nLocalizations(context)!.log_viewer_filter_hint,
                 hintStyle: TextStyle(
                   fontSize: 12,
                   color: cs.onSurface.withValues(alpha: 0.4),
@@ -989,10 +1034,11 @@ class _LogFiltersMenuState extends State<_LogFiltersMenu> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AdaptiveOverlaySection(title: 'Type de contenu'),
+        AdaptiveOverlaySection(
+            title: l10nLocalizations(context)!.log_viewer_content_type),
         AdaptiveOverlayItem(
           icon: Broken.global,
-          label: 'Tout afficher',
+          label: l10nLocalizations(context)!.log_viewer_show_all,
           selected: widget.categories.isEmpty,
           onTap: () {
             widget.onClearCategories();
@@ -1002,18 +1048,26 @@ class _LogFiltersMenuState extends State<_LogFiltersMenu> {
         for (final category in _LogCategory.values)
           AdaptiveOverlayItem(
             icon: category.icon,
-            label: category.label,
+            label: _categoryLabel(context, category),
             selected: widget.categories.contains(category),
             onTap: () => _toggleCategory(category),
           ),
         const AdaptiveOverlayDivider(),
-        const AdaptiveOverlaySection(title: 'Niveau'),
-        for (final entry in const [
-          (_LineType.error, 'Erreur', Broken.close_circle),
-          (_LineType.warning, 'Avertissement', Broken.warning_2),
-          (_LineType.success, 'Réussite', Broken.tick_circle),
-          (_LineType.info, 'Info', Broken.info_circle),
-          (_LineType.debug, 'Debug', Broken.code_1),
+        AdaptiveOverlaySection(
+            title: l10nLocalizations(context)!.log_viewer_level),
+        for (final entry in [
+          (_LineType.error, l10nLocalizations(context)!.log_viewer_error_level,
+              Broken.close_circle),
+          (_LineType.warning,
+              l10nLocalizations(context)!.log_viewer_warning_level,
+              Broken.warning_2),
+          (_LineType.success,
+              l10nLocalizations(context)!.log_viewer_success_level,
+              Broken.tick_circle),
+          (_LineType.info, l10nLocalizations(context)!.log_viewer_info_level,
+              Broken.info_circle),
+          (_LineType.debug, l10nLocalizations(context)!.log_viewer_debug_level,
+              Broken.code_1),
         ])
           AdaptiveOverlayItem(
             icon: entry.$3,
@@ -1023,7 +1077,8 @@ class _LogFiltersMenuState extends State<_LogFiltersMenu> {
           ),
         if (widget.availableTags.isNotEmpty) ...[
           const AdaptiveOverlayDivider(),
-          const AdaptiveOverlaySection(title: 'Tags'),
+          AdaptiveOverlaySection(
+              title: l10nLocalizations(context)!.log_viewer_tags),
           for (final tag in widget.availableTags)
             AdaptiveOverlayItem(
               icon: Broken.tag,
@@ -1038,7 +1093,7 @@ class _LogFiltersMenuState extends State<_LogFiltersMenu> {
           const AdaptiveOverlayDivider(),
           AdaptiveOverlayItem(
             icon: Broken.refresh_left_square,
-            label: 'Réinitialiser tous les filtres',
+            label: l10nLocalizations(context)!.log_viewer_reset_filters,
             onTap: () {
               widget.onClear();
               setState(() {});
@@ -1354,7 +1409,7 @@ class _LogUrlWebView extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            tooltip: 'Ouvrir dans le navigateur',
+            tooltip: l10nLocalizations(context)!.log_viewer_open_browser,
             icon: const Icon(Broken.global, size: 20),
             onPressed: () => launchUrl(
               Uri.parse(url),
@@ -1458,13 +1513,17 @@ final _imageCategoryRegex = RegExp(
   caseSensitive: false,
 );
 
+String _categoryLabel(BuildContext context, _LogCategory category) {
+  final l10n = l10nLocalizations(context)!;
+  return switch (category) {
+    _LogCategory.extensions => l10n.log_viewer_cat_extensions,
+    _LogCategory.watch => l10n.log_viewer_cat_watch,
+    _LogCategory.manga => l10n.log_viewer_cat_manga,
+    _LogCategory.images => l10n.log_viewer_cat_images,
+  };
+}
+
 extension on _LogCategory {
-  String get label => switch (this) {
-        _LogCategory.extensions => 'Extensions',
-        _LogCategory.watch => 'Watch',
-        _LogCategory.manga => 'Manga',
-        _LogCategory.images => 'Images',
-      };
 
   IconData get icon => switch (this) {
         _LogCategory.extensions => Broken.global,

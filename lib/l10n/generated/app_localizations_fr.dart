@@ -10175,4 +10175,275 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get remote_connect => 'Connecter';
+
+  @override
+  String get about_developer => 'Développeur';
+
+  @override
+  String get about_check_now => 'Vérifier maintenant';
+
+  @override
+  String get about_check_hint => 'Rechercher la dernière version disponible';
+
+  @override
+  String about_up_to_date(Object version) {
+    return 'Vous avez la dernière version : $version';
+  }
+
+  @override
+  String get about_read_logs => 'Lire les logs';
+
+  @override
+  String get about_logs_hint => 'Affichage complet, coloré et filtrable';
+
+  @override
+  String get about_binary_engines => 'MOTEURS BINAIRES';
+
+  @override
+  String get about_choose_engines =>
+      'Choisissez les moteurs à installer selon vos besoins.';
+
+  @override
+  String get about_engine_download => 'Téléchargement';
+
+  @override
+  String get about_aria2_desc =>
+      'Moteur multi-connexion pour HTTP, FTP, BitTorrent et Magnet.';
+
+  @override
+  String get about_more_engines =>
+      'D’autres moteurs seront disponibles prochainement.';
+
+  @override
+  String get about_installed => 'Installé';
+
+  @override
+  String get about_available => 'Disponible';
+
+  @override
+  String get about_stable => 'Stable';
+
+  @override
+  String get about_aria2_tagline =>
+      'Moteur de téléchargement multi-connexion haute performance';
+
+  @override
+  String get about_feature_multi => 'Multi-connexions';
+
+  @override
+  String get about_feature_resume => 'Reprise';
+
+  @override
+  String get about_feature_open_source => 'Open source';
+
+  @override
+  String get about_import_binary => 'Importer un binaire local';
+
+  @override
+  String about_aria2_fetch_failed(Object code) {
+    return 'Impossible de récupérer la release aria2 ($code)';
+  }
+
+  @override
+  String get about_aria2_none => 'Aucun binaire aria2 disponible';
+
+  @override
+  String about_aria2_error(Object error) {
+    return 'Erreur récupération aria2 : $error';
+  }
+
+  @override
+  String get about_download_aria2c => 'Télécharger aria2c';
+
+  @override
+  String get about_choose_aria2c => 'Choisir un binaire aria2c';
+
+  @override
+  String get about_file_unreachable => 'Fichier inaccessible';
+
+  @override
+  String about_binary_imported(Object name) {
+    return 'Binaire aria2c importé : $name';
+  }
+
+  @override
+  String about_import_failed(Object error) {
+    return 'Import échoué : $error';
+  }
+
+  @override
+  String get about_choose_binary => 'Choisir le binaire';
+
+  @override
+  String get about_compatible => 'Compatible';
+
+  @override
+  String get about_all_platforms => 'Toutes plateformes';
+
+  @override
+  String get about_download_complete => 'Téléchargement terminé';
+
+  @override
+  String get about_download_failed => 'Échec du téléchargement';
+
+  @override
+  String get log_viewer_title => 'Logs';
+
+  @override
+  String get log_viewer_copy_all => 'Copier tout';
+
+  @override
+  String get log_viewer_download_share => 'Télécharger / Partager';
+
+  @override
+  String get log_viewer_download_txt => 'Télécharger .txt';
+
+  @override
+  String get log_viewer_download_md => 'Télécharger .md';
+
+  @override
+  String get log_viewer_share => 'Partager';
+
+  @override
+  String get log_viewer_refresh => 'Rafraîchir';
+
+  @override
+  String get log_viewer_options => 'Options';
+
+  @override
+  String get log_viewer_overlay_hide => 'Cacher overlay';
+
+  @override
+  String get log_viewer_overlay_live => 'Overlay live';
+
+  @override
+  String get log_viewer_autoscroll_on => 'Auto-scroll ON';
+
+  @override
+  String get log_viewer_autoscroll_off => 'Auto-scroll OFF';
+
+  @override
+  String get log_viewer_clear_logs => 'Vider les logs';
+
+  @override
+  String get log_viewer_filters => 'Filtres';
+
+  @override
+  String get log_viewer_no_log => 'Aucun log enregistré';
+
+  @override
+  String get log_viewer_no_result => 'Aucun résultat';
+
+  @override
+  String get log_viewer_clear_filters => 'Effacer les filtres';
+
+  @override
+  String get log_viewer_scroll_bottom => 'Aller en bas';
+
+  @override
+  String log_viewer_line(Object count) {
+    return '$count ligne';
+  }
+
+  @override
+  String log_viewer_lines(Object count) {
+    return '$count lignes';
+  }
+
+  @override
+  String log_viewer_filter(Object query) {
+    return ' · filtre: \"$query\"';
+  }
+
+  @override
+  String log_viewer_error(Object count) {
+    return '$count erreur';
+  }
+
+  @override
+  String log_viewer_errors(Object count) {
+    return '$count erreurs';
+  }
+
+  @override
+  String log_viewer_warning(Object count) {
+    return '$count warning';
+  }
+
+  @override
+  String log_viewer_warnings(Object count) {
+    return '$count warnings';
+  }
+
+  @override
+  String get log_viewer_filter_hint => 'Filtrer les logs…';
+
+  @override
+  String get log_viewer_content_type => 'Type de contenu';
+
+  @override
+  String get log_viewer_show_all => 'Tout afficher';
+
+  @override
+  String get log_viewer_level => 'Niveau';
+
+  @override
+  String get log_viewer_error_level => 'Erreur';
+
+  @override
+  String get log_viewer_warning_level => 'Avertissement';
+
+  @override
+  String get log_viewer_success_level => 'Réussite';
+
+  @override
+  String get log_viewer_info_level => 'Info';
+
+  @override
+  String get log_viewer_debug_level => 'Debug';
+
+  @override
+  String get log_viewer_tags => 'Tags';
+
+  @override
+  String get log_viewer_reset_filters => 'Réinitialiser tous les filtres';
+
+  @override
+  String get log_viewer_open_browser => 'Ouvrir dans le navigateur';
+
+  @override
+  String get log_viewer_cat_extensions => 'Extensions';
+
+  @override
+  String get log_viewer_cat_watch => 'Watch';
+
+  @override
+  String get log_viewer_cat_manga => 'Manga';
+
+  @override
+  String get log_viewer_cat_images => 'Images';
+
+  @override
+  String get log_viewer_no_file => 'Aucun fichier log trouvé';
+
+  @override
+  String log_viewer_saved(Object path) {
+    return 'Enregistré : $path';
+  }
+
+  @override
+  String log_viewer_download_error(Object error) {
+    return 'Erreur téléchargement : $error';
+  }
+
+  @override
+  String get log_viewer_copied => 'Logs copiés dans le presse-papiers';
+
+  @override
+  String get log_viewer_mode_extreme =>
+      '⚡ Extreme – tout est logué. RAM +++. À utiliser avec précaution.';
+
+  @override
+  String get log_viewer_mode_debug_warn =>
+      '⚠ Mode Debug actif – consommation RAM élevée';
 }

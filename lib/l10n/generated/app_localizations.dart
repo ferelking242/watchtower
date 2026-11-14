@@ -17878,6 +17878,480 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Connect'**
   String get remote_connect;
+
+  /// No description provided for @about_developer.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get about_developer;
+
+  /// No description provided for @about_check_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get about_check_now;
+
+  /// No description provided for @about_check_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Look for the latest available version'**
+  String get about_check_hint;
+
+  /// No description provided for @about_up_to_date.
+  ///
+  /// In en, this message translates to:
+  /// **'You have the latest version: {version}'**
+  String about_up_to_date(Object version);
+
+  /// No description provided for @about_read_logs.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the logs'**
+  String get about_read_logs;
+
+  /// No description provided for @about_logs_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Full, coloured and filterable view'**
+  String get about_logs_hint;
+
+  /// No description provided for @about_binary_engines.
+  ///
+  /// In en, this message translates to:
+  /// **'BINARY ENGINES'**
+  String get about_binary_engines;
+
+  /// No description provided for @about_choose_engines.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick the engines to install for your needs.'**
+  String get about_choose_engines;
+
+  /// No description provided for @about_engine_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get about_engine_download;
+
+  /// No description provided for @about_aria2_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Multi-connection engine for HTTP, FTP, BitTorrent and Magnet.'**
+  String get about_aria2_desc;
+
+  /// No description provided for @about_more_engines.
+  ///
+  /// In en, this message translates to:
+  /// **'More engines are coming soon.'**
+  String get about_more_engines;
+
+  /// No description provided for @about_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed'**
+  String get about_installed;
+
+  /// No description provided for @about_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get about_available;
+
+  /// No description provided for @about_stable.
+  ///
+  /// In en, this message translates to:
+  /// **'Stable'**
+  String get about_stable;
+
+  /// No description provided for @about_aria2_tagline.
+  ///
+  /// In en, this message translates to:
+  /// **'High-performance multi-connection download engine'**
+  String get about_aria2_tagline;
+
+  /// No description provided for @about_feature_multi.
+  ///
+  /// In en, this message translates to:
+  /// **'Multi-connections'**
+  String get about_feature_multi;
+
+  /// No description provided for @about_feature_resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get about_feature_resume;
+
+  /// No description provided for @about_feature_open_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Open source'**
+  String get about_feature_open_source;
+
+  /// No description provided for @about_import_binary.
+  ///
+  /// In en, this message translates to:
+  /// **'Import a local binary'**
+  String get about_import_binary;
+
+  /// No description provided for @about_aria2_fetch_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not fetch the aria2 release ({code})'**
+  String about_aria2_fetch_failed(Object code);
+
+  /// No description provided for @about_aria2_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No aria2 binary available'**
+  String get about_aria2_none;
+
+  /// No description provided for @about_aria2_error.
+  ///
+  /// In en, this message translates to:
+  /// **'aria2 fetch error: {error}'**
+  String about_aria2_error(Object error);
+
+  /// No description provided for @about_download_aria2c.
+  ///
+  /// In en, this message translates to:
+  /// **'Download aria2c'**
+  String get about_download_aria2c;
+
+  /// No description provided for @about_choose_aria2c.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an aria2c binary'**
+  String get about_choose_aria2c;
+
+  /// No description provided for @about_file_unreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'File unreachable'**
+  String get about_file_unreachable;
+
+  /// No description provided for @about_binary_imported.
+  ///
+  /// In en, this message translates to:
+  /// **'aria2c binary imported: {name}'**
+  String about_binary_imported(Object name);
+
+  /// No description provided for @about_import_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: {error}'**
+  String about_import_failed(Object error);
+
+  /// No description provided for @about_choose_binary.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the binary'**
+  String get about_choose_binary;
+
+  /// No description provided for @about_compatible.
+  ///
+  /// In en, this message translates to:
+  /// **'Compatible'**
+  String get about_compatible;
+
+  /// No description provided for @about_all_platforms.
+  ///
+  /// In en, this message translates to:
+  /// **'All platforms'**
+  String get about_all_platforms;
+
+  /// No description provided for @about_download_complete.
+  ///
+  /// In en, this message translates to:
+  /// **'Download complete'**
+  String get about_download_complete;
+
+  /// No description provided for @about_download_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed'**
+  String get about_download_failed;
+
+  /// No description provided for @log_viewer_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Logs'**
+  String get log_viewer_title;
+
+  /// No description provided for @log_viewer_copy_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy all'**
+  String get log_viewer_copy_all;
+
+  /// No description provided for @log_viewer_download_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Download / Share'**
+  String get log_viewer_download_share;
+
+  /// No description provided for @log_viewer_download_txt.
+  ///
+  /// In en, this message translates to:
+  /// **'Download .txt'**
+  String get log_viewer_download_txt;
+
+  /// No description provided for @log_viewer_download_md.
+  ///
+  /// In en, this message translates to:
+  /// **'Download .md'**
+  String get log_viewer_download_md;
+
+  /// No description provided for @log_viewer_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get log_viewer_share;
+
+  /// No description provided for @log_viewer_refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get log_viewer_refresh;
+
+  /// No description provided for @log_viewer_options.
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get log_viewer_options;
+
+  /// No description provided for @log_viewer_overlay_hide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide overlay'**
+  String get log_viewer_overlay_hide;
+
+  /// No description provided for @log_viewer_overlay_live.
+  ///
+  /// In en, this message translates to:
+  /// **'Live overlay'**
+  String get log_viewer_overlay_live;
+
+  /// No description provided for @log_viewer_autoscroll_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-scroll ON'**
+  String get log_viewer_autoscroll_on;
+
+  /// No description provided for @log_viewer_autoscroll_off.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-scroll OFF'**
+  String get log_viewer_autoscroll_off;
+
+  /// No description provided for @log_viewer_clear_logs.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the logs'**
+  String get log_viewer_clear_logs;
+
+  /// No description provided for @log_viewer_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get log_viewer_filters;
+
+  /// No description provided for @log_viewer_no_log.
+  ///
+  /// In en, this message translates to:
+  /// **'No log recorded'**
+  String get log_viewer_no_log;
+
+  /// No description provided for @log_viewer_no_result.
+  ///
+  /// In en, this message translates to:
+  /// **'No result'**
+  String get log_viewer_no_result;
+
+  /// No description provided for @log_viewer_clear_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the filters'**
+  String get log_viewer_clear_filters;
+
+  /// No description provided for @log_viewer_scroll_bottom.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to the bottom'**
+  String get log_viewer_scroll_bottom;
+
+  /// No description provided for @log_viewer_line.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} line'**
+  String log_viewer_line(Object count);
+
+  /// No description provided for @log_viewer_lines.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} lines'**
+  String log_viewer_lines(Object count);
+
+  /// No description provided for @log_viewer_filter.
+  ///
+  /// In en, this message translates to:
+  /// **' · filter: \"{query}\"'**
+  String log_viewer_filter(Object query);
+
+  /// No description provided for @log_viewer_error.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} error'**
+  String log_viewer_error(Object count);
+
+  /// No description provided for @log_viewer_errors.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} errors'**
+  String log_viewer_errors(Object count);
+
+  /// No description provided for @log_viewer_warning.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} warning'**
+  String log_viewer_warning(Object count);
+
+  /// No description provided for @log_viewer_warnings.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} warnings'**
+  String log_viewer_warnings(Object count);
+
+  /// No description provided for @log_viewer_filter_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter the logs…'**
+  String get log_viewer_filter_hint;
+
+  /// No description provided for @log_viewer_content_type.
+  ///
+  /// In en, this message translates to:
+  /// **'Content type'**
+  String get log_viewer_content_type;
+
+  /// No description provided for @log_viewer_show_all.
+  ///
+  /// In en, this message translates to:
+  /// **'Show everything'**
+  String get log_viewer_show_all;
+
+  /// No description provided for @log_viewer_level.
+  ///
+  /// In en, this message translates to:
+  /// **'Level'**
+  String get log_viewer_level;
+
+  /// No description provided for @log_viewer_error_level.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get log_viewer_error_level;
+
+  /// No description provided for @log_viewer_warning_level.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning'**
+  String get log_viewer_warning_level;
+
+  /// No description provided for @log_viewer_success_level.
+  ///
+  /// In en, this message translates to:
+  /// **'Success'**
+  String get log_viewer_success_level;
+
+  /// No description provided for @log_viewer_info_level.
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get log_viewer_info_level;
+
+  /// No description provided for @log_viewer_debug_level.
+  ///
+  /// In en, this message translates to:
+  /// **'Debug'**
+  String get log_viewer_debug_level;
+
+  /// No description provided for @log_viewer_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get log_viewer_tags;
+
+  /// No description provided for @log_viewer_reset_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all the filters'**
+  String get log_viewer_reset_filters;
+
+  /// No description provided for @log_viewer_open_browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in the browser'**
+  String get log_viewer_open_browser;
+
+  /// No description provided for @log_viewer_cat_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions'**
+  String get log_viewer_cat_extensions;
+
+  /// No description provided for @log_viewer_cat_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get log_viewer_cat_watch;
+
+  /// No description provided for @log_viewer_cat_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga'**
+  String get log_viewer_cat_manga;
+
+  /// No description provided for @log_viewer_cat_images.
+  ///
+  /// In en, this message translates to:
+  /// **'Images'**
+  String get log_viewer_cat_images;
+
+  /// No description provided for @log_viewer_no_file.
+  ///
+  /// In en, this message translates to:
+  /// **'No log file found'**
+  String get log_viewer_no_file;
+
+  /// No description provided for @log_viewer_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved: {path}'**
+  String log_viewer_saved(Object path);
+
+  /// No description provided for @log_viewer_download_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Download error: {error}'**
+  String log_viewer_download_error(Object error);
+
+  /// No description provided for @log_viewer_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Logs copied to the clipboard'**
+  String get log_viewer_copied;
+
+  /// No description provided for @log_viewer_mode_extreme.
+  ///
+  /// In en, this message translates to:
+  /// **'⚡ Extreme – everything is logged. RAM +++. Use with care.'**
+  String get log_viewer_mode_extreme;
+
+  /// No description provided for @log_viewer_mode_debug_warn.
+  ///
+  /// In en, this message translates to:
+  /// **'⚠ Debug mode active – high RAM usage'**
+  String get log_viewer_mode_debug_warn;
 }
 
 class _AppLocalizationsDelegate

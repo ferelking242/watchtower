@@ -3057,6 +3057,118 @@ HOME_L10N = [
 ]
 
 
+# ── Log viewer ────────────────────────────────────────────────────────────────
+
+LOG_VIEWER = [
+    ("log_viewer_title", "Logs", "Logs"),
+    ("log_viewer_copy_all", "Copy all", "Copier tout"),
+    ("log_viewer_download_share", "Download / Share", "Télécharger / Partager"),
+    ("log_viewer_download_txt", "Download .txt", "Télécharger .txt"),
+    ("log_viewer_download_md", "Download .md", "Télécharger .md"),
+    ("log_viewer_share", "Share", "Partager"),
+    ("log_viewer_refresh", "Refresh", "Rafraîchir"),
+    ("log_viewer_options", "Options", "Options"),
+    ("log_viewer_overlay_hide", "Hide overlay", "Cacher overlay"),
+    ("log_viewer_overlay_live", "Live overlay", "Overlay live"),
+    ("log_viewer_autoscroll_on", "Auto-scroll ON", "Auto-scroll ON"),
+    ("log_viewer_autoscroll_off", "Auto-scroll OFF", "Auto-scroll OFF"),
+    ("log_viewer_clear_logs", "Clear the logs", "Vider les logs"),
+    ("log_viewer_filters", "Filters", "Filtres"),
+    ("log_viewer_no_log", "No log recorded", "Aucun log enregistré"),
+    ("log_viewer_no_result", "No result", "Aucun résultat"),
+    ("log_viewer_clear_filters", "Clear the filters", "Effacer les filtres"),
+    ("log_viewer_scroll_bottom", "Go to the bottom", "Aller en bas"),
+    ("log_viewer_line", "{count} line", "{count} ligne"),
+    ("log_viewer_lines", "{count} lines", "{count} lignes"),
+    ("log_viewer_filter", " · filter: \"{query}\"", " · filtre: \"{query}\""),
+    ("log_viewer_error", "{count} error", "{count} erreur"),
+    ("log_viewer_errors", "{count} errors", "{count} erreurs"),
+    ("log_viewer_warning", "{count} warning", "{count} warning"),
+    ("log_viewer_warnings", "{count} warnings", "{count} warnings"),
+    ("log_viewer_filter_hint", "Filter the logs…", "Filtrer les logs…"),
+    ("log_viewer_content_type", "Content type", "Type de contenu"),
+    ("log_viewer_show_all", "Show everything", "Tout afficher"),
+    ("log_viewer_level", "Level", "Niveau"),
+    ("log_viewer_error_level", "Error", "Erreur"),
+    ("log_viewer_warning_level", "Warning", "Avertissement"),
+    ("log_viewer_success_level", "Success", "Réussite"),
+    ("log_viewer_info_level", "Info", "Info"),
+    ("log_viewer_debug_level", "Debug", "Debug"),
+    ("log_viewer_tags", "Tags", "Tags"),
+    ("log_viewer_reset_filters", "Reset all the filters",
+     "Réinitialiser tous les filtres"),
+    ("log_viewer_open_browser", "Open in the browser", "Ouvrir dans le navigateur"),
+    ("log_viewer_cat_extensions", "Extensions", "Extensions"),
+    ("log_viewer_cat_watch", "Watch", "Watch"),
+    ("log_viewer_cat_manga", "Manga", "Manga"),
+    ("log_viewer_cat_images", "Images", "Images"),
+    ("log_viewer_no_file", "No log file found", "Aucun fichier log trouvé"),
+    ("log_viewer_saved", "Saved: {path}", "Enregistré : {path}"),
+    ("log_viewer_download_error", "Download error: {error}",
+     "Erreur téléchargement : {error}"),
+    ("log_viewer_copied", "Logs copied to the clipboard",
+     "Logs copiés dans le presse-papiers"),
+    ("log_viewer_mode_extreme",
+     "⚡ Extreme – everything is logged. RAM +++. Use with care.",
+     "⚡ Extreme – tout est logué. RAM +++. À utiliser avec précaution."),
+    ("log_viewer_mode_debug_warn",
+     "⚠ Debug mode active – high RAM usage",
+     "⚠ Mode Debug actif – consommation RAM élevée"),
+]
+
+
+# ── About screen (binary engines / aria2) ─────────────────────────────────────
+
+ABOUT = [
+    ("about_developer", "Developer", "Développeur"),
+    ("about_check_now", "Check now", "Vérifier maintenant"),
+    ("about_check_hint", "Look for the latest available version",
+     "Rechercher la dernière version disponible"),
+    ("about_up_to_date", "You have the latest version: {version}",
+     "Vous avez la dernière version : {version}"),
+    ("about_read_logs", "Read the logs", "Lire les logs"),
+    ("about_logs_hint", "Full, coloured and filterable view",
+     "Affichage complet, coloré et filtrable"),
+    ("about_binary_engines", "BINARY ENGINES", "MOTEURS BINAIRES"),
+    ("about_choose_engines", "Pick the engines to install for your needs.",
+     "Choisissez les moteurs à installer selon vos besoins."),
+    ("about_engine_download", "Download", "Téléchargement"),
+    ("about_aria2_desc",
+     "Multi-connection engine for HTTP, FTP, BitTorrent and Magnet.",
+     "Moteur multi-connexion pour HTTP, FTP, BitTorrent et Magnet."),
+    ("about_more_engines", "More engines are coming soon.",
+     "D’autres moteurs seront disponibles prochainement."),
+    ("about_installed", "Installed", "Installé"),
+    ("about_available", "Available", "Disponible"),
+    ("about_stable", "Stable", "Stable"),
+    ("about_aria2_tagline",
+     "High-performance multi-connection download engine",
+     "Moteur de téléchargement multi-connexion haute performance"),
+    ("about_feature_multi", "Multi-connections", "Multi-connexions"),
+    ("about_feature_resume", "Resume", "Reprise"),
+    ("about_feature_open_source", "Open source", "Open source"),
+    ("about_import_binary", "Import a local binary", "Importer un binaire local"),
+    ("about_aria2_fetch_failed",
+     "Could not fetch the aria2 release ({code})",
+     "Impossible de récupérer la release aria2 ({code})"),
+    ("about_aria2_none", "No aria2 binary available",
+     "Aucun binaire aria2 disponible"),
+    ("about_aria2_error", "aria2 fetch error: {error}",
+     "Erreur récupération aria2 : {error}"),
+    ("about_download_aria2c", "Download aria2c", "Télécharger aria2c"),
+    ("about_choose_aria2c", "Choose an aria2c binary", "Choisir un binaire aria2c"),
+    ("about_file_unreachable", "File unreachable", "Fichier inaccessible"),
+    ("about_binary_imported", "aria2c binary imported: {name}",
+     "Binaire aria2c importé : {name}"),
+    ("about_import_failed", "Import failed: {error}", "Import échoué : {error}"),
+    ("about_choose_binary", "Choose the binary", "Choisir le binaire"),
+    ("about_compatible", "Compatible", "Compatible"),
+    ("about_all_platforms", "All platforms", "Toutes plateformes"),
+    ("about_download_complete", "Download complete", "Téléchargement terminé"),
+    ("about_download_failed", "Download failed", "Échec du téléchargement"),
+]
+
+
 # ── Remote mode / remote setup ────────────────────────────────────────────────
 
 REMOTE = [
@@ -3368,6 +3480,10 @@ en_entries += [(key, en) for key, en, _ in DOWNLOAD_SHEET]
 fr_entries += [(key, fr) for key, _, fr in DOWNLOAD_SHEET]
 en_entries += [(key, en) for key, en, _ in REMOTE]
 fr_entries += [(key, fr) for key, _, fr in REMOTE]
+en_entries += [(key, en) for key, en, _ in ABOUT]
+fr_entries += [(key, fr) for key, _, fr in ABOUT]
+en_entries += [(key, en) for key, en, _ in LOG_VIEWER]
+fr_entries += [(key, fr) for key, _, fr in LOG_VIEWER]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

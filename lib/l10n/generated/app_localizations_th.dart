@@ -10036,4 +10036,274 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get remote_connect => 'Connect';
+
+  @override
+  String get about_developer => 'Developer';
+
+  @override
+  String get about_check_now => 'Check now';
+
+  @override
+  String get about_check_hint => 'Look for the latest available version';
+
+  @override
+  String about_up_to_date(Object version) {
+    return 'You have the latest version: $version';
+  }
+
+  @override
+  String get about_read_logs => 'Read the logs';
+
+  @override
+  String get about_logs_hint => 'Full, coloured and filterable view';
+
+  @override
+  String get about_binary_engines => 'BINARY ENGINES';
+
+  @override
+  String get about_choose_engines =>
+      'Pick the engines to install for your needs.';
+
+  @override
+  String get about_engine_download => 'Download';
+
+  @override
+  String get about_aria2_desc =>
+      'Multi-connection engine for HTTP, FTP, BitTorrent and Magnet.';
+
+  @override
+  String get about_more_engines => 'More engines are coming soon.';
+
+  @override
+  String get about_installed => 'Installed';
+
+  @override
+  String get about_available => 'Available';
+
+  @override
+  String get about_stable => 'Stable';
+
+  @override
+  String get about_aria2_tagline =>
+      'High-performance multi-connection download engine';
+
+  @override
+  String get about_feature_multi => 'Multi-connections';
+
+  @override
+  String get about_feature_resume => 'Resume';
+
+  @override
+  String get about_feature_open_source => 'Open source';
+
+  @override
+  String get about_import_binary => 'Import a local binary';
+
+  @override
+  String about_aria2_fetch_failed(Object code) {
+    return 'Could not fetch the aria2 release ($code)';
+  }
+
+  @override
+  String get about_aria2_none => 'No aria2 binary available';
+
+  @override
+  String about_aria2_error(Object error) {
+    return 'aria2 fetch error: $error';
+  }
+
+  @override
+  String get about_download_aria2c => 'Download aria2c';
+
+  @override
+  String get about_choose_aria2c => 'Choose an aria2c binary';
+
+  @override
+  String get about_file_unreachable => 'File unreachable';
+
+  @override
+  String about_binary_imported(Object name) {
+    return 'aria2c binary imported: $name';
+  }
+
+  @override
+  String about_import_failed(Object error) {
+    return 'Import failed: $error';
+  }
+
+  @override
+  String get about_choose_binary => 'Choose the binary';
+
+  @override
+  String get about_compatible => 'Compatible';
+
+  @override
+  String get about_all_platforms => 'All platforms';
+
+  @override
+  String get about_download_complete => 'Download complete';
+
+  @override
+  String get about_download_failed => 'Download failed';
+
+  @override
+  String get log_viewer_title => 'Logs';
+
+  @override
+  String get log_viewer_copy_all => 'Copy all';
+
+  @override
+  String get log_viewer_download_share => 'Download / Share';
+
+  @override
+  String get log_viewer_download_txt => 'Download .txt';
+
+  @override
+  String get log_viewer_download_md => 'Download .md';
+
+  @override
+  String get log_viewer_share => 'Share';
+
+  @override
+  String get log_viewer_refresh => 'Refresh';
+
+  @override
+  String get log_viewer_options => 'Options';
+
+  @override
+  String get log_viewer_overlay_hide => 'Hide overlay';
+
+  @override
+  String get log_viewer_overlay_live => 'Live overlay';
+
+  @override
+  String get log_viewer_autoscroll_on => 'Auto-scroll ON';
+
+  @override
+  String get log_viewer_autoscroll_off => 'Auto-scroll OFF';
+
+  @override
+  String get log_viewer_clear_logs => 'Clear the logs';
+
+  @override
+  String get log_viewer_filters => 'Filters';
+
+  @override
+  String get log_viewer_no_log => 'No log recorded';
+
+  @override
+  String get log_viewer_no_result => 'No result';
+
+  @override
+  String get log_viewer_clear_filters => 'Clear the filters';
+
+  @override
+  String get log_viewer_scroll_bottom => 'Go to the bottom';
+
+  @override
+  String log_viewer_line(Object count) {
+    return '$count line';
+  }
+
+  @override
+  String log_viewer_lines(Object count) {
+    return '$count lines';
+  }
+
+  @override
+  String log_viewer_filter(Object query) {
+    return ' · filter: \"$query\"';
+  }
+
+  @override
+  String log_viewer_error(Object count) {
+    return '$count error';
+  }
+
+  @override
+  String log_viewer_errors(Object count) {
+    return '$count errors';
+  }
+
+  @override
+  String log_viewer_warning(Object count) {
+    return '$count warning';
+  }
+
+  @override
+  String log_viewer_warnings(Object count) {
+    return '$count warnings';
+  }
+
+  @override
+  String get log_viewer_filter_hint => 'Filter the logs…';
+
+  @override
+  String get log_viewer_content_type => 'Content type';
+
+  @override
+  String get log_viewer_show_all => 'Show everything';
+
+  @override
+  String get log_viewer_level => 'Level';
+
+  @override
+  String get log_viewer_error_level => 'Error';
+
+  @override
+  String get log_viewer_warning_level => 'Warning';
+
+  @override
+  String get log_viewer_success_level => 'Success';
+
+  @override
+  String get log_viewer_info_level => 'Info';
+
+  @override
+  String get log_viewer_debug_level => 'Debug';
+
+  @override
+  String get log_viewer_tags => 'Tags';
+
+  @override
+  String get log_viewer_reset_filters => 'Reset all the filters';
+
+  @override
+  String get log_viewer_open_browser => 'Open in the browser';
+
+  @override
+  String get log_viewer_cat_extensions => 'Extensions';
+
+  @override
+  String get log_viewer_cat_watch => 'Watch';
+
+  @override
+  String get log_viewer_cat_manga => 'Manga';
+
+  @override
+  String get log_viewer_cat_images => 'Images';
+
+  @override
+  String get log_viewer_no_file => 'No log file found';
+
+  @override
+  String log_viewer_saved(Object path) {
+    return 'Saved: $path';
+  }
+
+  @override
+  String log_viewer_download_error(Object error) {
+    return 'Download error: $error';
+  }
+
+  @override
+  String get log_viewer_copied => 'Logs copied to the clipboard';
+
+  @override
+  String get log_viewer_mode_extreme =>
+      '⚡ Extreme – everything is logged. RAM +++. Use with care.';
+
+  @override
+  String get log_viewer_mode_debug_warn =>
+      '⚠ Debug mode active – high RAM usage';
 }

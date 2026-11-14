@@ -185,7 +185,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                       children: [
 
                         // ── App updates ────────────────────────────────────
-                        _SectionLabel(label: 'Updates', cs: cs),
+                        _SectionLabel(label: l10n.updates, cs: cs),
                         const SizedBox(height: 8),
                         _GlassCard(
                           cs: cs,
@@ -232,14 +232,14 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                       color: cs.primary, size: 16),
                                 ),
                                 title: Text(
-                                  'Vérifier maintenant',
+                                  l10n.about_check_now,
                                   style: GoogleFonts.inter(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 subtitle: Text(
-                                  'Rechercher la dernière version disponible',
+                                  l10n.about_check_hint,
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: cs.onSurface.withValues(alpha: 0.5),
@@ -266,7 +266,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                           info = await PackageInfo.fromPlatform();
                                           final result = await checkLatestRelease(forceRefresh: true);
                                           if (result.$1 == '0.0.0' || result.$1.isEmpty) {
-                                            if (mounted) botToast('Vous avez la dernière version : ${info.version}');
+                                            if (mounted) botToast(l10n.about_up_to_date(info.version));
                                           } else if (compareVersions(info.version, result.$1) < 0) {
                                             if (mounted) botToast(l10n.new_update_available);
                                             await Future.delayed(const Duration(seconds: 1));
@@ -279,10 +279,12 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                               );
                                             }
                                           } else {
-                                            if (mounted) botToast('Vous avez la dernière version : ${info.version}');
+                                            if (mounted) botToast(l10n.about_up_to_date(info.version));
                                           }
                                         } catch (_) {
-                                          if (mounted) botToast(info != null ? 'Vous avez la dernière version : ${info.version}' : l10n.no_new_updates_available);
+                                          if (mounted) botToast(info != null
+                                              ? l10n.about_up_to_date(info.version)
+                                              : l10n.no_new_updates_available);
                                         } finally {
                                           if (mounted) setState(() => _isCheckingUpdate = false);
                                         }
@@ -295,7 +297,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                         const SizedBox(height: 20),
 
                         // ── Logs ───────────────────────────────────────────
-                        _SectionLabel(label: 'Developer', cs: cs),
+                        _SectionLabel(label: l10n.about_developer, cs: cs),
                         const SizedBox(height: 8),
                         _GlassCard(
                           cs: cs,
@@ -398,14 +400,14 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                     color: cs.primary,
                                   ),
                                   title: Text(
-                                    'Lire les logs',
+                                    l10n.about_read_logs,
                                     style: GoogleFonts.inter(
                                       fontSize: 13.5,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                   subtitle: Text(
-                                    'Affichage complet, coloré et filtrable',
+                                    l10n.about_logs_hint,
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: cs.onSurface.withValues(alpha: 0.5),
@@ -580,6 +582,7 @@ class _BinaryStoreSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = l10nLocalizations(context)!;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -592,7 +595,7 @@ class _BinaryStoreSheet extends StatelessWidget {
                 Icon(Icons.memory_rounded, size: 20, color: cs.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'MOTEURS BINAIRES',
+                  l10n.about_binary_engines,
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -609,7 +612,7 @@ class _BinaryStoreSheet extends StatelessWidget {
               ],
             ),
             Text(
-              'Choisissez les moteurs à installer selon vos besoins.',
+              l10n.about_choose_engines,
               style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.55)),
             ),
             const SizedBox(height: 16),
@@ -617,15 +620,15 @@ class _BinaryStoreSheet extends StatelessWidget {
               icon: Icons.account_tree_rounded,
               iconColor: cs.tertiary,
               name: 'Aria2',
-              badge: 'Téléchargement',
+              badge: l10n.about_engine_download,
               badgeColor: cs.tertiary,
-              description: 'Moteur multi-connexion pour HTTP, FTP, BitTorrent et Magnet.',
+              description: l10n.about_aria2_desc,
               installed: false,
             ),
             const SizedBox(height: 14),
             Center(
               child: Text(
-                "D'autres moteurs seront disponibles prochainement.",
+                l10n.about_more_engines,
                 style: TextStyle(
                   fontSize: 11,
                   color: cs.onSurface.withValues(alpha: 0.4),
@@ -662,6 +665,7 @@ class _StoreEngineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = l10nLocalizations(context)!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -727,7 +731,7 @@ class _StoreEngineRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            installed ? 'Installé' : 'Disponible',
+            installed ? l10n.about_installed : l10n.about_available,
             style: TextStyle(
               fontSize: 11,
               color: installed ? Colors.green : cs.onSurface.withValues(alpha: 0.5),
@@ -749,6 +753,7 @@ class _Aria2Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = colorScheme;
+    final l10n = l10nLocalizations(context)!;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
@@ -827,8 +832,8 @@ class _Aria2Card extends StatelessWidget {
                             color: Colors.blue.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
-                            'Stable',
+                          child: Text(
+                            l10n.about_stable,
                             style: TextStyle(
                               fontSize: 9.5,
                               color: Colors.blue,
@@ -841,7 +846,7 @@ class _Aria2Card extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Moteur de téléchargement multi-connexion haute performance',
+                      l10n.about_aria2_tagline,
                       style: TextStyle(
                         fontSize: 11.5,
                         color: cs.onSurface.withValues(alpha: 0.55),
@@ -859,17 +864,19 @@ class _Aria2Card extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 4,
-            children: const [
-              _Aria2Feature(icon: Icons.speed_outlined, label: 'Multi-connexions'),
+            children: [
               _Aria2Feature(
-                  icon: Icons.pause_circle_outline, label: 'Reprise'),
+                  icon: Icons.speed_outlined, label: l10n.about_feature_multi),
               _Aria2Feature(
-                  icon: Icons.link_outlined, label: 'HTTP / FTP'),
-              _Aria2Feature(
+                  icon: Icons.pause_circle_outline,
+                  label: l10n.about_feature_resume),
+              const _Aria2Feature(icon: Icons.link_outlined, label: 'HTTP / FTP'),
+              const _Aria2Feature(
                   icon: Icons.share_outlined, label: 'BitTorrent'),
-              _Aria2Feature(
+              const _Aria2Feature(
                   icon: Icons.cloud_download_outlined, label: 'Magnet'),
-              _Aria2Feature(icon: Icons.code_outlined, label: 'Open source'),
+              _Aria2Feature(
+                  icon: Icons.code_outlined, label: l10n.about_feature_open_source),
             ],
           ),
           const Spacer(),
@@ -878,8 +885,8 @@ class _Aria2Card extends StatelessWidget {
             children: [
               FilledButton.tonalIcon(
                 icon: const Icon(Icons.download_rounded, size: 14),
-                label: const Text('Télécharger',
-                    style: TextStyle(fontSize: 12)),
+                label: Text(l10n.download,
+                    style: const TextStyle(fontSize: 12)),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   backgroundColor: cs.tertiary.withValues(alpha: 0.18),
@@ -899,7 +906,7 @@ class _Aria2Card extends StatelessWidget {
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
-                tooltip: 'Importer un binaire local',
+                tooltip: l10n.about_import_binary,
                 onPressed: () => _importAria2Binary(context),
                 icon: Icon(Icons.file_upload_outlined, size: 16, color: cs.tertiary),
               ),
@@ -1081,7 +1088,8 @@ Future<void> _autoFetchAria2Download(BuildContext context) async {
     );
     if (res.statusCode != 200) {
       if (context.mounted) {
-        botToast('Impossible de récupérer la release aria2 (${res.statusCode})');
+        botToast(l10nLocalizations(context)!
+            .about_aria2_fetch_failed(res.statusCode.toString()));
       }
       return;
     }
@@ -1099,7 +1107,9 @@ Future<void> _autoFetchAria2Download(BuildContext context) async {
         .toList();
 
     if (assets.isEmpty) {
-      if (context.mounted) botToast('Aucun binaire aria2 disponible');
+      if (context.mounted) {
+        botToast(l10nLocalizations(context)!.about_aria2_none);
+      }
       return;
     }
 
@@ -1114,7 +1124,9 @@ Future<void> _autoFetchAria2Download(BuildContext context) async {
     if (!context.mounted) return;
     await _startAria2Download(context, release);
   } catch (e) {
-    if (context.mounted) botToast('Erreur récupération aria2 : $e');
+    if (context.mounted) {
+      botToast(l10nLocalizations(context)!.about_aria2_error('$e'));
+    }
   }
 }
 
@@ -1153,7 +1165,7 @@ Future<void> _startAria2Download(
     context: context,
     barrierDismissible: false,
     builder: (_) => _BinaryDownloadDialog(
-      title: 'Télécharger aria2c',
+      title: l10nLocalizations(context)!.about_download_aria2c,
       subtitle: picked.name,
       url: picked.downloadUrl,
       installer: (u, onProgress) =>
@@ -1165,12 +1177,12 @@ Future<void> _startAria2Download(
 Future<void> _importAria2Binary(BuildContext context) async {
   try {
     final result = await FilePicker.pickFiles(
-      dialogTitle: 'Choisir un binaire aria2c',
+      dialogTitle: l10nLocalizations(context)!.about_choose_aria2c,
     );
     if (result == null || result.files.isEmpty) return;
     final source = result.files.single.path;
     if (source == null) {
-      botToast('Fichier inaccessible');
+      botToast(l10nLocalizations(context)!.about_file_unreachable);
       return;
     }
     final userOverride = await Aria2BinaryManager.instance.userOverrideDisplayPath();
@@ -1186,9 +1198,10 @@ Future<void> _importAria2Binary(BuildContext context) async {
     try {
       await Aria2BinaryManager.instance.resolveExecutable();
     } catch (_) {}
-    botToast('Binaire aria2c importé : ${source.split('/').last}');
+    botToast(l10nLocalizations(context)!
+        .about_binary_imported(source.split('/').last));
   } catch (e) {
-    botToast('Import échoué : $e');
+    botToast(l10nLocalizations(context)!.about_import_failed('$e'));
   }
 }
 
@@ -1233,7 +1246,7 @@ class _AssetPickerSheetState extends State<_AssetPickerSheet> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Choisir le binaire',
+                      l10nLocalizations(context)!.about_choose_binary,
                       style: const TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w700),
                     ),
@@ -1247,7 +1260,9 @@ class _AssetPickerSheetState extends State<_AssetPickerSheet> {
                         size: 15,
                       ),
                       label: Text(
-                        _showAll ? 'Compatible' : 'Toutes plateformes',
+                        _showAll
+                            ? l10nLocalizations(context)!.about_compatible
+                            : l10nLocalizations(context)!.about_all_platforms,
                         style: const TextStyle(fontSize: 12),
                       ),
                       onPressed: () => setState(() => _showAll = !_showAll),
@@ -1368,9 +1383,11 @@ class _BinaryDownloadDialogState extends State<_BinaryDownloadDialog> {
                   color: _success ? Colors.green : Colors.red,
                 ),
                 const SizedBox(width: 8),
-                Text(_success
-                    ? 'Téléchargement terminé'
-                    : 'Échec du téléchargement'),
+                Text(
+                  _success
+                      ? l10nLocalizations(context)!.about_download_complete
+                      : l10nLocalizations(context)!.about_download_failed,
+                ),
               ],
             ),
         ],
@@ -1380,7 +1397,11 @@ class _BinaryDownloadDialogState extends State<_BinaryDownloadDialog> {
           onPressed: _running
               ? null
               : () => Navigator.of(context).pop(),
-          child: Text(_done ? 'Fermer' : 'Annuler'),
+          child: Text(
+            _done
+                ? l10nLocalizations(context)!.general_close
+                : l10nLocalizations(context)!.cancel,
+          ),
         ),
       ],
     );
