@@ -3057,6 +3057,42 @@ HOME_L10N = [
 ]
 
 
+# ── Anime episode source search ───────────────────────────────────────────────
+
+EPISODE_SOURCES = [
+    ("episode_sources_tracks_failed", "Unable to load the tracks.",
+     "Impossible de charger les pistes."),
+    ("episode_sources_title", "Episode sources", "Sources de l’épisode"),
+    ("episode_sources_label", "Episode {number} · {title}",
+     "Épisode {number} · {title}"),
+    ("episode_sources_searching", "Searching {checked} / {total} sources",
+     "Recherche dans {checked} / {total} sources"),
+    ("episode_sources_no_extension",
+     "No active anime extension is installed.",
+     "Aucune extension anime active n’est installée."),
+    ("episode_sources_searching_hint",
+     "Searching for the episode on the installed extensions…",
+     "Recherche de l’épisode sur les extensions installées…"),
+    ("episode_sources_none", "No extension offers this episode.",
+     "Aucune extension ne propose cet épisode."),
+    ("episode_sources_unanswered", "{count} source(s) did not respond.",
+     "{count} source(s) n’ont pas répondu."),
+    ("episode_sources_extension", "Extension", "Extension"),
+    ("episode_sources_episode_n", "Episode {number}", "Épisode {number}"),
+    ("episode_sources_view_tracks", "View quality and subtitles",
+     "Voir qualité et sous-titres"),
+    ("episode_sources_retry_tracks", "Retry the tracks",
+     "Réessayer les pistes"),
+    ("episode_sources_no_track", "No video track detected.",
+     "Aucune piste vidéo détectée."),
+    ("episode_sources_quality", "Quality", "Qualité"),
+    ("episode_sources_audio", "Audio", "Audio"),
+    ("episode_sources_subtitles", "Subtitles", "Sous-titres"),
+    ("episode_sources_subtitles_none", "Not indicated", "Non indiqués"),
+    ("episode_sources_play", "Play this episode", "Lire cet épisode"),
+]
+
+
 # ── Watchtower global search hub ──────────────────────────────────────────────
 
 SEARCH_HUB = [
@@ -3191,6 +3227,8 @@ en_entries += [(key, en) for key, en, _ in TMDB_CATALOG]
 fr_entries += [(key, fr) for key, _, fr in TMDB_CATALOG]
 en_entries += [(key, en) for key, en, _ in SEARCH_HUB]
 fr_entries += [(key, fr) for key, _, fr in SEARCH_HUB]
+en_entries += [(key, en) for key, en, _ in EPISODE_SOURCES]
+fr_entries += [(key, fr) for key, _, fr in EPISODE_SOURCES]
 en_entries.append((PLURAL_KEY, PLURAL_VALUE))
 fr_entries.append((PLURAL_KEY, PLURAL_VALUE))
 

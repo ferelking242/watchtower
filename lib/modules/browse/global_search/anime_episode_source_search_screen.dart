@@ -155,7 +155,7 @@ class _AnimeEpisodeSourceSearchScreenState
       if (candidates.isNotEmpty) break;
     }
     if (completedSearches == 0) {
-      throw StateError('Les recherches de cette extension ont échoué.');
+      throw const ExtensionSearchFailed();
     }
 
     var failedDetails = 0;
@@ -188,7 +188,7 @@ class _AnimeEpisodeSourceSearchScreenState
       }
     }
     if (candidates.isNotEmpty && failedDetails == candidates.length) {
-      throw StateError('Les fiches de cette extension n’ont pas répondu.');
+      throw const ExtensionDetailsFailed();
     }
     return null;
   }
@@ -252,7 +252,9 @@ class _AnimeEpisodeSourceSearchScreenState
       if (mounted) setState(() => result.videos = videos);
     } catch (_) {
       if (mounted) {
-        setState(() => result.videoError = 'Impossible de charger les pistes.');
+        setState(
+          () => result.videoError = context.l10n.episode_sources_tracks_failed,
+        );
       }
     } finally {
       if (mounted) setState(() => result.isLoadingVideos = false);
@@ -341,11 +343,11 @@ class _AnimeEpisodeSourceSearchScreenState
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: context.l10n.media_back,
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Broken.arrow_left_2),
         ),
-        title: const Text('Sources de l’épisode'),
+        title: Text(context.l10n.episode_sources_title),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,7 +360,10 @@ class _AnimeEpisodeSourceSearchScreenState
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 Text(
-                  'Épisode $episode · ${widget.episode.displayTitle}',
+                  context.l10n.episode_sources_label(
+                    episode.toString(),
+                    widget.episode.displayTitle,
+                  ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
@@ -372,7 +377,10 @@ class _AnimeEpisodeSourceSearchScreenState
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'Recherche dans $_checkedSources / $_sourceCount sources',
+                    context.l10n.episode_sources_searching(
+                      _checkedSources.toString(),
+                      _sourceCount.toString(),
+                    ),
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ],
@@ -397,11 +405,12 @@ class _AnimeEpisodeSourceSearchScreenState
 
   Widget _emptyState(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final message = _sourceCount == 0
-        ? 'Aucune extension anime active n’est installée.'
+        ? l10n.episode_sources_no_extension
         : _isSearching
-        ? 'Recherche de l’épisode sur les extensions installées…'
-        : 'Aucune extension ne propose cet épisode.';
+        ? l10n.episode_sources_searching_hint
+        : l10n.episode_sources_none;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -418,7 +427,9 @@ class _AnimeEpisodeSourceSearchScreenState
             if (!_isSearching && _failedSources > 0) ...[
               const SizedBox(height: 6),
               Text(
-                '$_failedSources source(s) n’ont pas répondu.',
+                context.l10n.episode_sources_unanswered(
+                  _failedSources.toString(),
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
@@ -436,7 +447,7 @@ class _AnimeEpisodeSourceSearchScreenState
                   unawaited(_searchSources());
                 },
                 icon: const Icon(Broken.refresh),
-                label: const Text('Réessayer'),
+                label: Text(context.l10n.discover_retry),
               ),
             ],
           ],
@@ -501,13 +512,13 @@ class _AnimeEpisodeSourceSearchScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        result.source.name ?? 'Extension',
+                        result.source.name ?? context.l10n.episode_sources_extension,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '${completeLanguageName(result.source.lang ?? '')} · '
-                        '${result.episode.name ?? 'Épisode ${widget.episode.episodeNumber}'}',
+                        '${result.episode.name ?? context.l10n.episode_sources_episode_n(widget.episode.episodeNumber.toString())}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -538,8 +549,8 @@ class _AnimeEpisodeSourceSearchScreenState
                 icon: const Icon(Broken.video_play, size: 18),
                 label: Text(
                   result.videoError == null
-                      ? 'Voir qualité et sous-titres'
-                      : 'Réessayer les pistes',
+                      ? context.l10n.episode_sources_view_tracks
+                      : context.l10n.episode_sources_retry_tracks,
                 ),
               ),
             ]
@@ -553,7 +564,7 @@ class _AnimeEpisodeSourceSearchScreenState
                 )
               else if (videos.isEmpty)
                 Text(
-                  'Aucune piste vidéo détectée.',
+                  context.l10n.episode_sources_no_track,
                   style: Theme.of(context).textTheme.bodySmall,
                 )
               else ...[
@@ -561,7 +572,7 @@ class _AnimeEpisodeSourceSearchScreenState
                   _metadataLine(
                     context,
                     Broken.video,
-                    'Qualité',
+                    context.l10n.episode_sources_quality,
                     qualities.join(' · '),
                   ),
                 if (audioTracks.isNotEmpty) ...[
@@ -569,7 +580,7 @@ class _AnimeEpisodeSourceSearchScreenState
                   _metadataLine(
                     context,
                     Broken.volume_high,
-                    'Audio',
+                    context.l10n.episode_sources_audio,
                     audioTracks.join(' · '),
                   ),
                 ],
@@ -577,8 +588,10 @@ class _AnimeEpisodeSourceSearchScreenState
                 _metadataLine(
                   context,
                   Broken.subtitle,
-                  'Sous-titres',
-                  subtitles.isEmpty ? 'Non indiqués' : subtitles.join(' · '),
+                  context.l10n.episode_sources_subtitles,
+                  subtitles.isEmpty
+                      ? context.l10n.episode_sources_subtitles_none
+                      : subtitles.join(' · '),
                 ),
               ],
               const SizedBox(height: 8),
@@ -587,7 +600,7 @@ class _AnimeEpisodeSourceSearchScreenState
                 child: FilledButton.icon(
                   onPressed: videos.isEmpty ? null : () => _playEpisode(result),
                   icon: const Icon(Broken.play, size: 18),
-                  label: const Text('Lire cet épisode'),
+                  label: Text(context.l10n.episode_sources_play),
                 ),
               ),
             ],
@@ -613,6 +626,18 @@ class _AnimeEpisodeSourceSearchScreenState
       ],
     );
   }
+}
+
+/// Raised when every search call for one extension failed, so the caller can
+/// count it as an unanswered source instead of a plain "no match".
+class ExtensionSearchFailed implements Exception {
+  const ExtensionSearchFailed();
+}
+
+/// Raised when the extension returned matches but none of their detail pages
+/// could be loaded, so the episode cannot be resolved from that source.
+class ExtensionDetailsFailed implements Exception {
+  const ExtensionDetailsFailed();
 }
 
 class _EpisodeSourceResult {

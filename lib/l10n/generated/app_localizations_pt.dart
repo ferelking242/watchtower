@@ -9820,6 +9820,70 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get home_search_open_watch => 'Open Watch search';
+
+  @override
+  String get episode_sources_tracks_failed => 'Unable to load the tracks.';
+
+  @override
+  String get episode_sources_title => 'Episode sources';
+
+  @override
+  String episode_sources_label(Object number, Object title) {
+    return 'Episode $number · $title';
+  }
+
+  @override
+  String episode_sources_searching(Object checked, Object total) {
+    return 'Searching $checked / $total sources';
+  }
+
+  @override
+  String get episode_sources_no_extension =>
+      'No active anime extension is installed.';
+
+  @override
+  String get episode_sources_searching_hint =>
+      'Searching for the episode on the installed extensions…';
+
+  @override
+  String get episode_sources_none => 'No extension offers this episode.';
+
+  @override
+  String episode_sources_unanswered(Object count) {
+    return '$count source(s) did not respond.';
+  }
+
+  @override
+  String get episode_sources_extension => 'Extension';
+
+  @override
+  String episode_sources_episode_n(Object number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String get episode_sources_view_tracks => 'View quality and subtitles';
+
+  @override
+  String get episode_sources_retry_tracks => 'Retry the tracks';
+
+  @override
+  String get episode_sources_no_track => 'No video track detected.';
+
+  @override
+  String get episode_sources_quality => 'Quality';
+
+  @override
+  String get episode_sources_audio => 'Audio';
+
+  @override
+  String get episode_sources_subtitles => 'Subtitles';
+
+  @override
+  String get episode_sources_subtitles_none => 'Not indicated';
+
+  @override
+  String get episode_sources_play => 'Play this episode';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).
@@ -19057,4 +19121,68 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get home_search_open_watch => 'Open Watch search';
+
+  @override
+  String get episode_sources_tracks_failed => 'Unable to load the tracks.';
+
+  @override
+  String get episode_sources_title => 'Episode sources';
+
+  @override
+  String episode_sources_label(Object number, Object title) {
+    return 'Episode $number · $title';
+  }
+
+  @override
+  String episode_sources_searching(Object checked, Object total) {
+    return 'Searching $checked / $total sources';
+  }
+
+  @override
+  String get episode_sources_no_extension =>
+      'No active anime extension is installed.';
+
+  @override
+  String get episode_sources_searching_hint =>
+      'Searching for the episode on the installed extensions…';
+
+  @override
+  String get episode_sources_none => 'No extension offers this episode.';
+
+  @override
+  String episode_sources_unanswered(Object count) {
+    return '$count source(s) did not respond.';
+  }
+
+  @override
+  String get episode_sources_extension => 'Extension';
+
+  @override
+  String episode_sources_episode_n(Object number) {
+    return 'Episode $number';
+  }
+
+  @override
+  String get episode_sources_view_tracks => 'View quality and subtitles';
+
+  @override
+  String get episode_sources_retry_tracks => 'Retry the tracks';
+
+  @override
+  String get episode_sources_no_track => 'No video track detected.';
+
+  @override
+  String get episode_sources_quality => 'Quality';
+
+  @override
+  String get episode_sources_audio => 'Audio';
+
+  @override
+  String get episode_sources_subtitles => 'Subtitles';
+
+  @override
+  String get episode_sources_subtitles_none => 'Not indicated';
+
+  @override
+  String get episode_sources_play => 'Play this episode';
 }

@@ -17440,6 +17440,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Watch search'**
   String get home_search_open_watch;
+
+  /// No description provided for @episode_sources_tracks_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load the tracks.'**
+  String get episode_sources_tracks_failed;
+
+  /// No description provided for @episode_sources_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode sources'**
+  String get episode_sources_title;
+
+  /// No description provided for @episode_sources_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number} · {title}'**
+  String episode_sources_label(Object number, Object title);
+
+  /// No description provided for @episode_sources_searching.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching {checked} / {total} sources'**
+  String episode_sources_searching(Object checked, Object total);
+
+  /// No description provided for @episode_sources_no_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'No active anime extension is installed.'**
+  String get episode_sources_no_extension;
+
+  /// No description provided for @episode_sources_searching_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching for the episode on the installed extensions…'**
+  String get episode_sources_searching_hint;
+
+  /// No description provided for @episode_sources_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No extension offers this episode.'**
+  String get episode_sources_none;
+
+  /// No description provided for @episode_sources_unanswered.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} source(s) did not respond.'**
+  String episode_sources_unanswered(Object count);
+
+  /// No description provided for @episode_sources_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension'**
+  String get episode_sources_extension;
+
+  /// No description provided for @episode_sources_episode_n.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode {number}'**
+  String episode_sources_episode_n(Object number);
+
+  /// No description provided for @episode_sources_view_tracks.
+  ///
+  /// In en, this message translates to:
+  /// **'View quality and subtitles'**
+  String get episode_sources_view_tracks;
+
+  /// No description provided for @episode_sources_retry_tracks.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry the tracks'**
+  String get episode_sources_retry_tracks;
+
+  /// No description provided for @episode_sources_no_track.
+  ///
+  /// In en, this message translates to:
+  /// **'No video track detected.'**
+  String get episode_sources_no_track;
+
+  /// No description provided for @episode_sources_quality.
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get episode_sources_quality;
+
+  /// No description provided for @episode_sources_audio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get episode_sources_audio;
+
+  /// No description provided for @episode_sources_subtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles'**
+  String get episode_sources_subtitles;
+
+  /// No description provided for @episode_sources_subtitles_none.
+  ///
+  /// In en, this message translates to:
+  /// **'Not indicated'**
+  String get episode_sources_subtitles_none;
+
+  /// No description provided for @episode_sources_play.
+  ///
+  /// In en, this message translates to:
+  /// **'Play this episode'**
+  String get episode_sources_play;
 }
 
 class _AppLocalizationsDelegate
