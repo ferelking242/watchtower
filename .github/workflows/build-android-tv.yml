@@ -61,12 +61,9 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/target
-            rust_builder/target
-          key: rust-android-tv-release-${{ runner.os }}-${{ hashFiles('rust/**/*.rs', 'rust_builder/**/*.rs', '**/Cargo.lock', '**/Cargo.toml', '**/pubspec.lock') }}
-          restore-keys: |
-            rust-android-tv-release-${{ runner.os }}-
-            rust-android-arm64-release-${{ runner.os }}-
+            build/rust_lib_watchtower
+          key: rust-android-multi-${{ runner.os }}-${{ hashFiles('rust/**', '**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: rust-android-multi-${{ runner.os }}-
 
       # Pre-install both targets serially: cargokit runs `rustup target add`
       # once per ABI and parallel invocations race on the rustup downloads

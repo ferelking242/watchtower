@@ -3,8 +3,8 @@
 // and hands it to LayoutRegistry to persist and cache.
 // Called during extension install and version update.
 
-import 'package:http/http.dart' as http;
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -25,7 +25,7 @@ class LayoutDownloader {
     AppLogger.log('[LayoutDownloader] GET $url', tag: LogTag.extension_);
 
     try {
-      final response = await http
+      final response = await MClient.init(reqcopyWith: {'useDartHttpClient': true})
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
 

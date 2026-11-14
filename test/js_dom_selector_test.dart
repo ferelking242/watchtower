@@ -39,6 +39,31 @@ void main() {
       expect(getElementString(['text', resultKeys.single]), 'XNXX result');
     }
   });
+
+  test('bridge exposes exactly the element-keyed handlers', () {
+    final runtime = _RecordingJavascriptRuntime();
+    JsDomSelector(runtime).init();
+
+    // The old doc_* handlers re-ran parse(input) on every call. The native JS
+    // Document now keeps an element key, so get_doc_element is the only handler
+    // allowed to parse the HTML; everything else works off that key.
+    expect(
+      runtime.handlers.keys.toSet(),
+      {
+        'get_doc_element',
+        'get_element_string',
+        'ele_selectFirst',
+        'ele_select',
+        'ele_element_sibling',
+        'ele_attr',
+        'ele_has_attr',
+        'ele_xpathFirst',
+        'ele_xpath',
+        'ele_get_elements_by',
+      },
+      reason: 'a doc_* handler reparses the whole document on every selector',
+    );
+  });
 }
 
 class _RecordingJavascriptRuntime implements JavascriptRuntime {

@@ -5,10 +5,10 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:watchtower/services/cache_storage_manager.dart';
+import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/image_bytes_lru_cache.dart';
 
 class IconCacheService {
@@ -68,7 +68,7 @@ class IconCacheService {
     } catch (_) {}
 
     try {
-      final response = await http
+      final response = await MClient.init(reqcopyWith: {'useDartHttpClient': true})
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) return null;
