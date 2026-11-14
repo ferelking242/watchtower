@@ -122,7 +122,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
         );
     final library = widget.onBookmarksPressed ?? () => context.push('/Library');
     final liveTv = () => context.push('/liveTv');
-    final kind = widget.isTv ? 'Series' : 'Movies';
+    final kind = widget.isTv ? context.l10n.media_series : context.l10n.media_movies;
     final latestPath = widget.isTv ? null : '/movie/now_playing';
     final upcomingPath = widget.isTv ? null : '/movie/upcoming';
 
@@ -149,7 +149,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
               SliverList(
                 delegate: SliverChildListDelegate.fixed([
                   ScrollingMovies(
-                    title: 'Popular',
+                    title: context.l10n.media_popular,
                     items: _popular,
                     discoverPath: widget.isTv
                         ? '/tv/popular'
@@ -157,7 +157,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     isTv: widget.isTv,
                   ),
                   ScrollingMovies(
-                    title: 'Trending this week',
+                    title: context.l10n.media_trending_week,
                     items: _trending,
                     discoverPath: widget.isTv
                         ? '/trending/tv/week'
@@ -165,7 +165,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     isTv: widget.isTv,
                   ),
                   ScrollingMovies(
-                    title: 'Top rated',
+                    title: context.l10n.media_top_rated,
                     items: _topRated,
                     discoverPath: widget.isTv
                         ? '/tv/top_rated'
@@ -177,13 +177,17 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     items: _trending.take(10).toList(growable: false),
                   ),
                   ScrollingLandscapeMovies(
-                    title: widget.isTv ? 'Airing today' : 'Now playing',
+                    title: widget.isTv
+                        ? context.l10n.media_airing_today
+                        : context.l10n.media_now_playing,
                     items: _firstLatest,
                     discoverPath: latestPath,
                     isTv: widget.isTv,
                   ),
                   ScrollingLandscapeMovies(
-                    title: widget.isTv ? 'On the air' : 'Upcoming',
+                    title: widget.isTv
+                        ? context.l10n.media_on_the_air
+                        : context.l10n.media_upcoming,
                     items: _secondLatest,
                     discoverPath: upcomingPath,
                     isTv: widget.isTv,
@@ -216,7 +220,7 @@ class _MainMediaDisplayState extends State<MainMediaDisplay> {
                     isTv: widget.isTv,
                   ),
                   TmdbTagListSection(
-                    title: 'Histoires',
+                    title: context.l10n.media_stories,
                     tags: tmdbPlotKeywords,
                     isTv: widget.isTv,
                   ),
@@ -347,17 +351,17 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
               SliverList(
                 delegate: SliverChildListDelegate.fixed([
                   ScrollingMovies(
-                    title: 'Popular',
+                    title: context.l10n.media_popular,
                     items: widget.home.popularMovies,
                     discoverPath: '/movie/popular',
                   ),
                   ScrollingMovies(
-                    title: 'Trending this week',
+                    title: context.l10n.media_trending_week,
                     items: widget.home.trendingMovies,
                     discoverPath: '/trending/movie/week',
                   ),
                   ScrollingMovies(
-                    title: 'Top rated',
+                    title: context.l10n.media_top_rated,
                     items: widget.home.topRatedMovies,
                     discoverPath: '/movie/top_rated',
                   ),
@@ -368,12 +372,12 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                         .toList(growable: false),
                   ),
                   ScrollingLandscapeMovies(
-                    title: 'Now playing',
+                    title: context.l10n.media_now_playing,
                     items: widget.home.nowPlayingMovies,
                     discoverPath: '/movie/now_playing',
                   ),
                   ScrollingLandscapeMovies(
-                    title: 'Upcoming',
+                    title: context.l10n.media_upcoming,
                     items: widget.home.upcomingMovies,
                     discoverPath: '/movie/upcoming',
                   ),
@@ -423,13 +427,13 @@ class _MainMoviesDisplayState extends State<MainMoviesDisplay> {
                 opacity: _showCompactHeader ? 1 : 0,
                 duration: const Duration(milliseconds: 180),
                 child: AppFeedOverlayHeader(
-                  title: 'Movies',
+                  title: context.l10n.media_movies,
                   onSearchPressed: search,
-                  actionLabel: 'Live TV',
+                  actionLabel: context.l10n.media_live_tv,
                   actionIcon: Broken.radio,
                   onActionPressed: openLiveTv,
                   utilityIcon: Broken.bookmark,
-                  utilityTooltip: 'Library',
+                  utilityTooltip: context.l10n.media_library,
                   onUtilityPressed: openLibrary,
                 ),
               ),
@@ -527,30 +531,30 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
             SliverList(
               delegate: SliverChildListDelegate.fixed([
                 ScrollingMovies(
-                  title: 'Popular',
+                  title: context.l10n.media_popular,
                   items: widget.home.popularTv,
                   discoverPath: '/tv/popular',
                   isTv: true,
                 ),
                 ScrollingMovies(
-                  title: 'Trending this week',
+                  title: context.l10n.media_trending_week,
                   items: widget.home.trendingTv,
                   discoverPath: '/trending/tv/week',
                   isTv: true,
                 ),
                 ScrollingMovies(
-                  title: 'Top rated',
+                  title: context.l10n.media_top_rated,
                   items: widget.home.topRatedTv,
                   discoverPath: '/tv/top_rated',
                   isTv: true,
                 ),
                 ScrollingLandscapeMovies(
-                  title: 'Airing today',
+                  title: context.l10n.media_airing_today,
                   items: widget.home.airingTodayTv,
                   isTv: true,
                 ),
                 ScrollingLandscapeMovies(
-                  title: 'On the air',
+                  title: context.l10n.media_on_the_air,
                   items: widget.home.onTheAirTv,
                   isTv: true,
                 ),
@@ -605,13 +609,13 @@ class _MainSeriesDisplayState extends State<MainSeriesDisplay> {
                 opacity: _showCompactHeader ? 1 : 0,
                 duration: const Duration(milliseconds: 180),
                 child: AppFeedOverlayHeader(
-                  title: 'Series',
+                  title: context.l10n.media_series,
                   onSearchPressed: search,
-                  actionLabel: 'Live TV',
+                  actionLabel: context.l10n.media_live_tv,
                   actionIcon: Broken.radio,
                   onActionPressed: liveTv,
                   utilityIcon: Broken.bookmark,
-                  utilityTooltip: 'Library',
+                  utilityTooltip: context.l10n.media_library,
                   onUtilityPressed: openLibrary,
                 ),
               ),
@@ -705,7 +709,7 @@ class DiscoverMovies extends StatelessWidget {
                               _HeroIconButton(
                                 icon: Broken.bookmark,
                                 onPressed: onLibraryPressed,
-                                tooltip: 'Library',
+                                tooltip: context.l10n.media_library,
                               ),
                               const SizedBox(width: 8),
                               if (onLiveTVPressed != null) ...[
@@ -867,16 +871,16 @@ class _HeroLiveButton extends StatelessWidget {
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(22),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Broken.radio, color: Colors.white, size: 19),
-              SizedBox(width: 7),
+              const Icon(Broken.radio, color: Colors.white, size: 19),
+              const SizedBox(width: 7),
               Text(
-                'Live TV',
-                style: TextStyle(
+                context.l10n.media_live_tv,
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),
@@ -911,7 +915,7 @@ class ScrollingMovies extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: 'All >',
+          actionLabel: context.l10n.media_see_all_arrow,
           onAction: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -981,7 +985,9 @@ class ScrollingLandscapeMovies extends StatelessWidget {
       children: [
         AppSectionHeader(
           title: title,
-          actionLabel: discoverPath == null ? null : 'All >',
+          actionLabel: discoverPath == null
+              ? null
+              : context.l10n.media_see_all_arrow,
           onAction: discoverPath == null
               ? null
               : () => Navigator.push(
@@ -1145,13 +1151,15 @@ class GenreListGrid extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AppSectionHeader(
-              title: isTv ? 'TV genres' : 'Genres',
-              actionLabel: 'All >',
+              title: isTv ? context.l10n.media_tv_genres : context.l10n.media_genres,
+              actionLabel: context.l10n.media_see_all_arrow,
               onAction: () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => TmdbGenresScreen(
-                    title: isTv ? 'TV genres' : 'Genres',
+                    title: isTv
+                        ? context.l10n.media_tv_genres
+                        : context.l10n.media_genres,
                     genres: genres,
                     imageSource: imageSource,
                     isTv: isTv,
@@ -1245,7 +1253,7 @@ class MoviesFromWatchProviders extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppSectionHeader(title: 'Streaming services'),
+            AppSectionHeader(title: context.l10n.media_streaming_services),
             SizedBox(
               height: 132,
               child: ListView.separated(
@@ -1490,13 +1498,13 @@ class DocumentarySections extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppDiscoverRail(
-          title: 'Documentaires',
+          title: context.l10n.media_documentaries,
           isTv: isTv,
           query: 'with_genres=99&sort_by=popularity.desc',
         ),
         for (final keyword in tmdbDocumentaryKeywords)
           AppDiscoverRail(
-            title: 'Docu · ${keyword.name}',
+            title: context.l10n.media_docu_prefix(keyword.name),
             isTv: isTv,
             query:
                 'with_genres=99&with_keywords=${keyword.id}&sort_by=popularity.desc',
@@ -1880,7 +1888,7 @@ abstract final class CatalogBulkDownload {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Maximum disponible : $available'),
+              Text(context.l10n.media_max_available(available)),
               const SizedBox(height: 12),
               TextFormField(
                 controller: controller,
@@ -1926,7 +1934,7 @@ abstract final class CatalogBulkDownload {
                 ),
               );
             },
-            child: const Text('Continuer'),
+            child: Text(context.l10n.media_continue),
           ),
         ],
       ),
@@ -2368,7 +2376,7 @@ class _CatalogDownloadMenuOverlayState
           ),
         AdaptiveOverlayItem(
           icon: Broken.edit_2,
-          label: 'Personnaliser…',
+          label: context.l10n.media_customize_ellipsis,
           onTap: () => select(CatalogBulkDownloadAction.downloadCustom),
         ),
       ],
@@ -2965,7 +2973,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           ),
         ),
         leading: IconButton(
-          tooltip: isFrench ? 'Retour' : 'Back',
+          tooltip: context.l10n.media_back,
           onPressed: () => context.pop(),
           icon: const Icon(Broken.arrow_left),
         ),
@@ -3312,7 +3320,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           final item = items[index];
           return _CatalogListRow(
             posterUrl: item.imageUrl,
-            title: item.name ?? item.link ?? 'Sans titre',
+            title: item.name ?? item.link ?? context.l10n.media_untitled,
             metadata: _extensionRowMetadata(item),
             onTap: () => _openExtensionItem(item),
           );
@@ -3425,7 +3433,7 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
           builder: (_) => TmdbMoviesListScreen.extension(
             title: item.name?.trim().isNotEmpty == true
                 ? item.name!.trim()
-                : 'Collection',
+                : context.l10n.watch_home_collection,
             source: widget.extensionSource!,
             sectionId: collection.listId,
             cardStyle: collection.listId.startsWith('search_')
@@ -3564,8 +3572,8 @@ class _CatalogError extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: AppEmptyState(
-        title: 'Catalogue indisponible',
-        message: 'Impossible de charger $title pour le moment.',
+        title: context.l10n.media_catalogue_unavailable,
+        message: context.l10n.media_catalogue_load_failed(title),
         icon: Broken.wifi,
         actionLabel: context.l10n.retry,
         onAction: onRetry,

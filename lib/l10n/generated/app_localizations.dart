@@ -15370,6 +15370,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error copied'**
   String get source_err_copied;
+
+  /// No description provided for @media_trending_week.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending this week'**
+  String get media_trending_week;
+
+  /// No description provided for @media_airing_today.
+  ///
+  /// In en, this message translates to:
+  /// **'Airing today'**
+  String get media_airing_today;
+
+  /// No description provided for @media_on_the_air.
+  ///
+  /// In en, this message translates to:
+  /// **'On the air'**
+  String get media_on_the_air;
+
+  /// No description provided for @media_now_playing.
+  ///
+  /// In en, this message translates to:
+  /// **'Now playing'**
+  String get media_now_playing;
+
+  /// No description provided for @media_upcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get media_upcoming;
+
+  /// No description provided for @media_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Movies'**
+  String get media_movies;
+
+  /// No description provided for @media_live_tv.
+  ///
+  /// In en, this message translates to:
+  /// **'Live TV'**
+  String get media_live_tv;
+
+  /// No description provided for @media_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get media_library;
+
+  /// No description provided for @media_tv_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'TV genres'**
+  String get media_tv_genres;
+
+  /// No description provided for @media_streaming_services.
+  ///
+  /// In en, this message translates to:
+  /// **'Streaming services'**
+  String get media_streaming_services;
+
+  /// No description provided for @media_stories.
+  ///
+  /// In en, this message translates to:
+  /// **'Stories'**
+  String get media_stories;
+
+  /// No description provided for @media_documentaries.
+  ///
+  /// In en, this message translates to:
+  /// **'Documentaries'**
+  String get media_documentaries;
+
+  /// No description provided for @media_docu_prefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Docu · {name}'**
+  String media_docu_prefix(Object name);
+
+  /// No description provided for @media_max_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum available: {count}'**
+  String media_max_available(Object count);
+
+  /// No description provided for @media_continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get media_continue;
+
+  /// No description provided for @media_customize_ellipsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Customise…'**
+  String get media_customize_ellipsis;
+
+  /// No description provided for @media_untitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get media_untitled;
+
+  /// No description provided for @media_catalogue_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalogue unavailable'**
+  String get media_catalogue_unavailable;
+
+  /// No description provided for @media_catalogue_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load {title} for now.'**
+  String media_catalogue_load_failed(Object title);
+
+  /// No description provided for @media_back.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get media_back;
 }
 
 class _AppLocalizationsDelegate

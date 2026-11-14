@@ -8687,4 +8687,70 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get source_err_copied => 'Error copied';
+
+  @override
+  String get media_trending_week => 'Trending this week';
+
+  @override
+  String get media_airing_today => 'Airing today';
+
+  @override
+  String get media_on_the_air => 'On the air';
+
+  @override
+  String get media_now_playing => 'Now playing';
+
+  @override
+  String get media_upcoming => 'Upcoming';
+
+  @override
+  String get media_movies => 'Movies';
+
+  @override
+  String get media_live_tv => 'Live TV';
+
+  @override
+  String get media_library => 'Library';
+
+  @override
+  String get media_tv_genres => 'TV genres';
+
+  @override
+  String get media_streaming_services => 'Streaming services';
+
+  @override
+  String get media_stories => 'Stories';
+
+  @override
+  String get media_documentaries => 'Documentaries';
+
+  @override
+  String media_docu_prefix(Object name) {
+    return 'Docu · $name';
+  }
+
+  @override
+  String media_max_available(Object count) {
+    return 'Maximum available: $count';
+  }
+
+  @override
+  String get media_continue => 'Continue';
+
+  @override
+  String get media_customize_ellipsis => 'Customise…';
+
+  @override
+  String get media_untitled => 'Untitled';
+
+  @override
+  String get media_catalogue_unavailable => 'Catalogue unavailable';
+
+  @override
+  String media_catalogue_load_failed(Object title) {
+    return 'Unable to load $title for now.';
+  }
+
+  @override
+  String get media_back => 'Back';
 }
