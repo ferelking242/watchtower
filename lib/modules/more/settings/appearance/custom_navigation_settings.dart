@@ -25,6 +25,7 @@ class CustomNavigationSettings extends ConsumerWidget {
     final haptic = ref.watch(navHapticProvider);
     final animSpeed = ref.watch(navAnimSpeedProvider);
     final dockStyle = ref.watch(navDockStyleProvider);
+    final sidebarPosition = ref.watch(navSidebarPositionProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     return SettingsSubpageScaffold(
@@ -316,6 +317,60 @@ class CustomNavigationSettings extends ConsumerWidget {
                         onTap: () {
                           ref.read(navDockStyleProvider.notifier).set('pc_sidebar');
                           botToast('PC Sidebar — navigation en barre latérale');
+                        },
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
+                  // ── PC sidebar side (left / right) ────────────────────
+                  Row(
+                    children: [
+                      Tooltip(
+                        message:
+                            'Which side the PC / TV navigation bar sits on.',
+                        child: const Icon(Broken.element_3, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Sidebar side',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      SegmentedButton<String>(
+                        showSelectedIcon: false,
+                        style: const ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        segments: const [
+                          ButtonSegment(
+                            value: 'left',
+                            label: Text(
+                              'Gauche',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                            icon: Icon(Broken.arrow_left_2, size: 15),
+                          ),
+                          ButtonSegment(
+                            value: 'right',
+                            label: Text(
+                              'Droite',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                            icon: Icon(Broken.arrow_right_3, size: 15),
+                          ),
+                        ],
+                        selected: {sidebarPosition},
+                        onSelectionChanged: (s) {
+                          ref
+                              .read(navSidebarPositionProvider.notifier)
+                              .set(s.first);
+                          botToast(
+                            s.first == 'right'
+                                ? 'Sidebar à droite'
+                                : 'Sidebar à gauche',
+                          );
                         },
                       ),
                     ],

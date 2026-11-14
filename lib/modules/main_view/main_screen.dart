@@ -1322,14 +1322,16 @@ class _TabletLayoutState extends State<_TabletLayout> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final location = widget.location;
+    // Which side the PC rail sits on. A right-handed mouse never has to cross
+    // the screen when the menu is on the right; the setting is a no-op on the
+    // narrow layouts, which never build this widget.
+    final sidebarOnRight =
+        widget.ref.watch(navSidebarPositionProvider) == 'right';
 
-    return Row(
-      children: [
-        // ── Adaptive PC / Android TV navigation sidebar ───────────
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOutCubic,
-          width: railWidth,
+    final sidebar = AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOutCubic,
+      width: railWidth,
           child: railWidth == 0
               ? const SizedBox.shrink()
               : ClipRect(
@@ -1466,10 +1468,16 @@ class _TabletLayoutState extends State<_TabletLayout> {
                     ),
                   ),
                 ),
-        ),
-        // ── Content area ──────────────────────────────────
-        Expanded(child: widget.child),
-      ],
+        );
+
+    // Sidebar on the left (default) or right, with the content taking the
+    // rest. `stretch` keeps the content full-height so pages with their own
+    // background fill the whole area.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: sidebarOnRight
+          ? [Expanded(child: widget.child), sidebar]
+          : [sidebar, Expanded(child: widget.child)],
     );
   }
 }

@@ -176,3 +176,32 @@ final mergeLibraryOnDockProvider =
     NotifierProvider<MergeLibraryOnDockNotifier, bool>(
       MergeLibraryOnDockNotifier.new,
     );
+
+// ── PC sidebar side: 'left' | 'right' ───────────────────────────────────────
+// On a wide monitor the user may prefer the navigation rail on the right (a
+// right-handed mouse never crosses the screen to reach the menu). Stored as
+// part of the nav display prefs and only consulted by the PC/TV sidebar.
+
+class NavSidebarPositionNotifier extends Notifier<String> {
+  static const _valid = {'left', 'right'};
+
+  @override
+  String build() {
+    final stored =
+        _box?.get('sidebar_position', defaultValue: 'left') as String? ?? 'left';
+    return _valid.contains(stored) ? stored : 'left';
+  }
+
+  /// Valid values: left, right
+  void set(String v) {
+    final safe = _valid.contains(v) ? v : 'left';
+    _box?.put('sidebar_position', safe);
+    state = safe;
+    _navLog('sidebar_position → $safe');
+  }
+}
+
+final navSidebarPositionProvider =
+    NotifierProvider<NavSidebarPositionNotifier, String>(
+      NavSidebarPositionNotifier.new,
+    );
