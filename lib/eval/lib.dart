@@ -171,6 +171,28 @@ class ExtensionServiceRegistry {
     }
   }
 
+  /// Runs a *synchronous* manifest read on the shared, cached runtime for
+  /// [source]: `supportsLatest`, the base URL, the filter list and the declared
+  /// preferences.
+  ///
+  /// These reads used to call `getExtensionService(source)` and then
+  /// `service.dispose()` in a `finally`. That builds and tears down a private
+  /// QuickJS runtime **on every call** — and every `jsNewRuntime` installs an
+  /// FFI callback trampoline that `jsFreeRuntime` tears down again. Churning
+  /// the native engine like that is exactly the "repeated create/destroy
+  /// cycles" this registry exists to prevent, and on Android it surfaced as
+  /// native heap corruption (`Scudo: corrupted chunk header` → abort) and a
+  /// SIGBUS / BUS_ADRALN jump into an anonymous executable mapping when a
+  /// stale runtime callback was invoked after its memory had been reused.
+  ///
+  /// The runtime is reused here and released only through [disposeSource] /
+  /// [disposeAll], so a manifest read can no longer leave the engine in a
+  /// half-freed state.
+  static T readSync<T>(
+    Source source,
+    T Function(ExtensionService service) read,
+  ) => read(get(source));
+
   /// Disposes and removes the service for a single source (e.g. on uninstall).
   /// The active call is allowed to finish; queued calls are invalidated and
   /// cannot recreate the runtime after it has been removed.

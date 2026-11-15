@@ -5,10 +5,8 @@ part 'supports_latest.g.dart';
 
 @riverpod
 bool supportsLatest(Ref ref, {required Source source}) {
-  final service = getExtensionService(source);
-  try {
-    return service.supportsLatest;
-  } finally {
-    service.dispose();
-  }
+  // Read on the shared, cached runtime (see [ExtensionServiceRegistry.readSync]).
+  // Building and disposing a private QuickJS runtime per call is what caused the
+  // native heap corruption / SIGBUS at launch.
+  return ExtensionServiceRegistry.readSync(source, (s) => s.supportsLatest);
 }

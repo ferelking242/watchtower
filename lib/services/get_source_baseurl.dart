@@ -6,10 +6,6 @@ part 'get_source_baseurl.g.dart';
 
 @riverpod
 String sourceBaseUrl(Ref ref, {required Source source}) {
-  final service = getExtensionService(source);
-  try {
-    return service.sourceBaseUrl;
-  } finally {
-    service.dispose();
-  }
+  // Shared, cached runtime — see [ExtensionServiceRegistry.readSync].
+  return ExtensionServiceRegistry.readSync(source, (s) => s.sourceBaseUrl);
 }

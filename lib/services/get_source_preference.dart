@@ -20,15 +20,16 @@ const _standardVideoQualities = <String>[
 ];
 
 List<SourcePreference> getSourcePreference({required Source source}) {
-  final service = getExtensionService(source);
-  try {
-    final preferences = service.getSourcePreferences()
+  // Shared, cached runtime — see [ExtensionServiceRegistry.readSync]. The old
+  // code built and disposed a private QuickJS runtime on every call, which is
+  // what caused the native heap corruption / SIGBUS.
+  final preferences = ExtensionServiceRegistry.readSync(
+    source,
+    (service) => service.getSourcePreferences()
         .map((preference) => preference..sourceId = source.id)
-        .toList();
-    return withWatchtowerDefaults(source, preferences);
-  } finally {
-    service.dispose();
-  }
+        .toList(),
+  );
+  return withWatchtowerDefaults(source, preferences);
 }
 
 List<SourcePreference> withWatchtowerDefaults(
