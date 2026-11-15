@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
@@ -176,6 +177,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: TmdbMoviesListScreen.anilist(
               title: 'Anime populaires',
               filter: const AnilistBrowseFilter(mediaType: 'ANIME'),
@@ -208,6 +212,9 @@ void main() {
             }),
           ],
           child: MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: TmdbMoviesListScreen.anilist(
               title: 'Tendances',
               filter: const AnilistBrowseFilter(
@@ -241,6 +248,9 @@ void main() {
             }),
           ],
           child: MaterialApp(
+            locale: const Locale('fr'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: TmdbMoviesListScreen.anilist(
               title: 'Favoris',
               filter: const AnilistBrowseFilter(

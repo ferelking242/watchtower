@@ -201,7 +201,6 @@ void main() {
       const fallback = [ShowcaseItem(title: 'A', imageUrl: 'https://a')];
       const lane = ShowcaseLane(
         id: 'anime',
-        label: 'Anime',
         fallback: fallback,
       );
       expect(lane.resolved, fallback);
@@ -218,7 +217,6 @@ void main() {
       const fallback = [ShowcaseItem(title: 'A', imageUrl: 'https://a')];
       const lane = ShowcaseLane(
         id: 'anime',
-        label: 'Anime',
         fallback: fallback,
       );
       expect(lane.withItems(const []).resolved, fallback);

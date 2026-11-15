@@ -113,7 +113,7 @@ void main() {
 
     const fallback = [ShowcaseItem(title: 'Fallback', imageUrl: 'https://f')];
     final lanes = [
-      const ShowcaseLane(id: 'anime', label: 'Anime', fallback: fallback),
+      const ShowcaseLane(id: 'anime', fallback: fallback),
     ];
 
     final seen = <String, List<ShowcaseItem>>{};
