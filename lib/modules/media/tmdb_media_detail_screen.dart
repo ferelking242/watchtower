@@ -1735,7 +1735,7 @@ class _TrailerHeroSlide extends StatelessWidget {
             bottom: 28,
             right: 18,
             child: Text(
-              'Trailer · ${video.name}',
+              context.l10n.watch_trailer(video.name),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(

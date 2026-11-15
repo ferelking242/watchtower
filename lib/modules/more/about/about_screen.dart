@@ -160,7 +160,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'v${data.version} · Beta',
+                                  l10n.app_version_beta(data.version),
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.78),
                                     fontSize: 11,

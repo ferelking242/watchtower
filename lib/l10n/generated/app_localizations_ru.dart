@@ -12851,4 +12851,47 @@ class AppLocalizationsRu extends AppLocalizations {
   ) {
     return '$scanned / $total extensions · $count confirmed episode(s)';
   }
+
+  @override
+  String app_version_beta(Object version) {
+    return 'v$version · Beta';
+  }
+
+  @override
+  String library_items_percent(Object count, Object percent) {
+    return '$count items · $percent%';
+  }
+
+  @override
+  String get browse_create_next_code_editor => 'Next — Code editor';
+
+  @override
+  String get browse_create_fill_required =>
+      'Fill in the name, the language, the base URL and the icon to continue.';
+
+  @override
+  String get browse_create_info_banner =>
+      'Configure the metadata, then move on to the code editor to implement the logic.';
+
+  @override
+  String get common_search_hint => 'Search…';
+
+  @override
+  String watch_trailer(Object name) {
+    return 'Trailer · $name';
+  }
+
+  @override
+  String log_live_title(Object count) {
+    return 'Live logs · $count';
+  }
+
+  @override
+  String get log_none => 'No log for the moment.';
+
+  @override
+  String get download_in_app => 'Download in the app';
+
+  @override
+  String get download_open_external => 'Open in an external download manager';
 }

@@ -3785,5 +3785,17 @@
   "anime_resolve_exact": "Exact",
   "anime_resolve_probable": "Probable",
   "anime_resolve_year_detected": "Year detected in the source title: {year}",
-  "anime_resolve_confirmed_progress": "{scanned} / {total} extensions · {count} confirmed episode(s)"
+  "anime_resolve_confirmed_progress": "{scanned} / {total} extensions · {count} confirmed episode(s)",
+  "app_version_beta": "v{version} · Beta",
+  "library_items_percent": "{count} items · {percent}%",
+  "browse_create_next_code_editor": "Next — Code editor",
+  "browse_create_fill_required": "Fill in the name, the language, the base URL and the icon to continue.",
+  "browse_create_info_banner": "Configure the metadata, then move on to the code editor to implement the logic.",
+  "common_search_hint": "Search…",
+  "watch_trailer": "Trailer · {name}",
+  "download_to_folder": "Download into “{folder}”",
+  "log_live_title": "Live logs · {count}",
+  "log_none": "No log for the moment.",
+  "download_in_app": "Download in the app",
+  "download_open_external": "Open in an external download manager"
 }

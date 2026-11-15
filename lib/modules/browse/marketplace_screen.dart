@@ -1644,7 +1644,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           ),
                           ...repos.map((r) {
                             final label = r.contains('ferelking242')
-                                ? '⭐ Official'
+                                ? '⭐ ${context.l10n.marketplace_official}'
                                 : r.split('/').lastOrNull ?? r;
                             return DropdownMenuItem<String?>(
                               value: r,
@@ -2654,7 +2654,7 @@ class _PlayStoreCard extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    'Install\u00e9',
+                                    context.l10n.installed,
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
@@ -5125,7 +5125,7 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    'Installer en masse',
+                    context.l10n.marketplace_bulk_install,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -5383,7 +5383,9 @@ class _BulkInstallSheetState extends State<_BulkInstallSheet> {
                             label: Text(
                               toInstall.isEmpty
                                   ? context.l10n.marketplace_nothing_to_install
-                                  : 'Installer ${toInstall.length} extension${toInstall.length > 1 ? "s" : ""}',
+                                  : context.l10n.marketplace_bulk_install_count(
+                                      toInstall.length,
+                                    ),
                             ),
                             style: FilledButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),

@@ -982,7 +982,7 @@ class _VideoListTileState extends State<_VideoListTile> {
               ),
               // Download in-app
               Tooltip(
-                message: 'Télécharger dans l\'application',
+                message: context.l10n.download_in_app,
                 child: InkWell(
                   onTap: () => widget.onSelect(widget.v, false),
                   borderRadius: BorderRadius.circular(20),
@@ -995,7 +995,7 @@ class _VideoListTileState extends State<_VideoListTile> {
               // Open in external downloader
               if (!kIsWeb && Platform.isAndroid)
                 Tooltip(
-                  message: 'Ouvrir dans un gestionnaire externe',
+                  message: context.l10n.download_open_external,
                   child: InkWell(
                     onTap: () => widget.onSelect(widget.v, true),
                     borderRadius: BorderRadius.circular(20),

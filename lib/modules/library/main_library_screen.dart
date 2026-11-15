@@ -1536,7 +1536,10 @@ class _CatRow extends ConsumerWidget {
                             Padding(
                               padding: const EdgeInsets.only(top: 2),
                               child: Text(
-                                '$count items · $percent%',
+                                context.l10n.library_items_percent(
+                                  count,
+                                  percent,
+                                ),
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: cs.onSurface.withValues(alpha: 0.40),

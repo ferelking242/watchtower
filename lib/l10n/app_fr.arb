@@ -3874,5 +3874,16 @@
   "anime_resolve_exact": "Exact",
   "anime_resolve_probable": "Probable",
   "anime_resolve_year_detected": "Année détectée dans le titre de la source : {year}",
-  "anime_resolve_confirmed_progress": "{scanned} / {total} extensions · {count} épisode(s) confirmé(s)"
+  "anime_resolve_confirmed_progress": "{scanned} / {total} extensions · {count} épisode(s) confirmé(s)",
+  "app_version_beta": "v{version} · Bêta",
+  "library_items_percent": "{count} éléments · {percent}%",
+  "browse_create_next_code_editor": "Suivant — Éditeur de code",
+  "browse_create_fill_required": "Remplis le nom, la langue, l’URL de base et l’icône pour continuer.",
+  "browse_create_info_banner": "Configure les métadonnées, puis passe à l’éditeur de code pour implémenter la logique.",
+  "common_search_hint": "Rechercher…",
+  "watch_trailer": "Bande-annonce · {name}",
+  "log_live_title": "Journaux en direct · {count}",
+  "log_none": "Aucun log pour l’instant.\nLance une lecture ou un téléchargement.",
+  "download_in_app": "Télécharger dans l’application",
+  "download_open_external": "Ouvrir dans un gestionnaire de téléchargement externe"
 }

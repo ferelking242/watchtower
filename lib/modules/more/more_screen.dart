@@ -248,7 +248,7 @@ class _HeroHeader extends ConsumerWidget {
                 const SizedBox(height: 3),
                 pkgInfoAsync.when(
                   data: (data) => Text(
-                    'v${data.version} · Beta',
+                    context.l10n.app_version_beta(data.version),
                     style: TextStyle(
                       color: cs.onSurfaceVariant,
                       fontSize: 13,
@@ -526,7 +526,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'v${data.version} · Beta',
+                                    context.l10n.app_version_beta(data.version),
                                     style: const TextStyle(
                                       color: Colors.white70,
                                       fontSize: 13,

@@ -260,8 +260,8 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                     elevation: _canProceed ? 3 : 0,
                   ),
                   icon: const Icon(Icons.arrow_forward_rounded, size: 20),
-                  label: const Text(
-                    'Suivant — Éditeur de code',
+                  label: Text(
+                    context.l10n.browse_create_next_code_editor,
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                   onPressed: _canProceed
@@ -286,7 +286,7 @@ class _CreateExtensionState extends ConsumerState<CreateExtension> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Remplis le nom, la langue, l\'URL de base et l\'icône pour continuer.',
+                    context.l10n.browse_create_fill_required,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
@@ -326,7 +326,7 @@ class _InfoBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Configure les métadonnées, puis passe à l\'éditeur de code pour implémenter la logique.',
+              context.l10n.browse_create_info_banner,
               style: TextStyle(fontSize: 12.5, color: cs.onSurface.withValues(alpha: 0.85), height: 1.35),
             ),
           ),

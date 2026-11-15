@@ -12961,4 +12961,49 @@ class AppLocalizationsFr extends AppLocalizations {
   ) {
     return '$scanned / $total extensions · $count épisode(s) confirmé(s)';
   }
+
+  @override
+  String app_version_beta(Object version) {
+    return 'v$version · Bêta';
+  }
+
+  @override
+  String library_items_percent(Object count, Object percent) {
+    return '$count éléments · $percent%';
+  }
+
+  @override
+  String get browse_create_next_code_editor => 'Suivant — Éditeur de code';
+
+  @override
+  String get browse_create_fill_required =>
+      'Remplis le nom, la langue, l’URL de base et l’icône pour continuer.';
+
+  @override
+  String get browse_create_info_banner =>
+      'Configure les métadonnées, puis passe à l’éditeur de code pour implémenter la logique.';
+
+  @override
+  String get common_search_hint => 'Rechercher…';
+
+  @override
+  String watch_trailer(Object name) {
+    return 'Bande-annonce · $name';
+  }
+
+  @override
+  String log_live_title(Object count) {
+    return 'Journaux en direct · $count';
+  }
+
+  @override
+  String get log_none =>
+      'Aucun log pour l’instant.\nLance une lecture ou un téléchargement.';
+
+  @override
+  String get download_in_app => 'Télécharger dans l’application';
+
+  @override
+  String get download_open_external =>
+      'Ouvrir dans un gestionnaire de téléchargement externe';
 }

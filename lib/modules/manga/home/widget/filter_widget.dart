@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -356,7 +357,7 @@ class _SelectFilterPickerSheetState extends State<_SelectFilterPickerSheet> {
                 child: TextField(
                   autofocus: false,
                   decoration: InputDecoration(
-                    hintText: 'Search…',
+                    hintText: context.l10n.common_search_hint,
                     prefixIcon: const Icon(Icons.search, size: 20),
                     isDense: true,
                     border: OutlineInputBorder(

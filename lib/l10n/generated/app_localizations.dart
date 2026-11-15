@@ -22856,6 +22856,72 @@ abstract class AppLocalizations {
     Object scanned,
     Object total,
   );
+
+  /// No description provided for @app_version_beta.
+  ///
+  /// In en, this message translates to:
+  /// **'v{version} · Beta'**
+  String app_version_beta(Object version);
+
+  /// No description provided for @library_items_percent.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items · {percent}%'**
+  String library_items_percent(Object count, Object percent);
+
+  /// No description provided for @browse_create_next_code_editor.
+  ///
+  /// In en, this message translates to:
+  /// **'Next — Code editor'**
+  String get browse_create_next_code_editor;
+
+  /// No description provided for @browse_create_fill_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in the name, the language, the base URL and the icon to continue.'**
+  String get browse_create_fill_required;
+
+  /// No description provided for @browse_create_info_banner.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure the metadata, then move on to the code editor to implement the logic.'**
+  String get browse_create_info_banner;
+
+  /// No description provided for @common_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get common_search_hint;
+
+  /// No description provided for @watch_trailer.
+  ///
+  /// In en, this message translates to:
+  /// **'Trailer · {name}'**
+  String watch_trailer(Object name);
+
+  /// No description provided for @log_live_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Live logs · {count}'**
+  String log_live_title(Object count);
+
+  /// No description provided for @log_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No log for the moment.\nStart a reading or a download.'**
+  String get log_none;
+
+  /// No description provided for @download_in_app.
+  ///
+  /// In en, this message translates to:
+  /// **'Download in the app'**
+  String get download_in_app;
+
+  /// No description provided for @download_open_external.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in an external download manager'**
+  String get download_open_external;
 }
 
 class _AppLocalizationsDelegate

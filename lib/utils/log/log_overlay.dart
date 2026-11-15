@@ -464,7 +464,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
             ),
             const SizedBox(width: 6),
             Text(
-              'Live logs · $visibleCount',
+              context.l10n.log_live_title(visibleCount),
               style: GoogleFonts.jetBrainsMono(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -629,11 +629,11 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
 
   Widget _buildList(List<_LogRow> rows) {
     if (rows.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'Aucun log pour l\'instant.\nLance une lecture ou un téléchargement.',
+          context.l10n.log_none,
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.white38, fontSize: 11),
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
         ),
       );
     }
