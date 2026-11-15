@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
@@ -1668,11 +1669,15 @@ class MangaScanGroupCard extends StatelessWidget {
                   const Divider(color: Colors.white10, height: 22),
                   Row(
                     children: [
-                      _MangaGroupStat(label: 'FOLLOWERS', value: followers),
+                      _MangaGroupStat(
+                          label: context.l10n.manga_stat_followers,
+                          value: followers),
                       const SizedBox(width: 28),
-                      _MangaGroupStat(label: 'TITLES', value: titles),
+                      _MangaGroupStat(
+                          label: context.l10n.manga_stat_titles, value: titles),
                       const SizedBox(width: 28),
-                      _MangaGroupStat(label: 'STAFF', value: staff),
+                      _MangaGroupStat(
+                          label: context.l10n.manga_stat_staff, value: staff),
                     ],
                   ),
                 ],

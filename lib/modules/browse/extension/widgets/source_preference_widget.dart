@@ -74,6 +74,46 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     }
   }
 
+  /// The Watchtower-injected preferences are built in
+  /// [withWatchtowerDefaults] without a BuildContext, so their stored title is
+  /// a fallback. Display the localized title instead, keyed by the preference
+  /// key; extension-defined titles are shown untouched.
+  String _title(SourcePreference preference, String? fallback) {
+    final l10n = l10nLocalizations(context)!;
+    return switch (preference.key) {
+      extensionDefaultQualityKey => l10n.browse_source_pref_default_quality,
+      extensionQualityFallbackKey => l10n.browse_source_pref_fallback_quality,
+      extensionLanguagesKey => l10n.browse_source_pref_languages,
+      extensionKeepSessionKey => l10n.browse_source_pref_keep_session,
+      _ => fallback ?? preference.key ?? '',
+    };
+  }
+
+  String _summary(SourcePreference preference, String? fallback) {
+    final l10n = l10nLocalizations(context)!;
+    return switch (preference.key) {
+      extensionDefaultQualityKey => l10n.browse_source_pref_default_quality_summary,
+      extensionQualityFallbackKey =>
+        l10n.browse_source_pref_fallback_quality_summary,
+      extensionLanguagesKey => l10n.browse_source_pref_languages_summary,
+      extensionKeepSessionKey => l10n.browse_source_pref_keep_session_summary,
+      _ => fallback ?? '',
+    };
+  }
+
+  /// Quality-fallback entries and the "all languages" option are injected by
+  /// Watchtower without a BuildContext, so their stored text is French. Map
+  /// them back to the active locale; extension entries pass through.
+  String _entryLabel(SourcePreference preference, String entry) {
+    final l10n = l10nLocalizations(context)!;
+    if (preference.key == extensionQualityFallbackKey) {
+      if (entry == higherQualityEntry) return l10n.browse_source_pref_quality_higher;
+      if (entry == lowerQualityEntry) return l10n.browse_source_pref_quality_lower;
+    }
+    if (entry == allLanguagesEntry) return l10n.browse_source_pref_all_languages;
+    return entry;
+  }
+
   Widget _expandableSetting({
     required String title,
     required String subtitle,
@@ -103,14 +143,12 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
         caseSensitive: false,
       ).hasMatch(preference.key ?? '');
       return _expandableSetting(
-        title: pref.title ??
-            preference.key ??
-            l10nLocalizations(context)!.browse_source_pref_setting,
+        title: _title(preference, pref.title ?? preference.key),
         subtitle: controller.text.isNotEmpty
             ? (sensitive
                 ? l10nLocalizations(context)!.browse_source_pref_saved_value
                 : controller.text)
-            : (pref.summary ?? ''),
+            : _summary(preference, pref.summary),
         children: [
           TextField(
             controller: controller,
@@ -150,9 +188,9 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     if (preference.checkBoxPreference case final pref?) {
       return CheckboxListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: Text(pref.title ?? '', style: _settingTitleStyle),
+        title: Text(_title(preference, pref.title), style: _settingTitleStyle),
         subtitle: Text(
-          pref.summary ?? '',
+          _summary(preference, pref.summary),
           style: _settingSummaryStyle,
         ),
         value: pref.value ?? false,
@@ -167,9 +205,9 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
     if (preference.switchPreferenceCompat case final pref?) {
       return SwitchListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: Text(pref.title ?? '', style: _settingTitleStyle),
+        title: Text(_title(preference, pref.title), style: _settingTitleStyle),
         subtitle: Text(
-          pref.summary ?? '',
+          _summary(preference, pref.summary),
           style: _settingSummaryStyle,
         ),
         value: pref.value ?? false,
@@ -187,8 +225,8 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
       final selected =
           (pref.valueIndex ?? 0).clamp(0, entries.length - 1).toInt();
       return _expandableSetting(
-        title: pref.title ?? preference.key ?? 'Choix',
-        subtitle: entries[selected],
+        title: _title(preference, pref.title ?? preference.key),
+        subtitle: _entryLabel(preference, entries[selected]),
         children: [
           RadioGroup<int>(
             groupValue: selected,
@@ -204,7 +242,10 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     value: option,
-                    title: Text(entries[option], style: _settingTitleStyle),
+                    title: Text(
+                      _entryLabel(preference, entries[option]),
+                      style: _settingTitleStyle,
+                    ),
                   ),
               ],
             ),
@@ -221,12 +262,13 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
         for (var option = 0;
             option < entries.length && option < values.length;
             option++)
-          if (selectedValues.contains(values[option])) entries[option],
+          if (selectedValues.contains(values[option]))
+            _entryLabel(preference, entries[option]),
       ];
       return _expandableSetting(
-        title: pref.title ?? preference.key ?? 'Choix multiples',
+        title: _title(preference, pref.title ?? preference.key),
         subtitle: selectedLabels.isEmpty
-            ? (pref.summary ?? '')
+            ? _summary(preference, pref.summary)
             : selectedLabels.join(', '),
         children: [
           for (var option = 0;
@@ -235,7 +277,10 @@ class _SourcePreferenceWidgetState extends State<SourcePreferenceWidget> {
             CheckboxListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              title: Text(entries[option], style: _settingTitleStyle),
+              title: Text(
+                _entryLabel(preference, entries[option]),
+                style: _settingTitleStyle,
+              ),
               value: selectedValues.contains(values[option]),
               onChanged: (checked) {
                 if (checked == true) {

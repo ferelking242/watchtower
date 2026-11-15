@@ -17,12 +17,22 @@ import 'package:watchtower/utils/log/logger.dart';
 /// Outcome of a "paste a link" download.
 enum LinkDownloadStatus { completed, delegatedToZeus, failed }
 
+/// Why a "paste a link" download failed. The UI maps each case to a localized
+/// message; the service never builds user-facing text itself.
+enum LinkDownloadFailure { emptyLink, emptyFile, httpStatus, unexpected }
+
 class LinkDownloadResult {
   final LinkDownloadStatus status;
   final String? filePath;
-  final String? message;
+  final LinkDownloadFailure? failure;
+  final String? detail;
 
-  const LinkDownloadResult(this.status, {this.filePath, this.message});
+  const LinkDownloadResult(
+    this.status, {
+    this.filePath,
+    this.failure,
+    this.detail,
+  });
 }
 
 /// Downloads a single media file from a URL pasted by the user — no extension,
@@ -48,7 +58,7 @@ class LinkDownloadService {
     if (trimmed.isEmpty) {
       return const LinkDownloadResult(
         LinkDownloadStatus.failed,
-        message: 'Lien vide',
+        failure: LinkDownloadFailure.emptyLink,
       );
     }
 
@@ -74,7 +84,8 @@ class LinkDownloadService {
         if (zeusResult != null) return zeusResult;
         return LinkDownloadResult(
           LinkDownloadStatus.failed,
-          message: '$e',
+          failure: LinkDownloadFailure.unexpected,
+          detail: '$e',
         );
       }
     }
@@ -141,7 +152,8 @@ class LinkDownloadService {
       if (response.statusCode != 200) {
         return LinkDownloadResult(
           LinkDownloadStatus.failed,
-          message: 'HTTP ${response.statusCode}',
+          failure: LinkDownloadFailure.httpStatus,
+          detail: '${response.statusCode}',
         );
       }
       final file = File(outputPath);
@@ -159,7 +171,7 @@ class LinkDownloadService {
       if (received == 0) {
         return const LinkDownloadResult(
           LinkDownloadStatus.failed,
-          message: 'Fichier vide',
+          failure: LinkDownloadFailure.emptyFile,
         );
       }
       AppLogger.log(
@@ -179,7 +191,8 @@ class LinkDownloadService {
       );
       return LinkDownloadResult(
         LinkDownloadStatus.failed,
-        message: '$e',
+        failure: LinkDownloadFailure.unexpected,
+        detail: '$e',
       );
     }
   }

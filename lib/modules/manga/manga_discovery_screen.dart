@@ -91,7 +91,7 @@ class MangaDiscoveryScreen extends ConsumerWidget {
                     ),
                     CategoryRow(
                       title: context.l10n.discover_row_origins,
-                      categories: mangaOrigins(),
+                      categories: mangaOrigins(context.l10n),
                     ),
                     DiscoveryRow(
                       title: context.l10n.discover_row_popular_manga,

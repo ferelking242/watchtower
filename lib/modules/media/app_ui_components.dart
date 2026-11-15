@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -1070,7 +1071,7 @@ class AppStreamingServicesShimmer extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AppSectionHeader(title: 'Streaming services'),
+        AppSectionHeader(title: context.l10n.media_streaming_services),
         SizedBox(
           height: 132,
           child: ListView.separated(
@@ -1404,11 +1405,11 @@ class MediaHomeLoading extends StatelessWidget {
               const SizedBox(height: 158, child: AppLandscapeRowShimmer()),
             ],
             if (!isSeries) ...[
-              const AppSectionHeader(title: 'Top 10 cette semaine'),
+              AppSectionHeader(title: context.l10n.media_top10_week),
               const SizedBox(height: 208, child: AppRankedRowShimmer()),
-              const AppSectionHeader(title: 'À découvrir'),
+              AppSectionHeader(title: context.l10n.discover_title),
               const SizedBox(height: 172, child: AppLandscapeRowShimmer()),
-              const AppSectionHeader(title: 'À voir ce soir'),
+              AppSectionHeader(title: context.l10n.media_watch_tonight),
               const AppBannerRowShimmer(),
             ],
             AppGenreGridShimmer(isTv: isSeries),

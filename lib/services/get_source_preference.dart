@@ -6,6 +6,13 @@ const extensionDefaultQualityKey = '__watchtower_default_quality';
 const extensionQualityFallbackKey = '__watchtower_quality_fallback';
 const extensionLanguagesKey = '__watchtower_languages';
 const extensionKeepSessionKey = '__watchtower_keep_session';
+
+/// Fallback-quality entries and the "all languages" option are injected here
+/// (no BuildContext available); the preference widget maps them to the active
+/// locale by comparing against these sentinels.
+const higherQualityEntry = 'Qualité immédiatement supérieure';
+const lowerQualityEntry = 'Qualité immédiatement inférieure';
+const allLanguagesEntry = 'Toutes les langues';
 const _standardVideoQualities = <String>[
   'Auto',
   '144p',
@@ -62,10 +69,7 @@ List<SourcePreference> withWatchtowerDefaults(
           title: 'Qualité de secours',
           summary: 'Choix appliqué si la qualité demandée est indisponible.',
           valueIndex: 1,
-          entries: const [
-            'Qualité immédiatement supérieure',
-            'Qualité immédiatement inférieure',
-          ],
+          entries: const [higherQualityEntry, lowerQualityEntry],
           entryValues: const ['higher', 'lower'],
         ),
       ),
@@ -147,7 +151,7 @@ int _defaultQualityIndex(List<String> qualities) {
 
 String _languageLabel(String language) {
   const labels = {
-    'all': 'Toutes les langues',
+    'all': allLanguagesEntry,
     'en': 'English',
     'fr': 'Français',
     'de': 'Deutsch',

@@ -1475,10 +1475,16 @@ class _StatsBox extends StatelessWidget {
       ));
     }
     if (d.endYear != null) {
-      items.add(_StatGridItem(label: 'End Date', value: formatDate(d.endYear, d.endMonth, d.endDay)));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_end_date,
+        value: formatDate(d.endYear, d.endMonth, d.endDay),
+      ));
     }
     if (d.studios.isNotEmpty) {
-      items.add(_StatGridItem(label: 'Studio', value: d.studios.first));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_studio,
+        value: d.studios.first,
+      ));
     }
 
     if (items.isEmpty) return const SizedBox.shrink();

@@ -1,6 +1,7 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 
 /// A single category descriptor (genre/origin), rendered as a rich image card.
@@ -395,31 +396,44 @@ List<CategoryDef> mangaCategories() {
   ];
 }
 
-List<CategoryDef> mangaOrigins() {
-  return const [
+/// Origin tiles. [l10n] is optional so callers outside a widget tree (tests)
+/// still get the raw English labels.
+List<CategoryDef> mangaOrigins([AppLocalizations? l10n]) {
+  String label(String value) {
+    if (l10n == null) return value;
+    return switch (value) {
+      'Manga (JP)' => l10n.discover_origin_japan,
+      'Manhwa (KR)' => l10n.discover_origin_korea,
+      'Manhua (CN)' => l10n.discover_origin_china,
+      'Webtoon' => l10n.discover_origin_webtoon,
+      _ => value,
+    };
+  }
+
+  return [
     CategoryDef(
-      label: 'Manga (JP)',
+      label: label('Manga (JP)'),
       icon: Icons.menu_book_rounded,
       gradient: [Color(0xFFFF512F), Color(0xFFDD2476)],
       mediaType: 'MANGA',
       country: 'JP',
     ),
     CategoryDef(
-      label: 'Manhwa (KR)',
+      label: label('Manhwa (KR)'),
       icon: Icons.auto_stories_rounded,
       gradient: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
       mediaType: 'MANGA',
       country: 'KR',
     ),
     CategoryDef(
-      label: 'Manhua (CN)',
+      label: label('Manhua (CN)'),
       icon: Icons.book_rounded,
       gradient: [Color(0xFFf7971e), Color(0xFFffd200)],
       mediaType: 'MANGA',
       country: 'CN',
     ),
     CategoryDef(
-      label: 'Webtoon',
+      label: label('Webtoon'),
       icon: Icons.smartphone_rounded,
       gradient: [Color(0xFF00c6ff), Color(0xFF0072ff)],
       mediaType: 'MANGA',
@@ -428,6 +442,7 @@ List<CategoryDef> mangaOrigins() {
     ),
   ];
 }
+
 
 List<CategoryDef> novelCategories() {
   const items = [

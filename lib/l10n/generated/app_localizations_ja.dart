@@ -12203,4 +12203,171 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get silent_install_understood => 'Got it';
+
+  @override
+  String get tmdb_facebook => 'Facebook';
+
+  @override
+  String get tmdb_instagram => 'Instagram';
+
+  @override
+  String get tmdb_imdb => 'IMDb';
+
+  @override
+  String get media_badge_video_language => 'Video language';
+
+  @override
+  String get media_badge_video_language_desc =>
+      'Flag of the country linked to the published language.';
+
+  @override
+  String get media_badge_censorship => 'Censorship';
+
+  @override
+  String get media_badge_censorship_desc =>
+      'Shows whether the video is censored, uncensored or leaked.';
+
+  @override
+  String get media_badge_subtitles => 'Subtitles';
+
+  @override
+  String get media_badge_subtitles_desc =>
+      'Flag of the language of the available subtitles.';
+
+  @override
+  String get media_badge_dubbing => 'Dubbing';
+
+  @override
+  String get media_badge_dubbing_desc =>
+      'Flag of the language of the available dubbing.';
+
+  @override
+  String get media_top10_week => 'Top 10 this week';
+
+  @override
+  String get browse_all => 'All';
+
+  @override
+  String get browse_diag_nsfw => 'NSFW';
+
+  @override
+  String get browse_diag_ok => 'OK';
+
+  @override
+  String get queue_total => 'Total';
+
+  @override
+  String get manga_stat_followers => 'Followers';
+
+  @override
+  String get manga_stat_titles => 'Titles';
+
+  @override
+  String get manga_stat_staff => 'Staff';
+
+  @override
+  String get download_link_empty => 'Empty link';
+
+  @override
+  String get download_link_empty_file => 'Empty file';
+
+  @override
+  String download_link_http_error(Object code) {
+    return 'HTTP $code';
+  }
+
+  @override
+  String download_link_failed_detail(Object detail) {
+    return 'Download failed: $detail';
+  }
+
+  @override
+  String get browse_source_pref_default_quality => 'Default video quality';
+
+  @override
+  String get browse_source_pref_default_quality_summary =>
+      'Priority used when several qualities are available.';
+
+  @override
+  String get browse_source_pref_fallback_quality => 'Fallback quality';
+
+  @override
+  String get browse_source_pref_fallback_quality_summary =>
+      'Choice applied when the requested quality is unavailable.';
+
+  @override
+  String get browse_source_pref_languages => 'Preferred languages';
+
+  @override
+  String get browse_source_pref_languages_summary =>
+      'Select one or more languages offered by the source.';
+
+  @override
+  String get browse_source_pref_keep_session => 'Keep the session';
+
+  @override
+  String get browse_source_pref_keep_session_summary =>
+      'Keep the session and cookies for requests and the WebView.';
+
+  @override
+  String get browse_source_pref_quality_higher => 'Immediately higher quality';
+
+  @override
+  String get browse_source_pref_quality_lower => 'Immediately lower quality';
+
+  @override
+  String get browse_source_pref_all_languages => 'All languages';
+
+  @override
+  String get discover_origin_japan => 'Manga (JP)';
+
+  @override
+  String get discover_origin_korea => 'Manhwa (KR)';
+
+  @override
+  String get discover_origin_china => 'Manhua (CN)';
+
+  @override
+  String get discover_origin_webtoon => 'Webtoon';
+
+  @override
+  String get gallery_pick_component => 'Choose a component';
+
+  @override
+  String get gallery_reset_filters => 'Reset filters';
+
+  @override
+  String get gallery_close => 'Close the gallery';
+
+  @override
+  String get gallery_tab_cards => 'Cards';
+
+  @override
+  String get gallery_tab_sections => 'Sections';
+
+  @override
+  String get gallery_clear_search => 'Clear the search';
+
+  @override
+  String get gallery_filter_by_section => 'Filter by section';
+
+  @override
+  String get gallery_all_sections => 'All sections';
+
+  @override
+  String get gallery_result => 'Result';
+
+  @override
+  String get gallery_skeleton => 'Skeleton';
+
+  @override
+  String get gallery_use_component => 'Use this component';
+
+  @override
+  String gallery_click_to_copy(Object name) {
+    return 'Tap to copy $name';
+  }
+
+  @override
+  String get gallery_component_detail => 'Component detail and its parameters';
 }

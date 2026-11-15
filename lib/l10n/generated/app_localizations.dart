@@ -21898,6 +21898,312 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Got it'**
   String get silent_install_understood;
+
+  /// No description provided for @tmdb_facebook.
+  ///
+  /// In en, this message translates to:
+  /// **'Facebook'**
+  String get tmdb_facebook;
+
+  /// No description provided for @tmdb_instagram.
+  ///
+  /// In en, this message translates to:
+  /// **'Instagram'**
+  String get tmdb_instagram;
+
+  /// No description provided for @tmdb_imdb.
+  ///
+  /// In en, this message translates to:
+  /// **'IMDb'**
+  String get tmdb_imdb;
+
+  /// No description provided for @media_badge_video_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Video language'**
+  String get media_badge_video_language;
+
+  /// No description provided for @media_badge_video_language_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Flag of the country linked to the published language.'**
+  String get media_badge_video_language_desc;
+
+  /// No description provided for @media_badge_censorship.
+  ///
+  /// In en, this message translates to:
+  /// **'Censorship'**
+  String get media_badge_censorship;
+
+  /// No description provided for @media_badge_censorship_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows whether the video is censored, uncensored or leaked.'**
+  String get media_badge_censorship_desc;
+
+  /// No description provided for @media_badge_subtitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles'**
+  String get media_badge_subtitles;
+
+  /// No description provided for @media_badge_subtitles_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Flag of the language of the available subtitles.'**
+  String get media_badge_subtitles_desc;
+
+  /// No description provided for @media_badge_dubbing.
+  ///
+  /// In en, this message translates to:
+  /// **'Dubbing'**
+  String get media_badge_dubbing;
+
+  /// No description provided for @media_badge_dubbing_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Flag of the language of the available dubbing.'**
+  String get media_badge_dubbing_desc;
+
+  /// No description provided for @media_top10_week.
+  ///
+  /// In en, this message translates to:
+  /// **'Top 10 this week'**
+  String get media_top10_week;
+
+  /// No description provided for @browse_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get browse_all;
+
+  /// No description provided for @browse_diag_nsfw.
+  ///
+  /// In en, this message translates to:
+  /// **'NSFW'**
+  String get browse_diag_nsfw;
+
+  /// No description provided for @browse_diag_ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get browse_diag_ok;
+
+  /// No description provided for @queue_total.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get queue_total;
+
+  /// No description provided for @manga_stat_followers.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers'**
+  String get manga_stat_followers;
+
+  /// No description provided for @manga_stat_titles.
+  ///
+  /// In en, this message translates to:
+  /// **'Titles'**
+  String get manga_stat_titles;
+
+  /// No description provided for @manga_stat_staff.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff'**
+  String get manga_stat_staff;
+
+  /// No description provided for @download_link_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty link'**
+  String get download_link_empty;
+
+  /// No description provided for @download_link_empty_file.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty file'**
+  String get download_link_empty_file;
+
+  /// No description provided for @download_link_http_error.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP {code}'**
+  String download_link_http_error(Object code);
+
+  /// No description provided for @download_link_failed_detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed: {detail}'**
+  String download_link_failed_detail(Object detail);
+
+  /// No description provided for @browse_source_pref_default_quality.
+  ///
+  /// In en, this message translates to:
+  /// **'Default video quality'**
+  String get browse_source_pref_default_quality;
+
+  /// No description provided for @browse_source_pref_default_quality_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority used when several qualities are available.'**
+  String get browse_source_pref_default_quality_summary;
+
+  /// No description provided for @browse_source_pref_fallback_quality.
+  ///
+  /// In en, this message translates to:
+  /// **'Fallback quality'**
+  String get browse_source_pref_fallback_quality;
+
+  /// No description provided for @browse_source_pref_fallback_quality_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Choice applied when the requested quality is unavailable.'**
+  String get browse_source_pref_fallback_quality_summary;
+
+  /// No description provided for @browse_source_pref_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred languages'**
+  String get browse_source_pref_languages;
+
+  /// No description provided for @browse_source_pref_languages_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Select one or more languages offered by the source.'**
+  String get browse_source_pref_languages_summary;
+
+  /// No description provided for @browse_source_pref_keep_session.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the session'**
+  String get browse_source_pref_keep_session;
+
+  /// No description provided for @browse_source_pref_keep_session_summary.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the session and cookies for requests and the WebView.'**
+  String get browse_source_pref_keep_session_summary;
+
+  /// No description provided for @browse_source_pref_quality_higher.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediately higher quality'**
+  String get browse_source_pref_quality_higher;
+
+  /// No description provided for @browse_source_pref_quality_lower.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediately lower quality'**
+  String get browse_source_pref_quality_lower;
+
+  /// No description provided for @browse_source_pref_all_languages.
+  ///
+  /// In en, this message translates to:
+  /// **'All languages'**
+  String get browse_source_pref_all_languages;
+
+  /// No description provided for @discover_origin_japan.
+  ///
+  /// In en, this message translates to:
+  /// **'Manga (JP)'**
+  String get discover_origin_japan;
+
+  /// No description provided for @discover_origin_korea.
+  ///
+  /// In en, this message translates to:
+  /// **'Manhwa (KR)'**
+  String get discover_origin_korea;
+
+  /// No description provided for @discover_origin_china.
+  ///
+  /// In en, this message translates to:
+  /// **'Manhua (CN)'**
+  String get discover_origin_china;
+
+  /// No description provided for @discover_origin_webtoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Webtoon'**
+  String get discover_origin_webtoon;
+
+  /// No description provided for @gallery_pick_component.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a component'**
+  String get gallery_pick_component;
+
+  /// No description provided for @gallery_reset_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset filters'**
+  String get gallery_reset_filters;
+
+  /// No description provided for @gallery_close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close the gallery'**
+  String get gallery_close;
+
+  /// No description provided for @gallery_tab_cards.
+  ///
+  /// In en, this message translates to:
+  /// **'Cards'**
+  String get gallery_tab_cards;
+
+  /// No description provided for @gallery_tab_sections.
+  ///
+  /// In en, this message translates to:
+  /// **'Sections'**
+  String get gallery_tab_sections;
+
+  /// No description provided for @gallery_clear_search.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear the search'**
+  String get gallery_clear_search;
+
+  /// No description provided for @gallery_filter_by_section.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by section'**
+  String get gallery_filter_by_section;
+
+  /// No description provided for @gallery_all_sections.
+  ///
+  /// In en, this message translates to:
+  /// **'All sections'**
+  String get gallery_all_sections;
+
+  /// No description provided for @gallery_result.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get gallery_result;
+
+  /// No description provided for @gallery_skeleton.
+  ///
+  /// In en, this message translates to:
+  /// **'Skeleton'**
+  String get gallery_skeleton;
+
+  /// No description provided for @gallery_use_component.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this component'**
+  String get gallery_use_component;
+
+  /// No description provided for @gallery_click_to_copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to copy {name}'**
+  String gallery_click_to_copy(Object name);
+
+  /// No description provided for @gallery_component_detail.
+  ///
+  /// In en, this message translates to:
+  /// **'Component detail and its parameters'**
+  String get gallery_component_detail;
 }
 
 class _AppLocalizationsDelegate

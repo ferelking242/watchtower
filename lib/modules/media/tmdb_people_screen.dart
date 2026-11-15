@@ -1931,13 +1931,13 @@ class _PersonSocialLinks extends StatelessWidget {
     final links = <_PersonSocialLink>[
       if (person.facebookId?.isNotEmpty == true)
         _PersonSocialLink(
-          label: 'Facebook',
+          label: context.l10n.tmdb_facebook,
           icon: Broken.global,
           url: 'https://www.facebook.com/${person.facebookId}',
         ),
       if (person.instagramId?.isNotEmpty == true)
         _PersonSocialLink(
-          label: 'Instagram',
+          label: context.l10n.tmdb_instagram,
           icon: Broken.instagram,
           url: 'https://www.instagram.com/${person.instagramId}',
         ),
@@ -1949,7 +1949,7 @@ class _PersonSocialLinks extends StatelessWidget {
         ),
       if (person.imdbId?.isNotEmpty == true)
         _PersonSocialLink(
-          label: 'IMDb',
+          label: context.l10n.tmdb_imdb,
           icon: Broken.video,
           url: 'https://www.imdb.com/name/${person.imdbId}',
         ),

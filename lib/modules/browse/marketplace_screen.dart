@@ -1575,6 +1575,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
   }
 
   Widget _buildFilterRows(ColorScheme cs, ThemeData theme) {
+    final l10n = context.l10n;
     final repoSet = <String>{};
     for (final e in _all) {
       final m = RegExp(r'github\.com/([^/]+/[^/]+)').firstMatch(e.repoUrl);
@@ -1747,7 +1748,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                           DropdownMenuItem<SourceCodeLanguage?>(
                             value: null,
                             child: Text(
-                              'Tous',
+                              l10n.browse_all,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: cs.onSurfaceVariant,

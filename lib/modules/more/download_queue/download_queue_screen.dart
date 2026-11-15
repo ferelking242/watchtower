@@ -229,10 +229,19 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   SnackBar(content: Text(context2.l10n.download_finished)),
                 );
               } else {
+                final l10n = context2.l10n;
                 setSheetState(() {
                   busy = false;
-                  statusText =
-                      result.message ?? context2.l10n.download_failed;
+                  statusText = switch (result.failure) {
+                    LinkDownloadFailure.emptyLink => l10n.download_link_empty,
+                    LinkDownloadFailure.emptyFile =>
+                      l10n.download_link_empty_file,
+                    LinkDownloadFailure.httpStatus =>
+                      l10n.download_link_http_error(result.detail ?? ''),
+                    LinkDownloadFailure.unexpected =>
+                      l10n.download_link_failed_detail(result.detail ?? ''),
+                    null => l10n.download_failed,
+                  };
                 });
               }
             } catch (e) {
@@ -1943,7 +1952,7 @@ class _SimultaneousRow extends StatelessWidget {
           ),
           const Spacer(),
           _CounterField(
-            label: 'Total',
+            label: context.l10n.queue_total,
             value: total,
             min: 1,
             max: maxTotal,
@@ -1954,7 +1963,7 @@ class _SimultaneousRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           _CounterField(
-            label: 'Src',
+            label: context.l10n.queue_src,
             value: perSource,
             min: 1,
             max: maxPerSource,

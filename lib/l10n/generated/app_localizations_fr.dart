@@ -12392,4 +12392,174 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get silent_install_understood => 'Compris';
+
+  @override
+  String get tmdb_facebook => 'Facebook';
+
+  @override
+  String get tmdb_instagram => 'Instagram';
+
+  @override
+  String get tmdb_imdb => 'IMDb';
+
+  @override
+  String get media_badge_video_language => 'Langue de la vidéo';
+
+  @override
+  String get media_badge_video_language_desc =>
+      'Drapeau du pays associé à la langue publiée.';
+
+  @override
+  String get media_badge_censorship => 'Censure';
+
+  @override
+  String get media_badge_censorship_desc =>
+      'Indique si la vidéo est censurée, non censurée ou fuie.';
+
+  @override
+  String get media_badge_subtitles => 'Sous-titres';
+
+  @override
+  String get media_badge_subtitles_desc =>
+      'Drapeau de la langue des sous-titres disponibles.';
+
+  @override
+  String get media_badge_dubbing => 'Doublage';
+
+  @override
+  String get media_badge_dubbing_desc =>
+      'Drapeau de la langue du doublage disponible.';
+
+  @override
+  String get media_top10_week => 'Top 10 cette semaine';
+
+  @override
+  String get browse_all => 'Tous';
+
+  @override
+  String get browse_diag_nsfw => 'NSFW';
+
+  @override
+  String get browse_diag_ok => 'OK';
+
+  @override
+  String get queue_total => 'Total';
+
+  @override
+  String get manga_stat_followers => 'Abonnés';
+
+  @override
+  String get manga_stat_titles => 'Titres';
+
+  @override
+  String get manga_stat_staff => 'Équipe';
+
+  @override
+  String get download_link_empty => 'Lien vide';
+
+  @override
+  String get download_link_empty_file => 'Fichier vide';
+
+  @override
+  String download_link_http_error(Object code) {
+    return 'HTTP $code';
+  }
+
+  @override
+  String download_link_failed_detail(Object detail) {
+    return 'Échec du téléchargement : $detail';
+  }
+
+  @override
+  String get browse_source_pref_default_quality => 'Qualité vidéo par défaut';
+
+  @override
+  String get browse_source_pref_default_quality_summary =>
+      'Priorité utilisée quand plusieurs qualités sont disponibles.';
+
+  @override
+  String get browse_source_pref_fallback_quality => 'Qualité de secours';
+
+  @override
+  String get browse_source_pref_fallback_quality_summary =>
+      'Choix appliqué si la qualité demandée est indisponible.';
+
+  @override
+  String get browse_source_pref_languages => 'Langues préférées';
+
+  @override
+  String get browse_source_pref_languages_summary =>
+      'Sélectionnez une ou plusieurs langues proposées par la source.';
+
+  @override
+  String get browse_source_pref_keep_session => 'Conserver la connexion';
+
+  @override
+  String get browse_source_pref_keep_session_summary =>
+      'Garder la session et les cookies pour les requêtes et le WebView.';
+
+  @override
+  String get browse_source_pref_quality_higher =>
+      'Qualité immédiatement supérieure';
+
+  @override
+  String get browse_source_pref_quality_lower =>
+      'Qualité immédiatement inférieure';
+
+  @override
+  String get browse_source_pref_all_languages => 'Toutes les langues';
+
+  @override
+  String get discover_origin_japan => 'Manga (JP)';
+
+  @override
+  String get discover_origin_korea => 'Manhwa (KR)';
+
+  @override
+  String get discover_origin_china => 'Manhua (CN)';
+
+  @override
+  String get discover_origin_webtoon => 'Webtoon';
+
+  @override
+  String get gallery_pick_component => 'Choisir un composant';
+
+  @override
+  String get gallery_reset_filters => 'Réinitialiser les filtres';
+
+  @override
+  String get gallery_close => 'Fermer la galerie';
+
+  @override
+  String get gallery_tab_cards => 'Cartes';
+
+  @override
+  String get gallery_tab_sections => 'Sections';
+
+  @override
+  String get gallery_clear_search => 'Effacer la recherche';
+
+  @override
+  String get gallery_filter_by_section => 'Filtrer par section';
+
+  @override
+  String get gallery_all_sections => 'Toutes les sections';
+
+  @override
+  String get gallery_result => 'Résultat';
+
+  @override
+  String get gallery_skeleton => 'Skeleton';
+
+  @override
+  String get gallery_use_component => 'Utiliser ce composant';
+
+  @override
+  String gallery_click_to_copy(Object name) {
+    return 'Cliquer pour copier $name';
+  }
+
+  @override
+  String get gallery_component_detail =>
+      'Détail du composant et de ses paramètres';
 }

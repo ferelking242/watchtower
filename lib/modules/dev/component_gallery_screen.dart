@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
@@ -673,7 +674,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           surfaceTintColor: Colors.transparent,
           titleSpacing: padding,
           title: widget.selectionMode
-              ? const Text('Choisir un composant')
+              ? Text(context.l10n.gallery_pick_component)
               : const Row(
                   children: [
                     _GalleryMark(),
@@ -749,14 +750,14 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               selectedIcon: const Icon(Icons.filter_frames_rounded),
             ),
             IconButton(
-              tooltip: 'Réinitialiser les filtres',
+              tooltip: context.l10n.gallery_reset_filters,
               onPressed: _resetFilters,
               icon: const Icon(Icons.restart_alt_rounded),
             ),
             Padding(
               padding: EdgeInsets.only(right: padding - 8),
               child: IconButton(
-                tooltip: 'Fermer la galerie',
+                tooltip: context.l10n.gallery_close,
                 onPressed: widget.onClose ?? () => _closeGallery(context),
                 icon: const Icon(Broken.close_circle),
               ),
@@ -845,14 +846,14 @@ class _GalleryTabBar extends StatelessWidget {
         children: [
           _GalleryTabOption(
             icon: Icons.photo_size_select_large_rounded,
-            label: 'Cartes',
+            label: context.l10n.gallery_tab_cards,
             selected: tab == _GalleryTab.cards,
             accent: accent,
             onTap: () => onChanged(_GalleryTab.cards),
           ),
           _GalleryTabOption(
             icon: Icons.view_carousel_outlined,
-            label: 'Sections',
+            label: context.l10n.gallery_tab_sections,
             selected: tab == _GalleryTab.sections,
             accent: accent,
             onTap: () => onChanged(_GalleryTab.sections),
@@ -990,7 +991,7 @@ class _GalleryHeader extends StatelessWidget {
                   suffixIcon: query.isEmpty
                       ? null
                       : IconButton(
-                          tooltip: 'Effacer la recherche',
+                          tooltip: context.l10n.gallery_clear_search,
                           onPressed: () {
                             queryController.clear();
                             onQueryChanged('');
@@ -1024,14 +1025,14 @@ class _GalleryHeader extends StatelessWidget {
             const SizedBox(width: 8),
             // Filtre par section, directement à côté de la barre de recherche.
             PopupMenuButton<String?>(
-              tooltip: 'Filtrer par section',
+              tooltip: context.l10n.gallery_filter_by_section,
               position: PopupMenuPosition.under,
               initialValue: sectionFilter,
               onSelected: onSectionChanged,
               itemBuilder: (context) => [
-                const PopupMenuItem<String?>(
+                PopupMenuItem<String?>(
                   value: null,
-                  child: Text('Toutes les sections'),
+                  child: Text(context.l10n.gallery_all_sections),
                 ),
                 for (final section in sections)
                   PopupMenuItem<String?>(
@@ -1147,7 +1148,7 @@ class _SectionFilterBar extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               children: [
                 _SectionChip(
-                  label: 'Toutes',
+                  label: context.l10n.browse_all,
                   selected: selected == null,
                   onTap: () => onChanged(null),
                 ),
@@ -1239,14 +1240,14 @@ class _StateToggle extends StatelessWidget {
         children: [
           _StateOption(
             icon: Icons.image_outlined,
-            label: 'Résultat',
+            label: context.l10n.gallery_result,
             compact: compact,
             selected: state == _GalleryState.result,
             onTap: () => onChanged(_GalleryState.result),
           ),
           _StateOption(
             icon: Icons.hourglass_empty_rounded,
-            label: 'Skeleton',
+            label: context.l10n.gallery_skeleton,
             compact: compact,
             selected: state == _GalleryState.skeleton,
             onTap: () => onChanged(_GalleryState.skeleton),
@@ -1657,7 +1658,7 @@ class _ComponentTile extends StatelessWidget {
                 onPressed: () =>
                     onSelectLayoutComponent!(component.layoutComponent!),
                 icon: const Icon(Icons.check_rounded, size: 18),
-                label: const Text('Utiliser ce composant'),
+                label: Text(context.l10n.gallery_use_component),
               ),
             ),
           ],
@@ -1684,7 +1685,7 @@ class _ComponentTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Tooltip(
-            message: 'Cliquer pour copier $copyName',
+            message: context.l10n.gallery_click_to_copy(copyName),
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () async {
@@ -1803,7 +1804,7 @@ class _ComponentTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Tooltip(
-                      message: 'Détail du composant et de ses paramètres',
+                      message: context.l10n.gallery_component_detail,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(9),
                         onTap: () => showComponentDetail(

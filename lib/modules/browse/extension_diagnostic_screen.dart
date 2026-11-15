@@ -1362,7 +1362,7 @@ class _ExtensionDiagnosticScreenState extends State<ExtensionDiagnosticScreen> {
                     onTap: () => setState(
                         () => _filterNsfw = _filterNsfw == false ? null : false)),
                 MiniChip(
-                    label: 'NSFW',
+                    label: context.l10n.browse_diag_nsfw,
                     selected: _filterNsfw == true,
                     cs: cs,
                     danger: true,
@@ -2061,7 +2061,11 @@ class _StatusLegend extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        _DotLegend(label: 'OK', color: Colors.green.shade500, value: ok, cs: cs),
+        _DotLegend(
+            label: context.l10n.browse_diag_ok,
+            color: Colors.green.shade500,
+            value: ok,
+            cs: cs),
         const SizedBox(width: 8),
         _DotLegend(
             label: context.l10n.browse_diag_err_short,

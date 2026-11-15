@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// What a [MediaBadge] describes.
 enum MediaBadgeKind { language, censored, uncensored, leak, subtitle, dub, vr }
@@ -529,26 +530,26 @@ class MediaBadgeLegend extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         MediaBadgeGroup(
-          title: 'Langue de la vidéo',
-          description: 'Drapeau du pays associé à la langue publiée.',
+          title: context.l10n.media_badge_video_language,
+          description: context.l10n.media_badge_video_language_desc,
           tokens: [for (final code in languages) 'lang:$code'],
         ),
         const SizedBox(height: 10),
-        const MediaBadgeGroup(
-          title: 'Censure',
-          description: 'Indique si la vidéo est censurée, non censurée ou fuie.',
+        MediaBadgeGroup(
+          title: context.l10n.media_badge_censorship,
+          description: context.l10n.media_badge_censorship_desc,
           tokens: ['censored', 'uncensored', 'leak'],
         ),
         const SizedBox(height: 10),
         MediaBadgeGroup(
-          title: 'Sous-titres',
-          description: 'Drapeau de la langue des sous-titres disponibles.',
+          title: context.l10n.media_badge_subtitles,
+          description: context.l10n.media_badge_subtitles_desc,
           tokens: [for (final code in subtitleLanguages) 'sub:$code'],
         ),
         const SizedBox(height: 10),
         MediaBadgeGroup(
-          title: 'Doublage',
-          description: 'Drapeau de la langue du doublage disponible.',
+          title: context.l10n.media_badge_dubbing,
+          description: context.l10n.media_badge_dubbing_desc,
           tokens: [for (final code in dubLanguages) 'dub:$code'],
         ),
       ],
