@@ -12,4 +12,5 @@
 - [AniList studio browsing](anilist-studio-browsing.md) — query studio catalogs through `Studio.media`; `Page.media` has no `studioId` filter.
 - [Web build compatibility](web-build-compatibility.md) — the Pages workflow restores legacy web stubs; the corrected tray/window/webview stubs are versioned in `.github/web_stubs/` and overlaid after the restore.
 - [Music plugin verification](music-plugin-verification.md) — les plugins Hetu viennent du dépôt catalogue `watchtower-extensions`; vérifier en live, pas seulement à la compilation.
+- [Hetu bytecode timestamp churn](hetu-bytecode-timestamp-churn.md) — recompiler un plugin inchangé change quand même les octets (horodatage); normaliser avant de comparer, ne pas committer ce bruit.
 - [Widget-test l10n harness](2026-11-15.md) — tout widget lisant `context.l10n` exige `localizationsDelegates` + `locale` dans son harnais de test, sinon `AppLocalizations.of(this)!` lève et la suite ne compile pas.
