@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -157,7 +158,7 @@ class SearchPage extends HookConsumerWidget {
                                   children: [
                                     const SizedBox(width: 10),
                                     Icon(
-                                      Icons.search_rounded,
+                                      Broken.search_normal_1,
                                       size: isSmallScreen ? 18 : 20,
                                       color:
                                           cs.onSurface.withValues(alpha: 0.5),
@@ -204,7 +205,7 @@ class SearchPage extends HookConsumerWidget {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8),
                                           child: Icon(
-                                            Icons.close_rounded,
+                                            Broken.close_circle,
                                             size: 16,
                                             color: cs.onSurface
                                                 .withValues(alpha: 0.5),
@@ -229,16 +230,13 @@ class SearchPage extends HookConsumerWidget {
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
                             children: [
-                              for (final chip in chips) ...[
-                                _MusicFilterChip(
+                              for (final chip in chips)
+                                FilterChipBtn(
                                   label: chip.capitalize(),
                                   isActive: selectedChip.value == chip,
-                                  onTap: () {
-                                    selectedChip.value = chip;
-                                  },
+                                  showCaret: false,
+                                  onTap: () => selectedChip.value = chip,
                                 ),
-                                const SizedBox(width: 6),
-                              ],
                             ],
                           ),
                         ),
@@ -272,54 +270,6 @@ class SearchPage extends HookConsumerWidget {
             ),
           );
         }),
-      ),
-    );
-  }
-}
-
-// ── Music category filter chip ────────────────────────────────────────────────
-// Stylé comme FilterChipBtn (watch) : fond transparent, bordure légère,
-// couleur primary quand actif.
-class _MusicFilterChip extends StatelessWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _MusicFilterChip({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive
-              ? cs.primary.withValues(alpha: 0.13)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isActive
-                ? cs.primary
-                : cs.onSurface.withValues(alpha: 0.15),
-            width: isActive ? 1.2 : 0.8,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? cs.primary : cs.onSurface.withValues(alpha: 0.75),
-            fontSize: 13,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-          ),
-        ),
       ),
     );
   }

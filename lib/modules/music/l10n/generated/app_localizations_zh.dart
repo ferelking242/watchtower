@@ -374,7 +374,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get download_location => '下载路径';
 
   @override
-  String get local_library => '本地图书馆';
+  String get local_library => '本地';
 
   @override
   String get add_library_location => '添加到图书馆';
@@ -1960,7 +1960,7 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get download_location => '下載路徑';
 
   @override
-  String get local_library => '本地媒體庫';
+  String get local_library => '本地';
 
   @override
   String get add_library_location => '新增至媒體庫';

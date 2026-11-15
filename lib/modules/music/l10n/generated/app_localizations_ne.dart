@@ -375,7 +375,7 @@ class AppLocalizationsNe extends AppLocalizations {
   String get download_location => 'डाउनलोड स्थान';
 
   @override
-  String get local_library => 'स्थानिय पुस्तकालय';
+  String get local_library => 'स्थानिय';
 
   @override
   String get add_library_location => 'पुस्तकालयमा थप्नुहोस्';

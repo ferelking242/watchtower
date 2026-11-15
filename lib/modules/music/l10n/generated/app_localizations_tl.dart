@@ -376,7 +376,7 @@ class AppLocalizationsTl extends AppLocalizations {
   String get download_location => 'Lokasyon ng pag-download';
 
   @override
-  String get local_library => 'Lokal na silid-aklatan';
+  String get local_library => 'Lokal';
 
   @override
   String get add_library_location => 'Idagdag sa silid-aklatan';

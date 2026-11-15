@@ -304,7 +304,7 @@
   "connect_client_alert": "Você está sendo controlado por {client}",
   "this_device": "Este dispositivo",
   "remote": "Remoto",
-  "local_library": "Biblioteca local",
+  "local_library": "Local",
   "add_library_location": "Adicionar à biblioteca",
   "remove_library_location": "Remover da biblioteca",
   "local_tab": "Local",

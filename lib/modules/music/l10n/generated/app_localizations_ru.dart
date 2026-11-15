@@ -375,7 +375,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get download_location => 'Место загрузки';
 
   @override
-  String get local_library => 'Локальная библиотека';
+  String get local_library => 'Локальное';
 
   @override
   String get add_library_location => 'Добавить в библиотеку';

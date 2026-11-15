@@ -374,7 +374,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get download_location => 'Lataus sijainti';
 
   @override
-  String get local_library => 'Paikallinen kirjasto';
+  String get local_library => 'Paikallinen';
 
   @override
   String get add_library_location => 'Lisää kirjastoon';

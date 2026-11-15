@@ -375,7 +375,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String get download_location => 'Local de download';
 
   @override
-  String get local_library => 'Biblioteca local';
+  String get local_library => 'Local';
 
   @override
   String get add_library_location => 'Adicionar à biblioteca';

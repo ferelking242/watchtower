@@ -252,7 +252,7 @@
   "use_system_title_bar": "システムのタイトルバーを使う",
   "update_playlist": "再生リストを更新",
   "update": "更新",
-  "local_library": "端末内ライブラリ",
+  "local_library": "端末内",
   "add_library_location": "ライブラリに追加",
   "remove_library_location": "ライブラリから削除",
   "crunching_results": "結果を処理中...",

@@ -74,12 +74,17 @@ class FilterChipBtn extends StatelessWidget {
   final VoidCallback onTap;
   final bool isExpanded;
   final bool isActive;
+
+  /// When false the trailing caret is omitted — used for plain single-select
+  /// chip rows (e.g. the music search categories) that don't expand a panel.
+  final bool showCaret;
   const FilterChipBtn({
     super.key,
     required this.label,
     required this.onTap,
     this.isExpanded = false,
     this.isActive = false,
+    this.showCaret = true,
   });
 
   @override
@@ -121,12 +126,14 @@ class FilterChipBtn extends StatelessWidget {
                   color: textColor,
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: isActive ? cs.primary : Theme.of(context).hintColor,
-              ),
+              if (showCaret) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: isActive ? cs.primary : Theme.of(context).hintColor,
+                ),
+              ],
             ],
           ),
         ),

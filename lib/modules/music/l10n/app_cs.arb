@@ -304,7 +304,7 @@
   "connect_client_alert": "Zařízení je ovládáno z {client}",
   "this_device": "Toto zařízení",
   "remote": "Ovladač",
-  "local_library": "Místní knihovna",
+  "local_library": "Místní",
   "add_library_location": "Přidat do knihovny",
   "remove_library_location": "Odebrat z knihovny",
   "local_tab": "Místní",

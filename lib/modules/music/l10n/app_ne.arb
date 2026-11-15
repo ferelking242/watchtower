@@ -304,7 +304,7 @@
   "connect_client_alert": "तपाईंलाई {client} द्वारा नियन्त्रित गरिएको छ",
   "this_device": "यो उपकरण",
   "remote": "दूरसंचार",
-  "local_library": "स्थानिय पुस्तकालय",
+  "local_library": "स्थानिय",
   "add_library_location": "पुस्तकालयमा थप्नुहोस्",
   "remove_library_location": "पुस्तकालयबाट हटाउनुहोस्",
   "local_tab": "स्थानिय",

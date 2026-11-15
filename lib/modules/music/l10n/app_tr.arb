@@ -304,7 +304,7 @@
   "connect_client_alert": "{client} tarafından kontrol ediliyorsun.",
   "this_device": "Bu cihaz",
   "remote": "Yönet",
-  "local_library": "Yerel kütüphane",
+  "local_library": "Yerel",
   "add_library_location": "Kütüphaneye ekle",
   "remove_library_location": "Kütüphaneden çıkar",
   "local_tab": "Yerel",

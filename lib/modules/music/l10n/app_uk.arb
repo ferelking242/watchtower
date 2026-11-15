@@ -304,7 +304,7 @@
   "connect_client_alert": "Вас керує {client}",
   "this_device": "Цей пристрій",
   "remote": "Віддалений",
-  "local_library": "Місцева бібліотека",
+  "local_library": "Місцевий",
   "add_library_location": "Додати до бібліотеки",
   "remove_library_location": "Видалити з бібліотеки",
   "local_tab": "Місцевий",

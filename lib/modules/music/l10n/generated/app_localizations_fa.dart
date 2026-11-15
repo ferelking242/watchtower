@@ -374,7 +374,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get download_location => 'محل بارگیری';
 
   @override
-  String get local_library => 'کتابخانه محلی';
+  String get local_library => 'محلی';
 
   @override
   String get add_library_location => 'اضافه کردن به کتابخانه';

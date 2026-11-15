@@ -274,12 +274,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ...libItems,
           ].where((nav) => !hideItems.contains(nav)).toList();
           // Always expose Music in the Hub sub-dock even if the user
-          // hasn't added /MusicLibrary to their navigation order.
+          // hasn't added it to their navigation order. It opens the music
+          // library page (playlists / artists / albums / local), matching
+          // Spotube's own library.
           final hasMusicInDest = dest.any(
-            (n) => n == '/MusicLibrary' || n == '/MusicSearch',
+            (n) =>
+                n == '/MusicLibraryPage' ||
+                n == '/MusicLibrary' ||
+                n == '/MusicSearch',
           );
-          if (!hasMusicInDest && !hideItems.contains('/MusicSearch')) {
-            dest.add('/MusicSearch');
+          if (!hasMusicInDest && !hideItems.contains('/MusicLibraryPage')) {
+            dest.add('/MusicLibraryPage');
           }
           // Reset dock-hidden state so the sub-dock is always visible.
           Future.microtask(
@@ -307,7 +312,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 }
                 // Music & Game are accessible via Hub expansion — hide
                 // them from the main dock row when Hub is enabled.
-                if (nav == "/MusicLibrary" || nav == "/GameLibrary") {
+                if (nav == "/MusicLibrary" ||
+                    nav == "/MusicLibraryPage" ||
+                    nav == "/GameLibrary") {
                   return null;
                 }
                 return nav;
@@ -564,8 +571,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     ),
                   // Music mini-player — shown on ALL pages above the dock when
                   // music is playing, except inside the music module itself
-                  // where the music module's BottomPlayer/PlayerOverlay already shows.
-                  if (!isReadingScreen && location != '/MusicLibrary')
+                  // where the music module's BottomPlayer/PlayerOverlay already
+                  // shows (all three entry routes embed MusicDiscoveryScreen).
+                  if (!isReadingScreen &&
+                      !const {
+                        '/MusicLibrary',
+                        '/MusicLibraryPage',
+                        '/MusicSearch',
+                      }.contains(location))
                     Consumer(
                       builder: (ctx, r, _) {
                         final hasMusicTrack = r.watch(
@@ -931,6 +944,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
     if (dest.contains('/MusicLibrary')) {
       destMap['/MusicLibrary'] = NavigationDestination(
+        selectedIcon: const Icon(Broken.music_circle),
+        icon: const Icon(Broken.music_playlist),
+        label: l10n.nav_music,
+      );
+    }
+    if (dest.contains('/MusicLibraryPage')) {
+      destMap['/MusicLibraryPage'] = NavigationDestination(
         selectedIcon: const Icon(Broken.music_circle),
         icon: const Icon(Broken.music_playlist),
         label: l10n.nav_music,
@@ -1986,6 +2006,7 @@ class _FloatingDockState extends State<_FloatingDock> {
     '/SeriesLibrary',
     '/NovelLibrary',
     '/MusicLibrary',
+    '/MusicLibraryPage',
     '/MusicSearch',
     '/GameLibrary',
     '/WatchtowerHome',
@@ -2098,6 +2119,15 @@ class _FloatingDockState extends State<_FloatingDock> {
           items.add(
             _DockItemData(
               route: '/MusicLibrary',
+              label: l10n.nav_music,
+              icon: Broken.music_playlist,
+              activeIcon: Broken.music_circle,
+            ),
+          );
+        case '/MusicLibraryPage':
+          items.add(
+            _DockItemData(
+              route: '/MusicLibraryPage',
               label: l10n.nav_music,
               icon: Broken.music_playlist,
               activeIcon: Broken.music_circle,

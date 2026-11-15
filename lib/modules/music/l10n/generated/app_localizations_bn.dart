@@ -374,7 +374,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get download_location => 'ডাউনলোড স্থান';
 
   @override
-  String get local_library => 'স্থানীয় লাইব্রেরি';
+  String get local_library => 'স্থানীয়';
 
   @override
   String get add_library_location => 'লাইব্রেরিতে যোগ করুন';

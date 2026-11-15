@@ -77,6 +77,14 @@ class LibraryPage extends HookConsumerWidget {
                       ],
                     ),
                   ),
+                  actions: [
+                    IconButton(
+                      tooltip: context.l10n.search,
+                      icon: const Icon(MusicIcons.search),
+                      onPressed: () => context.navigateTo(const SearchRoute()),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                 )
               : null,
           body: const AutoRouter(),

@@ -374,7 +374,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get download_location => 'ตำแหน่งดาวน์โหลด';
 
   @override
-  String get local_library => 'ห้องสมุดท้องถิ่น';
+  String get local_library => 'ท้องถิ่น';
 
   @override
   String get add_library_location => 'เพิ่มในห้องสมุด';

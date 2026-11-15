@@ -374,7 +374,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get download_location => 'Umístění stahování';
 
   @override
-  String get local_library => 'Místní knihovna';
+  String get local_library => 'Místní';
 
   @override
   String get add_library_location => 'Přidat do knihovny';

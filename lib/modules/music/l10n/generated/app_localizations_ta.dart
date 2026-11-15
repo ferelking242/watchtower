@@ -375,7 +375,7 @@ class AppLocalizationsTa extends AppLocalizations {
   String get download_location => 'பதிவிறக்க இடம்';
 
   @override
-  String get local_library => 'உள்ளூர் நூலகம்';
+  String get local_library => 'உள்ளூர்';
 
   @override
   String get add_library_location => 'நூலகத்தில் சேர்';

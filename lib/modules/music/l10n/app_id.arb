@@ -304,7 +304,7 @@
   "connect_client_alert": "Anda dikendalikan oleh {client}",
   "this_device": "Perangkat Ini",
   "remote": "Remot",
-  "local_library": "Perpustakaan lokal",
+  "local_library": "Lokal",
   "add_library_location": "Tambahkan ke perpustakaan",
   "remove_library_location": "Hapus dari perpustakaan",
   "local_tab": "Lokal",

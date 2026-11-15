@@ -12,7 +12,6 @@ import 'package:watchtower/models/category.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
-import 'package:watchtower/modules/music/music_discovery_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
@@ -29,12 +28,12 @@ import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 
 // ─── Type order ──────────────────────────────────────────────────────────────
 // Manga first so the coverflow opens as [Manga] [Watch] [Novel] — Watch
-// centered, neighbors peeking at the edges (user request).
+// centered, neighbors peeking at the edges (user request). Music is NOT here:
+// the music library now lives behind Hub → Music.
 const _kTypes = <ItemType>[
   ItemType.manga,
   ItemType.anime,
   ItemType.novel,
-  ItemType.music,
   ItemType.game,
 ];
 const _kCarouselCopies = 1000;
@@ -44,7 +43,6 @@ const _kTypeIcons = <ItemType, IconData>{
   ItemType.anime: Broken.video,
   ItemType.manga: Broken.book,
   ItemType.novel: Broken.document_text,
-  ItemType.music: Broken.music,
   ItemType.game: Broken.game,
 };
 
@@ -56,8 +54,6 @@ String _typeLabel(ItemType type) {
       return 'Manga';
     case ItemType.novel:
       return 'Novel';
-    case ItemType.music:
-      return 'Music';
     case ItemType.game:
       return 'Games';
     default:
@@ -582,20 +578,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 _librarySwipeDistance += details.delta.dx;
               },
               onHorizontalDragEnd: _onLibrarySwipeEnd,
-              child: _currentType == ItemType.music
-                  ? const MusicDiscoveryScreen()
-                  : LibraryScreen(
-                      key: ValueKey('lib_${_typeIndex}_$extCatId'),
-                      itemType: _currentType,
-                      presetInput: null,
-                      hideOwnAppBar: true,
-                      // Keep the embedded library controller in sync when
-                      // search closes, so the old query cannot stay applied.
-                      externalSearchQuery: _showSearch
-                          ? _searchController.text
-                          : '',
-                      externalCategoryId: extCatId,
-                    ),
+              child: LibraryScreen(
+                key: ValueKey('lib_${_typeIndex}_$extCatId'),
+                itemType: _currentType,
+                presetInput: null,
+                hideOwnAppBar: true,
+                // Keep the embedded library controller in sync when
+                // search closes, so the old query cannot stay applied.
+                externalSearchQuery: _showSearch ? _searchController.text : '',
+                externalCategoryId: extCatId,
+              ),
             ),
           ),
         ],

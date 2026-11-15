@@ -89,7 +89,7 @@ class Sidebar extends HookConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         child: Text(
-                          "Musique",
+                          context.l10n.music,
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,

@@ -374,7 +374,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get download_location => 'تنزيل الموقع';
 
   @override
-  String get local_library => 'المكتبة المحلية';
+  String get local_library => 'محلي';
 
   @override
   String get add_library_location => 'أضف إلى المكتبة';

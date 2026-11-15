@@ -304,7 +304,7 @@
   "connect_client_alert": "თქვენ კონტროლირებული ხართ {client} მოწყობილობით",
   "this_device": "ეს მოწყობილობა",
   "remote": "დისტანციური",
-  "local_library": "ადგილობრივი ბიბლიოთეკა",
+  "local_library": "ადგილობრივი",
   "add_library_location": "ბიბლიოთეკაში დამატება",
   "remove_library_location": "ბიბლიოთეკიდან წაშლა",
   "local_tab": "ადგილობრივი",

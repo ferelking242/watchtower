@@ -822,7 +822,7 @@ abstract class AppLocalizations {
   /// No description provided for @local_library.
   ///
   /// In en, this message translates to:
-  /// **'Local library'**
+  /// **'Local'**
   String get local_library;
 
   /// No description provided for @add_library_location.

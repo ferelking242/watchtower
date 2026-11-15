@@ -375,7 +375,7 @@ class AppLocalizationsId extends AppLocalizations {
   String get download_location => 'Lokasi unduhan';
 
   @override
-  String get local_library => 'Perpustakaan lokal';
+  String get local_library => 'Lokal';
 
   @override
   String get add_library_location => 'Tambahkan ke perpustakaan';

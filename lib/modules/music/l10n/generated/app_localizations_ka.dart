@@ -374,7 +374,7 @@ class AppLocalizationsKa extends AppLocalizations {
   String get download_location => 'ჩამოტვირთვის მდებარეობა';
 
   @override
-  String get local_library => 'ადგილობრივი ბიბლიოთეკა';
+  String get local_library => 'ადგილობრივი';
 
   @override
   String get add_library_location => 'ბიბლიოთეკაში დამატება';

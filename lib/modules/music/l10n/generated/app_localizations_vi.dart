@@ -375,7 +375,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get download_location => 'Vị trí tải xuống';
 
   @override
-  String get local_library => 'Thư viện địa phương';
+  String get local_library => 'Địa phương';
 
   @override
   String get add_library_location => 'Thêm vào thư viện';

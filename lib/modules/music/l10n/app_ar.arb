@@ -304,7 +304,7 @@
   "connect_client_alert": "أنت تتم التحكم بواسطة {client}",
   "this_device": "هذا الجهاز",
   "remote": "بعيد",
-  "local_library": "المكتبة المحلية",
+  "local_library": "محلي",
   "add_library_location": "أضف إلى المكتبة",
   "remove_library_location": "إزالة من المكتبة",
   "local_tab": "محلي",

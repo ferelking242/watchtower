@@ -303,7 +303,7 @@
   "connect_client_alert": "Je wordt gecontroleerd door {client}",
   "this_device": "Dit apparaat",
   "remote": "Afstandsbediening",
-  "local_library": "Lokale bibliotheek",
+  "local_library": "Lokaal",
   "add_library_location": "Toevoegen aan bibliotheek",
   "remove_library_location": "Verwijderen uit bibliotheek",
   "local_tab": "Lokaal",
