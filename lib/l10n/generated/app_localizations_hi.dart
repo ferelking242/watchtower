@@ -11504,4 +11504,221 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get nav_haptic_disabled => 'Haptic feedback disabled';
+
+  @override
+  String get anilist_open_webview => 'Open in WebView';
+
+  @override
+  String get anilist_find_extensions => 'Find on Extensions';
+
+  @override
+  String get anilist_share => 'Share';
+
+  @override
+  String get anilist_report => 'Report';
+
+  @override
+  String get anilist_add_to_library => 'Add to Library';
+
+  @override
+  String get anilist_no_related => 'No related media';
+
+  @override
+  String get anilist_no_characters => 'No characters';
+
+  @override
+  String get anilist_no_staff => 'No staff information';
+
+  @override
+  String get anilist_connect_reviews => 'Connect to read reviews';
+
+  @override
+  String get anilist_reviews_hint =>
+      'AniList reviews are available after you connect your AniList account.';
+
+  @override
+  String get anilist_connect_threads => 'Connect to view threads';
+
+  @override
+  String get anilist_threads_hint =>
+      'Join the AniList discussion after connecting your AniList account.';
+
+  @override
+  String get anilist_no_recommendations => 'No recommendations';
+
+  @override
+  String get anilist_no_watch_order => 'No watch order available';
+
+  @override
+  String get anilist_view_full_profile => 'View full profile on AniList';
+
+  @override
+  String get anilist_connect => 'Connect to AniList';
+
+  @override
+  String get anilist_no_statistics => 'No statistics available';
+
+  @override
+  String get anilist_no_activities => 'No recent activities';
+
+  @override
+  String get anilist_total => 'Total';
+
+  @override
+  String get anilist_watched => 'Watched';
+
+  @override
+  String get anilist_remaining => 'Remaining';
+
+  @override
+  String get anilist_type => 'Type';
+
+  @override
+  String get anilist_rating => 'Rating';
+
+  @override
+  String get anilist_format => 'Format';
+
+  @override
+  String get anilist_status => 'Status';
+
+  @override
+  String get anilist_popularity => 'Popularity';
+
+  @override
+  String get anilist_episodes => 'Episodes';
+
+  @override
+  String get anilist_chapters => 'Chapters';
+
+  @override
+  String get anilist_season => 'Season';
+
+  @override
+  String get anilist_source => 'Source';
+
+  @override
+  String get anilist_mean_score => 'Mean Score';
+
+  @override
+  String get anilist_favourites => 'Favourites';
+
+  @override
+  String get anilist_duration => 'Duration';
+
+  @override
+  String get anilist_start_date => 'Start Date';
+
+  @override
+  String get anilist_end_date => 'End Date';
+
+  @override
+  String get anilist_studio => 'Studio';
+
+  @override
+  String get anilist_genres => 'Genres';
+
+  @override
+  String get anilist_relations => 'Relations';
+
+  @override
+  String get anilist_recommendations => 'Recommendations';
+
+  @override
+  String get anilist_global => 'Global';
+
+  @override
+  String get anilist_following => 'Following';
+
+  @override
+  String get anilist_self => 'Self';
+
+  @override
+  String get anilist_score_distribution => 'Score Distribution';
+
+  @override
+  String get anilist_status_distribution => 'Status Distribution';
+
+  @override
+  String get anilist_episodes_anime_only =>
+      'Episode data is only available for anime';
+
+  @override
+  String anilist_episodes_load_failed(Object error) {
+    return 'Could not load episodes: $error';
+  }
+
+  @override
+  String get anilist_no_episodes => 'No episode data available yet';
+
+  @override
+  String get anilist_episode_filters => 'Episode filters';
+
+  @override
+  String get anilist_regular_episodes => 'Regular episodes';
+
+  @override
+  String get anilist_include_specials => 'Include specials';
+
+  @override
+  String get anilist_episodes_with_synopsis => 'Episodes with synopsis';
+
+  @override
+  String get anilist_watch => 'Watch';
+
+  @override
+  String get anilist_local_library => 'Local Library';
+
+  @override
+  String get anilist_local_library_hint =>
+      'Play from files already in your library';
+
+  @override
+  String get anilist_extensions_online => 'Extensions — Online';
+
+  @override
+  String get anilist_extensions_online_hint =>
+      'Smart search via your installed anime sources';
+
+  @override
+  String get anilist_manual_url => 'Manual URL';
+
+  @override
+  String get anilist_manual_url_hint => 'Paste a direct stream link to watch';
+
+  @override
+  String get anilist_tab_overview => 'Overview';
+
+  @override
+  String get anilist_tab_episodes => 'Episodes';
+
+  @override
+  String get anilist_tab_related => 'Related';
+
+  @override
+  String get anilist_tab_characters => 'Characters';
+
+  @override
+  String get anilist_tab_staff => 'Staff';
+
+  @override
+  String get anilist_tab_reviews => 'Reviews';
+
+  @override
+  String get anilist_tab_threads => 'Threads';
+
+  @override
+  String get anilist_tab_following => 'Following';
+
+  @override
+  String get anilist_tab_activities => 'Activities';
+
+  @override
+  String get anilist_tab_recommendations => 'Recommendations';
+
+  @override
+  String get anilist_tab_statistics => 'Statistics';
+
+  @override
+  String get anilist_tab_watch_order => 'Watch Order';
 }

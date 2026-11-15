@@ -20512,6 +20512,426 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Haptic feedback disabled'**
   String get nav_haptic_disabled;
+
+  /// No description provided for @anilist_open_webview.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in WebView'**
+  String get anilist_open_webview;
+
+  /// No description provided for @anilist_find_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Find on Extensions'**
+  String get anilist_find_extensions;
+
+  /// No description provided for @anilist_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get anilist_share;
+
+  /// No description provided for @anilist_report.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get anilist_report;
+
+  /// No description provided for @anilist_add_to_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Library'**
+  String get anilist_add_to_library;
+
+  /// No description provided for @anilist_no_related.
+  ///
+  /// In en, this message translates to:
+  /// **'No related media'**
+  String get anilist_no_related;
+
+  /// No description provided for @anilist_no_characters.
+  ///
+  /// In en, this message translates to:
+  /// **'No characters'**
+  String get anilist_no_characters;
+
+  /// No description provided for @anilist_no_staff.
+  ///
+  /// In en, this message translates to:
+  /// **'No staff information'**
+  String get anilist_no_staff;
+
+  /// No description provided for @anilist_connect_reviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to read reviews'**
+  String get anilist_connect_reviews;
+
+  /// No description provided for @anilist_reviews_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'AniList reviews are available after you connect your AniList account.'**
+  String get anilist_reviews_hint;
+
+  /// No description provided for @anilist_connect_threads.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to view threads'**
+  String get anilist_connect_threads;
+
+  /// No description provided for @anilist_threads_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Join the AniList discussion after connecting your AniList account.'**
+  String get anilist_threads_hint;
+
+  /// No description provided for @anilist_no_recommendations.
+  ///
+  /// In en, this message translates to:
+  /// **'No recommendations'**
+  String get anilist_no_recommendations;
+
+  /// No description provided for @anilist_no_watch_order.
+  ///
+  /// In en, this message translates to:
+  /// **'No watch order available'**
+  String get anilist_no_watch_order;
+
+  /// No description provided for @anilist_view_full_profile.
+  ///
+  /// In en, this message translates to:
+  /// **'View full profile on AniList'**
+  String get anilist_view_full_profile;
+
+  /// No description provided for @anilist_connect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to AniList'**
+  String get anilist_connect;
+
+  /// No description provided for @anilist_no_statistics.
+  ///
+  /// In en, this message translates to:
+  /// **'No statistics available'**
+  String get anilist_no_statistics;
+
+  /// No description provided for @anilist_no_activities.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent activities'**
+  String get anilist_no_activities;
+
+  /// No description provided for @anilist_total.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get anilist_total;
+
+  /// No description provided for @anilist_watched.
+  ///
+  /// In en, this message translates to:
+  /// **'Watched'**
+  String get anilist_watched;
+
+  /// No description provided for @anilist_remaining.
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining'**
+  String get anilist_remaining;
+
+  /// No description provided for @anilist_type.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get anilist_type;
+
+  /// No description provided for @anilist_rating.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating'**
+  String get anilist_rating;
+
+  /// No description provided for @anilist_format.
+  ///
+  /// In en, this message translates to:
+  /// **'Format'**
+  String get anilist_format;
+
+  /// No description provided for @anilist_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get anilist_status;
+
+  /// No description provided for @anilist_popularity.
+  ///
+  /// In en, this message translates to:
+  /// **'Popularity'**
+  String get anilist_popularity;
+
+  /// No description provided for @anilist_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes'**
+  String get anilist_episodes;
+
+  /// No description provided for @anilist_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'Chapters'**
+  String get anilist_chapters;
+
+  /// No description provided for @anilist_season.
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get anilist_season;
+
+  /// No description provided for @anilist_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get anilist_source;
+
+  /// No description provided for @anilist_mean_score.
+  ///
+  /// In en, this message translates to:
+  /// **'Mean Score'**
+  String get anilist_mean_score;
+
+  /// No description provided for @anilist_favourites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favourites'**
+  String get anilist_favourites;
+
+  /// No description provided for @anilist_duration.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get anilist_duration;
+
+  /// No description provided for @anilist_start_date.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Date'**
+  String get anilist_start_date;
+
+  /// No description provided for @anilist_end_date.
+  ///
+  /// In en, this message translates to:
+  /// **'End Date'**
+  String get anilist_end_date;
+
+  /// No description provided for @anilist_studio.
+  ///
+  /// In en, this message translates to:
+  /// **'Studio'**
+  String get anilist_studio;
+
+  /// No description provided for @anilist_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get anilist_genres;
+
+  /// No description provided for @anilist_relations.
+  ///
+  /// In en, this message translates to:
+  /// **'Relations'**
+  String get anilist_relations;
+
+  /// No description provided for @anilist_recommendations.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommendations'**
+  String get anilist_recommendations;
+
+  /// No description provided for @anilist_global.
+  ///
+  /// In en, this message translates to:
+  /// **'Global'**
+  String get anilist_global;
+
+  /// No description provided for @anilist_following.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get anilist_following;
+
+  /// No description provided for @anilist_self.
+  ///
+  /// In en, this message translates to:
+  /// **'Self'**
+  String get anilist_self;
+
+  /// No description provided for @anilist_score_distribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Score Distribution'**
+  String get anilist_score_distribution;
+
+  /// No description provided for @anilist_status_distribution.
+  ///
+  /// In en, this message translates to:
+  /// **'Status Distribution'**
+  String get anilist_status_distribution;
+
+  /// No description provided for @anilist_episodes_anime_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode data is only available for anime'**
+  String get anilist_episodes_anime_only;
+
+  /// No description provided for @anilist_episodes_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load episodes: {error}'**
+  String anilist_episodes_load_failed(Object error);
+
+  /// No description provided for @anilist_no_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'No episode data available yet'**
+  String get anilist_no_episodes;
+
+  /// No description provided for @anilist_episode_filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode filters'**
+  String get anilist_episode_filters;
+
+  /// No description provided for @anilist_regular_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular episodes'**
+  String get anilist_regular_episodes;
+
+  /// No description provided for @anilist_include_specials.
+  ///
+  /// In en, this message translates to:
+  /// **'Include specials'**
+  String get anilist_include_specials;
+
+  /// No description provided for @anilist_episodes_with_synopsis.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes with synopsis'**
+  String get anilist_episodes_with_synopsis;
+
+  /// No description provided for @anilist_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get anilist_watch;
+
+  /// No description provided for @anilist_local_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Local Library'**
+  String get anilist_local_library;
+
+  /// No description provided for @anilist_local_library_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Play from files already in your library'**
+  String get anilist_local_library_hint;
+
+  /// No description provided for @anilist_extensions_online.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions — Online'**
+  String get anilist_extensions_online;
+
+  /// No description provided for @anilist_extensions_online_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart search via your installed anime sources'**
+  String get anilist_extensions_online_hint;
+
+  /// No description provided for @anilist_manual_url.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual URL'**
+  String get anilist_manual_url;
+
+  /// No description provided for @anilist_manual_url_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a direct stream link to watch'**
+  String get anilist_manual_url_hint;
+
+  /// No description provided for @anilist_tab_overview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get anilist_tab_overview;
+
+  /// No description provided for @anilist_tab_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes'**
+  String get anilist_tab_episodes;
+
+  /// No description provided for @anilist_tab_related.
+  ///
+  /// In en, this message translates to:
+  /// **'Related'**
+  String get anilist_tab_related;
+
+  /// No description provided for @anilist_tab_characters.
+  ///
+  /// In en, this message translates to:
+  /// **'Characters'**
+  String get anilist_tab_characters;
+
+  /// No description provided for @anilist_tab_staff.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff'**
+  String get anilist_tab_staff;
+
+  /// No description provided for @anilist_tab_reviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews'**
+  String get anilist_tab_reviews;
+
+  /// No description provided for @anilist_tab_threads.
+  ///
+  /// In en, this message translates to:
+  /// **'Threads'**
+  String get anilist_tab_threads;
+
+  /// No description provided for @anilist_tab_following.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get anilist_tab_following;
+
+  /// No description provided for @anilist_tab_activities.
+  ///
+  /// In en, this message translates to:
+  /// **'Activities'**
+  String get anilist_tab_activities;
+
+  /// No description provided for @anilist_tab_recommendations.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommendations'**
+  String get anilist_tab_recommendations;
+
+  /// No description provided for @anilist_tab_statistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics'**
+  String get anilist_tab_statistics;
+
+  /// No description provided for @anilist_tab_watch_order.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch Order'**
+  String get anilist_tab_watch_order;
 }
 
 class _AppLocalizationsDelegate

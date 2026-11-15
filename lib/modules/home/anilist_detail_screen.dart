@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
@@ -251,20 +252,20 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
                             labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                             labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
                             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
-                            tabs: const [
-                              Tab(height: 46, icon: Icon(Broken.info_circle, size: 11), text: 'Overview'),
-                              Tab(height: 46, icon: Icon(Broken.video, size: 11), text: 'Episodes'),
-                              Tab(height: 46, icon: Icon(Broken.link_2, size: 11), text: 'Related'),
-                              Tab(height: 46, icon: Icon(Broken.user, size: 11), text: 'Characters'),
-                              Tab(height: 46, icon: Icon(Broken.people, size: 11), text: 'Staff'),
-                              Tab(height: 46, icon: Icon(Broken.star, size: 11), text: 'Reviews'),
-                              Tab(height: 46, icon: Icon(Broken.messages, size: 11), text: 'Threads'),
-                              Tab(height: 46, icon: Icon(Broken.heart, size: 11), text: 'Following'),
-                              Tab(height: 46, icon: Icon(Broken.activity, size: 11), text: 'Activities'),
-                              Tab(height: 46, icon: Icon(Broken.like, size: 11), text: 'Recommendations'),
-                              Tab(height: 46, icon: Icon(Broken.chart_2, size: 11), text: 'Statistics'),
-                              Tab(height: 46, icon: Icon(Broken.video_time, size: 11), text: 'Watch Order'),
-                            ],
+                            tabs: [
+                          Tab(height: 46, icon: const Icon(Broken.info_circle, size: 11), text: context.l10n.anilist_tab_overview),
+                          Tab(height: 46, icon: const Icon(Broken.video, size: 11), text: context.l10n.anilist_tab_episodes),
+                          Tab(height: 46, icon: const Icon(Broken.link_2, size: 11), text: context.l10n.anilist_tab_related),
+                          Tab(height: 46, icon: const Icon(Broken.user, size: 11), text: context.l10n.anilist_tab_characters),
+                          Tab(height: 46, icon: const Icon(Broken.people, size: 11), text: context.l10n.anilist_tab_staff),
+                          Tab(height: 46, icon: const Icon(Broken.star, size: 11), text: context.l10n.anilist_tab_reviews),
+                          Tab(height: 46, icon: const Icon(Broken.messages, size: 11), text: context.l10n.anilist_tab_threads),
+                          Tab(height: 46, icon: const Icon(Broken.heart, size: 11), text: context.l10n.anilist_tab_following),
+                          Tab(height: 46, icon: const Icon(Broken.activity, size: 11), text: context.l10n.anilist_tab_activities),
+                          Tab(height: 46, icon: const Icon(Broken.like, size: 11), text: context.l10n.anilist_tab_recommendations),
+                          Tab(height: 46, icon: const Icon(Broken.chart_2, size: 11), text: context.l10n.anilist_tab_statistics),
+                          Tab(height: 46, icon: const Icon(Broken.video_time, size: 11), text: context.l10n.anilist_tab_watch_order),
+                        ],
                           ),
                           bgColor: scaffoldBg,
                           dividerColor: cs.outlineVariant.withValues(alpha: 0.25),
@@ -331,7 +332,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
           options: [
             _MoreMenuOption(
               icon: Broken.global,
-              label: 'Open in WebView',
+              label: context.l10n.anilist_open_webview,
               onTap: () {
                 Navigator.pop(ctx);
                 _openWebview(anilistUrl, m.displayTitle);
@@ -339,7 +340,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
             ),
             _MoreMenuOption(
               icon: Broken.global_search,
-              label: 'Find on Extensions',
+              label: context.l10n.anilist_find_extensions,
               onTap: () {
                 Navigator.pop(ctx);
                 final type = m.type == 'MANGA' ? ItemType.manga : ItemType.anime;
@@ -348,7 +349,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
             ),
             _MoreMenuOption(
               icon: Broken.share,
-              label: 'Share',
+              label: context.l10n.anilist_share,
               onTap: () {
                 Navigator.pop(ctx);
                 _share(m);
@@ -356,7 +357,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
             ),
             _MoreMenuOption(
               icon: Broken.flag,
-              label: 'Report',
+              label: context.l10n.anilist_report,
               isDestructive: true,
               onTap: () {
                 Navigator.pop(ctx);
@@ -473,7 +474,7 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
               Expanded(
                 child: _ActionBtn(
                   icon: Icons.collections_bookmark_outlined,
-                  label: 'Add to Library',
+                  label: context.l10n.anilist_add_to_library,
                   primary: true,
                   onTap: () {
                     final type = m.type == 'MANGA' ? ItemType.manga : ItemType.anime;
@@ -549,7 +550,9 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       loading: () => const _LoadingView(),
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
-        if (d.relations.isEmpty) return const _EmptyView(message: 'No related media');
+        if (d.relations.isEmpty) {
+          return _EmptyView(message: context.l10n.anilist_no_related);
+        }
         final relations = [...d.relations]
           ..sort((a, b) => _watchOrderSort(a.relationType)
               .compareTo(_watchOrderSort(b.relationType)));
@@ -593,7 +596,9 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       loading: () => const _LoadingView(),
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
-        if (d.characters.isEmpty) return const _EmptyView(message: 'No characters');
+        if (d.characters.isEmpty) {
+          return _EmptyView(message: context.l10n.anilist_no_characters);
+        }
         return _CharactersWithFilter(
           characters: d.characters,
           onCharTap: (c) {
@@ -616,7 +621,9 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       loading: () => const _LoadingView(),
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
-        if (d.staff.isEmpty) return const _EmptyView(message: 'No staff information');
+        if (d.staff.isEmpty) {
+          return _EmptyView(message: context.l10n.anilist_no_staff);
+        }
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(0, 8, 0, 80),
           itemCount: d.staff.length,
@@ -643,8 +650,8 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
 
   Widget _buildReviews(BuildContext context, AsyncValue<AnilistMediaDetail> detail) {
     return _AnilistAuthGate(
-      title: 'Connect to read reviews',
-      message: 'AniList reviews are available after you connect your AniList account.',
+      title: context.l10n.anilist_connect_reviews,
+      message: context.l10n.anilist_reviews_hint,
       onConnect: () => _openWebview('https://anilist.co/login', 'AniList Login'),
     );
   }
@@ -655,8 +662,8 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
 
   Widget _buildThreads(BuildContext context, AnilistMedia m) {
     return _AnilistAuthGate(
-      title: 'Connect to view threads',
-      message: 'Join the AniList discussion after connecting your AniList account.',
+      title: context.l10n.anilist_connect_threads,
+      message: context.l10n.anilist_threads_hint,
       onConnect: () => _openWebview('https://anilist.co/login', 'AniList Login'),
     );
   }
@@ -732,7 +739,9 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       loading: () => const _LoadingView(),
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
-        if (d.recommendations.isEmpty) return const _EmptyView(message: 'No recommendations');
+        if (d.recommendations.isEmpty) {
+          return _EmptyView(message: context.l10n.anilist_no_recommendations);
+        }
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
           itemCount: d.recommendations.length,
@@ -787,7 +796,9 @@ class _AnilistDetailScreenState extends ConsumerState<AnilistDetailScreen>
       loading: () => const _LoadingView(),
       error: (e, _) => _ErrorView(message: e.toString()),
       data: (d) {
-        if (d.relations.isEmpty) return const _EmptyView(message: 'No watch order available');
+        if (d.relations.isEmpty) {
+          return _EmptyView(message: context.l10n.anilist_no_watch_order);
+        }
         return _WatchOrderTab(
           relations: d.relations,
           friendlyRelationType: _friendlyRelationType,
@@ -961,7 +972,7 @@ class _OverviewTabState extends State<_OverviewTab> {
 
         // ── Genres ─────────────────────────────────────────────────────────
         if (m.genres.isNotEmpty) ...[
-          const _SectionLabel(label: 'Genres'),
+          _SectionLabel(label: context.l10n.anilist_genres),
           const SizedBox(height: 8),
           SizedBox(
             height: 68,
@@ -984,7 +995,7 @@ class _OverviewTabState extends State<_OverviewTab> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _SectionLabel(label: 'Relations'),
+                _SectionLabel(label: context.l10n.anilist_relations),
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 180,
@@ -1218,16 +1229,16 @@ class _EpisodeHoursBox extends ConsumerWidget {
           IntrinsicHeight(
             child: Row(
               children: [
-                _HourItem(label: 'Total', value: _totalHours(), cs: cs),
+                _HourItem(label: context.l10n.anilist_total, value: _totalHours(), cs: cs),
                 VerticalDivider(color: cs.outlineVariant.withValues(alpha: 0.4), thickness: 0.5),
                 _HourItem(
-                  label: 'Watched',
+                  label: context.l10n.anilist_watched,
                   value: _formatMinutes(progress.watchedMinutes),
                   cs: cs,
                 ),
                 VerticalDivider(color: cs.outlineVariant.withValues(alpha: 0.4), thickness: 0.5),
                 _HourItem(
-                  label: 'Remaining',
+                  label: context.l10n.anilist_remaining,
                   value: _remainingHours(displayedTotal, progress.watched),
                   cs: cs,
                   accent: true,
@@ -1390,51 +1401,78 @@ class _StatsBox extends StatelessWidget {
     final items = <_StatGridItem>[];
 
     items.add(_StatGridItem(
-      label: 'Type',
+      label: context.l10n.anilist_type,
       value: m.type == 'ANIME' ? 'Anime' : 'Manga',
     ));
     if (m.averageScore != null) {
       items.add(_StatGridItem(
-        label: 'Rating',
+        label: context.l10n.anilist_rating,
         value: '${(m.averageScore! / 10).toStringAsFixed(1)}/10',
         accent: true,
       ));
     }
     if (m.format != null) {
-      items.add(_StatGridItem(label: 'Format', value: m.format!));
+      items.add(_StatGridItem(label: context.l10n.anilist_format, value: m.format!));
     }
     if (d.status != null) {
-      items.add(_StatGridItem(label: 'Status', value: formatStatus(d.status)));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_status,
+        value: formatStatus(d.status),
+      ));
     }
     if (d.popularity != null) {
-      items.add(_StatGridItem(label: 'Popularity', value: '${d.popularity}'));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_popularity,
+        value: '${d.popularity}',
+      ));
     }
     if (m.episodes != null) {
-      items.add(_StatGridItem(label: 'Episodes', value: '${m.episodes}'));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_episodes,
+        value: '${m.episodes}',
+      ));
     } else if (m.chapters != null) {
-      items.add(_StatGridItem(label: 'Chapters', value: '${m.chapters}'));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_chapters,
+        value: '${m.chapters}',
+      ));
     }
     if (d.season != null || d.seasonYear != null) {
-      items.add(_StatGridItem(label: 'Season', value: formatSeason(d.season, d.seasonYear)));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_season,
+        value: formatSeason(d.season, d.seasonYear),
+      ));
     }
     if (d.source != null) {
-      items.add(_StatGridItem(label: 'Source', value: formatSource(d.source)));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_source,
+        value: formatSource(d.source),
+      ));
     }
     if (d.meanScore != null) {
       items.add(_StatGridItem(
-        label: 'Mean Score',
+        label: context.l10n.anilist_mean_score,
         value: '${(d.meanScore! / 10).toStringAsFixed(1)}/10',
         accent: true,
       ));
     }
     if (d.favourites != null) {
-      items.add(_StatGridItem(label: 'Favourites', value: '${d.favourites}'));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_favourites,
+        value: '${d.favourites}',
+      ));
     }
     if (d.duration != null) {
-      items.add(_StatGridItem(label: 'Duration', value: '${d.duration} min'));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_duration,
+        value: '${d.duration} min',
+      ));
     }
     if (d.startYear != null) {
-      items.add(_StatGridItem(label: 'Start Date', value: formatDate(d.startYear, d.startMonth, d.startDay)));
+      items.add(_StatGridItem(
+        label: context.l10n.anilist_start_date,
+        value: formatDate(d.startYear, d.startMonth, d.startDay),
+      ));
     }
     if (d.endYear != null) {
       items.add(_StatGridItem(label: 'End Date', value: formatDate(d.endYear, d.endMonth, d.endDay)));
@@ -2110,13 +2148,13 @@ class _ActivitiesTabState extends ConsumerState<_ActivitiesTab> {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
           child: Row(
             children: [
-              _FilterPill(label: 'Global', selected: _filter == 0, cs: cs,
+              _FilterPill(label: context.l10n.anilist_global, selected: _filter == 0, cs: cs,
                   onTap: () => setState(() => _filter = 0)),
               const SizedBox(width: 8),
-              _FilterPill(label: 'Following', selected: _filter == 1, cs: cs,
+              _FilterPill(label: context.l10n.anilist_following, selected: _filter == 1, cs: cs,
                   onTap: () => setState(() => _filter = 1)),
               const SizedBox(width: 8),
-              _FilterPill(label: 'Self', selected: _filter == 2, cs: cs,
+              _FilterPill(label: context.l10n.anilist_self, selected: _filter == 2, cs: cs,
                   onTap: () => setState(() => _filter = 2)),
             ],
           ),
@@ -2149,7 +2187,9 @@ class _ActivitiesTabState extends ConsumerState<_ActivitiesTab> {
                   loading: () => const _ActivityShimmer(),
                   error: (e, _) => _ErrorView(message: e.toString()),
                   data: (list) {
-                    if (list.isEmpty) return const _EmptyView(message: 'No recent activities');
+                    if (list.isEmpty) {
+                      return _EmptyView(message: context.l10n.anilist_no_activities);
+                    }
                     return ListView.separated(
                       padding: const EdgeInsets.only(bottom: 80),
                       itemCount: list.length,
@@ -2201,7 +2241,7 @@ class _AnilistAuthGate extends StatelessWidget {
             FilledButton.icon(
               onPressed: onConnect,
               icon: const Icon(Icons.login_rounded, size: 17),
-              label: const Text('Connect to AniList'),
+              label: Text(context.l10n.anilist_connect),
             ),
           ],
         ),
@@ -2529,7 +2569,7 @@ class _StatisticsContent extends StatelessWidget {
           children: [
             Icon(Icons.bar_chart_rounded, size: 48, color: cs.onSurface.withValues(alpha: 0.25)),
             const SizedBox(height: 12),
-            Text('No statistics available',
+            Text(context.l10n.anilist_no_statistics,
                 style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5))),
           ],
         ),
@@ -2558,7 +2598,7 @@ class _StatisticsContent extends StatelessWidget {
 
         // Score Distribution
         if (m.scoreDistribution.isNotEmpty) ...[
-          const _SectionLabel(label: 'Score Distribution'),
+          _SectionLabel(label: context.l10n.anilist_score_distribution),
           const SizedBox(height: 12),
           _GlassCard(
             child: Column(
@@ -2618,7 +2658,7 @@ class _StatisticsContent extends StatelessWidget {
 
         // Status Distribution
         if (m.statusDistribution.isNotEmpty) ...[
-          const _SectionLabel(label: 'Status Distribution'),
+          _SectionLabel(label: context.l10n.anilist_status_distribution),
           const SizedBox(height: 12),
           _GlassCard(
             child: Column(
@@ -3322,17 +3362,19 @@ class _EpisodesTabState extends ConsumerState<_EpisodesTab> {
     final cs = widget.cs;
 
     if (m.type != 'ANIME') {
-      return const _EmptyView(message: 'Episode data is only available for anime');
+      return _EmptyView(message: context.l10n.anilist_episodes_anime_only);
     }
 
     final episodesAsync = ref.watch(aniZipEpisodesProvider(m.id));
 
     return episodesAsync.when(
       loading: () => const _LoadingView(),
-      error: (e, _) => _ErrorView(message: 'Could not load episodes: ${e.toString()}'),
+      error: (e, _) => _ErrorView(
+        message: context.l10n.anilist_episodes_load_failed(e.toString()),
+      ),
       data: (list) {
         if (list.isEmpty) {
-          return const _EmptyView(message: 'No episode data available yet');
+          return _EmptyView(message: context.l10n.anilist_no_episodes);
         }
 
         final specials = list.where((e) => e.episodeNumber == 0).toList();
@@ -3382,16 +3424,25 @@ class _EpisodesTabState extends ConsumerState<_EpisodesTab> {
                         ),
                       ),
                     PopupMenuButton<String>(
-                      tooltip: 'Episode filters',
+                      tooltip: context.l10n.anilist_episode_filters,
                       icon: Icon(Icons.filter_list_rounded, size: 20, color: cs.onSurface.withValues(alpha: 0.65)),
                       onSelected: (value) => setState(() {
                         _showSpecials = value == 'specials';
                         _onlyWithOverview = value == 'overview';
                       }),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'regular', child: Text('Regular episodes')),
-                        PopupMenuItem(value: 'specials', child: Text('Include specials')),
-                        PopupMenuItem(value: 'overview', child: Text('Episodes with synopsis')),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'regular',
+                          child: Text(context.l10n.anilist_regular_episodes),
+                        ),
+                        PopupMenuItem(
+                          value: 'specials',
+                          child: Text(context.l10n.anilist_include_specials),
+                        ),
+                        PopupMenuItem(
+                          value: 'overview',
+                          child: Text(context.l10n.anilist_episodes_with_synopsis),
+                        ),
                       ],
                     ),
                   ],
@@ -3574,7 +3625,7 @@ class _EpisodeRowState extends State<_EpisodeRow> {
                         const SizedBox(height: 8),
                         _SmallPlayButton(
                           icon: Icons.play_circle_filled_rounded,
-                          label: 'Watch',
+                          label: context.l10n.anilist_watch,
                           cs: cs,
                           fullWidth: true,
                           onTap: () => _showStreamSheet(context),
@@ -3802,8 +3853,8 @@ class _StreamSheetState extends ConsumerState<_StreamSheet> {
           // ── Local library ─────────────────────────────────────────────────
           _StreamOption(
             icon: Icons.folder_outlined,
-            label: 'Local Library',
-            subtitle: 'Play from files already in your library',
+            label: context.l10n.anilist_local_library,
+            subtitle: context.l10n.anilist_local_library_hint,
             cs: cs,
             onTap: () => _playLocal(context),
           ),
@@ -3812,8 +3863,8 @@ class _StreamSheetState extends ConsumerState<_StreamSheet> {
           // ── Extensions (online) ────────────────────────────────────────────
           _StreamOption(
             icon: Icons.extension_outlined,
-            label: 'Extensions — Online',
-            subtitle: 'Smart search via your installed anime sources',
+            label: context.l10n.anilist_extensions_online,
+            subtitle: context.l10n.anilist_extensions_online_hint,
             cs: cs,
             onTap: () => _searchExtension(context),
           ),
@@ -3822,8 +3873,8 @@ class _StreamSheetState extends ConsumerState<_StreamSheet> {
           // ── Manual URL ────────────────────────────────────────────────────
           _StreamOption(
             icon: Icons.link_rounded,
-            label: 'Manual URL',
-            subtitle: 'Paste a direct stream link to watch',
+            label: context.l10n.anilist_manual_url,
+            subtitle: context.l10n.anilist_manual_url_hint,
             cs: cs,
             onTap: () => setState(() => _showUrl = !_showUrl),
             trailing: Icon(
@@ -4419,7 +4470,7 @@ class AnilistPersonScreen extends StatelessWidget {
               extra: {'url': profileUrl, 'title': name},
             ),
             icon: const Icon(Icons.open_in_new_rounded, size: 18),
-            label: const Text('View full profile on AniList'),
+            label: Text(context.l10n.anilist_view_full_profile),
           ),
         ],
       ),
