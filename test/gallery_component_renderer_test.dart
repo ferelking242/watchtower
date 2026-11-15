@@ -19,6 +19,7 @@ import 'package:watchtower/modules/media/manga_volume_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
 import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/streaming_cards.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart'

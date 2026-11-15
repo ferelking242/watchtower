@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/filter.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
@@ -157,6 +158,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData.dark(),
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: AdaptiveOverlayMenuButton(
             menuWidth: 300,
@@ -199,6 +203,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData.dark(),
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: AdaptiveOverlayMenuButton(
             menuWidth: 300,
@@ -241,6 +248,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData.dark(),
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: AdaptiveOverlayMenuButton(
             menuWidth: 300,

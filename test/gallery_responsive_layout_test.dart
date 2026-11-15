@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
 
 /// Widths that map to the four `AppUI` device kinds: phone (<600),
