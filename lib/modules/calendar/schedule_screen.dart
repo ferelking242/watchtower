@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
@@ -106,11 +107,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
   }
 
   String _monthLabel(DateTime d) {
-    const months = [
-      'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-      'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-    ];
-    final month = d.month >= 1 && d.month <= 12 ? months[d.month - 1] : '';
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final month = DateFormat.MMMM(locale).format(d);
     return '$month ${d.year}';
   }
 
@@ -636,18 +634,6 @@ class _DayGroup extends StatelessWidget {
     required this.settings,
   });
 
-  static const _dayNames = [
-    '',
-    'Lundi', 'Mardi', 'Mercredi', 'Jeudi',
-    'Vendredi', 'Samedi', 'Dimanche',
-  ];
-
-  static const _monthNames = [
-    '',
-    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
-    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -693,7 +679,9 @@ class _DayGroup extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _dayNames[date.weekday],
+                    DateFormat.EEEE(
+                      Localizations.localeOf(context).toLanguageTag(),
+                    ).format(date),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -701,7 +689,8 @@ class _DayGroup extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${_monthNames[date.month]} ${date.day}',
+                    '${DateFormat.MMM(Localizations.localeOf(context).toLanguageTag()).format(date)}'
+                    ' ${date.day}',
                     style: TextStyle(
                       fontSize: 12,
                       color: cs.onSurface.withValues(alpha: 0.55),
@@ -720,7 +709,7 @@ class _DayGroup extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${items.length} épisode${items.length == 1 ? '' : 's'}',
+                  context.l10n.schedule_episode_count(items.length),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -827,7 +816,7 @@ class _ScheduleItem extends ConsumerWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Épisode $_nextEpisodeNum',
+                        context.l10n.browse_anime_episode(_nextEpisodeNum),
                         style: TextStyle(
                           fontSize: 12,
                           color: cs.onSurface.withValues(alpha: 0.55),

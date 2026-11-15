@@ -22288,6 +22288,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'1-shot'**
   String get media_format_one_shot;
+
+  /// No description provided for @schedule_episode_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 episode} other{{count} episodes}}'**
+  String schedule_episode_count(num count);
 }
 
 class _AppLocalizationsDelegate

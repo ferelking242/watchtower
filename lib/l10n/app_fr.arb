@@ -3780,5 +3780,6 @@
   "media_queue_added_count": "{count} ajoutées",
   "media_format_tv_short": "Court",
   "media_format_special": "Spécial",
-  "media_format_one_shot": "1-shot"
+  "media_format_one_shot": "1-shot",
+  "schedule_episode_count": "{count, plural, =1{1 épisode} other{{count} épisodes}}"
 }

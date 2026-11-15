@@ -12611,4 +12611,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_format_one_shot => '1-shot';
+
+  @override
+  String schedule_episode_count(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count épisodes',
+      one: '1 épisode',
+    );
+    return '$_temp0';
+  }
 }

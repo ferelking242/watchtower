@@ -4058,5 +4058,6 @@
   "media_queue_added_count": "{count} added",
   "media_format_tv_short": "Short",
   "media_format_special": "Special",
-  "media_format_one_shot": "1-shot"
+  "media_format_one_shot": "1-shot",
+  "schedule_episode_count": "{count, plural, =1{1 episode} other{{count} episodes}}"
 }
