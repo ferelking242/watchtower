@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
@@ -95,10 +96,10 @@ class ExtensionCookieManagerScreen extends ConsumerWidget {
     final entries = ref.watch(_extensionCookiesProvider);
 
     return SettingsSubpageScaffold(
-      title: 'Cookies des extensions',
+      title: context.l10n.extension_cookies_title,
       trailing: IconButton(
         icon: const Icon(Broken.refresh_2),
-        tooltip: 'Actualiser',
+        tooltip: context.l10n.extension_cookies_refresh,
         onPressed: () =>
             ref.read(_extensionCookiesProvider.notifier).refresh(),
       ),
@@ -296,7 +297,7 @@ class _CookieCardState extends State<_CookieCard> {
                       contentPadding: const EdgeInsets.all(10),
                       suffixIcon: IconButton(
                         icon: const Icon(Broken.clipboard, size: 18),
-                        tooltip: 'Coller depuis le presse-papiers',
+                        tooltip: context.l10n.extension_cookies_paste,
                         onPressed: () async {
                           final data =
                               await Clipboard.getData(Clipboard.kTextPlain);
@@ -339,7 +340,7 @@ class _CookieCardState extends State<_CookieCard> {
                                   ),
                                 )
                               : const Icon(Broken.save_2, size: 16),
-                          label: const Text('Sauvegarder'),
+                          label: Text(context.l10n.browse_save),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -356,11 +357,13 @@ class _CookieCardState extends State<_CookieCard> {
                             await widget.onClear();
                             _ctrl.clear();
                             try {
-                              botToast('Cookie supprimé pour $host')();
+                              botToast(
+                                context.l10n.extension_cookies_deleted(host),
+                              )();
                             } catch (_) {}
                           },
                           icon: const Icon(Broken.trash, size: 16),
-                          label: const Text('Effacer'),
+                          label: Text(context.l10n.browse_clear),
                         ),
                     ],
                   ),

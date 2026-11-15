@@ -1212,7 +1212,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 
                   _SimultaneousRow(
                     icon: Icons.play_circle_outline,
-                    label: 'Watch',
+                    label: l10n.catalog_tab_watch,
                     iconColor: scheme.primary,
                     total: watchTotal,
                     perSource: watchPerSrc,
@@ -1231,7 +1231,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 8),
                   _SimultaneousRow(
                     icon: Icons.menu_book_outlined,
-                    label: 'Manga',
+                    label: l10n.catalog_tab_manga,
                     iconColor: scheme.secondary,
                     total: mangaTotal,
                     perSource: mangaPerSrc,
@@ -1250,7 +1250,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 8),
                   _SimultaneousRow(
                     icon: Icons.auto_stories_outlined,
-                    label: 'Roman',
+                    label: l10n.catalog_tag_novel,
                     iconColor: scheme.tertiary,
                     total: novelTotal,
                     perSource: novelPerSrc,
@@ -1288,7 +1288,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   const SizedBox(height: 8),
                   _SimultaneousRow(
                     icon: Icons.sports_esports_outlined,
-                    label: 'Jeu',
+                    label: l10n.browse_local_type_game,
                     iconColor: scheme.secondary,
                     total: gameTotal,
                     perSource: gamePerSrc,
@@ -1507,7 +1507,7 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
           child: Row(
             children: [
               _CounterField(
-                label: 'Total',
+                label: l10n.anilist_total,
                 value: simultaneous,
                 min: 1,
                 max: 20,
@@ -1518,7 +1518,7 @@ class _InlineTypeDownloadSettings extends ConsumerWidget {
               ),
               const Spacer(),
               _CounterField(
-                label: 'Src',
+                label: l10n.queue_src,
                 value: perSource,
                 min: 1,
                 max: 10,

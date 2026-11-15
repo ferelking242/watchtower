@@ -1526,6 +1526,7 @@ DOWNLOAD_QUEUE = [
      "Agir sur toute la file d’attente"),
     ("queue_stop", "Stop", "Arrêter"),
     ("queue_simultaneous", "Simultaneous", "Simultanés"),
+    ("queue_src", "Src", "Src"),
     ("queue_simultaneous_help",
      "Number of parallel downloads per type and per source",
      "Nombre de téléchargements parallèles par type et par source"),
@@ -3993,6 +3994,69 @@ def has_key(text, key):
     return f'\n  "{key}":' in "\n" + text
 
 
+COOKIES_L10N = [
+    ("extension_cookies_title", "Extension cookies",
+     "Cookies des extensions"),
+    ("extension_cookies_refresh", "Refresh", "Actualiser"),
+    ("extension_cookies_paste", "Paste from the clipboard",
+     "Coller depuis le presse-papiers"),
+    ("extension_cookies_deleted", "Cookie deleted for {host}",
+     "Cookie supprimé pour {host}"),
+]
+
+RECOMMENDATIONS_L10N = [
+    ("recommendations_title", "Recommendations", "Recommandations"),
+    ("recommendations_algorithm", "Algorithm", "Algorithme"),
+    ("recommendations_algo_content_title", "Content-Based Filtering",
+     "Filtrage par contenu"),
+    ("recommendations_algo_content_subtitle",
+     "Compares genre, themes and synopsis directly. Fast and offline.",
+     "Compare directement le genre, les thèmes et le synopsis. Rapide et hors ligne."),
+    ("recommendations_algo_collaborative_title", "Collaborative Filtering",
+     "Filtrage collaboratif"),
+    ("recommendations_algo_collaborative_subtitle",
+     "Recommends based on what similar users enjoyed. Requires network.",
+     "Recommande d'après ce qu'ont aimé des utilisateurs similaires. Nécessite le réseau."),
+    ("recommendations_algo_hybrid_title", "Hybrid", "Hybride"),
+    ("recommendations_algo_hybrid_subtitle",
+     "Combines content-based and collaborative for best accuracy.",
+     "Combine le filtrage par contenu et collaboratif pour une meilleure précision."),
+    ("recommendations_weights", "Similarity weights", "Poids de similarité"),
+    ("recommendations_weights_hint",
+     "Adjust how much each factor influences recommendations.",
+     "Ajustez l'influence de chaque facteur sur les recommandations."),
+]
+
+COMMON_L10N = [
+    ("yes", "Yes", "Oui"),
+    ("no", "No", "Non"),
+    ("unavailable", "Unavailable", "Indisponible"),
+    ("never", "Never", "Jamais"),
+    ("common_select", "Select", "Sélectionner"),
+    ("common_ascending", "Ascending", "Croissant"),
+    ("common_descending", "Descending", "Décroissant"),
+    ("auto_backup_title", "Automatic backup", "Sauvegarde automatique"),
+    ("auto_backup_subtitle",
+     "Regularly saves the library, the settings, the extensions and the cache "
+     "in a folder that survives uninstalling.",
+     "Enregistre régulièrement la bibliothèque, les réglages, les extensions "
+     "et le cache dans un dossier qui survit à la désinstallation."),
+    ("auto_backup_location", "Backup location", "Emplacement de la sauvegarde"),
+    ("auto_backup_copy_path", "Copy path", "Copier le chemin"),
+    ("auto_backup_path_copied", "Path copied.", "Chemin copié."),
+    ("auto_backup_last", "Last backup", "Dernière sauvegarde"),
+    ("auto_backup_on_disk", "Backup present on disk",
+     "Sauvegarde présente sur le disque"),
+    ("auto_backup_now", "Back up now", "Sauvegarder maintenant"),
+    ("auto_backup_restore", "Restore", "Restaurer"),
+    ("auto_backup_done", "Backup complete.", "Sauvegarde effectuée."),
+    ("auto_backup_restored",
+     "Backup restored. Restart the app to reload the database.",
+     "Sauvegarde restaurée. Redémarrez l'application pour recharger la base."),
+    ("auto_backup_none", "No backup to restore.",
+     "Aucune sauvegarde à restaurer."),
+]
+
 DISCOVERY_ROWS_L10N = [
     ("discover_row_trending_manga", "Trending Manga", "Manga tendance"),
     ("discover_row_popular_manga", "Popular Manga", "Manga populaires"),
@@ -4199,6 +4263,12 @@ en_entries += [(key, en) for key, en, _ in DISCOVER]
 fr_entries += [(key, fr) for key, _, fr in DISCOVER]
 en_entries += [(key, en) for key, en, _ in HOME_L10N]
 fr_entries += [(key, fr) for key, _, fr in HOME_L10N]
+en_entries += [(key, en) for key, en, _ in COOKIES_L10N]
+fr_entries += [(key, fr) for key, _, fr in COOKIES_L10N]
+en_entries += [(key, en) for key, en, _ in RECOMMENDATIONS_L10N]
+fr_entries += [(key, fr) for key, _, fr in RECOMMENDATIONS_L10N]
+en_entries += [(key, en) for key, en, _ in COMMON_L10N]
+fr_entries += [(key, fr) for key, _, fr in COMMON_L10N]
 en_entries += [(key, en) for key, en, _ in DISCOVERY_ROWS_L10N]
 fr_entries += [(key, fr) for key, _, fr in DISCOVERY_ROWS_L10N]
 en_entries += [(key, en) for key, en, _ in ANIME_FEED_L10N]

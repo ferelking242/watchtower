@@ -12007,4 +12007,112 @@ class AppLocalizationsFr extends AppLocalizations {
   String game_platform_games(Object name) {
     return 'Jeux $name';
   }
+
+  @override
+  String get yes => 'Oui';
+
+  @override
+  String get no => 'Non';
+
+  @override
+  String get unavailable => 'Indisponible';
+
+  @override
+  String get common_select => 'Sélectionner';
+
+  @override
+  String get common_ascending => 'Croissant';
+
+  @override
+  String get common_descending => 'Décroissant';
+
+  @override
+  String get auto_backup_title => 'Sauvegarde automatique';
+
+  @override
+  String get auto_backup_subtitle =>
+      'Enregistre régulièrement la bibliothèque, les réglages, les extensions et le cache dans un dossier qui survit à la désinstallation.';
+
+  @override
+  String get auto_backup_location => 'Emplacement de la sauvegarde';
+
+  @override
+  String get auto_backup_copy_path => 'Copier le chemin';
+
+  @override
+  String get auto_backup_path_copied => 'Chemin copié.';
+
+  @override
+  String get auto_backup_last => 'Dernière sauvegarde';
+
+  @override
+  String get auto_backup_on_disk => 'Sauvegarde présente sur le disque';
+
+  @override
+  String get auto_backup_now => 'Sauvegarder maintenant';
+
+  @override
+  String get auto_backup_restore => 'Restaurer';
+
+  @override
+  String get auto_backup_done => 'Sauvegarde effectuée.';
+
+  @override
+  String get auto_backup_restored =>
+      'Sauvegarde restaurée. Redémarrez l\'application pour recharger la base.';
+
+  @override
+  String get auto_backup_none => 'Aucune sauvegarde à restaurer.';
+
+  @override
+  String get never => 'Jamais';
+
+  @override
+  String get queue_src => 'Src';
+
+  @override
+  String get recommendations_title => 'Recommandations';
+
+  @override
+  String get recommendations_algorithm => 'Algorithme';
+
+  @override
+  String get recommendations_algo_content_title => 'Filtrage par contenu';
+
+  @override
+  String get recommendations_algo_content_subtitle =>
+      'Compare directement le genre, les thèmes et le synopsis. Rapide et hors ligne.';
+
+  @override
+  String get recommendations_algo_collaborative_title =>
+      'Filtrage collaboratif';
+
+  @override
+  String get recommendations_algo_collaborative_subtitle =>
+      'Recommande d\'après ce qu\'ont aimé des utilisateurs similaires. Nécessite le réseau.';
+
+  @override
+  String get recommendations_algo_hybrid_title => 'Hybride';
+
+  @override
+  String get recommendations_algo_hybrid_subtitle =>
+      'Combine le filtrage par contenu et collaboratif pour une meilleure précision.';
+
+  @override
+  String get recommendations_weights_hint =>
+      'Ajustez l\'influence de chaque facteur sur les recommandations.';
+
+  @override
+  String get extension_cookies_title => 'Cookies des extensions';
+
+  @override
+  String get extension_cookies_refresh => 'Actualiser';
+
+  @override
+  String get extension_cookies_paste => 'Coller depuis le presse-papiers';
+
+  @override
+  String extension_cookies_deleted(Object host) {
+    return 'Cookie supprimé pour $host';
+  }
 }

@@ -22,31 +22,32 @@ class _RecommendationsScreenState
   int _synopsis = 0;
   int _theme = 0;
 
-  static const _algorithmOptions = [
-    _AlgoOption(
-      id: 0,
-      icon: Broken.magic_star,
-      title: 'Content-Based Filtering',
-      subtitle:
-          'Compares genre, themes and synopsis directly. Fast and offline.',
-      color: Colors.blue,
-    ),
-    _AlgoOption(
-      id: 1,
-      icon: Broken.people,
-      title: 'Collaborative Filtering',
-      subtitle:
-          'Recommends based on what similar users enjoyed. Requires network.',
-      color: Colors.purple,
-    ),
-    _AlgoOption(
-      id: 2,
-      icon: Broken.magic_star,
-      title: 'Hybrid',
-      subtitle: 'Combines content-based and collaborative for best accuracy.',
-      color: Colors.orange,
-    ),
-  ];
+  List<_AlgoOption> _algorithmOptions(BuildContext context) {
+    final l10n = context.l10n;
+    return [
+      _AlgoOption(
+        id: 0,
+        icon: Broken.magic_star,
+        title: l10n.recommendations_algo_content_title,
+        subtitle: l10n.recommendations_algo_content_subtitle,
+        color: Colors.blue,
+      ),
+      _AlgoOption(
+        id: 1,
+        icon: Broken.people,
+        title: l10n.recommendations_algo_collaborative_title,
+        subtitle: l10n.recommendations_algo_collaborative_subtitle,
+        color: Colors.purple,
+      ),
+      _AlgoOption(
+        id: 2,
+        icon: Broken.magic_star,
+        title: l10n.recommendations_algo_hybrid_title,
+        subtitle: l10n.recommendations_algo_hybrid_subtitle,
+        color: Colors.orange,
+      ),
+    ];
+  }
 
   int _selectedAlgo = 0;
 
@@ -76,11 +77,11 @@ class _RecommendationsScreenState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return SettingsSubpageScaffold(
-      title: 'Recommendations',
+      title: context.l10n.recommendations_title,
       trailing: TextButton.icon(
         onPressed: _reset,
         icon: const Icon(Broken.refresh_circle, size: 18),
-        label: const Text('Reset'),
+        label: Text(context.l10n.discover_reset),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -90,12 +91,12 @@ class _RecommendationsScreenState
             // ── Algorithm ─────────────────────────────────────────────────────
             _SectionHeader(
               icon: Broken.cpu,
-              label: 'Algorithm',
+              label: context.l10n.recommendations_algorithm,
               color: colorScheme.primary,
             ),
             const SizedBox(height: 8),
-            ...List.generate(_algorithmOptions.length, (i) {
-              final opt = _algorithmOptions[i];
+            ...List.generate(_algorithmOptions(context).length, (i) {
+              final opt = _algorithmOptions(context)[i];
               final selected = _selectedAlgo == opt.id;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -178,14 +179,14 @@ class _RecommendationsScreenState
             // ── Similarity weights ─────────────────────────────────────────
             _SectionHeader(
               icon: Broken.setting_2,
-              label: 'Similarity weights',
+              label: context.l10n.recommendations_weights,
               color: colorScheme.primary,
             ),
             const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
               child: Text(
-                'Adjust how much each factor influences recommendations.',
+                context.l10n.recommendations_weights_hint,
                 style: TextStyle(
                   fontSize: 12,
                   color: colorScheme.onSurfaceVariant,

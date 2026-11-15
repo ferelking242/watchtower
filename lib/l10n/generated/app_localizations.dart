@@ -21190,6 +21190,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} Games'**
   String game_platform_games(Object name);
+
+  /// No description provided for @yes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get yes;
+
+  /// No description provided for @no.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get no;
+
+  /// No description provided for @unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get unavailable;
+
+  /// No description provided for @common_select.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get common_select;
+
+  /// No description provided for @common_ascending.
+  ///
+  /// In en, this message translates to:
+  /// **'Ascending'**
+  String get common_ascending;
+
+  /// No description provided for @common_descending.
+  ///
+  /// In en, this message translates to:
+  /// **'Descending'**
+  String get common_descending;
+
+  /// No description provided for @auto_backup_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic backup'**
+  String get auto_backup_title;
+
+  /// No description provided for @auto_backup_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Regularly saves the library, the settings, the extensions and the cache in a folder that survives uninstalling.'**
+  String get auto_backup_subtitle;
+
+  /// No description provided for @auto_backup_location.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup location'**
+  String get auto_backup_location;
+
+  /// No description provided for @auto_backup_copy_path.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy path'**
+  String get auto_backup_copy_path;
+
+  /// No description provided for @auto_backup_path_copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Path copied.'**
+  String get auto_backup_path_copied;
+
+  /// No description provided for @auto_backup_last.
+  ///
+  /// In en, this message translates to:
+  /// **'Last backup'**
+  String get auto_backup_last;
+
+  /// No description provided for @auto_backup_on_disk.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup present on disk'**
+  String get auto_backup_on_disk;
+
+  /// No description provided for @auto_backup_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Back up now'**
+  String get auto_backup_now;
+
+  /// No description provided for @auto_backup_restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get auto_backup_restore;
+
+  /// No description provided for @auto_backup_done.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup complete.'**
+  String get auto_backup_done;
+
+  /// No description provided for @auto_backup_restored.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup restored. Restart the app to reload the database.'**
+  String get auto_backup_restored;
+
+  /// No description provided for @auto_backup_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No backup to restore.'**
+  String get auto_backup_none;
+
+  /// No description provided for @never.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get never;
+
+  /// No description provided for @queue_src.
+  ///
+  /// In en, this message translates to:
+  /// **'Src'**
+  String get queue_src;
+
+  /// No description provided for @recommendations_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommendations'**
+  String get recommendations_title;
+
+  /// No description provided for @recommendations_algorithm.
+  ///
+  /// In en, this message translates to:
+  /// **'Algorithm'**
+  String get recommendations_algorithm;
+
+  /// No description provided for @recommendations_algo_content_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Content-Based Filtering'**
+  String get recommendations_algo_content_title;
+
+  /// No description provided for @recommendations_algo_content_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Compares genre, themes and synopsis directly. Fast and offline.'**
+  String get recommendations_algo_content_subtitle;
+
+  /// No description provided for @recommendations_algo_collaborative_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Collaborative Filtering'**
+  String get recommendations_algo_collaborative_title;
+
+  /// No description provided for @recommendations_algo_collaborative_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommends based on what similar users enjoyed. Requires network.'**
+  String get recommendations_algo_collaborative_subtitle;
+
+  /// No description provided for @recommendations_algo_hybrid_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Hybrid'**
+  String get recommendations_algo_hybrid_title;
+
+  /// No description provided for @recommendations_algo_hybrid_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Combines content-based and collaborative for best accuracy.'**
+  String get recommendations_algo_hybrid_subtitle;
+
+  /// No description provided for @recommendations_weights_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust how much each factor influences recommendations.'**
+  String get recommendations_weights_hint;
+
+  /// No description provided for @extension_cookies_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension cookies'**
+  String get extension_cookies_title;
+
+  /// No description provided for @extension_cookies_refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get extension_cookies_refresh;
+
+  /// No description provided for @extension_cookies_paste.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste from the clipboard'**
+  String get extension_cookies_paste;
+
+  /// No description provided for @extension_cookies_deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Cookie deleted for {host}'**
+  String extension_cookies_deleted(Object host);
 }
 
 class _AppLocalizationsDelegate

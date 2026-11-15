@@ -61,7 +61,7 @@ class _AutoBackupSettingsScreenState
   }
 
   String _formatDate(DateTime? value) {
-    if (value == null) return 'Jamais';
+    if (value == null) return l10nLocalizations(context)!.never;
     String two(int n) => n.toString().padLeft(2, '0');
     return '${two(value.day)}/${two(value.month)}/${value.year} '
         '${two(value.hour)}:${two(value.minute)}';
@@ -74,8 +74,9 @@ class _AutoBackupSettingsScreenState
     await _load();
     if (!mounted) return;
     setState(() => _busy = false);
+    final l10n = l10nLocalizations(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sauvegarde effectuée.')),
+      SnackBar(content: Text(l10n.auto_backup_done)),
     );
   }
 
@@ -84,13 +85,11 @@ class _AutoBackupSettingsScreenState
     final ok = await AutoBackupService.restoreNow();
     if (!mounted) return;
     setState(() => _busy = false);
+    final l10n = l10nLocalizations(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          ok
-              ? 'Sauvegarde restaurée. Redémarrez l\'application pour '
-                    'recharger la base.'
-              : 'Aucune sauvegarde à restaurer.',
+          ok ? l10n.auto_backup_restored : l10n.auto_backup_none,
         ),
       ),
     );
@@ -162,7 +161,7 @@ class _AutoBackupSettingsScreenState
     final autoBackupLocation = ref.watch(autoBackupLocationStateProvider);
     final compression = ref.watch(backupCompressionLevelProvider);
     return SettingsSubpageScaffold(
-      title: 'Sauvegarde automatique',
+      title: l10n.auto_backup_title,
       showSearch: false,
       leading: IconButton(
         icon: const Icon(Broken.arrow_left_2),
@@ -175,12 +174,10 @@ class _AutoBackupSettingsScreenState
             children: [
               SwitchListTile(
                 value: _enabled,
-                title: const Text('Sauvegarde automatique'),
-                subtitle: const Text(
-                  'Enregistre régulièrement la bibliothèque, les réglages, '
-                  'les extensions et le cache dans un dossier qui survit à la '
-                  'désinstallation.',
-                  style: TextStyle(fontSize: 11),
+                title: Text(l10n.auto_backup_title),
+                subtitle: Text(
+                  l10n.auto_backup_subtitle,
+                  style: const TextStyle(fontSize: 11),
                 ),
                 onChanged: (value) async {
                   setState(() => _enabled = value);
@@ -189,14 +186,14 @@ class _AutoBackupSettingsScreenState
                 },
               ),
               ListTile(
-                title: const Text('Emplacement de la sauvegarde'),
+                title: Text(l10n.auto_backup_location),
                 subtitle: Text(
-                  _path ?? 'Indisponible',
+                  _path ?? l10n.unavailable,
                   style: const TextStyle(fontSize: 11),
                 ),
                 trailing: IconButton(
                   icon: const Icon(Icons.copy_rounded, size: 18),
-                  tooltip: 'Copier le chemin',
+                  tooltip: l10n.auto_backup_copy_path,
                   onPressed: _path == null
                       ? null
                       : () async {
@@ -205,8 +202,8 @@ class _AutoBackupSettingsScreenState
                           );
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Chemin copié.'),
+                            SnackBar(
+                              content: Text(l10n.auto_backup_path_copied),
                             ),
                           );
                         },
@@ -222,16 +219,16 @@ class _AutoBackupSettingsScreenState
                 },
               ),
               ListTile(
-                title: const Text('Dernière sauvegarde'),
+                title: Text(l10n.auto_backup_last),
                 subtitle: Text(
                   _formatDate(_lastBackup),
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
               ListTile(
-                title: const Text('Sauvegarde présente sur le disque'),
+                title: Text(l10n.auto_backup_on_disk),
                 subtitle: Text(
-                  _hasBackup ? 'Oui' : 'Non',
+                  _hasBackup ? l10n.yes : l10n.no,
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
@@ -291,7 +288,7 @@ class _AutoBackupSettingsScreenState
                     Expanded(
                       child: OutlinedButton.icon(
                         icon: const Icon(Broken.document_download, size: 18),
-                        label: const Text('Sauvegarder maintenant'),
+                        label: Text(l10n.auto_backup_now),
                         onPressed: _busy ? null : _backupNow,
                       ),
                     ),
@@ -299,7 +296,7 @@ class _AutoBackupSettingsScreenState
                     Expanded(
                       child: OutlinedButton.icon(
                         icon: const Icon(Broken.refresh_circle, size: 18),
-                        label: const Text('Restaurer'),
+                        label: Text(l10n.auto_backup_restore),
                         onPressed: _busy || !_hasBackup ? null : _restoreNow,
                       ),
                     ),

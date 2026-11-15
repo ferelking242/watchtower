@@ -11853,4 +11853,112 @@ class AppLocalizationsTh extends AppLocalizations {
   String game_platform_games(Object name) {
     return '$name Games';
   }
+
+  @override
+  String get yes => 'Yes';
+
+  @override
+  String get no => 'No';
+
+  @override
+  String get unavailable => 'Unavailable';
+
+  @override
+  String get common_select => 'Select';
+
+  @override
+  String get common_ascending => 'Ascending';
+
+  @override
+  String get common_descending => 'Descending';
+
+  @override
+  String get auto_backup_title => 'Automatic backup';
+
+  @override
+  String get auto_backup_subtitle =>
+      'Regularly saves the library, the settings, the extensions and the cache in a folder that survives uninstalling.';
+
+  @override
+  String get auto_backup_location => 'Backup location';
+
+  @override
+  String get auto_backup_copy_path => 'Copy path';
+
+  @override
+  String get auto_backup_path_copied => 'Path copied.';
+
+  @override
+  String get auto_backup_last => 'Last backup';
+
+  @override
+  String get auto_backup_on_disk => 'Backup present on disk';
+
+  @override
+  String get auto_backup_now => 'Back up now';
+
+  @override
+  String get auto_backup_restore => 'Restore';
+
+  @override
+  String get auto_backup_done => 'Backup complete.';
+
+  @override
+  String get auto_backup_restored =>
+      'Backup restored. Restart the app to reload the database.';
+
+  @override
+  String get auto_backup_none => 'No backup to restore.';
+
+  @override
+  String get never => 'Never';
+
+  @override
+  String get queue_src => 'Src';
+
+  @override
+  String get recommendations_title => 'Recommendations';
+
+  @override
+  String get recommendations_algorithm => 'Algorithm';
+
+  @override
+  String get recommendations_algo_content_title => 'Content-Based Filtering';
+
+  @override
+  String get recommendations_algo_content_subtitle =>
+      'Compares genre, themes and synopsis directly. Fast and offline.';
+
+  @override
+  String get recommendations_algo_collaborative_title =>
+      'Collaborative Filtering';
+
+  @override
+  String get recommendations_algo_collaborative_subtitle =>
+      'Recommends based on what similar users enjoyed. Requires network.';
+
+  @override
+  String get recommendations_algo_hybrid_title => 'Hybrid';
+
+  @override
+  String get recommendations_algo_hybrid_subtitle =>
+      'Combines content-based and collaborative for best accuracy.';
+
+  @override
+  String get recommendations_weights_hint =>
+      'Adjust how much each factor influences recommendations.';
+
+  @override
+  String get extension_cookies_title => 'Extension cookies';
+
+  @override
+  String get extension_cookies_refresh => 'Refresh';
+
+  @override
+  String get extension_cookies_paste => 'Paste from the clipboard';
+
+  @override
+  String extension_cookies_deleted(Object host) {
+    return 'Cookie deleted for $host';
+  }
 }
