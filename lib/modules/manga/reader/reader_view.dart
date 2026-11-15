@@ -74,9 +74,14 @@ class _MangaReaderViewState extends ConsumerState<MangaReaderView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.invalidate(mangaReaderProvider(widget.chapterId));
-    });
+    // Refresh a provider that already holds this chapter's pages (a prior
+    // reader session, a preload). Done *before* the first `build` watches it:
+    // a post-frame callback ran after that first watch had already started the
+    // fetch, so every open invalidated the in-flight request and fired a second
+    // `getChapterPages` for the same chapter — two extension calls, two CDN
+    // round-trips, and the duplicate API hit that rate-limited MKissa. When the
+    // provider does not exist yet this is a no-op, so a fresh open fetches once.
+    ref.invalidate(mangaReaderProvider(widget.chapterId));
   }
 
   @override
