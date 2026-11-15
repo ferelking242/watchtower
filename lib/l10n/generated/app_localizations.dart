@@ -19858,6 +19858,354 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Python runtime that extracts TikTok, Facebook, Instagram… without a watermark.'**
   String get binaries_zeus_desc;
+
+  /// No description provided for @anime_word.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime'**
+  String get anime_word;
+
+  /// No description provided for @novels_word.
+  ///
+  /// In en, this message translates to:
+  /// **'Novels'**
+  String get novels_word;
+
+  /// No description provided for @onboarding_tagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime, manga, novels, music,\nfilms, series and games — all in one place.'**
+  String get onboarding_tagline;
+
+  /// No description provided for @onboarding_next.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboarding_next;
+
+  /// No description provided for @onboarding_start.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get onboarding_start;
+
+  /// No description provided for @onboarding_continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get onboarding_continue;
+
+  /// No description provided for @onboarding_allow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get onboarding_allow;
+
+  /// No description provided for @onboarding_optional.
+  ///
+  /// In en, this message translates to:
+  /// **'OPTIONAL'**
+  String get onboarding_optional;
+
+  /// No description provided for @onboarding_watch_verb.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch.'**
+  String get onboarding_watch_verb;
+
+  /// No description provided for @onboarding_read_verb.
+  ///
+  /// In en, this message translates to:
+  /// **'Read.'**
+  String get onboarding_read_verb;
+
+  /// No description provided for @onboarding_listen_verb.
+  ///
+  /// In en, this message translates to:
+  /// **'Listen.'**
+  String get onboarding_listen_verb;
+
+  /// No description provided for @onboarding_all_verb.
+  ///
+  /// In en, this message translates to:
+  /// **'Everything.'**
+  String get onboarding_all_verb;
+
+  /// No description provided for @onboarding_slogan_body.
+  ///
+  /// In en, this message translates to:
+  /// **'One place for everything\nyou love.'**
+  String get onboarding_slogan_body;
+
+  /// No description provided for @onboarding_storage.
+  ///
+  /// In en, this message translates to:
+  /// **'Storage'**
+  String get onboarding_storage;
+
+  /// No description provided for @onboarding_storage_ios.
+  ///
+  /// In en, this message translates to:
+  /// **'iOS sandbox access — nothing to do.'**
+  String get onboarding_storage_ios;
+
+  /// No description provided for @onboarding_storage_android.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant \"access to all files\" for downloads and Smart Library.'**
+  String get onboarding_storage_android;
+
+  /// No description provided for @onboarding_notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get onboarding_notifications;
+
+  /// No description provided for @onboarding_notifications_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads and library updates.'**
+  String get onboarding_notifications_sub;
+
+  /// No description provided for @onboarding_install_apps.
+  ///
+  /// In en, this message translates to:
+  /// **'App installs'**
+  String get onboarding_install_apps;
+
+  /// No description provided for @onboarding_install_apps_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Install APK updates straight from the app.'**
+  String get onboarding_install_apps_sub;
+
+  /// No description provided for @onboarding_overlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay / PiP'**
+  String get onboarding_overlay;
+
+  /// No description provided for @onboarding_overlay_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the video floating over other apps.'**
+  String get onboarding_overlay_sub;
+
+  /// No description provided for @onboarding_battery.
+  ///
+  /// In en, this message translates to:
+  /// **'No battery restriction'**
+  String get onboarding_battery;
+
+  /// No description provided for @onboarding_battery_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Stops Android from killing background downloads (Doze, idle).'**
+  String get onboarding_battery_sub;
+
+  /// No description provided for @onboarding_device_language.
+  ///
+  /// In en, this message translates to:
+  /// **'Device language'**
+  String get onboarding_device_language;
+
+  /// No description provided for @onboarding_device_language_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'No manual choice. The language stays in sync with the system.'**
+  String get onboarding_device_language_sub;
+
+  /// No description provided for @onboarding_dubbing.
+  ///
+  /// In en, this message translates to:
+  /// **'Dubbing and subtitles'**
+  String get onboarding_dubbing;
+
+  /// No description provided for @onboarding_dubbing_body.
+  ///
+  /// In en, this message translates to:
+  /// **'The audio language and subtitles follow the detected language automatically. You can switch the track during playback.'**
+  String get onboarding_dubbing_body;
+
+  /// No description provided for @onboarding_audio_pref.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio preference'**
+  String get onboarding_audio_pref;
+
+  /// No description provided for @onboarding_audio_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get onboarding_audio_auto;
+
+  /// No description provided for @onboarding_audio_pref_sub.
+  ///
+  /// In en, this message translates to:
+  /// **'Dub if available, otherwise the original with subtitles.'**
+  String get onboarding_audio_pref_sub;
+
+  /// No description provided for @onboarding_permissions_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get onboarding_permissions_title;
+
+  /// No description provided for @onboarding_permissions_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Watchtower needs a few permissions\nto work properly.'**
+  String get onboarding_permissions_body;
+
+  /// No description provided for @onboarding_auto_detect.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic detection'**
+  String get onboarding_auto_detect;
+
+  /// No description provided for @onboarding_auto_detect_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Watchtower follows your device language and picks the best-fitting dub automatically.'**
+  String get onboarding_auto_detect_body;
+
+  /// No description provided for @reel_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get reel_all;
+
+  /// No description provided for @reel_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No content'**
+  String get reel_empty;
+
+  /// No description provided for @reel_popular_creators.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular creators'**
+  String get reel_popular_creators;
+
+  /// No description provided for @reel_followers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} followers'**
+  String reel_followers(Object count);
+
+  /// No description provided for @reel_follow.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow'**
+  String get reel_follow;
+
+  /// No description provided for @reel_more_suffix.
+  ///
+  /// In en, this message translates to:
+  /// **'…more'**
+  String get reel_more_suffix;
+
+  /// No description provided for @reel_niche_for_you.
+  ///
+  /// In en, this message translates to:
+  /// **'For you'**
+  String get reel_niche_for_you;
+
+  /// No description provided for @reel_niche_just_boobs.
+  ///
+  /// In en, this message translates to:
+  /// **'Just Boobs'**
+  String get reel_niche_just_boobs;
+
+  /// No description provided for @reel_niche_blowjobs.
+  ///
+  /// In en, this message translates to:
+  /// **'Blowjobs'**
+  String get reel_niche_blowjobs;
+
+  /// No description provided for @reel_niche_thick_booty.
+  ///
+  /// In en, this message translates to:
+  /// **'Thick Booty'**
+  String get reel_niche_thick_booty;
+
+  /// No description provided for @reel_niche_amateur_girls.
+  ///
+  /// In en, this message translates to:
+  /// **'Amateur Girls'**
+  String get reel_niche_amateur_girls;
+
+  /// No description provided for @reel_niche_real_couples.
+  ///
+  /// In en, this message translates to:
+  /// **'Real Couples'**
+  String get reel_niche_real_couples;
+
+  /// No description provided for @reel_niche_real_orgasms.
+  ///
+  /// In en, this message translates to:
+  /// **'Real Orgasms'**
+  String get reel_niche_real_orgasms;
+
+  /// No description provided for @reel_niche_curvy_chicks.
+  ///
+  /// In en, this message translates to:
+  /// **'Curvy Chicks'**
+  String get reel_niche_curvy_chicks;
+
+  /// No description provided for @reel_niche_rough_sex.
+  ///
+  /// In en, this message translates to:
+  /// **'Rough Sex'**
+  String get reel_niche_rough_sex;
+
+  /// No description provided for @reel_niche_legal_teens.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal Teens'**
+  String get reel_niche_legal_teens;
+
+  /// No description provided for @reel_niche_busty_asians.
+  ///
+  /// In en, this message translates to:
+  /// **'Busty Asians'**
+  String get reel_niche_busty_asians;
+
+  /// No description provided for @reel_niche_goth_girls.
+  ///
+  /// In en, this message translates to:
+  /// **'Goth Girls'**
+  String get reel_niche_goth_girls;
+
+  /// No description provided for @reel_niche_latinas.
+  ///
+  /// In en, this message translates to:
+  /// **'Latinas'**
+  String get reel_niche_latinas;
+
+  /// No description provided for @creator_following.
+  ///
+  /// In en, this message translates to:
+  /// **'Following'**
+  String get creator_following;
+
+  /// No description provided for @creator_followers.
+  ///
+  /// In en, this message translates to:
+  /// **'Followers'**
+  String get creator_followers;
+
+  /// No description provided for @creator_likes.
+  ///
+  /// In en, this message translates to:
+  /// **'Likes'**
+  String get creator_likes;
+
+  /// No description provided for @creator_no_video.
+  ///
+  /// In en, this message translates to:
+  /// **'No video available'**
+  String get creator_no_video;
 }
 
 class _AppLocalizationsDelegate

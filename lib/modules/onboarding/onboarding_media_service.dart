@@ -52,13 +52,11 @@ class ShowcaseItem {
 class ShowcaseLane {
   const ShowcaseLane({
     required this.id,
-    required this.label,
     required this.fallback,
     this.items,
   });
 
   final String id;
-  final String label;
 
   /// Curated posters shipped with the app, used until (or instead of) the live
   /// catalogue answering. Titles only: no invented score or price.
@@ -71,7 +69,7 @@ class ShowcaseLane {
       (items == null || items!.isEmpty) ? fallback : items!;
 
   ShowcaseLane withItems(List<ShowcaseItem> value) =>
-      ShowcaseLane(id: id, label: label, fallback: fallback, items: value);
+      ShowcaseLane(id: id, fallback: fallback, items: value);
 }
 
 /// Fetches real showcase content from the catalogues the app already uses.

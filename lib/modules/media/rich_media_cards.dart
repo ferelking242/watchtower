@@ -74,6 +74,7 @@ class MovieDetailsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final item = data.item;
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
@@ -217,7 +218,7 @@ class MovieDetailsCard extends StatelessWidget {
               Expanded(
                 child: _PrimaryAction(
                   icon: Broken.play,
-                  label: 'Regarder',
+                  label: l10n.media_watch_now,
                   onTap: data.onPlay,
                 ),
               ),
@@ -323,6 +324,7 @@ class MovieDetailCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final item = data.item;
     return Container(
       width: width,
@@ -423,7 +425,7 @@ class MovieDetailCard extends StatelessWidget {
                       flex: 2,
                       child: _PrimaryAction(
                         icon: Broken.play,
-                        label: 'Regarder',
+                        label: l10n.media_watch_now,
                         onTap: data.onPlay,
                       ),
                     ),
@@ -434,7 +436,7 @@ class MovieDetailCard extends StatelessWidget {
                         icon: data.inList
                             ? Broken.tick_circle
                             : Broken.add_circle,
-                        label: 'Ma liste',
+                        label: l10n.more_my_list,
                         onTap: data.onAddToList,
                       ),
                     ),
@@ -844,6 +846,7 @@ class _HoverMovieCardState extends State<HoverMovieCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final item = widget.data.item;
     final accent = Theme.of(context).colorScheme.primary;
     return MouseRegion(
@@ -978,7 +981,7 @@ class _HoverMovieCardState extends State<HoverMovieCard> {
                         width: double.infinity,
                         child: _SecondaryAction(
                           icon: Icons.info_outline_rounded,
-                          label: 'Voir plus',
+                          label: l10n.catalog_card_see_more,
                           onTap: widget.data.onMore,
                         ),
                       ),
@@ -1010,6 +1013,7 @@ class MovieQuickView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final item = data.item;
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
@@ -1127,7 +1131,7 @@ class MovieQuickView extends StatelessWidget {
                     Expanded(
                       child: _PrimaryAction(
                         icon: Broken.play,
-                        label: 'Play',
+                        label: l10n.media_watch_now,
                         onTap: data.onPlay,
                       ),
                     ),
@@ -1136,7 +1140,7 @@ class MovieQuickView extends StatelessWidget {
                       icon: data.inList
                           ? Broken.tick_circle
                           : Broken.add_circle,
-                      label: 'Ma liste',
+                      label: l10n.more_my_list,
                       onTap: data.onAddToList,
                     ),
                   ],
@@ -1286,6 +1290,7 @@ class MovieDetailsModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final item = data.item;
     return SafeArea(
       top: false,
@@ -1373,7 +1378,7 @@ class MovieDetailsModal extends StatelessWidget {
                 Expanded(
                   child: _PrimaryAction(
                     icon: Broken.play,
-                    label: 'Regarder',
+                    label: l10n.media_watch_now,
                     onTap: () {
                       Navigator.of(context).pop();
                       data.onPlay();
@@ -1383,7 +1388,7 @@ class MovieDetailsModal extends StatelessWidget {
                 const SizedBox(width: 8),
                 _SecondaryAction(
                   icon: data.inList ? Broken.tick_circle : Broken.add_circle,
-                  label: 'Ma liste',
+                  label: l10n.more_my_list,
                   onTap: () {
                     Navigator.of(context).pop();
                     data.onAddToList();

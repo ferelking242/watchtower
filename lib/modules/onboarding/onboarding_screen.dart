@@ -6,10 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/onboarding/migration/migration_page.dart';
 import 'package:watchtower/modules/onboarding/onboarding_fallback_catalog.dart';
 import 'package:watchtower/modules/onboarding/onboarding_media_service.dart';
 import 'package:watchtower/modules/onboarding/onboarding_showcase_config.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/device_capabilities.dart';
 import 'package:watchtower/services/onboarding_dependency_service.dart';
@@ -363,29 +365,50 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 // card therefore shows a real cover and the real figure the source publishes.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// One category lane: its label, its accent colour, its icon and its content.
+/// One category lane: its id, its accent colour, its icon and its content.
+///
+/// The display name is resolved from [id] at render time so it follows the app
+/// language instead of being frozen at first build.
 class ShowcaseLaneSpec {
   const ShowcaseLaneSpec({
     required this.id,
-    required this.label,
     required this.icon,
     required this.color,
     required this.items,
   });
 
   final String id;
-  final String label;
   final IconData icon;
   final Color color;
   final List<ShowcaseItem> items;
 
   ShowcaseLaneSpec withItems(List<ShowcaseItem> value) => ShowcaseLaneSpec(
     id: id,
-    label: label,
     icon: icon,
     color: color,
     items: value,
   );
+}
+
+/// Localised display name for a lane id.
+String laneLabel(AppLocalizations l10n, String id) {
+  switch (id) {
+    case 'anime':
+      return l10n.anime_word;
+    case 'manga':
+      return l10n.manga;
+    case 'novels':
+      return l10n.novels_word;
+    case 'music':
+      return l10n.nav_music;
+    case 'series':
+      return l10n.nav_series;
+    case 'films':
+      return l10n.nav_movies;
+    case 'games':
+      return l10n.nav_games;
+  }
+  return id;
 }
 
 /// The seven lanes, wired to the live catalogues.
@@ -395,49 +418,42 @@ class ShowcaseLaneSpec {
 final List<ShowcaseLaneSpec> _laneSpecs = [
   ShowcaseLaneSpec(
     id: 'anime',
-    label: 'Anime',
     icon: Icons.live_tv_rounded,
     color: const Color(0xFFFF6B00),
     items: OnboardingFallbackCatalog.anime,
   ),
   ShowcaseLaneSpec(
     id: 'manga',
-    label: 'Manga',
     icon: Icons.menu_book_rounded,
     color: const Color(0xFF9D4EDD),
     items: OnboardingFallbackCatalog.manga,
   ),
   ShowcaseLaneSpec(
     id: 'novels',
-    label: 'Novels',
     icon: Icons.auto_stories_rounded,
     color: const Color(0xFF06D6A0),
     items: OnboardingFallbackCatalog.novels,
   ),
   ShowcaseLaneSpec(
     id: 'music',
-    label: 'Musique',
     icon: Icons.music_note_rounded,
     color: const Color(0xFF3A86FF),
     items: OnboardingFallbackCatalog.music,
   ),
   ShowcaseLaneSpec(
     id: 'series',
-    label: 'Séries',
     icon: Icons.theaters_rounded,
     color: const Color(0xFFE63946),
     items: OnboardingFallbackCatalog.series,
   ),
   ShowcaseLaneSpec(
     id: 'films',
-    label: 'Films',
     icon: Icons.movie_rounded,
     color: const Color(0xFFFF9F1C),
     items: OnboardingFallbackCatalog.films,
   ),
   ShowcaseLaneSpec(
     id: 'games',
-    label: 'Jeux',
     icon: Icons.sports_esports_rounded,
     color: const Color(0xFF00C2A8),
     items: OnboardingFallbackCatalog.games,
@@ -447,7 +463,7 @@ final List<ShowcaseLaneSpec> _laneSpecs = [
 /// The lanes the media service is asked to fill.
 List<ShowcaseLane> get _laneRequests => [
   for (final spec in _laneSpecs)
-    ShowcaseLane(id: spec.id, label: spec.label, fallback: spec.items),
+    ShowcaseLane(id: spec.id, fallback: spec.items),
 ];
 
 /// The content a lane currently has: the live result once cached, else the
@@ -670,10 +686,10 @@ class _ShowcasePageState extends State<_ShowcasePage>
                       const SizedBox(height: 8),
                       // Category chips — the whole point: the app is not only
                       // films and series, every category below lives in it.
-                      _CategoryChips(active: lanes.map((l) => l.label).toSet()),
+                      _CategoryChips(active: lanes.map((l) => l.id).toSet()),
                       const SizedBox(height: 12),
                       Text(
-                        'Anime, manga, novels, musique,\nfilms, séries et jeux — au même endroit.',
+                        context.l10n.onboarding_tagline,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.82),
                           fontSize: 16,
@@ -681,7 +697,10 @@ class _ShowcasePageState extends State<_ShowcasePage>
                         ),
                       ),
                       const SizedBox(height: 28),
-                      _WhiteButton(label: 'Suivant', onTap: widget.onNext),
+                      _WhiteButton(
+                        label: context.l10n.onboarding_next,
+                        onTap: widget.onNext,
+                      ),
                     ],
                   ),
                 ),
@@ -701,11 +720,12 @@ class _CategoryChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Wrap(
       spacing: 7,
       runSpacing: 7,
       children: _laneSpecs.map((lane) {
-        final on = active.contains(lane.label);
+        final on = active.contains(lane.id);
         return AnimatedContainer(
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOut,
@@ -732,7 +752,7 @@ class _CategoryChips extends StatelessWidget {
               ),
               const SizedBox(width: 5),
               Text(
-                lane.label,
+                laneLabel(l10n, lane.id),
                 style: TextStyle(
                   color: on ? Colors.white : Colors.white.withValues(alpha: 0.45),
                   fontSize: 11.5,
@@ -885,16 +905,16 @@ class _SloganPageState extends State<_SloganPage>
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sloganLine('Regarde.', dim: true),
+                    _sloganLine(context.l10n.onboarding_watch_verb, dim: true),
                     const SizedBox(height: 4),
-                    _sloganLine('Lis.', dim: true),
+                    _sloganLine(context.l10n.onboarding_read_verb, dim: true),
                     const SizedBox(height: 4),
-                    _sloganLine('Ecoute.', dim: true),
+                    _sloganLine(context.l10n.onboarding_listen_verb, dim: true),
                     const SizedBox(height: 20),
-                    _sloganLine('Tout.', dim: false),
+                    _sloganLine(context.l10n.onboarding_all_verb, dim: false),
                     const SizedBox(height: 16),
                     Text(
-                      'Un seul endroit pour tout ce\nque tu aimes.',
+                      context.l10n.onboarding_slogan_body,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.55),
                         fontSize: 17,
@@ -921,7 +941,10 @@ class _SloganPageState extends State<_SloganPage>
                 ),
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 60),
-                  child: _WhiteButton(label: 'Commencer', onTap: widget.onNext),
+                  child: _WhiteButton(
+                    label: context.l10n.onboarding_start,
+                    onTap: widget.onNext,
+                  ),
                 ),
               ),
             ),
@@ -1137,6 +1160,7 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       width: width,
       height: height,
@@ -1282,7 +1306,7 @@ class _Card extends StatelessWidget {
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          lane.label,
+                          laneLabel(l10n, lane.id),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1360,6 +1384,7 @@ class _PermissionsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isIOS = !kIsWeb && Platform.isIOS;
     // install est maintenant optionnel — ne bloque plus le bouton principal
     final all = storageGranted && notifGranted;
@@ -1370,8 +1395,8 @@ class _PermissionsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Autorisations',
+            Text(
+              l10n.onboarding_permissions_title,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 32,
@@ -1381,7 +1406,7 @@ class _PermissionsPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Watchtower a besoin de quelques acces\npour fonctionner correctement.',
+              l10n.onboarding_permissions_body,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.52),
                 fontSize: 15,
@@ -1393,10 +1418,10 @@ class _PermissionsPage extends StatelessWidget {
             // ── Required ────────────────────────────────────────────────
             _PermRow(
               icon: Icons.folder_open_rounded,
-              title: 'Stockage',
+              title: l10n.onboarding_storage,
               subtitle: isIOS
-                  ? 'Acces sandbox iOS — aucune action requise.'
-                  : 'Autoriser « accès à tous les fichiers » pour les téléchargements et Smart Library.',
+                  ? l10n.onboarding_storage_ios
+                  : l10n.onboarding_storage_android,
               granted: storageGranted,
               busy: busyStorage,
               onTap: onStorage,
@@ -1404,8 +1429,8 @@ class _PermissionsPage extends StatelessWidget {
             const SizedBox(height: 18),
             _PermRow(
               icon: Icons.notifications_outlined,
-              title: 'Notifications',
-              subtitle: 'Telechargements, mises a jour de la bibliotheque.',
+              title: l10n.onboarding_notifications,
+              subtitle: l10n.onboarding_notifications_sub,
               granted: notifGranted,
               busy: busyNotif,
               onTap: onNotif,
@@ -1422,7 +1447,7 @@ class _PermissionsPage extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
-                      'OPTIONNEL',
+                      l10n.onboarding_optional,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.28),
                         fontSize: 10,
@@ -1439,8 +1464,8 @@ class _PermissionsPage extends StatelessWidget {
               const SizedBox(height: 20),
               _PermRow(
                 icon: Icons.system_update_alt_rounded,
-                title: "Installation d'apps",
-                subtitle: "Installer les mises a jour APK directement depuis l'app.",
+                title: l10n.onboarding_install_apps,
+                subtitle: l10n.onboarding_install_apps_sub,
                 granted: installGranted,
                 busy: busyInstall,
                 onTap: onInstall,
@@ -1449,8 +1474,8 @@ class _PermissionsPage extends StatelessWidget {
               const SizedBox(height: 16),
               _PermRow(
                 icon: Icons.picture_in_picture_rounded,
-                title: 'Overlay / PiP',
-                subtitle: "Afficher la video en flottant par-dessus d'autres apps.",
+                title: l10n.onboarding_overlay,
+                subtitle: l10n.onboarding_overlay_sub,
                 granted: overlayGranted,
                 busy: busyOverlay,
                 onTap: onOverlay,
@@ -1459,9 +1484,8 @@ class _PermissionsPage extends StatelessWidget {
               const SizedBox(height: 16),
               _PermRow(
                 icon: Icons.battery_saver_rounded,
-                title: 'Pas de restriction batterie',
-                subtitle:
-                    'Empêche Android de tuer les téléchargements en arrière-plan (Doze, veille).',
+                title: l10n.onboarding_battery,
+                subtitle: l10n.onboarding_battery_sub,
                 granted: batteryGranted,
                 busy: busyBattery,
                 onTap: onBattery,
@@ -1551,7 +1575,7 @@ class _DependenciesPage extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 26),
-            _WhiteButton(label: 'Continuer', onTap: onNext),
+            _WhiteButton(label: context.l10n.onboarding_continue, onTap: onNext),
           ],
         ),
       ),
@@ -1828,7 +1852,7 @@ class _PermRow extends StatelessWidget {
                         color: Colors.white,
                       ),
                     )
-                  : Text('Autoriser',
+                  : Text(context.l10n.onboarding_allow,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 13,
@@ -1863,7 +1887,7 @@ class _LanguagePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Détection automatique',
+              context.l10n.onboarding_auto_detect,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 30,
@@ -1873,8 +1897,7 @@ class _LanguagePage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Watchtower suit la langue de votre appareil et choisit '
-              'automatiquement le doublage le plus adapté.',
+              context.l10n.onboarding_auto_detect_body,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.58),
                 fontSize: 15,
@@ -1886,14 +1909,13 @@ class _LanguagePage extends StatelessWidget {
 
             _LangCard(
               icon: Icons.language_rounded,
-              label: 'Langue de l’appareil',
+              label: context.l10n.onboarding_device_language,
               value: primary,
-              subtitle: 'Aucun choix manuel. La langue reste synchronisée '
-                  'avec le système.',
+              subtitle: context.l10n.onboarding_device_language_sub,
             ),
             const SizedBox(height: 14),
             Text(
-              'Doublage et sous-titres',
+              context.l10n.onboarding_dubbing,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 17,
@@ -1902,9 +1924,7 @@ class _LanguagePage extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'La langue audio et les sous-titres suivent automatiquement '
-              'la langue détectée. Vous pourrez changer la piste pendant '
-              'la lecture.',
+              context.l10n.onboarding_dubbing_body,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.42),
                 fontSize: 13,
@@ -1913,14 +1933,17 @@ class _LanguagePage extends StatelessWidget {
             const SizedBox(height: 14),
             _LangCard(
               icon: Icons.record_voice_over_rounded,
-              label: 'Préférence audio',
-              value: 'Automatique',
-              subtitle: 'VF si disponible, sinon VO avec sous-titres.',
+              label: context.l10n.onboarding_audio_pref,
+              value: context.l10n.onboarding_audio_auto,
+              subtitle: context.l10n.onboarding_audio_pref_sub,
             ),
 
             const SizedBox(height: 40),
 
-            _WhiteButton(label: 'Continuer', onTap: onNext),
+            _WhiteButton(
+              label: context.l10n.onboarding_continue,
+              onTap: onNext,
+            ),
           ],
         ),
       ),

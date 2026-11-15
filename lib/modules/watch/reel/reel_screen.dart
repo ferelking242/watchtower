@@ -13,6 +13,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:isar_community/isar.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 
@@ -22,26 +23,56 @@ import 'package:watchtower/services/get_custom_list.dart';
 //
 // Route params:  source, listId (initial Pour toi list), startGifId (optional)
 
-const _kTabExplorer = 0;
-const _kTabSuivis = 1;
 const _kTabPourToi = 2;
 
 // ── Niche filter list (mirrors redgifs.js _NICHES) ────────────────────────────
-const _kNiches = <({String id, String label})>[
-  (id: 'for_you', label: 'For you'),
-  (id: 'niche_just-boobs', label: 'Just Boobs'),
-  (id: 'niche_blowjobs', label: 'Blowjobs'),
-  (id: 'niche_thick-booty', label: 'Thick Booty'),
-  (id: 'niche_amateur-girls', label: 'Amateur Girls'),
-  (id: 'niche_real-couples', label: 'Real Couples'),
-  (id: 'niche_real-orgasms', label: 'Real Orgasms'),
-  (id: 'niche_curvy-chicks', label: 'Curvy Chicks'),
-  (id: 'niche_rough-sex', label: 'Rough Sex'),
-  (id: 'niche_legal-teens', label: 'Legal Teens'),
-  (id: 'niche_busty-asians', label: 'Busty Asians'),
-  (id: 'niche_goth-girls', label: 'Goth Girls'),
-  (id: 'niche_latinas', label: 'Latinas'),
+const _kNiches = <String>[
+  'for_you',
+  'niche_just-boobs',
+  'niche_blowjobs',
+  'niche_thick-booty',
+  'niche_amateur-girls',
+  'niche_real-couples',
+  'niche_real-orgasms',
+  'niche_curvy-chicks',
+  'niche_rough-sex',
+  'niche_legal-teens',
+  'niche_busty-asians',
+  'niche_goth-girls',
+  'niche_latinas',
 ];
+
+String _nicheLabel(AppLocalizations l10n, String id) {
+  switch (id) {
+    case 'for_you':
+      return l10n.reel_niche_for_you;
+    case 'niche_just-boobs':
+      return l10n.reel_niche_just_boobs;
+    case 'niche_blowjobs':
+      return l10n.reel_niche_blowjobs;
+    case 'niche_thick-booty':
+      return l10n.reel_niche_thick_booty;
+    case 'niche_amateur-girls':
+      return l10n.reel_niche_amateur_girls;
+    case 'niche_real-couples':
+      return l10n.reel_niche_real_couples;
+    case 'niche_real-orgasms':
+      return l10n.reel_niche_real_orgasms;
+    case 'niche_curvy-chicks':
+      return l10n.reel_niche_curvy_chicks;
+    case 'niche_rough-sex':
+      return l10n.reel_niche_rough_sex;
+    case 'niche_legal-teens':
+      return l10n.reel_niche_legal_teens;
+    case 'niche_busty-asians':
+      return l10n.reel_niche_busty_asians;
+    case 'niche_goth-girls':
+      return l10n.reel_niche_goth_girls;
+    case 'niche_latinas':
+      return l10n.reel_niche_latinas;
+  }
+  return id;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -326,7 +357,7 @@ class _ExplorerTab extends ConsumerStatefulWidget {
 class _ExplorerTabState extends ConsumerState<_ExplorerTab>
     with AutomaticKeepAliveClientMixin {
   final List<MManga> _items = [];
-  String _listId = _kNiches[0].id;
+  String _listId = _kNiches[0];
   int _selNiche = 0;
   _MediaType _mediaType = _MediaType.all;
   int _page = 1;
@@ -387,7 +418,7 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
     if (idx == _selNiche && _mediaType == _MediaType.all) return;
     setState(() {
       _selNiche = idx;
-      _listId = _kNiches[idx].id;
+      _listId = _kNiches[idx];
       _mediaType = _MediaType.all;
       _items.clear();
       _page = 1;
@@ -435,7 +466,7 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
             child: Row(
               children: [
                 _TypePill(
-                  label: 'Tout',
+                  label: context.l10n.reel_all,
                   active: _mediaType == _MediaType.all,
                   onTap: () => _selectType(_MediaType.all),
                 ),
@@ -485,7 +516,7 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        _kNiches[i].label,
+                        _nicheLabel(context.l10n, _kNiches[i]),
                         style: TextStyle(
                           color: sel ? Colors.white : Colors.black54,
                           fontSize: 12,
@@ -506,11 +537,11 @@ class _ExplorerTabState extends ConsumerState<_ExplorerTab>
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           )
         else if (_items.isEmpty)
-          const SliverFillRemaining(
+          SliverFillRemaining(
             child: Center(
               child: Text(
-                'Aucun contenu',
-                style: TextStyle(color: Colors.black45),
+                context.l10n.reel_empty,
+                style: const TextStyle(color: Colors.black45),
               ),
             ),
           )
@@ -784,7 +815,7 @@ class _SuivisTabState extends ConsumerState<_SuivisTab>
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
           child: Text(
-            'Créateurs populaires',
+            context.l10n.reel_popular_creators,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -961,7 +992,9 @@ class _CreatorCard extends StatelessWidget {
                           const SizedBox(height: 3),
                           if (followers > 0)
                             Text(
-                              '${_fmtCount(followers)} abonnés',
+                              context.l10n.reel_followers(
+                                _fmtCount(followers),
+                              ),
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Colors.black45,
@@ -987,8 +1020,8 @@ class _CreatorCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             alignment: Alignment.center,
-                            child: const Text(
-                              'Suivre',
+                            child: Text(
+                              context.l10n.reel_follow,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,

@@ -11183,6 +11183,192 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get binaries_zeus_desc =>
       'Python runtime that extracts TikTok, Facebook, Instagram… without a watermark.';
+
+  @override
+  String get anime_word => 'Anime';
+
+  @override
+  String get novels_word => 'Novels';
+
+  @override
+  String get onboarding_tagline =>
+      'Anime, manga, novels, music,\nfilms, series and games — all in one place.';
+
+  @override
+  String get onboarding_next => 'Next';
+
+  @override
+  String get onboarding_start => 'Get started';
+
+  @override
+  String get onboarding_continue => 'Continue';
+
+  @override
+  String get onboarding_allow => 'Allow';
+
+  @override
+  String get onboarding_optional => 'OPTIONAL';
+
+  @override
+  String get onboarding_watch_verb => 'Watch.';
+
+  @override
+  String get onboarding_read_verb => 'Read.';
+
+  @override
+  String get onboarding_listen_verb => 'Listen.';
+
+  @override
+  String get onboarding_all_verb => 'Everything.';
+
+  @override
+  String get onboarding_slogan_body => 'One place for everything\nyou love.';
+
+  @override
+  String get onboarding_storage => 'Storage';
+
+  @override
+  String get onboarding_storage_ios => 'iOS sandbox access — nothing to do.';
+
+  @override
+  String get onboarding_storage_android =>
+      'Grant \"access to all files\" for downloads and Smart Library.';
+
+  @override
+  String get onboarding_notifications => 'Notifications';
+
+  @override
+  String get onboarding_notifications_sub => 'Downloads and library updates.';
+
+  @override
+  String get onboarding_install_apps => 'App installs';
+
+  @override
+  String get onboarding_install_apps_sub =>
+      'Install APK updates straight from the app.';
+
+  @override
+  String get onboarding_overlay => 'Overlay / PiP';
+
+  @override
+  String get onboarding_overlay_sub =>
+      'Show the video floating over other apps.';
+
+  @override
+  String get onboarding_battery => 'No battery restriction';
+
+  @override
+  String get onboarding_battery_sub =>
+      'Stops Android from killing background downloads (Doze, idle).';
+
+  @override
+  String get onboarding_device_language => 'Device language';
+
+  @override
+  String get onboarding_device_language_sub =>
+      'No manual choice. The language stays in sync with the system.';
+
+  @override
+  String get onboarding_dubbing => 'Dubbing and subtitles';
+
+  @override
+  String get onboarding_dubbing_body =>
+      'The audio language and subtitles follow the detected language automatically. You can switch the track during playback.';
+
+  @override
+  String get onboarding_audio_pref => 'Audio preference';
+
+  @override
+  String get onboarding_audio_auto => 'Automatic';
+
+  @override
+  String get onboarding_audio_pref_sub =>
+      'Dub if available, otherwise the original with subtitles.';
+
+  @override
+  String get onboarding_permissions_title => 'Permissions';
+
+  @override
+  String get onboarding_permissions_body =>
+      'Watchtower needs a few permissions\nto work properly.';
+
+  @override
+  String get onboarding_auto_detect => 'Automatic detection';
+
+  @override
+  String get onboarding_auto_detect_body =>
+      'Watchtower follows your device language and picks the best-fitting dub automatically.';
+
+  @override
+  String get reel_all => 'All';
+
+  @override
+  String get reel_empty => 'No content';
+
+  @override
+  String get reel_popular_creators => 'Popular creators';
+
+  @override
+  String reel_followers(Object count) {
+    return '$count followers';
+  }
+
+  @override
+  String get reel_follow => 'Follow';
+
+  @override
+  String get reel_more_suffix => '…more';
+
+  @override
+  String get reel_niche_for_you => 'For you';
+
+  @override
+  String get reel_niche_just_boobs => 'Just Boobs';
+
+  @override
+  String get reel_niche_blowjobs => 'Blowjobs';
+
+  @override
+  String get reel_niche_thick_booty => 'Thick Booty';
+
+  @override
+  String get reel_niche_amateur_girls => 'Amateur Girls';
+
+  @override
+  String get reel_niche_real_couples => 'Real Couples';
+
+  @override
+  String get reel_niche_real_orgasms => 'Real Orgasms';
+
+  @override
+  String get reel_niche_curvy_chicks => 'Curvy Chicks';
+
+  @override
+  String get reel_niche_rough_sex => 'Rough Sex';
+
+  @override
+  String get reel_niche_legal_teens => 'Legal Teens';
+
+  @override
+  String get reel_niche_busty_asians => 'Busty Asians';
+
+  @override
+  String get reel_niche_goth_girls => 'Goth Girls';
+
+  @override
+  String get reel_niche_latinas => 'Latinas';
+
+  @override
+  String get creator_following => 'Following';
+
+  @override
+  String get creator_followers => 'Followers';
+
+  @override
+  String get creator_likes => 'Likes';
+
+  @override
+  String get creator_no_video => 'No video available';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -21782,4 +21968,190 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
   @override
   String get binaries_zeus_desc =>
       'Python runtime that extracts TikTok, Facebook, Instagram… without a watermark.';
+
+  @override
+  String get anime_word => 'Anime';
+
+  @override
+  String get novels_word => 'Novels';
+
+  @override
+  String get onboarding_tagline =>
+      'Anime, manga, novels, music,\nfilms, series and games — all in one place.';
+
+  @override
+  String get onboarding_next => 'Next';
+
+  @override
+  String get onboarding_start => 'Get started';
+
+  @override
+  String get onboarding_continue => 'Continue';
+
+  @override
+  String get onboarding_allow => 'Allow';
+
+  @override
+  String get onboarding_optional => 'OPTIONAL';
+
+  @override
+  String get onboarding_watch_verb => 'Watch.';
+
+  @override
+  String get onboarding_read_verb => 'Read.';
+
+  @override
+  String get onboarding_listen_verb => 'Listen.';
+
+  @override
+  String get onboarding_all_verb => 'Everything.';
+
+  @override
+  String get onboarding_slogan_body => 'One place for everything\nyou love.';
+
+  @override
+  String get onboarding_storage => 'Storage';
+
+  @override
+  String get onboarding_storage_ios => 'iOS sandbox access — nothing to do.';
+
+  @override
+  String get onboarding_storage_android =>
+      'Grant \"access to all files\" for downloads and Smart Library.';
+
+  @override
+  String get onboarding_notifications => 'Notifications';
+
+  @override
+  String get onboarding_notifications_sub => 'Downloads and library updates.';
+
+  @override
+  String get onboarding_install_apps => 'App installs';
+
+  @override
+  String get onboarding_install_apps_sub =>
+      'Install APK updates straight from the app.';
+
+  @override
+  String get onboarding_overlay => 'Overlay / PiP';
+
+  @override
+  String get onboarding_overlay_sub =>
+      'Show the video floating over other apps.';
+
+  @override
+  String get onboarding_battery => 'No battery restriction';
+
+  @override
+  String get onboarding_battery_sub =>
+      'Stops Android from killing background downloads (Doze, idle).';
+
+  @override
+  String get onboarding_device_language => 'Device language';
+
+  @override
+  String get onboarding_device_language_sub =>
+      'No manual choice. The language stays in sync with the system.';
+
+  @override
+  String get onboarding_dubbing => 'Dubbing and subtitles';
+
+  @override
+  String get onboarding_dubbing_body =>
+      'The audio language and subtitles follow the detected language automatically. You can switch the track during playback.';
+
+  @override
+  String get onboarding_audio_pref => 'Audio preference';
+
+  @override
+  String get onboarding_audio_auto => 'Automatic';
+
+  @override
+  String get onboarding_audio_pref_sub =>
+      'Dub if available, otherwise the original with subtitles.';
+
+  @override
+  String get onboarding_permissions_title => 'Permissions';
+
+  @override
+  String get onboarding_permissions_body =>
+      'Watchtower needs a few permissions\nto work properly.';
+
+  @override
+  String get onboarding_auto_detect => 'Automatic detection';
+
+  @override
+  String get onboarding_auto_detect_body =>
+      'Watchtower follows your device language and picks the best-fitting dub automatically.';
+
+  @override
+  String get reel_all => 'All';
+
+  @override
+  String get reel_empty => 'No content';
+
+  @override
+  String get reel_popular_creators => 'Popular creators';
+
+  @override
+  String reel_followers(Object count) {
+    return '$count followers';
+  }
+
+  @override
+  String get reel_follow => 'Follow';
+
+  @override
+  String get reel_more_suffix => '…more';
+
+  @override
+  String get reel_niche_for_you => 'For you';
+
+  @override
+  String get reel_niche_just_boobs => 'Just Boobs';
+
+  @override
+  String get reel_niche_blowjobs => 'Blowjobs';
+
+  @override
+  String get reel_niche_thick_booty => 'Thick Booty';
+
+  @override
+  String get reel_niche_amateur_girls => 'Amateur Girls';
+
+  @override
+  String get reel_niche_real_couples => 'Real Couples';
+
+  @override
+  String get reel_niche_real_orgasms => 'Real Orgasms';
+
+  @override
+  String get reel_niche_curvy_chicks => 'Curvy Chicks';
+
+  @override
+  String get reel_niche_rough_sex => 'Rough Sex';
+
+  @override
+  String get reel_niche_legal_teens => 'Legal Teens';
+
+  @override
+  String get reel_niche_busty_asians => 'Busty Asians';
+
+  @override
+  String get reel_niche_goth_girls => 'Goth Girls';
+
+  @override
+  String get reel_niche_latinas => 'Latinas';
+
+  @override
+  String get creator_following => 'Following';
+
+  @override
+  String get creator_followers => 'Followers';
+
+  @override
+  String get creator_likes => 'Likes';
+
+  @override
+  String get creator_no_video => 'No video available';
 }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -222,16 +223,16 @@ class _CreatorProfileScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _StatCell(value: '—', label: 'Suivis'),
+              _StatCell(value: '—', label: context.l10n.creator_following),
               _Divider(),
               _StatCell(
                 value: widget.followers > 0
                     ? _fmtCount(widget.followers)
                     : '—',
-                label: 'Followers',
+                label: context.l10n.creator_followers,
               ),
               _Divider(),
-              _StatCell(value: '—', label: "J'aime"),
+              _StatCell(value: '—', label: context.l10n.creator_likes),
             ],
           ),
 
@@ -369,7 +370,7 @@ class _CreatorProfileScreenState
             Icon(Icons.videocam_off_outlined,
                 size: 48, color: Colors.grey.shade300),
             const SizedBox(height: 12),
-            Text('Aucune vidéo disponible',
+            Text(context.l10n.creator_no_video,
                 style: TextStyle(
                     color: Colors.grey.shade400, fontSize: 14)),
           ],
