@@ -20236,6 +20236,282 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Load failed · Retry'**
   String get watch_home_load_failed_retry;
+
+  /// No description provided for @nav_hub_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'When ON: Manga/Watch/Novel are hidden behind a single Hub button on the dock.'**
+  String get nav_hub_tooltip;
+
+  /// No description provided for @nav_hub_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Hub navigation on mobile'**
+  String get nav_hub_title;
+
+  /// No description provided for @nav_hub_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Groups Manga · Watch · Novel under one Hub button'**
+  String get nav_hub_subtitle;
+
+  /// No description provided for @nav_hub_enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Hub enabled → Manga, Watch & Novel are now behind the Hub button'**
+  String get nav_hub_enabled;
+
+  /// No description provided for @nav_hub_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Hub disabled → Manga, Watch & Novel appear separately on the dock'**
+  String get nav_hub_disabled;
+
+  /// No description provided for @nav_merge_library_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'When ON: a unified Library tab appears on the dock (all types in one page).'**
+  String get nav_merge_library_tooltip;
+
+  /// No description provided for @nav_merge_library_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge library'**
+  String get nav_merge_library_title;
+
+  /// No description provided for @nav_merge_library_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Groups every library into a single tab'**
+  String get nav_merge_library_subtitle;
+
+  /// No description provided for @nav_dock_items.
+  ///
+  /// In en, this message translates to:
+  /// **'Dock items'**
+  String get nav_dock_items;
+
+  /// No description provided for @nav_item_hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} hidden from the dock'**
+  String nav_item_hidden(Object name);
+
+  /// No description provided for @nav_item_shown.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} visible on the dock'**
+  String nav_item_shown(Object name);
+
+  /// No description provided for @nav_dock_style.
+  ///
+  /// In en, this message translates to:
+  /// **'Dock style'**
+  String get nav_dock_style;
+
+  /// No description provided for @nav_dock_mobile.
+  ///
+  /// In en, this message translates to:
+  /// **'Mobile'**
+  String get nav_dock_mobile;
+
+  /// No description provided for @nav_dock_classic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get nav_dock_classic;
+
+  /// No description provided for @nav_dock_classic_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Full-width bar'**
+  String get nav_dock_classic_desc;
+
+  /// No description provided for @nav_dock_classic_set.
+  ///
+  /// In en, this message translates to:
+  /// **'Dock style: Classic full-width bar'**
+  String get nav_dock_classic_set;
+
+  /// No description provided for @nav_dock_immersive.
+  ///
+  /// In en, this message translates to:
+  /// **'Immersive'**
+  String get nav_dock_immersive;
+
+  /// No description provided for @nav_dock_immersive_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Glass overlay'**
+  String get nav_dock_immersive_desc;
+
+  /// No description provided for @nav_dock_immersive_set.
+  ///
+  /// In en, this message translates to:
+  /// **'Dock style: Immersive glass dock'**
+  String get nav_dock_immersive_set;
+
+  /// No description provided for @nav_dock_pc_tablet.
+  ///
+  /// In en, this message translates to:
+  /// **'PC / Tablet'**
+  String get nav_dock_pc_tablet;
+
+  /// No description provided for @nav_dock_pc_sidebar.
+  ///
+  /// In en, this message translates to:
+  /// **'PC Sidebar'**
+  String get nav_dock_pc_sidebar;
+
+  /// No description provided for @nav_dock_pc_sidebar_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Side bar'**
+  String get nav_dock_pc_sidebar_desc;
+
+  /// No description provided for @nav_dock_pc_sidebar_set.
+  ///
+  /// In en, this message translates to:
+  /// **'PC Sidebar — navigation in a side bar'**
+  String get nav_dock_pc_sidebar_set;
+
+  /// No description provided for @nav_sidebar_side_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Which side the PC / TV navigation bar sits on.'**
+  String get nav_sidebar_side_tooltip;
+
+  /// No description provided for @nav_sidebar_side.
+  ///
+  /// In en, this message translates to:
+  /// **'Sidebar side'**
+  String get nav_sidebar_side;
+
+  /// No description provided for @nav_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get nav_left;
+
+  /// No description provided for @nav_right.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get nav_right;
+
+  /// No description provided for @nav_sidebar_left.
+  ///
+  /// In en, this message translates to:
+  /// **'Sidebar on the left'**
+  String get nav_sidebar_left;
+
+  /// No description provided for @nav_sidebar_right.
+  ///
+  /// In en, this message translates to:
+  /// **'Sidebar on the right'**
+  String get nav_sidebar_right;
+
+  /// No description provided for @nav_advanced_customisation.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced customisation'**
+  String get nav_advanced_customisation;
+
+  /// No description provided for @nav_icon_size.
+  ///
+  /// In en, this message translates to:
+  /// **'Icon size'**
+  String get nav_icon_size;
+
+  /// No description provided for @nav_icon_size_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes the size of dock icons. Affects all dock items.'**
+  String get nav_icon_size_tooltip;
+
+  /// No description provided for @nav_item_spacing.
+  ///
+  /// In en, this message translates to:
+  /// **'Item spacing'**
+  String get nav_item_spacing;
+
+  /// No description provided for @nav_item_spacing_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls horizontal gap between each dock item. 0 = no gap, 16 = wide gap.'**
+  String get nav_item_spacing_tooltip;
+
+  /// No description provided for @nav_anim_speed.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation speed'**
+  String get nav_anim_speed;
+
+  /// No description provided for @nav_anim_speed_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Controls the speed of dock transitions and selection animations.'**
+  String get nav_anim_speed_tooltip;
+
+  /// No description provided for @nav_anim_speed_set.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation speed set to {name}'**
+  String nav_anim_speed_set(Object name);
+
+  /// No description provided for @nav_normal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get nav_normal;
+
+  /// No description provided for @nav_show_labels.
+  ///
+  /// In en, this message translates to:
+  /// **'Show labels'**
+  String get nav_show_labels;
+
+  /// No description provided for @nav_show_labels_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'When ON, text labels appear below each dock icon. When OFF, icons only.'**
+  String get nav_show_labels_tooltip;
+
+  /// No description provided for @nav_labels_visible.
+  ///
+  /// In en, this message translates to:
+  /// **'Labels visible → text shown below each dock icon'**
+  String get nav_labels_visible;
+
+  /// No description provided for @nav_labels_hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Labels hidden → icon only mode'**
+  String get nav_labels_hidden;
+
+  /// No description provided for @nav_haptic.
+  ///
+  /// In en, this message translates to:
+  /// **'Haptic feedback'**
+  String get nav_haptic;
+
+  /// No description provided for @nav_haptic_tooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'When ON, the phone vibrates slightly when you switch dock tabs.'**
+  String get nav_haptic_tooltip;
+
+  /// No description provided for @nav_haptic_enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Haptic feedback enabled → subtle vibration on tab change'**
+  String get nav_haptic_enabled;
+
+  /// No description provided for @nav_haptic_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Haptic feedback disabled'**
+  String get nav_haptic_disabled;
 }
 
 class _AppLocalizationsDelegate

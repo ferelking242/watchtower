@@ -11491,4 +11491,164 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get watch_home_load_failed_retry => 'Chargement échoué · Réessayer';
+
+  @override
+  String get nav_hub_tooltip =>
+      'Quand activé : Manga/Watch/Roman sont masqués derrière un seul bouton Hub sur le dock.';
+
+  @override
+  String get nav_hub_title => 'Navigation Hub sur mobile';
+
+  @override
+  String get nav_hub_subtitle =>
+      'Regroupe Manga · Watch · Roman sous un bouton Hub';
+
+  @override
+  String get nav_hub_enabled =>
+      'Hub activé → Manga, Watch et Roman sont désormais derrière le bouton Hub';
+
+  @override
+  String get nav_hub_disabled =>
+      'Hub désactivé → Manga, Watch et Roman apparaissent séparément sur le dock';
+
+  @override
+  String get nav_merge_library_tooltip =>
+      'Quand activé : un onglet Bibliothèque unifié apparaît sur le dock (tous les types sur une page).';
+
+  @override
+  String get nav_merge_library_title => 'Fusionner la bibliothèque';
+
+  @override
+  String get nav_merge_library_subtitle =>
+      'Regroupe toutes les bibliothèques dans un seul onglet';
+
+  @override
+  String get nav_dock_items => 'Éléments du dock';
+
+  @override
+  String nav_item_hidden(Object name) {
+    return '$name masqué du dock';
+  }
+
+  @override
+  String nav_item_shown(Object name) {
+    return '$name visible sur le dock';
+  }
+
+  @override
+  String get nav_dock_style => 'Style du dock';
+
+  @override
+  String get nav_dock_mobile => 'Mobile';
+
+  @override
+  String get nav_dock_classic => 'Classique';
+
+  @override
+  String get nav_dock_classic_desc => 'Barre pleine largeur';
+
+  @override
+  String get nav_dock_classic_set =>
+      'Style du dock : barre classique pleine largeur';
+
+  @override
+  String get nav_dock_immersive => 'Immersif';
+
+  @override
+  String get nav_dock_immersive_desc => 'Superposition en verre';
+
+  @override
+  String get nav_dock_immersive_set => 'Style du dock : dock immersif en verre';
+
+  @override
+  String get nav_dock_pc_tablet => 'PC / Tablette';
+
+  @override
+  String get nav_dock_pc_sidebar => 'Barre latérale PC';
+
+  @override
+  String get nav_dock_pc_sidebar_desc => 'Barre latérale';
+
+  @override
+  String get nav_dock_pc_sidebar_set =>
+      'Barre latérale PC — navigation en barre latérale';
+
+  @override
+  String get nav_sidebar_side_tooltip =>
+      'De quel côté se trouve la barre de navigation PC / TV.';
+
+  @override
+  String get nav_sidebar_side => 'Côté de la barre';
+
+  @override
+  String get nav_left => 'Gauche';
+
+  @override
+  String get nav_right => 'Droite';
+
+  @override
+  String get nav_sidebar_left => 'Barre à gauche';
+
+  @override
+  String get nav_sidebar_right => 'Barre à droite';
+
+  @override
+  String get nav_advanced_customisation => 'Personnalisation avancée';
+
+  @override
+  String get nav_icon_size => 'Taille des icônes';
+
+  @override
+  String get nav_icon_size_tooltip =>
+      'Modifie la taille des icônes du dock. Affecte tous les éléments du dock.';
+
+  @override
+  String get nav_item_spacing => 'Espacement des éléments';
+
+  @override
+  String get nav_item_spacing_tooltip =>
+      'Contrôle l\'écart horizontal entre chaque élément du dock. 0 = aucun écart, 16 = écart large.';
+
+  @override
+  String get nav_anim_speed => 'Vitesse d\'animation';
+
+  @override
+  String get nav_anim_speed_tooltip =>
+      'Contrôle la vitesse des transitions du dock et des animations de sélection.';
+
+  @override
+  String nav_anim_speed_set(Object name) {
+    return 'Vitesse d\'animation réglée sur $name';
+  }
+
+  @override
+  String get nav_normal => 'Normale';
+
+  @override
+  String get nav_show_labels => 'Afficher les libellés';
+
+  @override
+  String get nav_show_labels_tooltip =>
+      'Quand activé, des libellés apparaissent sous chaque icône du dock. Quand désactivé, icônes uniquement.';
+
+  @override
+  String get nav_labels_visible =>
+      'Libellés visibles → texte affiché sous chaque icône du dock';
+
+  @override
+  String get nav_labels_hidden => 'Libellés masqués → mode icônes uniquement';
+
+  @override
+  String get nav_haptic => 'Retour haptique';
+
+  @override
+  String get nav_haptic_tooltip =>
+      'Quand activé, le téléphone vibre légèrement quand vous changez d\'onglet du dock.';
+
+  @override
+  String get nav_haptic_enabled =>
+      'Retour haptique activé → légère vibration au changement d\'onglet';
+
+  @override
+  String get nav_haptic_disabled => 'Retour haptique désactivé';
 }
