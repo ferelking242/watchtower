@@ -88,7 +88,29 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen>
     if (_visibleTabTypes.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: Text(context.l10n.categories)),
-        body: Center(child: Text("EMPTY\nMPTY\nMTY\nMT\n\n")),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  context.l10n.categories_empty_title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  context.l10n.categories_empty_subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).hintColor,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
     final l10n = l10nLocalizations(context)!;

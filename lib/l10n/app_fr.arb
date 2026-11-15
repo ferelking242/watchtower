@@ -3890,5 +3890,9 @@
   "download_install_permission_denied": "Permission d’installation refusée. Activez-la dans les paramètres système.",
   "browse_diag_source_default": "Source 1",
   "diag_tap_to_play": "{quality} — Toucher pour lire",
-  "watch_order_meta": "{period} | {type} | {episodes} épisodes | ★{score} ({voters})"
+  "watch_order_meta": "{period} | {type} | {episodes} épisodes | ★{score} ({voters})",
+  "manga_rank_trending": "#{rank} · Tendance",
+  "anime_episode_label": "ÉP {number} · {title}",
+  "categories_empty_title": "Aucune catégorie pour le moment",
+  "categories_empty_subtitle": "Crée une catégorie pour organiser ta bibliothèque."
 }

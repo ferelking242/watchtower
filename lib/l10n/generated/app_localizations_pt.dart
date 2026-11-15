@@ -12907,6 +12907,23 @@ class AppLocalizationsPt extends AppLocalizations {
   ) {
     return '$period | $type | $episodes episodes | ★$score ($voters)';
   }
+
+  @override
+  String manga_rank_trending(Object rank) {
+    return '#$rank · Trending';
+  }
+
+  @override
+  String anime_episode_label(Object number, Object title) {
+    return 'EP $number · $title';
+  }
+
+  @override
+  String get categories_empty_title => 'No category yet';
+
+  @override
+  String get categories_empty_subtitle =>
+      'Create a category to organise your library.';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).
@@ -25222,4 +25239,21 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
   ) {
     return '$period | $type | $episodes episodes | ★$score ($voters)';
   }
+
+  @override
+  String manga_rank_trending(Object rank) {
+    return '#$rank · Trending';
+  }
+
+  @override
+  String anime_episode_label(Object number, Object title) {
+    return 'EP $number · $title';
+  }
+
+  @override
+  String get categories_empty_title => 'No category yet';
+
+  @override
+  String get categories_empty_subtitle =>
+      'Create a category to organise your library.';
 }

@@ -3848,7 +3848,10 @@ class _StreamSheetState extends ConsumerState<_StreamSheet> {
           ),
           const SizedBox(height: 3),
           Text(
-            'EP ${ep.episodeNumber} · ${ep.displayTitle}',
+            context.l10n.anime_episode_label(
+              ep.episodeNumber,
+              ep.displayTitle,
+            ),
             style: const TextStyle(
                 fontSize: 17, fontWeight: FontWeight.w700, height: 1.2),
             maxLines: 2,

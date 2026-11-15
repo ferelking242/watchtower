@@ -13033,4 +13033,21 @@ class AppLocalizationsFr extends AppLocalizations {
   ) {
     return '$period | $type | $episodes épisodes | ★$score ($voters)';
   }
+
+  @override
+  String manga_rank_trending(Object rank) {
+    return '#$rank · Tendance';
+  }
+
+  @override
+  String anime_episode_label(Object number, Object title) {
+    return 'ÉP $number · $title';
+  }
+
+  @override
+  String get categories_empty_title => 'Aucune catégorie pour le moment';
+
+  @override
+  String get categories_empty_subtitle =>
+      'Crée une catégorie pour organiser ta bibliothèque.';
 }

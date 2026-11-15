@@ -1743,7 +1743,7 @@ class _MangaTrendingBadge extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Text(
-          '#$rank · TRENDING',
+          context.l10n.manga_rank_trending(rank),
           style: const TextStyle(
             color: Color(0xFF3EC1C9),
             fontSize: 11.5,

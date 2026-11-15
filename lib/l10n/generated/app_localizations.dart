@@ -22958,6 +22958,30 @@ abstract class AppLocalizations {
     Object type,
     Object voters,
   );
+
+  /// No description provided for @manga_rank_trending.
+  ///
+  /// In en, this message translates to:
+  /// **'#{rank} · Trending'**
+  String manga_rank_trending(Object rank);
+
+  /// No description provided for @anime_episode_label.
+  ///
+  /// In en, this message translates to:
+  /// **'EP {number} · {title}'**
+  String anime_episode_label(Object number, Object title);
+
+  /// No description provided for @categories_empty_title.
+  ///
+  /// In en, this message translates to:
+  /// **'No category yet'**
+  String get categories_empty_title;
+
+  /// No description provided for @categories_empty_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a category to organise your library.'**
+  String get categories_empty_subtitle;
 }
 
 class _AppLocalizationsDelegate

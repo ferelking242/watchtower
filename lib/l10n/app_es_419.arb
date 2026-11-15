@@ -3772,5 +3772,9 @@
   "download_install_permission_denied": "Install permission denied. Enable it in the system settings.",
   "browse_diag_source_default": "Source 1",
   "diag_tap_to_play": "{quality} — Tap to play",
-  "watch_order_meta": "{period} | {type} | {episodes} episodes | ★{score} ({voters})"
+  "watch_order_meta": "{period} | {type} | {episodes} episodes | ★{score} ({voters})",
+  "manga_rank_trending": "#{rank} · Trending",
+  "anime_episode_label": "EP {number} · {title}",
+  "categories_empty_title": "No category yet",
+  "categories_empty_subtitle": "Create a category to organise your library."
 }
