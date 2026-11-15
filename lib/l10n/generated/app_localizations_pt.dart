@@ -11375,6 +11375,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get streaming_view_season => 'View season';
+
+  @override
+  String get watch_home_load_failed_retry => 'Load failed · Retry';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).
@@ -22167,4 +22170,7 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get streaming_view_season => 'View season';
+
+  @override
+  String get watch_home_load_failed_retry => 'Load failed · Retry';
 }

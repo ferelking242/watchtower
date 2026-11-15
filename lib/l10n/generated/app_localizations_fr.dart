@@ -11488,4 +11488,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get streaming_view_season => 'Voir la saison';
+
+  @override
+  String get watch_home_load_failed_retry => 'Chargement échoué · Réessayer';
 }

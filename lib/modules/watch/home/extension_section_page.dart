@@ -214,7 +214,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
           OutlinedButton.icon(
             onPressed: _retryFirstPage,
             icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Réessayer'),
+            label: Text(context.l10n.retry),
           ),
         ],
       ),
@@ -300,8 +300,8 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
       if (!mounted) return;
       if (first == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Aucune vidéo disponible dans cette playlist.'),
+          SnackBar(
+            content: Text(context.l10n.watch_home_no_video_in_playlist),
           ),
         );
         return;
@@ -373,7 +373,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          tooltip: 'Retour',
+          tooltip: context.l10n.catalog_back,
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Broken.arrow_left),
         ),
@@ -399,7 +399,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
 
   Widget _buildContent(List<MManga> items) {
     if (items.isEmpty) {
-      return const Center(child: Text('Aucun résultat'));
+      return Center(child: Text(context.l10n.no_result));
     }
     if (widget.cardStyle != 'tag' &&
         items.every(
@@ -475,7 +475,7 @@ class _ExtensionSectionPageState extends ConsumerState<ExtensionSectionPage> {
               child: TextButton.icon(
                 onPressed: _retryMore,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Chargement échoué · Réessayer'),
+                label: Text(context.l10n.watch_home_load_failed_retry),
               ),
             );
           }

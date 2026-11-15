@@ -11381,6 +11381,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get streaming_view_season => 'View season';
+
+  @override
+  String get watch_home_load_failed_retry => 'Load failed · Retry';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -22178,4 +22181,7 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get streaming_view_season => 'View season';
+
+  @override
+  String get watch_home_load_failed_retry => 'Load failed · Retry';
 }

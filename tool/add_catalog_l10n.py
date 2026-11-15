@@ -3225,6 +3225,7 @@ HISTORY_MISC = [
     ("streaming_replay", "Watch again", "Revoir"),
     ("streaming_watch_now", "Watch now", "Voir maintenant"),
     ("streaming_view_season", "View season", "Voir la saison"),
+    ("watch_home_load_failed_retry", "Load failed · Retry", "Chargement échoué · Réessayer"),
     ("reel_all", "All", "Tout"),
     ("reel_empty", "No content", "Aucun contenu"),
     ("reel_popular_creators", "Popular creators", "Créateurs populaires"),

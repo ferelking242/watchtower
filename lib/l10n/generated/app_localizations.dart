@@ -20230,6 +20230,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View season'**
   String get streaming_view_season;
+
+  /// No description provided for @watch_home_load_failed_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Load failed · Retry'**
+  String get watch_home_load_failed_retry;
 }
 
 class _AppLocalizationsDelegate

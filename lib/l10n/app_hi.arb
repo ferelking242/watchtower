@@ -3349,5 +3349,6 @@
   "streaming_resume": "Resume",
   "streaming_replay": "Watch again",
   "streaming_watch_now": "Watch now",
-  "streaming_view_season": "View season"
+  "streaming_view_season": "View season",
+  "watch_home_load_failed_retry": "Load failed · Retry"
 }

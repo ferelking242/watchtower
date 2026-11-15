@@ -3437,5 +3437,6 @@
   "streaming_resume": "Reprendre",
   "streaming_replay": "Revoir",
   "streaming_watch_now": "Voir maintenant",
-  "streaming_view_season": "Voir la saison"
+  "streaming_view_season": "Voir la saison",
+  "watch_home_load_failed_retry": "Chargement échoué · Réessayer"
 }
