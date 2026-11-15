@@ -63,7 +63,15 @@ extension StringExtensions on String {
   }
 
   String get getUrlWithoutDomain {
-    final uri = Uri.parse(replaceAll(' ', '%20'));
+    // Some extensions store an opaque token in a chapter's `url` instead of a
+    // real URL (see string_extensions_io.dart). `Uri.parse` throws on it, so
+    // hand an unparseable value back unchanged rather than crashing the caller.
+    final Uri uri;
+    try {
+      uri = Uri.parse(replaceAll(' ', '%20'));
+    } catch (_) {
+      return this;
+    }
     String out = uri.path;
     if (uri.query.isNotEmpty) {
       out += '?${uri.query}';

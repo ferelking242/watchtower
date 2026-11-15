@@ -68,7 +68,18 @@ extension StringExtensions on String {
   }
 
   String get getUrlWithoutDomain {
-    final uri = Uri.parse(replaceAll(' ', '%20'));
+    // A chapter `url` is not always a real URL: some extensions store an opaque
+    // token there (MKissa stores `{"mangaId":…,"chapterString":…}` and parses it
+    // in getPageList). `Uri.parse` throws on such a value because the first `:`
+    // precedes any `/`, so the parser reads a bogus scheme. That throw used to
+    // escape downloadChapter and crash the whole download; hand the value back
+    // unchanged so the extension still receives the exact token it produced.
+    final Uri uri;
+    try {
+      uri = Uri.parse(replaceAll(' ', '%20'));
+    } catch (_) {
+      return this;
+    }
     String out = uri.path;
     if (uri.query.isNotEmpty) {
       out += '?${uri.query}';

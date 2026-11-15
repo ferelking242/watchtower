@@ -1313,14 +1313,23 @@ Future<void> downloadChapter(
     }
 
     // The chapter page the extension reads (e.g. the MissAV episode page): the
-    // request Cloudflare refuses before any media URL is even known.
+    // request Cloudflare refuses before any media URL is even known. A chapter
+    // `url` may be an opaque token rather than a path (MKissa stores JSON), in
+    // which case there is no page to open and the source base URL is used.
     final chapterSource = manga.sourceId == null
         ? null
         : getSource(manga.lang ?? '', manga.source ?? '', manga.sourceId);
-    final chapterPageUrl =
-        chapterSource != null && chapter.url != null && chapter.url!.isNotEmpty
-        ? '${chapterSource.baseUrl}${chapter.url!.getUrlWithoutDomain}'
-        : null;
+    final chapterPath = chapter.url == null
+        ? null
+        : chapter.url!.getUrlWithoutDomain;
+    final chapterPathIsUrl = chapterPath != null &&
+        (chapterPath.startsWith('/') ||
+            (Uri.tryParse(chapterPath)?.hasAuthority ?? false));
+    final chapterPageUrl = chapterSource == null
+        ? null
+        : chapterPathIsUrl
+        ? '${chapterSource.baseUrl}$chapterPath'
+        : chapterSource.baseUrl;
     watchChallengeUrl(chapterPageUrl);
 
     Future<void> processConvert() async {

@@ -151,7 +151,14 @@ Map<String, dynamic>? buildWebViewData(Chapter chapter) {
   final source = getSource(manga.lang!, manga.source!, manga.sourceId);
   if (source == null) return null;
 
-  final url = "${source.baseUrl}${chapter.url!.getUrlWithoutDomain}";
+  // A chapter `url` may be an opaque token instead of a path (MKissa stores
+  // JSON there), so only concatenate when it really is a path; otherwise open
+  // the source itself rather than navigating the WebView to a broken URL.
+  final path = chapter.url?.getUrlWithoutDomain;
+  final isPath = path != null &&
+      path.isNotEmpty &&
+      (path.startsWith('/') || (Uri.tryParse(path)?.hasAuthority ?? false));
+  final url = isPath ? '${source.baseUrl}$path' : source.baseUrl;
 
   return {'url': url, 'sourceId': source.id.toString(), 'title': chapter.name!};
 }
