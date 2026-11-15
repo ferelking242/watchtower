@@ -13006,4 +13006,31 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get download_open_external =>
       'Ouvrir dans un gestionnaire de téléchargement externe';
+
+  @override
+  String get download_connection_lost_resume =>
+      'Connexion perdue — reprise automatique dès le retour du réseau';
+
+  @override
+  String get download_install_permission_denied =>
+      'Permission d’installation refusée. Activez-la dans les paramètres système.';
+
+  @override
+  String get browse_diag_source_default => 'Source 1';
+
+  @override
+  String diag_tap_to_play(Object quality) {
+    return '$quality — Toucher pour lire';
+  }
+
+  @override
+  String watch_order_meta(
+    Object episodes,
+    Object period,
+    Object score,
+    Object type,
+    Object voters,
+  ) {
+    return '$period | $type | $episodes épisodes | ★$score ($voters)';
+  }
 }

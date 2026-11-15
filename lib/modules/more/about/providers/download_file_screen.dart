@@ -269,7 +269,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Connexion perdue — reprise automatique dès le retour du réseau',
+                    context.l10n.download_connection_lost_resume,
                     style: TextStyle(
                       color: Colors.orange.shade300,
                       fontSize: 12.5,
@@ -642,11 +642,9 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     if (status.isPermanentlyDenied) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Permission d\'installation refusée. '
-                'Activez-la dans les paramètres système.'),
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: Text(context.l10n.download_install_permission_denied),
+            duration: const Duration(seconds: 4),
           ),
         );
       }

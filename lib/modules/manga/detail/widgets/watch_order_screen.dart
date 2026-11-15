@@ -132,7 +132,13 @@ class _WatchOrderScreenState extends State<WatchOrderScreen> {
                         children: [
                           _buildTitle(sequel.title, context),
                           Text(
-                            "${sequel.period} | ${sequel.type} | ${sequel.episodes} episodes | ★${sequel.score} (${sequel.scoreUsers})",
+                            context.l10n.watch_order_meta(
+                              sequel.period,
+                              sequel.type,
+                              sequel.episodes,
+                              sequel.score,
+                              sequel.scoreUsers,
+                            ),
                             style: const TextStyle(fontSize: 11),
                             overflow: TextOverflow.clip,
                           ),

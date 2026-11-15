@@ -3885,5 +3885,10 @@
   "log_live_title": "Journaux en direct · {count}",
   "log_none": "Aucun log pour l’instant.\nLance une lecture ou un téléchargement.",
   "download_in_app": "Télécharger dans l’application",
-  "download_open_external": "Ouvrir dans un gestionnaire de téléchargement externe"
+  "download_open_external": "Ouvrir dans un gestionnaire de téléchargement externe",
+  "download_connection_lost_resume": "Connexion perdue — reprise automatique dès le retour du réseau",
+  "download_install_permission_denied": "Permission d’installation refusée. Activez-la dans les paramètres système.",
+  "browse_diag_source_default": "Source 1",
+  "diag_tap_to_play": "{quality} — Toucher pour lire",
+  "watch_order_meta": "{period} | {type} | {episodes} épisodes | ★{score} ({voters})"
 }

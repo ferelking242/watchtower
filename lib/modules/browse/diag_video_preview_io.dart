@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
 
 class DiagVideoPreview extends StatefulWidget {
@@ -130,7 +131,11 @@ class _DiagVideoPreviewState extends State<DiagVideoPreview> {
                                       ),
                                       const SizedBox(height: 10),
                                       Text(
-                                        '${urls[0].quality.isNotEmpty ? urls[0].quality : "Source 1"} — Toucher pour lire',
+                                        context.l10n.diag_tap_to_play(
+                                          urls[0].quality.isNotEmpty
+                                              ? urls[0].quality
+                                              : context.l10n.browse_diag_source_default,
+                                        ),
                                         style: const TextStyle(color: Colors.white70, fontSize: 11),
                                       ),
                                     ],

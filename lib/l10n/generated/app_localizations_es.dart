@@ -12886,6 +12886,33 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get download_open_external => 'Open in an external download manager';
+
+  @override
+  String get download_connection_lost_resume =>
+      'Connection lost — it resumes automatically when the network returns';
+
+  @override
+  String get download_install_permission_denied =>
+      'Install permission denied. Enable it in the system settings.';
+
+  @override
+  String get browse_diag_source_default => 'Source 1';
+
+  @override
+  String diag_tap_to_play(Object quality) {
+    return '$quality — Tap to play';
+  }
+
+  @override
+  String watch_order_meta(
+    Object episodes,
+    Object period,
+    Object score,
+    Object type,
+    Object voters,
+  ) {
+    return '$period | $type | $episodes episodes | ★$score ($voters)';
+  }
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -25179,4 +25206,31 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get download_open_external => 'Open in an external download manager';
+
+  @override
+  String get download_connection_lost_resume =>
+      'Connection lost — it resumes automatically when the network returns';
+
+  @override
+  String get download_install_permission_denied =>
+      'Install permission denied. Enable it in the system settings.';
+
+  @override
+  String get browse_diag_source_default => 'Source 1';
+
+  @override
+  String diag_tap_to_play(Object quality) {
+    return '$quality — Tap to play';
+  }
+
+  @override
+  String watch_order_meta(
+    Object episodes,
+    Object period,
+    Object score,
+    Object type,
+    Object voters,
+  ) {
+    return '$period | $type | $episodes episodes | ★$score ($voters)';
+  }
 }

@@ -22922,6 +22922,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open in an external download manager'**
   String get download_open_external;
+
+  /// No description provided for @download_connection_lost_resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection lost — it resumes automatically when the network returns'**
+  String get download_connection_lost_resume;
+
+  /// No description provided for @download_install_permission_denied.
+  ///
+  /// In en, this message translates to:
+  /// **'Install permission denied. Enable it in the system settings.'**
+  String get download_install_permission_denied;
+
+  /// No description provided for @browse_diag_source_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Source 1'**
+  String get browse_diag_source_default;
+
+  /// No description provided for @diag_tap_to_play.
+  ///
+  /// In en, this message translates to:
+  /// **'{quality} — Tap to play'**
+  String diag_tap_to_play(Object quality);
+
+  /// No description provided for @watch_order_meta.
+  ///
+  /// In en, this message translates to:
+  /// **'{period} | {type} | {episodes} episodes | ★{score} ({voters})'**
+  String watch_order_meta(
+    Object episodes,
+    Object period,
+    Object score,
+    Object type,
+    Object voters,
+  );
 }
 
 class _AppLocalizationsDelegate
