@@ -12390,4 +12390,36 @@ class AppLocalizationsZh extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get profile_title => 'Me';
+
+  @override
+  String get profile_anonymous_title => 'Anonymous account';
+
+  @override
+  String get profile_anonymous_subtitle =>
+      'Use Watchtower without an account. Your preferences stay on this device.';
+
+  @override
+  String get profile_insights => 'Viewing insights';
+
+  @override
+  String get profile_insights_subtitle =>
+      'Track your reading and watching habits';
+
+  @override
+  String get profile_server => 'Server status';
+
+  @override
+  String get profile_server_message =>
+      'TMDB and source services are checked on demand.';
+
+  @override
+  String get profile_share_message =>
+      'Discover Watchtower, your personal content library.';
+
+  @override
+  String get profile_account_message =>
+      'Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings.';
 }

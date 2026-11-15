@@ -570,7 +570,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                         : Colors.black.withValues(alpha: 0.07),
                   ),
                   // ── Namida-style settings tiles ───────────────────────
-                  const _SectionLabel('Paramètres'),
+                  _SectionLabel(l10n.settings),
                   const _SettingsSection(),
                   const SizedBox(height: 8),
                   Divider(
@@ -580,7 +580,7 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
                         ? Colors.white.withValues(alpha: 0.07)
                         : Colors.black.withValues(alpha: 0.07),
                   ),
-                  const _SectionLabel('Navigation'),
+                  _SectionLabel(l10n.more_navigation),
                   ...List.generate(navItems.length, (i) {
                     final isLast = i == navItems.length - 1;
                     return Column(
@@ -648,10 +648,10 @@ class MoreScreenState extends ConsumerState<MoreScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const _SectionLabel('Paramètres'),
+                  _SectionLabel(l10n.settings),
                   const _SettingsSection(),
                   const SizedBox(height: 8),
-                  const _SectionLabel('Navigation'),
+                  _SectionLabel(l10n.more_navigation),
                   ...List.generate(navItems.length, (i) {
                     final isLast = i == navItems.length - 1;
                     return Column(

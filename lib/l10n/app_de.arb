@@ -3663,5 +3663,14 @@
   "media_format_tv_short": "Short",
   "media_format_special": "Special",
   "media_format_one_shot": "1-shot",
-  "schedule_episode_count": "{count, plural, =1{1 episode} other{{count} episodes}}"
+  "schedule_episode_count": "{count, plural, =1{1 episode} other{{count} episodes}}",
+  "profile_title": "Me",
+  "profile_anonymous_title": "Anonymous account",
+  "profile_anonymous_subtitle": "Use Watchtower without an account. Your preferences stay on this device.",
+  "profile_insights": "Viewing insights",
+  "profile_insights_subtitle": "Track your reading and watching habits",
+  "profile_server": "Server status",
+  "profile_server_message": "TMDB and source services are checked on demand.",
+  "profile_share_message": "Discover Watchtower, your personal content library.",
+  "profile_account_message": "Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings."
 }

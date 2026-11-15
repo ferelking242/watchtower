@@ -1,6 +1,8 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,18 +14,18 @@ String _countryFlag(String? code) {
   return flags[code?.toUpperCase()] ?? '';
 }
 
-String _fmtLabel(String? fmt) {
+String _fmtLabel(String? fmt, AppLocalizations l10n) {
   switch (fmt?.toUpperCase()) {
-    case 'TV':       return 'SÉRIE';
-    case 'TV_SHORT': return 'COURT';
-    case 'MOVIE':    return 'FILM';
+    case 'TV':       return l10n.media_series;
+    case 'TV_SHORT': return l10n.media_format_tv_short;
+    case 'MOVIE':    return l10n.media_movie;
     case 'ONA':      return 'ONA';
     case 'OVA':      return 'OVA';
-    case 'SPECIAL':  return 'SP';
-    case 'NOVEL':    return 'ROMAN';
-    case 'MANGA':    return 'MANGA';
-    case 'MANHWA':   return 'MANHWA';
-    case 'ONE_SHOT': return '1-SHOT';
+    case 'SPECIAL':  return l10n.media_format_special;
+    case 'NOVEL':    return l10n.catalog_tag_novel;
+    case 'MANGA':    return l10n.catalog_tag_manga;
+    case 'MANHWA':   return l10n.catalog_tag_manhwa;
+    case 'ONE_SHOT': return l10n.media_format_one_shot;
     default:         return fmt?.toUpperCase() ?? '';
   }
 }
@@ -192,7 +194,7 @@ class LandscapeDiscoveryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final image = media.bannerImage ?? media.bestCover;
     final flag = _countryFlag(media.countryOfOrigin);
-    final fmt  = _fmtLabel(media.format);
+    final fmt  = _fmtLabel(media.format, context.l10n);
 
     return GestureDetector(
       onTap: onTap,
@@ -258,7 +260,7 @@ class LandscapeDiscoveryCard extends StatelessWidget {
                             const Icon(Icons.play_circle_outline_rounded, size: 11, color: Colors.white60),
                             const SizedBox(width: 3),
                             Text(
-                              '${media.episodes} ép.',
+                              context.l10n.media_ep_short(media.episodes!),
                               style: const TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w500),
                             ),
                           ],
@@ -419,7 +421,7 @@ class FeaturedDiscoveryCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                '${media.episodes} ép.',
+                                context.l10n.media_ep_short(media.episodes!),
                                 style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
                               ),
                             ),
@@ -457,7 +459,7 @@ class SagaDiscoveryCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final image = media.bannerImage ?? media.bestCover;
     final flag  = _countryFlag(media.countryOfOrigin);
-    final fmt   = _fmtLabel(media.format);
+    final fmt   = _fmtLabel(media.format, context.l10n);
     final eps   = media.episodes;
 
     return GestureDetector(
@@ -536,7 +538,7 @@ class SagaDiscoveryCard extends StatelessWidget {
                           const Icon(Icons.play_circle_outline_rounded, size: 11, color: Colors.white70),
                           const SizedBox(width: 4),
                           Text(
-                            '$eps ép.',
+                            context.l10n.media_ep_short(eps),
                             style: const TextStyle(
                               color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w700,
                             ),
@@ -607,7 +609,7 @@ class SpotlightDiscoveryCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final image = media.bannerImage ?? media.bestCover;
     final flag = _countryFlag(media.countryOfOrigin);
-    final fmt  = _fmtLabel(media.format);
+    final fmt  = _fmtLabel(media.format, context.l10n);
 
     return GestureDetector(
       onTap: onTap,
@@ -684,9 +686,9 @@ class SpotlightDiscoveryCard extends StatelessWidget {
                         ),
                         borderRadius: BorderRadius.circular(5),
                       ),
-                      child: const Text(
-                        'COUP DE CŒUR',
-                        style: TextStyle(
+                      child: Text(
+                        context.l10n.home_favorite,
+                        style: const TextStyle(
                           color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.8,
                         ),
                       ),
@@ -767,7 +769,7 @@ class SpotlightDiscoveryCard extends StatelessWidget {
                         const Icon(Icons.play_circle_outline_rounded, size: 11, color: Colors.white70),
                         const SizedBox(width: 4),
                         Text(
-                          '${media.episodes} ép.',
+                          context.l10n.media_ep_short(media.episodes!),
                           style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
                         ),
                       ],

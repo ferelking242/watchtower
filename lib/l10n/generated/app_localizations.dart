@@ -22294,6 +22294,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 episode} other{{count} episodes}}'**
   String schedule_episode_count(num count);
+
+  /// No description provided for @profile_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Me'**
+  String get profile_title;
+
+  /// No description provided for @profile_anonymous_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Anonymous account'**
+  String get profile_anonymous_title;
+
+  /// No description provided for @profile_anonymous_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Watchtower without an account. Your preferences stay on this device.'**
+  String get profile_anonymous_subtitle;
+
+  /// No description provided for @profile_insights.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewing insights'**
+  String get profile_insights;
+
+  /// No description provided for @profile_insights_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your reading and watching habits'**
+  String get profile_insights_subtitle;
+
+  /// No description provided for @profile_server.
+  ///
+  /// In en, this message translates to:
+  /// **'Server status'**
+  String get profile_server;
+
+  /// No description provided for @profile_server_message.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB and source services are checked on demand.'**
+  String get profile_server_message;
+
+  /// No description provided for @profile_share_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover Watchtower, your personal content library.'**
+  String get profile_share_message;
+
+  /// No description provided for @profile_account_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings.'**
+  String get profile_account_message;
 }
 
 class _AppLocalizationsDelegate

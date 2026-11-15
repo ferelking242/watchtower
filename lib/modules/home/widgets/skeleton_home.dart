@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
 /// Skeleton loading screen that mirrors the WatchtowerHomeScreen layout.
@@ -41,31 +43,31 @@ class SkeletonHomeScreen extends StatelessWidget {
 
             // ── Section rows (only cards shimmered, titles static) ───────────
             _FakeCardRow(
-              rowLabel: 'Sorties récentes',
+              rowLabel: context.l10n.home_recent_releases,
               cardHeight: 196,
               cardWidth: 120,
               count: 6,
             ),
             _FakeCardRow(
-              rowLabel: 'En ce moment',
+              rowLabel: context.l10n.home_airing_now,
               cardHeight: 218,
               cardWidth: 140,
               count: 6,
               firstWide: true,
             ),
             _FakeLandscapeRow(
-              rowLabel: 'Films populaires',
+              rowLabel: context.l10n.home_popular_movies,
               count: 5,
             ),
             _FakeCardRow(
-              rowLabel: 'Top du moment',
+              rowLabel: context.l10n.home_trending_now,
               cardHeight: 170,
               cardWidth: 110,
               count: 8,
               ranked: true,
             ),
             _FakeCardRow(
-              rowLabel: 'Prochainement',
+              rowLabel: context.l10n.home_upcoming,
               cardHeight: 196,
               cardWidth: 120,
               count: 6,
@@ -85,7 +87,15 @@ class SkeletonHomeScreen extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StaticTabPills extends StatelessWidget {
-  static const _tabs = ['Tout', 'Film', 'Série', 'Anime', 'Asia', 'TV Court', 'Musique'];
+  static List<String> _tabs(AppLocalizations l10n) => [
+    l10n.home_tab_all,
+    l10n.home_tab_movie,
+    l10n.home_tab_series,
+    l10n.home_tab_anime,
+    l10n.home_tab_asia,
+    l10n.home_tab_tv_short,
+    l10n.home_tab_music,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -94,13 +104,14 @@ class _StaticTabPills extends StatelessWidget {
     final inactiveColor = isDark
         ? Colors.white.withValues(alpha: 0.38)
         : cs.onSurface.withValues(alpha: 0.35);
+    final tabs = _tabs(context.l10n);
 
     return SizedBox(
       height: 52,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _tabs.length,
+        itemCount: tabs.length,
         itemBuilder: (_, i) {
           final active = i == 0;
 
@@ -122,7 +133,7 @@ class _StaticTabPills extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _tabs[i],
+                    tabs[i],
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
@@ -140,7 +151,7 @@ class _StaticTabPills extends StatelessWidget {
             child: Align(
               alignment: Alignment.center,
               child: Text(
-                _tabs[i],
+                tabs[i],
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
@@ -192,7 +203,7 @@ class _FakeSpotlightSection extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'Coup de cœur',
+                context.l10n.home_favorite,
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,

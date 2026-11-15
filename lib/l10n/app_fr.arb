@@ -3781,5 +3781,14 @@
   "media_format_tv_short": "Court",
   "media_format_special": "Spécial",
   "media_format_one_shot": "1-shot",
-  "schedule_episode_count": "{count, plural, =1{1 épisode} other{{count} épisodes}}"
+  "schedule_episode_count": "{count, plural, =1{1 épisode} other{{count} épisodes}}",
+  "profile_title": "Moi",
+  "profile_anonymous_title": "Compte anonyme",
+  "profile_anonymous_subtitle": "Utilisez Watchtower sans compte. Vos préférences restent sur cet appareil.",
+  "profile_insights": "Statistiques de visionnage",
+  "profile_insights_subtitle": "Suivez vos habitudes de lecture et de visionnage",
+  "profile_server": "État du serveur",
+  "profile_server_message": "Les services TMDB et les sources sont vérifiés à la demande.",
+  "profile_share_message": "Découvrez Watchtower, votre bibliothèque de contenus.",
+  "profile_account_message": "La gestion de compte en ligne n’est pas activée dans cette version de Watchtower. Vous pouvez continuer avec le profil local et les réglages de l’application."
 }

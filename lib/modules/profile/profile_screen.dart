@@ -332,88 +332,26 @@ class _ProfileCopy {
   final String close;
 
   static _ProfileCopy of(BuildContext context) {
-    final language = Localizations.localeOf(context).languageCode;
-    final base = language == 'fr'
-        ? const _ProfileCopy(
-            title: 'Moi',
-            anonymousTitle: 'Compte anonyme',
-            anonymousSubtitle:
-                'Utilisez Watchtower sans compte. Vos préférences restent sur cet appareil.',
-            login: 'Connexion / inscription',
-            insights: 'Statistiques de visionnage',
-            insightsSubtitle:
-                'Suivez vos habitudes de lecture et de visionnage',
-            settings: 'Paramètres',
-            appearance: 'Apparence',
-            storage: 'Données et stockage',
-            server: 'État du serveur',
-            serverMessage:
-                'Les services TMDB et les sources sont vérifiés à la demande.',
-            checkUpdate: 'Rechercher une mise à jour',
-            share: 'Partager l’application',
-            shareMessage:
-                'Découvrez Watchtower, votre bibliothèque de contenus.',
-            about: 'À propos',
-            accountMessage:
-                'La gestion de compte en ligne n’est pas activée dans cette version de Watchtower. Vous pouvez continuer avec le profil local et les réglages de l’application.',
-            close: 'Fermer',
-          )
-        : const _ProfileCopy(
-            title: 'Me',
-            anonymousTitle: 'Anonymous account',
-            anonymousSubtitle:
-                'Use Watchtower without an account. Your preferences stay on this device.',
-            login: 'Login / Sign up',
-            insights: 'Viewing insights',
-            insightsSubtitle: 'Track your reading and watching habits',
-            settings: 'Settings',
-            appearance: 'Appearance',
-            storage: 'Data and storage',
-            server: 'Server status',
-            serverMessage: 'TMDB and source services are checked on demand.',
-            checkUpdate: 'Check for update',
-            share: 'Share the app',
-            shareMessage: 'Discover Watchtower, your personal content library.',
-            about: 'About',
-            accountMessage:
-                'Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings.',
-            close: 'Close',
-          );
     final l10n = context.l10n;
-    return base.copyWith(
+    return _ProfileCopy(
+      title: l10n.profile_title,
+      anonymousTitle: l10n.profile_anonymous_title,
+      anonymousSubtitle: l10n.profile_anonymous_subtitle,
       login: l10n.login,
+      insights: l10n.profile_insights,
+      insightsSubtitle: l10n.profile_insights_subtitle,
       settings: l10n.settings,
+      appearance: l10n.appearance,
+      storage: l10n.data_and_storage,
+      server: l10n.profile_server,
+      serverMessage: l10n.profile_server_message,
       checkUpdate: l10n.check_for_update,
       share: l10n.share,
+      shareMessage: l10n.profile_share_message,
       about: l10n.about,
+      accountMessage: l10n.profile_account_message,
+      close: l10n.general_close,
     );
   }
 
-  _ProfileCopy copyWith({
-    String? login,
-    String? settings,
-    String? checkUpdate,
-    String? share,
-    String? about,
-  }) {
-    return _ProfileCopy(
-      title: title,
-      anonymousTitle: anonymousTitle,
-      anonymousSubtitle: anonymousSubtitle,
-      login: login ?? this.login,
-      insights: insights,
-      insightsSubtitle: insightsSubtitle,
-      settings: settings ?? this.settings,
-      appearance: appearance,
-      storage: storage,
-      server: server,
-      serverMessage: serverMessage,
-      checkUpdate: checkUpdate ?? this.checkUpdate,
-      share: share ?? this.share,
-      shareMessage: shareMessage,
-      about: about ?? this.about,
-      accountMessage: accountMessage,
-      close: close,
-    );
-  }
 }

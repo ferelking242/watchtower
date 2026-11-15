@@ -12622,4 +12622,36 @@ class AppLocalizationsFr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get profile_title => 'Moi';
+
+  @override
+  String get profile_anonymous_title => 'Compte anonyme';
+
+  @override
+  String get profile_anonymous_subtitle =>
+      'Utilisez Watchtower sans compte. Vos préférences restent sur cet appareil.';
+
+  @override
+  String get profile_insights => 'Statistiques de visionnage';
+
+  @override
+  String get profile_insights_subtitle =>
+      'Suivez vos habitudes de lecture et de visionnage';
+
+  @override
+  String get profile_server => 'État du serveur';
+
+  @override
+  String get profile_server_message =>
+      'Les services TMDB et les sources sont vérifiés à la demande.';
+
+  @override
+  String get profile_share_message =>
+      'Découvrez Watchtower, votre bibliothèque de contenus.';
+
+  @override
+  String get profile_account_message =>
+      'La gestion de compte en ligne n’est pas activée dans cette version de Watchtower. Vous pouvez continuer avec le profil local et les réglages de l’application.';
 }
