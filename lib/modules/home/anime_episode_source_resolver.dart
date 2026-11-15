@@ -13,6 +13,7 @@ import 'package:watchtower/models/history.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/services/anime_source_matcher.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
@@ -48,7 +49,7 @@ class _AnimeEpisodeSourceResolverState
   int _failedSources = 0;
   bool _loading = true;
   bool _launchingPlayer = false;
-  String _phase = 'Préparation de la recherche…';
+  String _phase = '';
 
   @override
   void initState() {
@@ -61,7 +62,20 @@ class _AnimeEpisodeSourceResolverState
       parent: _scanController,
       curve: Curves.easeInOut,
     );
-    _resolve();
+  }
+
+  bool _resolveStarted = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The resolver reads l10n, which is only reachable once the localizations
+    // are installed, i.e. after initState.
+    if (!_resolveStarted) {
+      _resolveStarted = true;
+      _phase = context.l10n.anime_resolve_preparing;
+      _resolve();
+    }
   }
 
   @override
@@ -89,13 +103,14 @@ class _AnimeEpisodeSourceResolverState
   }
 
   Future<void> _resolve() async {
+    final l10n = context.l10n;
     setState(() {
       _loading = true;
       _scanned = 0;
       _sourceCount = 0;
       _failedSources = 0;
       _matches.clear();
-      _phase = 'Lecture des titres et de la date de référence…';
+      _phase = l10n.anime_resolve_reading;
     });
 
     AnilistMediaDetail? metadata;
@@ -113,8 +128,8 @@ class _AnimeEpisodeSourceResolverState
     setState(() {
       _sourceCount = sources.length;
       _phase = sources.isEmpty
-          ? 'Aucune extension anime active à interroger'
-          : 'Recherche silencieuse dans ${sources.length} extension(s)…';
+          ? l10n.anime_resolve_no_active_extension
+          : l10n.anime_resolve_searching(sources.length);
     });
     if (sources.isEmpty) {
       setState(() => _loading = false);
@@ -138,7 +153,7 @@ class _AnimeEpisodeSourceResolverState
               setState(() {
                 _matches.addAll(found);
                 _sortMatches();
-                _phase = 'Épisode confirmé · vérification des flux disponibles…';
+                _phase = l10n.anime_resolve_checking_streams;
               });
             }
           } catch (_) {
@@ -150,8 +165,8 @@ class _AnimeEpisodeSourceResolverState
                 if (_scanned >= _sourceCount) {
                   _loading = false;
                   _phase = _matches.isEmpty
-                      ? 'Aucune source fiable trouvée pour cet épisode'
-                      : '${_matches.length} source(s) vérifiée(s)';
+                      ? l10n.anime_resolve_no_reliable_source
+                      : l10n.anime_resolve_sources_verified(_matches.length);
                 }
               });
             }
@@ -505,7 +520,8 @@ class _AnimeEpisodeSourceResolverState
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'EP ${widget.episode.episodeNumber} · ${widget.episode.displayTitle}',
+                    '${context.l10n.media_ep_short(widget.episode.episodeNumber)}'
+                    ' · ${widget.episode.displayTitle}',
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -536,8 +552,11 @@ class _AnimeEpisodeSourceResolverState
                   if (_sourceCount > 0) ...[
                     const SizedBox(height: 7),
                     Text(
-                      '$_scanned / $_sourceCount extensions · '
-                      '${_matches.length} épisode(s) confirmé(s)',
+                      context.l10n.anime_resolve_confirmed_progress(
+                        _scanned,
+                        _sourceCount,
+                        _matches.length,
+                      ),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.52),
                       ),
@@ -593,9 +612,7 @@ class _AnimeEpisodeSourceResolverState
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Text(
-            'Les résultats bruts des extensions restent masqués. '
-            'La page vérifie le titre, le format et le numéro d’épisode avant '
-            'd’afficher une source.',
+            context.l10n.anime_resolve_hint,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: cs.onSurface.withValues(alpha: 0.58),
@@ -622,8 +639,8 @@ class _AnimeEpisodeSourceResolverState
             const SizedBox(height: 12),
             Text(
               _sourceCount == 0
-                  ? 'Aucune extension anime active'
-                  : 'Aucune source fiable pour cet épisode',
+                  ? context.l10n.anime_resolve_none_active
+                  : context.l10n.anime_resolve_none_reliable,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w700,
@@ -632,12 +649,10 @@ class _AnimeEpisodeSourceResolverState
             const SizedBox(height: 6),
             Text(
               _sourceCount == 0
-                  ? 'Installe ou active une extension anime, puis relance la recherche.'
+                  ? context.l10n.anime_resolve_install_hint
                   : _failedSources > 0
-                  ? '$_failedSources extension(s) n’ont pas répondu. '
-                      'Vérifie aussi les variantes de titre et le numéro d’épisode.'
-                  : 'Aucun résultat ne correspond assez au titre et à l’épisode '
-                      'sélectionnés. Essaie une autre extension anime.',
+                  ? context.l10n.anime_resolve_failed_sources(_failedSources)
+                  : context.l10n.anime_resolve_no_match,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurface.withValues(alpha: 0.58),
@@ -727,13 +742,14 @@ class _SourceMatchCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        match.source.name ?? 'Extension',
+                        match.source.name ?? context.l10n.browse_extension_word,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       Text(
-                        '$langName · ${match.details.name ?? match.searchResult.name ?? ''}',
+                        '$langName · '
+                        '${match.details.name ?? match.searchResult.name ?? ''}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -755,7 +771,9 @@ class _SourceMatchCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    match.confidence >= 95 ? 'Exact' : 'Probable',
+                    match.confidence >= 95
+                        ? context.l10n.anime_resolve_exact
+                        : context.l10n.anime_resolve_probable,
                     style: TextStyle(
                       color: cs.primary,
                       fontSize: 10,
@@ -767,7 +785,7 @@ class _SourceMatchCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              match.episode.name ?? 'Épisode confirmé',
+              match.episode.name ?? context.l10n.anime_resolve_episode_confirmed,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -775,7 +793,7 @@ class _SourceMatchCard extends StatelessWidget {
             if (match.matchedYear != null) ...[
               const SizedBox(height: 3),
               Text(
-                'Année détectée dans le titre de la source : ${match.matchedYear}',
+                context.l10n.anime_resolve_year_detected(match.matchedYear!),
                 style: TextStyle(
                   fontSize: 11,
                   color: cs.onSurface.withValues(alpha: 0.52),
@@ -792,7 +810,7 @@ class _SourceMatchCard extends StatelessWidget {
               )
             else
               Text(
-                'Épisode trouvé, mais aucun flux vidéo n’a été renvoyé.',
+                context.l10n.anime_resolve_no_stream,
                 style: TextStyle(
                   fontSize: 12,
                   color: cs.onSurface.withValues(alpha: 0.58),

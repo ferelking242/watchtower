@@ -22738,6 +22738,124 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Volume-button navigation'**
   String get reader_volume_buttons_title;
+
+  /// No description provided for @anime_resolve_preparing.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing the search…'**
+  String get anime_resolve_preparing;
+
+  /// No description provided for @anime_resolve_reading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading the titles and the reference date…'**
+  String get anime_resolve_reading;
+
+  /// No description provided for @anime_resolve_searching.
+  ///
+  /// In en, this message translates to:
+  /// **'Silent search across {count} extension(s)…'**
+  String anime_resolve_searching(Object count);
+
+  /// No description provided for @anime_resolve_no_active_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'No active anime extension to query'**
+  String get anime_resolve_no_active_extension;
+
+  /// No description provided for @anime_resolve_checking_streams.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode confirmed · checking the available streams…'**
+  String get anime_resolve_checking_streams;
+
+  /// No description provided for @anime_resolve_no_reliable_source.
+  ///
+  /// In en, this message translates to:
+  /// **'No reliable source found for this episode'**
+  String get anime_resolve_no_reliable_source;
+
+  /// No description provided for @anime_resolve_sources_verified.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} source verified} other{{count} sources verified}}'**
+  String anime_resolve_sources_verified(num count);
+
+  /// No description provided for @anime_resolve_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'The raw extension results stay hidden. The page checks the title, the format and the episode number before showing a source.'**
+  String get anime_resolve_hint;
+
+  /// No description provided for @anime_resolve_none_active.
+  ///
+  /// In en, this message translates to:
+  /// **'No active anime extension'**
+  String get anime_resolve_none_active;
+
+  /// No description provided for @anime_resolve_none_reliable.
+  ///
+  /// In en, this message translates to:
+  /// **'No reliable source for this episode'**
+  String get anime_resolve_none_reliable;
+
+  /// No description provided for @anime_resolve_install_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Install or enable an anime extension, then run the search again.'**
+  String get anime_resolve_install_hint;
+
+  /// No description provided for @anime_resolve_failed_sources.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} extension did not answer.} other{{count} extensions did not answer.}} Also check the title variants and the episode number.'**
+  String anime_resolve_failed_sources(num count);
+
+  /// No description provided for @anime_resolve_no_match.
+  ///
+  /// In en, this message translates to:
+  /// **'No result matches the selected title and episode closely enough. Try another anime extension.'**
+  String get anime_resolve_no_match;
+
+  /// No description provided for @anime_resolve_no_stream.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode found, but no video stream was returned.'**
+  String get anime_resolve_no_stream;
+
+  /// No description provided for @anime_resolve_episode_confirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed episode'**
+  String get anime_resolve_episode_confirmed;
+
+  /// No description provided for @anime_resolve_exact.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact'**
+  String get anime_resolve_exact;
+
+  /// No description provided for @anime_resolve_probable.
+  ///
+  /// In en, this message translates to:
+  /// **'Probable'**
+  String get anime_resolve_probable;
+
+  /// No description provided for @anime_resolve_year_detected.
+  ///
+  /// In en, this message translates to:
+  /// **'Year detected in the source title: {year}'**
+  String anime_resolve_year_detected(Object year);
+
+  /// No description provided for @anime_resolve_confirmed_progress.
+  ///
+  /// In en, this message translates to:
+  /// **'{scanned} / {total} extensions · {count} confirmed episode(s)'**
+  String anime_resolve_confirmed_progress(
+    Object count,
+    Object scanned,
+    Object total,
+  );
 }
 
 class _AppLocalizationsDelegate

@@ -12719,4 +12719,96 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get reader_volume_buttons_title => 'Volume-button navigation';
+
+  @override
+  String get anime_resolve_preparing => 'Preparing the search…';
+
+  @override
+  String get anime_resolve_reading =>
+      'Reading the titles and the reference date…';
+
+  @override
+  String anime_resolve_searching(Object count) {
+    return 'Silent search across $count extension(s)…';
+  }
+
+  @override
+  String get anime_resolve_no_active_extension =>
+      'No active anime extension to query';
+
+  @override
+  String get anime_resolve_checking_streams =>
+      'Episode confirmed · checking the available streams…';
+
+  @override
+  String get anime_resolve_no_reliable_source =>
+      'No reliable source found for this episode';
+
+  @override
+  String anime_resolve_sources_verified(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sources verified',
+      one: '$count source verified',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get anime_resolve_hint =>
+      'The raw extension results stay hidden. The page checks the title, the format and the episode number before showing a source.';
+
+  @override
+  String get anime_resolve_none_active => 'No active anime extension';
+
+  @override
+  String get anime_resolve_none_reliable =>
+      'No reliable source for this episode';
+
+  @override
+  String get anime_resolve_install_hint =>
+      'Install or enable an anime extension, then run the search again.';
+
+  @override
+  String anime_resolve_failed_sources(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extensions did not answer.',
+      one: '$count extension did not answer.',
+    );
+    return '$_temp0 Also check the title variants and the episode number.';
+  }
+
+  @override
+  String get anime_resolve_no_match =>
+      'No result matches the selected title and episode closely enough. Try another anime extension.';
+
+  @override
+  String get anime_resolve_no_stream =>
+      'Episode found, but no video stream was returned.';
+
+  @override
+  String get anime_resolve_episode_confirmed => 'Confirmed episode';
+
+  @override
+  String get anime_resolve_exact => 'Exact';
+
+  @override
+  String get anime_resolve_probable => 'Probable';
+
+  @override
+  String anime_resolve_year_detected(Object year) {
+    return 'Year detected in the source title: $year';
+  }
+
+  @override
+  String anime_resolve_confirmed_progress(
+    Object count,
+    Object scanned,
+    Object total,
+  ) {
+    return '$scanned / $total extensions · $count confirmed episode(s)';
+  }
 }
