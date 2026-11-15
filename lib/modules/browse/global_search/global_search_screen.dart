@@ -1277,6 +1277,9 @@ class _MangaGlobalImageCardState extends ConsumerState<MangaGlobalImageCard>
                                   sourceId: widget.source.id,
                                 ),
                               ),
+                              // Replay the extension's cleared browser session
+                              // (cookies + UA); the CDN answers 403 without it.
+                              sourceId: widget.source.id,
                               imageUrl: toImgUrl(
                                 hasData
                                     ? snapshot

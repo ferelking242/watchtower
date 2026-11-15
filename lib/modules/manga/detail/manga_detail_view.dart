@@ -481,6 +481,12 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                                           sourceId: widget.manga!.sourceId,
                                         ),
                                       ),
+                                // Replay the extension's cleared browser session
+                                // (cookies + UA) so the CDN does not 403 the
+                                // cover of a Cloudflare-protected source.
+                                sourceId: isLocalArchive
+                                    ? null
+                                    : widget.manga!.sourceId,
                               ),
                         width: context.width(1),
                         height: 300,
@@ -1885,6 +1891,11 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                       sourceId: widget.manga!.sourceId,
                     ),
                   ),
+            // Replay the extension's cleared browser session (cookies + UA) so
+            // the CDN does not 403 the cover of a Cloudflare-protected source.
+            sourceId: widget.manga!.isLocalArchive!
+                ? null
+                : widget.manga!.sourceId,
           );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 20),

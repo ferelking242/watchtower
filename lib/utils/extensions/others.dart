@@ -97,7 +97,10 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
   /// did nothing: the crop step received `null` for every page.
   Future<Uint8List?> get getImageBytes => getImageBytesWith();
 
-  Future<Uint8List?> getImageBytesWith({Map<String, String>? headers}) async {
+  Future<Uint8List?> getImageBytesWith({
+    Map<String, String>? headers,
+    int? sourceId,
+  }) async {
     if (archiveImage != null) return archiveImage;
     if (isLocale == true && directory != null && index != null) {
       return io.File(
@@ -105,7 +108,10 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
       ).readAsBytes();
     }
     if (pageUrl == null || pageUrl!.url.trim().isEmpty) return null;
-    return buildNetworkImageProvider(headers: headers).getNetworkImageData();
+    return buildNetworkImageProvider(
+      headers: headers,
+      sourceId: sourceId,
+    ).getNetworkImageData();
   }
 
   /// The network provider the reader uses for this page. Kept in one place so
@@ -114,6 +120,7 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
   CustomExtendedNetworkImageProvider buildNetworkImageProvider({
     Map<String, String>? headers,
     bool showCloudFlareError = true,
+    int? sourceId,
   }) {
     return CustomExtendedNetworkImageProvider(
       pageUrl!.url.trim(),
@@ -122,6 +129,10 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
       showCloudFlareError: showCloudFlareError,
       imageCacheFolderName: "cacheimagemanga",
       headers: {...?pageUrl!.headers, ...?headers},
+      // The owning extension, so the request replays the same browser session
+      // (cookies + User-Agent) that cleared Cloudflare. Without it the native
+      // client sends no `cf_clearance` and the CDN answers 403.
+      sourceId: sourceId,
     );
   }
 
@@ -160,6 +171,7 @@ extension UChapDataPreloadExtensions on UChapDataPreload {
         ? buildNetworkImageProvider(showCloudFlareError: showCloudFlareError)
         : buildNetworkImageProvider(
             showCloudFlareError: showCloudFlareError,
+            sourceId: chapterManga.sourceId,
             headers: ref.watch(
               headersProvider(
                 source: chapterManga.source!,

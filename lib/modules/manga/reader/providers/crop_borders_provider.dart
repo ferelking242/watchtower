@@ -32,6 +32,7 @@ Future<Uint8List?> cropBorders(
                 sourceId: manga.sourceId,
               ),
             ),
+      sourceId: manga?.sourceId,
     );
 
     if (imageBytes == null) {

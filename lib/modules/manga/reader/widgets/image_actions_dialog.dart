@@ -37,7 +37,10 @@ class ImageActionsDialog {
     required Manga manga,
     required String chapterName,
   }) async {
-    final imageBytes = await data.getImageBytes;
+    // Read the bytes through the manga's own extension session: a
+    // Cloudflare-protected CDN only serves the image when the request replays
+    // the cleared WebView (cookies + User-Agent), which `sourceId` selects.
+    final imageBytes = await data.getImageBytesWith(sourceId: manga.sourceId);
     if (imageBytes == null || !context.mounted) return;
 
     final name = "${manga.name} $chapterName - ${data.pageIndex}".replaceAll(

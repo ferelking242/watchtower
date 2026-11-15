@@ -88,6 +88,9 @@ class MangaImageCardWidget extends ConsumerWidget {
                       sourceId: source.id,
                     ),
                   ),
+                  // Replay the extension's cleared browser session (cookies +
+                  // UA) on the cover request; the CDN answers 403 without it.
+                  sourceId: source.id,
                   cache: true,
                   cacheMaxAge: const Duration(days: 7),
                 ),
@@ -233,6 +236,9 @@ class MangaImageCardListTileWidget extends ConsumerWidget {
                     sourceId: source.id,
                   ),
                 ),
+                // Replay the extension's cleared browser session (cookies +
+                // UA) on the cover request; the CDN answers 403 without it.
+                sourceId: source.id,
               );
         return Padding(
           padding: const EdgeInsets.all(8.0),
