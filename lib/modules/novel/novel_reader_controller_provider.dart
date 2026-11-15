@@ -145,84 +145,48 @@ class NovelReaderController extends _$NovelReaderController {
     return isar.chapters.getSync(chapter.id!)!.isBookmarked!;
   }
 
-  (int, bool) getPrevChapterIndex() {
-    final chapters = getManga().getFilteredChapterList();
-    int? index;
-    for (var i = 0; i < chapters.length; i++) {
-      if (chapters[i].id == chapter.id) {
-        index = i + 1;
-      }
-    }
-    if (index == null) {
-      final chapters = getManga().chapters.toList().toList();
-      for (var i = 0; i < chapters.length; i++) {
-        if (chapters[i].id == chapter.id) {
-          index = i + 1;
-        }
-      }
-      return (index!, false);
-    }
-    return (index, true);
+  /// See [ReaderController._chapterIndexOf] — same reliable `mangaId` lookup,
+  /// same guard against the `index!` assertion that crashed the reader when a
+  /// title's chapter links were never persisted.
+  (int, bool) _chapterIndexOf(int delta) {
+    final manga = getManga();
+    final filtered = manga.getFilteredChapterList();
+    final inFiltered = filtered.indexWhere((c) => c.id == chapter.id);
+    if (inFiltered >= 0) return (inFiltered + delta, true);
+    final all = manga.getAllChapterList();
+    final inAll = all.indexWhere((c) => c.id == chapter.id);
+    if (inAll >= 0) return (inAll + delta, false);
+    return (0, true);
   }
 
-  (int, bool) getNextChapterIndex() {
-    final chapters = getManga().getFilteredChapterList();
-    int? index;
-    for (var i = 0; i < chapters.length; i++) {
-      if (chapters[i].id == chapter.id) {
-        index = i - 1;
-      }
-    }
-    if (index == null) {
-      final chapters = getManga().chapters.toList().toList();
-      for (var i = 0; i < chapters.length; i++) {
-        if (chapters[i].id == chapter.id) {
-          index = i - 1;
-        }
-      }
-      return (index!, false);
-    }
-    return (index, true);
-  }
+  (int, bool) getPrevChapterIndex() => _chapterIndexOf(1);
 
-  (int, bool) getChapterIndex() {
-    final chapters = getManga().getFilteredChapterList();
-    int? index;
-    for (var i = 0; i < chapters.length; i++) {
-      if (chapters[i].id == chapter.id) {
-        index = i;
-      }
-    }
-    if (index == null) {
-      final chapters = getManga().chapters.toList().toList();
-      for (var i = 0; i < chapters.length; i++) {
-        if (chapters[i].id == chapter.id) {
-          index = i;
-        }
-      }
-      return (index!, false);
-    }
-    return (index, true);
-  }
+  (int, bool) getNextChapterIndex() => _chapterIndexOf(-1);
+
+  (int, bool) getChapterIndex() => _chapterIndexOf(0);
 
   Chapter getPrevChapter() {
-    final prevChapIdx = getPrevChapterIndex();
-    return prevChapIdx.$2
-        ? getManga().getFilteredChapterList()[prevChapIdx.$1]
-        : getManga().chapters.toList().toList()[prevChapIdx.$1];
+    final (index, inFiltered) = getPrevChapterIndex();
+    final list = inFiltered
+        ? getManga().getFilteredChapterList()
+        : getManga().getAllChapterList();
+    if (index < 0 || index >= list.length) return chapter;
+    return list[index];
   }
 
   Chapter getNextChapter() {
-    final nextChapIdx = getNextChapterIndex();
-    return nextChapIdx.$2
-        ? getManga().getFilteredChapterList()[nextChapIdx.$1]
-        : getManga().chapters.toList().toList()[nextChapIdx.$1];
+    final (index, inFiltered) = getNextChapterIndex();
+    final list = inFiltered
+        ? getManga().getFilteredChapterList()
+        : getManga().getAllChapterList();
+    if (index < 0 || index >= list.length) return chapter;
+    return list[index];
   }
 
   int getChaptersLength(bool isInFilterList) {
     return isInFilterList
         ? getManga().getFilteredChapterList().length
-        : getManga().chapters.length;
+        : getManga().getAllChapterList().length;
   }
 
   String getMangaName() {

@@ -1057,6 +1057,27 @@ must not leak into watch code paths or logs:
   qu'une touche maintenue ne déclenche pas deux sauts de page. Couvert par
   `test/reader_keyboard_test.dart`.
 
+## Navigation chapitres dans le lecteur (ne pas régresser)
+- La liste des chapitres d'un titre se lit par l'index `mangaId`
+  (`chaptersOfManga`, `lib/utils/chapter_link.dart`), **jamais** par le backlink
+  `manga.chapters`. Ce backlink (`@Backlink(to: "manga")`) ne renvoie que les
+  chapitres dont l'IsarLink a réellement été persisté ; les écrans de détail
+  enregistrent les chapitres via `putAll` (sans `manga.save()` par chapitre),
+  donc un titre fraîchement ajouté a un backlink vide. Le lecteur cherchait le
+  chapitre courant dans cette liste vide puis faisait `index!` → « Null check
+  operator used on a null value ». Le bug ne touchait que les titres **non
+  téléchargés**, parce que télécharger un chapitre est justement ce qui écrit
+  son lien.
+- `MangaExtensions.getAllChapterList()` (plus récent → plus ancien) et
+  `getFilteredChapterList()` s'appuient sur `chaptersOfManga`. Les getters
+  `getPrevChapterIndex` / `getNextChapterIndex` / `getChapterIndex` passent par
+  `_chapterIndexOf`, qui tente la liste filtrée puis retombe sur la liste
+  complète et, en dernier recours, renvoie `(0, true)` au lieu d'assertir.
+  `getPrevChapter` / `getNextChapter` bornent l'index et renvoient le chapitre
+  courant si le voisin n'existe pas.
+- Même correction dans `novel_reader_controller_provider.dart`. Couvert par
+  `test/reader_chapter_navigation_test.dart` (le test échoue sur l'ancien code).
+
 ## Volume-key page navigation
 - The native bridge is `com.watchtower.app.volume_keys` (Android
   `MainActivity.dispatchKeyEvent`, iOS `AppDelegate`), surfaced as

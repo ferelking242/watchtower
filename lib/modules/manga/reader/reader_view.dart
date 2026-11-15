@@ -441,7 +441,7 @@ class _MangaChapterPageGalleryState
     final skipFiltered = ref.read(skipFilteredChaptersProvider);
     final chapters = skipFiltered
         ? _readerController.getManga().getFilteredChapterList()
-        : _readerController.getManga().chapters.toList();
+        : _readerController.getManga().getAllChapterList();
     var start = -1;
     for (var i = 0; i < chapters.length; i++) {
       if (chapters[i].id == _readerController.chapter.id) {
@@ -1299,7 +1299,7 @@ class _MangaChapterPageGalleryState
                     if (_isContinuousMode() &&
                         ref.watch(verticalChapterNavigatorProvider) != 'none')
                       _VerticalChapterNavigator(
-                        chapters: _readerController.getManga().chapters.toList(),
+                        chapters: _readerController.getManga().getAllChapterList(),
                         currentChapterId: chapter.id,
                         side: ref.watch(verticalChapterNavigatorProvider),
                         onSelected: (c) {

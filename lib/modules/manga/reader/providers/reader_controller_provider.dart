@@ -279,87 +279,59 @@ class ReaderController extends _$ReaderController {
   }
 
   bool getChapterBookmarked() {
-    return isar.chapters.getSync(chapter.id!)!.isBookmarked!;
+    return isar.chapters.getSync(chapter.id!)?.isBookmarked ?? false;
   }
 
-  (int, bool) getPrevChapterIndex() {
-    final chapters = getManga().getFilteredChapterList();
-    int? index;
-    for (var i = 0; i < chapters.length; i++) {
-      if (chapters[i].id == chapter.id) {
-        index = i + 1;
-      }
-    }
-    if (index == null) {
-      final chapters = getManga().chapters.toList().reversed.toList();
-      for (var i = 0; i < chapters.length; i++) {
-        if (chapters[i].id == chapter.id) {
-          index = i + 1;
-        }
-      }
-      return (index!, false);
-    }
-    return (index, true);
+  /// Locates [chapter] in the reader's chapter list and offsets it by [delta].
+  ///
+  /// The filtered list is tried first (it respects the user's filters); when the
+  /// chapter is hidden by a filter, the full list is used. Both lists come from
+  /// the reliable `mangaId` index ([chaptersOfManga]), so a title whose chapter
+  /// links were never persisted is still navigable — the previous backlink-based
+  /// lookup returned an empty list for those and asserted on `index!`.
+  ///
+  /// Returns `(index, inFilteredList)`. When the chapter is absent from both
+  /// lists it returns `(0, true)` so navigation degrades to "first chapter"
+  /// instead of throwing.
+  (int, bool) _chapterIndexOf(int delta) {
+    final manga = getManga();
+    final filtered = manga.getFilteredChapterList();
+    final inFiltered = filtered.indexWhere((c) => c.id == chapter.id);
+    if (inFiltered >= 0) return (inFiltered + delta, true);
+    final all = manga.getAllChapterList();
+    final inAll = all.indexWhere((c) => c.id == chapter.id);
+    if (inAll >= 0) return (inAll + delta, false);
+    return (0, true);
   }
 
-  (int, bool) getNextChapterIndex() {
-    final chapters = getManga().getFilteredChapterList();
-    int? index;
-    for (var i = 0; i < chapters.length; i++) {
-      if (chapters[i].id == chapter.id) {
-        index = i - 1;
-      }
-    }
-    if (index == null) {
-      final chapters = getManga().chapters.toList().reversed.toList();
-      for (var i = 0; i < chapters.length; i++) {
-        if (chapters[i].id == chapter.id) {
-          index = i - 1;
-        }
-      }
-      return (index!, false);
-    }
-    return (index, true);
-  }
+  (int, bool) getPrevChapterIndex() => _chapterIndexOf(1);
 
-  (int, bool) getChapterIndex() {
-    final chapters = getManga().getFilteredChapterList();
-    int? index;
-    for (var i = 0; i < chapters.length; i++) {
-      if (chapters[i].id == chapter.id) {
-        index = i;
-      }
-    }
-    if (index == null) {
-      final chapters = getManga().chapters.toList().reversed.toList();
-      for (var i = 0; i < chapters.length; i++) {
-        if (chapters[i].id == chapter.id) {
-          index = i;
-        }
-      }
-      return (index!, false);
-    }
-    return (index, true);
-  }
+  (int, bool) getNextChapterIndex() => _chapterIndexOf(-1);
+
+  (int, bool) getChapterIndex() => _chapterIndexOf(0);
 
   Chapter getPrevChapter() {
-    final prevChapIdx = getPrevChapterIndex();
-    return prevChapIdx.$2
-        ? getManga().getFilteredChapterList()[prevChapIdx.$1]
-        : getManga().chapters.toList().reversed.toList()[prevChapIdx.$1];
+    final (index, inFiltered) = getPrevChapterIndex();
+    final list = inFiltered
+        ? getManga().getFilteredChapterList()
+        : getManga().getAllChapterList();
+    if (index < 0 || index >= list.length) return chapter;
+    return list[index];
   }
 
   Chapter getNextChapter() {
-    final nextChapIdx = getNextChapterIndex();
-    return nextChapIdx.$2
-        ? getManga().getFilteredChapterList()[nextChapIdx.$1]
-        : getManga().chapters.toList().reversed.toList()[nextChapIdx.$1];
+    final (index, inFiltered) = getNextChapterIndex();
+    final list = inFiltered
+        ? getManga().getFilteredChapterList()
+        : getManga().getAllChapterList();
+    if (index < 0 || index >= list.length) return chapter;
+    return list[index];
   }
 
   int getChaptersLength(bool isInFilterList) {
     return isInFilterList
         ? getManga().getFilteredChapterList().length
-        : getManga().chapters.length;
+        : getManga().getAllChapterList().length;
   }
 
   int getPageIndex() {
@@ -368,16 +340,16 @@ class ReaderController extends _$ReaderController {
     final index = chapterPageIndexList.where(
       (element) => element.chapterId == chapter.id,
     );
-    return chapter.isRead!
+    return (chapter.isRead ?? false)
         ? 0
         : index.isNotEmpty
-        ? index.first.index!
+        ? (index.first.index ?? 0)
         : 0;
   }
 
   int getPageLength(List incognitoPageLength) {
     if (incognitoMode) return incognitoPageLength.length;
-    final urls = getIsarSetting().chapterPageUrlsList!
+    final urls = (getIsarSetting().chapterPageUrlsList ?? [])
         .where((element) => element.chapterId == chapter.id)
         .firstOrNull
         ?.urls;
@@ -386,7 +358,7 @@ class ReaderController extends _$ReaderController {
   }
 
   void setPageIndex(int newIndex, bool save) {
-    if (chapter.isRead!) return;
+    if (chapter.isRead ?? false) return;
     if (incognitoMode) return;
     final isContinuousLike =
         getReaderMode() == ReaderMode.verticalContinuous ||
@@ -511,8 +483,13 @@ extension ChapterExtensions on Chapter {
 }
 
 extension MangaExtensions on Manga {
+  /// Every chapter of this title, newest-first, from the reliable `mangaId`
+  /// index rather than the fragile `chapters` backlink (see [chaptersOfManga]).
+  List<Chapter> getAllChapterList() =>
+      chaptersOfManga(this).reversed.toList();
+
   List<Chapter> getFilteredChapterList() {
-    final data = this.chapters.toList().reversed.toList();
+    final data = getAllChapterList();
     // One synchronous read of the Settings record instead of four: this runs on
     // every rebuild of the chapter list, on the UI isolate.
     final settings = readSettingsSafely(isar: isar);

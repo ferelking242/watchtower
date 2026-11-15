@@ -1,3 +1,4 @@
+import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
@@ -71,4 +72,24 @@ void ensureChapterLinksLoaded(Chapter chapter) {
 Chapter attachChapterManga(Chapter chapter) {
   resolveChapterManga(chapter);
   return chapter;
+}
+
+/// All chapters of [manga], read through the denormalized `mangaId` index.
+///
+/// `manga.chapters` is a `@Backlink` over `Chapter.manga`: it only returns the
+/// chapters whose IsarLink was actually *persisted*. The detail screens save
+/// chapters with `putAll` (no per-chapter `manga.save()`), and a chapter whose
+/// link was never written is invisible to the backlink. Reading a chapter of
+/// such a title therefore looked up an empty list, and the reader's
+/// `getChapterIndex()`/`getPrevChapterIndex()`/`getNextChapterIndex()` fell
+/// through to their `index!` assertion — the "Null check operator used on a
+/// null value" crash that only hit *remote* (never-downloaded) titles, because
+/// downloading a chapter is what wrote its link.
+///
+/// `mangaId` is set on every chapter and never cleared, so this index query is
+/// the reliable source. Same rationale as `getChaptersStreamProvider`.
+List<Chapter> chaptersOfManga(Manga manga) {
+  final id = manga.id;
+  if (id == null) return const [];
+  return isar.chapters.where().mangaIdEqualTo(id).findAllSync();
 }
