@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -144,7 +145,7 @@ class _MiniBarHost extends HookConsumerWidget {
                               child: playing
                                   ? const _EqualizerBars()
                                   : Icon(
-                                      Icons.play_arrow_rounded,
+                                      Broken.play,
                                       color: Colors.white,
                                       size: 26,
                                     ),
@@ -155,7 +156,7 @@ class _MiniBarHost extends HookConsumerWidget {
                           child: playing
                               ? const _EqualizerBars()
                               : Icon(
-                                  Icons.play_arrow_rounded,
+                                  Broken.play,
                                   color: Theme.of(context).colorScheme.primary,
                                   size: 26,
                                 ),
@@ -322,7 +323,7 @@ class _BarBody extends StatelessWidget {
                   ),
                   // Controls
                   IconButton(
-                    icon: Icon(Icons.skip_previous_rounded,
+                    icon: Icon(Broken.previous,
                         size: isSmall ? 20 : 22),
                     onPressed: onPrev,
                     color: cs.onSurface,
@@ -336,7 +337,7 @@ class _BarBody extends StatelessWidget {
                     onTap: onPlayPause,
                   ),
                   IconButton(
-                    icon: Icon(Icons.skip_next_rounded,
+                    icon: Icon(Broken.next,
                         size: isSmall ? 20 : 22),
                     onPressed: onNext,
                     color: cs.onSurface,
@@ -345,7 +346,7 @@ class _BarBody extends StatelessWidget {
                   ),
                   // Dismiss (stop) button
                   IconButton(
-                    icon: Icon(Icons.close_rounded,
+                    icon: Icon(Broken.close_circle,
                         size: isSmall ? 18 : 20),
                     onPressed: onClose,
                     color: cs.onSurface.withValues(alpha: 0.55),
@@ -391,7 +392,7 @@ class _PlayPauseCircle extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: Icon(
-          isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          isPlaying ? Broken.pause : Broken.play,
           color: cs.onPrimary,
           size: iconSize,
         ),
