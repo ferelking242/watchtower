@@ -311,6 +311,18 @@ jobs:
           ''', encoding='utf-8')
           PYEOF
 
+      # The restored historical stubs predate the current tray/window/webview
+      # APIs. Overlay the versioned copies so the desktop-only music tray code
+      # and main.dart still compile for dart2js.
+      - name: Overlay current tray/window/webview web stubs
+        run: |
+          cp .github/web_stubs/tray_manager.dart \
+             web_stubs/tray_manager/lib/tray_manager.dart
+          cp .github/web_stubs/window_manager.dart \
+             web_stubs/window_manager/lib/window_manager.dart
+          cp .github/web_stubs/desktop_webview_window.dart \
+             web_stubs/desktop_webview_window/lib/desktop_webview_window.dart
+
       - name: Stub native-only Dart pub-cache files
         run: |
           python3 << 'PYEOF'
