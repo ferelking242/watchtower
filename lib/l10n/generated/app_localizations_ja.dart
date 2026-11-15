@@ -748,6 +748,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get unknown => '不明';
 
   @override
+  String get designer => 'Designer';
+
+  @override
   String get set_categories => 'カテゴリを設定';
 
   @override
@@ -782,6 +785,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get episode_number => 'エピソード番号';
+
+  @override
+  String get copy => 'コピー';
+
+  @override
+  String get search_in_extension => 'Search in extension';
 
   @override
   String get share => '共有';

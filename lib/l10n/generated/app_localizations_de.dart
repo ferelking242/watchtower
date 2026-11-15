@@ -756,6 +756,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get unknown => 'Unbekannt';
 
   @override
+  String get designer => 'Designer';
+
+  @override
   String get set_categories => 'Kategorien festlegen';
 
   @override
@@ -790,6 +793,12 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get episode_number => 'Episodennummer';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get search_in_extension => 'Search in extension';
 
   @override
   String get share => 'Teilen';

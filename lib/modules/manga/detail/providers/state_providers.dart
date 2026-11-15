@@ -2,6 +2,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
+import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/utils/constant.dart';
 part 'state_providers.g.dart';
@@ -409,22 +410,31 @@ class ChaptersListttState extends _$ChaptersListttState {
 class ScanlatorsFilterState extends _$ScanlatorsFilterState {
   @override
   (List<String>, List<String>, List<String>) build(Manga manga) {
+    // Derive the scanlator list from the chapter stream the detail page already
+    // watches, instead of walking the lazy `manga.chapters` backlink. Calling
+    // `.toList()` on that IsarLinks forces Isar to load every chapter of the
+    // title synchronously on the UI isolate — the multi-second freeze felt when
+    // opening a title with hundreds of chapters. The stream is index-backed and
+    // already in flight, so this only reacts to data it will receive anyway.
+    final chapters = ref
+        .watch(getChaptersStreamProvider(mangaId: manga.id!))
+        .asData
+        ?.value;
     return (
-      _getScanlators(),
+      _scanlatorsFrom(chapters ?? const []),
       _getFilterScanlator() ?? [],
       _getFilterScanlator() ?? [],
     );
   }
 
-  List<String> _getScanlators() {
-    List<String> scanlators = [];
-    for (var a in manga.chapters.toList()) {
-      if ((a.scanlator?.isNotEmpty ?? false) &&
-          !scanlators.contains(a.scanlator)) {
-        scanlators.add(a.scanlator!);
+  List<String> _scanlatorsFrom(List<Chapter> chapters) {
+    final scanlators = <String>[];
+    for (final chapter in chapters) {
+      final scanlator = chapter.scanlator;
+      if ((scanlator?.isNotEmpty ?? false) && !scanlators.contains(scanlator)) {
+        scanlators.add(scanlator!);
       }
     }
-
     return scanlators;
   }
 
@@ -447,7 +457,7 @@ class ScanlatorsFilterState extends _$ScanlatorsFilterState {
           ..updatedAt = DateTime.now().millisecondsSinceEpoch,
       );
     });
-    state = (_getScanlators(), _getFilterScanlator()!, filterScanlators);
+    state = (state.$1, _getFilterScanlator()!, filterScanlators);
   }
 
   List<String>? _getFilterScanlator() {
@@ -470,7 +480,7 @@ class ScanlatorsFilterState extends _$ScanlatorsFilterState {
       scanlatorFilteredList.add(scanlator);
     }
     state = (
-      _getScanlators(),
+      state.$1,
       _getFilterScanlator() ?? [],
       scanlatorFilteredList,
     );

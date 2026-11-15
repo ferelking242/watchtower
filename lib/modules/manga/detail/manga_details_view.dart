@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide Category;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:isar_community/isar.dart';
@@ -20,6 +21,7 @@ import 'package:watchtower/modules/manga/detail/widgets/detail_shimmer.dart';
 import 'package:watchtower/modules/plugin/nfile/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
+import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,9 +81,10 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
     return textSize.width + padding;
   }
 
-  /// Author (and artist when different) as tappable links. Tapping opens the
-  /// extension search pre-filled with that name, showing every work by that
-  /// person within the current source.
+  /// Author and designer (artist) as tappable chips. A tap opens the shared
+  /// glass box — the same component as the download and three-dots menus —
+  /// anchored to the tapped name, offering copy, in-extension search and
+  /// global search.
   Widget _buildAuthorLine(AppLocalizations l10n) {
     final author = widget.manga.author?.trim();
     final artist = widget.manga.artist?.trim();
@@ -89,21 +92,31 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
     final hasArtist = artist?.isNotEmpty ?? false;
 
     if (!hasAuthor && !hasArtist) {
-      return Text(
-        l10n.unknown,
-        style: const TextStyle(fontWeight: FontWeight.w500),
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Broken.user, size: 15),
+          const SizedBox(width: 5),
+          Text(
+            l10n.unknown,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+        ],
       );
     }
 
-    final names = <String>[
-      if (hasAuthor) author!,
-      if (hasArtist && artist != author) artist!,
+    // (name, isDesigner): the author leads, the designer follows when it
+    // differs. When the extension publishes only one of the two, that one
+    // still carries its own icon.
+    final people = <(String, bool)>[
+      if (hasAuthor) (author!, false),
+      if (hasArtist && artist != author) (artist!, true),
     ];
 
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (var i = 0; i < names.length; i++) ...[
+        for (var i = 0; i < people.length; i++) ...[
           if (i > 0)
             Text(
               ' • ',
@@ -112,18 +125,118 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                 color: context.secondaryColor,
               ),
             ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _openAuthorWorks(names[i]),
-            child: Text(
-              names[i],
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: context.primaryColor,
-              ),
+          _personChip(people[i].$1, people[i].$2),
+        ],
+      ],
+    );
+  }
+
+  Widget _personChip(String name, bool isDesigner) {
+    final l10n = l10nLocalizations(context)!;
+    return AdaptiveOverlayMenuButton(
+      menuWidth: 264,
+      trigger: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isDesigner ? Broken.brush : Broken.user,
+            size: 15,
+            color: context.secondaryColor,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            name,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: context.primaryColor,
             ),
           ),
         ],
+      ),
+      contentBuilder: (close) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AdaptiveOverlaySection(
+            title: isDesigner ? l10n.designer : l10n.author_works,
+          ),
+          AdaptiveOverlayItem(
+            icon: Broken.copy,
+            label: l10n.copy,
+            onTap: () {
+              close();
+              _copyName(name);
+            },
+          ),
+          AdaptiveOverlayItem(
+            icon: Broken.search_normal,
+            label: l10n.search_in_extension,
+            onTap: () {
+              close();
+              _openAuthorWorks(name);
+            },
+          ),
+          AdaptiveOverlayItem(
+            icon: Broken.global,
+            label: l10n.global_search,
+            onTap: () {
+              close();
+              _globalSearchName(name);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _copyName(String name) {
+    Clipboard.setData(ClipboardData(text: name));
+    botToast(l10nLocalizations(context)!.copied_to_clipboard);
+  }
+
+  void _globalSearchName(String name) {
+    context.push('/globalSearch', extra: (name, widget.manga.itemType));
+  }
+
+  /// Compact genre chips published by the extension (`MManga.genre`). Each
+  /// chip opens the global search pre-filled with that genre so the user can
+  /// browse every source for it.
+  Widget _buildGenreRow() {
+    final genres = (widget.manga.genre ?? const <String>[])
+        .map((g) => g.trim())
+        .where((g) => g.isNotEmpty)
+        .toSet()
+        .toList();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final genre in genres)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.push(
+              '/globalSearch',
+              extra: (genre, widget.manga.itemType),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: context.primaryColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: context.primaryColor.withValues(alpha: 0.22),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                genre,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -165,6 +278,20 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
         builder: (context, ref, child) {
           final chaptersList = ref.watch(chaptersListttStateProvider);
           final isExtended = ref.watch(isExtendedStateProvider);
+          // Fallback for the FAB when the history stream has no entry: start at
+          // the first chapter of the series. Reuse the chapters already
+          // filtered/sorted by the page instead of walking the lazy
+          // `manga.chapters` backlink, which loaded every chapter synchronously
+          // on the UI isolate (the freeze felt on tap).
+          Chapter? firstChapter() {
+            Chapter? oldest;
+            for (final chapter in chaptersList) {
+              final id = chapter.id;
+              if (id == null) continue;
+              if (oldest == null || id < oldest.id!) oldest = chapter;
+            }
+            return oldest;
+          }
           return ref.watch(isLongPressedStateProvider)
               ? Container()
               : chaptersList.isNotEmpty &&
@@ -173,13 +300,14 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                         .toList()
                         .isNotEmpty
               ? StreamBuilder(
+                  // Scoped to this manga by the indexed `mangaId` field. The
+                  // previous query walked the whole `historys` collection and
+                  // traversed the `chapter → manga` link, then filtered in Dart:
+                  // a full deserialization of every history row (and their
+                  // links) on each write, on the UI isolate.
                   stream: isar.historys
-                      .filter()
-                      .chapter(
-                        (q) => q.manga(
-                          (q) => q.itemTypeEqualTo(widget.manga.itemType),
-                        ),
-                      )
+                      .where()
+                      .mangaIdEqualTo(widget.manga.id!)
                       .watch(fireImmediately: true),
                   builder: (context, snapshot) {
                     String buttonLabel = widget.manga.itemType != ItemType.anime
@@ -189,16 +317,15 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                       final incognitoMode = ref.watch(
                         incognitoModeStateProvider,
                       );
-                      final entries = snapshot.data!
-                          .where(
-                            (element) => element.mangaId == widget.manga.id,
-                          )
-                          .toList()
-                          .reversed
-                          .toList();
+                      // `chapter` is an IsarLink: reading `.value` here loads it
+                      // synchronously. Resolve the single newest entry with one
+                      // index-backed read instead.
+                      final entry = snapshot.data!.last;
+                      final chap = entry.chapterId == null
+                          ? null
+                          : isar.chapters.getSync(entry.chapterId!);
 
-                      if (entries.isNotEmpty && !incognitoMode) {
-                        final chap = entries.first.chapter.value!;
+                      if (chap != null && !incognitoMode) {
                         return CustomFloatingActionBtn(
                           isExtended: !isExtended,
                           label: l10n.resume,
@@ -211,12 +338,7 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                         isExtended: !isExtended,
                         label: buttonLabel,
                         onPressed: () {
-                          widget.manga.chapters
-                              .toList()
-                              .reversed
-                              .toList()
-                              .last
-                              .pushToReaderView(context);
+                          firstChapter()?.pushToReaderView(context);
                         },
                       );
                     }
@@ -224,12 +346,7 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                       isExtended: !isExtended,
                       label: buttonLabel,
                       onPressed: () {
-                        widget.manga.chapters
-                            .toList()
-                            .reversed
-                            .toList()
-                            .last
-                            .pushToReaderView(context);
+                        firstChapter()?.pushToReaderView(context);
                       },
                     );
                   },
@@ -246,14 +363,14 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
             Wrap(
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Icon(Broken.user, size: 15),
-                const SizedBox(width: 5),
-                if (widget.isLoading)
+                if (widget.isLoading) ...[
+                  const Icon(Broken.user, size: 15),
+                  const SizedBox(width: 5),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 2),
                     child: DetailShimmerBox(width: 96, height: 12, radius: 4),
-                  )
-                else
+                  ),
+                ] else
                   _buildAuthorLine(l10n),
               ],
             ),
@@ -321,6 +438,11 @@ class _MangaDetailsViewState extends ConsumerState<MangaDetailsView> {
                 ],
               ],
             ),
+            if (!widget.isLoading &&
+                (widget.manga.genre?.isNotEmpty ?? false)) ...[
+              const SizedBox(height: 6),
+              _buildGenreRow(),
+            ],
           ],
         ),
         action: widget.manga.favorite!

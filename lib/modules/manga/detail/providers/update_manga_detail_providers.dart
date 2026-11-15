@@ -1,3 +1,4 @@
+import 'package:isar_community/isar.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
@@ -42,8 +43,15 @@ Future<dynamic> updateMangaDetail(
       return;
     }
 
-    // loadSync() so .isNotEmpty is reliable (IsarLinks are lazy by default).
-    manga.chapters.loadSync();
+    // Read existing chapters through the denormalized `mangaId` index instead
+    // of `manga.chapters.loadSync()`. The lazy IsarLinks backlink forces a full
+    // synchronous chapter load on the UI isolate (same reason
+    // `getChaptersStream` uses `mangaIdEqualTo`); the index query is faster and
+    // cannot come back empty when the link was persisted from an unloaded state.
+    final existingChapters = isar.chapters
+        .where()
+        .mangaIdEqualTo(mangaId)
+        .findAllSync();
 
     final source = getSource(
       manga.lang!,
@@ -106,9 +114,8 @@ Future<dynamic> updateMangaDetail(
 
       if (chaps == null || chaps.isEmpty) return;
 
-      // loadSync() was called before the transaction; the set is still valid
-      // here because we haven't written to chapters yet.
-      final existingChapters = manga.chapters.toList();
+      // Reuse the index-backed read from before the transaction; the rows were
+      // not touched yet, so it is still valid here.
       final existingByUrl = <String, Chapter>{
         for (final c in existingChapters)
           if (c.url?.isNotEmpty == true) c.url!.trim(): c,
@@ -130,6 +137,7 @@ Future<dynamic> updateMangaDetail(
       }
 
       final newChapters = <Chapter>[];
+      final updatedChapters = <Chapter>[];
 
       // Iterate ALL chapters from the extension — URL-based deduplication.
       // This is the correct approach: count-based diff breaks when the extension
@@ -188,8 +196,16 @@ Future<dynamic> updateMangaDetail(
             ..description = chap.description
             ..downloadSize = chap.downloadSize
             ..duration = chap.duration;
-          await isar.chapters.put(existing);
+          updatedChapters.add(existing);
         }
+      }
+
+      // Refresh existing rows in one batched write. This used to `await
+      // isar.chapters.put(existing)` per chapter inside the transaction: a title
+      // with hundreds of chapters issued hundreds of awaited round-trips and
+      // was felt as a multi-second freeze on every open.
+      if (updatedChapters.isNotEmpty) {
+        await isar.chapters.putAll(updatedChapters);
       }
 
       // Insert new chapters oldest-first (extensions typically return newest-first).

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:watchtower/main.dart';
@@ -34,8 +35,18 @@ Future<void> runLibrarySwipeAction(
   }
 }
 
+/// Chapters of [manga], read through the denormalized `mangaId` index.
+///
+/// The lazy `manga.chapters` backlink runs a full synchronous chapter load on
+/// the UI isolate, which is felt as a freeze on the swipe action.
+List<Chapter> _chaptersOf(Manga manga) {
+  final id = manga.id;
+  if (id == null) return const [];
+  return isar.chapters.where().mangaIdEqualTo(id).findAllSync();
+}
+
 Future<void> _downloadFirstUnread(WidgetRef ref, Manga manga) async {
-  final chapters = manga.chapters.toList();
+  final chapters = _chaptersOf(manga);
   if (chapters.isEmpty) return;
   final target = chapters.firstWhere(
     (c) => !(c.isRead ?? false),
@@ -50,7 +61,7 @@ Future<void> _markChapters(
   Manga manga, {
   bool onlyFirstUnread = false,
 }) async {
-  final chapters = manga.chapters.toList();
+  final chapters = _chaptersOf(manga);
   if (chapters.isEmpty) return;
 
   final targets = onlyFirstUnread

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:isar_community/isar.dart';
+import 'package:watchtower/main.dart';
+import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
@@ -31,7 +34,14 @@ class ContinueReadingButton extends ConsumerWidget {
             return;
           }
         }
-        final chapters = entry.chapters.toList();
+        // Index-backed read instead of the lazy `entry.chapters` backlink,
+        // which ran a full synchronous chapter load on the UI isolate on tap.
+        final chapters = entry.id == null
+            ? <Chapter>[]
+            : isar.chapters
+                  .where()
+                  .mangaIdEqualTo(entry.id!)
+                  .findAllSync();
         if (chapters.isNotEmpty) {
           chapters.reversed.toList().last.pushToReaderView(context);
         }

@@ -753,6 +753,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get unknown => 'Bilinmiyor';
 
   @override
+  String get designer => 'Designer';
+
+  @override
   String get set_categories => 'Kategorileri Ayarla';
 
   @override
@@ -787,6 +790,12 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get episode_number => 'Bölüm Sayısı';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get search_in_extension => 'Search in extension';
 
   @override
   String get share => 'Paylaş';

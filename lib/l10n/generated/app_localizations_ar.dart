@@ -766,6 +766,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get unknown => 'غير معروف';
 
   @override
+  String get designer => 'Designer';
+
+  @override
   String get set_categories => 'ضبط الفئات';
 
   @override
@@ -800,6 +803,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get episode_number => 'رقم الحلقة';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get search_in_extension => 'Search in extension';
 
   @override
   String get share => 'مشاركة';

@@ -1950,6 +1950,10 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     );
   }
 
+  /// Barre d'actions : favori, mise à jour intelligente, suivi et webview.
+  ///
+  /// La section « Suivi » (bouton traceurs, juste avant le bouton webview) est
+  /// construite par [_action].
   Widget _actionFavouriteAndWebview() {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
@@ -2013,6 +2017,103 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
     );
   }
 
+  /// Section « Suivi » : bouton traceurs juste avant le bouton webview.
+  ///
+  /// Masqué tant qu'aucun tracker n'est configuré. Une fois le titre suivi, le
+  /// bouton affiche les logos des trackers concernés (jusqu'à 3) et le nombre
+  /// de services ; sinon il propose le libellé « Suivi ».
+  Widget _action() {
+    return StreamBuilder(
+      stream: isar.trackPreferences.filter().syncIdIsNotNull().watch(
+        fireImmediately: true,
+      ),
+      builder: (context, snapshot) {
+        List<TrackPreference>? entries = snapshot.hasData ? snapshot.data! : [];
+        if (entries.isEmpty) {
+          return SizedBox.shrink();
+        }
+        return Expanded(
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              elevation: 0,
+            ),
+            onPressed: () {
+              _trackingDraggableMenu(entries);
+            },
+            child: StreamBuilder(
+              stream: isar.tracks
+                  .where()
+                  .mangaIdEqualTo(widget.manga!.id!)
+                  .watch(fireImmediately: true),
+              builder: (context, snapshot) {
+                if (widget.isLoading) {
+                  // Squelette : même contenu (icône 20 + libellé 11) que le
+                  // bouton traceurs, dans le VRAI ElevatedButton.
+                  return const DetailActionButtonSkeleton(labelWidth: 44);
+                }
+                final l10n = l10nLocalizations(context)!;
+                List<Track> trackRes = snapshot.hasData
+                    ? snapshot.data!
+                    : const <Track>[];
+                final isNotEmpty = trackRes.isNotEmpty;
+                final color = isNotEmpty
+                    ? context.primaryColor
+                    : context.secondaryColor;
+                return Column(
+                  children: [
+                    // Logos des trackers liés, sinon l'icône d'ajout.
+                    SizedBox(
+                      height: 20,
+                      child: isNotEmpty
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                for (final track in trackRes.take(3))
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 1,
+                                    ),
+                                    child: Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        color: trackInfos(track.syncId!).$3,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(2),
+                                        child: Image.asset(
+                                          trackInfos(track.syncId!).$1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            )
+                          : Icon(Broken.refresh, size: 20, color: color),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isNotEmpty
+                          ? trackRes.length == 1
+                                ? l10n.one_tracker
+                                : l10n.n_tracker(trackRes.length)
+                          : l10n.tracking,
+                      style: TextStyle(fontSize: 11, color: color),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _smartUpdateDays() {
     return SizedBox(
       child: ElevatedButton(
@@ -2048,70 +2149,6 @@ class _MangaDetailViewState extends ConsumerState<MangaDetailView>
                 ],
               ),
       ),
-    );
-  }
-
-  /// Tracker button
-  Widget _action() {
-    return StreamBuilder(
-      stream: isar.trackPreferences.filter().syncIdIsNotNull().watch(
-        fireImmediately: true,
-      ),
-      builder: (context, snapshot) {
-        List<TrackPreference>? entries = snapshot.hasData ? snapshot.data! : [];
-        if (entries.isEmpty) {
-          return SizedBox.shrink();
-        }
-        return Expanded(
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              elevation: 0,
-            ),
-            onPressed: () {
-              _trackingDraggableMenu(entries);
-            },
-            child: StreamBuilder(
-              stream: isar.tracks
-                  .where()
-                  .mangaIdEqualTo(widget.manga!.id!)
-                  .watch(fireImmediately: true),
-              builder: (context, snapshot) {
-                if (widget.isLoading) {
-                  // Squelette : même contenu (icône 20 + libellé 11) que le
-                  // bouton traceurs, dans le VRAI ElevatedButton.
-                  return const DetailActionButtonSkeleton(labelWidth: 44);
-                }
-                final l10n = l10nLocalizations(context)!;
-                List<Track>? trackRes = snapshot.hasData ? snapshot.data : [];
-                bool isNotEmpty = trackRes!.isNotEmpty;
-                Color color = isNotEmpty
-                    ? context.primaryColor
-                    : context.secondaryColor;
-                return Column(
-                  children: [
-                    Icon(
-                      isNotEmpty ? Broken.tick_circle : Broken.refresh,
-                      size: 20,
-                      color: color,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      isNotEmpty
-                          ? trackRes.length == 1
-                                ? l10n.one_tracker
-                                : l10n.n_tracker(trackRes.length)
-                          : l10n.tracking,
-                      style: TextStyle(fontSize: 11, color: color),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
     );
   }
 

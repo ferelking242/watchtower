@@ -758,6 +758,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get unknown => 'Tidak diketahui';
 
   @override
+  String get designer => 'Designer';
+
+  @override
   String get set_categories => 'Tetapkan kategori';
 
   @override
@@ -792,6 +795,12 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get episode_number => 'Nomor episode';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get search_in_extension => 'Search in extension';
 
   @override
   String get share => 'Bagikan';

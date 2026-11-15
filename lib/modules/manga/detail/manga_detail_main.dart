@@ -135,19 +135,31 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
     return Scaffold(
       body: manga.when(
         data: (manga) {
+          // Watch only this title's source row (primary key) when its id is
+          // known. The previous `filter().langContains().nameContains()` watch
+          // has no index, so Isar deserialized *every* `Source` — the embedded
+          // extension JavaScript included — on each sources write, on the UI
+          // isolate. Rows saved before `sourceId` existed fall back to the
+          // name-based watch.
+          final sourceId = manga!.sourceId;
+          final sourcesStream = sourceId != null
+              ? isar.sources.watchObject(sourceId, fireImmediately: true)
+              : isar.sources
+                    .filter()
+                    .langContains(manga.lang!, caseSensitive: false)
+                    .and()
+                    .nameContains(manga.source!, caseSensitive: false)
+                    .watch(fireImmediately: true);
           return StreamBuilder(
-            stream: isar.sources
-                .filter()
-                .langContains(manga!.lang!, caseSensitive: false)
-                .and()
-                .nameContains(manga.source!, caseSensitive: false)
-                .and()
-                .isActiveEqualTo(true)
-                .and()
-                .isAddedEqualTo(true)
-                .watch(fireImmediately: true),
+            stream: sourcesStream,
             builder: (context, snapshot) {
-              final sourceExist = snapshot.hasData && snapshot.data!.isNotEmpty;
+              final Source? source = sourceId != null
+                  ? (snapshot.data as Source?)
+                  : (snapshot.data as List<Source>?)?.firstOrNull;
+              final sourceExist =
+                  source != null &&
+                  (source.isActive ?? false) &&
+                  (source.isAdded ?? false);
 
               // For local archives (source='archive' or 'local'), trust the
               // stored itemType directly — never look up in sources table,

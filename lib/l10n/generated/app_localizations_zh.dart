@@ -737,6 +737,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get unknown => '未知';
 
   @override
+  String get designer => 'Designer';
+
+  @override
   String get set_categories => '设置类别';
 
   @override
@@ -771,6 +774,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get episode_number => '集数';
+
+  @override
+  String get copy => 'Copy';
+
+  @override
+  String get search_in_extension => 'Search in extension';
 
   @override
   String get share => '分享';

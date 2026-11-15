@@ -1409,6 +1409,12 @@ abstract class AppLocalizations {
   /// **'Unknown'**
   String get unknown;
 
+  /// No description provided for @designer.
+  ///
+  /// In en, this message translates to:
+  /// **'Designer'**
+  String get designer;
+
   /// No description provided for @set_categories.
   ///
   /// In en, this message translates to:
@@ -1480,6 +1486,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Episode number'**
   String get episode_number;
+
+  /// No description provided for @copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copy;
+
+  /// No description provided for @search_in_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in extension'**
+  String get search_in_extension;
 
   /// No description provided for @share.
   ///
