@@ -326,7 +326,7 @@ class _Header extends StatelessWidget {
                 ),
                 if (isScanning)
                   Text(
-                    'Analyse du stockage · $discovered fichiers',
+                    context.l10n.smart_scanning_storage_count(discovered),
                     style: TextStyle(
                       fontSize: 12,
                       color: cs.onSurface.withValues(alpha: 0.6),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
 /// Cartes « Relations / Univers » — Section 7 manga (Watchtower).
@@ -738,7 +739,7 @@ class MangaSameUniverseCard extends StatelessWidget {
           if (others.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              'Autres œuvres de l’univers',
+              context.l10n.media_other_works,
               style: const TextStyle(
                 color: Colors.white38,
                 fontSize: 9,

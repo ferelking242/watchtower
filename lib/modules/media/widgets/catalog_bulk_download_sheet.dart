@@ -1026,9 +1026,9 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'Mettre en file d’attente',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.catalog_bulk_enqueue,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,

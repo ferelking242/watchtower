@@ -2340,7 +2340,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               ),
               const SizedBox(height: 6),
               Text(
-                "Les informations apparaîtront\nlorsqu'elles seront disponibles.",
+                context.l10n.media_info_pending,
                 style: TextStyle(color: _grey, fontSize: 13, height: 1.5),
                 textAlign: TextAlign.center,
               ),

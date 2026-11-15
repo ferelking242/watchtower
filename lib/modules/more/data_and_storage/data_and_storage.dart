@@ -149,10 +149,10 @@ class DataAndStorage extends ConsumerWidget {
             ListTile(
               onTap: () => context.push('/autoBackup'),
               leading: const Icon(Icons.cloud_sync_outlined),
-              title: const Text('Sauvegarde automatique'),
-              subtitle: const Text(
-                'Bibliothèque, réglages et cache — géré depuis les Paramètres',
-                style: TextStyle(fontSize: 11),
+              title: Text(context.l10n.auto_backup_title),
+              subtitle: Text(
+                context.l10n.data_storage_subtitle,
+                style: const TextStyle(fontSize: 11),
               ),
             ),
             Padding(

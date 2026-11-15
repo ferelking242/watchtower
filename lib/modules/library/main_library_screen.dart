@@ -1282,21 +1282,24 @@ class _ManageCategoriesSheetState
                     child: Icon(Broken.tag, color: cs.primary, size: 22),
                   ),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Manage Categories',
-                          style: TextStyle(
+                          context.l10n.manage_categories,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
-                          'Remove tabs you no longer need.\nTitles stay in your library.',
-                          style: TextStyle(fontSize: 12.5, color: Colors.grey),
+                          context.l10n.manage_categories_subtitle,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.grey,
+                          ),
                         ),
                       ],
                     ),

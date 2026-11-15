@@ -12821,4 +12821,52 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get anime_directory_empty => 'Aucun élément disponible.';
+
+  @override
+  String smart_scanning_storage_count(Object count) {
+    return 'Analyse du stockage · $count fichiers';
+  }
+
+  @override
+  String get appearance_ui_subtitle =>
+      'Carousel, flou, animations et effets visuels';
+
+  @override
+  String get extension_repositories_subtitle =>
+      'Gérer les URL des dépôts Watch, Manga & Novel';
+
+  @override
+  String get data_storage_subtitle =>
+      'Bibliothèque, réglages et cache — géré depuis les Paramètres';
+
+  @override
+  String get manage_categories_subtitle =>
+      'Retirez les onglets dont vous n’avez plus besoin.\nLes titres restent dans votre bibliothèque.';
+
+  @override
+  String get media_info_pending =>
+      'Les informations apparaîtront\nlorsqu’elles seront disponibles.';
+
+  @override
+  String get common_preview => 'Aperçu';
+
+  @override
+  String get video_preview_unavailable =>
+      'L’aperçu vidéo n’est pas disponible sur cette plateforme.';
+
+  @override
+  String get manga_chapter_input_hint => 'Ex : 142, 100-110…';
+
+  @override
+  String get catalog_bulk_enqueue => 'Mettre en file d’attente';
+
+  @override
+  String get diag_video_preview_web_unavailable =>
+      'Prévisualisation vidéo non disponible sur web.';
+
+  @override
+  String get extension_repositories => 'Dépôts d’extensions';
+
+  @override
+  String get reader_volume_buttons_title => 'Navigation par boutons de volume';
 }

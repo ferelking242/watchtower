@@ -216,9 +216,9 @@ class AppearanceScreen extends ConsumerWidget {
               _buildFontTile(context, ref, l10n),
               ListTile(
                 leading: const Icon(Broken.magic_star),
-                title: const Text('Interface & Effets'),
+                title: Text(l10n.appearance_ui_title),
                 subtitle: Text(
-                  'Carousel, flou, animations et effets visuels',
+                  l10n.appearance_ui_subtitle,
                   style: TextStyle(
                     fontSize: 11,
                     color: context.secondaryColor,

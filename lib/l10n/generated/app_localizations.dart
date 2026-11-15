@@ -22660,6 +22660,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nothing available.'**
   String get anime_directory_empty;
+
+  /// No description provided for @smart_scanning_storage_count.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning storage · {count} files'**
+  String smart_scanning_storage_count(Object count);
+
+  /// No description provided for @appearance_ui_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Carousel, blur, animations and visual effects'**
+  String get appearance_ui_subtitle;
+
+  /// No description provided for @extension_repositories_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Watch, Manga & Novel repo URLs'**
+  String get extension_repositories_subtitle;
+
+  /// No description provided for @data_storage_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Library, settings and cache — managed from the Settings'**
+  String get data_storage_subtitle;
+
+  /// No description provided for @manage_categories_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove tabs you no longer need.\nTitles stay in your library.'**
+  String get manage_categories_subtitle;
+
+  /// No description provided for @media_info_pending.
+  ///
+  /// In en, this message translates to:
+  /// **'The information will appear\nwhen it becomes available.'**
+  String get media_info_pending;
+
+  /// No description provided for @common_preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get common_preview;
+
+  /// No description provided for @video_preview_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Video preview is not available on this platform.'**
+  String get video_preview_unavailable;
+
+  /// No description provided for @manga_chapter_input_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'E.g. 142, 100-110…'**
+  String get manga_chapter_input_hint;
+
+  /// No description provided for @catalog_bulk_enqueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to queue'**
+  String get catalog_bulk_enqueue;
+
+  /// No description provided for @diag_video_preview_web_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Video preview is not available on web.'**
+  String get diag_video_preview_web_unavailable;
+
+  /// No description provided for @extension_repositories.
+  ///
+  /// In en, this message translates to:
+  /// **'Extension repositories'**
+  String get extension_repositories;
+
+  /// No description provided for @reader_volume_buttons_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume-button navigation'**
+  String get reader_volume_buttons_title;
 }
 
 class _AppLocalizationsDelegate

@@ -3842,5 +3842,18 @@
   "anime_country_eg": "Égypte",
   "anime_country_ar": "Argentine",
   "anime_directory_load_failed": "Impossible de charger ce catalogue : {error}",
-  "anime_directory_empty": "Aucun élément disponible."
+  "anime_directory_empty": "Aucun élément disponible.",
+  "smart_scanning_storage_count": "Analyse du stockage · {count} fichiers",
+  "appearance_ui_subtitle": "Carousel, flou, animations et effets visuels",
+  "extension_repositories_subtitle": "Gérer les URL des dépôts Watch, Manga & Novel",
+  "data_storage_subtitle": "Bibliothèque, réglages et cache — géré depuis les Paramètres",
+  "manage_categories_subtitle": "Retirez les onglets dont vous n’avez plus besoin.\nLes titres restent dans votre bibliothèque.",
+  "media_info_pending": "Les informations apparaîtront\nlorsqu’elles seront disponibles.",
+  "common_preview": "Aperçu",
+  "video_preview_unavailable": "L’aperçu vidéo n’est pas disponible sur cette plateforme.",
+  "manga_chapter_input_hint": "Ex : 142, 100-110…",
+  "catalog_bulk_enqueue": "Mettre en file d’attente",
+  "diag_video_preview_web_unavailable": "Prévisualisation vidéo non disponible sur web.",
+  "extension_repositories": "Dépôts d’extensions",
+  "reader_volume_buttons_title": "Navigation par boutons de volume"
 }

@@ -7,6 +7,7 @@ import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/anti_bot/browser_capture.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Whether this platform can host an inline challenge webview.
 ///
@@ -531,7 +532,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Vérification…',
+              context.l10n.settings_checking,
               style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
             ),
           ],

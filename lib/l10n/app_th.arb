@@ -3588,5 +3588,18 @@
   "anime_country_eg": "Egypt",
   "anime_country_ar": "Argentina",
   "anime_directory_load_failed": "Unable to load this catalogue: {error}",
-  "anime_directory_empty": "Nothing available."
+  "anime_directory_empty": "Nothing available.",
+  "smart_scanning_storage_count": "Scanning storage · {count} files",
+  "appearance_ui_subtitle": "Carousel, blur, animations and visual effects",
+  "extension_repositories_subtitle": "Manage Watch, Manga & Novel repo URLs",
+  "data_storage_subtitle": "Library, settings and cache — managed from the Settings",
+  "manage_categories_subtitle": "Remove tabs you no longer need.\nTitles stay in your library.",
+  "media_info_pending": "The information will appear\nwhen it becomes available.",
+  "common_preview": "Preview",
+  "video_preview_unavailable": "Video preview is not available on this platform.",
+  "manga_chapter_input_hint": "E.g. 142, 100-110…",
+  "catalog_bulk_enqueue": "Add to queue",
+  "diag_video_preview_web_unavailable": "Video preview is not available on web.",
+  "extension_repositories": "Extension repositories",
+  "reader_volume_buttons_title": "Volume-button navigation"
 }

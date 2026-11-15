@@ -12680,4 +12680,52 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get anime_directory_empty => 'Nothing available.';
+
+  @override
+  String smart_scanning_storage_count(Object count) {
+    return 'Scanning storage · $count files';
+  }
+
+  @override
+  String get appearance_ui_subtitle =>
+      'Carousel, blur, animations and visual effects';
+
+  @override
+  String get extension_repositories_subtitle =>
+      'Manage Watch, Manga & Novel repo URLs';
+
+  @override
+  String get data_storage_subtitle =>
+      'Library, settings and cache — managed from the Settings';
+
+  @override
+  String get manage_categories_subtitle =>
+      'Remove tabs you no longer need.\nTitles stay in your library.';
+
+  @override
+  String get media_info_pending =>
+      'The information will appear\nwhen it becomes available.';
+
+  @override
+  String get common_preview => 'Preview';
+
+  @override
+  String get video_preview_unavailable =>
+      'Video preview is not available on this platform.';
+
+  @override
+  String get manga_chapter_input_hint => 'E.g. 142, 100-110…';
+
+  @override
+  String get catalog_bulk_enqueue => 'Add to queue';
+
+  @override
+  String get diag_video_preview_web_unavailable =>
+      'Video preview is not available on web.';
+
+  @override
+  String get extension_repositories => 'Extension repositories';
+
+  @override
+  String get reader_volume_buttons_title => 'Volume-button navigation';
 }

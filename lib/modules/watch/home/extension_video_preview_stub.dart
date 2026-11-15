@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 Future<void> showExtensionVideoPreview({
   required BuildContext context,
@@ -11,7 +12,11 @@ Future<void> showExtensionVideoPreview({
     context: context,
     builder: (dialogContext) => AlertDialog(
       backgroundColor: const Color(0xFF171820),
-      title: Text(item.name?.trim().isNotEmpty == true ? item.name! : 'Aperçu'),
+      title: Text(
+        item.name?.trim().isNotEmpty == true
+            ? item.name!
+            : context.l10n.common_preview,
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -27,8 +32,8 @@ Future<void> showExtensionVideoPreview({
               ),
             ),
           const SizedBox(height: 12),
-          const Text(
-            'L’aperçu vidéo n’est pas disponible sur cette plateforme.',
+          Text(
+            context.l10n.video_preview_unavailable,
             textAlign: TextAlign.center,
           ),
         ],

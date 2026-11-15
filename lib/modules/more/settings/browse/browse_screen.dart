@@ -133,9 +133,9 @@ class BrowseSScreen extends ConsumerWidget {
                         ),
                       ),
                       leading: const Icon(Broken.grid_2),
-                      title: const Text('Extension Repositories'),
+                      title: Text(context.l10n.extension_repositories),
                       subtitle: Text(
-                        'Manage Watch, Manga & Novel repo URLs',
+                        context.l10n.extension_repositories_subtitle,
                         style: TextStyle(
                           fontSize: 11,
                           color: context.secondaryColor,

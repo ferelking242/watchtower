@@ -717,9 +717,12 @@ class _VolumeButtonSection extends ConsumerWidget {
         SwitchListTile(
           secondary: const Icon(Icons.volume_up_outlined),
           value: enabled,
-          title: Text('Volume buttons navigation', style: textStyle),
+          title: Text(
+            context.l10n.reader_volume_buttons_title,
+            style: textStyle,
+          ),
           subtitle: Text(
-            'Use ▲/▼ volume keys to turn pages',
+            context.l10n.reader_volume_buttons_desc,
             style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
           ),
           onChanged: (value) {

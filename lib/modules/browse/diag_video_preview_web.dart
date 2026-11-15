@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:watchtower/services/extension_diagnostics.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 class DiagVideoPreview extends StatelessWidget {
   final List<DiagMediaUrl> urls;
@@ -20,7 +21,7 @@ class DiagVideoPreview extends StatelessWidget {
             size: 16, color: cs.onSurfaceVariant),
         const SizedBox(width: 8),
         Text(
-          'Prévisualisation vidéo non disponible sur web.',
+          context.l10n.diag_video_preview_web_unavailable,
           style: TextStyle(
               fontSize: 12, color: cs.onSurfaceVariant),
         ),

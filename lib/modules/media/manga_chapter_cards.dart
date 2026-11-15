@@ -1700,7 +1700,7 @@ class MangaChapterSearchCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'Ex : 142, 100-110…',
+                    context.l10n.manga_chapter_input_hint,
                     style: const TextStyle(
                       color: Colors.white38,
                       fontSize: 10.5,

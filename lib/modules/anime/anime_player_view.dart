@@ -6,6 +6,7 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/watch/detail/watch_detail_view.dart';
 import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Entry point kept for the `animePlayerView` route and the WebView
 /// "open in MPV" action.
@@ -66,11 +67,11 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
     if (manga == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(
+        body: Center(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Text(
-              'Épisode introuvable dans la bibliothèque.',
+              context.l10n.player_episode_not_in_library,
               textAlign: TextAlign.center,
             ),
           ),
