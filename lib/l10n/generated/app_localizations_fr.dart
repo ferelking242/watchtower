@@ -12654,4 +12654,171 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get profile_account_message =>
       'La gestion de compte en ligne n’est pas activée dans cette version de Watchtower. Vous pouvez continuer avec le profil local et les réglages de l’application.';
+
+  @override
+  String get library_classification_unavailable =>
+      'Bientôt disponible — aucune métadonnée de classification n’est encore associée aux entrées de la bibliothèque.';
+
+  @override
+  String get library_rating_safe => 'Safe';
+
+  @override
+  String get library_rating_suggestive => 'Suggéré';
+
+  @override
+  String get library_no_source_detected =>
+      'Aucune source détectée dans cette bibliothèque.';
+
+  @override
+  String get library_no_category_created => 'Aucune catégorie créée.';
+
+  @override
+  String get common_grid => 'Grille';
+
+  @override
+  String get notifications_partially_unavailable =>
+      'Certaines notifications sont momentanément indisponibles.';
+
+  @override
+  String get notifications_source_missing_after_install =>
+      'La source installée est introuvable après téléchargement.';
+
+  @override
+  String get notifications_layout_not_installed =>
+      'Le layout UI n’a pas été installé.';
+
+  @override
+  String get onboarding_dependencies_title => 'Dépendances';
+
+  @override
+  String get onboarding_dependencies_body =>
+      'L’application garde son APK léger. Les composants optionnels s’installent après l’installation et peuvent être reportés.';
+
+  @override
+  String get smart_tmdb_unavailable =>
+      'Les métadonnées TMDB sont indisponibles ; AniList reste utilisé.';
+
+  @override
+  String get smart_scanning_storage => 'Analyse du stockage…';
+
+  @override
+  String get smart_no_media_indexed => 'Aucun média indexé pour le moment';
+
+  @override
+  String get smart_to_review => 'À vérifier';
+
+  @override
+  String smart_work_episodes(Object count, Object title) {
+    return '$title · $count épisodes';
+  }
+
+  @override
+  String get anime_country_jp => 'Japon';
+
+  @override
+  String get anime_country_cn => 'Chine';
+
+  @override
+  String get anime_country_kr => 'Corée du Sud';
+
+  @override
+  String get anime_country_tw => 'Taïwan';
+
+  @override
+  String get anime_country_us => 'États-Unis';
+
+  @override
+  String get anime_country_fr => 'France';
+
+  @override
+  String get anime_country_gb => 'Royaume-Uni';
+
+  @override
+  String get anime_country_de => 'Allemagne';
+
+  @override
+  String get anime_country_ca => 'Canada';
+
+  @override
+  String get anime_country_ru => 'Russie';
+
+  @override
+  String get anime_country_it => 'Italie';
+
+  @override
+  String get anime_country_es => 'Espagne';
+
+  @override
+  String get anime_country_sg => 'Singapour';
+
+  @override
+  String get anime_country_hk => 'Hong Kong';
+
+  @override
+  String get anime_country_th => 'Thaïlande';
+
+  @override
+  String get anime_country_au => 'Australie';
+
+  @override
+  String get anime_country_in => 'Inde';
+
+  @override
+  String get anime_country_ph => 'Philippines';
+
+  @override
+  String get anime_country_br => 'Brésil';
+
+  @override
+  String get anime_country_mx => 'Mexique';
+
+  @override
+  String get anime_country_id => 'Indonésie';
+
+  @override
+  String get anime_country_vn => 'Vietnam';
+
+  @override
+  String get anime_country_my => 'Malaisie';
+
+  @override
+  String get anime_country_nz => 'Nouvelle-Zélande';
+
+  @override
+  String get anime_country_be => 'Belgique';
+
+  @override
+  String get anime_country_nl => 'Pays-Bas';
+
+  @override
+  String get anime_country_pl => 'Pologne';
+
+  @override
+  String get anime_country_se => 'Suède';
+
+  @override
+  String get anime_country_no => 'Norvège';
+
+  @override
+  String get anime_country_fi => 'Finlande';
+
+  @override
+  String get anime_country_ie => 'Irlande';
+
+  @override
+  String get anime_country_za => 'Afrique du Sud';
+
+  @override
+  String get anime_country_eg => 'Égypte';
+
+  @override
+  String get anime_country_ar => 'Argentine';
+
+  @override
+  String anime_directory_load_failed(Object error) {
+    return 'Impossible de charger ce catalogue : $error';
+  }
+
+  @override
+  String get anime_directory_empty => 'Aucun élément disponible.';
 }

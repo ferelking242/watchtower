@@ -12495,4 +12495,171 @@ class AppLocalizationsTh extends AppLocalizations {
   @override
   String get profile_account_message =>
       'Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings.';
+
+  @override
+  String get library_classification_unavailable =>
+      'Coming soon — no classification metadata is attached to the library entries yet.';
+
+  @override
+  String get library_rating_safe => 'Safe';
+
+  @override
+  String get library_rating_suggestive => 'Suggestive';
+
+  @override
+  String get library_no_source_detected =>
+      'No source detected in this library.';
+
+  @override
+  String get library_no_category_created => 'No category created.';
+
+  @override
+  String get common_grid => 'Grid';
+
+  @override
+  String get notifications_partially_unavailable =>
+      'Some notifications are temporarily unavailable.';
+
+  @override
+  String get notifications_source_missing_after_install =>
+      'The installed source could not be found after the download.';
+
+  @override
+  String get notifications_layout_not_installed =>
+      'The UI layout was not installed.';
+
+  @override
+  String get onboarding_dependencies_title => 'Dependencies';
+
+  @override
+  String get onboarding_dependencies_body =>
+      'The app keeps its APK light. Optional components install after the setup and can be postponed.';
+
+  @override
+  String get smart_tmdb_unavailable =>
+      'TMDB metadata is unavailable; AniList is used instead.';
+
+  @override
+  String get smart_scanning_storage => 'Scanning storage…';
+
+  @override
+  String get smart_no_media_indexed => 'No media indexed yet';
+
+  @override
+  String get smart_to_review => 'To review';
+
+  @override
+  String smart_work_episodes(Object count, Object title) {
+    return '$title · $count episodes';
+  }
+
+  @override
+  String get anime_country_jp => 'Japan';
+
+  @override
+  String get anime_country_cn => 'China';
+
+  @override
+  String get anime_country_kr => 'South Korea';
+
+  @override
+  String get anime_country_tw => 'Taiwan';
+
+  @override
+  String get anime_country_us => 'United States';
+
+  @override
+  String get anime_country_fr => 'France';
+
+  @override
+  String get anime_country_gb => 'United Kingdom';
+
+  @override
+  String get anime_country_de => 'Germany';
+
+  @override
+  String get anime_country_ca => 'Canada';
+
+  @override
+  String get anime_country_ru => 'Russia';
+
+  @override
+  String get anime_country_it => 'Italy';
+
+  @override
+  String get anime_country_es => 'Spain';
+
+  @override
+  String get anime_country_sg => 'Singapore';
+
+  @override
+  String get anime_country_hk => 'Hong Kong';
+
+  @override
+  String get anime_country_th => 'Thailand';
+
+  @override
+  String get anime_country_au => 'Australia';
+
+  @override
+  String get anime_country_in => 'India';
+
+  @override
+  String get anime_country_ph => 'Philippines';
+
+  @override
+  String get anime_country_br => 'Brazil';
+
+  @override
+  String get anime_country_mx => 'Mexico';
+
+  @override
+  String get anime_country_id => 'Indonesia';
+
+  @override
+  String get anime_country_vn => 'Vietnam';
+
+  @override
+  String get anime_country_my => 'Malaysia';
+
+  @override
+  String get anime_country_nz => 'New Zealand';
+
+  @override
+  String get anime_country_be => 'Belgium';
+
+  @override
+  String get anime_country_nl => 'Netherlands';
+
+  @override
+  String get anime_country_pl => 'Poland';
+
+  @override
+  String get anime_country_se => 'Sweden';
+
+  @override
+  String get anime_country_no => 'Norway';
+
+  @override
+  String get anime_country_fi => 'Finland';
+
+  @override
+  String get anime_country_ie => 'Ireland';
+
+  @override
+  String get anime_country_za => 'South Africa';
+
+  @override
+  String get anime_country_eg => 'Egypt';
+
+  @override
+  String get anime_country_ar => 'Argentina';
+
+  @override
+  String anime_directory_load_failed(Object error) {
+    return 'Unable to load this catalogue: $error';
+  }
+
+  @override
+  String get anime_directory_empty => 'Nothing available.';
 }

@@ -147,11 +147,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       ref.invalidate(localWorksProvider);
       if (summary.tmdbUnavailable) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Les métadonnées TMDB sont indisponibles ; AniList reste utilisé.',
-            ),
-          ),
+          SnackBar(content: Text(context.l10n.smart_tmdb_unavailable)),
         );
       }
     } catch (error) {
@@ -241,8 +237,8 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
                             hasScrollBody: false,
                             child: AnimatedEmptyState(
                               message: isScanning
-                                  ? 'Analyse du stockage…'
-                                  : 'Aucun média indexé pour le moment',
+                                  ? context.l10n.smart_scanning_storage
+                                  : context.l10n.smart_no_media_indexed,
                               icon: isScanning
                                   ? Broken.refresh_2
                                   : Broken.folder_open,
@@ -272,7 +268,10 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         content: Text(
           work.files.length == 1
               ? p.basename(work.files.first.filePath)
-              : '${work.title} · ${work.episodes.length} épisodes',
+              : context.l10n.smart_work_episodes(
+                  work.title,
+                  work.episodes.length,
+                ),
         ),
       ),
     );
@@ -377,13 +376,14 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final segments = <(_SmartLibraryFilter, String, IconData)>[
-      (_SmartLibraryFilter.all, 'Tout', Broken.element_3),
+      (_SmartLibraryFilter.all, l10n.home_tab_all, Broken.element_3),
       if (!isManga) ...[
-        (_SmartLibraryFilter.movies, 'Films', Broken.video),
-        (_SmartLibraryFilter.series, 'Séries', Broken.monitor),
+        (_SmartLibraryFilter.movies, l10n.home_movies, Broken.video),
+        (_SmartLibraryFilter.series, l10n.home_series, Broken.monitor),
       ],
-      (_SmartLibraryFilter.review, 'À vérifier', Broken.warning_2),
+      (_SmartLibraryFilter.review, l10n.smart_to_review, Broken.warning_2),
     ];
     final cs = Theme.of(context).colorScheme;
 
@@ -522,7 +522,9 @@ class _WorkCard extends StatelessWidget {
                           top: 6,
                           left: 6,
                           child: _Pill(
-                            label: '${work.episodeLabel} ép.',
+                            label: context.l10n.media_ep_short(
+                              work.episodeLabel,
+                            ),
                             color: cs.primary,
                           ),
                         ),

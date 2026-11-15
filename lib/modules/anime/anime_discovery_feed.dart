@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 
 import 'package:flutter/material.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -193,10 +194,10 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
     );
   }
 
-  List<ContentItem> _countryItems() {
+  List<ContentItem> _countryItems(AppLocalizations l10n) {
     final usedArtwork = <String>{};
     return [
-      for (final country in animeCountryOptions)
+      for (final country in animeCountryOptions(l10n))
         _countryItem(country, home.allAnimes, usedArtwork),
     ];
   }
@@ -439,7 +440,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
   Widget build(BuildContext context) {
     final genres = _genreChoices();
     final genreItems = genres.map((entry) => entry.item).toList();
-    final countryItems = _countryItems();
+    final countryItems = _countryItems(context.l10n);
     final featuredGenres = genreItems.take(4).toList(growable: false);
     final firstCataloguePage = ref.watch(
       anilistBrowseProvider(_filter(null, page: 1)),

@@ -1526,15 +1526,16 @@ class _DependenciesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 52, 24, 72),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Dépendances',
-              style: TextStyle(
+            Text(
+              l10n.onboarding_dependencies_title,
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 30,
                 fontWeight: FontWeight.w900,
@@ -1543,8 +1544,7 @@ class _DependenciesPage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'L’application garde son APK léger. Les composants optionnels '
-              's’installent après l’installation et peuvent être reportés.',
+              l10n.onboarding_dependencies_body,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.58),
                 fontSize: 15,

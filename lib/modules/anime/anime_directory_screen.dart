@@ -1,49 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
 import 'package:watchtower/modules/home/widgets/category_row.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 enum AnimeDirectoryKind { studios, genres, tags, countries }
 
-const animeCountryOptions = <(String, String)>[
-  ('JP', 'Japon'),
-  ('CN', 'Chine'),
-  ('KR', 'Corée du Sud'),
-  ('TW', 'Taïwan'),
-  ('US', 'États-Unis'),
-  ('FR', 'France'),
-  ('GB', 'Royaume-Uni'),
-  ('DE', 'Allemagne'),
-  ('CA', 'Canada'),
-  ('RU', 'Russie'),
-  ('IT', 'Italie'),
-  ('ES', 'Espagne'),
-  ('SG', 'Singapour'),
-  ('HK', 'Hong Kong'),
-  ('TH', 'Thaïlande'),
-  ('AU', 'Australie'),
-  ('IN', 'Inde'),
-  ('PH', 'Philippines'),
-  ('BR', 'Brésil'),
-  ('MX', 'Mexique'),
-  ('ID', 'Indonésie'),
-  ('VN', 'Vietnam'),
-  ('MY', 'Malaisie'),
-  ('NZ', 'Nouvelle-Zélande'),
-  ('BE', 'Belgique'),
-  ('NL', 'Pays-Bas'),
-  ('PL', 'Pologne'),
-  ('SE', 'Suède'),
-  ('NO', 'Norvège'),
-  ('FI', 'Finlande'),
-  ('IE', 'Irlande'),
-  ('ZA', 'Afrique du Sud'),
-  ('EG', 'Égypte'),
-  ('AR', 'Argentine'),
+const animeCountryCodes = <String>[
+  'JP', 'CN', 'KR', 'TW', 'US', 'FR', 'GB', 'DE', 'CA', 'RU', 'IT', 'ES', 'SG',
+  'HK', 'TH', 'AU', 'IN', 'PH', 'BR', 'MX', 'ID', 'VN', 'MY', 'NZ', 'BE', 'NL',
+  'PL', 'SE', 'NO', 'FI', 'IE', 'ZA', 'EG', 'AR',
 ];
+
+/// Country filter entries with their name in the active language.
+List<(String, String)> animeCountryOptions(AppLocalizations l10n) => [
+  for (final code in animeCountryCodes) (code, animeCountryName(code, l10n)),
+];
+
+String animeCountryName(String code, AppLocalizations l10n) => switch (code) {
+  'JP' => l10n.anime_country_jp,
+  'CN' => l10n.anime_country_cn,
+  'KR' => l10n.anime_country_kr,
+  'TW' => l10n.anime_country_tw,
+  'US' => l10n.anime_country_us,
+  'FR' => l10n.anime_country_fr,
+  'GB' => l10n.anime_country_gb,
+  'DE' => l10n.anime_country_de,
+  'CA' => l10n.anime_country_ca,
+  'RU' => l10n.anime_country_ru,
+  'IT' => l10n.anime_country_it,
+  'ES' => l10n.anime_country_es,
+  'SG' => l10n.anime_country_sg,
+  'HK' => l10n.anime_country_hk,
+  'TH' => l10n.anime_country_th,
+  'AU' => l10n.anime_country_au,
+  'IN' => l10n.anime_country_in,
+  'PH' => l10n.anime_country_ph,
+  'BR' => l10n.anime_country_br,
+  'MX' => l10n.anime_country_mx,
+  'ID' => l10n.anime_country_id,
+  'VN' => l10n.anime_country_vn,
+  'MY' => l10n.anime_country_my,
+  'NZ' => l10n.anime_country_nz,
+  'BE' => l10n.anime_country_be,
+  'NL' => l10n.anime_country_nl,
+  'PL' => l10n.anime_country_pl,
+  'SE' => l10n.anime_country_se,
+  'NO' => l10n.anime_country_no,
+  'FI' => l10n.anime_country_fi,
+  'IE' => l10n.anime_country_ie,
+  'ZA' => l10n.anime_country_za,
+  'EG' => l10n.anime_country_eg,
+  'AR' => l10n.anime_country_ar,
+  _ => code,
+};
 
 /// Returns an official site's favicon as a real brand mark when a studio has
 /// a known public domain. Unmapped studios use a name mark instead.
@@ -82,11 +96,12 @@ class AnimeDirectoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncHome = ref.watch(anilistHomeProvider);
+    final l10n = context.l10n;
     final title = switch (kind) {
-      AnimeDirectoryKind.studios => 'Studios populaires',
-      AnimeDirectoryKind.genres => 'Genres anime',
-      AnimeDirectoryKind.tags => 'Explorer par tags',
-      AnimeDirectoryKind.countries => 'Explorer le monde',
+      AnimeDirectoryKind.studios => l10n.anime_feed_popular_studios,
+      AnimeDirectoryKind.genres => l10n.anime_feed_genres,
+      AnimeDirectoryKind.tags => l10n.anime_feed_explore_tags,
+      AnimeDirectoryKind.countries => l10n.anime_feed_explore_world,
     };
     final columns = kind == AnimeDirectoryKind.tags ? 3 : 2;
 
@@ -100,15 +115,15 @@ class AnimeDirectoryScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'Impossible de charger ce catalogue : $error',
+                context.l10n.anime_directory_load_failed('$error'),
                 textAlign: TextAlign.center,
               ),
             ),
           ),
           data: (home) {
-            final entries = _entries(home);
+            final entries = _entries(home, l10n);
             if (entries.isEmpty) {
-              return const Center(child: Text('Aucun élément disponible.'));
+              return Center(child: Text(context.l10n.anime_directory_empty));
             }
             return GridView.builder(
               padding: EdgeInsets.fromLTRB(
@@ -169,9 +184,9 @@ class AnimeDirectoryScreen extends ConsumerWidget {
     );
   }
 
-  List<_AnimeDirectoryEntry> _entries(AnilistHome home) {
+  List<_AnimeDirectoryEntry> _entries(AnilistHome home, AppLocalizations l10n) {
     if (kind == AnimeDirectoryKind.countries) {
-      return _countryEntries(home);
+      return _countryEntries(home, l10n);
     }
 
     if (kind == AnimeDirectoryKind.studios) {
@@ -233,13 +248,16 @@ class AnimeDirectoryScreen extends ConsumerWidget {
     ];
   }
 
-  List<_AnimeDirectoryEntry> _countryEntries(AnilistHome home) {
+  List<_AnimeDirectoryEntry> _countryEntries(
+    AnilistHome home,
+    AppLocalizations l10n,
+  ) {
     final usedArtwork = <String>{};
     final all = home.allAnimes
         .where((media) => media.bestBackdrop != null || media.bestCover != null)
         .toList(growable: false);
     final entries = <_AnimeDirectoryEntry>[];
-    for (final country in animeCountryOptions) {
+    for (final country in animeCountryOptions(l10n)) {
       final matching = all
           .where((media) => media.countryOfOrigin?.toUpperCase() == country.$1)
           .toList(growable: false);

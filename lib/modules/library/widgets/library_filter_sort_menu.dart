@@ -123,7 +123,7 @@ class _LibraryFilterSortMenuState
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.category,
-          label: l10n.list == 'List' ? 'Grid' : 'Grille',
+          label: isGrid ? l10n.common_grid : l10n.list,
           selected: isGrid,
           onTap: () {
             ref
@@ -651,6 +651,7 @@ class _LibraryFilterSortMenuState
   // ── Level: content rating (no backing metadata yet) ────────────────────────
 
   Widget _buildContentRating(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     Widget disabledCheck(String label) => AdaptiveOverlayItem(
           label: label,
           enabled: false,
@@ -661,21 +662,20 @@ class _LibraryFilterSortMenuState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _backHeader('Classification', () => _go(_Level.filter)),
+        _backHeader(l10n.common_classification, () => _go(_Level.filter)),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
           child: Text(
-            'Bientôt disponible — aucune métadonnée de classification '
-            "n'est encore associée aux entrées de la bibliothèque.",
+            l10n.library_classification_unavailable,
             style: TextStyle(
               fontSize: 11,
               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ),
-        disabledCheck('Safe'),
-        disabledCheck('Suggestive'),
-        disabledCheck('NSFW'),
+        disabledCheck(l10n.library_rating_safe),
+        disabledCheck(l10n.library_rating_suggestive),
+        disabledCheck(l10n.browse_diag_nsfw),
       ],
     );
   }
@@ -683,6 +683,7 @@ class _LibraryFilterSortMenuState
   // ── Level: sources ─────────────────────────────────────────────────────────
 
   Widget _buildSources(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final sources = widget.entries
         .map((m) => m.source)
         .whereType<String>()
@@ -707,7 +708,7 @@ class _LibraryFilterSortMenuState
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 child: Text(
-                  'Aucune source détectée dans cette bibliothèque.',
+                  l10n.library_no_source_detected,
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context)
@@ -733,6 +734,7 @@ class _LibraryFilterSortMenuState
   // ── Level: categories ──────────────────────────────────────────────────────
 
   Widget _buildCategories(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
     final categoriesAsync = ref.watch(
       getMangaCategorieStreamProvider(itemType: widget.itemType),
     );
@@ -755,7 +757,7 @@ class _LibraryFilterSortMenuState
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                         child: Text(
-                          'Aucune catégorie créée.',
+                          l10n.library_no_category_created,
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context)
@@ -793,7 +795,7 @@ class _LibraryFilterSortMenuState
   // ── Small helpers ──────────────────────────────────────────────────────────
 
   Widget _soonBadge(BuildContext context) => Text(
-        'bientôt',
+        l10nLocalizations(context)!.media_soon.toLowerCase(),
         style: TextStyle(
           fontSize: 10,
           fontStyle: FontStyle.italic,

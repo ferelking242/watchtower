@@ -51,6 +51,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Future<_NotificationData> _load({Object? sourceError}) async {
+    final l10n = context.l10n;
     List<Source> sources = const [];
     try {
       sources = await isar.sources.buildQuery<Source>().findAll();
@@ -96,7 +97,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       newExtensions: newExtensions,
       libraryUpdates: libraryUpdates,
       errorMessage: sourceError != null || libraryError != null
-          ? 'Certaines notifications sont momentanément indisponibles.'
+          ? l10n.notifications_partially_unavailable
           : null,
     );
   }
@@ -279,6 +280,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Future<void> _install(Source source) async {
+    final l10n = context.l10n;
     final id = source.id;
     if (id == null) return;
     setState(() => _installing.add(id));
@@ -286,14 +288,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       await installExtensionUpdate(source);
       final installed = await isar.sources.get(id);
       if (installed == null) {
-        throw StateError(
-          'La source installée est introuvable après téléchargement.',
-        );
+        throw StateError(l10n.notifications_source_missing_after_install);
       }
       await LayoutRegistry.instance.load(installed);
       if (installed.uiLayout?.isNotEmpty == true &&
           !LayoutRegistry.instance.has(installed)) {
-        throw StateError('Le layout UI n’a pas été installé.');
+        throw StateError(l10n.notifications_layout_not_installed);
       }
       // The update is applied: drop it from both ledgers so a later version can
       // be announced again.
@@ -306,10 +306,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         itemType: installed.itemType,
       );
       if (!mounted) return;
-      final l10n = context.l10n;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(l10n.notifications_updated_toast(source.name ?? '')),
+          content: Text(
+            context.l10n.notifications_updated_toast(source.name ?? ''),
+          ),
         ),
       );
       setState(() => _future = _load());

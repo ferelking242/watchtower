@@ -22348,6 +22348,318 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Online account management is not enabled in this Watchtower build. You can continue with the local profile and app settings.'**
   String get profile_account_message;
+
+  /// No description provided for @library_classification_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon — no classification metadata is attached to the library entries yet.'**
+  String get library_classification_unavailable;
+
+  /// No description provided for @library_rating_safe.
+  ///
+  /// In en, this message translates to:
+  /// **'Safe'**
+  String get library_rating_safe;
+
+  /// No description provided for @library_rating_suggestive.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestive'**
+  String get library_rating_suggestive;
+
+  /// No description provided for @library_no_source_detected.
+  ///
+  /// In en, this message translates to:
+  /// **'No source detected in this library.'**
+  String get library_no_source_detected;
+
+  /// No description provided for @library_no_category_created.
+  ///
+  /// In en, this message translates to:
+  /// **'No category created.'**
+  String get library_no_category_created;
+
+  /// No description provided for @common_grid.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid'**
+  String get common_grid;
+
+  /// No description provided for @notifications_partially_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Some notifications are temporarily unavailable.'**
+  String get notifications_partially_unavailable;
+
+  /// No description provided for @notifications_source_missing_after_install.
+  ///
+  /// In en, this message translates to:
+  /// **'The installed source could not be found after the download.'**
+  String get notifications_source_missing_after_install;
+
+  /// No description provided for @notifications_layout_not_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'The UI layout was not installed.'**
+  String get notifications_layout_not_installed;
+
+  /// No description provided for @onboarding_dependencies_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Dependencies'**
+  String get onboarding_dependencies_title;
+
+  /// No description provided for @onboarding_dependencies_body.
+  ///
+  /// In en, this message translates to:
+  /// **'The app keeps its APK light. Optional components install after the setup and can be postponed.'**
+  String get onboarding_dependencies_body;
+
+  /// No description provided for @smart_tmdb_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'TMDB metadata is unavailable; AniList is used instead.'**
+  String get smart_tmdb_unavailable;
+
+  /// No description provided for @smart_scanning_storage.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning storage…'**
+  String get smart_scanning_storage;
+
+  /// No description provided for @smart_no_media_indexed.
+  ///
+  /// In en, this message translates to:
+  /// **'No media indexed yet'**
+  String get smart_no_media_indexed;
+
+  /// No description provided for @smart_to_review.
+  ///
+  /// In en, this message translates to:
+  /// **'To review'**
+  String get smart_to_review;
+
+  /// No description provided for @smart_work_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'{title} · {count} episodes'**
+  String smart_work_episodes(Object count, Object title);
+
+  /// No description provided for @anime_country_jp.
+  ///
+  /// In en, this message translates to:
+  /// **'Japan'**
+  String get anime_country_jp;
+
+  /// No description provided for @anime_country_cn.
+  ///
+  /// In en, this message translates to:
+  /// **'China'**
+  String get anime_country_cn;
+
+  /// No description provided for @anime_country_kr.
+  ///
+  /// In en, this message translates to:
+  /// **'South Korea'**
+  String get anime_country_kr;
+
+  /// No description provided for @anime_country_tw.
+  ///
+  /// In en, this message translates to:
+  /// **'Taiwan'**
+  String get anime_country_tw;
+
+  /// No description provided for @anime_country_us.
+  ///
+  /// In en, this message translates to:
+  /// **'United States'**
+  String get anime_country_us;
+
+  /// No description provided for @anime_country_fr.
+  ///
+  /// In en, this message translates to:
+  /// **'France'**
+  String get anime_country_fr;
+
+  /// No description provided for @anime_country_gb.
+  ///
+  /// In en, this message translates to:
+  /// **'United Kingdom'**
+  String get anime_country_gb;
+
+  /// No description provided for @anime_country_de.
+  ///
+  /// In en, this message translates to:
+  /// **'Germany'**
+  String get anime_country_de;
+
+  /// No description provided for @anime_country_ca.
+  ///
+  /// In en, this message translates to:
+  /// **'Canada'**
+  String get anime_country_ca;
+
+  /// No description provided for @anime_country_ru.
+  ///
+  /// In en, this message translates to:
+  /// **'Russia'**
+  String get anime_country_ru;
+
+  /// No description provided for @anime_country_it.
+  ///
+  /// In en, this message translates to:
+  /// **'Italy'**
+  String get anime_country_it;
+
+  /// No description provided for @anime_country_es.
+  ///
+  /// In en, this message translates to:
+  /// **'Spain'**
+  String get anime_country_es;
+
+  /// No description provided for @anime_country_sg.
+  ///
+  /// In en, this message translates to:
+  /// **'Singapore'**
+  String get anime_country_sg;
+
+  /// No description provided for @anime_country_hk.
+  ///
+  /// In en, this message translates to:
+  /// **'Hong Kong'**
+  String get anime_country_hk;
+
+  /// No description provided for @anime_country_th.
+  ///
+  /// In en, this message translates to:
+  /// **'Thailand'**
+  String get anime_country_th;
+
+  /// No description provided for @anime_country_au.
+  ///
+  /// In en, this message translates to:
+  /// **'Australia'**
+  String get anime_country_au;
+
+  /// No description provided for @anime_country_in.
+  ///
+  /// In en, this message translates to:
+  /// **'India'**
+  String get anime_country_in;
+
+  /// No description provided for @anime_country_ph.
+  ///
+  /// In en, this message translates to:
+  /// **'Philippines'**
+  String get anime_country_ph;
+
+  /// No description provided for @anime_country_br.
+  ///
+  /// In en, this message translates to:
+  /// **'Brazil'**
+  String get anime_country_br;
+
+  /// No description provided for @anime_country_mx.
+  ///
+  /// In en, this message translates to:
+  /// **'Mexico'**
+  String get anime_country_mx;
+
+  /// No description provided for @anime_country_id.
+  ///
+  /// In en, this message translates to:
+  /// **'Indonesia'**
+  String get anime_country_id;
+
+  /// No description provided for @anime_country_vn.
+  ///
+  /// In en, this message translates to:
+  /// **'Vietnam'**
+  String get anime_country_vn;
+
+  /// No description provided for @anime_country_my.
+  ///
+  /// In en, this message translates to:
+  /// **'Malaysia'**
+  String get anime_country_my;
+
+  /// No description provided for @anime_country_nz.
+  ///
+  /// In en, this message translates to:
+  /// **'New Zealand'**
+  String get anime_country_nz;
+
+  /// No description provided for @anime_country_be.
+  ///
+  /// In en, this message translates to:
+  /// **'Belgium'**
+  String get anime_country_be;
+
+  /// No description provided for @anime_country_nl.
+  ///
+  /// In en, this message translates to:
+  /// **'Netherlands'**
+  String get anime_country_nl;
+
+  /// No description provided for @anime_country_pl.
+  ///
+  /// In en, this message translates to:
+  /// **'Poland'**
+  String get anime_country_pl;
+
+  /// No description provided for @anime_country_se.
+  ///
+  /// In en, this message translates to:
+  /// **'Sweden'**
+  String get anime_country_se;
+
+  /// No description provided for @anime_country_no.
+  ///
+  /// In en, this message translates to:
+  /// **'Norway'**
+  String get anime_country_no;
+
+  /// No description provided for @anime_country_fi.
+  ///
+  /// In en, this message translates to:
+  /// **'Finland'**
+  String get anime_country_fi;
+
+  /// No description provided for @anime_country_ie.
+  ///
+  /// In en, this message translates to:
+  /// **'Ireland'**
+  String get anime_country_ie;
+
+  /// No description provided for @anime_country_za.
+  ///
+  /// In en, this message translates to:
+  /// **'South Africa'**
+  String get anime_country_za;
+
+  /// No description provided for @anime_country_eg.
+  ///
+  /// In en, this message translates to:
+  /// **'Egypt'**
+  String get anime_country_eg;
+
+  /// No description provided for @anime_country_ar.
+  ///
+  /// In en, this message translates to:
+  /// **'Argentina'**
+  String get anime_country_ar;
+
+  /// No description provided for @anime_directory_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load this catalogue: {error}'**
+  String anime_directory_load_failed(Object error);
+
+  /// No description provided for @anime_directory_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing available.'**
+  String get anime_directory_empty;
 }
 
 class _AppLocalizationsDelegate
