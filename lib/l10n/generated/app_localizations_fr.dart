@@ -12221,4 +12221,57 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get schedule_empty => 'Aucune sortie ce mois-ci';
+
+  @override
+  String get nav_merge_library_enabled =>
+      'Fusion de la bibliothèque activée → bibliothèques regroupées';
+
+  @override
+  String get nav_merge_library_disabled =>
+      'Fusion de la bibliothèque désactivée → bibliothèques séparées';
+
+  @override
+  String get nav_fast => 'Rapide';
+
+  @override
+  String get tmdb_cast_and_crew => 'Distribution et équipe';
+
+  @override
+  String get tmdb_crew => 'Équipe';
+
+  @override
+  String get tmdb_about => 'À propos';
+
+  @override
+  String get tmdb_no_description => 'Aucune description disponible.';
+
+  @override
+  String get tmdb_author => 'Auteur';
+
+  @override
+  String get tmdb_artist => 'Dessinateur';
+
+  @override
+  String get tmdb_tags => 'Tags';
+
+  @override
+  String get tmdb_biography => 'Biographie';
+
+  @override
+  String get tmdb_images => 'Images';
+
+  @override
+  String get tmdb_social_links => 'Réseaux sociaux';
+
+  @override
+  String get tmdb_x => 'X';
+
+  @override
+  String get tmdb_website => 'Site web';
+
+  @override
+  String get tmdb_no_link => 'Aucun lien disponible.';
+
+  @override
+  String get tmdb_no_info => 'Aucune information disponible.';
 }

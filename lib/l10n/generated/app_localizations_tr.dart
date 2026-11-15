@@ -12081,4 +12081,57 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get schedule_empty => 'No release this month';
+
+  @override
+  String get nav_merge_library_enabled =>
+      'Merge library enabled → libraries grouped together';
+
+  @override
+  String get nav_merge_library_disabled =>
+      'Merge library disabled → libraries separated';
+
+  @override
+  String get nav_fast => 'Fast';
+
+  @override
+  String get tmdb_cast_and_crew => 'Cast and crew';
+
+  @override
+  String get tmdb_crew => 'Crew';
+
+  @override
+  String get tmdb_about => 'About';
+
+  @override
+  String get tmdb_no_description => 'No description available.';
+
+  @override
+  String get tmdb_author => 'Author';
+
+  @override
+  String get tmdb_artist => 'Artist';
+
+  @override
+  String get tmdb_tags => 'Tags';
+
+  @override
+  String get tmdb_biography => 'Biography';
+
+  @override
+  String get tmdb_images => 'Images';
+
+  @override
+  String get tmdb_social_links => 'Social media links';
+
+  @override
+  String get tmdb_x => 'X';
+
+  @override
+  String get tmdb_website => 'Website';
+
+  @override
+  String get tmdb_no_link => 'No link available.';
+
+  @override
+  String get tmdb_no_info => 'No information available.';
 }

@@ -21586,6 +21586,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No release this month'**
   String get schedule_empty;
+
+  /// No description provided for @nav_merge_library_enabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge library enabled → libraries grouped together'**
+  String get nav_merge_library_enabled;
+
+  /// No description provided for @nav_merge_library_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge library disabled → libraries separated'**
+  String get nav_merge_library_disabled;
+
+  /// No description provided for @nav_fast.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast'**
+  String get nav_fast;
+
+  /// No description provided for @tmdb_cast_and_crew.
+  ///
+  /// In en, this message translates to:
+  /// **'Cast and crew'**
+  String get tmdb_cast_and_crew;
+
+  /// No description provided for @tmdb_crew.
+  ///
+  /// In en, this message translates to:
+  /// **'Crew'**
+  String get tmdb_crew;
+
+  /// No description provided for @tmdb_about.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get tmdb_about;
+
+  /// No description provided for @tmdb_no_description.
+  ///
+  /// In en, this message translates to:
+  /// **'No description available.'**
+  String get tmdb_no_description;
+
+  /// No description provided for @tmdb_author.
+  ///
+  /// In en, this message translates to:
+  /// **'Author'**
+  String get tmdb_author;
+
+  /// No description provided for @tmdb_artist.
+  ///
+  /// In en, this message translates to:
+  /// **'Artist'**
+  String get tmdb_artist;
+
+  /// No description provided for @tmdb_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get tmdb_tags;
+
+  /// No description provided for @tmdb_biography.
+  ///
+  /// In en, this message translates to:
+  /// **'Biography'**
+  String get tmdb_biography;
+
+  /// No description provided for @tmdb_images.
+  ///
+  /// In en, this message translates to:
+  /// **'Images'**
+  String get tmdb_images;
+
+  /// No description provided for @tmdb_social_links.
+  ///
+  /// In en, this message translates to:
+  /// **'Social media links'**
+  String get tmdb_social_links;
+
+  /// No description provided for @tmdb_x.
+  ///
+  /// In en, this message translates to:
+  /// **'X'**
+  String get tmdb_x;
+
+  /// No description provided for @tmdb_website.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get tmdb_website;
+
+  /// No description provided for @tmdb_no_link.
+  ///
+  /// In en, this message translates to:
+  /// **'No link available.'**
+  String get tmdb_no_link;
+
+  /// No description provided for @tmdb_no_info.
+  ///
+  /// In en, this message translates to:
+  /// **'No information available.'**
+  String get tmdb_no_info;
 }
 
 class _AppLocalizationsDelegate

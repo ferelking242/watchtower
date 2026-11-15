@@ -77,14 +77,14 @@ class _TmdbCastCrewScreenState extends State<TmdbCastCrewScreen> {
                   child: Row(
                     children: [
                       IconButton(
-                        tooltip: 'Retour',
+                        tooltip: context.l10n.catalog_back,
                         onPressed: () => context.pop(),
                         icon: const Icon(Broken.arrow_left, color: Colors.white),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Cast And Crew',
-                        style: TextStyle(
+                      Text(
+                        context.l10n.tmdb_cast_and_crew,
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 21,
                           fontWeight: FontWeight.w800,
@@ -141,13 +141,13 @@ class _CastCrewSwitcher extends StatelessWidget {
           _CastCrewTab(
             selected: index == 0,
             icon: Icons.people_outline_rounded,
-            label: 'Cast',
+            label: context.l10n.media_cast,
             onTap: () => onChanged(0),
           ),
           _CastCrewTab(
             selected: index == 1,
             icon: Icons.handyman_outlined,
-            label: 'Crew',
+            label: context.l10n.tmdb_crew,
             onTap: () => onChanged(1),
           ),
         ],
@@ -712,20 +712,24 @@ class _ExtensionPersonAbout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _PeopleSectionTitle(title: 'About'),
+        _PeopleSectionTitle(title: context.l10n.tmdb_about),
         const SizedBox(height: 10),
         Text(
-          description?.isNotEmpty == true ? description! : 'Aucune description disponible.',
+          description?.isNotEmpty == true
+              ? description!
+              : context.l10n.tmdb_no_description,
           style: const TextStyle(color: Colors.white70, height: 1.55),
         ),
         if ((author?.isNotEmpty == true) || (artist?.isNotEmpty == true)) ...[
           const SizedBox(height: 20),
-          if (author?.isNotEmpty == true) _ExtensionInfoLine(label: 'Author', value: author!),
-          if (artist?.isNotEmpty == true) _ExtensionInfoLine(label: 'Artist', value: artist!),
+          if (author?.isNotEmpty == true)
+            _ExtensionInfoLine(label: context.l10n.tmdb_author, value: author!),
+          if (artist?.isNotEmpty == true)
+            _ExtensionInfoLine(label: context.l10n.tmdb_artist, value: artist!),
         ],
         if (genres.isNotEmpty) ...[
           const SizedBox(height: 20),
-          const _PeopleSectionTitle(title: 'Tags'),
+          _PeopleSectionTitle(title: context.l10n.tmdb_tags),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -1687,14 +1691,14 @@ class _PersonAboutTab extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _PeopleSectionTitle(title: 'Biography'),
+        _PeopleSectionTitle(title: context.l10n.tmdb_biography),
         const SizedBox(height: 10),
         _ExpandableBiography(text: person.biography),
         const SizedBox(height: 25),
         _PersonInfoGrid(person: person),
         const SizedBox(height: 25),
         if (images.isNotEmpty) ...[
-          const _PeopleSectionTitle(title: 'Images'),
+          _PeopleSectionTitle(title: context.l10n.tmdb_images),
           const SizedBox(height: 10),
           SizedBox(
             height: 170,
@@ -1707,7 +1711,7 @@ class _PersonAboutTab extends StatelessWidget {
           ),
           const SizedBox(height: 25),
         ],
-        const _PeopleSectionTitle(title: 'Social media links'),
+        _PeopleSectionTitle(title: context.l10n.tmdb_social_links),
         const SizedBox(height: 11),
         _PersonSocialLinks(person: person),
       ],
@@ -1939,7 +1943,7 @@ class _PersonSocialLinks extends StatelessWidget {
         ),
       if (person.twitterId?.isNotEmpty == true)
         _PersonSocialLink(
-          label: 'X',
+          label: context.l10n.tmdb_x,
           icon: Broken.global,
           url: 'https://x.com/${person.twitterId}',
         ),
@@ -1950,10 +1954,17 @@ class _PersonSocialLinks extends StatelessWidget {
           url: 'https://www.imdb.com/name/${person.imdbId}',
         ),
       if (person.homepage?.isNotEmpty == true)
-        _PersonSocialLink(label: 'Website', icon: Broken.link, url: person.homepage!),
+        _PersonSocialLink(
+          label: context.l10n.tmdb_website,
+          icon: Broken.link,
+          url: person.homepage!,
+        ),
     ];
     if (links.isEmpty) {
-      return const Text('Aucun lien disponible.', style: TextStyle(color: Colors.white54));
+      return Text(
+        context.l10n.tmdb_no_link,
+        style: const TextStyle(color: Colors.white54),
+      );
     }
     return Wrap(
       spacing: 9,
@@ -2272,7 +2283,10 @@ class _PeopleEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text('Aucune information disponible.', style: TextStyle(color: Colors.white54));
+    return Text(
+      context.l10n.tmdb_no_info,
+      style: const TextStyle(color: Colors.white54),
+    );
   }
 }
 

@@ -3574,5 +3574,22 @@
   "schedule_mark_watched": "Mark the watched episodes",
   "schedule_disable_transitions": "Disable the image transitions",
   "schedule_error": "Error: {error}",
-  "schedule_empty": "No release this month"
+  "schedule_empty": "No release this month",
+  "nav_merge_library_enabled": "Merge library enabled → libraries grouped together",
+  "nav_merge_library_disabled": "Merge library disabled → libraries separated",
+  "nav_fast": "Fast",
+  "tmdb_cast_and_crew": "Cast and crew",
+  "tmdb_crew": "Crew",
+  "tmdb_about": "About",
+  "tmdb_no_description": "No description available.",
+  "tmdb_author": "Author",
+  "tmdb_artist": "Artist",
+  "tmdb_tags": "Tags",
+  "tmdb_biography": "Biography",
+  "tmdb_images": "Images",
+  "tmdb_social_links": "Social media links",
+  "tmdb_x": "X",
+  "tmdb_website": "Website",
+  "tmdb_no_link": "No link available.",
+  "tmdb_no_info": "No information available."
 }

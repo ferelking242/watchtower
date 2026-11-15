@@ -36,15 +36,15 @@ class CustomNavigationSettings extends ConsumerWidget {
           children: [
             // ── Hub toggle ─────────────────────────────────────────────────
             Tooltip(
-              message: 'When ON: Manga/Watch/Novel are hidden behind a single Hub button on the dock.',
+              message: l10n.nav_hub_tooltip,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
                 child: SwitchListTile(
                   value: mergeHubNavMobile,
-                  title: const Text('Hub navigation on mobile'),
-                  subtitle: const Text(
-                    'Regroupe Manga · Watch · Novel sous un bouton Hub',
-                    style: TextStyle(fontSize: 12),
+                  title: Text(l10n.nav_hub_title),
+                  subtitle: Text(
+                    l10n.nav_hub_subtitle,
+                    style: const TextStyle(fontSize: 12),
                   ),
                   secondary: const Icon(Broken.category_2),
                   onChanged: (value) {
@@ -62,9 +62,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                           .set(updated);
                     }
                     botToast(
-                      value
-                          ? 'Hub enabled → Manga, Watch & Novel are now behind the Hub button'
-                          : 'Hub disabled → Manga, Watch & Novel appear separately on the dock',
+                      value ? l10n.nav_hub_enabled : l10n.nav_hub_disabled,
                     );
                   },
                 ),
@@ -73,15 +71,15 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             // ── Library toggle ─────────────────────────────────────────────
             Tooltip(
-              message: 'When ON: a unified Library tab appears on the dock (all types in one page).',
+              message: l10n.nav_merge_library_tooltip,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 4),
                 child: SwitchListTile(
                   value: mergeLibraryDock,
-                  title: const Text('Merge librairie'),
-                  subtitle: const Text(
-                    'Regroupe toutes les bibliothèques dans un seul onglet',
-                    style: TextStyle(fontSize: 12),
+                  title: Text(l10n.nav_merge_library_title),
+                  subtitle: Text(
+                    l10n.nav_merge_library_subtitle,
+                    style: const TextStyle(fontSize: 12),
                   ),
                   secondary: const Icon(Broken.book_saved),
                   onChanged: (value) {
@@ -100,8 +98,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                     }
                     botToast(
                       value
-                          ? 'Merge librairie activé → bibliothèques regroupées'
-                          : 'Merge librairie désactivé → bibliothèques séparées',
+                          ? l10n.nav_merge_library_enabled
+                          : l10n.nav_merge_library_disabled,
                     );
                   },
                 ),
@@ -111,11 +109,14 @@ class CustomNavigationSettings extends ConsumerWidget {
             const Divider(height: 16),
 
             // ── Éléments du dock — grille 3 par ligne ────────────────────
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Text(
-                'Éléments du dock',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                l10n.nav_dock_items,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             Padding(
@@ -154,8 +155,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                                 .set(temp);
                             botToast(
                               isVisible
-                                  ? '$label masqué du dock'
-                                  : '$label visible sur le dock',
+                                  ? l10n.nav_item_hidden(label)
+                                  : l10n.nav_item_shown(label),
                             );
                           },
                     child: AnimatedContainer(
@@ -237,7 +238,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                           color: colorScheme.primary, size: 18),
                       const SizedBox(width: 8),
                       Text(
-                        'Dock style',
+                        l10n.nav_dock_style,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -251,7 +252,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      'Mobile',
+                      l10n.nav_dock_mobile,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -263,24 +264,26 @@ class CustomNavigationSettings extends ConsumerWidget {
                   Row(
                     children: [
                       _DockPreviewCard(
-                        label: 'Classic',
-                        description: 'Full-width bar',
+                        label: l10n.nav_dock_classic,
+                        description: l10n.nav_dock_classic_desc,
                         isSelected: dockStyle == 'classic',
                         child: _ClassicDockPreview(cs: colorScheme),
                         onTap: () {
                           ref.read(navDockStyleProvider.notifier).set('classic');
-                          botToast('Dock style: Classic full-width bar');
+                          botToast(l10n.nav_dock_classic_set);
                         },
                       ),
                       const SizedBox(width: 10),
                       _DockPreviewCard(
-                        label: 'Immersive',
-                        description: 'Glass overlay',
+                        label: l10n.nav_dock_immersive,
+                        description: l10n.nav_dock_immersive_desc,
                         isSelected: dockStyle == 'immersive',
                         child: _ImmersiveDockPreview(cs: colorScheme),
                         onTap: () {
-                          ref.read(navDockStyleProvider.notifier).set('immersive');
-                          botToast('Dock style: Immersive glass dock');
+                          ref
+                              .read(navDockStyleProvider.notifier)
+                              .set('immersive');
+                          botToast(l10n.nav_dock_immersive_set);
                         },
                       ),
                     ],
@@ -290,7 +293,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Text(
-                      'PC / Tablet',
+                      l10n.nav_dock_pc_tablet,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -302,24 +305,28 @@ class CustomNavigationSettings extends ConsumerWidget {
                   Row(
                     children: [
                       _DockPreviewCard(
-                        label: 'Immersive',
-                        description: 'Glass overlay',
+                        label: l10n.nav_dock_immersive,
+                        description: l10n.nav_dock_immersive_desc,
                         isSelected: dockStyle == 'immersive',
                         child: _ImmersiveDockPreview(cs: colorScheme),
                         onTap: () {
-                          ref.read(navDockStyleProvider.notifier).set('immersive');
-                          botToast('Dock style: Immersive glass dock');
+                          ref
+                              .read(navDockStyleProvider.notifier)
+                              .set('immersive');
+                          botToast(l10n.nav_dock_immersive_set);
                         },
                       ),
                       const SizedBox(width: 10),
                       _DockPreviewCard(
-                        label: 'PC Sidebar',
-                        description: 'Barre latérale',
+                        label: l10n.nav_dock_pc_sidebar,
+                        description: l10n.nav_dock_pc_sidebar_desc,
                         isSelected: dockStyle == 'pc_sidebar',
                         child: _PcSidebarPreview(cs: colorScheme),
                         onTap: () {
-                          ref.read(navDockStyleProvider.notifier).set('pc_sidebar');
-                          botToast('PC Sidebar — navigation en barre latérale');
+                          ref
+                              .read(navDockStyleProvider.notifier)
+                              .set('pc_sidebar');
+                          botToast(l10n.nav_dock_pc_sidebar_set);
                         },
                       ),
                     ],
@@ -330,15 +337,14 @@ class CustomNavigationSettings extends ConsumerWidget {
                   Row(
                     children: [
                       Tooltip(
-                        message:
-                            'Which side the PC / TV navigation bar sits on.',
+                        message: l10n.nav_sidebar_side_tooltip,
                         child: const Icon(Broken.element_3, size: 18),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Sidebar side',
-                          style: TextStyle(fontSize: 13),
+                          l10n.nav_sidebar_side,
+                          style: const TextStyle(fontSize: 13),
                         ),
                       ),
                       SegmentedButton<String>(
@@ -346,22 +352,22 @@ class CustomNavigationSettings extends ConsumerWidget {
                         style: const ButtonStyle(
                           visualDensity: VisualDensity.compact,
                         ),
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: 'left',
                             label: Text(
-                              'Gauche',
-                              style: TextStyle(fontSize: 11),
+                              l10n.nav_left,
+                              style: const TextStyle(fontSize: 11),
                             ),
-                            icon: Icon(Broken.arrow_left_2, size: 15),
+                            icon: const Icon(Broken.arrow_left_2, size: 15),
                           ),
                           ButtonSegment(
                             value: 'right',
                             label: Text(
-                              'Droite',
-                              style: TextStyle(fontSize: 11),
+                              l10n.nav_right,
+                              style: const TextStyle(fontSize: 11),
                             ),
-                            icon: Icon(Broken.arrow_right_3, size: 15),
+                            icon: const Icon(Broken.arrow_right_3, size: 15),
                           ),
                         ],
                         selected: {sidebarPosition},
@@ -371,8 +377,8 @@ class CustomNavigationSettings extends ConsumerWidget {
                               .set(s.first);
                           botToast(
                             s.first == 'right'
-                                ? 'Sidebar à droite'
-                                : 'Sidebar à gauche',
+                                ? l10n.nav_sidebar_right
+                                : l10n.nav_sidebar_left,
                           );
                         },
                       ),
@@ -392,7 +398,7 @@ class CustomNavigationSettings extends ConsumerWidget {
                   Icon(Broken.setting_4, color: colorScheme.primary, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Advanced Customisation',
+                    l10n.nav_advanced_customisation,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -407,8 +413,8 @@ class CustomNavigationSettings extends ConsumerWidget {
             // Icon size
             _SettingSliderTile(
               icon: Broken.maximize_2,
-              label: 'Icon size',
-              tooltip: 'Changes the size of dock icons. Affects all dock items.',
+              label: l10n.nav_icon_size,
+              tooltip: l10n.nav_icon_size_tooltip,
               value: iconSize,
               min: 16,
               max: 36,
@@ -422,9 +428,8 @@ class CustomNavigationSettings extends ConsumerWidget {
             // Item spacing
             _SettingSliderTile(
               icon: Broken.slider_horizontal,
-              label: 'Item spacing',
-              tooltip:
-                  'Controls horizontal gap between each dock item. 0 = no gap, 16 = wide gap.',
+              label: l10n.nav_item_spacing,
+              tooltip: l10n.nav_item_spacing_tooltip,
               value: itemSpacing,
               min: 0,
               max: 16,
@@ -442,38 +447,38 @@ class CustomNavigationSettings extends ConsumerWidget {
               child: Row(
                 children: [
                   Tooltip(
-                    message:
-                        'Controls the speed of dock transitions and selection animations.',
+                    message: l10n.nav_anim_speed_tooltip,
                     child: const Icon(Broken.arrow_swap, size: 18),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text('Animation speed',
-                        style: TextStyle(fontSize: 13)),
+                  Expanded(
+                    child: Text(l10n.nav_anim_speed,
+                        style: const TextStyle(fontSize: 13)),
                   ),
                   SegmentedButton<int>(
                     showSelectedIcon: false,
                     style: const ButtonStyle(
                       visualDensity: VisualDensity.compact,
                     ),
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                           value: 0,
-                          label: Text('Off', style: TextStyle(fontSize: 11))),
+                          label: Text(l10n.off,
+                              style: const TextStyle(fontSize: 11))),
                       ButtonSegment(
                           value: 1,
-                          label:
-                              Text('Normal', style: TextStyle(fontSize: 11))),
+                          label: Text(l10n.nav_normal,
+                              style: const TextStyle(fontSize: 11))),
                       ButtonSegment(
                           value: 2,
-                          label: Text('Fast', style: TextStyle(fontSize: 11))),
+                          label: Text(l10n.nav_fast,
+                              style: const TextStyle(fontSize: 11))),
                     ],
                     selected: {animSpeed},
                     onSelectionChanged: (s) {
                       ref.read(navAnimSpeedProvider.notifier).set(s.first);
-                      const labels = ['Off', 'Normal', 'Fast'];
-                      botToast(
-                          'Animation speed set to ${labels[s.first]}');
+                      final labels = [l10n.off, l10n.nav_normal, l10n.nav_fast];
+                      botToast(l10n.nav_anim_speed_set(labels[s.first]));
                     },
                   ),
                 ],
@@ -482,8 +487,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             // Show labels
             Tooltip(
-              message:
-                  'When ON, text labels appear below each dock icon. When OFF, icons only.',
+              message: l10n.nav_show_labels_tooltip,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: SwitchListTile(
@@ -491,14 +495,14 @@ class CustomNavigationSettings extends ConsumerWidget {
                       const EdgeInsets.symmetric(horizontal: 12),
                   dense: true,
                   secondary: const Icon(Broken.tag, size: 18),
-                  title: const Text('Show labels',
-                      style: TextStyle(fontSize: 13)),
+                  title: Text(l10n.nav_show_labels,
+                      style: const TextStyle(fontSize: 13)),
                   value: showLabels,
                   onChanged: (v) {
                     ref.read(navShowLabelsProvider.notifier).set(v);
-                    botToast(v
-                        ? 'Labels visible → text shown below each dock icon'
-                        : 'Labels hidden → icon only mode');
+                    botToast(
+                      v ? l10n.nav_labels_visible : l10n.nav_labels_hidden,
+                    );
                   },
                 ),
               ),
@@ -506,8 +510,7 @@ class CustomNavigationSettings extends ConsumerWidget {
 
             // Haptic feedback
             Tooltip(
-              message:
-                  'When ON, the phone vibrates slightly when you switch dock tabs.',
+              message: l10n.nav_haptic_tooltip,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: SwitchListTile(
@@ -515,14 +518,14 @@ class CustomNavigationSettings extends ConsumerWidget {
                       const EdgeInsets.symmetric(horizontal: 12),
                   dense: true,
                   secondary: const Icon(Broken.mobile, size: 18),
-                  title: const Text('Haptic feedback',
-                      style: TextStyle(fontSize: 13)),
+                  title: Text(l10n.nav_haptic,
+                      style: const TextStyle(fontSize: 13)),
                   value: haptic,
                   onChanged: (v) {
                     ref.read(navHapticProvider.notifier).set(v);
-                    botToast(v
-                        ? 'Haptic feedback enabled → subtle vibration on tab change'
-                        : 'Haptic feedback disabled');
+                    botToast(
+                      v ? l10n.nav_haptic_enabled : l10n.nav_haptic_disabled,
+                    );
                   },
                 ),
               ),

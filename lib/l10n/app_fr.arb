@@ -3663,5 +3663,22 @@
   "schedule_mark_watched": "Indiquer les épisodes vus",
   "schedule_disable_transitions": "Désactiver les transitions d'image",
   "schedule_error": "Erreur : {error}",
-  "schedule_empty": "Aucune sortie ce mois-ci"
+  "schedule_empty": "Aucune sortie ce mois-ci",
+  "nav_merge_library_enabled": "Fusion de la bibliothèque activée → bibliothèques regroupées",
+  "nav_merge_library_disabled": "Fusion de la bibliothèque désactivée → bibliothèques séparées",
+  "nav_fast": "Rapide",
+  "tmdb_cast_and_crew": "Distribution et équipe",
+  "tmdb_crew": "Équipe",
+  "tmdb_about": "À propos",
+  "tmdb_no_description": "Aucune description disponible.",
+  "tmdb_author": "Auteur",
+  "tmdb_artist": "Dessinateur",
+  "tmdb_tags": "Tags",
+  "tmdb_biography": "Biographie",
+  "tmdb_images": "Images",
+  "tmdb_social_links": "Réseaux sociaux",
+  "tmdb_x": "X",
+  "tmdb_website": "Site web",
+  "tmdb_no_link": "Aucun lien disponible.",
+  "tmdb_no_info": "Aucune information disponible."
 }
