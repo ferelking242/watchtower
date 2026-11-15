@@ -437,7 +437,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                   FontAwesomeIcons.github,
                                   size: 18,
                                 ),
-                                label: 'GitHub',
+                                label: l10n.about_link_github,
                                 cs: cs,
                                 isDark: isDark,
                                 onTap: () => _launchInBrowser(
@@ -452,7 +452,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                   FontAwesomeIcons.discord,
                                   size: 18,
                                 ),
-                                label: 'Discord',
+                                label: l10n.about_link_discord,
                                 cs: cs,
                                 isDark: isDark,
                                 onTap: () => _launchInBrowser(
@@ -467,7 +467,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                   Icons.email_outlined,
                                   size: 18,
                                 ),
-                                label: 'Email',
+                                label: l10n.about_link_email,
                                 cs: cs,
                                 isDark: isDark,
                                 onTap: () => _launchInBrowser(
@@ -870,11 +870,13 @@ class _Aria2Card extends StatelessWidget {
               _Aria2Feature(
                   icon: Icons.pause_circle_outline,
                   label: l10n.about_feature_resume),
-              const _Aria2Feature(icon: Icons.link_outlined, label: 'HTTP / FTP'),
-              const _Aria2Feature(
-                  icon: Icons.share_outlined, label: 'BitTorrent'),
-              const _Aria2Feature(
-                  icon: Icons.cloud_download_outlined, label: 'Magnet'),
+              _Aria2Feature(
+                  icon: Icons.link_outlined, label: l10n.about_feature_http_ftp),
+              _Aria2Feature(
+                  icon: Icons.share_outlined, label: l10n.about_feature_bittorrent),
+              _Aria2Feature(
+                  icon: Icons.cloud_download_outlined,
+                  label: l10n.about_feature_magnet),
               _Aria2Feature(
                   icon: Icons.code_outlined, label: l10n.about_feature_open_source),
             ],

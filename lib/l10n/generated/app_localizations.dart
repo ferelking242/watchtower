@@ -21688,6 +21688,216 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No information available.'**
   String get tmdb_no_info;
+
+  /// No description provided for @similar_best_matches.
+  ///
+  /// In en, this message translates to:
+  /// **'Best matches'**
+  String get similar_best_matches;
+
+  /// No description provided for @similar_sort_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Title (A-Z)'**
+  String get similar_sort_title;
+
+  /// No description provided for @similar_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load similar titles.'**
+  String get similar_load_failed;
+
+  /// No description provided for @manage_categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage categories'**
+  String get manage_categories;
+
+  /// No description provided for @library_entries_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} entries'**
+  String library_entries_count(Object count);
+
+  /// No description provided for @library_reading_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} reading'**
+  String library_reading_count(Object count);
+
+  /// No description provided for @theme_system.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get theme_system;
+
+  /// No description provided for @torrent_address.
+  ///
+  /// In en, this message translates to:
+  /// **'TorrServer address'**
+  String get torrent_address;
+
+  /// No description provided for @torrent_streaming.
+  ///
+  /// In en, this message translates to:
+  /// **'Streaming'**
+  String get torrent_streaming;
+
+  /// No description provided for @smart_scan_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan failed: {error}'**
+  String smart_scan_failed(Object error);
+
+  /// No description provided for @smart_index_unreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unreadable index: {error}'**
+  String smart_index_unreadable(Object error);
+
+  /// No description provided for @smart_search_changes.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for changes'**
+  String get smart_search_changes;
+
+  /// No description provided for @smart_verify_storage.
+  ///
+  /// In en, this message translates to:
+  /// **'Check all storage'**
+  String get smart_verify_storage;
+
+  /// No description provided for @update_install_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Install now'**
+  String get update_install_now;
+
+  /// No description provided for @update_close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get update_close;
+
+  /// No description provided for @update_continue_background.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue in background'**
+  String get update_continue_background;
+
+  /// No description provided for @update_cancel_download.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel download'**
+  String get update_cancel_download;
+
+  /// No description provided for @update_not_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get update_not_now;
+
+  /// No description provided for @discover_change_extension.
+  ///
+  /// In en, this message translates to:
+  /// **'Change extension'**
+  String get discover_change_extension;
+
+  /// No description provided for @about_link_github.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub'**
+  String get about_link_github;
+
+  /// No description provided for @about_link_discord.
+  ///
+  /// In en, this message translates to:
+  /// **'Discord'**
+  String get about_link_discord;
+
+  /// No description provided for @about_link_email.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get about_link_email;
+
+  /// No description provided for @about_feature_http_ftp.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP / FTP'**
+  String get about_feature_http_ftp;
+
+  /// No description provided for @about_feature_bittorrent.
+  ///
+  /// In en, this message translates to:
+  /// **'BitTorrent'**
+  String get about_feature_bittorrent;
+
+  /// No description provided for @about_feature_magnet.
+  ///
+  /// In en, this message translates to:
+  /// **'Magnet'**
+  String get about_feature_magnet;
+
+  /// No description provided for @silent_install_active_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic install active'**
+  String get silent_install_active_title;
+
+  /// No description provided for @silent_install_active_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup is already complete.\n\nWatchtower updates install automatically in the background.'**
+  String get silent_install_active_body;
+
+  /// No description provided for @silent_install_shizuku_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Shizuku required'**
+  String get silent_install_shizuku_title;
+
+  /// No description provided for @silent_install_shizuku_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Shizuku is not running.\n\n1. Install Shizuku from the Play Store.\n2. Enable it via wireless debugging (ADB).\n3. Come back here and tap again.'**
+  String get silent_install_shizuku_body;
+
+  /// No description provided for @silent_install_setup_title.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time setup'**
+  String get silent_install_setup_title;
+
+  /// No description provided for @silent_install_setup_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Watchtower will ask Shizuku for permission to install packages.\n\nThis step is only needed once.'**
+  String get silent_install_setup_body;
+
+  /// No description provided for @silent_install_continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get silent_install_continue;
+
+  /// No description provided for @silent_install_enabled_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic install enabled'**
+  String get silent_install_enabled_title;
+
+  /// No description provided for @silent_install_enabled_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Done! Future Watchtower updates will install automatically in the background.\n\nShizuku is no longer needed.'**
+  String get silent_install_enabled_body;
+
+  /// No description provided for @silent_install_understood.
+  ///
+  /// In en, this message translates to:
+  /// **'Got it'**
+  String get silent_install_understood;
 }
 
 class _AppLocalizationsDelegate

@@ -38,6 +38,16 @@ const navigationItems = <String, String>{
   "/browse": "browse",
   "/more": "more",
   "/trackerLibrary": "tracking",
+  "/MoviesLibrary": "movies",
+  "/SeriesLibrary": "series",
+  "/discover": "discover",
+  "/schedule": "schedule",
+  "/marketplace": "marketplace",
+  "/statistics": "statistics",
+  "/downloadQueue": "download_queue",
+  "/settings": "settings",
+  "/componentGallery": "component_gallery",
+  "_enableLibSwitch": "hub",
 };
 
 String navigationItemLabel(AppLocalizations l10n, String route) {
@@ -54,6 +64,16 @@ String navigationItemLabel(AppLocalizations l10n, String route) {
     'browse' => l10n.browse,
     'more' => l10n.more,
     'tracking' => l10n.tracking,
+    'movies' => l10n.nav_movies,
+    'series' => l10n.nav_series,
+    'discover' => l10n.nav_search,
+    'schedule' => l10n.nav_schedule,
+    'marketplace' => l10n.nav_marketplace,
+    'statistics' => l10n.statistics,
+    'download_queue' => l10n.download_queue,
+    'settings' => l10n.settings,
+    'component_gallery' => l10n.watch_home_component_gallery,
+    'hub' => l10n.nav_hub,
     _ => route,
   };
 }

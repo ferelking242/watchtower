@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart'
+    show navigationItemLabel;
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
     show
         pendingUpdateBanner,
@@ -89,18 +92,6 @@ const kWtStaticRoutes = [
   '/settings',
 ];
 
-// French label overrides — used when device/app locale is 'fr'.
-const _kFrLabels = <String, String>{
-  '/discover': 'Recherche',
-  '/browse': 'Explorer',
-  '/schedule': 'Planning',
-  '/updates': 'Nouveautés',
-  '/statistics': 'Statistiques',
-  '/history': 'Historique',
-  '/marketplace': 'Marché',
-  '/downloadQueue': 'Téléchargements',
-  '/settings': 'Paramètres',
-};
 
 // ── Visual constants (Seanime-style solid dark boxes) ─────────────────────────
 
@@ -173,15 +164,12 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
   }
 
   List<_MenuItem> _buildItems(BuildContext context) {
-    final isFr = Localizations.localeOf(context).languageCode == 'fr';
     final overflowSet = widget.overflowRoutes.toSet();
     final seen = <String>{};
     final items = <_MenuItem>[];
 
-    String label(String route) {
-      final base = kWtRouteInfo[route]?.$1 ?? route.replaceAll('/', '');
-      return isFr ? (_kFrLabels[route] ?? base) : base;
-    }
+    String label(String route) =>
+        navigationItemLabel(context.l10n, route);
 
     // Keep the component gallery as the first direct menu destination.
     const menuFirstRoutes = ['/componentGallery'];
@@ -455,12 +443,9 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
   ) {
     final navOrder = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
-    final isFr = Localizations.localeOf(context).languageCode == 'fr';
 
-    String label(String route) {
-      final base = kWtRouteInfo[route]?.$1 ?? route.replaceAll('/', '');
-      return isFr ? (_kFrLabels[route] ?? base) : base;
-    }
+    String label(String route) =>
+        navigationItemLabel(context.l10n, route);
 
     return Stack(
       children: [

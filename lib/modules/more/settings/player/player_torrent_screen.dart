@@ -24,7 +24,7 @@ class PlayerTorrentScreen extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Broken.link),
-                title: const Text('Adresse TorrServer'),
+                title: Text(l10n.torrent_address),
                 subtitle: Text(
                   url.isEmpty ? l10n.player_not_configured : url,
                   style: const TextStyle(fontSize: 11),
@@ -35,7 +35,7 @@ class PlayerTorrentScreen extends ConsumerWidget {
                   showDialog<void>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Adresse TorrServer'),
+                      title: Text(l10n.torrent_address),
                       content: TextField(
                         controller: controller,
                         autofocus: true,
@@ -55,7 +55,7 @@ class PlayerTorrentScreen extends ConsumerWidget {
                                 .set(controller.text.trim());
                             Navigator.pop(ctx);
                           },
-                          child: const Text('OK'),
+                          child: Text(l10n.ok),
                         ),
                       ],
                     ),
@@ -65,7 +65,7 @@ class PlayerTorrentScreen extends ConsumerWidget {
               SwitchListTile(
                 secondary: const Icon(Broken.play_circle),
                 value: stream,
-                title: const Text('Lecture en continu'),
+                title: Text(l10n.torrent_streaming),
                 subtitle: Text(l10n.player_torrent_prebuffer, style: TextStyle(fontSize: 11),
                 ),
                 onChanged: (v) =>

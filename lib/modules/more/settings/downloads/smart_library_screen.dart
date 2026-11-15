@@ -15,6 +15,7 @@ import 'package:watchtower/local_indexer/models/local_work.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/modules/widgets/animated_empty_state.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 
 /// The global, non-destructive media index.
@@ -121,7 +122,9 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Échec du scan : $error')));
+        ).showSnackBar(
+          SnackBar(content: Text(context.l10n.smart_scan_failed('$error'))),
+        );
       }
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -216,7 +219,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
                     children: [
                       const SizedBox(height: 80),
                       AnimatedEmptyState(
-                        message: 'Index illisible : $error',
+                        message: context.l10n.smart_index_unreadable('$error'),
                         icon: Broken.danger,
                       ),
                     ],
@@ -344,12 +347,12 @@ class _Header extends StatelessWidget {
             )
           else
             IconButton(
-              tooltip: 'Rechercher des changements',
+              tooltip: context.l10n.smart_search_changes,
               onPressed: onScan,
               icon: const Icon(Broken.refresh_2),
             ),
           IconButton(
-            tooltip: 'Vérifier tout le stockage',
+            tooltip: context.l10n.smart_verify_storage,
             onPressed: isScanning ? null : onFullRescan,
             icon: const Icon(Broken.search_zoom_in),
           ),

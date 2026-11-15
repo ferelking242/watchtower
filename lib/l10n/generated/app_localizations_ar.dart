@@ -12137,4 +12137,121 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get tmdb_no_info => 'No information available.';
+
+  @override
+  String get similar_best_matches => 'Best matches';
+
+  @override
+  String get similar_sort_title => 'Title (A-Z)';
+
+  @override
+  String get similar_load_failed => 'Unable to load similar titles.';
+
+  @override
+  String get manage_categories => 'Manage categories';
+
+  @override
+  String library_entries_count(Object count) {
+    return '$count entries';
+  }
+
+  @override
+  String library_reading_count(Object count) {
+    return '$count reading';
+  }
+
+  @override
+  String get theme_system => 'System';
+
+  @override
+  String get torrent_address => 'TorrServer address';
+
+  @override
+  String get torrent_streaming => 'Streaming';
+
+  @override
+  String smart_scan_failed(Object error) {
+    return 'Scan failed: $error';
+  }
+
+  @override
+  String smart_index_unreadable(Object error) {
+    return 'Unreadable index: $error';
+  }
+
+  @override
+  String get smart_search_changes => 'Search for changes';
+
+  @override
+  String get smart_verify_storage => 'Check all storage';
+
+  @override
+  String get update_install_now => 'Install now';
+
+  @override
+  String get update_close => 'Close';
+
+  @override
+  String get update_continue_background => 'Continue in background';
+
+  @override
+  String get update_cancel_download => 'Cancel download';
+
+  @override
+  String get update_not_now => 'Not now';
+
+  @override
+  String get discover_change_extension => 'Change extension';
+
+  @override
+  String get about_link_github => 'GitHub';
+
+  @override
+  String get about_link_discord => 'Discord';
+
+  @override
+  String get about_link_email => 'Email';
+
+  @override
+  String get about_feature_http_ftp => 'HTTP / FTP';
+
+  @override
+  String get about_feature_bittorrent => 'BitTorrent';
+
+  @override
+  String get about_feature_magnet => 'Magnet';
+
+  @override
+  String get silent_install_active_title => 'Automatic install active';
+
+  @override
+  String get silent_install_active_body =>
+      'Setup is already complete.\n\nWatchtower updates install automatically in the background.';
+
+  @override
+  String get silent_install_shizuku_title => 'Shizuku required';
+
+  @override
+  String get silent_install_shizuku_body =>
+      'Shizuku is not running.\n\n1. Install Shizuku from the Play Store.\n2. Enable it via wireless debugging (ADB).\n3. Come back here and tap again.';
+
+  @override
+  String get silent_install_setup_title => 'One-time setup';
+
+  @override
+  String get silent_install_setup_body =>
+      'Watchtower will ask Shizuku for permission to install packages.\n\nThis step is only needed once.';
+
+  @override
+  String get silent_install_continue => 'Continue';
+
+  @override
+  String get silent_install_enabled_title => 'Automatic install enabled';
+
+  @override
+  String get silent_install_enabled_body =>
+      'Done! Future Watchtower updates will install automatically in the background.\n\nShizuku is no longer needed.';
+
+  @override
+  String get silent_install_understood => 'Got it';
 }

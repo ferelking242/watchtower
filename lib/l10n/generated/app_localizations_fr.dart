@@ -12274,4 +12274,122 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tmdb_no_info => 'Aucune information disponible.';
+
+  @override
+  String get similar_best_matches => 'Meilleures correspondances';
+
+  @override
+  String get similar_sort_title => 'Titre (A-Z)';
+
+  @override
+  String get similar_load_failed =>
+      'Impossible de charger les titres similaires.';
+
+  @override
+  String get manage_categories => 'Gérer les catégories';
+
+  @override
+  String library_entries_count(Object count) {
+    return '$count entrées';
+  }
+
+  @override
+  String library_reading_count(Object count) {
+    return '$count en cours';
+  }
+
+  @override
+  String get theme_system => 'Système';
+
+  @override
+  String get torrent_address => 'Adresse TorrServer';
+
+  @override
+  String get torrent_streaming => 'Lecture en continu';
+
+  @override
+  String smart_scan_failed(Object error) {
+    return 'Échec du scan : $error';
+  }
+
+  @override
+  String smart_index_unreadable(Object error) {
+    return 'Index illisible : $error';
+  }
+
+  @override
+  String get smart_search_changes => 'Rechercher des changements';
+
+  @override
+  String get smart_verify_storage => 'Vérifier tout le stockage';
+
+  @override
+  String get update_install_now => 'Installer maintenant';
+
+  @override
+  String get update_close => 'Fermer';
+
+  @override
+  String get update_continue_background => 'Continuer en arrière-plan';
+
+  @override
+  String get update_cancel_download => 'Annuler le téléchargement';
+
+  @override
+  String get update_not_now => 'Pas maintenant';
+
+  @override
+  String get discover_change_extension => 'Changer d\'extension';
+
+  @override
+  String get about_link_github => 'GitHub';
+
+  @override
+  String get about_link_discord => 'Discord';
+
+  @override
+  String get about_link_email => 'E-mail';
+
+  @override
+  String get about_feature_http_ftp => 'HTTP / FTP';
+
+  @override
+  String get about_feature_bittorrent => 'BitTorrent';
+
+  @override
+  String get about_feature_magnet => 'Magnet';
+
+  @override
+  String get silent_install_active_title => 'Installation automatique active';
+
+  @override
+  String get silent_install_active_body =>
+      'La configuration est déjà effectuée.\n\nLes mises à jour de Watchtower s\'installent automatiquement en arrière-plan.';
+
+  @override
+  String get silent_install_shizuku_title => 'Shizuku requis';
+
+  @override
+  String get silent_install_shizuku_body =>
+      'Shizuku n\'est pas démarré.\n\n1. Installez Shizuku depuis le Play Store.\n2. Activez-le via le débogage sans fil (ADB).\n3. Revenez ici et appuyez à nouveau.';
+
+  @override
+  String get silent_install_setup_title => 'Configuration unique';
+
+  @override
+  String get silent_install_setup_body =>
+      'Watchtower va demander la permission à Shizuku pour s\'accorder le droit d\'installer des paquets.\n\nCette étape n\'est nécessaire qu\'une seule fois.';
+
+  @override
+  String get silent_install_continue => 'Continuer';
+
+  @override
+  String get silent_install_enabled_title => 'Installation automatique activée';
+
+  @override
+  String get silent_install_enabled_body =>
+      'Parfait ! Les prochaines mises à jour de Watchtower s\'installeront automatiquement en arrière-plan.\n\nShizuku n\'est plus nécessaire.';
+
+  @override
+  String get silent_install_understood => 'Compris';
 }

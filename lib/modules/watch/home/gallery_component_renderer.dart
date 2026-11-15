@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -178,11 +179,12 @@ class GalleryComponentRenderer {
   GalleryComponentRenderer._();
 
   /// A single card for [ctx] (used by the grid renderer path).
-  static Widget card(GalleryComponentContext ctx) {
-    final items = limited(ctx);
-    if (items.isEmpty) return const SizedBox.shrink();
-    return _perItem(ctx, items, 0);
-  }
+  static Widget card(GalleryComponentContext ctx) =>
+      Builder(builder: (context) {
+        final items = limited(ctx);
+        if (items.isEmpty) return const SizedBox.shrink();
+        return _perItem(ctx, items, 0, context);
+      });
 
   /// A horizontal rail of cards for the current component family.
   static Widget rail(GalleryComponentContext ctx) => section(ctx);
@@ -473,7 +475,7 @@ class GalleryComponentRenderer {
             // unbounded row (modals, previews) then lay out correctly.
             SizedBox(
               width: ctx.decimal('width') ?? _cardWidth(ctx.componentId),
-              child: _perItem(ctx, items, i),
+              child: _perItem(ctx, items, i, context),
             ),
           ],
         ],
@@ -621,6 +623,7 @@ class GalleryComponentRenderer {
                       Expanded(
                         child: r * columns + c < visible.length
                             ? _perItemWithWidth(
+                                context,
                                 ctx,
                                 visible,
                                 r * columns + c,
@@ -642,6 +645,7 @@ class GalleryComponentRenderer {
   /// Grid cells must obey the section width, so the card is told the exact
   /// available width instead of its own design default.
   static Widget _perItemWithWidth(
+    BuildContext context,
     GalleryComponentContext ctx,
     List<ContentItem> items,
     int index,
@@ -656,7 +660,7 @@ class GalleryComponentRenderer {
       params: {...ctx.params, 'width': width},
       onSeeAll: ctx.onSeeAll,
     );
-    return _perItem(scoped, items, index);
+    return _perItem(scoped, items, index, context);
   }
 
   // ── Composite (whole-section) cards ──────────────────────────────────────
@@ -1298,6 +1302,7 @@ class GalleryComponentRenderer {
     GalleryComponentContext ctx,
     List<ContentItem> items,
     int index,
+    BuildContext context,
   ) {
     final i = index.clamp(0, items.length - 1);
     final item = items[i];
@@ -1659,7 +1664,10 @@ class GalleryComponentRenderer {
           width: w ?? 300,
         );
       case 'manga-reader-settings':
-        return MangaReaderSettingsCard(rows: _settingRows(), width: w ?? 340);
+        return MangaReaderSettingsCard(
+          rows: _settingRows(context),
+          width: w ?? 340,
+        );
       case 'manga-page-progress':
         return MangaPageProgressCard(
           percentLabel: ctx.text('badge') ?? '42%',
@@ -1691,8 +1699,8 @@ class GalleryComponentRenderer {
           resumeChapter: ctx.text('subtitle') ?? 'Chapitre 1',
           resumePage: ctx.text('badge') ?? 'Page 1',
           resumeThumb: item.posterUrl,
-          actions: _quickActions(),
-          shortcuts: _quickActions(),
+          actions: _quickActions(context),
+          shortcuts: _quickActions(context),
           width: w ?? 340,
           onResume: onTap,
         );
@@ -1700,7 +1708,7 @@ class GalleryComponentRenderer {
         return MangaReaderFloatingCard(
           bgUrl: item.backdropUrl ?? item.posterUrl,
           chapterLabel: ctx.text('subtitle') ?? 'Chapitre 1',
-          actions: _quickActions(),
+          actions: _quickActions(context),
           width: w ?? 340,
         );
       case 'manga-reader-chapter-list':
@@ -2377,22 +2385,28 @@ class GalleryComponentRenderer {
       ),
   ];
 
-  static List<MangaSettingRow> _settingRows() => const [
+  static List<MangaSettingRow> _settingRows(BuildContext context) => [
     MangaSettingRow(
-      label: 'Luminosité',
-      value: 'Auto',
+      label: context.l10n.brightness,
+      value: context.l10n.player_auto,
       icon: Icons.brightness_6_outlined,
     ),
     MangaSettingRow(
-      label: 'Mode nuit',
-      value: 'Oui',
+      label: context.l10n.player_night_mode,
+      value: context.l10n.yes,
       icon: Icons.dark_mode_outlined,
     ),
   ];
 
-  static List<MangaQuickAction> _quickActions() => const [
-    MangaQuickAction(label: 'Reprendre', icon: Icons.play_arrow_rounded),
-    MangaQuickAction(label: 'Marquer lu', icon: Icons.check_rounded),
+  static List<MangaQuickAction> _quickActions(BuildContext context) => [
+    MangaQuickAction(
+      label: context.l10n.resume,
+      icon: Icons.play_arrow_rounded,
+    ),
+    MangaQuickAction(
+      label: context.l10n.library_settings_mark_as_read,
+      icon: Icons.check_rounded,
+    ),
   ];
 
   static List<MangaReaderChapterRow> _chapterRows(List<ContentItem> items) => [

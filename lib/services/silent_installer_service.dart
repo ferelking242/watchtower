@@ -2,6 +2,7 @@ import 'dart:developer' show log;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -69,16 +70,12 @@ class SilentInstallerService {
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Installation automatique active'),
-            content: const Text(
-              'La configuration est déjà effectuée.\n\n'
-              'Les mises à jour de Watchtower s\'installent '
-              'automatiquement en arrière-plan.',
-            ),
+            title: Text(context.l10n.silent_install_active_title),
+            content: Text(context.l10n.silent_install_active_body),
             actions: [
               FilledButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(context.l10n.ok),
               ),
             ],
           ),
@@ -92,17 +89,12 @@ class SilentInstallerService {
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Shizuku requis'),
-            content: const Text(
-              'Shizuku n\'est pas démarré.\n\n'
-              '1. Installez Shizuku depuis le Play Store.\n'
-              '2. Activez-le via le débogage sans fil (ADB).\n'
-              '3. Revenez ici et appuyez à nouveau.',
-            ),
+            title: Text(context.l10n.silent_install_shizuku_title),
+            content: Text(context.l10n.silent_install_shizuku_body),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
+                child: Text(context.l10n.ok),
               ),
             ],
           ),
@@ -116,20 +108,16 @@ class SilentInstallerService {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          title: const Text('Configuration unique'),
-          content: const Text(
-            'Watchtower va demander la permission à Shizuku pour '
-            's\'accorder le droit d\'installer des paquets.\n\n'
-            'Cette étape n\'est nécessaire qu\'une seule fois.',
-          ),
+          title: Text(context.l10n.silent_install_setup_title),
+          content: Text(context.l10n.silent_install_setup_body),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Annuler'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Continuer'),
+              child: Text(context.l10n.silent_install_continue),
             ),
           ],
         ),
@@ -152,16 +140,12 @@ class SilentInstallerService {
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Installation automatique activée'),
-            content: const Text(
-              'Parfait ! Les prochaines mises à jour de Watchtower '
-              's\'installeront automatiquement en arrière-plan.\n\n'
-              'Shizuku n\'est plus nécessaire.',
-            ),
+            title: Text(context.l10n.silent_install_enabled_title),
+            content: Text(context.l10n.silent_install_enabled_body),
             actions: [
               FilledButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Compris'),
+                child: Text(context.l10n.silent_install_understood),
               ),
             ],
           ),

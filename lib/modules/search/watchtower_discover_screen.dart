@@ -860,7 +860,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                                 ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   leading: Icon(Icons.swap_horiz_rounded, color: cs.primary),
-                                  title: const Text("Changer d'extension"),
+                                  title: Text(context.l10n.discover_change_extension),
                                   onTap: () {
                                     Navigator.pop(sheetCtx);
                                     _pickCustomSource(ctx);

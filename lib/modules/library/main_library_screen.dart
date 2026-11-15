@@ -597,6 +597,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
   // ── Animated search bar with filter overlay ────────────────────────────────
   Widget _buildSearchBar(ColorScheme cs, bool isDark) {
+    final l10n = l10nLocalizations(context)!;
     final focused = _searchFocus.hasFocus;
     final hasText = _searchController.text.isNotEmpty;
 
@@ -701,7 +702,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ),
 
           IconButton(
-            tooltip: 'Fermer la recherche',
+            tooltip: l10n.settings_close_search,
             visualDensity: VisualDensity.compact,
             onPressed: () => unawaited(_toggleSearch()),
             icon: Icon(
@@ -722,10 +723,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     ColorScheme cs,
     bool isDark,
   ) {
+    final l10n = l10nLocalizations(context)!;
     return Row(
       children: [
         Tooltip(
-          message: 'Gérer les catégories',
+          message: l10n.manage_categories,
           child: Material(
             color: Colors.transparent,
             shape: const CircleBorder(),
@@ -775,7 +777,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _pill(
-                    label: 'All',
+                    label: l10n.media_all,
                     selected: _selectedCatIndex == 0,
                     onTap: () => setState(() => _selectedCatIndex = 0),
                     cs: cs,
@@ -1442,6 +1444,7 @@ class _CatRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = l10nLocalizations(context)!;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final count = ref
@@ -1565,13 +1568,13 @@ class _CatRow extends ConsumerWidget {
                   children: [
                     _statChip(
                       icon: Broken.book,
-                      label: '$count entries',
+                      label: l10n.library_entries_count(count),
                       cs: cs,
                     ),
                     const SizedBox(width: 8),
                     _statChip(
                       icon: Broken.eye,
-                      label: '$readingCount reading',
+                      label: l10n.library_reading_count(readingCount),
                       cs: cs,
                     ),
                     const SizedBox(width: 8),

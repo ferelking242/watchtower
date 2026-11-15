@@ -2,6 +2,8 @@
 // Adapted for Watchtower: CurrentColor → colorScheme.primary, lib tabs → kWtRouteInfo,
 //   NamidaInkWell → Material+InkWell, multipliedRadius → 8.0
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart' show navigationItemLabel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -77,10 +79,7 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                 itemBuilder: (context, i) {
                   final route   = visibleRoutes[i];
                   final info    = kWtRouteInfo[route]!;
-                  final isFr    = Localizations.localeOf(context).languageCode == 'fr';
-                  final label   = isFr
-                      ? (_kFrDrawerLabels[route] ?? info.$1)
-                      : info.$1;
+                  final label = navigationItemLabel(context.l10n, route);
                   final isActive = location == route;
                   final icon    = _kRouteIcon[route] ?? info.$2;
 
@@ -146,23 +145,6 @@ class WatchDiscoverDrawer extends ConsumerWidget {
 
 // ── FR labels (mirrors discover_drawer) ───────────────────────────────────────
 
-const _kFrDrawerLabels = <String, String>{
-  '/WatchtowerHome': 'Accueil',
-  '/AnimeLibrary':   'Watch',
-  '/MangaLibrary':   'Manga',
-  '/NovelLibrary':   'Roman',
-  '/MusicLibrary':   'Musique',
-  '/GameLibrary':    'Jeux',
-  '/Library':        'Bibliothèque',
-  '/discover':       'Recherche',
-  '/browse':         'Navigateur',
-  '/history':        'Historique',
-  '/updates':        'Mises à jour',
-  '/trackerLibrary': 'Suivi',
-  '/more':           'Paramètres',
-  '/schedule':       'Planning',
-  '/marketplace':    'Marché',
-};
 
 // ── Theme mode toggle box ──────────────────────────────────────────────────────
 // Segmented control: Système / Clair / Sombre — placed above Customization/Settings.
@@ -173,7 +155,6 @@ class _ThemeModeToggleBox extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final followSystem = ref.watch(followSystemThemeStateProvider);
     final themeIsDark = ref.watch(themeModeStateProvider);
 
@@ -241,9 +222,21 @@ class _ThemeModeToggleBox extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
-          segment(index: 0, icon: Broken.autobrightness, label: 'Système'),
-          segment(index: 1, icon: Broken.sun, label: 'Clair'),
-          segment(index: 2, icon: Broken.moon, label: 'Sombre'),
+          segment(
+            index: 0,
+            icon: Broken.autobrightness,
+            label: context.l10n.theme_system,
+          ),
+          segment(
+            index: 1,
+            icon: Broken.sun,
+            label: context.l10n.novel_theme_light,
+          ),
+          segment(
+            index: 2,
+            icon: Broken.moon,
+            label: context.l10n.novel_theme_dark,
+          ),
         ],
       ),
     );

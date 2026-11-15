@@ -14,6 +14,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart'
     show skipAppUpdate, setInstallReady, clearInstallReady;
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/services/http/m_client.dart';
@@ -365,6 +366,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
     ColorScheme cs,
     MediaQueryData mq,
   ) {
+    final l10n = context.l10n;
     final bottomPad = mq.padding.bottom + 16;
 
     return Container(
@@ -377,7 +379,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
         children: [
           if (_completedFile != null) ...[
             _BigButton(
-              label: 'Installer maintenant',
+              label: l10n.update_install_now,
               icon: Icons.install_mobile_rounded,
               cs: cs,
               onPressed: () async {
@@ -394,7 +396,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
             ),
             const SizedBox(height: 10),
             _BigButton(
-              label: 'Fermer',
+              label: l10n.update_close,
               icon: Icons.close_rounded,
               style: _BtnStyle.ghost,
               cs: cs,
@@ -402,7 +404,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
             ),
           ] else if (_isDownloading) ...[
             _BigButton(
-              label: 'Continuer en arrière-plan',
+              label: l10n.update_continue_background,
               icon: Icons.minimize_rounded,
               style: _BtnStyle.outlined,
               cs: cs,
@@ -410,7 +412,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
             ),
             const SizedBox(height: 10),
             _BigButton(
-              label: 'Annuler le téléchargement',
+              label: l10n.update_cancel_download,
               icon: Icons.cancel_outlined,
               style: _BtnStyle.ghost,
               cs: cs,
@@ -421,7 +423,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
             ),
           ] else ...[
             _BigButton(
-              label: 'Télécharger',
+              label: l10n.download,
               icon: Icons.download_rounded,
               cs: cs,
               onPressed: _isDownloading
@@ -444,7 +446,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
             ),
             const SizedBox(height: 10),
             _BigButton(
-              label: 'Pas maintenant',
+              label: l10n.update_not_now,
               icon: Icons.access_time_rounded,
               style: _BtnStyle.ghost,
               cs: cs,

@@ -1037,7 +1037,7 @@ class _OverviewTabState extends State<_OverviewTab> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _SectionLabel(label: 'Recommendations'),
+                _SectionLabel(label: context.l10n.anilist_recommendations),
                 const SizedBox(height: 8),
                 SizedBox(
                   height: 175,

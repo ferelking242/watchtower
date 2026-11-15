@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -173,25 +174,25 @@ class _SimilarSectionState extends ConsumerState<SimilarSection> {
                       setState(() => _sort = 'title');
                   }
                 },
-                itemBuilder: (context) => const [
+                itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'refresh',
                     child: Row(
                       children: [
-                        Icon(Broken.refresh, size: 18),
-                        SizedBox(width: 10),
-                        Text('Actualiser'),
+                        const Icon(Broken.refresh, size: 18),
+                        const SizedBox(width: 10),
+                        Text(context.l10n.refresh),
                       ],
                     ),
                   ),
-                  PopupMenuDivider(),
+                  const PopupMenuDivider(),
                   PopupMenuItem(
                     value: 'sort_score',
                     child: Row(
                       children: [
-                        Icon(Broken.chart_2, size: 18),
-                        SizedBox(width: 10),
-                        Text('Meilleures correspondances'),
+                        const Icon(Broken.chart_2, size: 18),
+                        const SizedBox(width: 10),
+                        Text(context.l10n.similar_best_matches),
                       ],
                     ),
                   ),
@@ -199,9 +200,9 @@ class _SimilarSectionState extends ConsumerState<SimilarSection> {
                     value: 'sort_title',
                     child: Row(
                       children: [
-                        Icon(Broken.sort, size: 18),
-                        SizedBox(width: 10),
-                        Text('Titre (A-Z)'),
+                        const Icon(Broken.sort, size: 18),
+                        const SizedBox(width: 10),
+                        Text(context.l10n.similar_sort_title),
                       ],
                     ),
                   ),
@@ -218,16 +219,16 @@ class _SimilarSectionState extends ConsumerState<SimilarSection> {
         else if (_error != null)
           _emptyState(
             icon: Broken.warning_2,
-            message: 'Impossible de charger les titres similaires.',
+            message: context.l10n.similar_load_failed,
             action: FilledButton.tonal(
               onPressed: _load,
-              child: const Text('Réessayer'),
+              child: Text(context.l10n.retry),
             ),
           )
         else if (results.isEmpty)
           _emptyState(
             icon: Broken.star,
-            message: 'Aucun titre similaire trouvé.',
+            message: context.l10n.media_no_similar,
           )
         else
           _buildGrid(results),
