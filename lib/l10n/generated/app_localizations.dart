@@ -21484,6 +21484,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Search a novel…'**
   String get novel_search_hint;
+
+  /// No description provided for @tmdb_vote_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} reviews'**
+  String tmdb_vote_count(Object count);
+
+  /// No description provided for @tmdb_watch.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch'**
+  String get tmdb_watch;
+
+  /// No description provided for @tmdb_wallpapers.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallpapers'**
+  String get tmdb_wallpapers;
+
+  /// No description provided for @tmdb_cast_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Cast unavailable.'**
+  String get tmdb_cast_unavailable;
+
+  /// No description provided for @schedule_anime_hidden.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime library hidden'**
+  String get schedule_anime_hidden;
+
+  /// No description provided for @schedule_week_start.
+  ///
+  /// In en, this message translates to:
+  /// **'Week start'**
+  String get schedule_week_start;
+
+  /// No description provided for @schedule_monday.
+  ///
+  /// In en, this message translates to:
+  /// **'Monday'**
+  String get schedule_monday;
+
+  /// No description provided for @schedule_sunday.
+  ///
+  /// In en, this message translates to:
+  /// **'Sunday'**
+  String get schedule_sunday;
+
+  /// No description provided for @schedule_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get schedule_status;
+
+  /// No description provided for @schedule_paused.
+  ///
+  /// In en, this message translates to:
+  /// **'On hold'**
+  String get schedule_paused;
+
+  /// No description provided for @schedule_mark_watched.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark the watched episodes'**
+  String get schedule_mark_watched;
+
+  /// No description provided for @schedule_disable_transitions.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable the image transitions'**
+  String get schedule_disable_transitions;
+
+  /// No description provided for @schedule_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String schedule_error(Object error);
+
+  /// No description provided for @schedule_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No release this month'**
+  String get schedule_empty;
 }
 
 class _AppLocalizationsDelegate

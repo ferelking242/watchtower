@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -145,8 +146,8 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             Expanded(
               child: animeVisible
                   ? _ScheduleBody(month: _selectedMonth, settings: settings)
-                  : const AnimatedEmptyState(
-                      message: 'Bibliothèque anime masquée',
+                  : AnimatedEmptyState(
+                      message: context.l10n.schedule_anime_hidden,
                       icon: Broken.video_play,
                     ),
             ),
@@ -265,17 +266,17 @@ class _SettingsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel(text: 'Début de semaine'),
+          _SectionLabel(text: context.l10n.schedule_week_start),
           Row(
             children: [
               _RadioRow(
-                label: 'Lundi',
+                label: context.l10n.schedule_monday,
                 selected: settings.weekStartsMonday,
                 onTap: () =>
                     onChanged(settings.copyWith(weekStartsMonday: true)),
               ),
               _RadioRow(
-                label: 'Dimanche',
+                label: context.l10n.schedule_sunday,
                 selected: !settings.weekStartsMonday,
                 onTap: () =>
                     onChanged(settings.copyWith(weekStartsMonday: false)),
@@ -283,16 +284,16 @@ class _SettingsPanel extends StatelessWidget {
             ],
           ),
           const _Divider(),
-          const _SectionLabel(text: 'Statut'),
+          _SectionLabel(text: context.l10n.schedule_status),
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
             child: Wrap(
               children: [
                 for (final entry in [
-                  (ScheduleFilterStatus.watching, 'En cours'),
-                  (ScheduleFilterStatus.planning, 'À voir'),
-                  (ScheduleFilterStatus.completed, 'Terminé'),
-                  (ScheduleFilterStatus.paused, 'En pause'),
+                  (ScheduleFilterStatus.watching, context.l10n.watching),
+                  (ScheduleFilterStatus.planning, context.l10n.plan_to_watch),
+                  (ScheduleFilterStatus.completed, context.l10n.completed),
+                  (ScheduleFilterStatus.paused, context.l10n.schedule_paused),
                 ])
                   _CheckRow(
                     label: entry.$2,
@@ -315,13 +316,13 @@ class _SettingsPanel extends StatelessWidget {
           ),
           const _Divider(),
           _SwitchRow(
-            label: 'Indiquer les épisodes vus',
+            label: context.l10n.schedule_mark_watched,
             value: settings.indicateWatched,
             onChanged: (v) => onChanged(settings.copyWith(indicateWatched: v)),
             cs: cs,
           ),
           _SwitchRow(
-            label: 'Désactiver les transitions d’image',
+            label: context.l10n.schedule_disable_transitions,
             value: settings.disableImageTransitions,
             onChanged: (v) =>
                 onChanged(settings.copyWith(disableImageTransitions: v)),
@@ -572,7 +573,8 @@ class _ScheduleBody extends ConsumerWidget {
 
     return stream.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Erreur : $e')),
+      error: (e, _) =>
+          Center(child: Text(context.l10n.schedule_error(e.toString()))),
       data: (mangas) {
         final filtered = settings.visibleStatuses.isEmpty
             ? mangas
@@ -614,8 +616,8 @@ class _EmptySchedule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AnimatedEmptyState(
-      message: 'Aucune sortie ce mois-ci',
+    return AnimatedEmptyState(
+      message: context.l10n.schedule_empty,
       icon: Broken.calendar_2,
     );
   }

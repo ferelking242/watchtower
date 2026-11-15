@@ -12165,4 +12165,51 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get novel_search_hint => 'Chercher un roman…';
+
+  @override
+  String tmdb_vote_count(Object count) {
+    return '$count avis';
+  }
+
+  @override
+  String get tmdb_watch => 'Regarder';
+
+  @override
+  String get tmdb_wallpapers => 'Fonds d\'écran';
+
+  @override
+  String get tmdb_cast_unavailable => 'Acteurs indisponibles.';
+
+  @override
+  String get schedule_anime_hidden => 'Bibliothèque anime masquée';
+
+  @override
+  String get schedule_week_start => 'Début de semaine';
+
+  @override
+  String get schedule_monday => 'Lundi';
+
+  @override
+  String get schedule_sunday => 'Dimanche';
+
+  @override
+  String get schedule_status => 'Statut';
+
+  @override
+  String get schedule_paused => 'En pause';
+
+  @override
+  String get schedule_mark_watched => 'Indiquer les épisodes vus';
+
+  @override
+  String get schedule_disable_transitions =>
+      'Désactiver les transitions d\'image';
+
+  @override
+  String schedule_error(Object error) {
+    return 'Erreur : $error';
+  }
+
+  @override
+  String get schedule_empty => 'Aucune sortie ce mois-ci';
 }

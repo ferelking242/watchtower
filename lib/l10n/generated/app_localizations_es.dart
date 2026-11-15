@@ -12052,6 +12052,52 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get novel_search_hint => 'Search a novel…';
+
+  @override
+  String tmdb_vote_count(Object count) {
+    return '$count reviews';
+  }
+
+  @override
+  String get tmdb_watch => 'Watch';
+
+  @override
+  String get tmdb_wallpapers => 'Wallpapers';
+
+  @override
+  String get tmdb_cast_unavailable => 'Cast unavailable.';
+
+  @override
+  String get schedule_anime_hidden => 'Anime library hidden';
+
+  @override
+  String get schedule_week_start => 'Week start';
+
+  @override
+  String get schedule_monday => 'Monday';
+
+  @override
+  String get schedule_sunday => 'Sunday';
+
+  @override
+  String get schedule_status => 'Status';
+
+  @override
+  String get schedule_paused => 'On hold';
+
+  @override
+  String get schedule_mark_watched => 'Mark the watched episodes';
+
+  @override
+  String get schedule_disable_transitions => 'Disable the image transitions';
+
+  @override
+  String schedule_error(Object error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get schedule_empty => 'No release this month';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -23520,4 +23566,50 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get novel_search_hint => 'Search a novel…';
+
+  @override
+  String tmdb_vote_count(Object count) {
+    return '$count reviews';
+  }
+
+  @override
+  String get tmdb_watch => 'Watch';
+
+  @override
+  String get tmdb_wallpapers => 'Wallpapers';
+
+  @override
+  String get tmdb_cast_unavailable => 'Cast unavailable.';
+
+  @override
+  String get schedule_anime_hidden => 'Anime library hidden';
+
+  @override
+  String get schedule_week_start => 'Week start';
+
+  @override
+  String get schedule_monday => 'Monday';
+
+  @override
+  String get schedule_sunday => 'Sunday';
+
+  @override
+  String get schedule_status => 'Status';
+
+  @override
+  String get schedule_paused => 'On hold';
+
+  @override
+  String get schedule_mark_watched => 'Mark the watched episodes';
+
+  @override
+  String get schedule_disable_transitions => 'Disable the image transitions';
+
+  @override
+  String schedule_error(Object error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get schedule_empty => 'No release this month';
 }

@@ -185,7 +185,7 @@ class _DetailContentState extends State<_DetailContent> {
           shadowColor: Colors.transparent,
           scrolledUnderElevation: 0,
           leading: IconButton(
-            tooltip: 'Retour',
+            tooltip: context.l10n.catalog_back,
             onPressed: () => context.pop(),
             icon: const Icon(Broken.arrow_left, color: Colors.white),
           ),
@@ -323,7 +323,9 @@ class _DetailContentState extends State<_DetailContent> {
                                 if (media.voteCount != null)
                                   _InfoChip(
                                     icon: Broken.message_text,
-                                    label: '${media.voteCount} avis',
+                                    label: context.l10n.tmdb_vote_count(
+                                      media.voteCount!,
+                                    ),
                                   ),
                               ],
                             ),
@@ -374,7 +376,7 @@ class _DetailContentState extends State<_DetailContent> {
                               ),
                             ),
                             icon: const Icon(Broken.play, size: 19),
-                            label: const Text('Regarder'),
+                            label: Text(context.l10n.tmdb_watch),
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFFE50914),
                               foregroundColor: Colors.white,
@@ -533,7 +535,7 @@ class _TabBody extends StatelessWidget {
           _RecommendationsSection(items: details.recommendations),
           const SizedBox(height: 28),
           _RecommendationsSection(
-            title: 'Similaires',
+            title: context.l10n.media_similar,
             emptyMessage: context.l10n.media_no_similar,
             items: details.similar,
           ),
@@ -674,7 +676,7 @@ class _MediaSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Section(
-          title: 'Wallpapers',
+          title: context.l10n.tmdb_wallpapers,
           trailing: details.backdropPaths.length > 3
               ? TextButton(
                   onPressed: () => context.push(
@@ -832,7 +834,7 @@ class _SeasonsSummary extends StatelessWidget {
         .toList(growable: false);
     if (visibleSeasons.isEmpty) return const SizedBox.shrink();
     return _Section(
-      title: 'Saisons',
+      title: context.l10n.media_seasons,
       child: SizedBox(
         height: 168,
         child: ListView.separated(
@@ -902,12 +904,14 @@ class _CastSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (cast.isEmpty)
-      return const _EmptySection(message: 'Acteurs indisponibles.');
+      return _EmptySection(
+        message: context.l10n.tmdb_cast_unavailable,
+      );
     return _Section(
-      title: 'Acteurs',
+      title: context.l10n.media_cast,
       trailing: TextButton(
         onPressed: () => context.push('/flixCastCrew', extra: media),
-        child: const Text('Voir tout'),
+        child: Text(context.l10n.home_see_all),
       ),
       child: SizedBox(
         height: 174,

@@ -3499,5 +3499,19 @@
   "novel_recent": "Recent",
   "novel_latest_chapters": "Latest chapters",
   "novel_explore_catalogue": "Explore the catalogue",
-  "novel_search_hint": "Search a novel…"
+  "novel_search_hint": "Search a novel…",
+  "tmdb_vote_count": "{count} reviews",
+  "tmdb_watch": "Watch",
+  "tmdb_wallpapers": "Wallpapers",
+  "tmdb_cast_unavailable": "Cast unavailable.",
+  "schedule_anime_hidden": "Anime library hidden",
+  "schedule_week_start": "Week start",
+  "schedule_monday": "Monday",
+  "schedule_sunday": "Sunday",
+  "schedule_status": "Status",
+  "schedule_paused": "On hold",
+  "schedule_mark_watched": "Mark the watched episodes",
+  "schedule_disable_transitions": "Disable the image transitions",
+  "schedule_error": "Error: {error}",
+  "schedule_empty": "No release this month"
 }

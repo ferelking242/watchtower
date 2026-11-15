@@ -3994,6 +3994,31 @@ def has_key(text, key):
     return f'\n  "{key}":' in "\n" + text
 
 
+SCHEDULE_L10N = [
+    ("schedule_anime_hidden", "Anime library hidden",
+     "Bibliothèque anime masquée"),
+    ("schedule_week_start", "Week start", "Début de semaine"),
+    ("schedule_monday", "Monday", "Lundi"),
+    ("schedule_sunday", "Sunday", "Dimanche"),
+    ("schedule_status", "Status", "Statut"),
+    ("schedule_paused", "On hold", "En pause"),
+    ("schedule_mark_watched", "Mark the watched episodes",
+     "Indiquer les épisodes vus"),
+    ("schedule_disable_transitions", "Disable the image transitions",
+     "Désactiver les transitions d'image"),
+    ("schedule_error", "Error: {error}", "Erreur : {error}"),
+    ("schedule_empty", "No release this month",
+     "Aucune sortie ce mois-ci"),
+]
+
+TMDB_DETAIL_L10N = [
+    ("tmdb_vote_count", "{count} reviews", "{count} avis"),
+    ("tmdb_watch", "Watch", "Regarder"),
+    ("tmdb_wallpapers", "Wallpapers", "Fonds d'écran"),
+    ("tmdb_cast_unavailable", "Cast unavailable.",
+     "Acteurs indisponibles."),
+]
+
 NOVEL_HOME_L10N = [
     ("novel_search_in_source", "Search in {name}…",
      "Rechercher dans {name}…"),
@@ -4291,6 +4316,10 @@ en_entries += [(key, en) for key, en, _ in DISCOVER]
 fr_entries += [(key, fr) for key, _, fr in DISCOVER]
 en_entries += [(key, en) for key, en, _ in HOME_L10N]
 fr_entries += [(key, fr) for key, _, fr in HOME_L10N]
+en_entries += [(key, en) for key, en, _ in SCHEDULE_L10N]
+fr_entries += [(key, fr) for key, _, fr in SCHEDULE_L10N]
+en_entries += [(key, en) for key, en, _ in TMDB_DETAIL_L10N]
+fr_entries += [(key, fr) for key, _, fr in TMDB_DETAIL_L10N]
 en_entries += [(key, en) for key, en, _ in NOVEL_HOME_L10N]
 fr_entries += [(key, fr) for key, _, fr in NOVEL_HOME_L10N]
 en_entries += [(key, en) for key, en, _ in NOVEL_READER_L10N]

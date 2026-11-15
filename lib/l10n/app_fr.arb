@@ -3646,5 +3646,19 @@
   "novel_recent": "Récents",
   "novel_latest_chapters": "Derniers chapitres",
   "novel_explore_catalogue": "Explorer le catalogue",
-  "novel_search_hint": "Chercher un roman…"
+  "novel_search_hint": "Chercher un roman…",
+  "tmdb_vote_count": "{count} avis",
+  "tmdb_watch": "Regarder",
+  "tmdb_wallpapers": "Fonds d'écran",
+  "tmdb_cast_unavailable": "Acteurs indisponibles.",
+  "schedule_anime_hidden": "Bibliothèque anime masquée",
+  "schedule_week_start": "Début de semaine",
+  "schedule_monday": "Lundi",
+  "schedule_sunday": "Dimanche",
+  "schedule_status": "Statut",
+  "schedule_paused": "En pause",
+  "schedule_mark_watched": "Indiquer les épisodes vus",
+  "schedule_disable_transitions": "Désactiver les transitions d'image",
+  "schedule_error": "Erreur : {error}",
+  "schedule_empty": "Aucune sortie ce mois-ci"
 }
