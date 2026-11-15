@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 
@@ -23,7 +24,7 @@ class SearchAlbumsSection extends HookConsumerWidget {
       items: albums,
       onFetchMore: () {},
       title: context.l10n.albums,
-      leadingIcon: Icons.album_outlined,
+      leadingIcon: Broken.discount_shape,
     );
   }
 }

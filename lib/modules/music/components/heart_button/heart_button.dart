@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 
@@ -45,8 +46,8 @@ class HeartButton extends HookConsumerWidget {
         child: Icon(
           icon ??
               (isLiked
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_outline_rounded),
+                  ? Broken.heart_filled
+                  : Broken.heart),
           key: ValueKey(isLiked),
           color: color ??
               (isLiked ? Theme.of(context).colorScheme.error : null),

@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
@@ -14,7 +15,7 @@ class NoDefaultMetadataPlugin extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return AppEmptyState(
-      icon: Icons.extension_outlined,
+      icon: Broken.element_3,
       title: context.l10n.no_default_metadata_provider_selected,
       message: context.l10n.manage_metadata_providers,
       actionLabel: context.l10n.manage_metadata_providers,

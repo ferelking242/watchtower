@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
@@ -29,7 +30,7 @@ class HomeRecentlyPlayedSection extends HookConsumerWidget {
 
     return HorizontalPlaybuttonCardView(
       title: context.l10n.recently_played,
-      leadingIcon: Icons.history_rounded,
+      leadingIcon: Broken.clock_1,
       items: items,
       hasNextPage: false,
       isLoadingNextPage: false,

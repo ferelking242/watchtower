@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/components/fallbacks/error_box.dart';
@@ -38,7 +39,7 @@ class HomeNewReleasesSection extends HookConsumerWidget {
     return HorizontalPlaybuttonCardView<SpotubeSimpleAlbumObject>(
       items: newReleases.asData?.value.items ?? [],
       title: context.l10n.new_releases,
-      leadingIcon: Icons.fiber_new_rounded,
+      leadingIcon: Broken.flash_1,
       isLoadingNextPage: newReleases.isLoadingNextPage,
       hasNextPage: newReleases.asData?.value.hasMore ?? false,
       onFetchMore: newReleasesNotifier.fetchMore,

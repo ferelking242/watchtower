@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
@@ -28,7 +29,7 @@ class ArtistAlbumList extends HookConsumerWidget {
       items: albums,
       onFetchMore: albumsQueryNotifier.fetchMore,
       title: context.l10n.albums,
-      leadingIcon: Icons.album_outlined,
+      leadingIcon: Broken.discount_shape,
     );
   }
 }

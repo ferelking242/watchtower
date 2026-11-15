@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'dart:math';
 
 import 'package:auto_route/auto_route.dart';
@@ -105,7 +106,7 @@ class LocalFolderItem extends HookConsumerWidget {
                 Align(
                   alignment: Alignment.topRight,
                   child: IconButton(
-                    icon: const Icon(Icons.more_vert),
+                    icon: const Icon(Broken.more_2),
                     iconSize: 20.0,
                     onPressed: () {
                       // Capture theme data before entering the overlay.

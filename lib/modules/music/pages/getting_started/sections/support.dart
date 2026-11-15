@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -24,7 +25,7 @@ class GettingStartedScreenSupportSection extends HookConsumerWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.music_note_rounded,
+                      Broken.musicnote,
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     const SizedBox(width: 8),

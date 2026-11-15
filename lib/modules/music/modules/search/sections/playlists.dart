@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/music/components/horizontal_playbutton_card_view/horizontal_playbutton_card_view.dart';
@@ -23,7 +24,7 @@ class SearchPlaylistsSection extends HookConsumerWidget {
       items: playlists,
       onFetchMore: () {},
       title: context.l10n.playlists,
-      leadingIcon: Icons.queue_music_rounded,
+      leadingIcon: Broken.music_playlist,
     );
   }
 }

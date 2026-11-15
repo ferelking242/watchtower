@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +21,7 @@ class AnonymousFallback extends ConsumerWidget {
     }
     if (isLoggedIn.asData?.value == true && child != null) return child!;
     return AppEmptyState(
-      icon: Icons.lock_outline_rounded,
+      icon: Broken.lock,
       title: context.l10n.not_logged_in,
       message: context.l10n.login_to_your_music_account,
       actionLabel: context.l10n.login,

@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -154,7 +155,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
         ),
         ListTile(
           title: Text(context.l10n.blacklist),
-          trailing: const Icon(Icons.chevron_right_rounded),
+          trailing: const Icon(Broken.arrow_right_3),
           onTap: () {
             context.navigateTo(const BlackListRoute());
           },

@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:extended_image/extended_image.dart';
 
@@ -28,7 +29,7 @@ class MusicCachedImage extends StatelessWidget {
         color: cs.surfaceContainerHigh,
         child: Center(
           child: placeholder ??
-              Icon(Icons.music_note_rounded,
+              Icon(Broken.musicnote,
                   color: cs.onSurface.withValues(alpha: 0.3)),
         ),
       );
@@ -63,7 +64,7 @@ class MusicCachedImage extends StatelessWidget {
               color: cs.surfaceContainerHigh,
               child: Center(
                 child: placeholder ??
-                    Icon(Icons.music_note_rounded,
+                    Icon(Broken.musicnote,
                         color: cs.onSurface.withValues(alpha: 0.3)),
               ),
             ),

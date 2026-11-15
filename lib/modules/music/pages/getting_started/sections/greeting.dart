@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
@@ -24,7 +25,7 @@ class GettingStartedPageGreetingSection extends HookConsumerWidget {
                 color: colorScheme.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.music_note_rounded, size: 64, color: colorScheme.primary),
+              child: Icon(Broken.musicnote, size: 64, color: colorScheme.primary),
             ),
             const SizedBox(height: 24),
             Text(

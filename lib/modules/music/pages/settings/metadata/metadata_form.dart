@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
@@ -90,8 +91,8 @@ class SettingsMetadataProviderFormPage extends HookConsumerWidget {
                                       ? IconButton(
                                           icon: Icon(
                                             isObscured
-                                                ? Icons.visibility
-                                                : Icons.visibility_off,
+                                                ? Broken.eye
+                                                : Broken.eye_slash,
                                           ),
                                           onPressed: () {
                                             obscuredPasswords.value = {

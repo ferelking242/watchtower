@@ -120,8 +120,6 @@ dependencies:
   auto_route: ^9.2.0
   flutter_hooks: ^0.21.0
   hooks_riverpod: ^3.1.0
-  fluentui_system_icons: ^1.1.234
-  feather_icon_font: ^1.0.0
   simple_icons: ^16.23.0
   auto_size_text: ^3.0.0
   sliver_tools: ^0.2.12

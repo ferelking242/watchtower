@@ -666,14 +666,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.1"
-  feather_icon_font:
-    dependency: "direct main"
-    description:
-      name: feather_icon_font
-      sha256: aca83e9106df638278e9419e972ac673f9f7bded56aa93ff375c62203e3a5201
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   ffi:
     dependency: "direct main"
     description:
@@ -819,14 +811,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.1"
-  fluentui_system_icons:
-    dependency: "direct main"
-    description:
-      name: fluentui_system_icons
-      sha256: "1592ae32dae75fb66741ab2c0607bc6554ef086f1c457e27ef937fb4901d33da"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.273"
   flutter:
     dependency: "direct main"
     description: flutter

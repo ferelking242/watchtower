@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
@@ -31,7 +32,7 @@ class AboutPage extends HookConsumerWidget {
                 radius: 50,
                 backgroundColor: cs.primaryContainer,
                 child: Icon(
-                  Icons.music_note_rounded,
+                  Broken.musicnote,
                   size: 56,
                   color: cs.onPrimaryContainer,
                 ),

@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -54,7 +55,7 @@ class HomePageBrowseSection extends HookConsumerWidget {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: AppEmptyState(
-          icon: Icons.library_music_outlined,
+          icon: Broken.music_library_2,
           title: context.l10n.music,
           message: context.l10n.nothing_found,
           actionLabel: context.l10n.retry,

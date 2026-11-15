@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 
@@ -24,7 +25,7 @@ class SearchArtistsSection extends HookConsumerWidget {
       items: artists,
       onFetchMore: () {},
       title: context.l10n.artists,
-      leadingIcon: Icons.person_outline_rounded,
+      leadingIcon: Broken.user,
     );
   }
 }

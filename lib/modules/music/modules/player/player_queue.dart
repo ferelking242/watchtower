@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:collection/collection.dart';
@@ -122,7 +123,7 @@ class PlayerQueue extends HookConsumerWidget {
                       leading: mediaQuery.smAndDown
                           ? IconButton(
                               icon: const Icon(
-                                Icons.arrow_back_ios_new_outlined,
+                                Broken.arrow_left_2,
                               ),
                               onPressed: () {
                                 isSearching.value = false;

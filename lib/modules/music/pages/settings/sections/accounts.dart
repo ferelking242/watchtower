@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -19,7 +20,7 @@ class SettingsAccountSection extends HookConsumerWidget {
       children: [
         ListTile(
           title: Text(context.l10n.plugins),
-          trailing: const Icon(Icons.chevron_right_rounded),
+          trailing: const Icon(Broken.arrow_right_3),
           onTap: () {
             context.pushRoute(const SettingsMetadataProviderRoute());
           },
@@ -27,7 +28,7 @@ class SettingsAccountSection extends HookConsumerWidget {
         if (scrobbler.asData?.value == null)
           ListTile(
             title: Text(context.l10n.audio_scrobblers),
-            trailing: const Icon(Icons.chevron_right_rounded),
+            trailing: const Icon(Broken.arrow_right_3),
             onTap: () {
               context.pushRoute(const SettingsScrobblingRoute());
             },

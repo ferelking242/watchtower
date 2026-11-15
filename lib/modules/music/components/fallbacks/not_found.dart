@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
@@ -10,7 +11,7 @@ class NotFound extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppEmptyState(
-      icon: Icons.music_off_outlined,
+      icon: Broken.music_square_remove,
       title: context.l10n.nothing_found,
       message: context.l10n.search_to_get_results,
     );
