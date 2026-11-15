@@ -426,10 +426,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             currentIndex = _dockDest.indexOf('_enableLibSwitch');
           }
         }
-        final _cappedDest = _dockDest.take(4).toList();
+        final _cappedDest = _dockDest.take(5).toList();
         final _overflowRoutes = <String>[
           if (!inMarketplaceSubDock) '/marketplace',
-          if (_dockDest.length > 4) ..._dockDest.sublist(4),
+          if (_dockDest.length > 5) ..._dockDest.sublist(5),
         ];
 
         final menuOpen = ref.watch(menuOpenProvider);
@@ -1989,7 +1989,7 @@ double _floatingDockScale(double screenWidth) {
 }
 
 class _FloatingDockState extends State<_FloatingDock> {
-  final ScrollController _scrollController = ScrollController();
+  final PageController _pageController = PageController();
   bool _menuOpen = false;
 
   static const double _baseItemWidth = 52.0;
@@ -2025,7 +2025,7 @@ class _FloatingDockState extends State<_FloatingDock> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -2280,16 +2280,9 @@ class _FloatingDockState extends State<_FloatingDock> {
       }
     }
 
-    // Expanded Hub / Marketplace navigation docks need one extra content slot.
-    final _hubMode =
-        d.contains('_disableLibSwitch') ||
-        d.contains('_disableMarketplaceSwitch') ||
-        d.contains('_nfileBack');
-    final _cap = _hubMode ? 5 : 4;
-    if (items.length > _cap) {
-      items.removeRange(_cap, items.length);
-    }
-
+    // Every destination is kept: the dock pages them 5 at a time (swipe), so
+    // nothing is silently pushed into the overflow menu. The pinned Menu slot
+    // is appended after this list.
     items.add(
       _DockItemData(
         route: '_watchtower_menu',
@@ -2338,21 +2331,6 @@ class _FloatingDockState extends State<_FloatingDock> {
     widget.ref.read(navigationOrderStateProvider.notifier).set(order);
   }
 
-  void _onScrollEnd(ScrollMetrics metrics, double itemWidth) {
-    final index = (metrics.pixels / itemWidth).round();
-    final snapOffset = (index * itemWidth).clamp(
-      metrics.minScrollExtent,
-      metrics.maxScrollExtent,
-    );
-    if ((metrics.pixels - snapOffset).abs() > 0.5) {
-      _scrollController.animateTo(
-        snapOffset,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // Rebuild whenever scroll-direction-driven visibility changes.
@@ -2393,14 +2371,24 @@ class _FloatingDockState extends State<_FloatingDock> {
       final backItem = items.first;
       final menuItem = items.last;
       final contentItems = items.sublist(1, items.length - 1);
-      // back(32) + sep(9) + content + sep(9) + menu(itemWidth) + pill pads(4+6)
-      final rawW =
-          32.0 + 9 + contentItems.length * itemWidth + 9 + itemWidth + 10.0;
+      // The content zone pages 5 destinations at a time (swipe) so the pill
+      // never grows wider than the screen; the back chevron and Menu slot stay
+      // pinned. Shrink the item width if needed to fit a full page.
+      const _perPage = 5;
+      final needsPaging = contentItems.length > _perPage;
       // Guard against narrow/transient layouts where screenWidth - 32 < 80,
       // which would make clamp's upper bound smaller than its lower bound
       // and throw "Invalid argument(s): 80.0".
       final maxPillW = math.max(80.0, screenWidth - 32.0);
-      final pillWidth = rawW.clamp(80.0, maxPillW);
+      // Fixed chrome: back(32) + sep(9) + sep(9) + menu(itemWidth) + pads(10).
+      final chrome = 32.0 + 9 + 9 + itemWidth + 10.0;
+      final subItemWidth = needsPaging
+          ? math.min(itemWidth, (maxPillW - chrome) / _perPage)
+          : itemWidth;
+      final rawW = chrome + contentItems.length * subItemWidth;
+      final pillWidth = needsPaging
+          ? (chrome + _perPage * subItemWidth).clamp(80.0, maxPillW)
+          : rawW.clamp(80.0, maxPillW);
 
       return AnimatedContainer(
         duration: Duration(milliseconds: dockAnimMs),
@@ -2421,8 +2409,9 @@ class _FloatingDockState extends State<_FloatingDock> {
                     backItem: backItem,
                     contentItems: contentItems,
                     menuItem: menuItem,
-                    itemWidth: itemWidth,
-                    scrollController: _scrollController,
+                    itemWidth: subItemWidth,
+                    perPage: _perPage,
+                    pageController: _pageController,
                     isActive: _isActive,
                     ref: widget.ref,
                     isGlass: isGlass,
@@ -2436,7 +2425,6 @@ class _FloatingDockState extends State<_FloatingDock> {
                       HapticFeedback.lightImpact();
                       widget.onDestinationSelected(route);
                     },
-                    onScrollEnd: (metrics) => _onScrollEnd(metrics, itemWidth),
                   ),
                 ),
               )
@@ -2444,13 +2432,26 @@ class _FloatingDockState extends State<_FloatingDock> {
       );
     }
 
-    // Normal mode — single pill
-    final needsScroll = items.length > 5;
+    // Normal mode — single pill.
+    // `items` always ends with the pinned Menu slot, so the number of real
+    // destinations is `items.length - 1`. More than 5 of them → the dock pages
+    // 5 at a time (swipe left/right) with the Menu slot pinned on the right.
+    final menuPinned = items.isNotEmpty && items.last.route == '_watchtower_menu';
+    final destinationCount = items.length - (menuPinned ? 1 : 0);
+    final needsScroll = destinationCount > 5;
     final rawWidth = items.length * itemWidth + _pillHPad * 2;
     // Same guard as above: keep the upper bound >= 80 so clamp never throws
     // on narrow/transient screen widths.
     final maxPillWidth = math.max(80.0, screenWidth - 32.0);
-    final pillWidth = rawWidth.clamp(80.0, maxPillWidth);
+    // Shrink the item width if needed so a full page (5 destinations + Menu)
+    // always fits on screen.
+    const _perPage = 5;
+    final pagedItemWidth = needsScroll
+        ? math.min(itemWidth, (maxPillWidth - _pillHPad * 2) / (_perPage + 1))
+        : itemWidth;
+    final pillWidth = needsScroll
+        ? (_perPage + 1) * pagedItemWidth + _pillHPad * 2
+        : rawWidth.clamp(80.0, maxPillWidth);
 
     return AnimatedContainer(
       duration: Duration(milliseconds: dockAnimMs),
@@ -2469,8 +2470,9 @@ class _FloatingDockState extends State<_FloatingDock> {
                 height: dockHeight,
                 child: _DockPill(
                   items: items,
-                  itemWidth: itemWidth,
-                  scrollController: _scrollController,
+                  itemWidth: needsScroll ? pagedItemWidth : itemWidth,
+                  pageController: _pageController,
+                  perPage: _perPage,
                   isActive: _isActive,
                   ref: widget.ref,
                   needsScroll: needsScroll,
@@ -2482,7 +2484,6 @@ class _FloatingDockState extends State<_FloatingDock> {
                     HapticFeedback.lightImpact();
                     widget.onDestinationSelected(route);
                   },
-                  onScrollEnd: (metrics) => _onScrollEnd(metrics, itemWidth),
                 ),
               ),
             )
@@ -2495,7 +2496,8 @@ class _DockPill extends StatelessWidget {
   const _DockPill({
     required this.items,
     required this.itemWidth,
-    required this.scrollController,
+    required this.pageController,
+    required this.perPage,
     required this.isActive,
     required this.ref,
     required this.needsScroll,
@@ -2503,12 +2505,12 @@ class _DockPill extends StatelessWidget {
     required this.editMode,
     required this.onReorder,
     required this.onTap,
-    required this.onScrollEnd,
   });
 
   final List<_DockItemData> items;
   final double itemWidth;
-  final ScrollController scrollController;
+  final PageController pageController;
+  final int perPage;
   final bool Function(String) isActive;
   final WidgetRef ref;
   final bool needsScroll;
@@ -2516,7 +2518,6 @@ class _DockPill extends StatelessWidget {
   final bool editMode;
   final void Function(int oldIdx, int newIdx) onReorder;
   final void Function(String) onTap;
-  final void Function(ScrollMetrics) onScrollEnd;
 
   int _activeIndex() {
     for (int i = 0; i < items.length; i++) {
@@ -2550,6 +2551,74 @@ class _DockPill extends StatelessWidget {
         ? items.sublist(0, items.length - 1)
         : items;
     final bool canReorder = editMode && reorderable.length > 1;
+
+    // Paged mode: the pinned Menu slot sits outside the pager, the remaining
+    // destinations are split into pages of `perPage` and swiped horizontally.
+    final bool menuPinned2 =
+        items.isNotEmpty && items.last.route == '_watchtower_menu';
+    final List<_DockItemData> paged = menuPinned2
+        ? items.sublist(0, items.length - 1)
+        : items;
+    final int pageCount = (paged.length / perPage).ceil();
+    // Jump the pager to the page holding the active destination so the
+    // highlighted item is always visible after a route change.
+    final int activeIdx = _activeIndex();
+    final int activePage = activeIdx < 0
+        ? 0
+        : (activeIdx / perPage).floor().clamp(0, pageCount - 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (pageController.hasClients &&
+          pageController.page?.round() != activePage) {
+        pageController.jumpToPage(activePage);
+      }
+    });
+
+    final Widget pagedWidget = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: PageView.builder(
+            controller: pageController,
+            itemCount: pageCount,
+            physics: const ClampingScrollPhysics(),
+            itemBuilder: (context, page) {
+              final start = page * perPage;
+              final end = math.min(start + perPage, paged.length);
+              final pageItems = paged.sublist(start, end);
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  for (final item in pageItems)
+                    SizedBox(
+                      width: itemWidth,
+                      child: _DockItemWidget(
+                        item: item,
+                        active: isActive(item.route),
+                        ref: ref,
+                        editMode: false,
+                        onTap: () => onTap(item.route),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+        if (menuPinned2)
+          SizedBox(
+            width: itemWidth,
+            child: _DockItemWidget(
+              item: items.last,
+              active: isActive(items.last.route),
+              ref: ref,
+              editMode: false,
+              onTap: () => onTap(items.last.route),
+            ),
+          ),
+      ],
+    );
 
     final Widget itemsWidget = canReorder
         ? Row(
@@ -2595,23 +2664,7 @@ class _DockPill extends StatelessWidget {
             ],
           )
         : needsScroll
-        ? NotificationListener<ScrollEndNotification>(
-            onNotification: (n) {
-              onScrollEnd(n.metrics);
-              return false;
-            },
-            child: ListView.builder(
-              controller: scrollController,
-              scrollDirection: Axis.horizontal,
-              itemCount: items.length,
-              itemExtent: itemWidth,
-              padding: EdgeInsets.zero,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              itemBuilder: (context, index) => buildItem(index),
-            ),
-          )
+        ? pagedWidget
         : Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -2684,28 +2737,28 @@ class _UnifiedSubDockPill extends StatelessWidget {
     required this.contentItems,
     required this.menuItem,
     required this.itemWidth,
-    required this.scrollController,
+    required this.perPage,
+    required this.pageController,
     required this.isActive,
     required this.ref,
     required this.isGlass,
     required this.editMode,
     required this.onReorder,
     required this.onTap,
-    required this.onScrollEnd,
   });
 
   final _DockItemData backItem;
   final List<_DockItemData> contentItems;
   final _DockItemData menuItem;
   final double itemWidth;
-  final ScrollController scrollController;
+  final int perPage;
+  final PageController pageController;
   final bool Function(String) isActive;
   final WidgetRef ref;
   final bool isGlass;
   final bool editMode;
   final void Function(int, int) onReorder;
   final void Function(String) onTap;
-  final void Function(ScrollMetrics) onScrollEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -2770,8 +2823,23 @@ class _UnifiedSubDockPill extends StatelessWidget {
       ),
     );
 
-    // Content items — reorderable while edit mode is on, scrollable when > 4
-    final needsScroll = contentItems.length > 4;
+    // Content items — reorderable while edit mode is on, paged (5 per page)
+    // when there are more than a page's worth.
+    final needsPaging = contentItems.length > perPage;
+    final int pageCount = (contentItems.length / perPage).ceil();
+    final int activeIdx = contentItems.indexWhere((e) => isActive(e.route));
+    final int activePage = activeIdx < 0
+        ? 0
+        : (activeIdx / perPage).floor().clamp(0, math.max(0, pageCount - 1));
+    if (needsPaging) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (pageController.hasClients &&
+            pageController.page?.round() != activePage) {
+          pageController.jumpToPage(activePage);
+        }
+      });
+    }
+
     final Widget contentWidget = editMode && contentItems.length > 1
         ? ReorderableListView.builder(
             scrollDirection: Axis.horizontal,
@@ -2796,30 +2864,30 @@ class _UnifiedSubDockPill extends StatelessWidget {
               ),
             ),
           )
-        : needsScroll
-        ? NotificationListener<ScrollEndNotification>(
-            onNotification: (n) {
-              onScrollEnd(n.metrics);
-              return false;
+        : needsPaging
+        ? PageView.builder(
+            controller: pageController,
+            itemCount: pageCount,
+            physics: const ClampingScrollPhysics(),
+            itemBuilder: (context, page) {
+              final start = page * perPage;
+              final end = math.min(start + perPage, contentItems.length);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final item in contentItems.sublist(start, end))
+                    SizedBox(
+                      width: itemWidth,
+                      child: _DockItemWidget(
+                        item: item,
+                        active: isActive(item.route),
+                        ref: ref,
+                        onTap: () => onTap(item.route),
+                      ),
+                    ),
+                ],
+              );
             },
-            child: ListView.builder(
-              controller: scrollController,
-              scrollDirection: Axis.horizontal,
-              itemCount: contentItems.length,
-              itemExtent: itemWidth,
-              padding: EdgeInsets.zero,
-              // Clamping: no bounce overshoot before snap fires.
-              physics: const ClampingScrollPhysics(),
-              itemBuilder: (context, index) {
-                final item = contentItems[index];
-                return _DockItemWidget(
-                  item: item,
-                  active: isActive(item.route),
-                  ref: ref,
-                  onTap: () => onTap(item.route),
-                );
-              },
-            ),
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
