@@ -27,13 +27,17 @@ void main() {
     expect(provider.sourceId, 42);
   });
 
-  test('getImageBytesWith forwards the sourceId to the same provider', () {
+  test('the same page under different extensions is a different provider', () {
     final data = page('https://cdn.example.com/ch1/001.webp');
 
-    // The crop pipeline and the image-actions sheet read bytes through this
-    // path; it must select the same session as the on-screen widget.
-    final provider = data.buildNetworkImageProvider(sourceId: 7);
-    expect(provider.sourceId, 7);
-    expect(provider.url, 'https://cdn.example.com/ch1/001.webp');
+    // Two extensions can serve the same CDN URL from different cleared
+    // sessions. The providers must not compare equal, or Flutter's image cache
+    // would hand one extension the other's (403-bound) entry.
+    final first = data.buildNetworkImageProvider(sourceId: 7);
+    final same = data.buildNetworkImageProvider(sourceId: 7);
+    final other = data.buildNetworkImageProvider(sourceId: 8);
+
+    expect(first, same);
+    expect(first, isNot(other));
   });
 }
