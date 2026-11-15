@@ -38,6 +38,7 @@ import 'package:watchtower/modules/more/settings/browse/extension_repositories_s
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
+import 'package:watchtower/modules/music/modules/metadata_plugins/plugin_installer.dart';
 import 'package:watchtower/modules/music/utils/primitive_utils.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -3527,6 +3528,13 @@ class _MusicPluginsSection extends ConsumerWidget {
           )
         else
           ...repos.map((repo) => _MusicPluginCard(pluginRepo: repo)),
+        const SizedBox(height: 12),
+        // Manual install (paste a .smplug URL or pick a file) — the music
+        // module's plugin settings screen only lists what is installed.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: const MusicPluginInstaller(),
+        ),
         const SizedBox(height: 8),
       ],
     );
@@ -6090,10 +6098,15 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
             SliverToBoxAdapter(child: _buildHero()),
             SliverToBoxAdapter(child: _buildNsfwGate()),
           ] else if (!_searching && _visible.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: _buildEmptyCatalog(),
-            )
+            // The Music tab can be empty of JavaScript extensions while still
+            // having .smplug plugins to install, so keep its section visible.
+            if (_tab == 3)
+              const SliverToBoxAdapter(child: _MusicPluginsSection())
+            else
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _buildEmptyCatalog(),
+              )
           else if (!_searching && _tab == 0)
             ..._buildForYou()
           else if (!_searching) ...[
@@ -6107,6 +6120,11 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
               ),
             ),
             _buildRows(_visible),
+            // Music plugins (.smplug metadata/audio providers) live in the
+            // music module; surface them here so the Music tab shows every
+            // music extension in one place, install included.
+            if (_tab == 3)
+              const SliverToBoxAdapter(child: _MusicPluginsSection()),
           ] else ...[
             SliverToBoxAdapter(child: _buildSearchBar()),
             if (_searchController.text.isEmpty)

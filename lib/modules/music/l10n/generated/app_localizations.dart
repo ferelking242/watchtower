@@ -3098,6 +3098,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Track'**
   String get track;
+
+  /// No description provided for @plugins_install_in_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Extensions and plugins are installed from the Marketplace.'**
+  String get plugins_install_in_marketplace;
+
+  /// No description provided for @no_installed_plugins.
+  ///
+  /// In en, this message translates to:
+  /// **'No {type} plugins installed yet.'**
+  String no_installed_plugins(String type);
+
+  /// No description provided for @browse_marketplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketplace'**
+  String get browse_marketplace;
 }
 
 class _AppLocalizationsDelegate

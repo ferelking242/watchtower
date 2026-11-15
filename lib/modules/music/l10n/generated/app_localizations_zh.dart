@@ -1588,6 +1588,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get track => 'Track';
+
+  @override
+  String get plugins_install_in_marketplace =>
+      'Extensions and plugins are installed from the Marketplace.';
+
+  @override
+  String no_installed_plugins(String type) {
+    return 'No $type plugins installed yet.';
+  }
+
+  @override
+  String get browse_marketplace => 'Marketplace';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -3175,4 +3187,16 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get track => 'Track';
+
+  @override
+  String get plugins_install_in_marketplace =>
+      'Extensions and plugins are installed from the Marketplace.';
+
+  @override
+  String no_installed_plugins(String type) {
+    return 'No $type plugins installed yet.';
+  }
+
+  @override
+  String get browse_marketplace => 'Marketplace';
 }

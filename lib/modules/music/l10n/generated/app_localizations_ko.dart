@@ -1598,4 +1598,16 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get track => 'Track';
+
+  @override
+  String get plugins_install_in_marketplace =>
+      'Extensions and plugins are installed from the Marketplace.';
+
+  @override
+  String no_installed_plugins(String type) {
+    return 'No $type plugins installed yet.';
+  }
+
+  @override
+  String get browse_marketplace => 'Marketplace';
 }

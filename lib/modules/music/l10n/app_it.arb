@@ -489,5 +489,8 @@
   "dismiss": "Dismiss",
   "field_is_required": "This field is required",
   "music_plugin": "Music Plugin",
-  "track": "Track"
+  "track": "Track",
+  "plugins_install_in_marketplace": "Extensions and plugins are installed from the Marketplace.",
+  "no_installed_plugins": "No {type} plugins installed yet.",
+  "browse_marketplace": "Marketplace"
 }
