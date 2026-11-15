@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/manga_genre_cards.dart';
 import 'package:watchtower/modules/media/manga_universe_cards.dart';
@@ -806,14 +807,15 @@ class MangaCategoryRankingCard extends StatelessWidget {
   const MangaCategoryRankingCard({
     super.key,
     required this.items,
-    this.filters = const ['Populaire', 'Note', 'Nouveautés', 'Followers'],
+    this.filters,
     this.selectedFilter = 0,
     this.width = 400,
     this.onFilterChanged,
   });
 
   final List<MangaRankEntry> items;
-  final List<String> filters;
+  /// Null falls back to the localized default ranking tabs.
+  final List<String>? filters;
   final int selectedFilter;
   final double width;
   final ValueChanged<int>? onFilterChanged;
@@ -821,6 +823,15 @@ class MangaCategoryRankingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
+    final l10n = context.l10n;
+    final tabs =
+        filters ??
+        [
+          l10n.popular,
+          l10n.anilist_rating,
+          l10n.catalog_tag_new,
+          l10n.manga_stat_followers,
+        ];
     return Container(
       constraints: BoxConstraints(maxWidth: width),
       padding: const EdgeInsets.all(12),
@@ -831,7 +842,7 @@ class MangaCategoryRankingCard extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                for (var i = 0; i < filters.length; i++) ...[
+                for (var i = 0; i < tabs.length; i++) ...[
                   if (i > 0) const SizedBox(width: 6),
                   InkWell(
                     onTap: () => onFilterChanged?.call(i),
@@ -848,7 +859,7 @@ class MangaCategoryRankingCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
-                        filters[i],
+                        tabs[i],
                         style: TextStyle(
                           color: i == selectedFilter
                               ? Colors.white

@@ -22204,6 +22204,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Component detail and its parameters'**
   String get gallery_component_detail;
+
+  /// No description provided for @offline_no_connection.
+  ///
+  /// In en, this message translates to:
+  /// **'No Internet connection'**
+  String get offline_no_connection;
+
+  /// No description provided for @offline_chapter_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This chapter\'s pages are not available offline. Reconnect to load them.'**
+  String get offline_chapter_unavailable;
+
+  /// No description provided for @offline_connect_for.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to the Internet to load {title}.'**
+  String offline_connect_for(Object title);
+
+  /// No description provided for @media_hub_temporarily_unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{title} is temporarily unavailable'**
+  String media_hub_temporarily_unavailable(Object title);
+
+  /// No description provided for @media_watch_live.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch live'**
+  String get media_watch_live;
+
+  /// No description provided for @media_live_news.
+  ///
+  /// In en, this message translates to:
+  /// **'Live news'**
+  String get media_live_news;
+
+  /// No description provided for @media_science_space.
+  ///
+  /// In en, this message translates to:
+  /// **'Science and space'**
+  String get media_science_space;
+
+  /// No description provided for @media_queue_canceling.
+  ///
+  /// In en, this message translates to:
+  /// **'Canceling…'**
+  String get media_queue_canceling;
+
+  /// No description provided for @media_queue_paused.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue paused'**
+  String get media_queue_paused;
+
+  /// No description provided for @media_queue_queuing.
+  ///
+  /// In en, this message translates to:
+  /// **'Queuing'**
+  String get media_queue_queuing;
+
+  /// No description provided for @media_queue_added_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} added'**
+  String media_queue_added_count(Object count);
+
+  /// No description provided for @media_format_tv_short.
+  ///
+  /// In en, this message translates to:
+  /// **'Short'**
+  String get media_format_tv_short;
+
+  /// No description provided for @media_format_special.
+  ///
+  /// In en, this message translates to:
+  /// **'Special'**
+  String get media_format_special;
+
+  /// No description provided for @media_format_one_shot.
+  ///
+  /// In en, this message translates to:
+  /// **'1-shot'**
+  String get media_format_one_shot;
 }
 
 class _AppLocalizationsDelegate

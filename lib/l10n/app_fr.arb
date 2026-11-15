@@ -3766,5 +3766,19 @@
   "gallery_skeleton": "Skeleton",
   "gallery_use_component": "Utiliser ce composant",
   "gallery_click_to_copy": "Cliquer pour copier {name}",
-  "gallery_component_detail": "Détail du composant et de ses paramètres"
+  "gallery_component_detail": "Détail du composant et de ses paramètres",
+  "offline_no_connection": "Pas de connexion Internet",
+  "offline_chapter_unavailable": "Les pages de ce chapitre ne sont pas disponibles hors ligne. Reconnectez-vous pour les charger.",
+  "offline_connect_for": "Connectez-vous à Internet pour charger {title}.",
+  "media_hub_temporarily_unavailable": "{title} est temporairement indisponible",
+  "media_watch_live": "Regarder en direct",
+  "media_live_news": "Actualités en direct",
+  "media_science_space": "Science et espace",
+  "media_queue_canceling": "Annulation…",
+  "media_queue_paused": "Mise en file en pause",
+  "media_queue_queuing": "Mise en file d’attente",
+  "media_queue_added_count": "{count} ajoutées",
+  "media_format_tv_short": "Court",
+  "media_format_special": "Spécial",
+  "media_format_one_shot": "1-shot"
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:watchtower/modules/media/widgets/bulk_enqueue_controller.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Box shown while the selected videos are pushed to the download queue.
 ///
@@ -101,6 +102,12 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
   }
 
   Widget _header(ColorScheme cs, BulkEnqueueController c) {
+    final l10n = context.l10n;
+    final failedSuffix = c.failed > 0
+        ? ' · ${l10n.marketplace_failed_count(c.failed)}'
+        : '';
+    final queuedSuffix =
+        c.queued > 0 ? ' · ${l10n.media_queue_added_count(c.queued)}' : '';
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -110,10 +117,10 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
             children: [
               Text(
                 c.cancelled
-                    ? 'Annulation…'
+                    ? l10n.media_queue_canceling
                     : c.paused
-                    ? 'Mise en file en pause'
-                    : 'Mise en file d’attente',
+                    ? l10n.media_queue_paused
+                    : l10n.media_queue_queuing,
                 style: TextStyle(
                   color: cs.onSurface,
                   fontSize: 16,
@@ -122,9 +129,8 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
               ),
               const SizedBox(height: 2),
               Text(
-                '${c.done}/${c.total} vidéos traitées'
-                '${c.queued > 0 ? ' · ${c.queued} ajoutées' : ''}'
-                '${c.failed > 0 ? ' · ${c.failed} échec(s)' : ''}',
+                '${l10n.media_videos_processed(c.done, c.total)}'
+                '$queuedSuffix$failedSuffix',
                 style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
               ),
               const SizedBox(height: 3),
@@ -150,7 +156,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
     final isDone = index < c.done;
     final title = index < widget.titles.length
         ? widget.titles[index]
-        : 'Élément ${index + 1}';
+        : context.l10n.media_element_n(index + 1);
     return AnimatedOpacity(
       opacity: index <= c.done ? 1 : 0.45,
       duration: const Duration(milliseconds: 220),
@@ -209,7 +215,7 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
               isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
               size: 18,
             ),
-            label: Text(isPaused ? 'Reprendre' : 'Pause'),
+            label: Text(isPaused ? context.l10n.about_feature_resume : context.l10n.pause),
           ),
         ),
         const SizedBox(width: 6),
@@ -217,13 +223,19 @@ class _BulkEnqueueDialogState extends State<BulkEnqueueDialog> {
           child: TextButton.icon(
             onPressed: c.cancelled || c.finished ? null : widget.onBackground,
             icon: const Icon(Icons.notifications_active_outlined, size: 18),
-            label: const Text('Arrière-plan', overflow: TextOverflow.ellipsis),
+            label: Text(
+              context.l10n.background,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
         const SizedBox(width: 6),
         TextButton(
           onPressed: c.cancelled ? null : c.cancel,
-          child: Text('Annuler', style: TextStyle(color: cs.onSurfaceVariant)),
+          child: Text(
+            context.l10n.cancel,
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
         ),
       ],
     );

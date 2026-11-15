@@ -6,7 +6,9 @@ import 'package:watchtower/modules/home/services/anilist_discovery_service.dart'
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/extension_image_headers.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/media/media_badges.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -81,7 +83,7 @@ class ContentItem {
     backdropUrl: item.bannerImage,
     description: item.overview,
     rating: item.voteAverage,
-    badge: item.mediaType == 'tv' ? 'Série' : 'Film',
+    badge: item.mediaType,
   );
 
   factory ContentItem.fromAnilist(AnilistMedia item) => ContentItem(
@@ -193,7 +195,10 @@ class PosterCard extends StatelessWidget {
                       Positioned(
                         bottom: 7,
                         left: 7,
-                        child: _MediaBadge(label: _formatLabel(item.badge!), fontSize: 8),
+                        child: _MediaBadge(
+                          label: _formatLabel(item.badge!, context.l10n),
+                          fontSize: 8,
+                        ),
                       ),
                     if (item.badges.isNotEmpty)
                       Positioned(
@@ -270,19 +275,21 @@ String countryFlag(String? code) {
   return String.fromCharCodes(normalized.codeUnits.map((unit) => 0x1F1E6 + unit - 65));
 }
 
-String _formatLabel(String value) => switch (value.toUpperCase()) {
-  'TV' => 'SÉRIE',
-  'TV_SHORT' => 'COURT',
-  'MOVIE' => 'FILM',
-  'ONA' => 'ONA',
-  'OVA' => 'OVA',
-  'SPECIAL' => 'SP',
-  'NOVEL' => 'ROMAN',
-  'MANGA' => 'MANGA',
-  'MANHWA' => 'MANHWA',
-  'ONE_SHOT' => '1-SHOT',
-  _ => value.toUpperCase(),
-};
+String _formatLabel(String value, AppLocalizations l10n) =>
+    switch (value.toUpperCase()) {
+      'TV' => l10n.media_series,
+      'TV_SHORT' => l10n.media_format_tv_short,
+      'MOVIE' => l10n.media_movie,
+      'ONA' => 'ONA',
+      'OVA' => 'OVA',
+      'SPECIAL' => l10n.media_format_special,
+      'NOVEL' => l10n.catalog_tag_novel,
+      'MANGA' => l10n.catalog_tag_manga,
+      'MANHWA' => l10n.catalog_tag_manhwa,
+      'ONE_SHOT' => l10n.media_format_one_shot,
+      'MUSIC' => l10n.catalog_tag_music,
+      _ => value.toUpperCase(),
+    };
 
 class _MediaBadge extends StatelessWidget {
   const _MediaBadge({required this.label, required this.fontSize});

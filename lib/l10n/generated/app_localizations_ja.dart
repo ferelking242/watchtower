@@ -12370,4 +12370,53 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get gallery_component_detail => 'Component detail and its parameters';
+
+  @override
+  String get offline_no_connection => 'No Internet connection';
+
+  @override
+  String get offline_chapter_unavailable =>
+      'This chapter\'s pages are not available offline. Reconnect to load them.';
+
+  @override
+  String offline_connect_for(Object title) {
+    return 'Connect to the Internet to load $title.';
+  }
+
+  @override
+  String media_hub_temporarily_unavailable(Object title) {
+    return '$title is temporarily unavailable';
+  }
+
+  @override
+  String get media_watch_live => 'Watch live';
+
+  @override
+  String get media_live_news => 'Live news';
+
+  @override
+  String get media_science_space => 'Science and space';
+
+  @override
+  String get media_queue_canceling => 'Canceling…';
+
+  @override
+  String get media_queue_paused => 'Queue paused';
+
+  @override
+  String get media_queue_queuing => 'Queuing';
+
+  @override
+  String media_queue_added_count(Object count) {
+    return '$count added';
+  }
+
+  @override
+  String get media_format_tv_short => 'Short';
+
+  @override
+  String get media_format_special => 'Special';
+
+  @override
+  String get media_format_one_shot => '1-shot';
 }

@@ -4044,5 +4044,19 @@
   "gallery_skeleton": "Skeleton",
   "gallery_use_component": "Use this component",
   "gallery_click_to_copy": "Tap to copy {name}",
-  "gallery_component_detail": "Component detail and its parameters"
+  "gallery_component_detail": "Component detail and its parameters",
+  "offline_no_connection": "No Internet connection",
+  "offline_chapter_unavailable": "This chapter's pages are not available offline. Reconnect to load them.",
+  "offline_connect_for": "Connect to the Internet to load {title}.",
+  "media_hub_temporarily_unavailable": "{title} is temporarily unavailable",
+  "media_watch_live": "Watch live",
+  "media_live_news": "Live news",
+  "media_science_space": "Science and space",
+  "media_queue_canceling": "Canceling…",
+  "media_queue_paused": "Queue paused",
+  "media_queue_queuing": "Queuing",
+  "media_queue_added_count": "{count} added",
+  "media_format_tv_short": "Short",
+  "media_format_special": "Special",
+  "media_format_one_shot": "1-shot"
 }

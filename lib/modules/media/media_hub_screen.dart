@@ -7,6 +7,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 import 'package:watchtower/modules/widgets/offline_content_state.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 enum MediaHubKind { movies, series }
 
@@ -20,7 +21,8 @@ class MediaHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final home = ref.watch(tmdbHomeProvider);
-    final title = isMovies ? 'Movies' : 'Series';
+    final l10n = context.l10n;
+    final title = isMovies ? l10n.media_movies : l10n.media_series;
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: home.when(
@@ -79,20 +81,20 @@ class _MediaError extends StatelessWidget {
             Icon(Broken.cloud_cross, color: cs.onSurfaceVariant, size: 44),
             const SizedBox(height: 14),
             Text(
-              '$title est temporairement indisponible',
+              context.l10n.media_hub_temporarily_unavailable(title),
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurface, fontSize: 18),
             ),
             const SizedBox(height: 8),
             Text(
-              'Impossible de charger le catalogue. Réessayez plus tard.',
+              context.l10n.media_catalog_load_failed,
               textAlign: TextAlign.center,
               style: TextStyle(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 18),
             FilledButton.tonal(
               onPressed: onRetry,
-              child: const Text('Réessayer'),
+              child: Text(context.l10n.media_retry),
             ),
           ],
         ),
@@ -115,11 +117,13 @@ class MediaOfflineState extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => OfflineContentState(
-    title: 'Aucune connexion réseau',
-    message:
-        'Connectez-vous à Internet pour charger $title. '
-        'Vérifiez votre Wi-Fi ou vos données mobiles.',
-    onRetry: onRetry,
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return OfflineContentState(
+      title: l10n.media_no_network,
+      message: '${l10n.offline_connect_for(title)} '
+          '${l10n.media_check_connection}',
+      onRetry: onRetry,
+    );
+  }
 }

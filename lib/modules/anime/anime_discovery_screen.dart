@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/anime/anime_discovery_feed.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -49,9 +50,10 @@ class AniListErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isOfflineContentError(error)) {
+      final l10n = context.l10n;
       return OfflineContentState(
-        message: 'Connectez-vous à Internet pour charger ce contenu. '
-            'Vérifiez votre Wi-Fi ou vos données mobiles.',
+        message: '${l10n.offline_connect_for(l10n.anime_feed_catalogue)} '
+            '${l10n.media_check_connection}',
         onRetry: onRetry,
       );
     }

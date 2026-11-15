@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 class LiveTvScreen extends StatelessWidget {
   const LiveTvScreen({super.key});
@@ -9,25 +11,25 @@ class LiveTvScreen extends StatelessWidget {
   static const _channels = [
     _LiveChannel(
       'France 24',
-      'Actualités internationales',
+      _LiveChannelKind.internationalNews,
       Broken.people,
       'https://www.france24.com/fr/direct',
     ),
     _LiveChannel(
       'Al Jazeera',
-      'News en direct',
+      _LiveChannelKind.liveNews,
       Broken.global,
       'https://www.aljazeera.com/live',
     ),
     _LiveChannel(
       'NASA TV',
-      'Science et espace',
+      _LiveChannelKind.scienceAndSpace,
       Broken.video,
       'https://www.nasa.gov/nasatv/',
     ),
     _LiveChannel(
       'DW',
-      'Actualités européennes',
+      _LiveChannelKind.europeanNews,
       Broken.global,
       'https://www.dw.com/en/live-tv/s-100825',
     ),
@@ -38,7 +40,7 @@ class LiveTvScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF0B0B11),
       appBar: AppBar(
-        title: const Text('TV Live'),
+        title: Text(context.l10n.media_live_tv),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
       ),
@@ -53,31 +55,31 @@ class LiveTvScreen extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Broken.video, color: Colors.white, size: 30),
-                SizedBox(height: 14),
+                const Icon(Broken.video, color: Colors.white, size: 30),
+                const SizedBox(height: 14),
                 Text(
-                  'Regarder en direct',
-                  style: TextStyle(
+                  context.l10n.media_watch_live,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
-                  'Accédez aux pages officielles des chaînes depuis Watchtower.',
-                  style: TextStyle(color: Colors.white70, height: 1.4),
+                  context.l10n.media_world_channels,
+                  style: const TextStyle(color: Colors.white70, height: 1.4),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Chaînes disponibles',
-            style: TextStyle(
+          Text(
+            context.l10n.media_available_channels,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -91,13 +93,28 @@ class LiveTvScreen extends StatelessWidget {
   }
 }
 
+/// The channel blurb is a stable key so the screen stays localizable.
+enum _LiveChannelKind {
+  internationalNews,
+  liveNews,
+  scienceAndSpace,
+  europeanNews,
+}
+
 class _LiveChannel {
   final String name;
-  final String description;
+  final _LiveChannelKind kind;
   final IconData icon;
   final String url;
 
-  const _LiveChannel(this.name, this.description, this.icon, this.url);
+  const _LiveChannel(this.name, this.kind, this.icon, this.url);
+
+  String description(AppLocalizations l10n) => switch (kind) {
+        _LiveChannelKind.internationalNews => l10n.media_international_news,
+        _LiveChannelKind.liveNews => l10n.media_live_news,
+        _LiveChannelKind.scienceAndSpace => l10n.media_science_space,
+        _LiveChannelKind.europeanNews => l10n.media_european_news,
+      };
 }
 
 class _ChannelTile extends StatelessWidget {
@@ -110,7 +127,7 @@ class _ChannelTile extends StatelessWidget {
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
         context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible d’ouvrir la chaîne')),
+        SnackBar(content: Text(context.l10n.media_open_channel_failed)),
       );
     }
   }
@@ -134,7 +151,7 @@ class _ChannelTile extends StatelessWidget {
           ),
         ),
         subtitle: Text(
-          channel.description,
+          channel.description(context.l10n),
           style: const TextStyle(color: Colors.white60),
         ),
         trailing: const Icon(Broken.arrow_right_3, color: Colors.white54),

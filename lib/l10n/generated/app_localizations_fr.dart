@@ -12562,4 +12562,53 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get gallery_component_detail =>
       'Détail du composant et de ses paramètres';
+
+  @override
+  String get offline_no_connection => 'Pas de connexion Internet';
+
+  @override
+  String get offline_chapter_unavailable =>
+      'Les pages de ce chapitre ne sont pas disponibles hors ligne. Reconnectez-vous pour les charger.';
+
+  @override
+  String offline_connect_for(Object title) {
+    return 'Connectez-vous à Internet pour charger $title.';
+  }
+
+  @override
+  String media_hub_temporarily_unavailable(Object title) {
+    return '$title est temporairement indisponible';
+  }
+
+  @override
+  String get media_watch_live => 'Regarder en direct';
+
+  @override
+  String get media_live_news => 'Actualités en direct';
+
+  @override
+  String get media_science_space => 'Science et espace';
+
+  @override
+  String get media_queue_canceling => 'Annulation…';
+
+  @override
+  String get media_queue_paused => 'Mise en file en pause';
+
+  @override
+  String get media_queue_queuing => 'Mise en file d’attente';
+
+  @override
+  String media_queue_added_count(Object count) {
+    return '$count ajoutées';
+  }
+
+  @override
+  String get media_format_tv_short => 'Court';
+
+  @override
+  String get media_format_special => 'Spécial';
+
+  @override
+  String get media_format_one_shot => '1-shot';
 }
