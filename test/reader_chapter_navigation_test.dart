@@ -138,4 +138,49 @@ void main() {
     expect(index, 6);
     expect(controller.getNextChapter().id, chapters[4].id);
   });
+
+  test('getFilteredChapterList honours the chapter sort setting', () {
+    const mangaId = 7005;
+    final manga = Manga(
+      id: mangaId,
+      source: 'Harimanga',
+      author: '',
+      artist: '',
+      genre: const [],
+      imageUrl: '',
+      lang: 'en',
+      link: 'https://example.invalid/manga/$mangaId',
+      name: 'Sorted title',
+      status: Status.ongoing,
+      description: '',
+      sourceId: 0,
+    );
+    testIsar.seed<Manga>(mangaId, manga);
+    // ids ascend with dateUpload, so the raw (id-descending) list is 5..1.
+    for (var i = 1; i <= 5; i++) {
+      testIsar.seed<Chapter>(
+        i,
+        Chapter(
+          id: i,
+          mangaId: mangaId,
+          name: 'Chapter $i',
+          url: 'https://example.invalid/$i',
+          dateUpload: '${i * 100}',
+        ),
+      );
+    }
+    // index 2 = sort by upload date, ascending.
+    testIsar.seed<Settings>(
+      kSettingsId,
+      Settings()
+        ..incognitoMode = false
+        ..sortChapterList = [SortChapter(mangaId: mangaId, index: 2)],
+    );
+
+    final resolved = testIsar.mangas.getSync(mangaId)!;
+    final ordered = resolved.getFilteredChapterList();
+
+    // The bug returned the pre-sort list (5,4,3,2,1), ignoring the setting.
+    expect(ordered.map((c) => c.id).toList(), [1, 2, 3, 4, 5]);
+  });
 }

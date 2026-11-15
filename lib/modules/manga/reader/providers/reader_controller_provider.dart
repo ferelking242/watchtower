@@ -489,7 +489,11 @@ extension MangaExtensions on Manga {
       chaptersOfManga(this).reversed.toList();
 
   List<Chapter> getFilteredChapterList() {
-    final data = getAllChapterList();
+    // Ascending input, matching `_filterAndSortChapter` in the detail screen:
+    // the sort cases below (`reversed` for "latest chapter") assume it. Feeding
+    // the already-reversed `getAllChapterList()` double-reversed the default
+    // sort and ignored the order for every other sort mode.
+    final data = chaptersOfManga(this);
     // One synchronous read of the Settings record instead of four: this runs on
     // every rebuild of the chapter list, on the UI isolate.
     final settings = readSettingsSafely(isar: isar);
@@ -586,7 +590,9 @@ extension MangaExtensions on Manga {
             : a.name!.compareTo(b.name!);
       });
     }
-    return chapterList;
+    // `chapters` holds the sorted order; `chapterList` is the pre-sort
+    // intermediate. Returning the latter ignored the chapter sort setting.
+    return chapters;
   }
 }
 
