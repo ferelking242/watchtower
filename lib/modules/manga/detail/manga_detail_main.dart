@@ -11,6 +11,7 @@ import 'package:watchtower/modules/watch/detail/watch_detail_view.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/utils/log/logger.dart';
+import 'package:watchtower/utils/utils.dart';
 
 class MangaReaderDetail extends ConsumerStatefulWidget {
   final int mangaId;
@@ -101,10 +102,29 @@ class _MangaReaderDetailState extends ConsumerState<MangaReaderDetail> {
   Source? _resolveSourceForType(Manga manga) {
     if (_sourceForTypeResolved) return _sourceForTypeCache;
     _sourceForTypeResolved = true;
-    return _sourceForTypeCache = isar.sources
+    // Two sources can share a display name across catalogues — MKissa exists as
+    // both a watch and a manga source. A `nameContains` scan then returns
+    // whichever row Isar yields first, which opened the manga in the watch
+    // layout. Resolve by the stored id first.
+    final byId = manga.sourceId == null
+        ? null
+        : getSource(manga.lang ?? '', manga.source ?? '', manga.sourceId);
+    if (byId != null) return _sourceForTypeCache = byId;
+    // Rows saved before `sourceId` existed: prefer a same-named source that
+    // agrees with the stored type instead of the first name match.
+    final sameName = isar.sources
         .filter()
         .nameContains(manga.source!, caseSensitive: false)
-        .findFirstSync();
+        .findAllSync();
+    Source? chosen;
+    for (final source in sameName) {
+      if (source.itemType == manga.itemType) {
+        chosen = source;
+        break;
+      }
+    }
+    return _sourceForTypeCache =
+        chosen ?? (sameName.isEmpty ? null : sameName.first);
   }
 
   @override
