@@ -12115,4 +12115,54 @@ class AppLocalizationsFr extends AppLocalizations {
   String extension_cookies_deleted(Object host) {
     return 'Cookie supprimé pour $host';
   }
+
+  @override
+  String get common_classification => 'Classification';
+
+  @override
+  String get log_viewer_date_on => 'Date · Activée';
+
+  @override
+  String get log_viewer_date_off => 'Date · Désactivée';
+
+  @override
+  String get log_viewer_collapse => 'Réduire';
+
+  @override
+  String get log_viewer_errors_only => 'Erreurs / avertissements uniquement';
+
+  @override
+  String get novel_theme_dark => 'Sombre';
+
+  @override
+  String get novel_theme_light => 'Clair';
+
+  @override
+  String get novel_theme_sepia => 'Sépia';
+
+  @override
+  String get novel_padding => 'Marge intérieure';
+
+  @override
+  String novel_search_in_source(Object name) {
+    return 'Rechercher dans $name…';
+  }
+
+  @override
+  String get novel_the_source => 'la source';
+
+  @override
+  String get novel_popular => 'Populaires';
+
+  @override
+  String get novel_recent => 'Récents';
+
+  @override
+  String get novel_latest_chapters => 'Derniers chapitres';
+
+  @override
+  String get novel_explore_catalogue => 'Explorer le catalogue';
+
+  @override
+  String get novel_search_hint => 'Chercher un roman…';
 }

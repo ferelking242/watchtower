@@ -114,7 +114,7 @@ class _LibraryFilterSortMenuState
       children: [
         AdaptiveOverlayItem(
           icon: Broken.tick_square,
-          label: 'Sélectionner',
+          label: context.l10n.common_select,
           onTap: () {
             widget.close();
             widget.onSelect();
@@ -461,13 +461,13 @@ class _LibraryFilterSortMenuState
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.arrow_up_3,
-          label: 'Croissant',
+          label: context.l10n.common_ascending,
           selected: !reverse,
           onTap: () => notifier.setReverse(false),
         ),
         AdaptiveOverlayItem(
           icon: Broken.arrow_down,
-          label: 'Décroissant',
+          label: context.l10n.common_descending,
           selected: reverse,
           onTap: () => notifier.setReverse(true),
         ),
@@ -580,7 +580,7 @@ class _LibraryFilterSortMenuState
         ),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
-          label: 'Classification',
+          label: context.l10n.common_classification,
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => _go(_Level.contentRating),
         ),
@@ -599,7 +599,7 @@ class _LibraryFilterSortMenuState
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.close_circle,
-          label: 'Retirer les filtres',
+          label: context.l10n.browse_clear_filters,
           onTap: () {
             ref
                 .read(mangaFilterDownloadedStateProvider(

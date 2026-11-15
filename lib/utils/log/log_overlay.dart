@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/router/router.dart' show navigatorKey;
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Floating, draggable overlay that streams [AppLogger]'s formatted log
@@ -475,7 +476,9 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
               icon: _showDate
                   ? Icons.calendar_month_rounded
                   : Icons.calendar_today_outlined,
-              tooltip: _showDate ? 'Date · ON' : 'Date · OFF',
+              tooltip: _showDate
+                  ? context.l10n.log_viewer_date_on
+                  : context.l10n.log_viewer_date_off,
               active: _showDate,
               onTap: () => setState(() => _showDate = !_showDate),
             ),
@@ -483,18 +486,20 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
               icon: _autoScroll
                   ? Icons.vertical_align_bottom_rounded
                   : Icons.vertical_align_center_rounded,
-              tooltip: _autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF',
+              tooltip: _autoScroll
+                  ? context.l10n.log_viewer_autoscroll_on
+                  : context.l10n.log_viewer_autoscroll_off,
               active: _autoScroll,
               onTap: () => setState(() => _autoScroll = !_autoScroll),
             ),
             _IconBtn(
               icon: Icons.minimize_rounded,
-              tooltip: 'Réduire',
+              tooltip: context.l10n.log_viewer_collapse,
               onTap: () => setState(() => _collapsed = true),
             ),
             _IconBtn(
               icon: Icons.close_rounded,
-              tooltip: 'Fermer',
+              tooltip: context.l10n.browse_close,
               onTap: () => LogOverlayController.instance.hide(),
             ),
           ],
@@ -521,17 +526,24 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
                 fontSize: 11,
                 color: Colors.white,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(
+                contentPadding: const EdgeInsets.symmetric(
                   horizontal: 8,
                   vertical: 6,
                 ),
-                hintText: 'filtrer…',
-                hintStyle: TextStyle(color: Colors.white38, fontSize: 11),
+                hintText: context.l10n.log_viewer_filter_hint,
+                hintStyle: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 11,
+                ),
                 border: InputBorder.none,
-                prefixIcon: Icon(Icons.search, size: 14, color: Colors.white38),
-                prefixIconConstraints: BoxConstraints(
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 14,
+                  color: Colors.white38,
+                ),
+                prefixIconConstraints: const BoxConstraints(
                   minWidth: 20,
                   minHeight: 20,
                 ),
@@ -540,7 +552,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
           ),
           _IconBtn(
             icon: Icons.error_outline_rounded,
-            tooltip: 'Erreurs / warnings uniquement',
+            tooltip: context.l10n.log_viewer_errors_only,
             active: _onlyErrors,
             onTap: () => setState(() {
               _onlyErrors = !_onlyErrors;
@@ -549,7 +561,7 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
           ),
           _IconBtn(
             icon: Icons.copy_rounded,
-            tooltip: 'Copier',
+            tooltip: context.l10n.browse_copy,
             onTap: () async {
               final text = _filtered.map(_displayLine).join('\n');
               await Clipboard.setData(ClipboardData(text: text));
@@ -561,12 +573,12 @@ class _LogOverlayPanelState extends State<_LogOverlayPanel> {
           // logger never finished init()).
           _IconBtn(
             icon: Icons.download_rounded,
-            tooltip: 'Télécharger / Partager',
+            tooltip: context.l10n.log_viewer_download_share,
             onTap: _downloadLog,
           ),
           _IconBtn(
             icon: Icons.delete_outline_rounded,
-            tooltip: 'Vider',
+            tooltip: context.l10n.log_viewer_clear_logs,
             onTap: () {
               AppLogger.clearRing();
               setState(() {

@@ -21388,6 +21388,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cookie deleted for {host}'**
   String extension_cookies_deleted(Object host);
+
+  /// No description provided for @common_classification.
+  ///
+  /// In en, this message translates to:
+  /// **'Classification'**
+  String get common_classification;
+
+  /// No description provided for @log_viewer_date_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Date · ON'**
+  String get log_viewer_date_on;
+
+  /// No description provided for @log_viewer_date_off.
+  ///
+  /// In en, this message translates to:
+  /// **'Date · OFF'**
+  String get log_viewer_date_off;
+
+  /// No description provided for @log_viewer_collapse.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse'**
+  String get log_viewer_collapse;
+
+  /// No description provided for @log_viewer_errors_only.
+  ///
+  /// In en, this message translates to:
+  /// **'Errors / warnings only'**
+  String get log_viewer_errors_only;
+
+  /// No description provided for @novel_theme_dark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get novel_theme_dark;
+
+  /// No description provided for @novel_theme_light.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get novel_theme_light;
+
+  /// No description provided for @novel_theme_sepia.
+  ///
+  /// In en, this message translates to:
+  /// **'Sepia'**
+  String get novel_theme_sepia;
+
+  /// No description provided for @novel_padding.
+  ///
+  /// In en, this message translates to:
+  /// **'Padding'**
+  String get novel_padding;
+
+  /// No description provided for @novel_search_in_source.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in {name}…'**
+  String novel_search_in_source(Object name);
+
+  /// No description provided for @novel_the_source.
+  ///
+  /// In en, this message translates to:
+  /// **'the source'**
+  String get novel_the_source;
+
+  /// No description provided for @novel_popular.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular'**
+  String get novel_popular;
+
+  /// No description provided for @novel_recent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent'**
+  String get novel_recent;
+
+  /// No description provided for @novel_latest_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'Latest chapters'**
+  String get novel_latest_chapters;
+
+  /// No description provided for @novel_explore_catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore the catalogue'**
+  String get novel_explore_catalogue;
+
+  /// No description provided for @novel_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search a novel…'**
+  String get novel_search_hint;
 }
 
 class _AppLocalizationsDelegate

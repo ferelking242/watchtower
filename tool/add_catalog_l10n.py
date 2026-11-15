@@ -3994,6 +3994,33 @@ def has_key(text, key):
     return f'\n  "{key}":' in "\n" + text
 
 
+NOVEL_HOME_L10N = [
+    ("novel_search_in_source", "Search in {name}…",
+     "Rechercher dans {name}…"),
+    ("novel_the_source", "the source", "la source"),
+    ("novel_popular", "Popular", "Populaires"),
+    ("novel_recent", "Recent", "Récents"),
+    ("novel_latest_chapters", "Latest chapters", "Derniers chapitres"),
+    ("novel_explore_catalogue", "Explore the catalogue",
+     "Explorer le catalogue"),
+    ("novel_search_hint", "Search a novel…", "Chercher un roman…"),
+]
+
+NOVEL_READER_L10N = [
+    ("novel_theme_dark", "Dark", "Sombre"),
+    ("novel_theme_light", "Light", "Clair"),
+    ("novel_theme_sepia", "Sepia", "Sépia"),
+    ("novel_padding", "Padding", "Marge intérieure"),
+]
+
+LOG_OVERLAY_L10N = [
+    ("log_viewer_date_on", "Date · ON", "Date · Activée"),
+    ("log_viewer_date_off", "Date · OFF", "Date · Désactivée"),
+    ("log_viewer_collapse", "Collapse", "Réduire"),
+    ("log_viewer_errors_only", "Errors / warnings only",
+     "Erreurs / avertissements uniquement"),
+]
+
 COOKIES_L10N = [
     ("extension_cookies_title", "Extension cookies",
      "Cookies des extensions"),
@@ -4033,6 +4060,7 @@ COMMON_L10N = [
     ("unavailable", "Unavailable", "Indisponible"),
     ("never", "Never", "Jamais"),
     ("common_select", "Select", "Sélectionner"),
+    ("common_classification", "Classification", "Classification"),
     ("common_ascending", "Ascending", "Croissant"),
     ("common_descending", "Descending", "Décroissant"),
     ("auto_backup_title", "Automatic backup", "Sauvegarde automatique"),
@@ -4263,6 +4291,12 @@ en_entries += [(key, en) for key, en, _ in DISCOVER]
 fr_entries += [(key, fr) for key, _, fr in DISCOVER]
 en_entries += [(key, en) for key, en, _ in HOME_L10N]
 fr_entries += [(key, fr) for key, _, fr in HOME_L10N]
+en_entries += [(key, en) for key, en, _ in NOVEL_HOME_L10N]
+fr_entries += [(key, fr) for key, _, fr in NOVEL_HOME_L10N]
+en_entries += [(key, en) for key, en, _ in NOVEL_READER_L10N]
+fr_entries += [(key, fr) for key, _, fr in NOVEL_READER_L10N]
+en_entries += [(key, en) for key, en, _ in LOG_OVERLAY_L10N]
+fr_entries += [(key, fr) for key, _, fr in LOG_OVERLAY_L10N]
 en_entries += [(key, en) for key, en, _ in COOKIES_L10N]
 fr_entries += [(key, fr) for key, _, fr in COOKIES_L10N]
 en_entries += [(key, en) for key, en, _ in RECOMMENDATIONS_L10N]

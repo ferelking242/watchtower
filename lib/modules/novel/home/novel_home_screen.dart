@@ -163,7 +163,9 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                       FocusScope.of(sheetContext).unfocus();
                     },
                     decoration: InputDecoration(
-                      hintText: 'Rechercher dans ${source.name ?? 'la source'}…',
+                      hintText: ctx.l10n.novel_search_in_source(
+                        source.name ?? ctx.l10n.novel_the_source,
+                      ),
                       prefixIcon: const Icon(Icons.search_rounded),
                       isDense: true,
                       border: OutlineInputBorder(
@@ -417,10 +419,13 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
     // or the layout has already been loaded and contains custom sections.
     final _hasHomeTab = source.providesHome || _customLists.isNotEmpty;
     final tabs = <({IconData icon, String label, int idx})>[
-      if (_hasHomeTab) (icon: Icons.menu_book_rounded, label: 'Accueil', idx: _kHomeIdx),
-      (icon: Icons.local_fire_department_rounded, label: 'Populaires', idx: _kPopularIdx),
-      if (supportsLatest) (icon: Icons.fiber_new_rounded, label: 'Récents', idx: _kLatestIdx),
-      if (filterList.isNotEmpty) (icon: Icons.tune_rounded, label: 'Filtres', idx: _kFilterIdx),
+      if (_hasHomeTab)
+        (icon: Icons.menu_book_rounded, label: ctx.l10n.nav_home, idx: _kHomeIdx),
+      (icon: Icons.local_fire_department_rounded, label: ctx.l10n.novel_popular, idx: _kPopularIdx),
+      if (supportsLatest)
+        (icon: Icons.fiber_new_rounded, label: ctx.l10n.novel_recent, idx: _kLatestIdx),
+      if (filterList.isNotEmpty)
+        (icon: Icons.tune_rounded, label: ctx.l10n.discover_filters, idx: _kFilterIdx),
     ];
 
     return SizedBox(
@@ -618,7 +623,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                 children: [
                   _buildSectionHeader(
                     ctx,
-                    title: 'Derniers chapitres',
+                    title: ctx.l10n.novel_latest_chapters,
                     accent: const Color(0xFF00BCD4),
                     icon: Icons.fiber_new_rounded,
                     onSeeAll: () => setState(() {
@@ -646,7 +651,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
           SliverToBoxAdapter(
             child: _buildSectionHeader(
               ctx,
-              title: 'Explorer le catalogue',
+              title: ctx.l10n.novel_explore_catalogue,
               accent: _kNovelBrown,
               icon: Icons.collections_bookmark_rounded,
             ),
@@ -1093,7 +1098,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                               controller: _searchCtrl,
                               style: const TextStyle(fontSize: 16),
                               decoration: InputDecoration(
-                                hintText: 'Chercher un roman…',
+                                hintText: ctx.l10n.novel_search_hint,
                                 hintStyle: TextStyle(color: Theme.of(ctx).hintColor, fontSize: 16),
                                 border: InputBorder.none,
                                 isDense: true,
@@ -1220,7 +1225,7 @@ class _NovelHomeScreenState extends ConsumerState<NovelHomeScreen> {
                 backgroundColor: _kNovelGold,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Réessayer'),
+              child: Text(ctx.l10n.discover_retry),
             ),
           ],
         ),

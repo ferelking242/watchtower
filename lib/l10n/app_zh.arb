@@ -3545,5 +3545,21 @@
   "extension_cookies_title": "Extension cookies",
   "extension_cookies_refresh": "Refresh",
   "extension_cookies_paste": "Paste from the clipboard",
-  "extension_cookies_deleted": "Cookie deleted for {host}"
+  "extension_cookies_deleted": "Cookie deleted for {host}",
+  "common_classification": "Classification",
+  "log_viewer_date_on": "Date · ON",
+  "log_viewer_date_off": "Date · OFF",
+  "log_viewer_collapse": "Collapse",
+  "log_viewer_errors_only": "Errors / warnings only",
+  "novel_theme_dark": "Dark",
+  "novel_theme_light": "Light",
+  "novel_theme_sepia": "Sepia",
+  "novel_padding": "Padding",
+  "novel_search_in_source": "Search in {name}…",
+  "novel_the_source": "the source",
+  "novel_popular": "Popular",
+  "novel_recent": "Recent",
+  "novel_latest_chapters": "Latest chapters",
+  "novel_explore_catalogue": "Explore the catalogue",
+  "novel_search_hint": "Search a novel…"
 }

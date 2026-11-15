@@ -3630,5 +3630,21 @@
   "extension_cookies_title": "Cookies des extensions",
   "extension_cookies_refresh": "Actualiser",
   "extension_cookies_paste": "Coller depuis le presse-papiers",
-  "extension_cookies_deleted": "Cookie supprimé pour {host}"
+  "extension_cookies_deleted": "Cookie supprimé pour {host}",
+  "common_classification": "Classification",
+  "log_viewer_date_on": "Date · Activée",
+  "log_viewer_date_off": "Date · Désactivée",
+  "log_viewer_collapse": "Réduire",
+  "log_viewer_errors_only": "Erreurs / avertissements uniquement",
+  "novel_theme_dark": "Sombre",
+  "novel_theme_light": "Clair",
+  "novel_theme_sepia": "Sépia",
+  "novel_padding": "Marge intérieure",
+  "novel_search_in_source": "Rechercher dans {name}…",
+  "novel_the_source": "la source",
+  "novel_popular": "Populaires",
+  "novel_recent": "Récents",
+  "novel_latest_chapters": "Derniers chapitres",
+  "novel_explore_catalogue": "Explorer le catalogue",
+  "novel_search_hint": "Chercher un roman…"
 }

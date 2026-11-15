@@ -12000,4 +12000,54 @@ class AppLocalizationsIt extends AppLocalizations {
   String extension_cookies_deleted(Object host) {
     return 'Cookie deleted for $host';
   }
+
+  @override
+  String get common_classification => 'Classification';
+
+  @override
+  String get log_viewer_date_on => 'Date · ON';
+
+  @override
+  String get log_viewer_date_off => 'Date · OFF';
+
+  @override
+  String get log_viewer_collapse => 'Collapse';
+
+  @override
+  String get log_viewer_errors_only => 'Errors / warnings only';
+
+  @override
+  String get novel_theme_dark => 'Dark';
+
+  @override
+  String get novel_theme_light => 'Light';
+
+  @override
+  String get novel_theme_sepia => 'Sepia';
+
+  @override
+  String get novel_padding => 'Padding';
+
+  @override
+  String novel_search_in_source(Object name) {
+    return 'Search in $name…';
+  }
+
+  @override
+  String get novel_the_source => 'the source';
+
+  @override
+  String get novel_popular => 'Popular';
+
+  @override
+  String get novel_recent => 'Recent';
+
+  @override
+  String get novel_latest_chapters => 'Latest chapters';
+
+  @override
+  String get novel_explore_catalogue => 'Explore the catalogue';
+
+  @override
+  String get novel_search_hint => 'Search a novel…';
 }

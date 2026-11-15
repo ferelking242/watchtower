@@ -31,7 +31,7 @@ class ReaderSettingsTab extends ConsumerWidget {
                     _ThemeButton(
                       backgroundColor: '#292832',
                       textColor: '#CCCCCC',
-                      label: 'Dark',
+                      label: context.l10n.novel_theme_dark,
                       isSelected: backgroundColor == '#292832',
                       onTap: () {
                         ref
@@ -45,7 +45,7 @@ class ReaderSettingsTab extends ConsumerWidget {
                     _ThemeButton(
                       backgroundColor: '#FFFFFF',
                       textColor: '#000000',
-                      label: 'Light',
+                      label: context.l10n.novel_theme_light,
                       isSelected: backgroundColor == '#FFFFFF',
                       onTap: () {
                         ref
@@ -59,7 +59,7 @@ class ReaderSettingsTab extends ConsumerWidget {
                     _ThemeButton(
                       backgroundColor: '#000000',
                       textColor: '#FFFFFF',
-                      label: 'Black',
+                      label: context.l10n.black,
                       isSelected: backgroundColor == '#000000',
                       onTap: () {
                         ref
@@ -73,7 +73,7 @@ class ReaderSettingsTab extends ConsumerWidget {
                     _ThemeButton(
                       backgroundColor: '#F5E6D3',
                       textColor: '#5F4B32',
-                      label: 'Sepia',
+                      label: context.l10n.novel_theme_sepia,
                       isSelected: backgroundColor == '#F5E6D3',
                       onTap: () {
                         ref
@@ -167,7 +167,7 @@ class ReaderSettingsTab extends ConsumerWidget {
           const SizedBox(height: 16),
 
           _SettingSection(
-            title: 'Padding',
+            title: context.l10n.novel_padding,
             child: Column(
               children: [
                 Row(
