@@ -3433,5 +3433,9 @@
   "creator_following": "Suivis",
   "creator_followers": "Abonnés",
   "creator_likes": "J'aime",
-  "creator_no_video": "Aucune vidéo disponible"
+  "creator_no_video": "Aucune vidéo disponible",
+  "streaming_resume": "Reprendre",
+  "streaming_replay": "Revoir",
+  "streaming_watch_now": "Voir maintenant",
+  "streaming_view_season": "Voir la saison"
 }

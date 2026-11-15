@@ -11369,6 +11369,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get creator_no_video => 'No video available';
+
+  @override
+  String get streaming_resume => 'Resume';
+
+  @override
+  String get streaming_replay => 'Watch again';
+
+  @override
+  String get streaming_watch_now => 'Watch now';
+
+  @override
+  String get streaming_view_season => 'View season';
 }
 
 /// The translations for Spanish Castilian, as used in Latin America and the Caribbean (`es_419`).
@@ -22154,4 +22166,16 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get creator_no_video => 'No video available';
+
+  @override
+  String get streaming_resume => 'Resume';
+
+  @override
+  String get streaming_replay => 'Watch again';
+
+  @override
+  String get streaming_watch_now => 'Watch now';
+
+  @override
+  String get streaming_view_season => 'View season';
 }

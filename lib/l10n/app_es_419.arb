@@ -3317,5 +3317,9 @@
   "creator_following": "Following",
   "creator_followers": "Followers",
   "creator_likes": "Likes",
-  "creator_no_video": "No video available"
+  "creator_no_video": "No video available",
+  "streaming_resume": "Resume",
+  "streaming_replay": "Watch again",
+  "streaming_watch_now": "Watch now",
+  "streaming_view_season": "View season"
 }

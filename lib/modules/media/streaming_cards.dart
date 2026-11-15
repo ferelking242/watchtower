@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 
 /// ─────────────────────────────────────────────────────────────────────────
 /// Cartes « streaming » — reprise de lecture, progression et épisodes.
@@ -110,6 +111,7 @@ class ContinueWatchingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final accent = Theme.of(context).colorScheme.primary;
     final subtitle = [
       if (data.metaLine.isNotEmpty) data.metaLine,
@@ -208,14 +210,14 @@ class ContinueWatchingCard extends StatelessWidget {
                     Expanded(
                       child: _StreamPrimaryAction(
                         icon: Broken.play,
-                        label: 'Reprendre',
+                        label: l10n.streaming_resume,
                         onTap: data.onPlay,
                       ),
                     ),
                     const SizedBox(width: 8),
                     _StreamSecondaryAction(
                       icon: Broken.add_circle,
-                      label: 'Ma liste',
+                      label: l10n.more_my_list,
                       onTap: data.onAddToList,
                     ),
                     const SizedBox(width: 8),
@@ -503,6 +505,7 @@ class WatchAgainCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Container(
       width: width,
       clipBehavior: Clip.antiAlias,
@@ -570,7 +573,7 @@ class WatchAgainCard extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             child: _StreamPrimaryAction(
               icon: Broken.play,
-              label: 'Revoir',
+              label: l10n.streaming_replay,
               onTap: data.onPlay,
             ),
           ),
@@ -599,6 +602,7 @@ class NowPlayingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       constraints: BoxConstraints(maxWidth: width),
@@ -673,14 +677,14 @@ class NowPlayingCard extends StatelessWidget {
                 Expanded(
                   child: _StreamPrimaryAction(
                     icon: Broken.play,
-                    label: 'Voir maintenant',
+                    label: l10n.streaming_watch_now,
                     onTap: data.onPlay,
                   ),
                 ),
                 const SizedBox(width: 8),
                 _StreamSecondaryAction(
                   icon: Broken.add_circle,
-                  label: 'Ma liste',
+                  label: l10n.more_my_list,
                   onTap: data.onAddToList,
                 ),
               ],
@@ -1093,6 +1097,7 @@ class SeasonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
       width: width,
@@ -1166,7 +1171,7 @@ class SeasonCard extends StatelessWidget {
               children: [
                 _StreamPrimaryAction(
                   icon: Broken.play,
-                  label: 'Voir la saison',
+                  label: l10n.streaming_view_season,
                   onTap: data.onTap,
                 ),
                 const SizedBox(height: 10),

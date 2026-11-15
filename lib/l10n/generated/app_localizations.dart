@@ -20206,6 +20206,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No video available'**
   String get creator_no_video;
+
+  /// No description provided for @streaming_resume.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume'**
+  String get streaming_resume;
+
+  /// No description provided for @streaming_replay.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch again'**
+  String get streaming_replay;
+
+  /// No description provided for @streaming_watch_now.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch now'**
+  String get streaming_watch_now;
+
+  /// No description provided for @streaming_view_season.
+  ///
+  /// In en, this message translates to:
+  /// **'View season'**
+  String get streaming_view_season;
 }
 
 class _AppLocalizationsDelegate

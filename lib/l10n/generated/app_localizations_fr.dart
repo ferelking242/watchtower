@@ -11476,4 +11476,16 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get creator_no_video => 'Aucune vidéo disponible';
+
+  @override
+  String get streaming_resume => 'Reprendre';
+
+  @override
+  String get streaming_replay => 'Revoir';
+
+  @override
+  String get streaming_watch_now => 'Voir maintenant';
+
+  @override
+  String get streaming_view_season => 'Voir la saison';
 }
