@@ -3993,6 +3993,69 @@ def has_key(text, key):
     return f'\n  "{key}":' in "\n" + text
 
 
+DISCOVERY_ROWS_L10N = [
+    ("discover_row_trending_manga", "Trending Manga", "Manga tendance"),
+    ("discover_row_popular_manga", "Popular Manga", "Manga populaires"),
+    ("discover_row_origins", "Origins", "Origines"),
+    ("discover_row_genres", "Genres", "Genres"),
+    ("discover_row_trending_manhwa", "Trending Manhwa", "Manhwa tendance"),
+    ("discover_row_trending_manhua", "Trending Manhua", "Manhua tendance"),
+    ("discover_row_highly_rated", "Highly Rated Completed",
+     "Terminés les mieux notés"),
+    ("discover_row_top_rated", "Top Rated", "Les mieux notés"),
+    ("discover_row_action", "Action", "Action"),
+    ("discover_row_romance", "Romance", "Romance"),
+    ("discover_row_fantasy", "Fantasy", "Fantastique"),
+    ("discover_row_slice_of_life", "Slice of Life", "Tranche de vie"),
+    ("discover_row_trending_novels", "Trending Light Novels",
+     "Light novels tendance"),
+    ("discover_row_popular_novels", "Popular Novels", "Romans populaires"),
+    ("game_install_hint",
+     "Install game extensions to browse and download ROMs from sites like "
+     "RomsFun, Vimm's Lair, and more.",
+     "Installez des extensions de jeux pour parcourir et télécharger des ROMs "
+     "depuis des sites comme RomsFun, Vimm's Lair, et plus."),
+    ("game_feature_download_title", "Download ROMs", "Télécharger des ROMs"),
+    ("game_feature_download_subtitle", "PSP · PS2 · GBA · SNES · N64 and more",
+     "PSP · PS2 · GBA · SNES · N64 et plus"),
+    ("game_feature_emulators_title", "Launch Emulators", "Lancer des émulateurs"),
+    ("game_feature_emulators_subtitle",
+     "Integrates with installed emulators",
+     "S'intègre aux émulateurs installés"),
+    ("game_feature_track_title", "Track your games", "Suivez vos jeux"),
+    ("game_feature_track_subtitle",
+     "Mark as played, playing, or wish list",
+     "Marquez comme joué, en cours ou souhaité"),
+    ("game_browse_extensions", "Browse Game Extensions",
+     "Parcourir les extensions de jeux"),
+    ("game_platform_games", "{name} Games", "Jeux {name}"),
+]
+
+ANIME_FEED_L10N = [
+    ("common_see_all", "See all", "Tout voir"),
+    ("anime_feed_featured", "Featured", "À la une"),
+    ("anime_feed_explore_world", "Explore the world", "Explorer le monde"),
+    ("anime_feed_top10", "Top 10 Anime", "Top 10 Anime"),
+    ("anime_feed_top10_subtitle", "Highest rated on AniList",
+     "Les mieux notés sur AniList"),
+    ("anime_feed_top_anime", "Top Anime", "Top Anime"),
+    ("anime_feed_explore_tags", "Explore by tags", "Explorer par tags"),
+    ("anime_feed_discover", "To discover", "À découvrir"),
+    ("anime_feed_anime_movies", "Anime movies", "Films anime"),
+    ("anime_feed_trending", "Trending", "Tendances"),
+    ("anime_feed_collections", "Collections to discover",
+     "Collections à découvrir"),
+    ("anime_feed_anime_collections", "Anime collections", "Collections anime"),
+    ("anime_feed_franchises", "Cult franchises", "Franchises cultes"),
+    ("anime_feed_anime_franchises", "Anime franchises", "Franchises anime"),
+    ("anime_feed_featured_studio", "Featured studio", "Studio en vedette"),
+    ("anime_feed_popular_studios", "Popular studios", "Studios populaires"),
+    ("anime_feed_featured_genres", "Featured genres", "Genres en vedette"),
+    ("anime_feed_genres", "Genres", "Genres"),
+    ("anime_feed_catalogue", "Anime catalogue", "Catalogue anime"),
+    ("anime_feed_popular_anime", "Popular anime", "Anime populaires"),
+]
+
 ANILIST_L10N = [
     ("anilist_open_webview", "Open in WebView", "Ouvrir dans le navigateur"),
     ("anilist_find_extensions", "Find on Extensions", "Chercher dans les extensions"),
@@ -4136,6 +4199,10 @@ en_entries += [(key, en) for key, en, _ in DISCOVER]
 fr_entries += [(key, fr) for key, _, fr in DISCOVER]
 en_entries += [(key, en) for key, en, _ in HOME_L10N]
 fr_entries += [(key, fr) for key, _, fr in HOME_L10N]
+en_entries += [(key, en) for key, en, _ in DISCOVERY_ROWS_L10N]
+fr_entries += [(key, fr) for key, _, fr in DISCOVERY_ROWS_L10N]
+en_entries += [(key, en) for key, en, _ in ANIME_FEED_L10N]
+fr_entries += [(key, fr) for key, _, fr in ANIME_FEED_L10N]
 en_entries += [(key, en) for key, en, _ in ANILIST_L10N]
 fr_entries += [(key, fr) for key, _, fr in ANILIST_L10N]
 en_entries += [(key, en) for key, en, _ in TMDB_CATALOG]

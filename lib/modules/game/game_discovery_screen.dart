@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -111,15 +112,16 @@ class _GameDiscoveryScreenState extends ConsumerState<GameDiscoveryScreen> {
                       ),
                       const SizedBox(height: 28),
                       Text(
-                        '${_platforms[_selectedPlatform].name} Games',
+                        context.l10n.game_platform_games(
+                          _platforms[_selectedPlatform].name,
+                        ),
                         style: tt.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Install game extensions to browse and download ROMs '
-                        'from sites like RomsFun, Vimm\'s Lair, and more.',
+                        context.l10n.game_install_hint,
                         textAlign: TextAlign.center,
                         style: tt.bodyMedium?.copyWith(
                           color: cs.onSurface.withValues(alpha: 0.65),
@@ -129,29 +131,29 @@ class _GameDiscoveryScreenState extends ConsumerState<GameDiscoveryScreen> {
                       const SizedBox(height: 36),
                       _GameFeatureCard(
                         icon: Icons.download_for_offline_rounded,
-                        title: 'Download ROMs',
-                        subtitle: 'PSP · PS2 · GBA · SNES · N64 and more',
+                        title: context.l10n.game_feature_download_title,
+                        subtitle: context.l10n.game_feature_download_subtitle,
                         color: Colors.blue,
                       ),
                       const SizedBox(height: 12),
                       _GameFeatureCard(
                         icon: Icons.sports_esports_rounded,
-                        title: 'Launch Emulators',
-                        subtitle: 'Integrates with installed emulators',
+                        title: context.l10n.game_feature_emulators_title,
+                        subtitle: context.l10n.game_feature_emulators_subtitle,
                         color: Colors.green,
                       ),
                       const SizedBox(height: 12),
                       _GameFeatureCard(
                         icon: Icons.star_rounded,
-                        title: 'Track your games',
-                        subtitle: 'Mark as played, playing, or wish list',
+                        title: context.l10n.game_feature_track_title,
+                        subtitle: context.l10n.game_feature_track_subtitle,
                         color: Colors.amber,
                       ),
                       const SizedBox(height: 40),
                       FilledButton.icon(
                         onPressed: () => context.go('/browse'),
                         icon: const Icon(Icons.explore_outlined),
-                        label: const Text('Browse Game Extensions'),
+                        label: Text(context.l10n.game_browse_extensions),
                         style: FilledButton.styleFrom(
                           minimumSize: const Size(220, 48),
                           backgroundColor: _platforms[_selectedPlatform].color,

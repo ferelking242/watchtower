@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
@@ -83,46 +84,52 @@ class MangaDiscoveryScreen extends ConsumerWidget {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     DiscoveryRow(
-                      title: 'Trending Manga',
+                      title: context.l10n.discover_row_trending_manga,
                       items: home.trendingMangas,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAll(context, 'Manga', country: 'JP'),
                     ),
-                    CategoryRow(title: 'Origines', categories: mangaOrigins()),
+                    CategoryRow(
+                      title: context.l10n.discover_row_origins,
+                      categories: mangaOrigins(),
+                    ),
                     DiscoveryRow(
-                      title: 'Popular Manga',
+                      title: context.l10n.discover_row_popular_manga,
                       items: home.popularMangas,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () =>
                           _seeAll(context, 'Popular Manga', country: 'JP'),
                     ),
-                    CategoryRow(title: 'Genres', categories: mangaCategories()),
+                    CategoryRow(
+                      title: context.l10n.discover_row_genres,
+                      categories: mangaCategories(),
+                    ),
                     DiscoveryRow(
-                      title: 'Trending Manhwa',
+                      title: context.l10n.discover_row_trending_manhwa,
                       items: home.trendingManhwa,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAll(context, 'Manhwa', country: 'KR'),
                     ),
                     DiscoveryRow(
-                      title: 'Trending Manhua',
+                      title: context.l10n.discover_row_trending_manhua,
                       items: home.trendingManhua,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAll(context, 'Manhua', country: 'CN'),
                     ),
                     DiscoveryRow(
-                      title: 'Highly Rated Completed',
+                      title: context.l10n.discover_row_highly_rated,
                       items: home.latestMangas,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAll(context, 'Manga', country: 'JP'),
                     ),
                     DiscoveryRow(
-                      title: 'Top Rated',
+                      title: context.l10n.discover_row_top_rated,
                       items: _byScore(home.popularMangas + home.trendingMangas),
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAll(context, 'Top Rated Manga'),
                     ),
                     DiscoveryRow(
-                      title: 'Action',
+                      title: context.l10n.discover_row_action,
                       items: _byGenre(
                         home.popularMangas +
                             home.trendingMangas +
@@ -134,7 +141,7 @@ class MangaDiscoveryScreen extends ConsumerWidget {
                           _seeAll(context, 'Action', genre: 'Action'),
                     ),
                     DiscoveryRow(
-                      title: 'Romance',
+                      title: context.l10n.discover_row_romance,
                       items: _byGenre(
                         home.popularMangas +
                             home.trendingMangas +
@@ -146,7 +153,7 @@ class MangaDiscoveryScreen extends ConsumerWidget {
                           _seeAll(context, 'Romance', genre: 'Romance'),
                     ),
                     DiscoveryRow(
-                      title: 'Fantasy',
+                      title: context.l10n.discover_row_fantasy,
                       items: _byGenre(
                         home.popularMangas +
                             home.trendingMangas +
@@ -158,7 +165,7 @@ class MangaDiscoveryScreen extends ConsumerWidget {
                           _seeAll(context, 'Fantasy', genre: 'Fantasy'),
                     ),
                     DiscoveryRow(
-                      title: 'Slice of Life',
+                      title: context.l10n.discover_row_slice_of_life,
                       items: _byGenre(
                         home.popularMangas + home.trendingMangas,
                         'Slice of Life',

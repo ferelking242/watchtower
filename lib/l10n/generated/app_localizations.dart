@@ -20932,6 +20932,264 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Watch Order'**
   String get anilist_tab_watch_order;
+
+  /// No description provided for @common_see_all.
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get common_see_all;
+
+  /// No description provided for @anime_feed_featured.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get anime_feed_featured;
+
+  /// No description provided for @anime_feed_explore_world.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore the world'**
+  String get anime_feed_explore_world;
+
+  /// No description provided for @anime_feed_top10.
+  ///
+  /// In en, this message translates to:
+  /// **'Top 10 Anime'**
+  String get anime_feed_top10;
+
+  /// No description provided for @anime_feed_top10_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Highest rated on AniList'**
+  String get anime_feed_top10_subtitle;
+
+  /// No description provided for @anime_feed_top_anime.
+  ///
+  /// In en, this message translates to:
+  /// **'Top Anime'**
+  String get anime_feed_top_anime;
+
+  /// No description provided for @anime_feed_explore_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore by tags'**
+  String get anime_feed_explore_tags;
+
+  /// No description provided for @anime_feed_discover.
+  ///
+  /// In en, this message translates to:
+  /// **'To discover'**
+  String get anime_feed_discover;
+
+  /// No description provided for @anime_feed_anime_movies.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime movies'**
+  String get anime_feed_anime_movies;
+
+  /// No description provided for @anime_feed_trending.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending'**
+  String get anime_feed_trending;
+
+  /// No description provided for @anime_feed_collections.
+  ///
+  /// In en, this message translates to:
+  /// **'Collections to discover'**
+  String get anime_feed_collections;
+
+  /// No description provided for @anime_feed_anime_collections.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime collections'**
+  String get anime_feed_anime_collections;
+
+  /// No description provided for @anime_feed_franchises.
+  ///
+  /// In en, this message translates to:
+  /// **'Cult franchises'**
+  String get anime_feed_franchises;
+
+  /// No description provided for @anime_feed_anime_franchises.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime franchises'**
+  String get anime_feed_anime_franchises;
+
+  /// No description provided for @anime_feed_featured_studio.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured studio'**
+  String get anime_feed_featured_studio;
+
+  /// No description provided for @anime_feed_popular_studios.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular studios'**
+  String get anime_feed_popular_studios;
+
+  /// No description provided for @anime_feed_featured_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Featured genres'**
+  String get anime_feed_featured_genres;
+
+  /// No description provided for @anime_feed_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get anime_feed_genres;
+
+  /// No description provided for @anime_feed_catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime catalogue'**
+  String get anime_feed_catalogue;
+
+  /// No description provided for @anime_feed_popular_anime.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular anime'**
+  String get anime_feed_popular_anime;
+
+  /// No description provided for @discover_row_trending_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending Manga'**
+  String get discover_row_trending_manga;
+
+  /// No description provided for @discover_row_popular_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular Manga'**
+  String get discover_row_popular_manga;
+
+  /// No description provided for @discover_row_origins.
+  ///
+  /// In en, this message translates to:
+  /// **'Origins'**
+  String get discover_row_origins;
+
+  /// No description provided for @discover_row_genres.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get discover_row_genres;
+
+  /// No description provided for @discover_row_trending_manhwa.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending Manhwa'**
+  String get discover_row_trending_manhwa;
+
+  /// No description provided for @discover_row_trending_manhua.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending Manhua'**
+  String get discover_row_trending_manhua;
+
+  /// No description provided for @discover_row_highly_rated.
+  ///
+  /// In en, this message translates to:
+  /// **'Highly Rated Completed'**
+  String get discover_row_highly_rated;
+
+  /// No description provided for @discover_row_top_rated.
+  ///
+  /// In en, this message translates to:
+  /// **'Top Rated'**
+  String get discover_row_top_rated;
+
+  /// No description provided for @discover_row_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Action'**
+  String get discover_row_action;
+
+  /// No description provided for @discover_row_romance.
+  ///
+  /// In en, this message translates to:
+  /// **'Romance'**
+  String get discover_row_romance;
+
+  /// No description provided for @discover_row_fantasy.
+  ///
+  /// In en, this message translates to:
+  /// **'Fantasy'**
+  String get discover_row_fantasy;
+
+  /// No description provided for @discover_row_slice_of_life.
+  ///
+  /// In en, this message translates to:
+  /// **'Slice of Life'**
+  String get discover_row_slice_of_life;
+
+  /// No description provided for @discover_row_trending_novels.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending Light Novels'**
+  String get discover_row_trending_novels;
+
+  /// No description provided for @discover_row_popular_novels.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular Novels'**
+  String get discover_row_popular_novels;
+
+  /// No description provided for @game_install_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Install game extensions to browse and download ROMs from sites like RomsFun, Vimm\'s Lair, and more.'**
+  String get game_install_hint;
+
+  /// No description provided for @game_feature_download_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Download ROMs'**
+  String get game_feature_download_title;
+
+  /// No description provided for @game_feature_download_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PSP · PS2 · GBA · SNES · N64 and more'**
+  String get game_feature_download_subtitle;
+
+  /// No description provided for @game_feature_emulators_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch Emulators'**
+  String get game_feature_emulators_title;
+
+  /// No description provided for @game_feature_emulators_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrates with installed emulators'**
+  String get game_feature_emulators_subtitle;
+
+  /// No description provided for @game_feature_track_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your games'**
+  String get game_feature_track_title;
+
+  /// No description provided for @game_feature_track_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as played, playing, or wish list'**
+  String get game_feature_track_subtitle;
+
+  /// No description provided for @game_browse_extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse Game Extensions'**
+  String get game_browse_extensions;
+
+  /// No description provided for @game_platform_games.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} Games'**
+  String game_platform_games(Object name);
 }
 
 class _AppLocalizationsDelegate

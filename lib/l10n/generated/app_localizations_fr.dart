@@ -11872,4 +11872,139 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get anilist_tab_watch_order => 'Ordre de visionnage';
+
+  @override
+  String get common_see_all => 'Tout voir';
+
+  @override
+  String get anime_feed_featured => 'À la une';
+
+  @override
+  String get anime_feed_explore_world => 'Explorer le monde';
+
+  @override
+  String get anime_feed_top10 => 'Top 10 Anime';
+
+  @override
+  String get anime_feed_top10_subtitle => 'Les mieux notés sur AniList';
+
+  @override
+  String get anime_feed_top_anime => 'Top Anime';
+
+  @override
+  String get anime_feed_explore_tags => 'Explorer par tags';
+
+  @override
+  String get anime_feed_discover => 'À découvrir';
+
+  @override
+  String get anime_feed_anime_movies => 'Films anime';
+
+  @override
+  String get anime_feed_trending => 'Tendances';
+
+  @override
+  String get anime_feed_collections => 'Collections à découvrir';
+
+  @override
+  String get anime_feed_anime_collections => 'Collections anime';
+
+  @override
+  String get anime_feed_franchises => 'Franchises cultes';
+
+  @override
+  String get anime_feed_anime_franchises => 'Franchises anime';
+
+  @override
+  String get anime_feed_featured_studio => 'Studio en vedette';
+
+  @override
+  String get anime_feed_popular_studios => 'Studios populaires';
+
+  @override
+  String get anime_feed_featured_genres => 'Genres en vedette';
+
+  @override
+  String get anime_feed_genres => 'Genres';
+
+  @override
+  String get anime_feed_catalogue => 'Catalogue anime';
+
+  @override
+  String get anime_feed_popular_anime => 'Anime populaires';
+
+  @override
+  String get discover_row_trending_manga => 'Manga tendance';
+
+  @override
+  String get discover_row_popular_manga => 'Manga populaires';
+
+  @override
+  String get discover_row_origins => 'Origines';
+
+  @override
+  String get discover_row_genres => 'Genres';
+
+  @override
+  String get discover_row_trending_manhwa => 'Manhwa tendance';
+
+  @override
+  String get discover_row_trending_manhua => 'Manhua tendance';
+
+  @override
+  String get discover_row_highly_rated => 'Terminés les mieux notés';
+
+  @override
+  String get discover_row_top_rated => 'Les mieux notés';
+
+  @override
+  String get discover_row_action => 'Action';
+
+  @override
+  String get discover_row_romance => 'Romance';
+
+  @override
+  String get discover_row_fantasy => 'Fantastique';
+
+  @override
+  String get discover_row_slice_of_life => 'Tranche de vie';
+
+  @override
+  String get discover_row_trending_novels => 'Light novels tendance';
+
+  @override
+  String get discover_row_popular_novels => 'Romans populaires';
+
+  @override
+  String get game_install_hint =>
+      'Installez des extensions de jeux pour parcourir et télécharger des ROMs depuis des sites comme RomsFun, Vimm\'s Lair, et plus.';
+
+  @override
+  String get game_feature_download_title => 'Télécharger des ROMs';
+
+  @override
+  String get game_feature_download_subtitle =>
+      'PSP · PS2 · GBA · SNES · N64 et plus';
+
+  @override
+  String get game_feature_emulators_title => 'Lancer des émulateurs';
+
+  @override
+  String get game_feature_emulators_subtitle =>
+      'S\'intègre aux émulateurs installés';
+
+  @override
+  String get game_feature_track_title => 'Suivez vos jeux';
+
+  @override
+  String get game_feature_track_subtitle =>
+      'Marquez comme joué, en cours ou souhaité';
+
+  @override
+  String get game_browse_extensions => 'Parcourir les extensions de jeux';
+
+  @override
+  String game_platform_games(Object name) {
+    return 'Jeux $name';
+  }
 }

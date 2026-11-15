@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart'
@@ -78,32 +79,35 @@ class NovelDiscoveryScreen extends ConsumerWidget {
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     DiscoveryRow(
-                      title: 'Trending Light Novels',
+                      title: context.l10n.discover_row_trending_novels,
                       items: home.trendingNovels,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAllNovels(context),
                     ),
-                    CategoryRow(title: 'Genres', categories: novelCategories()),
+                    CategoryRow(
+                      title: context.l10n.discover_row_genres,
+                      categories: novelCategories(),
+                    ),
                     DiscoveryRow(
-                      title: 'Popular Novels',
+                      title: context.l10n.discover_row_popular_novels,
                       items: home.popularNovels,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAllNovels(context),
                     ),
                     DiscoveryRow(
-                      title: 'Highly Rated Completed',
+                      title: context.l10n.discover_row_highly_rated,
                       items: home.latestNovels,
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAllNovels(context),
                     ),
                     DiscoveryRow(
-                      title: 'Top Rated',
+                      title: context.l10n.discover_row_top_rated,
                       items: _byScore(home.popularNovels + home.trendingNovels),
                       onItemTap: (m) => _openDetail(context, m),
                       onSeeAll: () => _seeAllNovels(context),
                     ),
                     DiscoveryRow(
-                      title: 'Fantasy',
+                      title: context.l10n.discover_row_fantasy,
                       items: _byGenre(
                         home.popularNovels + home.trendingNovels,
                         'Fantasy',
@@ -112,7 +116,7 @@ class NovelDiscoveryScreen extends ConsumerWidget {
                       onSeeAll: () => _seeAllNovels(context, genre: 'Fantasy'),
                     ),
                     DiscoveryRow(
-                      title: 'Romance',
+                      title: context.l10n.discover_row_romance,
                       items: _byGenre(
                         home.popularNovels + home.trendingNovels,
                         'Romance',
@@ -121,7 +125,7 @@ class NovelDiscoveryScreen extends ConsumerWidget {
                       onSeeAll: () => _seeAllNovels(context, genre: 'Romance'),
                     ),
                     DiscoveryRow(
-                      title: 'Action',
+                      title: context.l10n.discover_row_action,
                       items: _byGenre(
                         home.popularNovels + home.trendingNovels,
                         'Action',

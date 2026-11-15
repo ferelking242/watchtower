@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/anime/anime_directory_screen.dart';
@@ -295,7 +296,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AppSectionHeader(title: 'À la une'),
+        AppSectionHeader(title: context.l10n.anime_feed_featured),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: AppUI.pagePadding(context)),
           child: SizedBox(
@@ -311,7 +312,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                     _context(
                       componentId: 'spotlight-discovery',
                       items: [ContentItem.fromAnilist(media)],
-                      title: 'À la une',
+                      title: context.l10n.anime_feed_featured,
                       onOpen: (_) => _open(media),
                     ),
                   ),
@@ -390,8 +391,8 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
-          title: 'Explorer le monde',
-          actionLabel: 'Tout voir',
+          title: context.l10n.anime_feed_explore_world,
+          actionLabel: context.l10n.common_see_all,
           onAction: () => context.push(
             '/animeDirectory',
             extra: AnimeDirectoryKind.countries,
@@ -506,17 +507,17 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             child: _gallerySection(
               componentId: 'top-anime',
               media: home.topRatedAnimes.take(10).toList(growable: false),
-              title: 'Top 10 Anime',
+              title: context.l10n.anime_feed_top10,
               params: {
-                'title': 'Top 10 Anime',
-                'subtitle': 'Les mieux notés sur AniList',
+                'title': context.l10n.anime_feed_top10,
+                'subtitle': context.l10n.anime_feed_top10_subtitle,
                 'flat': true,
                 'fill': true,
                 'width': fullCardWidth,
               },
               onOpen: _open,
               onSeeAll: () => _browse(
-                'Top Anime',
+                context.l10n.anime_feed_top_anime,
                 _filter(null, sort: 'SCORE_DESC'),
               ),
             ),
@@ -525,7 +526,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             child: _galleryItemsSection(
               componentId: 'tag',
               items: genreItems.take(8).toList(growable: false),
-              title: 'Explorer par tags',
+              title: context.l10n.anime_feed_explore_tags,
               params: const {'width': 154, 'compact': true},
               onOpen: (index) {
                 final genre =
@@ -543,11 +544,11 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             child: _gallerySection(
               componentId: 'movie-details',
               media: home.animeMovies.take(3).toList(growable: false),
-              title: 'À découvrir',
+              title: context.l10n.anime_feed_discover,
               params: {'width': fullCardWidth, 'fill': true},
               onOpen: _open,
               onSeeAll: () => _browse(
-                'Films anime',
+                context.l10n.anime_feed_anime_movies,
                 _filter(null, format: 'MOVIE'),
               ),
             ),
@@ -556,7 +557,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             child: _gallerySection(
               componentId: 'poster',
               media: home.trendingAnimes,
-              title: 'Tendances',
+              title: context.l10n.anime_feed_trending,
               params: const {'width': 112},
               onOpen: _open,
               onSeeAll: () => _browse(
@@ -573,14 +574,14 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                   for (final group in collectionGroups)
                     _relationGroupItem(group, groupLabel: 'collection'),
                 ],
-                title: 'Collections à découvrir',
+                title: context.l10n.anime_feed_collections,
                 params: const {'width': 380},
                 onOpen: (index) => _browseRelationGroup(
                   collectionGroups[index].representative.title,
                   collectionGroups[index],
                 ),
                 onSeeAll: () => _browseRelationGroups(
-                  'Collections anime',
+                  context.l10n.anime_feed_anime_collections,
                   collectionGroups,
                 ),
               ),
@@ -593,14 +594,14 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
                   for (final group in franchiseGroups)
                     _relationGroupItem(group, groupLabel: 'franchise'),
                 ],
-                title: 'Franchises cultes',
+                title: context.l10n.anime_feed_franchises,
                 params: {'width': fullCardWidth, 'fill': true, 'flat': true},
                 onOpen: (index) => _browseRelationGroup(
                   franchiseGroups[index].representative.title,
                   franchiseGroups[index],
                 ),
                 onSeeAll: () => _browseRelationGroups(
-                  'Franchises anime',
+                  context.l10n.anime_feed_anime_franchises,
                   franchiseGroups,
                 ),
               ),
@@ -610,7 +611,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
               child: _galleryItemsSection(
                 componentId: 'studio',
                 items: studioContent,
-                title: 'Studio en vedette',
+                title: context.l10n.anime_feed_featured_studio,
                 params: {'width': fullCardWidth, 'fill': true, 'flat': true},
                 onOpen: (_) => _browse(
                   studioEntries.first.studio.name,
@@ -626,7 +627,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             SliverToBoxAdapter(
               child: _twoRowGalleryGrid(
                 context: context,
-                title: 'Studios populaires',
+                title: context.l10n.anime_feed_popular_studios,
                 items: studioItems,
                 onOpen: (index) {
                   final studio = studioEntries[index].studio;
@@ -645,7 +646,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
             child: _galleryItemsSection(
               componentId: 'genre',
               items: featuredGenres,
-              title: 'Genres en vedette',
+              title: context.l10n.anime_feed_featured_genres,
               params: {'width': fullCardWidth, 'fill': true, 'flat': true},
               onOpen: (index) {
                 final genre = genres[index].definition;
@@ -663,7 +664,7 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
           SliverToBoxAdapter(
             child: _twoRowGalleryGrid(
               context: context,
-              title: 'Genres',
+              title: context.l10n.anime_feed_genres,
               items: genreItems,
               onOpen: (index) {
                 if (index < genres.length) {
@@ -684,9 +685,12 @@ class _AnimeDiscoveryFeedState extends ConsumerState<AnimeDiscoveryFeed> {
           ),
           SliverToBoxAdapter(
             child: AppSectionHeader(
-              title: 'Catalogue anime',
-              actionLabel: 'Tout voir',
-              onAction: () => _browse('Anime populaires', _filter(null)),
+              title: context.l10n.anime_feed_catalogue,
+              actionLabel: context.l10n.common_see_all,
+              onAction: () => _browse(
+                context.l10n.anime_feed_popular_anime,
+                _filter(null),
+              ),
             ),
           ),
           if (genres.isNotEmpty)
@@ -873,7 +877,9 @@ class AnimeDiscoveryLoadingScreen extends StatelessWidget {
             ),
           ),
         ),
-        SliverToBoxAdapter(child: _loadingGrid(context, 'Studios populaires')),
+        SliverToBoxAdapter(
+          child: _loadingGrid(context, context.l10n.anime_feed_popular_studios),
+        ),
         SliverToBoxAdapter(
           child: _AnimeLoadingSection(
             titleWidth: 128,
@@ -884,7 +890,9 @@ class AnimeDiscoveryLoadingScreen extends StatelessWidget {
             ),
           ),
         ),
-        SliverToBoxAdapter(child: _loadingGrid(context, 'Genres')),
+        SliverToBoxAdapter(
+          child: _loadingGrid(context, context.l10n.anime_feed_genres),
+        ),
         SliverToBoxAdapter(
           child: _loadingCountryGrid(context),
         ),

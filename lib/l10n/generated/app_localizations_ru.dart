@@ -11767,4 +11767,139 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get anilist_tab_watch_order => 'Watch Order';
+
+  @override
+  String get common_see_all => 'See all';
+
+  @override
+  String get anime_feed_featured => 'Featured';
+
+  @override
+  String get anime_feed_explore_world => 'Explore the world';
+
+  @override
+  String get anime_feed_top10 => 'Top 10 Anime';
+
+  @override
+  String get anime_feed_top10_subtitle => 'Highest rated on AniList';
+
+  @override
+  String get anime_feed_top_anime => 'Top Anime';
+
+  @override
+  String get anime_feed_explore_tags => 'Explore by tags';
+
+  @override
+  String get anime_feed_discover => 'To discover';
+
+  @override
+  String get anime_feed_anime_movies => 'Anime movies';
+
+  @override
+  String get anime_feed_trending => 'Trending';
+
+  @override
+  String get anime_feed_collections => 'Collections to discover';
+
+  @override
+  String get anime_feed_anime_collections => 'Anime collections';
+
+  @override
+  String get anime_feed_franchises => 'Cult franchises';
+
+  @override
+  String get anime_feed_anime_franchises => 'Anime franchises';
+
+  @override
+  String get anime_feed_featured_studio => 'Featured studio';
+
+  @override
+  String get anime_feed_popular_studios => 'Popular studios';
+
+  @override
+  String get anime_feed_featured_genres => 'Featured genres';
+
+  @override
+  String get anime_feed_genres => 'Genres';
+
+  @override
+  String get anime_feed_catalogue => 'Anime catalogue';
+
+  @override
+  String get anime_feed_popular_anime => 'Popular anime';
+
+  @override
+  String get discover_row_trending_manga => 'Trending Manga';
+
+  @override
+  String get discover_row_popular_manga => 'Popular Manga';
+
+  @override
+  String get discover_row_origins => 'Origins';
+
+  @override
+  String get discover_row_genres => 'Genres';
+
+  @override
+  String get discover_row_trending_manhwa => 'Trending Manhwa';
+
+  @override
+  String get discover_row_trending_manhua => 'Trending Manhua';
+
+  @override
+  String get discover_row_highly_rated => 'Highly Rated Completed';
+
+  @override
+  String get discover_row_top_rated => 'Top Rated';
+
+  @override
+  String get discover_row_action => 'Action';
+
+  @override
+  String get discover_row_romance => 'Romance';
+
+  @override
+  String get discover_row_fantasy => 'Fantasy';
+
+  @override
+  String get discover_row_slice_of_life => 'Slice of Life';
+
+  @override
+  String get discover_row_trending_novels => 'Trending Light Novels';
+
+  @override
+  String get discover_row_popular_novels => 'Popular Novels';
+
+  @override
+  String get game_install_hint =>
+      'Install game extensions to browse and download ROMs from sites like RomsFun, Vimm\'s Lair, and more.';
+
+  @override
+  String get game_feature_download_title => 'Download ROMs';
+
+  @override
+  String get game_feature_download_subtitle =>
+      'PSP · PS2 · GBA · SNES · N64 and more';
+
+  @override
+  String get game_feature_emulators_title => 'Launch Emulators';
+
+  @override
+  String get game_feature_emulators_subtitle =>
+      'Integrates with installed emulators';
+
+  @override
+  String get game_feature_track_title => 'Track your games';
+
+  @override
+  String get game_feature_track_subtitle =>
+      'Mark as played, playing, or wish list';
+
+  @override
+  String get game_browse_extensions => 'Browse Game Extensions';
+
+  @override
+  String game_platform_games(Object name) {
+    return '$name Games';
+  }
 }
