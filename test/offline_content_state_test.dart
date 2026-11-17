@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/widgets/offline_content_state.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  /// Wraps [child] with the app's localization delegates and forces French,
+  /// the locale the copy assertions below are written against.
+  Widget localized(Widget child) => MaterialApp(
+    locale: const Locale('fr'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: Scaffold(body: child),
+  );
 
   test('identifies offline and empty network responses', () {
     expect(
@@ -23,11 +33,7 @@ void main() {
   });
 
   testWidgets('renders the bundled offline animation', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: OfflineContentState()),
-      ),
-    );
+    await tester.pumpWidget(localized(const OfflineContentState()));
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('Pas de connexion Internet'), findsOneWidget);
@@ -39,13 +45,11 @@ void main() {
   ) async {
     var retried = false;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: OfflineContentState(
-            title: 'Aucune connexion réseau',
-            message: 'Connectez-vous pour charger le catalogue.',
-            onRetry: () => retried = true,
-          ),
+      localized(
+        OfflineContentState(
+          title: 'Aucune connexion réseau',
+          message: 'Connectez-vous pour charger le catalogue.',
+          onRetry: () => retried = true,
         ),
       ),
     );
@@ -67,11 +71,7 @@ void main() {
   testWidgets('hides the retry button when no callback is supplied', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(body: OfflineContentState()),
-      ),
-    );
+    await tester.pumpWidget(localized(const OfflineContentState()));
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('Réessayer'), findsNothing);
