@@ -9879,7 +9879,6 @@ List<_ComponentSpec> _buildComponents() => [
       child: SizedBox(
         width: 460,
         child: MangaGenresCard(
-          columns: 2,
           items: [
             for (final entry in [
               ('Action', '1 248 mangas', _backdropDune, Color(0xFFFF6B81)),

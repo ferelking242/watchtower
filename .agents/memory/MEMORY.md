@@ -14,3 +14,4 @@
 - [Music plugin verification](music-plugin-verification.md) — les plugins Hetu viennent du dépôt catalogue `watchtower-extensions`; vérifier en live, pas seulement à la compilation.
 - [Hetu bytecode timestamp churn](hetu-bytecode-timestamp-churn.md) — recompiler un plugin inchangé change quand même les octets (horodatage); normaliser avant de comparer, ne pas committer ce bruit.
 - [Widget-test l10n harness](2026-11-15.md) — tout widget lisant `context.l10n` exige `localizationsDelegates` + `locale` dans son harnais de test, sinon `AppLocalizations.of(this)!` lève et la suite ne compile pas.
+- [Manga home stack](manga-home-stack.md) — la pile manga par défaut ouvre sur `spotlight` (comme toute extension); les mocks manga-spotlight/banner/resume sont `selectable:false`; jamais de valeur inventée; section genres = rail horizontal. Pas de SDK Dart dans ce workspace.
