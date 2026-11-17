@@ -595,28 +595,3 @@ Map<String, dynamic> _$$PluginUpdateAvailableImplToJson(
       'version': instance.version,
       'changelog': instance.changelog,
     };
-
-_$MetadataPluginRepositoryImpl _$$MetadataPluginRepositoryImplFromJson(
-        Map json) =>
-    _$MetadataPluginRepositoryImpl(
-      name: json['name'] as String,
-      owner: json['owner'] as String,
-      description: json['description'] as String,
-      repoUrl: json['repoUrl'] as String,
-      topics:
-          (json['topics'] as List<dynamic>).map((e) => e as String).toList(),
-      iconUrl: json['iconUrl'] as String?,
-      downloadUrl: json['downloadUrl'] as String?,
-    );
-
-Map<String, dynamic> _$$MetadataPluginRepositoryImplToJson(
-        _$MetadataPluginRepositoryImpl instance) =>
-    <String, dynamic>{
-      'name': instance.name,
-      'owner': instance.owner,
-      'description': instance.description,
-      'repoUrl': instance.repoUrl,
-      'topics': instance.topics,
-      'iconUrl': instance.iconUrl,
-      'downloadUrl': instance.downloadUrl,
-    };
