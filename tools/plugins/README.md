@@ -48,11 +48,9 @@ at runtime.
 ## Distribution
 
 1. `plugins/<slug>.smplug` is committed to `watchtower-extensions`.
-2. Watchtower's Marketplace reads its plugin list from the static
-   `_kKnownRepos` table in
-   `lib/modules/music/provider/metadata_plugin/core/repositories.dart`, which
-   points each entry at
-   `.../watchtower-extensions/main/plugins/<slug>.smplug`.
+2. Watchtower's Marketplace reads `index/music.json` from the same repository
+   (`lib/modules/browse/marketplace_screen.dart`), and each plugin entry points
+   at `.../watchtower-extensions/main/plugins/<slug>.smplug`.
 3. `build-plugins.yml` in the catalogue repo validates every `.smplug` on push.
 
 ## Bundled plugins
