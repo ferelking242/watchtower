@@ -9,7 +9,7 @@ import 'dart:io';
   import 'package:watchtower/modules/music/models/metadata/metadata.dart';
   import 'package:watchtower/modules/music/modules/metadata_plugins/plugin_update_available_dialog.dart';
   import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
-  import 'package:watchtower/modules/music/provider/metadata_plugin/core/repositories.dart';
+  import 'package:watchtower/modules/music/provider/metadata_plugin/core/catalogue.dart';
   import 'package:watchtower/modules/music/provider/metadata_plugin/core/support.dart';
   import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
   import 'package:watchtower/modules/music/provider/metadata_plugin/updater/update_checker.dart';

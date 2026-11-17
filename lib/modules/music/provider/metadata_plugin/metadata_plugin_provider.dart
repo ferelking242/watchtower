@@ -687,10 +687,35 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     }
 
     final oldPlugin = pluginRes.first;
+
+    // The plugin's own `version` is what a rebuild bumps when a bug is fixed
+    // (e.g. the Spotify browse null-credentials guard). `pluginApiVersion`
+    // only moves when the host API breaks, so comparing it alone made a
+    // rebuilt `.smplug` look "already up to date" and the fix never reached
+    // installed plugins.
+    if (_isNewerVersion(newPlugin.version, oldPlugin.version)) {
+      return true;
+    }
+
     final oldPluginApiVersion = Version.parse(oldPlugin.pluginApiVersion);
     final newPluginApiVersion = Version.parse(newPlugin.pluginApiVersion);
 
     return newPluginApiVersion > oldPluginApiVersion;
+  }
+
+  bool _isNewerVersion(String candidate, String current) {
+    try {
+      return Version.parse(candidate) > Version.parse(current);
+    } catch (_) {
+      final a = candidate.split('.');
+      final b = current.split('.');
+      for (var i = 0; i < a.length || i < b.length; i++) {
+        final x = i < a.length ? (int.tryParse(a[i]) ?? 0) : 0;
+        final y = i < b.length ? (int.tryParse(b[i]) ?? 0) : 0;
+        if (x != y) return x > y;
+      }
+      return false;
+    }
   }
 
   Future<void> updatePlugin(
