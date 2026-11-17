@@ -10,6 +10,7 @@ import 'package:hetu_std/hetu_std.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:watchtower/modules/music/collections/music_navigator_registry.dart';
 import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/services/metadata/errors/exceptions.dart';
@@ -50,7 +51,9 @@ class MetadataPlugin {
         config.slug,
       ),
       onNavigatorPush: (route) {
-        return rootNavigatorKey.currentContext?.router
+        final musicContext = MusicNavigatorRegistry.activeContext;
+        if (musicContext == null) return Future.value(null);
+        return musicContext.router
             .pushWidget(Builder(builder: (context) {
           pageContext = context;
           return Scaffold(
@@ -67,11 +70,12 @@ class MetadataPlugin {
         pageContext?.maybePop();
       },
       onShowForm: (title, fields) async {
-        if (rootNavigatorKey.currentContext == null) {
+        final musicContext = MusicNavigatorRegistry.activeContext;
+        if (musicContext == null) {
           return [];
         }
 
-        return await rootNavigatorKey.currentContext!.router
+        return await musicContext.router
             .push<List<Map<String, dynamic>>?>(
           SettingsMetadataProviderFormRoute(
             title: title,

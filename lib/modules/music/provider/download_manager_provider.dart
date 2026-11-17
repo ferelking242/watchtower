@@ -7,7 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:metadata_god/metadata_god.dart';
 import 'package:path/path.dart';
-import 'package:watchtower/modules/music/collections/routes.dart';
+import 'package:watchtower/modules/music/collections/music_navigator_registry.dart';
 import 'package:watchtower/modules/music/components/dialogs/replace_downloaded_dialog.dart';
 import 'package:watchtower/modules/music/extensions/dio.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -157,7 +157,8 @@ class DownloadManagerNotifier extends Notifier<List<DownloadTask>> {
   bool _isShowingDialog = false;
 
   Future<bool> _shouldReplaceFileOnExist(DownloadTask task) async {
-    if (rootNavigatorKey.currentContext == null || _isShowingDialog) {
+    final musicContext = MusicNavigatorRegistry.activeContext;
+    if (musicContext == null || _isShowingDialog) {
       return false;
     }
     final replaceAll = ref.read(replaceDownloadedFileState);
@@ -165,7 +166,7 @@ class DownloadManagerNotifier extends Notifier<List<DownloadTask>> {
     _isShowingDialog = true;
     try {
       return await showDialog<bool>(
-            context: rootNavigatorKey.currentContext!,
+            context: musicContext,
             builder: (context) => ReplaceDownloadedDialog(
               track: task.track,
             ),

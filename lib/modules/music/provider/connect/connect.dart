@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:flutter/material.dart';
-import 'package:watchtower/modules/music/collections/routes.dart';
+import 'package:watchtower/modules/music/collections/music_navigator_registry.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/audio_player/state.dart';
@@ -116,12 +116,13 @@ class ConnectNotifier extends AsyncNotifier<ConnectState?> {
             if (event.data == "Connection denied") {
               ref.read(connectClientsProvider.notifier).clearResolvedService();
 
-              if (rootNavigatorKey.currentContext?.mounted == true) {
-                final theme = Theme.of(rootNavigatorKey.currentContext!);
+              final musicContext = MusicNavigatorRegistry.activeContext;
+              if (musicContext != null) {
+                final theme = Theme.of(musicContext);
 
-                ScaffoldMessenger.of(rootNavigatorKey.currentContext!).showSnackBar(
+                ScaffoldMessenger.of(musicContext).showSnackBar(
                   SnackBar(
-                    content: Text(rootNavigatorKey.currentContext!.l10n.connection_request_denied),
+                    content: Text(musicContext.l10n.connection_request_denied),
                     behavior: SnackBarBehavior.floating,
                     backgroundColor: theme.colorScheme.error,
                   ),

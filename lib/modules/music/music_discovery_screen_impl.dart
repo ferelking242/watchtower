@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:watchtower/modules/music/collections/music_navigator_registry.dart';
 import 'package:watchtower/modules/music/collections/routes.gr.dart';
 import 'package:watchtower/modules/music/router/music_app_router.dart';
 import 'package:watchtower/modules/music/services/kv_store/kv_store.dart';
@@ -44,6 +45,7 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
   void initState() {
     super.initState();
     try { music_log.AppLogger.initialize(false); } catch (_) {}
+    MusicNavigatorRegistry.register(_navKey);
     _router = MusicAppRouter(navigatorKey: _navKey);
     _routerDelegate = _router.delegate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -58,6 +60,7 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
 
   @override
   void dispose() {
+    MusicNavigatorRegistry.unregister(_navKey);
     _router.dispose();
     super.dispose();
   }

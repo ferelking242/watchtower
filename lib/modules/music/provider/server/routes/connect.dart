@@ -6,7 +6,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
-import 'package:watchtower/modules/music/collections/routes.dart';
+import 'package:watchtower/modules/music/collections/music_navigator_registry.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/connect/connect.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
@@ -60,10 +60,11 @@ class ServerConnectRoutes {
         _connectClientStreamController.add(origin);
 
         // Confirm whether user allows to connect
-        if (rootNavigatorKey.currentContext?.mounted == true &&
+        final musicContext = MusicNavigatorRegistry.activeContext;
+        if (musicContext != null &&
             _allowedConnections.contains(origin) == false) {
           final confirmed = await showDialog<bool>(
-                context: rootNavigatorKey.currentContext!,
+                context: musicContext,
                 builder: (context) {
                   return AlertDialog(
                     title: Text(context.l10n.connect),

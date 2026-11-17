@@ -1,7 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 
-import 'package:watchtower/modules/music/collections/routes.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/components/ui/button_tile.dart';
 import 'package:watchtower/modules/music/extensions/constrains.dart';
@@ -54,7 +53,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.delete,
                 playlistId,
               );
@@ -66,7 +65,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.album,
                 playlistId,
               );
@@ -88,7 +87,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.addToQueue,
                 playlistId,
               );
@@ -99,7 +98,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.playNext,
                 playlistId,
               );
@@ -111,7 +110,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.removeFromQueue,
                 playlistId,
               );
@@ -124,7 +123,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.favorite,
                 playlistId,
               );
@@ -146,7 +145,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.startRadio,
                 playlistId,
               );
@@ -157,7 +156,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.addToPlaylist,
                 playlistId,
               );
@@ -170,7 +169,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.removeFromPlaylist,
                 playlistId,
               );
@@ -182,7 +181,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.download,
                 playlistId,
               );
@@ -210,7 +209,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.blacklist,
                 playlistId,
               );
@@ -231,7 +230,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.share,
                 playlistId,
               );
@@ -243,7 +242,7 @@ class TrackOptions extends HookConsumerWidget {
           ButtonTile(
             onPressed: () async {
               await trackOptionActions.action(
-                rootNavigatorKey.currentContext!,
+                context,
                 TrackOptionValue.details,
                 playlistId,
               );
