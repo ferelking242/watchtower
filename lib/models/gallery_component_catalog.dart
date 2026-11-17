@@ -1435,6 +1435,9 @@ class GalleryComponentCatalog {
       description: 'Section "Reprendre la lecture"',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      // Retirée : la carte affichait une progression et un « Chapitre 148 »
+      // inventés (jamais lus). La vraie reprise viendra de l'historique.
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'manga-spotlight',
@@ -1444,6 +1447,10 @@ class GalleryComponentCatalog {
       description: 'Hero du home manga',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      // Retiré : le vrai hero est `spotlight` (MediaHeroCarousel), le même que
+      // toutes les autres extensions. Conservé uniquement pour relire les
+      // anciens layouts qui citeraient encore cet id.
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'manga-genre',
@@ -1471,6 +1478,9 @@ class GalleryComponentCatalog {
       description: 'Section pleine largeur du home manga',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
+      // Retirée : trop grande et redondante avec `spotlight`. Conservée
+      // uniquement pour relire les anciens layouts qui citeraient cet id.
+      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'manga-top3',

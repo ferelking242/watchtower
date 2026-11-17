@@ -162,39 +162,46 @@ class MangaLangEntry {
 /// ─────────────────────────────────────────────────────────────────────────
 
 /// ── 1. MangaGenresCard ──────────────────────────────────────────────────
-/// Grille de genres avec compteurs.
+/// Rangée horizontale de genres (ou de titres) avec vignette compacte.
+///
+/// Un rail horizontal, jamais une grille verticale : la section est une
+/// « ligne » qui défile, donc les tuiles restent petites et alignées sur une
+/// seule rangée quel que soit le nombre d'entrées.
 class MangaGenresCard extends StatelessWidget {
   const MangaGenresCard({
     super.key,
     required this.items,
     this.width = 400,
-    this.columns = 2,
+    this.tileWidth = 96,
+    this.columns = 1,
   });
 
   final List<MangaGenreEntry> items;
   final double width;
+  final double tileWidth;
+
+  /// Conservé pour compatibilité de signature ; un rail reste sur une rangée.
   final int columns;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(maxWidth: width),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final item in items)
-                SizedBox(
-                  width: (width - 24 - (columns - 1) * 8) / columns,
-                  child: _GenreTile(entry: item),
-                ),
+    return SizedBox(
+      width: width,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              SizedBox(
+                width: tileWidth,
+                child: _GenreTile(entry: items[i]),
+              ),
             ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

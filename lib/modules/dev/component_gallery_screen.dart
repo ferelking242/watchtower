@@ -9066,7 +9066,7 @@ List<_ComponentSpec> _buildComponents() => [
       width: 330,
       child: manga_home.MangaResumeCard(
         item: ContentItem.fromManga(_extensionItems[2]),
-        subtitle: 'Chapitre 148 · il y a 2 h',
+        subtitle: 'Chapitre 12',
         progress: 0.42,
         onTap: () {},
       ),

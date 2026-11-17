@@ -1,11 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:watchtower/models/gallery_component_catalog.dart';
 import 'package:watchtower/models/gallery_component_palette.dart';
+import 'package:watchtower/models/layout_component_registry.dart';
 
 void main() {
   test('the manga home stack is the single source of truth', () {
     final presets = GalleryComponentPalette.mangaHomeStack;
     expect(presets, isNotEmpty);
+
+    // The stack opens with the shared spotlight, the same hero every
+    // extension layout must start with, so a source without its own layout
+    // still gets the production home instead of a source-specific mock.
+    expect(presets.first.component, 'spotlight');
 
     final ids = <String>{};
     for (final preset in presets) {
@@ -15,9 +20,9 @@ void main() {
         reason: 'duplicate section id ${preset.id}',
       );
       expect(
-        GalleryComponentCatalog.resolve(preset.component),
+        LayoutComponentRegistry.resolve(preset.component),
         isNotNull,
-        reason: '${preset.component} must resolve to a gallery component',
+        reason: '${preset.component} must resolve to a layout component',
       );
     }
   });

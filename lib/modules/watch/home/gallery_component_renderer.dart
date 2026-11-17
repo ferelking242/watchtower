@@ -901,7 +901,7 @@ class GalleryComponentRenderer {
         return MangaGenresCard(
           items: _genreEntries(ctx, items),
           width: w ?? 400,
-          columns: ctx.number('columns') ?? 2,
+          tileWidth: ctx.decimal('tileWidth') ?? 96,
         );
       case 'manga-demographics':
         return MangaDemographicsCard(
@@ -1734,7 +1734,8 @@ class GalleryComponentRenderer {
         return manga_home.MangaResumeCard(
           item: item,
           subtitle: ctx.text('subtitle'),
-          progress: ctx.decimal('progress') ?? 0.42,
+          // Aucune progression inventée : sans valeur réelle, pas de barre.
+          progress: ctx.decimal('progress'),
           onTap: onTap,
         );
       case 'manga-spotlight':
@@ -2146,8 +2147,11 @@ class GalleryComponentRenderer {
     for (var i = 0; i < items.length; i++)
       MangaGenreEntry(
         title: items[i].title,
-        countLabel: ctx.flag('showCount', fallback: true)
-            ? '${items[i].key.length + 3} titres'
+        // Le compteur « X titres » était fabriqué (longueur de clé + 3) : une
+        // valeur inventée ne doit jamais s'afficher. On montre le badge réel
+        // du contenu quand il existe, sinon rien.
+        countLabel: ctx.flag('showCount', fallback: false)
+            ? (items[i].badge?.trim().isNotEmpty == true ? items[i].badge : null)
             : null,
         thumbUrl: items[i].posterUrl,
         onTap: () => ctx.onOpen(i),

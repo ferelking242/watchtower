@@ -569,88 +569,28 @@ class GalleryComponentPalette {
   /// gallery previews without shipping a second implementation.
   static const List<GalleryHomePreset> mangaHomeStack = [
     GalleryHomePreset(
-      id: 'hero',
-      component: 'manga-spotlight',
-      title: 'Spotlight',
-      params: {'dataSource': 'popular'},
-    ),
-    GalleryHomePreset(
-      id: 'featured',
-      component: 'manga-featured',
+      id: 'spotlight',
+      component: 'spotlight',
       title: 'À la une',
+      params: {'dataSource': 'popular'},
+    ),
+    GalleryHomePreset(
+      id: 'popular',
+      component: 'ranked',
+      title: 'Les plus lus',
+      params: {'dataSource': 'popular'},
+    ),
+    GalleryHomePreset(
+      id: 'latest',
+      component: 'compactRow',
+      title: 'Dernières sorties',
       params: {'dataSource': 'latest'},
     ),
     GalleryHomePreset(
-      id: 'chapters',
-      component: 'manga-chapter',
-      title: 'Nouveaux chapitres',
-      params: {'dataSource': 'latest'},
-    ),
-    GalleryHomePreset(
-      id: 'continue-reading',
-      component: 'manga-resume',
-      title: 'Reprendre la lecture',
-      params: {'subtitle': 'Chapitre 148 · il y a 2 h'},
-    ),
-    GalleryHomePreset(
-      id: 'genres',
-      component: 'manga-genres',
-      title: 'Genres',
-      params: {'dataSource': 'popular'},
-    ),
-    GalleryHomePreset(
-      id: 'banner',
-      component: 'manga-banner',
-      title: 'Bannière',
-      params: {'dataSource': 'latest'},
-    ),
-    GalleryHomePreset(
-      id: 'top3',
-      component: 'manga-top3',
-      title: 'Top 3',
-      params: {'dataSource': 'popular'},
-    ),
-    GalleryHomePreset(
-      id: 'updates',
-      component: 'manga-update-row',
-      title: 'Dernières mises à jour',
-      params: {'dataSource': 'latest'},
-    ),
-    GalleryHomePreset(
-      id: 'latest-updates',
-      component: 'manga-latest-update',
-      title: 'Latest Chapter Updates',
-      params: {'dataSource': 'latest'},
-    ),
-    GalleryHomePreset(
-      id: 'ranking',
-      component: 'manga-ranking',
-      title: 'Top Ranking',
-      params: {'dataSource': 'popular'},
-    ),
-    GalleryHomePreset(
-      id: 'vote',
-      component: 'manga-vote',
-      title: 'Vote communautaire',
-      params: {'dataSource': 'popular'},
-    ),
-    GalleryHomePreset(
-      id: 'collection',
-      component: 'manga-collection-showcase',
-      title: 'Collection communautaire',
-      params: {'dataSource': 'popular'},
-    ),
-    GalleryHomePreset(
-      id: 'trending',
-      component: 'manga-trending-list',
-      title: 'Listes tendance',
-      params: {'dataSource': 'popular'},
-    ),
-    GalleryHomePreset(
-      id: 'scan-groups',
-      component: 'manga-scan-group',
-      title: 'Groupes de scan',
-      params: {'dataSource': 'popular'},
+      id: 'new',
+      component: 'grid',
+      title: 'Nouveautés',
+      params: {'dataSource': 'latest', 'columns': 3, 'rows': 2},
     ),
   ];
 

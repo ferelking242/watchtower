@@ -53,8 +53,12 @@ void main() {
         reason: 'missing definition for ${descriptor.id}',
       );
     }
-    expect(home.map((d) => d.id), contains('manga-spotlight'));
+    expect(home.map((d) => d.id), contains('spotlight'));
     expect(home.map((d) => d.id), contains('manga-chapter'));
+    // The mock manga hero/banner are retired from the picker; the shared
+    // `spotlight` is the one hero every layout must open with.
+    expect(home.map((d) => d.id), isNot(contains('manga-spotlight')));
+    expect(home.map((d) => d.id), isNot(contains('manga-banner')));
   });
 
   test('palette exposes configurable parameters per family', () {
@@ -75,6 +79,11 @@ void main() {
 
   test('duplicate gallery variants are not offered for new layouts', () {
     const retiredIds = [
+      // Le faux hero/bannière manga et la reprise factice sont retirés au
+      // profit de `spotlight` (MediaHeroCarousel) et de l'historique réel.
+      'manga-spotlight',
+      'manga-banner',
+      'manga-resume',
       'poster-card-compact',
       'discovery',
       'animated-discovery',
