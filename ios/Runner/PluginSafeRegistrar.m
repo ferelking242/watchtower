@@ -10,7 +10,7 @@
     } @catch (NSException *exception) {
         // "A plugin named 'X' has already been registered." — this happens when
         // a Pods directory mismatch (stale cache, dependency conflict, or a package
-        // rename e.g. rust_lib_mangayomi → rust_lib_watchtower) causes the same
+        // rename e.g. rust_lib_old → rust_lib_watchtower) causes the same
         // iOS plugin class name to appear twice in GeneratedPluginRegistrant.
         // The second registration attempt throws NSInvalidArgumentException.
         // We log the problem clearly and let the app continue; all plugins that

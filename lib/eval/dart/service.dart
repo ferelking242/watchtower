@@ -117,25 +117,14 @@ class DartExtensionService implements ExtensionService {
 
   /// Normalizes extension source code so it runs correctly inside d4rt:
   ///
-  /// 1. Rewrites old `package:mangayomi*` imports to `package:watchtower/bridge_lib.dart`
-  ///    so that the registered bridged classes (Client, etc.) are resolved.
-  /// 2. Removes typed declarations of bridged classes (`final Client x`, `late Client x`)
+  /// 1. Removes typed declarations of bridged classes (`final Client x`, `late Client x`)
   ///    because d4rt resolves type annotations in class-body scope before imports are
   ///    processed, causing "Undefined property 'Client' on <ClassName>" errors.
   ///    Switching to `dynamic` is safe — the runtime type is still the bridged native object.
-  /// 3. Leaves all `Client(...)` constructor *calls* intact; d4rt resolves them correctly
+  /// 2. Leaves all `Client(...)` constructor *calls* intact; d4rt resolves them correctly
   ///    once the import is in place.
   static String _normalizeExtensionCode(String raw) {
     final rewritten = raw
-        // Rewrite any mangayomi* package path to watchtower bridge
-        .replaceAll(
-          'package:mangayomi/bridge_lib.dart',
-          'package:watchtower/bridge_lib.dart',
-        )
-        .replaceAll(
-          'package:mangayomi_extensions/bridge_lib.dart',
-          'package:watchtower/bridge_lib.dart',
-        )
         // Replace typed field/variable declarations that use bridged class names
         // as type annotations (d4rt resolves them in instance scope and fails).
         .replaceAll('late final Client ', 'late final dynamic ')

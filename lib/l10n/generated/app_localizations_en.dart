@@ -3608,7 +3608,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get migSpeech =>
-      'Coming from Mihon, Aniyomi, Mangayomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.';
+      'Coming from Mihon, Aniyomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.';
 
   @override
   String get migTabManga => 'Manga';

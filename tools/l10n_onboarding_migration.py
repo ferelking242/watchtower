@@ -42,7 +42,7 @@ EN = {
     # ── Migration page ─────────────────────────────────────────────────────
     "migTitle": "Migration",
     "migHeadline": "Bring your library with you.",
-    "migSpeech": "Coming from Mihon, Aniyomi, Mangayomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.",
+    "migSpeech": "Coming from Mihon, Aniyomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.",
     "migTabManga": "Manga",
     "migTabAnime": "Anime",
     "migTabUniversal": "Universal",
@@ -190,7 +190,7 @@ FR = {
     "obSloganSub": "Un seul endroit pour tout ce que tu aimes.",
     "migTitle": "Migration",
     "migHeadline": "Emportez votre bibliothèque avec vous.",
-    "migSpeech": "Vous venez de Mihon, Aniyomi, Mangayomi ou d'une autre app ? Watchtower lit leurs sauvegardes et leurs dossiers, puis reconstruit ici votre bibliothèque, vos catégories, votre progression de lecture et vos téléchargements.",
+    "migSpeech": "Vous venez de Mihon, Aniyomi ou d'une autre app ? Watchtower lit leurs sauvegardes et leurs dossiers, puis reconstruit ici votre bibliothèque, vos catégories, votre progression de lecture et vos téléchargements.",
     "migTabManga": "Manga",
     "migTabAnime": "Animé",
     "migTabUniversal": "Universel",

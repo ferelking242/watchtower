@@ -44,7 +44,6 @@ class MigrationDetector {
     'aniyomi': ['Aniyomi/backup', 'Aniyomi/automatic_backup'],
     'komikku': ['Komikku/backup', 'Komikku/automatic_backup'],
     'neko': ['Neko/backup'],
-    'mangayomi': ['Mangayomi/backup'],
     'kotatsu': ['Kotatsu/backup'],
     'lnreader': ['LNReader/backup'],
     'tsundoku': ['Tsundoku/backup'],
@@ -58,7 +57,6 @@ class MigrationDetector {
     'aniyomi': ['Aniyomi/downloads', 'Aniyomi/local'],
     'komikku': ['Komikku/downloads'],
     'neko': ['Neko/downloads'],
-    'mangayomi': ['Mangayomi/downloads'],
     'lnreader': ['LNReader/downloads'],
     'tsundoku': ['Tsundoku/downloads'],
   };

@@ -2061,10 +2061,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tracked => '追跡中';
 
   @override
-  String get auth_unlock_msg => 'Mangayomiのロックを解除するために認証してください';
+  String get auth_unlock_msg => 'Watchtowerのロックを解除するために認証してください';
 
   @override
-  String get app_locked => 'Mangayomiはロックされています';
+  String get app_locked => 'Watchtowerはロックされています';
 
   @override
   String get auth_to_continue => '続行するために認証してください';
@@ -3579,7 +3579,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get migSpeech =>
-      'Coming from Mihon, Aniyomi, Mangayomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.';
+      'Coming from Mihon, Aniyomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.';
 
   @override
   String get migTabManga => 'Manga';

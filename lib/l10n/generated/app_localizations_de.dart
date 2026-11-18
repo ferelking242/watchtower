@@ -2110,10 +2110,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get auth_unlock_msg =>
-      'Authentifizieren Sie sich, um Mangayomi freizuschalten';
+      'Authentifizieren Sie sich, um Watchtower freizuschalten';
 
   @override
-  String get app_locked => 'Mangayomi ist gesperrt';
+  String get app_locked => 'Watchtower ist gesperrt';
 
   @override
   String get auth_to_continue => 'Authentifizieren Sie sich, um fortzufahren';
@@ -3629,7 +3629,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get migSpeech =>
-      'Coming from Mihon, Aniyomi, Mangayomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.';
+      'Coming from Mihon, Aniyomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.';
 
   @override
   String get migTabManga => 'Manga';

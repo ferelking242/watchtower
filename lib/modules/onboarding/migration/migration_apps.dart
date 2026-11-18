@@ -6,7 +6,7 @@ enum MigrationPlatform { android, ios, windows, macos, linux }
 /// Which dock tab an app belongs to.
 ///
 /// [universal] collects the apps that are not tied to a single medium: the
-/// manga/anime/novel clients such as Mangayomi, Aniyomi or LNReader.
+/// manga/anime/novel clients such as Aniyomi or LNReader.
 enum MigrationCategory { manga, anime, universal }
 
 /// A pro or con of a source application.
@@ -326,33 +326,6 @@ const List<MigrationApp> migrationApps = [
     cons: [MigFact.missingNewFeatures],
   ),
   // ── Universal ──────────────────────────────────────────────────────────
-  MigrationApp(
-    id: 'mangayomi',
-    name: 'Mangayomi',
-    category: MigrationCategory.universal,
-    platforms: [
-      MigrationPlatform.android,
-      MigrationPlatform.ios,
-      MigrationPlatform.windows,
-      MigrationPlatform.macos,
-      MigrationPlatform.linux,
-    ],
-    logoAsset: 'assets/images/migration/apps/mangayomi.png',
-    site: 'https://github.com/kodjodevf/mangayomi',
-    backupFormat: '.json',
-    pros: [
-      MigFact.bothAnimeManga,
-      MigFact.crossPlatform,
-      MigFact.openExtensionSystem,
-      MigFact.activelyDeveloped,
-      MigFact.openSource,
-    ],
-    cons: [
-      MigFact.needExtension,
-      MigFact.extensionSeparate,
-      MigFact.notIosStore,
-    ],
-  ),
   MigrationApp(
     id: 'aniyomi',
     name: 'Aniyomi',

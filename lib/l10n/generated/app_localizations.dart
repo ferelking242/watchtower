@@ -6470,7 +6470,7 @@ abstract class AppLocalizations {
   /// No description provided for @migSpeech.
   ///
   /// In en, this message translates to:
-  /// **'Coming from Mihon, Aniyomi, Mangayomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.'**
+  /// **'Coming from Mihon, Aniyomi or another app? Watchtower reads their backups and folders, then rebuilds your library, categories, reading progress and downloads here.'**
   String get migSpeech;
 
   /// No description provided for @migTabManga.

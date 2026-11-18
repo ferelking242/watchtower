@@ -65,7 +65,7 @@ mais l'API surface est différente :
 | Aspect | Seanime | Watchtower |
 |--------|---------|------------|
 | Moteur JS | Goja (Go) | Flutter JS engine (Dart) |
-| Format | `.js` CommonJS | `.js` (format Mangayomi) |
+| Format | `.js` CommonJS | `.js` (Watchtower format) |
 | API fetch | `fetch()` via Go | `fetch()` via Dart/Rust |
 | Parsing | Cheerio-style via Go | Dart-side |
 | Auth | Headers custom | Headers custom |
