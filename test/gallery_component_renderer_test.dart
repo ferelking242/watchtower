@@ -412,6 +412,48 @@ void main() {
     );
   });
 
+  testWidgets('a multi-row grid is tall enough for every row it renders', (
+    tester,
+  ) async {
+    // Regression: the grid used to reserve a hard-coded 215 px per row while a
+    // poster cell is cellWidth / .5 tall (≈230 px on a phone), so the last row
+    // was clipped and stayed half off-screen — most visible on the last home
+    // section. The section box must fit the rows it actually renders.
+    const phone = Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = phone;
+    addTearDown(tester.view.reset);
+
+    final items = [
+      for (var i = 0; i < 6; i++)
+        ContentItem(key: 'k$i', title: 'Item $i'),
+    ];
+    final ctx = GalleryComponentContext(
+      componentId: 'media-grid',
+      items: items,
+      params: const {'columns': 3, 'rows': 2},
+      onOpen: (_) {},
+    );
+
+    await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
+    await tester.pumpAndSettle();
+
+    final sectionBox = tester.getSize(find.byType(MediaGridSection));
+    final sectionTop = tester.getTopLeft(find.byType(MediaGridSection)).dy;
+    final firstCard = tester.getRect(find.byType(PosterCard).first);
+    final lastCard = tester.getRect(find.byType(PosterCard).last);
+
+    expect(
+      sectionBox.height,
+      greaterThanOrEqualTo(lastCard.bottom - sectionTop - 1),
+      reason: 'the section must be tall enough to show its last row',
+    );
+    // Two rows of posters: the last row starts below the first one, i.e. the
+    // grid really laid out both rows inside the section instead of clipping.
+    expect(lastCard.top, greaterThan(firstCard.top));
+    expect(tester.takeException(), isNull);
+  });
+
   test('params survive a UiSection round trip', () {
     final section = UiSection.fromJson({
       'id': 'chapters',

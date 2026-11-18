@@ -538,11 +538,15 @@ class MediaGridSection extends StatelessWidget {
     final visible = items.take(columnCount * rowCount).toList(growable: false);
     final isTagGrid = cardStyle == 'tag';
     final isLandscapeGrid = cardStyle == 'landscape';
-    // TagCard has a fixed 72 px height; reserve that per row (plus the row
-    // spacing) so the tile never gets clipped by the grid's fixed extent.
+    // TagCard has a fixed 72 px height; every other cell derives its height
+    // from its width through [childAspectRatio].
     final tagSpacing = 10.0;
-    final tagsHeight = rowCount * 72 + (rowCount - 1) * tagSpacing;
-    final tileHeight = isTagGrid ? 72.0 : 215.0;
+    final rowSpacing = mainAxisSpacing ?? (isTagGrid ? tagSpacing : 16);
+    final childAspectRatio = isLandscapeGrid
+        ? 1.25
+        : itemCardBuilder == null
+        ? .5
+        : .52;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,27 +558,37 @@ class MediaGridSection extends StatelessWidget {
           trailing: trailing,
           leadingIcon: leadingIcon,
         ),
-        SizedBox(
-          height: horizontal
-              ? rowCount * 166
-              : isTagGrid
-              ? tagsHeight
-              : rowCount * tileHeight,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final horizontalPadding = AppUI.pagePadding(context);
-              final effectiveCrossAxisSpacing = crossAxisSpacing ?? 12.0;
-              final effectiveCardWidth = cardWidth ?? 132.0;
-              final cellWidth = horizontal
-                  ? effectiveCardWidth
-                  : ((constraints.maxWidth -
-                                horizontalPadding * 2 -
-                                effectiveCrossAxisSpacing * (columnCount - 1)) /
-                            columnCount)
-                        .clamp(1.0, double.infinity)
-                        .toDouble();
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = AppUI.pagePadding(context);
+            final effectiveCrossAxisSpacing = crossAxisSpacing ?? 12.0;
+            final effectiveCardWidth = cardWidth ?? 132.0;
+            final cellWidth = horizontal
+                ? effectiveCardWidth
+                : ((constraints.maxWidth -
+                              horizontalPadding * 2 -
+                              effectiveCrossAxisSpacing * (columnCount - 1)) /
+                          columnCount)
+                      .clamp(1.0, double.infinity)
+                      .toDouble();
 
-              return GridView.builder(
+            // The section's box must be exactly as tall as the rows it holds.
+            // A hard-coded per-row height (the old 215 px) is *shorter* than
+            // the poster cell on a phone — the cell is cellWidth / .5 = 2×
+            // cellWidth, i.e. ~230 px for a 3-column grid — so the grid was
+            // clipped and its last row stayed half off-screen, most visibly on
+            // the final home section. Derive the height from the real cell.
+            final cellHeight = horizontal
+                ? 166.0
+                : isTagGrid
+                ? 72.0
+                : cellWidth / childAspectRatio;
+            final gridHeight =
+                rowCount * cellHeight + (rowCount - 1) * rowSpacing;
+
+            return SizedBox(
+              height: gridHeight,
+              child: GridView.builder(
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 scrollDirection: horizontal ? Axis.horizontal : Axis.vertical,
                 physics: horizontal
@@ -590,16 +604,9 @@ class MediaGridSection extends StatelessWidget {
                       : isTagGrid
                       ? 72
                       : null,
-                  mainAxisSpacing:
-                      mainAxisSpacing ?? (isTagGrid ? tagSpacing : 16),
+                  mainAxisSpacing: rowSpacing,
                   crossAxisSpacing: effectiveCrossAxisSpacing,
-                  // Cellules un peu plus hautes : à .55, l'affiche et son titre
-                  // dépassaient de la cellule sur les grilles serrées.
-                  childAspectRatio: isLandscapeGrid
-                      ? 1.25
-                      : itemCardBuilder == null
-                      ? .5
-                      : .52,
+                  childAspectRatio: childAspectRatio,
                 ),
                 itemBuilder: (context, index) {
                   final item = visible[index];
@@ -631,9 +638,9 @@ class MediaGridSection extends StatelessWidget {
                     onTap: onTap,
                   );
                 },
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ],
     );
