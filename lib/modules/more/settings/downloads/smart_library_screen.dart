@@ -60,6 +60,23 @@ const _androidMusicDirectories = [
   'Watchtower',
 ];
 
+/// Well-known media folders inside the user's home directory, used on desktop
+/// (Windows/macOS/Linux) and iOS so a scan covers the whole device and not just
+/// the app's own documents folder.
+const _desktopMediaDirectories = [
+  'Music',
+  'Musique',
+  'Podcasts',
+  'Downloads',
+  'Téléchargements',
+  'Movies',
+  'Videos',
+  'Vidéos',
+  'Pictures',
+  'Images',
+  'Documents',
+];
+
 class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   _SmartLibraryFilter _filter = _SmartLibraryFilter.all;
   bool _starting = false;
@@ -116,7 +133,32 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     final base = await storage.getDefaultDirectory();
     if (base != null && !roots.contains(base.path)) roots.add(base.path);
 
+    // On desktop and iOS the shared storage root is not the whole device: the
+    // user's media usually lives in their home folder. Add the well-known media
+    // directories (Music/Movies/Downloads…) so the scan reaches them too.
+    if (!kIsWeb && !Platform.isAndroid) {
+      final home = _userHomeDirectory();
+      if (home != null) {
+        for (final name in _desktopMediaDirectories) {
+          final path = p.join(home, name);
+          if (Directory(path).existsSync() && !roots.contains(path)) {
+            roots.add(path);
+          }
+        }
+      }
+    }
+
     return roots;
+  }
+
+  /// The current user's home directory, or null when it cannot be determined.
+  String? _userHomeDirectory() {
+    final env = Platform.environment;
+    final home = env['HOME'] ?? env['USERPROFILE'];
+    if (home != null && home.isNotEmpty && Directory(home).existsSync()) {
+      return home;
+    }
+    return null;
   }
 
   Future<void> _scan({required bool fullRescan}) async {
