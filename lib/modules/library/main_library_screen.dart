@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/library/services/library_maintenance.dart';
+import 'package:watchtower/modules/library/services/maintenance_notification_service.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
@@ -39,7 +41,6 @@ const _kTypes = <ItemType>[
   ItemType.novel,
   ItemType.game,
 ];
-const _kCarouselCopies = 1000;
 
 // ─── App-bar action button size ──────────────────────────────────────────────
 // Shared by every right-side action (search / filter / three-dots) and used to
@@ -56,20 +57,6 @@ const _kTypeIcons = <ItemType, IconData>{
   ItemType.game: Broken.game,
 };
 
-String _typeLabel(ItemType type) {
-  switch (type) {
-    case ItemType.anime:
-      return 'Watch';
-    case ItemType.manga:
-      return 'Manga';
-    case ItemType.novel:
-      return 'Novel';
-    case ItemType.game:
-      return 'Games';
-    default:
-      return 'Library';
-  }
-}
 // ─── Main screen ──────────────────────────────────────────────────────────────
 class MainLibraryScreen extends ConsumerStatefulWidget {
   final String? presetInput;
@@ -81,7 +68,6 @@ class MainLibraryScreen extends ConsumerStatefulWidget {
 
 class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     with TickerProviderStateMixin {
-  int _typeIndex = 1; // default = Watch (index of ItemType.anime in _kTypes)
   bool _showSearch = false;
   bool _searchOpening = false;
   bool _searchClosing = false;
@@ -90,18 +76,20 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   final FocusNode _searchFocus = FocusNode();
   int _selectedCatIndex = 0;
   double _librarySwipeDistance = 0;
-  int _arcPage = (_kCarouselCopies ~/ 2) * _kTypes.length + 1;
-  int? _pendingWheelPage;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
-  late final PageController _arcPageCtrl = PageController(
-    // A quarter of the viewport per slot: the selected type sits centered with
-    // its two neighbours peeking close on either side, so the icons read as one
-    // tight group hugging the left edge instead of drifting apart in a wide,
-    // half-empty strip.
-    viewportFraction: 1 / 4,
-    initialPage: _arcPage,
+
+  // Continuous position of the type carousel: the selected type sits at
+  // round(_arcOffset) and its two neighbours one step to either side. It is
+  // deliberately not clamped so the wheel/drag can run past the ends and wrap.
+  double _arcOffset = 1.0; // 1 == ItemType.anime (Watch)
+  late final AnimationController _arcAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
   );
+  VoidCallback? _arcListener;
+  double _arcFrom = 0;
+  double _arcDelta = 0;
 
   @override
   void initState() {
@@ -115,13 +103,52 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
   @override
   void dispose() {
-    _arcPageCtrl.dispose();
+    final listener = _arcListener;
+    if (listener != null) _arcAnim.removeListener(listener);
+    _arcAnim.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
 
   ItemType get _currentType => _kTypes[_typeIndex];
+
+  /// Index of the type currently under the front (centre) slot.
+  int get _typeIndex {
+    final n = _kTypes.length;
+    return ((_arcOffset.round() % n) + n) % n;
+  }
+
+  /// Rotates the carousel so the type [steps] positions away becomes selected.
+  /// Keeps the raw offset continuous so the arc animation runs the short way.
+  void _arcStep(int steps) {
+    final target = _arcOffset.roundToDouble() + steps;
+    _animateArcTo(target);
+  }
+
+  void _animateArcTo(double target) {
+    final previous = _arcListener;
+    if (previous != null) _arcAnim.removeListener(previous);
+    _arcAnim.stop();
+    _arcFrom = _arcOffset;
+    _arcDelta = target - _arcFrom;
+    void listener() {
+      if (!mounted) return;
+      setState(() => _arcOffset = _arcFrom + _arcDelta * _arcAnim.value);
+    }
+
+    _arcListener = listener;
+    _arcAnim.addListener(listener);
+    _arcAnim.forward(from: 0).whenComplete(() {
+      if (_arcListener != null) _arcAnim.removeListener(_arcListener!);
+      _arcListener = null;
+      if (!mounted) return;
+      setState(() {
+        _arcOffset = target;
+        _selectedCatIndex = 0;
+      });
+    });
+  }
 
   Future<void> _toggleSearch() async {
     if (_showSearch) {
@@ -160,8 +187,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     });
   }
 
-  // ── Arc carousel type selector ─────────────────────────────────────────────
+  // ── Arc type selector ──────────────────────────────────────────────────────
+  //
+  // Three types are drawn on a shallow half-circle: the selected one sits at
+  // the front (top of the arc, largest, opaque), its two neighbours ride the
+  // ends of the arc, slightly smaller and dimmed so they read as "behind".
+  // Dragging or scrolling spins the arc; the middle icon always ends up in
+  // front. The wheel of types wraps, so the carousel never dead-ends.
   Widget _buildArcTypeSelector(ColorScheme cs, bool isDark) {
+    final n = _kTypes.length;
+
     return Listener(
       onPointerSignal: (event) {
         if (event is! PointerScrollEvent) return;
@@ -169,91 +204,76 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ? event.scrollDelta.dy
             : event.scrollDelta.dx;
         if (delta == 0) return;
-        final lastPage = _kTypes.length * _kCarouselCopies - 1;
-        final targetPage = ((_pendingWheelPage ?? _arcPage) +
-                (delta > 0 ? 1 : -1))
-            .clamp(0, lastPage)
-            .toInt();
-        _pendingWheelPage = targetPage;
-        _arcPageCtrl
-            .animateToPage(
-              targetPage,
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-            )
-            .whenComplete(() {
-              if (_pendingWheelPage == targetPage) {
-                _pendingWheelPage = null;
-              }
-            });
+        _arcStep(delta > 0 ? 1 : -1);
       },
-      child: PageView.builder(
-        controller: _arcPageCtrl,
-        // Keep the current/selected type in the center; the two adjacent types
-        // stay visible on its left and right.
-        padEnds: true,
-        clipBehavior: Clip.hardEdge,
-        itemCount: _kTypes.length * _kCarouselCopies,
-        physics: const BouncingScrollPhysics(),
-        onPageChanged: (page) {
-          final nextTypeIndex = page % _kTypes.length;
-          setState(() {
-            _arcPage = page;
-            if (_typeIndex != nextTypeIndex) _selectedCatIndex = 0;
-            _typeIndex = nextTypeIndex;
-          });
-
-          // Re-center before the user can reach either artificial end. This
-          // makes the five types behave like an endless carousel while
-          // preserving a stable scroll position for the PageView.
-          if (page < _kTypes.length ||
-              page >= _kTypes.length * (_kCarouselCopies - 1)) {
-            final middlePage =
-                (_kCarouselCopies ~/ 2) * _kTypes.length +
-                page % _kTypes.length;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted || !_arcPageCtrl.hasClients) return;
-              _arcPageCtrl.jumpToPage(middlePage);
-              setState(() => _arcPage = middlePage);
-            });
-          }
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragUpdate: (details) {
+          _arcAnim.stop();
+          setState(() => _arcOffset -= details.delta.dx / 64.0);
         },
-        itemBuilder: (_, i) {
-          final type = _kTypes[i % _kTypes.length];
-          final selected = i == _arcPage;
-          final diff = (i - _arcPage).abs().toDouble();
-          // Keep the selected type clear while the two adjacent items remain
-          // visible and tappable.
-          final scale = (1.0 - diff * 0.12).clamp(0.80, 1.0);
-          final opacity = (1.0 - diff * 0.32).clamp(0.45, 1.0);
+        onHorizontalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          // A flick advances a whole slot; a slow drag just snaps to the
+          // nearest one (steps == 0), so the front icon is always unambiguous.
+          final steps = velocity.abs() > 250 ? (velocity < 0 ? 1 : -1) : 0;
+          _arcStep(steps);
+        },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final h = constraints.maxHeight;
+            final cx = w / 2;
+            // The front icon sits high on the arc; the neighbours drop toward
+            // the baseline at either end.
+            final frontY = h * 0.34;
+            final sideY = h * 0.66;
+            final sideX = w * 0.30;
+            final radius = 18.0;
 
-          return Center(
-            child: AnimatedScale(
-              scale: scale,
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              child: AnimatedOpacity(
-                opacity: opacity,
-                duration: const Duration(milliseconds: 220),
-                child: GestureDetector(
-                  onTap: () {
-                    _arcPageCtrl.animateToPage(
-                      i,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Arc + icon
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        width: selected ? 42 : 36,
-                        height: selected ? 42 : 36,
+            // Render the three slots around the nearest integer position. A
+            // slot's distance `d` is continuous, so the two end slots are only
+            // ever swapped while they sit at |d| ~ 1.5 and are fully faded out
+            // — the hand-off is invisible.
+            final centre = _arcOffset.round();
+            final painted = <Widget>[];
+            for (
+              var slotIndex = centre - 1;
+              slotIndex <= centre + 1;
+              slotIndex++
+            ) {
+              final d = slotIndex - _arcOffset;
+              final ad = d.abs();
+              if (ad >= 1.5) continue;
+              final type = _kTypes[((slotIndex % n) + n) % n];
+              // Full opacity at the front, ~0.55 on the shoulders, gone at 1.5.
+              final opacity = ad <= 1.0
+                  ? 1.0 - 0.45 * ad
+                  : 0.55 * (1.5 - ad) / 0.5;
+              final scale = ad <= 1.0 ? 1.0 - 0.22 * ad : 0.78;
+              final size = radius * 2 * scale;
+              final isFront = ad < 0.5;
+              // Parabolic lift: the front sits high, the shoulders at baseline.
+              final x = cx + d.clamp(-1.5, 1.5) * sideX;
+              final y = sideY + (frontY - sideY) * (1.0 - ad.clamp(0.0, 1.0));
+
+              painted.add(
+                Positioned(
+                  left: x - size / 2,
+                  top: y - size / 2,
+                  child: GestureDetector(
+                    onTap: () {
+                      final diff = slotIndex - _arcOffset.round();
+                      if (diff != 0) _arcStep(diff);
+                    },
+                    child: Opacity(
+                      opacity: opacity.clamp(0.0, 1.0),
+                      child: Container(
+                        width: size,
+                        height: size,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: selected
+                          gradient: isFront
                               ? LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -263,20 +283,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                   ],
                                 )
                               : null,
-                          color: selected
+                          color: isFront
                               ? null
                               : cs.onSurface.withValues(alpha: 0.05),
-                          // A crisp outline keeps neighboring types visible
-                          // without the old blur applied to each page.
                           border: Border.all(
-                            color: selected
+                            color: isFront
                                 ? cs.primary.withValues(alpha: 0.85)
                                 : (isDark
                                       ? cs.onSurface.withValues(alpha: 0.22)
                                       : cs.outline.withValues(alpha: 0.35)),
-                            width: selected ? 1.5 : 1.0,
+                            width: isFront ? 1.5 : 1.0,
                           ),
-                          boxShadow: selected
+                          boxShadow: isFront
                               ? [
                                   BoxShadow(
                                     color: cs.primary.withValues(alpha: 0.35),
@@ -288,33 +306,27 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                         ),
                         child: Icon(
                           _kTypeIcons[type]!,
-                          color: selected
+                          color: isFront
                               ? cs.onSurface
                               : (isDark
-                                    ? cs.onSurface.withValues(alpha: 0.54)
-                                    : cs.onSurface.withValues(alpha: 0.50)),
-                          size: selected ? 20 : 17,
+                                    ? cs.onSurface.withValues(alpha: 0.60)
+                                    : cs.onSurface.withValues(alpha: 0.55)),
+                          size: 20 * scale,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _typeLabel(type),
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w400,
-                          color: selected
-                              ? cs.primary
-                              : cs.onSurfaceVariant.withValues(alpha: 0.70),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            }
+
+            return SizedBox(
+              width: w,
+              height: h,
+              child: Stack(clipBehavior: Clip.none, children: painted),
+            );
+          },
+        ),
       ),
     );
   }
@@ -396,7 +408,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   void _onLibrarySwipeEnd(DragEndDetails details) {
     final distance = _librarySwipeDistance;
     _librarySwipeDistance = 0;
-    if (_showSearch || !_arcPageCtrl.hasClients) return;
+    if (_showSearch) return;
 
     final velocity = details.primaryVelocity ?? 0;
     final int direction;
@@ -408,14 +420,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       return;
     }
 
-    final targetPage = (_arcPage + direction)
-        .clamp(0, _kTypes.length * _kCarouselCopies - 1)
-        .toInt();
-    _arcPageCtrl.animateToPage(
-      targetPage,
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-    );
+    _arcStep(direction);
   }
 
   @override
@@ -1068,10 +1073,10 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   addTorrent(context);
                   break;
                 case 5:
-                  _showActivityMenu(context);
+                  _openSubMenuAfterPopup(context, _showActivityMenu);
                   break;
                 case 6:
-                  _showMaintenanceMenu(context);
+                  _openSubMenuAfterPopup(context, _showMaintenanceMenu);
                   break;
                 case 10:
                   context.push('/librarySettings');
@@ -1084,6 +1089,21 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 
+  // ── Sub-menu opener ────────────────────────────────────────────────────────
+  //
+  // The three-dots popup closes itself as soon as an item is picked, so opening
+  // the nested Activity/Maintenance sheet straight from `onSelected` raced the
+  // popup's exit animation and the sheet flickered under the closing panel.
+  // Defer the sheet by one frame so the popup is gone first.
+  void _openSubMenuAfterPopup(
+    BuildContext context,
+    void Function(BuildContext) open,
+  ) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) open(context);
+    });
+  }
+
   // ── Activity sub-menu (History / Updates / Schedule / Downloads) ───────────
 
   void _showActivityMenu(BuildContext context) {
@@ -1091,28 +1111,41 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) => _LibraryMenuSheet(
         title: l10n.library_menu_activity,
         items: [
           _LibraryMenuItem(
             icon: Broken.clock,
             label: l10n.history,
-            onTap: () => ctx.push('/history'),
+            onTap: () {
+              Navigator.pop(ctx);
+              context.push('/history');
+            },
           ),
           _LibraryMenuItem(
             icon: Broken.notification,
             label: l10n.updates,
-            onTap: () => ctx.push('/updates'),
+            onTap: () {
+              Navigator.pop(ctx);
+              context.push('/updates');
+            },
           ),
           _LibraryMenuItem(
             icon: Broken.calendar,
             label: l10n.schedule,
-            onTap: () => ctx.push('/schedule'),
+            onTap: () {
+              Navigator.pop(ctx);
+              context.push('/schedule');
+            },
           ),
           _LibraryMenuItem(
             icon: Broken.document_download,
             label: l10n.downloads,
-            onTap: () => ctx.push('/downloads'),
+            onTap: () {
+              Navigator.pop(ctx);
+              context.push('/downloads');
+            },
           ),
         ],
       ),
@@ -1126,6 +1159,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (ctx) => _LibraryMenuSheet(
         title: l10n.library_menu_maintenance,
         items: [
@@ -1133,53 +1167,93 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             icon: Broken.refresh_left_square,
             label: l10n.settings_reindex_downloads,
             subtitle: l10n.settings_reindex_downloads_desc,
-            onTap: () async {
+            onTap: () {
               Navigator.pop(ctx);
-              botToast(l10n.settings_reindexing);
-              try {
-                final result = await reindexDownloads();
-                if (!context.mounted) return;
-                botToast(reindexToastMessage(l10n, result));
-              } catch (_) {
-                botToast(l10n.settings_error);
-              }
+              _runMaintenance(
+                context,
+                notifTitle: l10n.settings_reindex_downloads,
+                busyMessage: l10n.settings_reindexing,
+                run: (onProgress) => reindexDownloads(onProgress: onProgress),
+                message: (result) => reindexToastMessage(l10n, result),
+              );
             },
           ),
           _LibraryMenuItem(
             icon: Broken.folder_favorite,
             label: l10n.settings_downloads_not_in_library,
             subtitle: l10n.settings_downloads_not_in_library_desc,
-            onTap: () async {
+            onTap: () {
               Navigator.pop(ctx);
-              botToast(l10n.settings_checking);
-              try {
-                final added = await addDownloadedToLibrary();
-                if (!context.mounted) return;
-                botToast(addDownloadedToastMessage(l10n, added));
-              } catch (_) {
-                botToast(l10n.settings_error);
-              }
+              _runMaintenance(
+                context,
+                notifTitle: l10n.settings_downloads_not_in_library,
+                busyMessage: l10n.settings_checking,
+                run: (onProgress) =>
+                    addDownloadedToLibrary(onProgress: onProgress),
+                message: (added) => addDownloadedToastMessage(l10n, added),
+              );
             },
           ),
           _LibraryMenuItem(
             icon: Broken.trash,
             label: l10n.settings_purge_missing_downloads,
             subtitle: l10n.settings_purge_missing_downloads_desc,
-            onTap: () async {
+            onTap: () {
               Navigator.pop(ctx);
-              botToast(l10n.settings_checking);
-              try {
-                final purged = await purgeMissingDownloads();
-                if (!context.mounted) return;
-                botToast(purgeMissingToastMessage(l10n, purged));
-              } catch (_) {
-                botToast(l10n.settings_error);
-              }
+              _runMaintenance(
+                context,
+                notifTitle: l10n.settings_purge_missing_downloads,
+                busyMessage: l10n.settings_checking,
+                run: (onProgress) =>
+                    purgeMissingDownloads(onProgress: onProgress),
+                message: (purged) => purgeMissingToastMessage(l10n, purged),
+              );
             },
           ),
         ],
       ),
     );
+  }
+
+  /// Runs one maintenance action behind a blocking progress dialog and a system
+  /// progress notification.
+  ///
+  /// These scans walk every download record and hit the filesystem, so they can
+  /// take a few seconds on a large library. The old code fired a toast and
+  /// returned immediately, which is why the action looked like it did nothing
+  /// and the final toast often never appeared (the toast was posted, then the
+  /// screen moved on). A modal barrier keeps the UI honest, a real progress bar
+  /// in the notification keeps the user informed when they background the app,
+  /// and the final toast lands on the screen the user is still looking at.
+  Future<void> _runMaintenance<T>(
+    BuildContext context, {
+    required String notifTitle,
+    required String busyMessage,
+    required Future<T> Function(MaintenanceProgress onProgress) run,
+    required String Function(T) message,
+  }) async {
+    final l10n = l10nLocalizations(context)!;
+    final locale = Localizations.localeOf(context);
+    final notif = MaintenanceNotificationService.instance;
+    await notif.start(notifTitle, locale);
+    if (!context.mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _MaintenanceProgressDialog(message: busyMessage),
+    );
+    try {
+      final result = await run(
+        (done, total) => notif.update(notifTitle, done, total),
+      );
+      await notif.finish(notifTitle, message(result));
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (context.mounted) botToast(message(result));
+    } catch (_) {
+      await notif.cancel();
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (context.mounted) botToast(l10n.settings_error);
+    }
   }
 
   void _showManageCategories(BuildContext context, List<Category> cats) {
@@ -1191,6 +1265,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 }
+
 // ─── Manage Categories Sheet ──────────────────────────────────────────────────
 class _ManageCategoriesSheet extends ConsumerStatefulWidget {
   final ItemType itemType;
@@ -1847,7 +1922,9 @@ class _LibraryMenuItem {
 }
 
 /// Bottom sheet used for the nested "Activité" and "Maintenance" sub-menus of
-/// the library three-dots button.
+/// the library three-dots button. Styled like the filter overlay: a single
+/// translucent glass panel with a grab handle, so the sub-options read as a
+/// proper sheet instead of a block nested inside the popup.
 class _LibraryMenuSheet extends StatelessWidget {
   const _LibraryMenuSheet({required this.title, required this.items});
 
@@ -1858,53 +1935,110 @@ class _LibraryMenuSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark
+        ? cs.surface.withValues(alpha: 0.92)
+        : cs.surfaceContainerHigh.withValues(alpha: 0.96);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.09)
+        : Colors.black.withValues(alpha: 0.06);
+
     return SafeArea(
       top: false,
-      child: Container(
-        margin: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: isDark
-              ? cs.surfaceContainerHigh
-              : cs.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.09)
-                : Colors.black.withValues(alpha: 0.06),
-            width: 0.8,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurface,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+            child: Container(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: borderColor, width: 0.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.42 : 0.13),
+                    blurRadius: 30,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -4,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Grab handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: cs.onSurface.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  for (final item in items)
+                    ListTile(
+                      leading: Icon(item.icon, color: cs.onSurfaceVariant),
+                      title: Text(item.label),
+                      subtitle: item.subtitle == null
+                          ? null
+                          : Text(
+                              item.subtitle!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
+                              ),
+                            ),
+                      onTap: item.onTap,
+                    ),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
-            for (final item in items)
-              ListTile(
-                leading: Icon(item.icon, color: cs.onSurfaceVariant),
-                title: Text(item.label),
-                subtitle: item.subtitle == null
-                    ? null
-                    : Text(
-                        item.subtitle!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                        ),
-                      ),
-                onTap: item.onTap,
-              ),
-            const SizedBox(height: 8),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Blocking progress dialog shown while a maintenance scan runs.
+class _MaintenanceProgressDialog extends StatelessWidget {
+  const _MaintenanceProgressDialog({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            ),
+            const SizedBox(width: 16),
+            Expanded(child: Text(message)),
           ],
         ),
       ),
