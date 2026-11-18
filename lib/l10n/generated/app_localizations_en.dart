@@ -2734,7 +2734,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get plugins_smart_library_description =>
-      'Scans and organises the videos and mangas already on the device.';
+      'Scans and organises the videos, mangas and music already on the device.';
 
   @override
   String get plugins_ffmpeg_bundled =>

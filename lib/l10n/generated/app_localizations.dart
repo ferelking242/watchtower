@@ -5102,7 +5102,7 @@ abstract class AppLocalizations {
   /// No description provided for @plugins_smart_library_description.
   ///
   /// In en, this message translates to:
-  /// **'Scans and organises the videos and mangas already on the device.'**
+  /// **'Scans and organises the videos, mangas and music already on the device.'**
   String get plugins_smart_library_description;
 
   /// No description provided for @plugins_ffmpeg_bundled.

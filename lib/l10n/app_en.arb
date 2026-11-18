@@ -979,7 +979,7 @@
   "plugins_section_empty": "No plugin available.",
   "plugins_nfile_title": "NFile — file manager",
   "plugins_nfile_description": "Built-in file explorer with players and management tools.",
-  "plugins_smart_library_description": "Scans and organises the videos and mangas already on the device.",
+  "plugins_smart_library_description": "Scans and organises the videos, mangas and music already on the device.",
   "plugins_ffmpeg_bundled": "Bundled with the app — no installation required.",
   "plugins_mpv_description": "Downloads only mpv.conf, input.conf and the scripts.",
   "plugins_action_open": "Open",

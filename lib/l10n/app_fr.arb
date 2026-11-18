@@ -866,7 +866,7 @@
   "plugins_section_empty": "Aucun plugin disponible.",
   "plugins_nfile_title": "NFile — gestionnaire de fichiers",
   "plugins_nfile_description": "Explorateur de fichiers intégré avec lecteurs et outils de gestion.",
-  "plugins_smart_library_description": "Analyse et organise les vidéos et mangas déjà présents sur l’appareil.",
+  "plugins_smart_library_description": "Analyse et organise les vidéos, mangas et musiques déjà présents sur l’appareil.",
   "plugins_ffmpeg_bundled": "Fourni avec l’application — aucune installation requise.",
   "plugins_mpv_description": "Télécharge uniquement mpv.conf, input.conf et les scripts.",
   "plugins_action_open": "Ouvrir",
