@@ -21749,6 +21749,47 @@ abstract class AppLocalizations {
   /// **'Scan failed: {error}'**
   String smart_scan_failed(Object error);
 
+  /// Smart Library scan notification, shown while the scan starts
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning the device…'**
+  String get smart_scan_notif_starting;
+
+  /// Smart Library scan notification progress line
+  ///
+  /// In en, this message translates to:
+  /// **'{discovered} files found · {analyzed} indexed'**
+  String smart_scan_notif_progress(int discovered, int analyzed);
+
+  /// Smart Library scan notification summary line
+  ///
+  /// In en, this message translates to:
+  /// **'{analyzed} indexed · {resolved} identified · {unmatched} to review'**
+  String smart_scan_notif_summary(int analyzed, int resolved, int unmatched);
+
+  /// Expanded Smart Library scan notification summary
+  ///
+  /// In en, this message translates to:
+  /// **'{discovered} files found, {analyzed} indexed. {resolved} matched against the catalogue, {unmatched} to review.'**
+  String smart_scan_notif_summary_body(
+    int discovered,
+    int analyzed,
+    int resolved,
+    int unmatched,
+  );
+
+  /// Smart Library scan notification title when the scan finished
+  ///
+  /// In en, this message translates to:
+  /// **'{title} — scan finished'**
+  String smart_scan_notif_done(String title);
+
+  /// Smart Library scan notification title when the scan failed
+  ///
+  /// In en, this message translates to:
+  /// **'{title} — scan failed'**
+  String smart_scan_notif_failed(String title);
+
   /// No description provided for @smart_index_unreadable.
   ///
   /// In en, this message translates to:

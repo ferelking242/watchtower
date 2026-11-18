@@ -3691,6 +3691,47 @@
   "torrent_address": "Adresse TorrServer",
   "torrent_streaming": "Lecture en continu",
   "smart_scan_failed": "Échec du scan : {error}",
+  "@smart_scan_notif_starting": {
+    "description": "Smart Library scan notification, shown while the scan starts"
+  },
+  "smart_scan_notif_starting": "Analyse de l’appareil…",
+  "@smart_scan_notif_progress": {
+    "description": "Smart Library scan notification progress line",
+    "placeholders": {
+      "discovered": { "type": "int" },
+      "analyzed": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_progress": "{discovered} fichiers trouvés · {analyzed} indexés",
+  "@smart_scan_notif_summary": {
+    "description": "Smart Library scan notification summary line",
+    "placeholders": {
+      "analyzed": { "type": "int" },
+      "resolved": { "type": "int" },
+      "unmatched": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_summary": "{analyzed} indexés · {resolved} identifiés · {unmatched} à vérifier",
+  "@smart_scan_notif_summary_body": {
+    "description": "Expanded Smart Library scan notification summary",
+    "placeholders": {
+      "discovered": { "type": "int" },
+      "analyzed": { "type": "int" },
+      "resolved": { "type": "int" },
+      "unmatched": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_summary_body": "{discovered} fichiers trouvés, {analyzed} indexés. {resolved} reconnus dans le catalogue, {unmatched} à vérifier.",
+  "@smart_scan_notif_done": {
+    "description": "Smart Library scan notification title when the scan finished",
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "smart_scan_notif_done": "{title} — analyse terminée",
+  "@smart_scan_notif_failed": {
+    "description": "Smart Library scan notification title when the scan failed",
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "smart_scan_notif_failed": "{title} — échec de l’analyse",
   "smart_index_unreadable": "Index illisible : {error}",
   "smart_search_changes": "Rechercher des changements",
   "smart_verify_storage": "Vérifier tout le stockage",

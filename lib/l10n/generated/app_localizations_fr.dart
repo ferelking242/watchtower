@@ -12313,6 +12313,39 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get smart_scan_notif_starting => 'Analyse de l’appareil…';
+
+  @override
+  String smart_scan_notif_progress(int discovered, int analyzed) {
+    return '$discovered fichiers trouvés · $analyzed indexés';
+  }
+
+  @override
+  String smart_scan_notif_summary(int analyzed, int resolved, int unmatched) {
+    return '$analyzed indexés · $resolved identifiés · $unmatched à vérifier';
+  }
+
+  @override
+  String smart_scan_notif_summary_body(
+    int discovered,
+    int analyzed,
+    int resolved,
+    int unmatched,
+  ) {
+    return '$discovered fichiers trouvés, $analyzed indexés. $resolved reconnus dans le catalogue, $unmatched à vérifier.';
+  }
+
+  @override
+  String smart_scan_notif_done(String title) {
+    return '$title — analyse terminée';
+  }
+
+  @override
+  String smart_scan_notif_failed(String title) {
+    return '$title — échec de l’analyse';
+  }
+
+  @override
   String smart_index_unreadable(Object error) {
     return 'Index illisible : $error';
   }

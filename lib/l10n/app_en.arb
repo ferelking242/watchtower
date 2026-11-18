@@ -3969,6 +3969,47 @@
   "torrent_address": "TorrServer address",
   "torrent_streaming": "Streaming",
   "smart_scan_failed": "Scan failed: {error}",
+  "@smart_scan_notif_starting": {
+    "description": "Smart Library scan notification, shown while the scan starts"
+  },
+  "smart_scan_notif_starting": "Scanning the device…",
+  "@smart_scan_notif_progress": {
+    "description": "Smart Library scan notification progress line",
+    "placeholders": {
+      "discovered": { "type": "int" },
+      "analyzed": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_progress": "{discovered} files found · {analyzed} indexed",
+  "@smart_scan_notif_summary": {
+    "description": "Smart Library scan notification summary line",
+    "placeholders": {
+      "analyzed": { "type": "int" },
+      "resolved": { "type": "int" },
+      "unmatched": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_summary": "{analyzed} indexed · {resolved} identified · {unmatched} to review",
+  "@smart_scan_notif_summary_body": {
+    "description": "Expanded Smart Library scan notification summary",
+    "placeholders": {
+      "discovered": { "type": "int" },
+      "analyzed": { "type": "int" },
+      "resolved": { "type": "int" },
+      "unmatched": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_summary_body": "{discovered} files found, {analyzed} indexed. {resolved} matched against the catalogue, {unmatched} to review.",
+  "@smart_scan_notif_done": {
+    "description": "Smart Library scan notification title when the scan finished",
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "smart_scan_notif_done": "{title} — scan finished",
+  "@smart_scan_notif_failed": {
+    "description": "Smart Library scan notification title when the scan failed",
+    "placeholders": { "title": { "type": "String" } }
+  },
+  "smart_scan_notif_failed": "{title} — scan failed",
   "smart_index_unreadable": "Unreadable index: {error}",
   "smart_search_changes": "Search for changes",
   "smart_verify_storage": "Check all storage",

@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
 import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_work.dart';
+import 'package:watchtower/local_indexer/notifications/local_indexer_notification_service.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/modules/more/settings/downloads/local_work_detail_sheet.dart';
@@ -164,16 +166,37 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   Future<void> _scan({required bool fullRescan}) async {
     if (_starting) return;
     setState(() => _starting = true);
+    final notifications = LocalIndexerNotificationService.instance;
+    final engine = ref.read(localIndexerEngineProvider);
+    final scanMode = _isMusic
+        ? LocalScanMode.music
+        : _isManga
+        ? LocalScanMode.manga
+        : LocalScanMode.videos;
+    final locale = Localizations.localeOf(context);
+    StreamSubscription<IndexerStatus>? statusSub;
+    IndexerStats? stats;
     try {
       final roots = await _scanRoots();
       if (roots.isEmpty) {
         throw StateError('Aucun emplacement de stockage accessible.');
       }
-      final scanMode = _isMusic
-          ? LocalScanMode.music
-          : _isManga
-          ? LocalScanMode.manga
-          : LocalScanMode.videos;
+      await notifications.start(scanMode, locale);
+      // Mirror the engine's own progress stream into the notification so the
+      // user sees the count grow while the app is in the background.
+      statusSub = engine.status.listen((status) {
+        if (status.isScanning) {
+          unawaited(
+            notifications.progress(
+              scanMode,
+              discovered: status.discovered ?? 0,
+              analyzed: status.analyzed ?? 0,
+            ),
+          );
+        } else if (status.isDone) {
+          stats = status.stats;
+        }
+      });
       final scan = ref.read(localIndexerScanProvider.notifier);
       if (fullRescan) {
         await scan.fullRescan(roots, mode: scanMode);
@@ -182,8 +205,16 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       }
       await scan.startWatching(roots, mode: scanMode);
       _invalidate();
-      unawaited(_enrichMetadata());
+      final summary = await _enrichMetadata();
+      await notifications.finish(
+        scanMode,
+        discovered: stats?.discovered ?? 0,
+        analyzed: stats?.analyzed ?? 0,
+        resolved: summary?.resolved ?? 0,
+        unmatched: summary?.unmatched ?? 0,
+      );
     } catch (error) {
+      await notifications.fail(scanMode, '$error');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -192,6 +223,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         );
       }
     } finally {
+      await statusSub?.cancel();
       if (mounted) setState(() => _starting = false);
     }
   }
@@ -203,20 +235,22 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     ref.invalidate(localWorksProvider);
   }
 
-  Future<void> _enrichMetadata() async {
+  Future<LocalMetadataEnrichmentSummary?> _enrichMetadata() async {
     try {
       final works = await ref.read(localWorksProvider.future);
       final items = [for (final work in works) work.files.first];
       final summary = await LocalMetadataResolver.instance.enrich(items);
-      if (!mounted) return;
+      if (!mounted) return summary;
       ref.invalidate(localWorksProvider);
       if (summary.tmdbUnavailable) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.smart_tmdb_unavailable)),
         );
       }
+      return summary;
     } catch (error) {
       debugPrint('[SmartLibraryScreen] metadata enrichment failed: $error');
+      return null;
     }
   }
 
