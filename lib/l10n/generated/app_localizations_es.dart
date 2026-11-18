@@ -12708,6 +12708,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get smart_no_media_indexed => 'No media indexed yet';
 
   @override
+  String get smart_no_storage_root =>
+      'No accessible storage location was found.';
+
+  @override
   String get smart_to_review => 'To review';
 
   @override
@@ -12923,6 +12927,17 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String smart_track_count(Object count) {
     return '$count tracks';
+  }
+
+  @override
+  String smart_missing_episodes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count missing',
+      one: '1 missing',
+    );
+    return '$_temp0';
   }
 
   @override

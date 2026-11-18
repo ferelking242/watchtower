@@ -22622,6 +22622,12 @@ abstract class AppLocalizations {
   /// **'No media indexed yet'**
   String get smart_no_media_indexed;
 
+  /// Error shown when a Smart Library scan cannot find any folder to walk.
+  ///
+  /// In en, this message translates to:
+  /// **'No accessible storage location was found.'**
+  String get smart_no_storage_root;
+
   /// No description provided for @smart_to_review.
   ///
   /// In en, this message translates to:
@@ -23023,6 +23029,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} tracks'**
   String smart_track_count(Object count);
+
+  /// Badge on a Smart Library card counting the episodes absent between the ones on disk.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 missing} other{{count} missing}}'**
+  String smart_missing_episodes(int count);
 
   /// No description provided for @smart_unknown_help.
   ///

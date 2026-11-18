@@ -175,10 +175,11 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         ? LocalScanMode.manga
         : LocalScanMode.videos;
     final locale = Localizations.localeOf(context);
+    final noStorageRoot = context.l10n.smart_no_storage_root;
     try {
       final roots = await _scanRoots();
       if (roots.isEmpty) {
-        throw StateError('Aucun emplacement de stockage accessible.');
+        throw StateError(noStorageRoot);
       }
       final scan = ref.read(localIndexerScanProvider.notifier);
       if (fullRescan) {
@@ -689,9 +690,9 @@ class _WorkCard extends StatelessWidget {
                           top: 6,
                           right: 6,
                           child: _Pill(
-                            label:
-                                '${work.missingEpisodes.length} manquant'
-                                '${work.missingEpisodes.length == 1 ? '' : 's'}',
+                            label: context.l10n.smart_missing_episodes(
+                              work.missingEpisodes.length,
+                            ),
                             color: cs.error,
                           ),
                         ),
@@ -736,12 +737,14 @@ class _WorkCard extends StatelessWidget {
       return parts.join(' · ');
     }
     final parts = <String>[
-      if (work.isSeries && (work.season ?? 1) > 1) 'Saison ${work.season}',
+      if (work.isSeries && (work.season ?? 1) > 1)
+        context.l10n.media_season_n(work.season!),
       if (metadata?.year != null) '${metadata!.year}',
       if (work.isSeries && work.episodes.isNotEmpty)
         'S${work.season ?? 1}E${work.episodes.first}'
             '${work.episodes.length > 1 ? '-E${work.episodes.last}' : ''}',
-      if (!work.isSeries && work.kind == LocalMediaKind.movie) 'Film',
+      if (!work.isSeries && work.kind == LocalMediaKind.movie)
+        context.l10n.media_movie,
     ];
     if (parts.isEmpty) return p.basename(work.files.first.filePath);
     return parts.join(' · ');

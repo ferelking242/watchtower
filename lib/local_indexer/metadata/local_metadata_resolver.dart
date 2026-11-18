@@ -17,8 +17,18 @@ class LocalMetadataResolver {
 
   static const _minimumFileConfidence = 0.45;
   static const _minimumMatchConfidence = 0.68;
+
+  /// Music files never carry an episode, quality or language token, so
+  /// [NameNormalizer] caps their confidence at 0.45 — exactly the general
+  /// floor. A bare "Track.mp3" scores 0.225 and would be skipped forever. A
+  /// track is still worth a MusicBrainz lookup whenever the name yielded a
+  /// usable title, so music gets its own, lower floor.
+  static const _minimumMusicConfidence = 0.2;
   static const _maximumLookupsPerScan = 30;
   static const _requestSpacing = Duration(milliseconds: 250);
+  // MusicBrainz allows one request per second per client and answers 503 when
+  // it is exceeded; TMDB/AniList tolerate the tighter [_requestSpacing].
+  static const _musicBrainzSpacing = Duration(milliseconds: 1100);
   static const _timeout = Duration(seconds: 12);
   // MusicBrainz requires a descriptive UA with a contact URL; a generic one is
   // rate-limited or blocked outright.
@@ -53,7 +63,8 @@ class LocalMetadataResolver {
     final store = LocalMediaMetadataStore.instance;
     final unique = <String, LocalIndexedItem>{};
     for (final item in items) {
-      if (!_isSupported(item) || item.confidence < _minimumFileConfidence) {
+      if (!_isSupported(item) ||
+          item.confidence < minimumConfidenceFor(item.kind)) {
         continue;
       }
       final key = store.keyFor(item);
@@ -99,7 +110,7 @@ class LocalMetadataResolver {
         debugPrint('[LocalMetadataResolver] lookup failed: $error');
         failed++;
       }
-      await Future<void>.delayed(_requestSpacing);
+      await Future<void>.delayed(_spacingFor(item));
     }
 
     return LocalMetadataEnrichmentSummary(
@@ -109,6 +120,20 @@ class LocalMetadataResolver {
       tmdbUnavailable: tmdbUnavailable,
     );
   }
+
+  /// The confidence floor a lookup must clear. Music uses a lower floor than
+  /// the general one because its normalised confidence is structurally capped
+  /// (a track has no episode, quality or language token to score on).
+  @visibleForTesting
+  static double minimumConfidenceFor(LocalMediaKind kind) =>
+      kind == LocalMediaKind.music
+      ? _minimumMusicConfidence
+      : _minimumFileConfidence;
+
+  /// MusicBrainz throttles harder than the other providers, so a music lookup
+  /// waits longer before the next request.
+  Duration _spacingFor(LocalIndexedItem item) =>
+      item.kind == LocalMediaKind.music ? _musicBrainzSpacing : _requestSpacing;
 
   bool _isSupported(LocalIndexedItem item) => switch (item.kind) {
     LocalMediaKind.movie ||

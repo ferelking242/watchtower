@@ -12826,6 +12826,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get smart_no_media_indexed => 'Aucun média indexé pour le moment';
 
   @override
+  String get smart_no_storage_root =>
+      'Aucun emplacement de stockage accessible n\'a été trouvé.';
+
+  @override
   String get smart_to_review => 'À vérifier';
 
   @override
@@ -13041,6 +13045,17 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String smart_track_count(Object count) {
     return '$count pistes';
+  }
+
+  @override
+  String smart_missing_episodes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count manquants',
+      one: '1 manquant',
+    );
+    return '$_temp0';
   }
 
   @override
