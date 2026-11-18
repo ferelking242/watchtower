@@ -1086,6 +1086,19 @@ must not leak into watch code paths or logs:
   dispose. Toggling the preference inside the reader must take effect live —
   `reader_view.dart` listens to `volumeButtonNavigationStateProvider` in `build`
   for exactly that reason; do not move the subscription back to `initState` only.
+- The native host confirms the event sink is installed before reporting volume
+  navigation ready. Android only consumes a hardware key while that sink is
+  live; never swallow a key with no Dart listener. The reader invalidates
+  pending enable handshakes when the setting is turned off or the screen exits.
+- Continuous navigation does not depend on a resolved page index; only paged
+  readers require one. Keep the volume-button path usable while the Webtoon
+  list is still resolving its first visible item.
+
+## Webtoon reader layout
+- `ReaderMode.webtoon` always renders one source image per list item, regardless
+  of the saved manga double-page preference. The page-gap setting applies in
+  Webtoon mode too, and long-strip images fit the viewport width instead of
+  inheriting a paged reader's crop/fit preference.
 
 ## Library automatic updates
 - `LibraryAutoUpdater` (`lib/services/library_auto_updater.dart`) is started and

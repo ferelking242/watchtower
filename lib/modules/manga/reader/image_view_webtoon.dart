@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/modules/manga/reader/widgets/double_page_view.dart';
 import 'package:watchtower/modules/manga/reader/image_view_vertical.dart';
@@ -89,7 +90,11 @@ class ImageViewWebtoon extends StatelessWidget {
   }
 
   Widget _buildItem(BuildContext context, int index) {
-    if (isDoublePageMode && !isHorizontalContinuous) {
+    if (shouldUseDoublePageLayout(
+      isDoublePageMode: isDoublePageMode,
+      readerMode: readerMode,
+      isHorizontalContinuous: isHorizontalContinuous,
+    )) {
       return _buildDoublePageItem(context, index);
     } else {
       return _buildSinglePageItem(context, index);
@@ -124,6 +129,7 @@ class ImageViewWebtoon extends StatelessWidget {
           failedToLoadImage: onFailedToLoadImage,
           onLongPressData: onLongPressData,
           isHorizontal: isHorizontalContinuous,
+          fitWidth: readerMode == ReaderMode.webtoon,
         ),
       ),
     );
@@ -159,7 +165,8 @@ class ImageViewWebtoon extends StatelessWidget {
   }
 
   Widget _buildSeparator(BuildContext context, int index) {
-    if (!showPageGaps || readerMode == ReaderMode.webtoon) {
+    final gap = readerPageGapExtent(showPageGaps: showPageGaps);
+    if (gap == 0) {
       return const SizedBox.shrink();
     }
 
@@ -168,9 +175,29 @@ class ImageViewWebtoon extends StatelessWidget {
     // drawing a visible line between two otherwise joined pages.
     final seam = resolvedReaderBackground(backgroundColor, context);
     if (isHorizontalContinuous) {
-      return VerticalDivider(color: seam, width: 6);
+      return VerticalDivider(color: seam, width: gap);
     } else {
-      return Divider(color: seam, height: 6);
+      return Divider(color: seam, height: gap);
     }
   }
+}
+
+/// The page-gap preference applies to Webtoon pages as well as other
+/// continuous modes. A zero extent means the pages touch.
+@visibleForTesting
+double readerPageGapExtent({required bool showPageGaps}) {
+  return showPageGaps ? 6 : 0;
+}
+
+/// Webtoon chapters are already a continuous strip; a saved manga double-page
+/// preference must not merge adjacent webtoon images into paired items.
+@visibleForTesting
+bool shouldUseDoublePageLayout({
+  required bool isDoublePageMode,
+  required ReaderMode readerMode,
+  required bool isHorizontalContinuous,
+}) {
+  return isDoublePageMode &&
+      readerMode != ReaderMode.webtoon &&
+      !isHorizontalContinuous;
 }

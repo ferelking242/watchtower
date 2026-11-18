@@ -308,8 +308,7 @@ import app_links
             case "setEnabled":
                 let args    = call.arguments as? [String: Any]
                 let enabled = (args?["enabled"] as? Bool) ?? false
-                volumeEventStreamHandler.setEnabled(enabled)
-                result(nil)
+                result(volumeEventStreamHandler.setEnabled(enabled))
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -367,14 +366,16 @@ class VolumeKeyStreamHandler: NSObject, FlutterStreamHandler {
         return nil
     }
 
-    func setEnabled(_ value: Bool) {
-        if value == enabled { return }
-        enabled = value
+    @discardableResult
+    func setEnabled(_ value: Bool) -> Bool {
+        let shouldEnable = value && sink != nil
+        if shouldEnable == enabled { return !value || enabled }
+        enabled = shouldEnable
 
         let session = AVAudioSession.sharedInstance()
         try? session.setActive(true)
 
-        if value {
+        if shouldEnable {
             lastVolume = session.outputVolume
             // MPVolumeView is only needed to programmatically reset the volume.
             if volumeView == nil {
@@ -391,6 +392,7 @@ class VolumeKeyStreamHandler: NSObject, FlutterStreamHandler {
             volumeView?.removeFromSuperview()
             volumeView = nil
         }
+        return !value || enabled
     }
 
     override func observeValue(

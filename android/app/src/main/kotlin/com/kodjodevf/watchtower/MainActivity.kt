@@ -482,6 +482,7 @@ package com.watchtower.app
               }
               override fun onCancel(arguments: Any?) {
                   volumeNavSink = null
+                  volumeNavEnabled = false
               }
           })
 
@@ -497,8 +498,11 @@ package com.watchtower.app
           ).setMethodCallHandler { call, result ->
               when (call.method) {
                   "setEnabled" -> {
-                      volumeNavEnabled = call.argument<Boolean>("enabled") ?: false
-                      result.success(null)
+                      val requested = call.argument<Boolean>("enabled") ?: false
+                      volumeNavEnabled = requested && volumeNavSink != null
+                      // Returning readiness lets Dart retry the brief interval
+                      // between subscribing to the EventChannel and onListen.
+                      result.success(!requested || volumeNavEnabled)
                   }
                   else -> result.notImplemented()
               }
@@ -541,7 +545,8 @@ package com.watchtower.app
       }
 
       override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-          if (volumeNavEnabled) {
+          val sink = volumeNavSink
+          if (volumeNavEnabled && sink != null) {
               val dir = when (event.keyCode) {
                   KeyEvent.KEYCODE_VOLUME_UP   -> 1
                   KeyEvent.KEYCODE_VOLUME_DOWN -> -1
@@ -550,7 +555,7 @@ package com.watchtower.app
               if (dir != 0) {
                   if (event.action == KeyEvent.ACTION_DOWN &&
                       event.repeatCount == 0) {
-                      volumeNavSink?.success(dir)
+                      sink.success(dir)
                   }
                   // Swallow both down and up so the system volume UI stays hidden.
                   return true

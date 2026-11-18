@@ -16,6 +16,7 @@ class ImageViewVertical extends ConsumerStatefulWidget {
   final UChapDataPreload data;
   final Function(UChapDataPreload data) onLongPressData;
   final bool isHorizontal;
+  final bool fitWidth;
 
   final Function(bool) failedToLoadImage;
 
@@ -25,6 +26,7 @@ class ImageViewVertical extends ConsumerStatefulWidget {
     required this.onLongPressData,
     required this.failedToLoadImage,
     required this.isHorizontal,
+    this.fitWidth = false,
   });
 
   @override
@@ -34,6 +36,7 @@ class ImageViewVertical extends ConsumerStatefulWidget {
 class _ImageViewVerticalState extends ConsumerState<ImageViewVertical> {
   UChapDataPreload get data => widget.data;
   bool get isHorizontal => widget.isHorizontal;
+  bool get fitWidth => widget.fitWidth;
   Function(bool) get failedToLoadImage => widget.failedToLoadImage;
   Function(UChapDataPreload) get onLongPressData => widget.onLongPressData;
 
@@ -94,15 +97,22 @@ class _ImageViewVerticalState extends ConsumerState<ImageViewVertical> {
     // "Rogner les bordures" is handled by the crop-image pipeline, which
     // replaces [data.cropImage]. Wide-page handling below only applies when the
     // page really is wider than tall and the user asked for it.
+    final BoxFit imageFit;
+    if (rotateWide && _isWide) {
+      imageFit = BoxFit.contain;
+    } else if (fitWidth) {
+      imageFit = BoxFit.fitWidth;
+    } else {
+      imageFit = getBoxFit(ref.watch(scaleTypeStateProvider));
+    }
+
     Widget imageWidget = ExtendedImage(
       colorBlendMode: colorBlendMode,
       color: color,
       image: data.getImageProvider(ref, true),
       filterQuality: FilterQuality.medium,
       handleLoadingProgress: true,
-      fit: rotateWide && _isWide
-          ? BoxFit.contain
-          : getBoxFit(ref.watch(scaleTypeStateProvider)),
+      fit: imageFit,
       enableLoadState: true,
       loadStateChanged: (state) {
         if (state.extendedImageLoadState == LoadState.completed) {

@@ -139,6 +139,15 @@ class PageNavigationService {
         mode == ReaderMode.horizontalContinuous ||
         mode == ReaderMode.horizontalContinuousRTL;
   }
+
+  /// Continuous readers can scroll without a resolved page index. Paged
+  /// readers need the index to apply the first/last-page bounds.
+  static bool canNavigateWithVolumeKey({
+    required ReaderMode readerMode,
+    required int? currentIndex,
+  }) {
+    return isContinuousMode(readerMode) || currentIndex != null;
+  }
 }
 
 /// Mixin to add page navigation capabilities to reader state.

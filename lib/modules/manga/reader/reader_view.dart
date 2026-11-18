@@ -209,6 +209,7 @@ class _MangaChapterPageGalleryState
 
   // ── Volume-button navigation ───────────────────────────────────────────
   bool _volumeListenerActive = false;
+  int _volumeEnableGeneration = 0;
 
   /// Ownership token returned by [VolumeKeyChannel.enable], handed back on
   /// dispose so a chapter change cannot have the old reader cancel the new
@@ -251,9 +252,10 @@ class _MangaChapterPageGalleryState
       );
     }
     // Tear down volume listener and restore system volume UI
+    _volumeEnableGeneration++;
     if (_volumeListenerActive) {
       _volumeListenerActive = false;
-      VolumeKeyChannel.disable(_volumeToken);
+      unawaited(VolumeKeyChannel.disable(_volumeToken));
       _volumeToken = null;
     }
     _connectivitySub?.cancel();
@@ -483,11 +485,15 @@ class _MangaChapterPageGalleryState
   /// the host activity, so the system volume never changes.
   Future<void> _initVolumeButtonNavigation() async {
     if (_volumeListenerActive) return;
+    final generation = ++_volumeEnableGeneration;
     final settings = isar.settings.getSync(kSettingsId) ?? Settings();
     if (!(settings.volumeButtonNavigation ?? false)) return;
 
     final token = await VolumeKeyChannel.enable(_handleVolumeKey);
-    if (!mounted) {
+    if (token == null) return;
+    if (!mounted ||
+        generation != _volumeEnableGeneration ||
+        !ref.read(volumeButtonNavigationStateProvider)) {
       await VolumeKeyChannel.disable(token);
       return;
     }
@@ -503,8 +509,14 @@ class _MangaChapterPageGalleryState
             .invertVolumeButtonNavigation ??
         false;
     final readerMode = ref.read(_currentReaderMode);
+    if (readerMode == null) return;
     final index = _currentIndex;
-    if (readerMode == null || index == null) return;
+    if (!PageNavigationService.canNavigateWithVolumeKey(
+      readerMode: readerMode,
+      currentIndex: index,
+    )) {
+      return;
+    }
 
     final goNext = VolumeKeyChannel.volumeKeyGoesToNextPage(
       direction: direction,
@@ -523,6 +535,7 @@ class _MangaChapterPageGalleryState
       return;
     }
 
+    if (index == null) return;
     if (goNext) {
       navigationService.nextPage(
         readerMode: readerMode,
@@ -578,6 +591,7 @@ class _MangaChapterPageGalleryState
   final PhotoViewController _photoViewController = PhotoViewController();
   final PhotoViewScaleStateController _photoViewScaleStateController =
       PhotoViewScaleStateController();
+
   /// Pages whose crop has already been requested (tracked by identity, not
   /// index: prepending a previous chapter shifts every index).
   final Set<UChapDataPreload> _cropBorderCheckList = <UChapDataPreload>{};
@@ -637,10 +651,15 @@ class _MangaChapterPageGalleryState
       if (!mounted) return;
       if (enabled) {
         _initVolumeButtonNavigation();
-      } else if (_volumeListenerActive) {
-        _volumeListenerActive = false;
-        VolumeKeyChannel.disable(_volumeToken);
-        _volumeToken = null;
+      } else {
+        // Invalidate a pending native handshake too, not just an already-live
+        // listener, so a late EventChannel acknowledgement cannot re-enable it.
+        _volumeEnableGeneration++;
+        if (_volumeListenerActive) {
+          _volumeListenerActive = false;
+          unawaited(VolumeKeyChannel.disable(_volumeToken));
+          _volumeToken = null;
+        }
       }
     });
     final backgroundColor = ref.watch(backgroundColorStateProvider);
@@ -2085,4 +2104,3 @@ class _VerticalChapterNavigator extends StatelessWidget {
     );
   }
 }
-

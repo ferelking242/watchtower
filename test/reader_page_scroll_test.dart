@@ -111,4 +111,28 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(_firstIndex(positions), greaterThan(before));
   });
+
+  test('volume navigation does not need an index in continuous modes', () {
+    expect(
+      PageNavigationService.canNavigateWithVolumeKey(
+        readerMode: ReaderMode.webtoon,
+        currentIndex: null,
+      ),
+      isTrue,
+    );
+    expect(
+      PageNavigationService.canNavigateWithVolumeKey(
+        readerMode: ReaderMode.vertical,
+        currentIndex: null,
+      ),
+      isFalse,
+    );
+    expect(
+      PageNavigationService.canNavigateWithVolumeKey(
+        readerMode: ReaderMode.vertical,
+        currentIndex: 0,
+      ),
+      isTrue,
+    );
+  });
 }

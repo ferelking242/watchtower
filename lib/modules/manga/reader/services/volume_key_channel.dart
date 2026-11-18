@@ -18,8 +18,9 @@ class VolumeKeyChannel {
   // that share a name both register a handler under the same messenger key, so
   // the later registration replaces the earlier one and the event stream never
   // receives its sink.
-  static const _methods =
-      MethodChannel('com.watchtower.app.volume_keys_methods');
+  static const _methods = MethodChannel(
+    'com.watchtower.app.volume_keys_methods',
+  );
 
   static StreamSubscription<dynamic>? _sub;
 
@@ -49,30 +50,56 @@ class VolumeKeyChannel {
   /// the *old* reader *after* the new one has already subscribed; without the
   /// token the stale dispose would cancel the live subscription and silently
   /// kill volume-key navigation from the second chapter onwards.
-  static Future<Object> enable(void Function(int direction) onDirection) async {
+  static Future<Object?> enable(
+    void Function(int direction) onDirection,
+  ) async {
     final token = Object();
     _owner = token;
-    await _sub?.cancel();
+    final previousSubscription = _sub;
     _sub = null;
+    await previousSubscription?.cancel();
+    if (!identical(_owner, token)) return null;
+
     // Subscribe *before* flipping the native flag: the EventChannel's
     // `onListen` (which installs the native sink) is what the host checks
     // before forwarding a key, so enabling first would open a window where the
     // activity swallows a volume key into a sink that does not exist yet.
-    _sub = _events.receiveBroadcastStream().listen((event) {
-      if (event is int) {
-        onDirection(event);
-      }
-    });
+    _sub = _events.receiveBroadcastStream().listen(
+      (event) {
+        if (identical(_owner, token) && event is int) {
+          onDirection(event);
+        }
+      },
+      onError: (Object _) {
+        if (identical(_owner, token)) {
+          unawaited(disable(token));
+        }
+      },
+    );
     try {
-      await _methods.invokeMethod<void>('setEnabled', {'enabled': true});
+      // EventChannel's onListen is asynchronous. Have the host confirm that it
+      // has a live event sink before treating navigation as enabled; otherwise
+      // an Android activity could swallow the key without delivering it.
+      for (var attempt = 0; attempt < 8; attempt++) {
+        final ready = await _methods.invokeMethod<bool>('setEnabled', {
+          'enabled': true,
+        });
+        if (!identical(_owner, token)) return null;
+        if (ready == true) return token;
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
     } on MissingPluginException {
       // Desktop / web build: the reader falls back to no key navigation.
-      await _sub?.cancel();
-      _sub = null;
+      await disable(token);
+      return null;
     } on PlatformException {
       // Host refused to enable; nothing to do.
+      await disable(token);
+      return null;
     }
-    return token;
+
+    await disable(token);
+    return null;
   }
 
   /// Stops forwarding and releases the native listener.
@@ -83,10 +110,14 @@ class VolumeKeyChannel {
   static Future<void> disable([Object? token]) async {
     if (token != null && !identical(token, _owner)) return;
     _owner = null;
-    await _sub?.cancel();
+    final subscription = _sub;
     _sub = null;
+    await subscription?.cancel();
+    // A new reader may have subscribed while the old listener was cancelling.
+    // Do not let the old reader's delayed shutdown turn the new one off.
+    if (_owner != null) return;
     try {
-      await _methods.invokeMethod<void>('setEnabled', {'enabled': false});
+      await _methods.invokeMethod<bool>('setEnabled', {'enabled': false});
     } catch (_) {
       // Ignore: the platform may not implement the channel.
     }
