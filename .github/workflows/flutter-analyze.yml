@@ -149,6 +149,12 @@ jobs:
             test/custom_extended_image_provider_test.dart \
             test/icon_cache_service_test.dart
 
+      - name: Run manga reader navigation and layout tests
+        run: |
+          flutter test \
+            test/reader_page_scroll_test.dart \
+            test/reader_webtoon_layout_test.dart
+
       - name: Run onboarding showcase tests
         run: |
           flutter test \
