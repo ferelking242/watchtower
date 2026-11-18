@@ -3697,6 +3697,22 @@
     "description": "Smart Library scan notification, shown while the scan starts"
   },
   "smart_scan_notif_starting": "Analyse de l’appareil…",
+  "@smart_scan_notif_discovering": {
+    "description": "Smart Library scan notification body while listing files",
+    "placeholders": {
+      "discovered": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_discovering": "{discovered} fichiers trouvés…",
+  "@smart_scan_notif_progress_percent": {
+    "description": "Smart Library scan notification body with a determinate percentage",
+    "placeholders": {
+      "percent": { "type": "int" },
+      "processed": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "smart_scan_notif_progress_percent": "{percent} % · {processed}/{total} fichiers indexés",
   "@smart_scan_notif_progress": {
     "description": "Smart Library scan notification progress line",
     "placeholders": {
@@ -3887,6 +3903,7 @@
   "anime_directory_load_failed": "Impossible de charger ce catalogue : {error}",
   "anime_directory_empty": "Aucun élément disponible.",
   "smart_scanning_storage_count": "Analyse du stockage · {count} fichiers",
+  "smart_scanning_storage_percent": "Analyse du stockage · {percent} %",
   "smart_library_watch_title": "Smart Library Watch",
   "smart_library_manga_title": "Smart Library Manga",
   "smart_library_music_title": "Smart Library Music",

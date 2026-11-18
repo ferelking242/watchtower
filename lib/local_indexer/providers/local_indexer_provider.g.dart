@@ -88,7 +88,7 @@ String _$indexerStatusHash() => r'indexerStatus';
 final localIndexerScanProvider = LocalIndexerScanProvider._();
 
 final class LocalIndexerScanProvider
-    extends $NotifierProvider<LocalIndexerScan, AsyncValue<IndexerStats?>> {
+    extends $NotifierProvider<LocalIndexerScan, SmartLibraryScanState> {
   LocalIndexerScanProvider._()
       : super(
           from: null,
@@ -110,16 +110,17 @@ final class LocalIndexerScanProvider
 
 String _$localIndexerScanHash() => r'localIndexerScan';
 
-abstract class _$LocalIndexerScan extends $Notifier<AsyncValue<IndexerStats?>> {
-  AsyncValue<IndexerStats?> build() => const AsyncValue.data(null);
+abstract class _$LocalIndexerScan extends $Notifier<SmartLibraryScanState> {
+  SmartLibraryScanState build() => const SmartLibraryScanState();
   @$mustCallSuper
   @override
   void runBuild() {
-    final ref = this.ref as $Ref<AsyncValue<IndexerStats?>, AsyncValue<IndexerStats?>>;
+    final ref = this.ref
+        as $Ref<SmartLibraryScanState, SmartLibraryScanState>;
     final element = ref.element
         as $ClassProviderElement<
-            AnyNotifier<AsyncValue<IndexerStats?>, AsyncValue<IndexerStats?>>,
-            AsyncValue<IndexerStats?>,
+            AnyNotifier<SmartLibraryScanState, SmartLibraryScanState>,
+            SmartLibraryScanState,
             Object?,
             Object?>;
     element.handleCreate(ref, build);

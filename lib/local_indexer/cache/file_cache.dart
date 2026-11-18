@@ -23,6 +23,64 @@ class FileCache {
 
   // ── API publique ───────────────────────────────────────────────────────────
 
+  /// Returns the subset of [paths] whose persisted signature still matches
+  /// ([sizes] / [modifiedAts] are the freshly stat-ed values, in the same
+  /// order).
+  ///
+  /// The scan used to call [checkSignature] once per file, i.e. one Isar
+  /// round-trip per discovered file — thousands of awaited queries that made a
+  /// full scan crawl. This resolves a whole discovery batch with a single
+  /// indexed query instead.
+  Future<Set<String>> unchangedPaths({
+    required List<String> paths,
+    required List<int> sizes,
+    required List<int> modifiedAts,
+  }) async {
+    assert(paths.length == sizes.length && paths.length == modifiedAts.length);
+    final unchanged = <String>{};
+    final toQuery = <String>[];
+    final sizeByPath = <String, int>{};
+    final mtimeByPath = <String, int>{};
+
+    for (var i = 0; i < paths.length; i++) {
+      final path = paths[i];
+      sizeByPath[path] = sizes[i];
+      mtimeByPath[path] = modifiedAts[i];
+      final ram = _ramCache[path];
+      if (ram != null && ram.isUnchanged(sizes[i], modifiedAts[i])) {
+        _touch(path);
+        unchanged.add(path);
+      } else {
+        toQuery.add(path);
+      }
+    }
+    if (toQuery.isEmpty) return unchanged;
+
+    // Tier 2 : Isar — one query for the whole batch (chunked to stay inside
+    // the expression limit on very large batches).
+    const chunk = 500;
+    for (var i = 0; i < toQuery.length; i += chunk) {
+      final slice = toQuery.sublist(
+        i,
+        i + chunk > toQuery.length ? toQuery.length : i + chunk,
+      );
+      final rows = await _isar.localFileCaches
+          .where()
+          .anyOf(slice, (q, path) => q.filePathEqualTo(path))
+          .findAll();
+      for (final row in rows) {
+        final size = sizeByPath[row.filePath];
+        final mtime = mtimeByPath[row.filePath];
+        if (size == null || mtime == null) continue;
+        if (row.isUnchanged(size, mtime)) {
+          _putRam(row.filePath, row);
+          unchanged.add(row.filePath);
+        }
+      }
+    }
+    return unchanged;
+  }
+
   /// Vérifie si un fichier est déjà dans le cache et non modifié.
   ///
   /// Retourne l'entrée de cache si le fichier n'a pas changé, `null` sinon.

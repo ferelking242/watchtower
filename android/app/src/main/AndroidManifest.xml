@@ -129,6 +129,12 @@
             android:name="com.kodjodevf.watchtower.DownloadForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
+        <!-- Smart Library scan foreground service: keeps a device-wide scan
+             alive when the user leaves the page or backgrounds the app. -->
+        <service
+            android:name="com.kodjodevf.watchtower.SmartLibraryScanForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
         <!-- NFile: FTP Server foreground service -->
         <service
             android:name="com.watchtower.app.nfile.FtpForegroundService"

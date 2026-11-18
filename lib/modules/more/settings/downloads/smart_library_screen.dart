@@ -7,13 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
-import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_work.dart';
-import 'package:watchtower/local_indexer/notifications/local_indexer_notification_service.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/modules/more/settings/downloads/local_work_detail_sheet.dart';
@@ -163,94 +160,40 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     return null;
   }
 
+  /// Starts a scan through the keep-alive scan provider.
+  ///
+  /// The actual work runs in [LocalIndexerScan], not in this widget, so it
+  /// survives the user leaving the page and so nothing touches `ref`/`context`
+  /// after the widget is unmounted (which used to throw
+  /// `Bad state: Using "ref" when a widget is about to or has been unmounted`).
   Future<void> _scan({required bool fullRescan}) async {
     if (_starting) return;
     setState(() => _starting = true);
-    final notifications = LocalIndexerNotificationService.instance;
-    final engine = ref.read(localIndexerEngineProvider);
     final scanMode = _isMusic
         ? LocalScanMode.music
         : _isManga
         ? LocalScanMode.manga
         : LocalScanMode.videos;
     final locale = Localizations.localeOf(context);
-    StreamSubscription<IndexerStatus>? statusSub;
-    IndexerStats? stats;
     try {
       final roots = await _scanRoots();
       if (roots.isEmpty) {
         throw StateError('Aucun emplacement de stockage accessible.');
       }
-      await notifications.start(scanMode, locale);
-      // Mirror the engine's own progress stream into the notification so the
-      // user sees the count grow while the app is in the background.
-      statusSub = engine.status.listen((status) {
-        if (status.isScanning) {
-          unawaited(
-            notifications.progress(
-              scanMode,
-              discovered: status.discovered ?? 0,
-              analyzed: status.analyzed ?? 0,
-            ),
-          );
-        } else if (status.isDone) {
-          stats = status.stats;
-        }
-      });
       final scan = ref.read(localIndexerScanProvider.notifier);
       if (fullRescan) {
-        await scan.fullRescan(roots, mode: scanMode);
+        await scan.fullRescan(roots, mode: scanMode, locale: locale);
       } else {
-        await scan.refresh(roots, mode: scanMode);
+        await scan.refresh(roots, mode: scanMode, locale: locale);
       }
-      await scan.startWatching(roots, mode: scanMode);
-      _invalidate();
-      final summary = await _enrichMetadata();
-      await notifications.finish(
-        scanMode,
-        discovered: stats?.discovered ?? 0,
-        analyzed: stats?.analyzed ?? 0,
-        resolved: summary?.resolved ?? 0,
-        unmatched: summary?.unmatched ?? 0,
-      );
     } catch (error) {
-      await notifications.fail(scanMode, '$error');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.smart_scan_failed('$error'))),
         );
       }
     } finally {
-      await statusSub?.cancel();
       if (mounted) setState(() => _starting = false);
-    }
-  }
-
-  void _invalidate() {
-    ref.invalidate(localIndexedCountProvider);
-    ref.invalidate(localIndexedCountByKindProvider);
-    ref.invalidate(recentlyIndexedProvider);
-    ref.invalidate(localWorksProvider);
-  }
-
-  Future<LocalMetadataEnrichmentSummary?> _enrichMetadata() async {
-    try {
-      final works = await ref.read(localWorksProvider.future);
-      final items = [for (final work in works) work.files.first];
-      final summary = await LocalMetadataResolver.instance.enrich(items);
-      if (!mounted) return summary;
-      ref.invalidate(localWorksProvider);
-      if (summary.tmdbUnavailable) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.smart_tmdb_unavailable)),
-        );
-      }
-      return summary;
-    } catch (error) {
-      debugPrint('[SmartLibraryScreen] metadata enrichment failed: $error');
-      return null;
     }
   }
 
@@ -299,8 +242,29 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final status = ref.watch(indexerStatusProvider).asData?.value;
-    final isScanning = _starting || (status?.isScanning ?? false);
+    final scan = ref.watch(localIndexerScanProvider);
+    final isScanning = _starting || scan.isBusy || (status?.isScanning ?? false);
     final works = ref.watch(localWorksProvider);
+
+    // Surface enrichment notices that used to be shown from the widget's async
+    // callback (which could fire after unmount).
+    ref.listen(localIndexerScanProvider, (previous, next) {
+      if (next.phase == SmartLibraryScanPhase.error &&
+          previous?.phase != SmartLibraryScanPhase.error &&
+          next.error != null &&
+          mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.smart_scan_failed(next.error!))),
+        );
+      }
+      if (next.tmdbUnavailable &&
+          previous?.tmdbUnavailable != true &&
+          mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.smart_tmdb_unavailable)),
+        );
+      }
+    });
 
     return Scaffold(
       backgroundColor: cs.surface,
@@ -313,10 +277,21 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
               isManga: _isManga,
               isMusic: _isMusic,
               isScanning: isScanning,
-              discovered: status?.discovered ?? 0,
+              discovered: scan.discovered > 0
+                  ? scan.discovered
+                  : (status?.discovered ?? 0),
+              progress: scan.progress,
               onScan: () => _scan(fullRescan: false),
               onFullRescan: () => _scan(fullRescan: true),
             ),
+            if (scan.isBusy)
+              _ScanProgressBar(
+                phase: scan.phase,
+                progress: scan.progress,
+                processed: scan.processed,
+                total: scan.total,
+                discovered: scan.discovered,
+              ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () => _scan(fullRescan: false),
@@ -386,6 +361,7 @@ class _Header extends StatelessWidget {
   final bool isMusic;
   final bool isScanning;
   final int discovered;
+  final double? progress;
   final VoidCallback onScan;
   final VoidCallback onFullRescan;
 
@@ -395,6 +371,7 @@ class _Header extends StatelessWidget {
     required this.isMusic,
     required this.isScanning,
     required this.discovered,
+    required this.progress,
     required this.onScan,
     required this.onFullRescan,
   });
@@ -432,7 +409,11 @@ class _Header extends StatelessWidget {
                 ),
                 if (isScanning)
                   Text(
-                    context.l10n.smart_scanning_storage_count(discovered),
+                    progress != null
+                        ? context.l10n.smart_scanning_storage_percent(
+                            (progress! * 100).clamp(0, 100).floor(),
+                          )
+                        : context.l10n.smart_scanning_storage_count(discovered),
                     style: TextStyle(
                       fontSize: 12,
                       color: cs.onSurface.withValues(alpha: 0.6),
@@ -463,6 +444,65 @@ class _Header extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Scan progress bar ───────────────────────────────────────────────────────
+
+/// Thin determinate/indeterminate bar shown under the header during a scan.
+///
+/// Discovery has no denominator yet, so it animates; the analysis and
+/// enrichment phases have a real total and show a percentage.
+class _ScanProgressBar extends StatelessWidget {
+  final SmartLibraryScanPhase phase;
+  final double? progress;
+  final int processed;
+  final int total;
+  final int discovered;
+
+  const _ScanProgressBar({
+    required this.phase,
+    required this.progress,
+    required this.processed,
+    required this.total,
+    required this.discovered,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
+    final label = switch (phase) {
+      SmartLibraryScanPhase.discovering =>
+        l10n.smart_scan_notif_discovering(discovered),
+      SmartLibraryScanPhase.analyzing =>
+        l10n.smart_scan_notif_progress_percent(
+          ((progress ?? 0) * 100).clamp(0, 100).floor(),
+          processed,
+          total,
+        ),
+      SmartLibraryScanPhase.enriching => l10n.smart_scanning_storage,
+      _ => l10n.smart_scan_notif_starting,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (progress != null)
+          LinearProgressIndicator(value: progress, minHeight: 3)
+        else
+          const LinearProgressIndicator(minHeight: 3),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 2),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

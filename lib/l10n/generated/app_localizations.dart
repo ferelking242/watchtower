@@ -21767,6 +21767,22 @@ abstract class AppLocalizations {
   /// **'Scanning the device…'**
   String get smart_scan_notif_starting;
 
+  /// Smart Library scan notification body while listing files
+  ///
+  /// In en, this message translates to:
+  /// **'{discovered} files found…'**
+  String smart_scan_notif_discovering(int discovered);
+
+  /// Smart Library scan notification body with a determinate percentage
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% · {processed}/{total} files indexed'**
+  String smart_scan_notif_progress_percent(
+    int percent,
+    int processed,
+    int total,
+  );
+
   /// Smart Library scan notification progress line
   ///
   /// In en, this message translates to:
@@ -22719,6 +22735,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scanning storage · {count} files'**
   String smart_scanning_storage_count(Object count);
+
+  /// No description provided for @smart_scanning_storage_percent.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning storage · {percent}%'**
+  String smart_scanning_storage_percent(Object percent);
 
   /// No description provided for @smart_library_watch_title.
   ///

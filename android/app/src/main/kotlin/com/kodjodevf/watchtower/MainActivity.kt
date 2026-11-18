@@ -18,6 +18,7 @@ package com.watchtower.app
   import io.flutter.plugin.common.MethodChannel
   import io.flutter.plugin.common.StandardMethodCodec
   import com.kodjodevf.watchtower.DownloadForegroundService
+  import com.kodjodevf.watchtower.SmartLibraryScanForegroundService
   import com.kodjodevf.watchtower.MediaStorePlugin
   import libmtorrentserver.Libmtorrentserver
   import rikka.shizuku.Shizuku
@@ -467,6 +468,28 @@ package com.watchtower.app
                       "stop"   -> { DownloadForegroundService.stop(applicationContext);                                     result.success(null) }
                       "openFile" -> { openDownloadedFile(call.argument("filePath")); result.success(null) }
                       else     -> result.notImplemented()
+                  }
+              } catch (e: Exception) {
+                  result.error("SVC_ERR", e.message, null)
+              }
+          }
+          // ── 12b. Smart Library scan foreground service ─────────────────────
+          MethodChannel(
+              flutterEngine.dartExecutor.binaryMessenger,
+              "watchtower/smart_scan_service"
+          ).setMethodCallHandler { call, result ->
+              try {
+                  when (call.method) {
+                      "start" -> {
+                          val title = call.argument<String>("title") ?: "Analyse en cours…"
+                          SmartLibraryScanForegroundService.start(applicationContext, title)
+                          result.success(null)
+                      }
+                      "stop" -> {
+                          SmartLibraryScanForegroundService.stop(applicationContext)
+                          result.success(null)
+                      }
+                      else -> result.notImplemented()
                   }
               } catch (e: Exception) {
                   result.error("SVC_ERR", e.message, null)

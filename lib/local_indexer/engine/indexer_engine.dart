@@ -56,9 +56,16 @@ class IndexerEngine {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // Construire le pool d'isolates pour l'analyse parallèle
+    // Construire le pool d'isolates pour l'analyse parallèle.
+    //
+    // Name analysis is pure CPU work on a small payload, so one worker per
+    // logical core is enough; more workers only add context-switch overhead.
+    // Clamped so a low-end phone still gets parallelism and a 16-core desktop
+    // does not spawn dozens of isolates for nothing.
+    final cores = Platform.numberOfProcessors;
     _pool = await IsolatePool.create(
       entryPoint: AnalysisStage.isolateEntryPoint,
+      maxWorkers: (cores - 1).clamp(2, 8),
     );
 
     _discovery = DiscoveryStage(
@@ -104,12 +111,16 @@ class IndexerEngine {
     final stopwatch = Stopwatch()..start();
     int discovered = 0, cached = 0, analyzed = 0;
 
-    _emit(const IndexerStatus.scanning(0, 0));
+    _emit(const IndexerStatus.scanning(0, 0, phase: IndexerPhase.discovering));
 
     try {
       _writer.startAutoFlush();
 
       // ── 1. Découverte ──────────────────────────────────────────────────────
+      // Collect the whole file list before analysing anything: it gives the
+      // analysis phase a real denominator, so the notification can show a
+      // determinate percentage instead of a spinner. Discovery only stats
+      // files, it never opens them, so holding the list is cheap.
       final mediaStoreFiles = <DiscoveredFile>[];
       if (mode == LocalScanMode.videos && AndroidMediaStore.isAvailable) {
         try {
@@ -153,39 +164,58 @@ class IndexerEngine {
         }
       }
 
+      final allFiles = <DiscoveredFile>[];
       await for (final batch in _discovery.discover(
         roots,
         additionalFiles: mediaStoreFiles,
       )) {
+        allFiles.addAll(batch);
         discovered += batch.length;
-        _emit(IndexerStatus.scanning(discovered, 0));
+        _emit(IndexerStatus.scanning(
+          discovered,
+          0,
+          total: discovered,
+          phase: IndexerPhase.discovering,
+        ));
+      }
 
-        // ── 2. Filtrage cache ──────────────────────────────────────────────
+      // ── 2 + 3 + 4. Cache, analyse parallèle, écriture batch ────────────────
+      final total = allFiles.length;
+      const chunkSize = 400;
+      for (var start = 0; start < total; start += chunkSize) {
+        final end = (start + chunkSize > total) ? total : start + chunkSize;
+        final chunk = allFiles.sublist(start, end);
+
+        // Batch cache check: one Isar query for the whole chunk instead of one
+        // awaited query per file.
+        final unchanged = await _cache.unchangedPaths(
+          paths: [for (final f in chunk) f.path],
+          sizes: [for (final f in chunk) f.size],
+          modifiedAts: [for (final f in chunk) f.modifiedAt],
+        );
+
         final toAnalyze = <DiscoveredFile>[];
-
-        for (final file in batch) {
-          final cached_ = await _cache.checkSignature(
-            path: file.path,
-            size: file.size,
-            modifiedAt: file.modifiedAt,
-          );
-          if (cached_ != null) {
+        for (final file in chunk) {
+          if (unchanged.contains(file.path)) {
             cached++;
           } else {
             toAnalyze.add(file);
           }
         }
 
-        if (toAnalyze.isEmpty) continue;
+        if (toAnalyze.isNotEmpty) {
+          final analysisResults = await _analyzeParallel(toAnalyze);
+          analyzed += analysisResults.length;
+          await _writer.addAll(analysisResults);
+        }
 
-        // ── 3. Analyse parallèle via pool d'isolates ───────────────────────
-        final analysisResults = await _analyzeParallel(toAnalyze);
-        analyzed += analysisResults.length;
-
-        // ── 4. Écriture batch ──────────────────────────────────────────────
-        await _writer.addAll(analysisResults);
-
-        _emit(IndexerStatus.scanning(discovered, analyzed));
+        _emit(IndexerStatus.scanning(
+          discovered,
+          analyzed,
+          processed: cached + analyzed,
+          total: total,
+          phase: IndexerPhase.analyzing,
+        ));
       }
 
       // Flush final
@@ -445,12 +475,27 @@ class IndexerEngine {
 
 enum IndexerStatusType { idle, scanning, done, error }
 
+/// Which half of the scan is currently running.
+///
+/// The pipeline is two-phase now: it first walks the storage to collect every
+/// candidate file, then analyses them. Discovery has no reliable denominator
+/// (it is still counting), while analysis does — hence the distinction, so the
+/// UI can show a spinner then a real percentage.
+enum IndexerPhase { idle, discovering, analyzing }
+
 class IndexerStatus {
   final IndexerStatusType type;
   final int? discovered;
   final int? analyzed;
   final String? errorMessage;
   final IndexerStats? stats;
+  final IndexerPhase phase;
+
+  /// Files already handled in the analysis phase (indexed + served from cache).
+  final int processed;
+
+  /// Total files the analysis phase must process. 0 while discovering.
+  final int total;
 
   const IndexerStatus._({
     required this.type,
@@ -458,15 +503,26 @@ class IndexerStatus {
     this.analyzed,
     this.errorMessage,
     this.stats,
+    this.phase = IndexerPhase.idle,
+    this.processed = 0,
+    this.total = 0,
   });
 
   const IndexerStatus.idle() : this._(type: IndexerStatusType.idle);
 
-  const IndexerStatus.scanning(int discovered, int analyzed)
-      : this._(
+  const IndexerStatus.scanning(
+    int discovered,
+    int analyzed, {
+    int processed = 0,
+    int total = 0,
+    IndexerPhase phase = IndexerPhase.analyzing,
+  }) : this._(
           type: IndexerStatusType.scanning,
           discovered: discovered,
           analyzed: analyzed,
+          processed: processed,
+          total: total,
+          phase: phase,
         );
 
   const IndexerStatus.done(IndexerStats stats)
@@ -479,6 +535,16 @@ class IndexerStatus {
   bool get isDone => type == IndexerStatusType.done;
   bool get isError => type == IndexerStatusType.error;
   bool get isIdle => type == IndexerStatusType.idle;
+
+  bool get isDiscovering => isScanning && phase == IndexerPhase.discovering;
+  bool get isAnalyzing => isScanning && phase == IndexerPhase.analyzing;
+
+  /// Analysis progress in the range 0..1, or null while it is still unknown
+  /// (discovery, or a total of zero).
+  double? get progress {
+    if (!isAnalyzing || total <= 0) return null;
+    return (processed / total).clamp(0.0, 1.0).toDouble();
+  }
 }
 
 // ── Statistiques ──────────────────────────────────────────────────────────────

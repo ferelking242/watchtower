@@ -12175,6 +12175,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get smart_scan_notif_starting => 'Scanning the device…';
 
   @override
+  String smart_scan_notif_discovering(int discovered) {
+    return '$discovered files found…';
+  }
+
+  @override
+  String smart_scan_notif_progress_percent(
+    int percent,
+    int processed,
+    int total,
+  ) {
+    return '$percent% · $processed/$total files indexed';
+  }
+
+  @override
   String smart_scan_notif_progress(int discovered, int analyzed) {
     return '$discovered files found · $analyzed indexed';
   }
@@ -12714,6 +12728,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String smart_scanning_storage_count(Object count) {
     return 'Scanning storage · $count files';
+  }
+
+  @override
+  String smart_scanning_storage_percent(Object percent) {
+    return 'Scanning storage · $percent%';
   }
 
   @override

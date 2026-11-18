@@ -2,6 +2,7 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
@@ -30,6 +31,9 @@ class LocalIndexerNotificationService {
   static const _kChannelDesc =
       'Progression de l’analyse de la bibliothèque locale';
   static const _kNotifId = 9903;
+
+  /// Native side channel that runs the scan foreground service (Android only).
+  static const _ch = MethodChannel('watchtower/smart_scan_service');
 
   /// Never post twice within this window; the scanner can emit a batch update
   /// for every few hundred files.
@@ -99,11 +103,15 @@ class LocalIndexerNotificationService {
   AppLocalizations get _l10n => lookupAppLocalizations(_locale);
 
   /// Starts (or refreshes) the scan notification.
+  ///
+  /// Also promotes the process to a foreground service on Android so the scan
+  /// keeps running when the user leaves the page or the screen turns off.
   Future<void> start(LocalScanMode mode, Locale locale) async {
     _locale = locale;
     await _init();
     if (!supported) return;
     _active = true;
+    await _startForegroundService(mode);
     await _post(
       title: _title(mode),
       body: _l10n.smart_scan_notif_starting,
@@ -111,16 +119,52 @@ class LocalIndexerNotificationService {
     );
   }
 
-  /// Reports progress. [discovered] files were seen, [analyzed] indexed so far.
+  /// Android only: keep the scan alive with a dataSync foreground service.
+  Future<void> _startForegroundService(LocalScanMode mode) async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _ch.invokeMethod<void>('start', {'title': _title(mode)});
+    } catch (e) {
+      AppLogger.log(
+        'LocalIndexerNotificationService foreground start failed: $e',
+        logLevel: LogLevel.debug,
+        tag: kLogTagWatch,
+      );
+    }
+  }
+
+  /// Android only: release the foreground service (scan ended).
+  Future<void> _stopForegroundService() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      await _ch.invokeMethod<void>('stop');
+    } catch (_) {}
+  }
+
+  /// Reports progress.
+  ///
+  /// [discovered] is the running discovery count. [processed]/[total] describe
+  /// the analysis phase; when [total] > 0 the bar becomes determinate and the
+  /// body shows a percentage instead of a bare count.
   Future<void> progress(
     LocalScanMode mode, {
     required int discovered,
-    required int analyzed,
+    int processed = 0,
+    int total = 0,
   }) async {
     if (!_active) return;
+    final determinate = total > 0;
+    final percent = determinate
+        ? ((processed / total) * 100).clamp(0, 100).floor()
+        : null;
+    final body = determinate
+        ? _l10n.smart_scan_notif_progress_percent(percent!, processed, total)
+        : _l10n.smart_scan_notif_discovering(discovered);
     await _post(
       title: _title(mode),
-      body: _l10n.smart_scan_notif_progress(discovered, analyzed),
+      body: body,
+      progress: determinate ? percent : null,
+      maxProgress: determinate ? 100 : 0,
     );
   }
 
@@ -136,6 +180,7 @@ class LocalIndexerNotificationService {
     if (!supported) return;
     final l10n = _l10n;
     _active = false;
+    await _stopForegroundService();
     try {
       final body = l10n.smart_scan_notif_summary(analyzed, resolved, unmatched);
       final android = AndroidNotificationDetails(
@@ -178,6 +223,7 @@ class LocalIndexerNotificationService {
     await _init();
     if (!supported) return;
     _active = false;
+    await _stopForegroundService();
     try {
       final android = AndroidNotificationDetails(
         _kChannelId,
@@ -220,6 +266,8 @@ class LocalIndexerNotificationService {
     required String title,
     required String body,
     bool force = false,
+    int? progress,
+    int maxProgress = 0,
   }) async {
     if (!supported) return;
     final now = DateTime.now();
@@ -230,7 +278,8 @@ class LocalIndexerNotificationService {
     }
     _lastPost = now;
     try {
-      const android = AndroidNotificationDetails(
+      final determinate = progress != null && maxProgress > 0;
+      final android = AndroidNotificationDetails(
         _kChannelId,
         _kChannelName,
         channelDescription: _kChannelDesc,
@@ -238,7 +287,9 @@ class LocalIndexerNotificationService {
         priority: Priority.low,
         onlyAlertOnce: true,
         showProgress: true,
-        indeterminate: true,
+        maxProgress: determinate ? maxProgress : 0,
+        progress: determinate ? progress : 0,
+        indeterminate: !determinate,
         ongoing: true,
         autoCancel: false,
         playSound: false,
@@ -246,7 +297,7 @@ class LocalIndexerNotificationService {
         icon: '@mipmap/launcher_icon',
       );
       await _plugin.show(_kNotifId, title, body,
-          const NotificationDetails(android: android));
+          NotificationDetails(android: android));
     } catch (e) {
       AppLogger.log(
         'LocalIndexerNotificationService post failed: $e',

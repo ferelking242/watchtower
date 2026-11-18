@@ -1,10 +1,16 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:watchtower/local_indexer/engine/indexer_engine.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
+import 'package:watchtower/local_indexer/metadata/local_metadata_resolver.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_work.dart';
+import 'package:watchtower/local_indexer/notifications/local_indexer_notification_service.dart';
 import 'package:watchtower/local_indexer/search/search_engine.dart';
 import 'package:watchtower/local_indexer/search/search_result.dart';
 import 'package:watchtower/main.dart' show isar;
@@ -51,30 +57,173 @@ Stream<IndexerStatus> indexerStatus(Ref ref) {
 
 // ── Provider de scan ───────────────────────────────────────────────────────────
 
-/// Lance ou recharge un scan sur les dossiers donnés.
-@riverpod
-class LocalIndexerScan extends _$LocalIndexerScan {
-  @override
-  AsyncValue<IndexerStats?> build() {
-    // The scan action is invoked with ref.read(...notifier), so there may be
-    // no listener keeping this auto-dispose notifier alive during the await.
-    ref.keepAlive();
-    return const AsyncValue.data(null);
+/// Phase of a Smart Library scan, from discovery through metadata enrichment.
+enum SmartLibraryScanPhase {
+  idle,
+  discovering,
+  analyzing,
+  enriching,
+  done,
+  error,
+}
+
+/// Observable state of the current (or last) Smart Library scan.
+class SmartLibraryScanState {
+  final SmartLibraryScanPhase phase;
+  final int discovered;
+  final int processed;
+  final int total;
+  final int resolved;
+  final int unmatched;
+  final String? error;
+  final bool tmdbUnavailable;
+
+  const SmartLibraryScanState({
+    this.phase = SmartLibraryScanPhase.idle,
+    this.discovered = 0,
+    this.processed = 0,
+    this.total = 0,
+    this.resolved = 0,
+    this.unmatched = 0,
+    this.error,
+    this.tmdbUnavailable = false,
+  });
+
+  bool get isBusy =>
+      phase == SmartLibraryScanPhase.discovering ||
+      phase == SmartLibraryScanPhase.analyzing ||
+      phase == SmartLibraryScanPhase.enriching;
+
+  /// Analysis progress 0..1, or null when it is still unknown.
+  double? get progress {
+    if (total <= 0) return null;
+    return (processed / total).clamp(0.0, 1.0).toDouble();
   }
 
-  /// Démarre un scan sur [roots].
+  SmartLibraryScanState copyWith({
+    SmartLibraryScanPhase? phase,
+    int? discovered,
+    int? processed,
+    int? total,
+    int? resolved,
+    int? unmatched,
+    String? error,
+    bool? tmdbUnavailable,
+  }) {
+    return SmartLibraryScanState(
+      phase: phase ?? this.phase,
+      discovered: discovered ?? this.discovered,
+      processed: processed ?? this.processed,
+      total: total ?? this.total,
+      resolved: resolved ?? this.resolved,
+      unmatched: unmatched ?? this.unmatched,
+      error: error ?? this.error,
+      tmdbUnavailable: tmdbUnavailable ?? this.tmdbUnavailable,
+    );
+  }
+}
+
+/// Drives a full Smart Library scan: indexing, live progress, metadata
+/// enrichment and the system notification.
+///
+/// This lives in a keep-alive provider — not in the screen — so the scan keeps
+/// running when the user leaves the page or backgrounds the app. Running it
+/// from the widget is what caused
+/// `Bad state: Using "ref" when a widget is about to or has been unmounted`,
+/// because the widget's `ref`/`context` were touched after the screen closed.
+@riverpod
+class LocalIndexerScan extends _$LocalIndexerScan {
+  StreamSubscription<IndexerStatus>? _statusSub;
+
+  @override
+  SmartLibraryScanState build() {
+    // The scan is started imperatively (ref.read) and outlives the screen that
+    // triggered it, so the provider must not auto-dispose mid-scan.
+    ref.keepAlive();
+    ref.onDispose(() => _statusSub?.cancel());
+    return const SmartLibraryScanState();
+  }
+
+  /// Runs a scan over [roots] and enriches the result, mirroring progress into
+  /// a system notification so it is visible with the app in the background.
   Future<void> scan(
     List<String> roots, {
     LocalScanMode mode = LocalScanMode.videos,
+    Locale locale = const Locale('en'),
   }) async {
-    state = const AsyncValue.loading();
+    if (state.isBusy) return;
+    final notifications = LocalIndexerNotificationService.instance;
     final engine = ref.read(localIndexerEngineProvider);
+
+    state = const SmartLibraryScanState(phase: SmartLibraryScanPhase.discovering);
+    await notifications.start(mode, locale);
+
+    IndexerStats? stats;
+    _statusSub = engine.status.listen((status) {
+      if (status.isDiscovering) {
+        state = state.copyWith(
+          phase: SmartLibraryScanPhase.discovering,
+          discovered: status.discovered ?? 0,
+        );
+        unawaited(
+          notifications.progress(
+            mode,
+            processed: 0,
+            total: 0,
+            discovered: status.discovered ?? 0,
+          ),
+        );
+      } else if (status.isAnalyzing) {
+        state = state.copyWith(
+          phase: SmartLibraryScanPhase.analyzing,
+          discovered: status.discovered ?? 0,
+          processed: status.processed,
+          total: status.total,
+        );
+        unawaited(
+          notifications.progress(
+            mode,
+            processed: status.processed,
+            total: status.total,
+            discovered: status.discovered ?? 0,
+          ),
+        );
+      } else if (status.isDone) {
+        stats = status.stats;
+      }
+    });
+
     try {
       await engine.initialize();
-      final stats = await engine.scan(roots, mode: mode);
-      state = AsyncValue.data(stats);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      await engine.scan(roots, mode: mode);
+      await engine.startWatching(roots, mode: mode);
+      _invalidate();
+
+      state = state.copyWith(phase: SmartLibraryScanPhase.enriching);
+      final summary = await _enrich();
+
+      state = state.copyWith(
+        phase: SmartLibraryScanPhase.done,
+        resolved: summary?.resolved ?? 0,
+        unmatched: summary?.unmatched ?? 0,
+        tmdbUnavailable: summary?.tmdbUnavailable ?? false,
+      );
+      await notifications.finish(
+        mode,
+        discovered: stats?.discovered ?? state.discovered,
+        analyzed: stats?.analyzed ?? state.processed,
+        resolved: summary?.resolved ?? 0,
+        unmatched: summary?.unmatched ?? 0,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        phase: SmartLibraryScanPhase.error,
+        error: '$error',
+      );
+      await notifications.fail(mode, '$error');
+    } finally {
+      await _statusSub?.cancel();
+      _statusSub = null;
     }
   }
 
@@ -82,13 +231,15 @@ class LocalIndexerScan extends _$LocalIndexerScan {
   Future<void> refresh(
     List<String> roots, {
     LocalScanMode mode = LocalScanMode.videos,
-  }) => scan(roots, mode: mode);
+    Locale locale = const Locale('en'),
+  }) => scan(roots, mode: mode, locale: locale);
 
   /// A deliberate full verification still reuses unchanged file signatures.
   Future<void> fullRescan(
     List<String> roots, {
     LocalScanMode mode = LocalScanMode.videos,
-  }) => scan(roots, mode: mode);
+    Locale locale = const Locale('en'),
+  }) => scan(roots, mode: mode, locale: locale);
 
   /// Démarre la surveillance temps réel après un premier scan.
   Future<void> startWatching(
@@ -97,6 +248,31 @@ class LocalIndexerScan extends _$LocalIndexerScan {
   }) async {
     final engine = ref.read(localIndexerEngineProvider);
     await engine.startWatching(roots, mode: mode);
+  }
+
+  /// Clears the error/done banner so the next screen opening starts fresh.
+  void acknowledge() {
+    if (!state.isBusy) state = const SmartLibraryScanState();
+  }
+
+  void _invalidate() {
+    ref.invalidate(localIndexedCountProvider);
+    ref.invalidate(localIndexedCountByKindProvider);
+    ref.invalidate(recentlyIndexedProvider);
+    ref.invalidate(localWorksProvider);
+  }
+
+  Future<LocalMetadataEnrichmentSummary?> _enrich() async {
+    try {
+      final works = await ref.read(localWorksProvider.future);
+      final items = [for (final work in works) work.files.first];
+      final summary = await LocalMetadataResolver.instance.enrich(items);
+      ref.invalidate(localWorksProvider);
+      return summary;
+    } catch (error) {
+      debugPrint('[LocalIndexerScan] metadata enrichment failed: $error');
+      return null;
+    }
   }
 }
 
