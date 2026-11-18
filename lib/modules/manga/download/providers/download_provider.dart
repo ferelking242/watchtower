@@ -28,6 +28,7 @@ import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/download_manager/active_download_registry.dart';
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_queue_scheduler_signal.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
@@ -1046,7 +1047,13 @@ void _putDownloadForChapter(Download download, Chapter chapter) {
   isar.downloads.putSync(download);
 }
 
-const _pendingDownloadStatuses = {'queued', 'waiting_wifi', 'fetching_metadata', 'initializing'};
+const _pendingDownloadStatuses = {
+  'queued',
+  'waiting_wifi',
+  'waiting_network',
+  'fetching_metadata',
+  'initializing',
+};
 
 const _terminalDownloadStatuses = {'paused', 'failed', 'cancelled', 'completed'};
 
@@ -1193,6 +1200,17 @@ Future<void> downloadChapter(
   if (chapterId != null) ActiveDownloadRegistry.clearPreempted(chapterId);
 
   try {
+    // No Internet at all: pause the whole download instead of letting it run
+    // into a timeout and end as a hard failure. It stays "queued" so the
+    // scheduler resumes it the moment the connection is back.
+    if (ConnectivityService.instance.isOffline) {
+      _setDownloadStatus(chapterId, 'waiting_network');
+      log('[ch:$chapterId] offline — pausing until the connection returns');
+      callback?.call();
+      keepAlive.close();
+      return;
+    }
+
     bool onlyOnWifi = useWifi ?? ref.read(onlyOnWifiStateProvider);
     if (onlyOnWifi) {
       final connectivity = await Connectivity().checkConnectivity();
@@ -3144,6 +3162,34 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   final keepAlive = ref.keepAlive();
   final loggedConcurrencyBlocks = <int>{};
   String? lastQueueWaitState;
+  // Resume the queue as soon as the connection comes back: reset the rows the
+  // offline gate parked so the next tick dispatches them, instead of leaving
+  // them stuck and re-hitting a dead network every 900 ms.
+  final connectivitySub = ConnectivityService.instance.onChanged.listen((online) {
+    if (!online) return;
+    log('[processDownloads] connection restored — resuming parked downloads');
+    try {
+      final parked = isar.downloads
+          .where()
+          .findAllSync()
+          .where((d) => d.status == 'waiting_network')
+          .toList();
+      if (parked.isEmpty) return;
+      isar.writeTxnSync(() {
+        for (final d in parked) {
+          final stored = isar.downloads.getSync(d.id!);
+          if (stored == null || stored.status != 'waiting_network') continue;
+          stored
+            ..status = 'queued'
+            ..isDownload = false
+            ..isStartDownload = true;
+          isar.downloads.putSync(stored);
+        }
+      });
+    } catch (e) {
+      log('[processDownloads] could not resume parked downloads: $e');
+    }
+  });
   log('[processDownloads] scheduler started');
   // Acquire wakelock + start Android foreground service so the OS does not
   // kill the process while downloads are running in the background.
@@ -3192,6 +3238,20 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
       ]);
       clearDownloadQueueWakeup(wakeup);
       return safeTick(() async {
+        // Offline: do not launch workers (they would only fail) and back off to
+        // a slower poll. The connectivity listener re-queues parked rows and
+        // the queue resumes the moment the connection is back.
+        if (ConnectivityService.instance.isOffline) {
+          for (final download in isar.downloads.where().findAllSync()) {
+            if (download.id != null &&
+                _pendingDownloadStatuses.contains(download.status) &&
+                download.status != 'waiting_network') {
+              _setDownloadStatus(download.id, 'waiting_network');
+            }
+          }
+          await Future.delayed(const Duration(seconds: 2));
+          return true;
+        }
         // ── Re-query Isar fresh every tick ────────────────────────────────────
         // This is the key fix: we never take a snapshot of the queue.  Paused
         // chapters that are later resumed, newly added downloads, and completed
@@ -3505,7 +3565,9 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
             loggedConcurrencyBlocks.remove(chapter.id!);
           }
 
-          if (d.status == 'waiting_wifi' || d.status == 'queued') {
+          if (d.status == 'waiting_wifi' ||
+              d.status == 'waiting_network' ||
+              d.status == 'queued') {
             _setDownloadStatus(d.id, 'fetching_metadata');
           }
 
@@ -3532,6 +3594,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
     // Always release the wakelock and stop the foreground service, whether
     // the queue drained normally, threw, or was cancelled.
     keepAlive.close();
+    unawaited(connectivitySub.cancel());
     unawaited(BackgroundKeepAlive.stop());
     _processDownloadsSchedulerRunning = false;
     _processDownloadsWifiOverride = null;

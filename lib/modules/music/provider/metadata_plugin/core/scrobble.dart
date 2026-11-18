@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 
 /// Bridges playback events to the active metadata plugin's `scrobble` endpoint.
 ///
@@ -31,6 +32,9 @@ class MetadataPluginScrobbleNotifier
     final controller = StreamController<SpotubeTrackObject>.broadcast();
 
     final subscription = controller.stream.listen((event) async {
+      // Offline: a scrobble can only fail, so skip the request instead of
+      // hammering a dead network and logging a raw socket trace each time.
+      if (ConnectivityService.instance.isOffline) return;
       try {
         await plugin.core.scrobble({
           "id": event.id,

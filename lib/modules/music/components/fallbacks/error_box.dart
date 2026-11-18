@@ -4,6 +4,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lottie/lottie.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
+import 'package:watchtower/modules/widgets/offline_content_state.dart';
+import 'package:watchtower/l10n/generated/app_localizations.dart' as app_l10n;
 
 /// Friendly error surface used across the music module.
 ///
@@ -31,6 +33,17 @@ class _ErrorBoxState extends State<ErrorBox> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    // An offline failure is not a bug: show the shared "no connection" surface
+    // with a retry instead of the generic "something went wrong" trace, so the
+    // user understands they just need to reconnect.
+    if (isOfflineContentError(widget.error)) {
+      final appL10n = app_l10n.AppLocalizations.of(context)!;
+      return OfflineContentState(
+        title: appL10n.media_no_network,
+        message: appL10n.media_check_connection,
+        onRetry: widget.onRetry,
+      );
+    }
     final detail = _humanize(widget.error);
 
     return Center(

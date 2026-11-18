@@ -7,6 +7,7 @@ import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 import 'package:watchtower/modules/widgets/offline_content_state.dart';
+import 'package:watchtower/providers/connectivity_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 
 enum MediaHubKind { movies, series }
@@ -23,28 +24,41 @@ class MediaHomeScreen extends ConsumerWidget {
     final home = ref.watch(tmdbHomeProvider);
     final l10n = context.l10n;
     final title = isMovies ? l10n.media_movies : l10n.media_series;
+    final offline = ref.watch(isOnlineProvider).asData?.value == false;
+
+    Widget skeleton({required bool offlineNotice}) => MediaHomeLoading(
+      isSeries: !isMovies,
+      showOfflineNotice: offlineNotice,
+      onSearchPressed: () => context.push(
+        '/flixSearch',
+        extra: FlixSearchPayload(
+          hub: isMovies ? FlixSearchContext.movies : FlixSearchContext.series,
+        ),
+      ),
+      onLiveTVPressed: () => context.push('/liveTv'),
+      onBookmarksPressed: () => context.push('/Library'),
+      onRefresh: () async => ref.invalidate(tmdbHomeProvider),
+    );
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: home.when(
-        loading: () => MediaHomeLoading(
-          isSeries: !isMovies,
-          onSearchPressed: () => context.push(
-            '/flixSearch',
-            extra: FlixSearchPayload(
-              hub: isMovies
-                  ? FlixSearchContext.movies
-                  : FlixSearchContext.series,
-            ),
-          ),
-          onLiveTVPressed: () => context.push('/liveTv'),
-          onBookmarksPressed: () => context.push('/Library'),
-          onRefresh: () async => ref.invalidate(tmdbHomeProvider),
-        ),
-        error: (error, _) => _MediaError(
-          title: title,
-          error: error,
-          onRetry: () => ref.invalidate(tmdbHomeProvider),
-        ),
+        // The hub keeps its full skeleton (spotlight + every section) while it
+        // loads or when it has nothing cached yet, instead of a blank wall.
+        loading: () => skeleton(offlineNotice: offline),
+        error: (error, _) {
+          // The provider already falls back to the last cached payload, so an
+          // error here means there is no cache at all. Keep the skeleton and,
+          // when offline, explain the situation with the inline notice.
+          if (offline || isOfflineContentError(error)) {
+            return skeleton(offlineNotice: true);
+          }
+          return _MediaError(
+            title: title,
+            error: error,
+            onRetry: () => ref.invalidate(tmdbHomeProvider),
+          );
+        },
         data: (data) => MainMediaDisplay(home: data, isTv: !isMovies),
       ),
     );

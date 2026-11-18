@@ -1,5 +1,23 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+
+/// Keeps the framework in charge of the Android back gesture.
+///
+/// Android 13+ (predictive back) only delivers a back press to the framework
+/// while the engine believes the framework can handle it. `MaterialApp`'s
+/// default `onNavigationNotification` derives that from the top-most Navigator,
+/// so a page that lives *outside* the shell (settings, statistics, the download
+/// queue) makes it report "cannot pop" and the OS closes the app before
+/// [WatchtowerBackDispatcher] can navigate back.
+///
+/// Watchtower always wants the back press — the dispatcher decides whether to
+/// navigate or to call `SystemNavigator.pop` — so this handler pins the engine
+/// to "framework handles back" and stops the notification from bubbling.
+bool onWatchtowerNavigationNotification(NavigationNotification notification) {
+  SystemNavigator.setFrameworkHandlesBack(true);
+  return true;
+}
 
 /// Ordered list of the top-level locations the user visited.
 ///

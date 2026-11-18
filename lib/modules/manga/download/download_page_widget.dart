@@ -343,7 +343,9 @@ class ChapterPageDownload extends ConsumerWidget {
         child: Tooltip(
           message: download?.status == 'waiting_wifi'
               ? 'En attente du Wi-Fi'
-              : download?.status == 'fetching_metadata'
+              : download?.status == 'waiting_network'
+                  ? 'En attente de la connexion Internet'
+                  : download?.status == 'fetching_metadata'
                   ? 'Récupération des métadonnées…'
                   : isActive
                       ? 'Téléchargement en cours'

@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:watchtower/utils/cached_network.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -126,7 +127,10 @@ class RankedDiscoveryCard extends StatelessWidget {
                     children: [
                       if (media.bestCover != null)
                         ExtendedImage.network(
-                          media.bestCover!, fit: BoxFit.cover, cache: true,
+                          media.bestCover!,
+                          fit: BoxFit.cover,
+                          cache: true,
+                          cacheMaxAge: kHubCoverCacheMaxAge,
                           loadStateChanged: (s) {
                             if (s.extendedImageLoadState == LoadState.completed) return null;
                             return Container(color: cs.surfaceContainerHighest);
@@ -209,7 +213,10 @@ class LandscapeDiscoveryCard extends StatelessWidget {
               children: [
                 if (image != null)
                   ExtendedImage.network(
-                    image, fit: BoxFit.cover, cache: true,
+                    image,
+                    fit: BoxFit.cover,
+                    cache: true,
+                    cacheMaxAge: kHubCoverCacheMaxAge,
                     loadStateChanged: (s) {
                       if (s.extendedImageLoadState == LoadState.completed) return null;
                       return Container(color: theme.colorScheme.surfaceContainerHighest);
@@ -337,7 +344,10 @@ class FeaturedDiscoveryCard extends StatelessWidget {
               children: [
                 if (image != null)
                   ExtendedImage.network(
-                    image, fit: BoxFit.cover, cache: true,
+                    image,
+                    fit: BoxFit.cover,
+                    cache: true,
+                    cacheMaxAge: kHubCoverCacheMaxAge,
                     loadStateChanged: (s) {
                       if (s.extendedImageLoadState == LoadState.completed) return null;
                       return Container(color: cs.surfaceContainerHighest);
@@ -475,7 +485,10 @@ class SagaDiscoveryCard extends StatelessWidget {
               children: [
                 if (image != null)
                   ExtendedImage.network(
-                    image, fit: BoxFit.cover, cache: true,
+                    image,
+                    fit: BoxFit.cover,
+                    cache: true,
+                    cacheMaxAge: kHubCoverCacheMaxAge,
                     loadStateChanged: (s) {
                       if (s.extendedImageLoadState == LoadState.completed) return null;
                       return Container(color: cs.surfaceContainerHighest);
@@ -627,6 +640,7 @@ class SpotlightDiscoveryCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
                   cache: true,
+                  cacheMaxAge: kHubCoverCacheMaxAge,
                   loadStateChanged: (s) {
                     if (s.extendedImageLoadState == LoadState.completed) return null;
                     return Container(color: cs.surfaceContainerHighest);

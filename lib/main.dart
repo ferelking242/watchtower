@@ -38,6 +38,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/modules/more/data_and_storage/providers/storage_usage.dart';
 import 'package:watchtower/modules/more/settings/browse/providers/browse_state_provider.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
+import 'package:watchtower/providers/connectivity_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/router/back_navigation.dart';
@@ -799,6 +800,9 @@ class _MyAppState extends ConsumerState<MyApp>
       BulkEnqueueController.handleNotificationAction,
     );
     WidgetsBinding.instance.addObserver(this);
+    // One app-wide connectivity listener, started as early as possible so the
+    // hub, downloads and error surfaces all agree on the online state.
+    ref.read(connectivityServiceProvider).start();
     if (!kIsWeb && !(Platform.isAndroid || Platform.isIOS)) {
       windowManager.addListener(this);
       // Keep the shared system-tray provider alive for the whole app lifetime.
@@ -950,6 +954,15 @@ class _MyAppState extends ConsumerState<MyApp>
 
     return MaterialApp.router(
       backButtonDispatcher: backDispatcher,
+      // Android 13+ (predictive back) only routes a back press to the framework
+      // while the engine believes the framework can handle it. MaterialApp's
+      // default handler derives that from the *top-most* Navigator: for a page
+      // that lives outside the shell (settings, statistics, download queue) the
+      // shell Navigator is no longer on top, so it reports "cannot pop" and the
+      // OS closes the app before WatchtowerBackDispatcher can navigate back.
+      // Watchtower always wants the back press (the dispatcher decides between
+      // navigating and SystemNavigator.pop), so keep the framework in charge.
+      onNavigationNotification: onWatchtowerNavigationNotification,
       theme: ref
           .watch(lightThemeProvider)
           .copyWith(

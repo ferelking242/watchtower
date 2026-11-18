@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:watchtower/modules/home/services/tmdb_home_cache.dart';
+import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/tmdb_api_config.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,6 +105,30 @@ class TmdbMedia {
         ? TmdbMedia.fromMovieJson(j)
         : TmdbMedia.fromTvJson(j);
   }
+
+  /// Round-trips through [fromMovieJson]/[fromTvJson] so a disk-cached hub can
+  /// be rebuilt without re-fetching TMDB. The keys mirror the API response.
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'id': id,
+    if (mediaType == 'movie') 'title': titleEn else 'name': titleEn,
+    'poster_path': posterPath,
+    'backdrop_path': backdropPath,
+    'overview': overview,
+    'vote_average': voteAverage,
+    'vote_count': voteCount,
+    if (mediaType == 'movie') 'release_date': releaseDate
+    else 'first_air_date': firstAirDate,
+    'genre_ids': genreIds,
+    'original_language': originalLanguage,
+    if (mediaType == 'movie') 'original_title': originalTitle
+    else 'original_name': originalTitle,
+    'popularity': popularity,
+  };
+
+  factory TmdbMedia.fromCacheJson(Map<String, dynamic> j, String mediaType) =>
+      mediaType == 'movie'
+      ? TmdbMedia.fromMovieJson(j)
+      : TmdbMedia.fromTvJson(j);
 }
 
 /// Payload used by the media detail route.
@@ -144,6 +170,53 @@ class TmdbHome {
     this.airingTodayTv = const [],
     this.onTheAirTv = const [],
   });
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'trendingMovies': trendingMovies.map((m) => m.toJson()).toList(),
+    'popularMovies': popularMovies.map((m) => m.toJson()).toList(),
+    'topRatedMovies': topRatedMovies.map((m) => m.toJson()).toList(),
+    'nowPlayingMovies': nowPlayingMovies.map((m) => m.toJson()).toList(),
+    'upcomingMovies': upcomingMovies.map((m) => m.toJson()).toList(),
+    'trendingTv': trendingTv.map((m) => m.toJson()).toList(),
+    'popularTv': popularTv.map((m) => m.toJson()).toList(),
+    'topRatedTv': topRatedTv.map((m) => m.toJson()).toList(),
+    'airingTodayTv': airingTodayTv.map((m) => m.toJson()).toList(),
+    'onTheAirTv': onTheAirTv.map((m) => m.toJson()).toList(),
+  };
+
+  factory TmdbHome.fromJson(Map<String, dynamic> json) {
+    List<TmdbMedia> list(String key, String mediaType) =>
+        (json[key] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => TmdbMedia.fromCacheJson(e.cast<String, dynamic>(), mediaType))
+            .toList(growable: false);
+    return TmdbHome(
+      trendingMovies: list('trendingMovies', 'movie'),
+      popularMovies: list('popularMovies', 'movie'),
+      topRatedMovies: list('topRatedMovies', 'movie'),
+      nowPlayingMovies: list('nowPlayingMovies', 'movie'),
+      upcomingMovies: list('upcomingMovies', 'movie'),
+      trendingTv: list('trendingTv', 'tv'),
+      popularTv: list('popularTv', 'tv'),
+      topRatedTv: list('topRatedTv', 'tv'),
+      airingTodayTv: list('airingTodayTv', 'tv'),
+      onTheAirTv: list('onTheAirTv', 'tv'),
+    );
+  }
+
+  /// Whether the payload carries any usable content (a fully-empty cached hub
+  /// is treated as no cache at all).
+  bool get isEmpty =>
+      trendingMovies.isEmpty &&
+      popularMovies.isEmpty &&
+      topRatedMovies.isEmpty &&
+      nowPlayingMovies.isEmpty &&
+      upcomingMovies.isEmpty &&
+      trendingTv.isEmpty &&
+      popularTv.isEmpty &&
+      topRatedTv.isEmpty &&
+      airingTodayTv.isEmpty &&
+      onTheAirTv.isEmpty;
 }
 
 class TmdbGenre {
@@ -1028,31 +1101,50 @@ Future<TmdbPersonDetails> fetchTmdbPersonDetails(TmdbPersonRef person) async {
 }
 
 Future<TmdbHome> _fetchTmdbHome() async {
-  final results = await Future.wait([
-    _fetchMovies('/trending/movie/week'),
-    _fetchMovies('/movie/popular'),
-    _fetchMovies('/movie/top_rated'),
-    _fetchMovies('/movie/now_playing'),
-    _fetchMovies('/movie/upcoming'),
-    _fetchTv('/trending/tv/week'),
-    _fetchTv('/tv/popular'),
-    _fetchTv('/tv/top_rated'),
-    _fetchTv('/tv/airing_today'),
-    _fetchTv('/tv/on_the_air'),
-  ]);
+  // Offline and we already know it: serve the last good payload directly rather
+  // than firing ten requests that can only fail. Without a cache, throw so the
+  // hub shows its inline "no connection" notice.
+  if (ConnectivityService.instance.isOffline) {
+    final cached = await TmdbHomeCache.instance.read();
+    if (cached != null) return cached;
+    throw const OfflineRequestError();
+  }
 
-  return TmdbHome(
-    trendingMovies: results[0],
-    popularMovies: results[1],
-    topRatedMovies: results[2],
-    nowPlayingMovies: results[3],
-    upcomingMovies: results[4],
-    trendingTv: results[5],
-    popularTv: results[6],
-    topRatedTv: results[7],
-    airingTodayTv: results[8],
-    onTheAirTv: results[9],
-  );
+  try {
+    final results = await Future.wait([
+      _fetchMovies('/trending/movie/week'),
+      _fetchMovies('/movie/popular'),
+      _fetchMovies('/movie/top_rated'),
+      _fetchMovies('/movie/now_playing'),
+      _fetchMovies('/movie/upcoming'),
+      _fetchTv('/trending/tv/week'),
+      _fetchTv('/tv/popular'),
+      _fetchTv('/tv/top_rated'),
+      _fetchTv('/tv/airing_today'),
+      _fetchTv('/tv/on_the_air'),
+    ]);
+
+    final home = TmdbHome(
+      trendingMovies: results[0],
+      popularMovies: results[1],
+      topRatedMovies: results[2],
+      nowPlayingMovies: results[3],
+      upcomingMovies: results[4],
+      trendingTv: results[5],
+      popularTv: results[6],
+      topRatedTv: results[7],
+      airingTodayTv: results[8],
+      onTheAirTv: results[9],
+    );
+    if (!home.isEmpty) unawaited(TmdbHomeCache.instance.write(home));
+    return home;
+  } catch (error) {
+    // Offline (or a failing TMDB): fall back to the last good payload so the
+    // hub still renders its sections and cached covers instead of a wall.
+    final cached = await TmdbHomeCache.instance.read();
+    if (cached != null) return cached;
+    rethrow;
+  }
 }
 
 final tmdbHomeProvider = FutureProvider.autoDispose<TmdbHome>(

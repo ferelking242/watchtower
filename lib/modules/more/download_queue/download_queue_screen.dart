@@ -3545,7 +3545,9 @@ class _DownloadCard extends ConsumerWidget {
         !isCancelled &&
         !isPaused &&
         !isCompressing &&
-        (download.status == 'queued' || download.status == 'waiting_wifi');
+        (download.status == 'queued' ||
+            download.status == 'waiting_wifi' ||
+            download.status == 'waiting_network');
 
     final String statusText;
     if (isCompressing) {

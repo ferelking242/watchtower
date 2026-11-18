@@ -1349,6 +1349,7 @@ class MediaHomeLoading extends StatelessWidget {
     this.onLiveTVPressed,
     this.onBookmarksPressed,
     this.onRefresh,
+    this.showOfflineNotice = false,
     super.key,
   });
 
@@ -1357,6 +1358,12 @@ class MediaHomeLoading extends StatelessWidget {
   final VoidCallback? onLiveTVPressed;
   final VoidCallback? onBookmarksPressed;
   final Future<void> Function()? onRefresh;
+
+  /// When true, a compact "no connection" card is shown right after the
+  /// spotlight instead of the full-screen offline wall. Used when the hub has
+  /// no cached payload yet, so the sections still render as skeletons with the
+  /// title placeholders and the user is told why the content is missing.
+  final bool showOfflineNotice;
 
   @override
   Widget build(BuildContext context) {
@@ -1386,6 +1393,8 @@ class MediaHomeLoading extends StatelessWidget {
                 500.0,
               ),
             ),
+            if (showOfflineNotice)
+              _HubOfflineNotice(onRetry: onRefresh),
             for (final sectionTitle in const [
               'Popular',
               'Trending this week',
@@ -1415,6 +1424,67 @@ class MediaHomeLoading extends StatelessWidget {
             AppGenreGridShimmer(isTv: isSeries),
             if (!isSeries) const AppStreamingServicesShimmer(),
             const SizedBox(height: 112),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact "no connection" card shown inline in the hub, right after the
+/// spotlight, when there is no cached payload to render yet. It keeps the
+/// skeleton sections visible (so the page keeps its shape) while explaining
+/// that the content is missing because the device is offline.
+class _HubOfflineNotice extends StatelessWidget {
+  const _HubOfflineNotice({this.onRetry});
+
+  final Future<void> Function()? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          children: [
+            Icon(Broken.wifi, color: colors.onSurfaceVariant, size: 26),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.media_no_network,
+                    style: TextStyle(
+                      color: colors.onSurface,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.media_check_connection,
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onRetry != null)
+              IconButton(
+                onPressed: () => onRetry!(),
+                icon: const Icon(Broken.refresh_2, size: 20),
+                tooltip: l10n.media_retry,
+              ),
           ],
         ),
       ),

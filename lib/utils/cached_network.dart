@@ -10,6 +10,11 @@ import 'package:watchtower/utils/log/logger.dart';
 /// `LoadState.failed`). First 5 per host, then every 20th, with a total.
 final _renderFailures = <String, int>{};
 
+/// How long hub covers (Movies/Series spotlight, rails, tag tiles) stay on
+/// disk. Long enough that a cold start without Internet still paints the hub
+/// with its real artwork; short enough that changed posters refresh.
+const Duration kHubCoverCacheMaxAge = Duration(hours: 72);
+
 void _logRenderFailure(String url, {bool hasHeaders = false}) {
   final host = Uri.tryParse(url)?.host ?? '?';
   final count = (_renderFailures[host] ?? 0) + 1;

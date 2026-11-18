@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:watchtower/utils/cached_network.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
@@ -219,6 +220,7 @@ class _CategoryCard extends StatelessWidget {
                       def.imageUrl!,
                       fit: BoxFit.cover,
                       cache: true,
+                      cacheMaxAge: kHubCoverCacheMaxAge,
                       loadStateChanged: (s) {
                         if (s.extendedImageLoadState == LoadState.completed) return null;
                         return _GradientBg(gradient: def.gradient);

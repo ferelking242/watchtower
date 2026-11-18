@@ -5,6 +5,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/modules/home/services/tmdb_discovery_service.dart';
 import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
+import 'package:watchtower/utils/cached_network.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TMDB Poster card (2:3)
@@ -158,6 +159,7 @@ class _TmdbFeaturedBackdrop extends StatelessWidget {
                         image,
                         fit: BoxFit.cover,
                         cache: true,
+                        cacheMaxAge: kHubCoverCacheMaxAge,
                         loadStateChanged: (state) {
                           if (state.extendedImageLoadState ==
                               LoadState.completed) {
@@ -355,7 +357,12 @@ class _TmdbHeroCarouselState extends State<TmdbHeroCarousel> {
                   fit: StackFit.expand,
                   children: [
                     if (img != null)
-                      ExtendedImage.network(img, fit: BoxFit.cover, cache: true)
+                      ExtendedImage.network(
+                        img,
+                        fit: BoxFit.cover,
+                        cache: true,
+                        cacheMaxAge: kHubCoverCacheMaxAge,
+                      )
                     else
                       Container(color: cs.surfaceContainerHighest),
                     // Top gradient (behind header)

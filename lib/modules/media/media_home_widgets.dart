@@ -674,6 +674,7 @@ class DiscoverMovies extends StatelessWidget {
                         fit: BoxFit.cover,
                         alignment: Alignment.topCenter,
                         cache: true,
+                        cacheMaxAge: kHubCoverCacheMaxAge,
                       )
                     else
                       const AppShimmerBlock(radius: 0),
@@ -1324,6 +1325,7 @@ class _StreamingServiceCard extends StatelessWidget {
                       service.logoUrl!,
                       fit: BoxFit.contain,
                       cache: true,
+                      cacheMaxAge: kHubCoverCacheMaxAge,
                     ),
             ),
             const SizedBox(height: 8),
@@ -1684,7 +1686,12 @@ class TmdbTagTile extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (cover != null)
-                ExtendedImage.network(cover!, fit: BoxFit.cover, cache: true)
+                ExtendedImage.network(
+                  cover!,
+                  fit: BoxFit.cover,
+                  cache: true,
+                  cacheMaxAge: kHubCoverCacheMaxAge,
+                )
               else
                 DecoratedBox(
                   decoration: BoxDecoration(

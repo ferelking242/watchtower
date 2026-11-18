@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:watchtower/utils/cached_network.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/modules/home/services/anilist_discovery_service.dart';
@@ -278,6 +279,7 @@ class _HeroImageState extends State<_HeroImage> {
             fit: BoxFit.cover,
             alignment: const Alignment(0, -0.3),
             cache: true,
+            cacheMaxAge: kHubCoverCacheMaxAge,
             clearMemoryCacheIfFailed: false,
             clearMemoryCacheWhenDispose: false,
             loadStateChanged: (state) {
@@ -549,6 +551,7 @@ class _SynopsisStrip extends StatelessWidget {
                   height: 60,
                   fit: BoxFit.cover,
                   cache: true,
+                  cacheMaxAge: kHubCoverCacheMaxAge,
                 ),
               ),
             const SizedBox(width: 12),

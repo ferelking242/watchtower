@@ -691,6 +691,12 @@ class RouterNotifier extends ChangeNotifier {
         bareSettingsRoutes.contains(name) &&
         (kIsWeb || !(Platform.isIOS || Platform.isMacOS));
 
+    // Top-level destinations opened from the menu/dock cross-fade, whatever
+    // their own page builder would otherwise do (including the settings slide):
+    // the menu closes and the destination fades in, so entering and coming back
+    // feel the same and nothing appears to be pushed.
+    final bool useMenuFade = menuFadeRoutes.contains(name);
+
     return GoRoute(
       path: path ?? (name != null ? "/$name" : "/"),
       name: name,
@@ -703,6 +709,11 @@ class RouterNotifier extends ChangeNotifier {
               child: _safeBuild(context, state),
               transitionsBuilder: (context, animation, secondaryAnimation, child) =>
                   child,
+            )
+          : useMenuFade
+          ? (context, state) => menuFadePage(
+              key: state.pageKey,
+              child: _safeBuild(context, state),
             )
           : useBareSettingsTransition
           ? (context, state) => bareSettingsPage(
@@ -721,6 +732,56 @@ class RouterNotifier extends ChangeNotifier {
 
 Page transitionPage({required LocalKey key, required child}) {
   return CupertinoPage(key: key, child: child);
+}
+
+/// Duration of the top-level menu cross-fade.
+const Duration menuFadeDuration = Duration(milliseconds: 180);
+
+/// Top-level destinations reached from the menu overlay (dock menu, overflow
+/// entries and the static routes it lists). They are siblings rather than a
+/// stack, so they cross-fade instead of sliding/zooming like a real push.
+const Set<String> menuFadeRoutes = {
+  'componentGallery',
+  'browse',
+  'marketplace',
+  'marketplacePlugins',
+  'marketplaceSearch',
+  'downloadQueue',
+  'schedule',
+  'liveTv',
+  'discover',
+  'history',
+  'updates',
+  'notifications',
+  'statistics',
+  'settings',
+  'trackerLibrary',
+};
+
+/// A quick cross-fade for top-level destinations reached from the menu/dock.
+///
+/// Those pages are siblings, not a stack: a slide or a zoom reads as a push
+/// that never happened and makes entering (and returning from) the menu feel
+/// heavy. A short fade keeps the switch calm and fluid, and the reverse uses
+/// the same fade.
+CustomTransitionPage<void> menuFadePage({
+  required LocalKey key,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: key,
+    transitionDuration: menuFadeDuration,
+    reverseTransitionDuration: menuFadeDuration,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOut,
+        reverseCurve: Curves.easeIn,
+      );
+      return FadeTransition(opacity: curved, child: child);
+    },
+  );
 }
 
 Route createRoute({required Widget page}) {
