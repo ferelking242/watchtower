@@ -106,7 +106,7 @@ packaging/
 /server.py
 
 # Empty ghost dirs (root-level only — without the leading slash this also
-# swallowed android/app/src/main/kotlin/com/kodjodevf/watchtower/)
+# swallowed android/app/src/main/kotlin/com/watchtower/app/)
 /watchtower/
 
 # Misc scratch

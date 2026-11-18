@@ -17,9 +17,9 @@ package com.watchtower.app
   import io.flutter.embedding.engine.FlutterEngine
   import io.flutter.plugin.common.MethodChannel
   import io.flutter.plugin.common.StandardMethodCodec
-  import com.kodjodevf.watchtower.DownloadForegroundService
-  import com.kodjodevf.watchtower.SmartLibraryScanForegroundService
-  import com.kodjodevf.watchtower.MediaStorePlugin
+  import com.watchtower.app.DownloadForegroundService
+  import com.watchtower.app.SmartLibraryScanForegroundService
+  import com.watchtower.app.MediaStorePlugin
   import libmtorrentserver.Libmtorrentserver
   import rikka.shizuku.Shizuku
   import java.io.File

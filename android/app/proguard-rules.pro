@@ -121,7 +121,6 @@
   # The glance widget is loaded via manifest components and reflection —
   # keep its implementation verbatim.
   -keep class com.watchtower.app.** { *; }
-  -keep class com.kodjodevf.watchtower.** { *; }
 
   # kxml2 (org.xmlpull.v1.XmlPullParser) duplicates the platform's own
   # android.content.res.XmlResourceParser hierarchy under R8 full-mode

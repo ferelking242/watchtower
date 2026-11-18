@@ -1,4 +1,4 @@
-package com.kodjodevf.watchtower
+package com.watchtower.app
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -35,9 +35,9 @@ class DownloadForegroundService : Service() {
         private const val NOTIF_ID    = 7001
         private const val SUMMARY_ID  = 7002
 
-        const val ACTION_START  = "com.kodjodevf.watchtower.DOWNLOAD_START"
-        const val ACTION_STOP   = "com.kodjodevf.watchtower.DOWNLOAD_STOP"
-        const val ACTION_UPDATE = "com.kodjodevf.watchtower.DOWNLOAD_UPDATE"
+        const val ACTION_START  = "com.watchtower.app.DOWNLOAD_START"
+        const val ACTION_STOP   = "com.watchtower.app.DOWNLOAD_STOP"
+        const val ACTION_UPDATE = "com.watchtower.app.DOWNLOAD_UPDATE"
 
         const val EXTRA_COUNT    = "count"
         const val EXTRA_TITLE    = "notif_title"
@@ -48,7 +48,7 @@ class DownloadForegroundService : Service() {
         const val EXTRA_SPEED_MBS = "speed_mbs"
         const val EXTRA_ETA_SECONDS = "eta_seconds"
         const val EXTRA_QUALITY = "quality"
-        private const val GROUP_KEY = "com.kodjodevf.watchtower.DOWNLOADS"
+        private const val GROUP_KEY = "com.watchtower.app.DOWNLOADS"
 
         // ── Static helpers called from MainActivity MethodChannel ─────────────
 

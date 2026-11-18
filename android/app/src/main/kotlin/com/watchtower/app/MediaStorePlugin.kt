@@ -1,4 +1,4 @@
-package com.kodjodevf.watchtower
+package com.watchtower.app
 
 import android.content.ContentUris
 import android.content.Context

@@ -102,7 +102,7 @@ Expose le port `8080` dans les paramètres réseau du pod.
 |---|---|---|
 | `PORT` | `8080` | Port HTTP |
 | `API_KEY` | _(vide = ouvert)_ | Clé auth pour `/api/*` |
-| `EXTENSIONS_REPO_URL` | mangayomi-extensions/main | Catalogue d'extensions |
+| `EXTENSIONS_REPO_URL` | watchtower-extensions/main | Catalogue d'extensions |
 | `CACHE_TTL_MS` | `300000` | TTL cache (5 min) |
 | `CACHE_DIR` | `/data/cache` | Répertoire cache disque |
 | `PREFS_DIR` | `/data/prefs` | Préférences par source |

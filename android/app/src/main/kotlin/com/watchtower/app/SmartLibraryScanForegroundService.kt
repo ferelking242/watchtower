@@ -1,4 +1,4 @@
-package com.kodjodevf.watchtower
+package com.watchtower.app
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -42,8 +42,8 @@ class SmartLibraryScanForegroundService : Service() {
         private const val CHANNEL_ID = "watchtower_local_indexer"
         private const val NOTIF_ID = 9903
 
-        const val ACTION_START = "com.kodjodevf.watchtower.SMART_SCAN_START"
-        const val ACTION_STOP = "com.kodjodevf.watchtower.SMART_SCAN_STOP"
+        const val ACTION_START = "com.watchtower.app.SMART_SCAN_START"
+        const val ACTION_STOP = "com.watchtower.app.SMART_SCAN_STOP"
 
         const val EXTRA_TITLE = "title"
 

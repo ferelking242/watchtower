@@ -1,5 +1,5 @@
 name: 🐞 Issue report
-description: Report an issue in Mangayomi
+description: Report an issue in Watchtower
 labels: [Bug]
 body:
   - type: textarea
@@ -38,10 +38,10 @@ body:
       required: true
 
   - type: input
-    id: mangayomi-version
+    id: watchtower-version
     attributes:
-      label: Mangayomi version
-      description: You can find your Mangayomi version in **More → About**.
+      label: Watchtower version
+      description: You can find your Watchtower version in **More → About**.
       placeholder: |
         Example: "0.0.67"
     validations:

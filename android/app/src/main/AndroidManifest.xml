@@ -126,13 +126,13 @@
         <!-- foregroundServiceType="dataSync" is required on Android 14+ for  -->
         <!-- any service that transfers data in the background.               -->
         <service
-            android:name="com.kodjodevf.watchtower.DownloadForegroundService"
+            android:name="com.watchtower.app.DownloadForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
         <!-- Smart Library scan foreground service: keeps a device-wide scan
              alive when the user leaves the page or backgrounds the app. -->
         <service
-            android:name="com.kodjodevf.watchtower.SmartLibraryScanForegroundService"
+            android:name="com.watchtower.app.SmartLibraryScanForegroundService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
         <!-- NFile: FTP Server foreground service -->
