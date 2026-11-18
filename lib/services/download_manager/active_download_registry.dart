@@ -29,6 +29,16 @@ class ActiveDownloadRegistry {
   static final _internalSource = <int, String>{};
   static final _interruptedIds = <int>{};
 
+  // Insertion-ordered active download IDs, so preemption can keep the
+  // downloads that started first and stop the newest ones.
+  static final _activeOrder = <int>{};
+
+  // IDs stopped because a lowered simultaneous-download limit preempted them.
+  // Unlike [_interruptedIds] (cleared when the worker unregisters), this flag
+  // survives the worker's own teardown so its failure path can tell a
+  // deliberate preemption from a real error and requeue instead of failing.
+  static final _preemptedIds = <int>{};
+
   // ── Registration ──────────────────────────────────────────────────────────
 
   /// Register an external engine (e.g. Aria2) for [downloadId].
@@ -46,6 +56,7 @@ class ActiveDownloadRegistry {
     _engines[downloadId] = engine;
     _engineItemType[downloadId] = itemType;
     _engineSource[downloadId] = source;
+    _activeOrder.add(downloadId);
     // Remove any stale internal-pool entry for the same ID
     _internalTaskIds.remove(downloadId);
     _internalItemType.remove(downloadId);
@@ -62,6 +73,7 @@ class ActiveDownloadRegistry {
     _internalTaskIds[downloadId] = taskId;
     _internalItemType[downloadId] = itemType ?? ItemType.manga;
     _internalSource[downloadId] = source ?? '_unknown';
+    _activeOrder.add(downloadId);
     // Remove any stale engine entry for the same ID
     _engines.remove(downloadId);
     _engineItemType.remove(downloadId);
@@ -96,6 +108,7 @@ class ActiveDownloadRegistry {
     _internalTaskIds.remove(downloadId);
     _internalItemType.remove(downloadId);
     _internalSource.remove(downloadId);
+    _activeOrder.remove(downloadId);
     _interruptedIds.remove(downloadId);
   }
 
@@ -139,6 +152,18 @@ class ActiveDownloadRegistry {
     }
     return count;
   }
+
+  /// Every active download ID (internal pool tasks + engines), in the order
+  /// the workers were registered.
+  static List<int> get allActiveIds => _activeOrder.toList(growable: false);
+
+  /// [ItemType] of an active download, or `null` when it is not active.
+  static ItemType? activeTypeOf(int downloadId) =>
+      _internalItemType[downloadId] ?? _engineItemType[downloadId];
+
+  /// Source recorded for an active download, or `null` when it is not active.
+  static String? activeSourceOf(int downloadId) =>
+      _internalSource[downloadId] ?? _engineSource[downloadId];
 
   // ── Control ───────────────────────────────────────────────────────────────
 
@@ -202,6 +227,39 @@ class ActiveDownloadRegistry {
     // rows carry status='cancelled', so the scheduler will not re-queue them.
     unregister(downloadId);
   }
+
+  /// Stops a running download because a lowered concurrency limit put it over
+  /// budget, *without* unregistering it.
+  ///
+  /// Mirrors [pause]'s cooperative contract: the registry entry (and the
+  /// [wasInterrupted] flag) is kept until the worker's own `finally` unregisters
+  /// it. That way the scheduler never starts a second worker for the same
+  /// download while the first is still draining, and the worker exits without
+  /// marking the download failed or complete. [wasPreempted] stays set so an
+  /// engine failure path can requeue instead of failing.
+  static Future<void> preempt(int downloadId) async {
+    _interruptedIds.add(downloadId);
+    _preemptedIds.add(downloadId);
+    final engine = _engines[downloadId];
+    if (engine != null) {
+      try {
+        await engine.cancel();
+      } catch (_) {}
+      return;
+    }
+    final taskId = _internalTaskIds[downloadId];
+    if (taskId != null) {
+      DownloadIsolatePool.instance.cancelTask(taskId);
+    }
+  }
+
+  /// Marks [downloadId] as preempted by a lowered concurrency limit.
+  static void markPreempted(int downloadId) => _preemptedIds.add(downloadId);
+  /// Whether [downloadId] was preempted (and not yet re-dispatched).
+  static bool wasPreempted(int downloadId) => _preemptedIds.contains(downloadId);
+
+  /// Clears the preemption flag once it has been handled.
+  static void clearPreempted(int downloadId) => _preemptedIds.remove(downloadId);
 
   /// Whether a download is currently tracked (i.e. actively running).
   static bool isActive(int downloadId) =>

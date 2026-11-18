@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:watchtower/l10n/generated/app_localizations.dart';
+import 'package:watchtower/services/download_manager/download_queue_scheduler_signal.dart';
 
 /// Engine mode for anime (video) downloads only.
 /// Manga and novel always use the internal downloader.
@@ -200,6 +201,9 @@ class DownloadSettingsService {
       final file = await _getFile();
       await file.writeAsString(jsonEncode(_data));
     } catch (_) {}
+    // Wake a running download scheduler so a changed total / per-source
+    // simultaneous limit is re-evaluated at once instead of on the next poll.
+    wakeDownloadQueueScheduler();
   }
 
   // ── Anime engine mode ─────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart'
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
+import 'package:watchtower/modules/more/download_queue/download_slot_allocation.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -28,6 +29,7 @@ import 'package:watchtower/services/download_manager/active_download_registry.da
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
 import 'package:watchtower/services/download_manager/download_connectivity.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
+import 'package:watchtower/services/download_manager/download_queue_scheduler_signal.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/manga_download_manifest.dart';
@@ -1186,6 +1188,10 @@ Future<void> downloadChapter(
     tag: LogTag.download,
   );
 
+  // A fresh run clears any preemption flag left by a previous lowering of the
+  // limits, so a later genuine failure is not mistaken for a preemption.
+  if (chapterId != null) ActiveDownloadRegistry.clearPreempted(chapterId);
+
   try {
     bool onlyOnWifi = useWifi ?? ref.read(onlyOnWifiStateProvider);
     if (onlyOnWifi) {
@@ -2070,6 +2076,17 @@ Future<void> downloadChapter(
       }
     }
 
+    // True when a lowered simultaneous-download limit stopped this worker. The
+    // engine failure paths must then requeue instead of marking the download
+    // failed. Reads once and clears the flag so it cannot leak into a later run.
+    bool consumePreemption() {
+      final id = chapter.id;
+      if (id == null) return false;
+      final preempted = ActiveDownloadRegistry.wasPreempted(id);
+      if (preempted) ActiveDownloadRegistry.clearPreempted(id);
+      return preempted;
+    }
+
     String? fetchError;
 
     if (itemType == ItemType.manga) {
@@ -2864,16 +2881,29 @@ Future<void> downloadChapter(
           );
         }
         bool engineFailed = false;
+        bool enginePreempted = false;
         try {
           await activeEngine.start((progress) => setProgress(progress));
           log('[downloadChapter][anime/${isZeus ? 'Zeus' : 'Aria2'}] completed chapterId=${chapter.id}');
         } catch (e) {
-          engineFailed = true;
-          log('[downloadChapter][anime/${isZeus ? 'Zeus' : 'Aria2'}] FAILED chapterId=${chapter.id} error=$e');
+          enginePreempted = consumePreemption();
+          engineFailed = !enginePreempted;
+          log('[downloadChapter][anime/${isZeus ? 'Zeus' : 'Aria2'}] '
+              '${enginePreempted ? 'preempted' : 'FAILED'} chapterId=${chapter.id} error=$e');
         } finally {
           if (chapter.id != null) {
             ActiveDownloadRegistry.unregister(chapter.id!);
           }
+        }
+        // Aria2 finishes a cancelled process without throwing, so re-check the
+        // flag here as well as in the catch.
+        enginePreempted = enginePreempted || consumePreemption();
+        if (enginePreempted) {
+          // A lowered limit stopped this download on purpose: it is already back
+          // in the queue, so skip the HLS fallback and let the next tick resume.
+          callback?.call();
+          keepAlive.close();
+          return;
         }
         // Aria2 and ZeusDL cannot do HLS — fall back to internal HLS for
         // .m3u8 streams (and for any extractor failure).
@@ -2920,8 +2950,22 @@ Future<void> downloadChapter(
         Object? caughtError;
         try {
           await m3u8Downloader!.download((progress) => setProgress(progress));
+          if (consumePreemption()) {
+            // A cancelled HLS task completes without throwing; detect it here so
+            // the episode is not logged as completed and re-queued on next tick.
+            log('[downloadChapter][anime/HLS] preempted chapterId=${chapter.id}');
+            callback?.call();
+            keepAlive.close();
+            return;
+          }
           log('[downloadChapter][anime/HLS] completed chapterId=${chapter.id}');
         } catch (e) {
+          if (consumePreemption()) {
+            log('[downloadChapter][anime/HLS] preempted chapterId=${chapter.id}');
+            callback?.call();
+            keepAlive.close();
+            return;
+          }
           caughtError = e;
           log(
             '[downloadChapter][anime/HLS] FAILED chapterId=${chapter.id} '
@@ -2968,6 +3012,12 @@ Future<void> downloadChapter(
               '[downloadChapter][anime/FFmpeg] completed chapterId=${chapter.id}',
             );
           } catch (e) {
+            if (consumePreemption()) {
+              log('[downloadChapter][anime/FFmpeg] preempted chapterId=${chapter.id}');
+              callback?.call();
+              keepAlive.close();
+              return;
+            }
             caughtError = e;
             log(
               '[downloadChapter][anime/FFmpeg] FAILED chapterId=${chapter.id} '
@@ -3049,6 +3099,39 @@ Future<void> downloadChapter(
   }
 }
 
+/// Stops a running download because a lowered simultaneous-download limit put
+/// it over budget, and leaves it ready to be re-dispatched.
+///
+/// The row is put back in the queue (`queued`, still startable) *before* the
+/// worker is cancelled. The worker treats the interruption as a pause
+/// ([ActiveDownloadRegistry.wasInterrupted]) and exits without marking the
+/// download failed or complete, so the next tick resumes it from its partial
+/// `.part` / on-disk pages instead of restarting from zero.
+Future<void> _preemptDownload(int downloadId) async {
+  try {
+    isar.writeTxnSync(() {
+      final stored = isar.downloads.getSync(downloadId);
+      if (stored == null || stored.isDownload == true) return;
+      isar.downloads.putSync(
+        stored
+          ..isDownload = false
+          ..isStartDownload = true
+          ..status = 'queued',
+      );
+    });
+  } catch (_) {
+    // A corrupt row must not abort the preemption of the others.
+  }
+  AppLogger.log(
+    '[ch:$downloadId] preempted by a lowered simultaneous-download limit; '
+    'returned to the queue',
+    logLevel: LogLevel.info,
+    tag: LogTag.download,
+  );
+  ActiveDownloadRegistry.markPreempted(downloadId);
+  await ActiveDownloadRegistry.preempt(downloadId);
+}
+
 @riverpod
 Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   if (useWifi != null) _processDownloadsWifiOverride = useWifi;
@@ -3098,7 +3181,16 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
 
     await Future.doWhile(() async {
       // Poll interval — short enough to feel snappy, long enough not to thrash.
-      await Future.delayed(const Duration(milliseconds: 900));
+      // A queue-settings change (total / per-source) completes the registered
+      // completer so the new limits are evaluated on the spot instead of on the
+      // next poll.
+      final wakeup = Completer<void>();
+      registerDownloadQueueWakeup(wakeup);
+      await Future.any([
+        Future<void>.delayed(const Duration(milliseconds: 900)),
+        wakeup.future,
+      ]);
+      clearDownloadQueueWakeup(wakeup);
       return safeTick(() async {
         // ── Re-query Isar fresh every tick ────────────────────────────────────
         // This is the key fix: we never take a snapshot of the queue.  Paused
@@ -3322,30 +3414,63 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         };
 
         // ── Start downloads that fit within the limits ─────────────────────────
-        // Cross-source round-robin: interleave sources fairly.
-        final perSourceQueues = <String, List<Download>>{};
+        // The per-type "Total" is a budget shared by the sources that still have
+        // pending work: the source with the fewest items gets the largest share
+        // (see [allocateSourceSlots]). "Src" is an additional per-source cap.
+        //
+        // Per-source workload (queued + already running) per type, so a share
+        // covers both the slots a source uses and the ones it still needs.
+        final pendingByType = <ItemType, Map<String, int>>{};
         for (final d in toStart) {
-          final src = d.chapter.value?.manga.value?.source ?? '_unknown';
-          (perSourceQueues[src] ??= <Download>[]).add(d);
+          final manga = d.chapter.value?.manga.value;
+          final type = manga?.itemType ?? ItemType.manga;
+          final src = manga?.source ?? '_unknown';
+          final bySource = pendingByType[type] ??= <String, int>{};
+          bySource[src] = (bySource[src] ?? 0) + 1;
         }
-        final sourceKeys = perSourceQueues.keys.toList();
-        int rrIdx = 0;
+        for (final id in ActiveDownloadRegistry.allActiveIds) {
+          final type = ActiveDownloadRegistry.activeTypeOf(id);
+          if (type == null) continue;
+          final src = ActiveDownloadRegistry.activeSourceOf(id) ?? '_unknown';
+          final bySource = pendingByType[type] ??= <String, int>{};
+          bySource[src] = (bySource[src] ?? 0) + 1;
+        }
 
-        outer:
-        for (var attempt = 0; attempt < toStart.length; attempt++) {
-          // Round-robin over sources
-          final src = sourceKeys[rrIdx % sourceKeys.length];
-          rrIdx++;
+        // Budget per source for each type, computed once per tick.
+        final budgetByType = <ItemType, Map<String, int>>{};
+        Map<String, int> budgetFor(ItemType type) => budgetByType[type] ??=
+            allocateSourceSlots(
+              total: typeMax[type] ?? 2,
+              pendingBySource: pendingByType[type] ?? const {},
+              perSourceCap: typePerSrcMax[type] ?? 2,
+            );
 
-          final queue = perSourceQueues[src];
-          if (queue == null || queue.isEmpty) continue;
-
-          final d = queue.first;
-          final chapter = d.chapter.value;
-          if (chapter == null) {
-            queue.removeAt(0);
+        // Preempt the running downloads that no longer fit the budget, so a
+        // *lowered* total or per-source limit applies at once instead of only
+        // when a slot happens to free up. The oldest workers (started first) are
+        // kept; the newest over-budget ones are stopped and put back in the
+        // queue, then the budget is dispatched against the resulting counts.
+        final keptPerType = <ItemType, Map<String, int>>{};
+        for (final id in ActiveDownloadRegistry.allActiveIds) {
+          final type = ActiveDownloadRegistry.activeTypeOf(id);
+          if (type == null) continue;
+          // Already preempted but not yet torn down: leave it alone and do not
+          // count it against the budget, so a legitimate worker can keep its slot.
+          if (ActiveDownloadRegistry.wasPreempted(id)) continue;
+          final src = ActiveDownloadRegistry.activeSourceOf(id) ?? '_unknown';
+          final budget = budgetFor(type);
+          final kept = keptPerType[type] ??= <String, int>{};
+          final keptForSource = kept[src] ?? 0;
+          if (keptForSource >= (budget[src] ?? 0)) {
+            unawaited(_preemptDownload(id));
             continue;
           }
+          kept[src] = keptForSource + 1;
+        }
+
+        for (final d in toStart) {
+          final chapter = d.chapter.value;
+          if (chapter == null) continue;
 
           final type = chapter.manga.value?.itemType ?? ItemType.manga;
           final chSrc = chapter.manga.value?.source ?? '_unknown';
@@ -3359,31 +3484,35 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           final tLimit = typeMax[type] ?? 2;
           final sLimit = typePerSrcMax[type] ?? 2;
 
-          if (curType >= tLimit || curSrc >= sLimit) {
+          // Share of the type budget this source may use, given every source's
+          // workload — never more than its "Src" cap.
+          final share = budgetFor(type)[chSrc] ?? 0;
+
+          if (curType >= tLimit || curSrc >= sLimit || curSrc >= share) {
             final chapterId = chapter.id;
             if (chapterId != null && loggedConcurrencyBlocks.add(chapterId)) {
               AppLogger.log(
                 '[ch:$chapterId] waiting for concurrency slot '
                 'type=${type.name} active=$curType/$tLimit '
-                'source=$curSrc/$sLimit',
+                'source=$curSrc/$sLimit share=$share',
                 logLevel: LogLevel.debug,
                 tag: LogTag.download,
               );
             }
-            continue outer;
+            continue;
           }
           if (chapter.id != null) {
             loggedConcurrencyBlocks.remove(chapter.id!);
           }
 
-          queue.removeAt(0);
           if (d.status == 'waiting_wifi' || d.status == 'queued') {
             _setDownloadStatus(d.id, 'fetching_metadata');
           }
 
           AppLogger.log(
             'Queue dispatch [ch:${chapter.id}] type=${type.name} '
-            'source=$chSrc active=$curType/$tLimit sourceActive=$curSrc/$sLimit',
+            'source=$chSrc active=$curType/$tLimit sourceActive=$curSrc/$sLimit '
+            'share=$share',
             logLevel: LogLevel.info,
             tag: LogTag.download,
           );
