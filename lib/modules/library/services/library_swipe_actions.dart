@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
@@ -40,7 +41,7 @@ Future<void> runLibrarySwipeAction(
     case 5: // Partager
       await _share(manga);
     case 6: // Copier le lien
-      await _copyLink(manga);
+      await _copyLink(manga, context);
     case 7: // Retirer de la bibliothèque
       await _removeFromLibrary(manga);
     case 8: // Marquer comme non lu
@@ -150,10 +151,13 @@ Future<void> _share(Manga manga) async {
   await SharePlus.instance.share(ShareParams(text: text));
 }
 
-Future<void> _copyLink(Manga manga) async {
+Future<void> _copyLink(Manga manga, BuildContext? context) async {
   final link = manga.link ?? '';
   if (link.trim().isEmpty) return;
   await Clipboard.setData(ClipboardData(text: link));
+  if (context != null && context.mounted) {
+    botToast(l10nLocalizations(context)!.copied_to_clipboard);
+  }
 }
 
 /// Confirmation dialog used by the "Supprimer" swipe action. Two independent
