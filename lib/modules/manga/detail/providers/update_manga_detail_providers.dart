@@ -68,6 +68,7 @@ Future<dynamic> updateMangaDetail(
     final genre =
         getManga.genre
             ?.map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
             .toList()
             .toSet()
             .toList() ??

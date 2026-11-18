@@ -4,6 +4,7 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/watch/detail/watch_detail_view.dart';
+import 'package:watchtower/services/watch_resume_store.dart';
 import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -28,6 +29,7 @@ class AnimePlayerView extends ConsumerStatefulWidget {
 
 class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
   Manga? _manga;
+  Duration? _resumePosition;
   bool _loading = true;
 
   @override
@@ -40,9 +42,17 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
     try {
       final chapter = isar.chapters.getSync(widget.episodeId);
       final manga = chapter == null ? null : resolveChapterManga(chapter);
+      // The library "continue" button opens this route with only the episode
+      // id, so the saved timestamp must be looked up here — otherwise every
+      // re-entry restarted the episode at 0:00.
+      final resume = (manga == null || chapter?.id == null)
+          ? null
+          : await readWatchResume(manga.name ?? '', chapter!.id!);
       if (!mounted) return;
       setState(() {
         _manga = manga;
+        _resumePosition =
+            resume == null ? null : Duration(milliseconds: resume.ms);
         _loading = false;
       });
     } catch (error, stack) {
@@ -83,6 +93,7 @@ class _AnimePlayerViewState extends ConsumerState<AnimePlayerView> {
       sourceExist: true,
       isLoading: false,
       resumeChapterId: widget.episodeId,
+      resumePosition: _resumePosition,
       checkForUpdate: (_) async {},
     );
   }

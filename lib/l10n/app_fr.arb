@@ -2723,6 +2723,8 @@
   "player_orientation": "Orientation",
   "player_rotation_toast": "Rotation : {mode}",
   "player_resume_at": "Reprise à {time}",
+  "player_load_failed": "Impossible de lire cette vidéo",
+  "player_retry": "Réessayer",
   "player_no_source_to_download": "Aucune source à télécharger",
   "player_already_downloaded": "Cette résolution est déjà téléchargée",
   "player_episode_not_in_library": "Épisode introuvable dans la bibliothèque",

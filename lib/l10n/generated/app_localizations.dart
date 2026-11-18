@@ -15941,6 +15941,18 @@ abstract class AppLocalizations {
   /// **'Resuming at {time}'**
   String player_resume_at(Object time);
 
+  /// No description provided for @player_load_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to play this video'**
+  String get player_load_failed;
+
+  /// No description provided for @player_retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get player_retry;
+
   /// No description provided for @player_no_source_to_download.
   ///
   /// In en, this message translates to:

@@ -26,3 +26,7 @@ Future<void> writeWatchResume(
 }) async {}
 
 Future<void> clearWatchResume(String title, int chapterId) async {}
+
+/// Most recent per-episode resume record for [title], across all its episodes.
+/// No-op on platforms without a filesystem.
+Future<({int chapterId, int ms})?> latestWatchResume(String title) async => null;

@@ -75,3 +75,41 @@ Future<void> clearWatchResume(String title, int chapterId) async {
     if (await file.exists()) await file.delete();
   } catch (_) {}
 }
+
+/// Most recent per-episode resume record for [title], across all its episodes.
+///
+/// Used when the detail page is opened from the Library (no explicit episode):
+/// the player must resume the exact episode *and* timestamp the user left,
+/// which the History page already carries but a plain Library tap does not.
+/// Returns `null` when nothing was watched yet.
+Future<({int chapterId, int ms})?> latestWatchResume(String title) async {
+  try {
+    final dir = await getApplicationSupportDirectory();
+    final prefix = 'wt_resume_${stableWatchProgressKey(title)}_';
+    int? bestChapter;
+    int bestMs = 0;
+    int bestSavedAt = -1;
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      final name = entity.uri.pathSegments.last;
+      if (!name.startsWith(prefix) || !name.endsWith('.json')) continue;
+      final idPart = name.substring(prefix.length, name.length - 5);
+      final chapterId = int.tryParse(idPart);
+      if (chapterId == null) continue;
+      try {
+        final raw = json.decode(await entity.readAsString()) as Map;
+        final ms = (raw['ms'] as num?)?.toInt() ?? 0;
+        final savedAt = (raw['savedAt'] as num?)?.toInt() ?? 0;
+        if (ms <= 0 || raw['completed'] == true) continue;
+        if (savedAt >= bestSavedAt) {
+          bestSavedAt = savedAt;
+          bestChapter = chapterId;
+          bestMs = ms;
+        }
+      } catch (_) {}
+    }
+    if (bestChapter == null) return null;
+    return (chapterId: bestChapter, ms: bestMs);
+  } catch (_) {}
+  return null;
+}

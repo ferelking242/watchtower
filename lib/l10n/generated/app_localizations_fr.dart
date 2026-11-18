@@ -9136,6 +9136,12 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get player_load_failed => 'Impossible de lire cette vidéo';
+
+  @override
+  String get player_retry => 'Réessayer';
+
+  @override
   String get player_no_source_to_download => 'Aucune source à télécharger';
 
   @override

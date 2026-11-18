@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -9,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lottie/lottie.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
@@ -16,12 +16,10 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
-import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/detail/providers/isar_providers.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/modules/watch/detail/download/watch_download_sheet.dart';
-import 'package:watchtower/utils/arrow_popup_menu.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
@@ -32,6 +30,8 @@ import 'package:watchtower/utils/utils.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/watch/detail/language_display.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/watch_resume_store.dart'
+    show latestWatchResume;
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
@@ -55,14 +55,6 @@ const _kSerieSvg = '''
   <circle cx="8" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"/>
   <path d="M13 8h4M13 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 </svg>''';
-
-enum _ResourceMenuAction {
-  refresh,
-  openInBrowser,
-  extensionSettings,
-  share,
-  downloadAll,
-}
 
 class WatchDetailView extends ConsumerStatefulWidget {
   final Manga manga;
@@ -97,8 +89,12 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   String? _selectedSeason;
   String? _selectedLanguage;
-  String? _selectedServer;
   bool _isDescriptionExpanded = false;
+
+  // In-player toast (bottom of the video surface). Kept here rather than in a
+  // global overlay so it reads as part of the player, like MovieBox.
+  String? _playerToastMsg;
+  Timer? _playerToastTimer;
   final _headerTitleOpacity = ValueNotifier<double>(0.0);
   final _nestedScrollCtrl = ScrollController();
 
@@ -170,6 +166,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
     );
+    _playerToastTimer?.cancel();
     _nestedScrollCtrl.removeListener(_onScroll);
     _nestedScrollCtrl.dispose();
     _headerTitleOpacity.dispose();
@@ -180,20 +177,51 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
   // ─── VIDEO TRIGGER ──────────────────────────────────────────────────────────
 
+  void _showPlayerToast(String message) {
+    _playerToastTimer?.cancel();
+    setState(() => _playerToastMsg = message);
+    _playerToastTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _playerToastMsg = null);
+    });
+  }
+
+  static String _formatPlayerTime(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
+  /// Reloads the currently loaded episode (retry button after a failed load).
+  void _retryLoadedEpisode(List<Chapter> chapters) {
+    if (chapters.isEmpty) return;
+    final target = chapters.firstWhere(
+      (c) => c.id == _player.loadedChapterId,
+      orElse: () => chapters.first,
+    );
+    _loadEpisodeInBanner(target);
+  }
+
   void _maybeStartVideo(List<Chapter> chapters) {
     // On web the inline stub is replaced by AnimePlayerView — no auto-play.
     if (kIsWeb) return;
     if (chapters.isEmpty) return;
     _player.title = widget.manga.name ?? '';
-    // Only auto-load E01 the very first time (loadedChapterId == null).
+    // Only auto-load the very first time (loadedChapterId == null).
     // Never override a chapter the user has explicitly chosen.
     if (_player.loadedChapterId != null) return;
+
+    // `chapters` arrives newest-first (the Isar stream is reversed for the
+    // recommendations feed), so `chapters.first` is the *last* episode. The
+    // default episode must be the first one in playback order.
+    final ordered = _sortedEpisodes(chapters);
+    final firstEpisode = ordered.isNotEmpty ? ordered.first : chapters.first;
 
     // Opened from History → resume the exact episode at the saved position.
     if (widget.resumeChapterId != null) {
       final target = chapters.firstWhere(
         (c) => c.id == widget.resumeChapterId,
-        orElse: () => chapters.first,
+        orElse: () => firstEpisode,
       );
       _player.loadedChapterId = target.id;
       _player.startPosition = widget.resumePosition;
@@ -205,16 +233,45 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       return;
     }
 
-    _player.loadedChapterId = chapters.first.id;
+    // Opened from the Library (no explicit episode): resume the last episode
+    // the user actually watched, at the saved position, instead of starting
+    // over at episode 1. The resume store is per (title, chapter); pick the
+    // most recently written record that is not finished.
+    final title = widget.manga.name ?? '';
+    if (title.isNotEmpty) {
+      _player.loadedChapterId = firstEpisode.id; // optimistic; corrected below
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final latest = await latestWatchResume(title);
+        Chapter target = firstEpisode;
+        Duration? resumeAt;
+        if (latest != null) {
+          final match = chapters.where((c) => c.id == latest.chapterId).firstOrNull;
+          if (match != null) {
+            target = match;
+            resumeAt = Duration(milliseconds: latest.ms);
+          }
+        }
+        if (!mounted) return;
+        _player.loadedChapterId = target.id;
+        _player.startPosition = resumeAt;
+        setState(() {});
+        await _player.load(ref: ref, chapter: target);
+        if (mounted) setState(() {});
+      });
+      return;
+    }
+
+    _player.loadedChapterId = firstEpisode.id;
     AppLogger.log(
-      '[PLAYER] auto-load scheduled chapterId=${chapters.first.id}'
+      '[PLAYER] auto-load scheduled chapterId=${firstEpisode.id}'
       '  ← post-frame callback, runs after the current build',
       logLevel: LogLevel.debug,
       tag: LogTag.watch,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await _player.load(ref: ref, chapter: chapters.first);
+      await _player.load(ref: ref, chapter: firstEpisode);
       if (mounted) setState(() {});
     });
   }
@@ -291,10 +348,14 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           error: (_, _) => <Chapter>[],
         );
 
-    _maybeStartVideo(chapters);
-
     // ── Update episode navigation callbacks on every build ────────────────────
     final sorted = _sortedEpisodes(chapters);
+
+    // Auto-load episode 1 (first of the first season) on first open — never the
+    // last episode. The stream yields newest-first, so `chapters.first` is the
+    // *latest* episode; the resume/auto-load logic must use the ascending order.
+    _maybeStartVideo(sorted);
+
     final curIdx  = sorted.indexWhere((c) => c.id == _player.loadedChapterId);
     _player.onPrevEpisode = (curIdx > 0)
         ? () => _loadEpisodeInBanner(sorted[curIdx - 1])
@@ -304,6 +365,21 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         : null;
     _player.chapters     = sorted;
     _player.onEpisodeTap = _loadEpisodeInBanner;
+
+    // In-player feedback: a failed load shows a toast + retry overlay; a
+    // successful resume shows the "Reprise à …" toast. Both render inside the
+    // player surface (bottom toast) rather than as a page-level SnackBar.
+    _player.onLoadFailed = () {
+      if (!mounted) return;
+      _showPlayerToast(context.l10n.player_load_failed);
+      setState(() {});
+    };
+    _player.onResumed = (position) {
+      if (!mounted) return;
+      _showPlayerToast(
+        context.l10n.player_resume_at(_formatPlayerTime(position)),
+      );
+    };
 
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
@@ -464,6 +540,21 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     return Stack(
       children: [
         SizedBox.expand(child: _buildBannerImageOnly()),
+        // Failure feedback must also appear in landscape: previously a failed
+        // load silently left the cover on screen with no way to retry.
+        if (_player.loadFailed)
+          _PlayerFailureOverlay(
+            message: context.l10n.player_load_failed,
+            retryLabel: context.l10n.player_retry,
+            onRetry: () => _retryLoadedEpisode(chapters),
+          ),
+        if (_playerToastMsg != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: _PlayerToast(message: _playerToastMsg!),
+          ),
         SafeArea(
           child: Row(
             children: [
@@ -498,6 +589,24 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         if (!_player.hasVideoUrl && !_player.loadFailed &&
             _player.loadedChapterId != null)
           const _LoadingBannerPulse(),
+
+        // Load failure — retry overlay (Lottie error animation + button),
+        // centered on the player surface.
+        if (_player.loadFailed && !_player.hasVideoUrl)
+          _PlayerFailureOverlay(
+            message: context.l10n.player_load_failed,
+            retryLabel: context.l10n.player_retry,
+            onRetry: () => _retryLoadedEpisode(chapters),
+          ),
+
+        // In-player toast — bottom of the surface, MovieBox style.
+        if (_playerToastMsg != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 14,
+            child: _PlayerToast(message: _playerToastMsg!),
+          ),
 
         // Reel-mode button — appears once the loaded video is detected as
         // vertical/short-form content (e.g. MovieBox "TV courte").
@@ -603,7 +712,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTitleRow(),
+          _buildTitleRow(chapters),
           const SizedBox(height: 7),
           _buildMetaRow(chapters),
           const SizedBox(height: 14),
@@ -619,7 +728,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   // ─── TITLE ROW ──────────────────────────────────────────────────────────────
   // Title + "Info ›" plain text right next to title (not far right)
 
-  Widget _buildTitleRow() {
+  Widget _buildTitleRow(List<Chapter> chapters) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
@@ -635,16 +744,27 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             ),
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
+        // "Info" pill with the Broken icon pack (matches the rest of the page)
+        // instead of a bare text chevron.
         GestureDetector(
-          onTap: () => _showInfoSheet(context),
-          child: Text(
-            '${context.l10n.plugins_action_info} ›',
-            style: TextStyle(
-              color: _accent,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+          onTap: () => _showInfoSheet(context, chapters: chapters),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Broken.information, size: 15, color: _accent),
+              const SizedBox(width: 4),
+              Text(
+                context.l10n.plugins_action_info,
+                style: TextStyle(
+                  color: _accent,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Icon(Broken.arrow_right_3, size: 14, color: _accent),
+            ],
           ),
         ),
       ],
@@ -652,7 +772,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   // ─── META ROW ───────────────────────────────────────────────────────────────
-  // [SVG] | [★ score] | lang | genre | ...
+  // [SVG] | [★ score] | country | seasons
 
   Widget _buildMetaRow(List<Chapter> chapters) {
     final isMovie = _isMovie(chapters);
@@ -672,23 +792,15 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       parts.add(lang.toUpperCase());
     }
 
-    // First genre that isn't "film"/"movie"/"serie" and isn't ·-prefixed
-    final typeGenre = (widget.manga.genre ?? [])
-        .where((g) {
-          final l = g.toLowerCase().trim();
-          return l != 'film' && l != 'movie' && l != 'série' && l != 'serie'
-              && !g.startsWith('·');
-        })
-        .take(1)
-        .firstOrNull;
-    if (typeGenre != null && typeGenre.isNotEmpty) parts.add(typeGenre);
-
     // Seasons count for series
     if (!isMovie) {
       final seasons = _detectSeasons(chapters);
-      if (seasons.isNotEmpty) {
-        parts.add(context.l10n.media_season_count(seasons.length));
-      }
+      // Extensions that publish no season markers still describe a multi-episode
+      // title as a single season, so the meta line always carries a season count
+      // instead of dropping the field (the user expects "1 saison" there).
+      parts.add(
+        context.l10n.media_season_count(seasons.isEmpty ? 1 : seasons.length),
+      );
     } else {
       parts.add(context.l10n.media_film);
     }
@@ -711,11 +823,11 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 13),
         const SizedBox(width: 4),
         Builder(builder: (_) {
-          final rawDesc = widget.manga.description ?? '';
-          final imdbM = RegExp(r'IMDb\s+([\d.]+)').firstMatch(rawDesc);
+          final rating = _ratingLabel(widget.manga.description ?? '');
           return Text(
-              imdbM != null ? imdbM.group(1)! : context.l10n.media_not_available,
-              style: TextStyle(color: _grey, fontSize: 12));
+            rating ?? context.l10n.media_not_available,
+            style: TextStyle(color: _grey, fontSize: 12),
+          );
         }),
         if (parts.isNotEmpty) ...[
           vbar(),
@@ -733,10 +845,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
+  /// Extracts a star rating from the extension-provided description.
+  ///
+  /// Accepts both the historical `IMDb 8.5` token and the generic `★ 4.96`
+  /// token (MovieBox-style / hanime). Returns the bare number as text so the
+  /// caller can render it next to the star icon, or `null` when absent.
+  static String? _ratingLabel(String description) {
+    final m = RegExp(r'(?:IMDb\s+|★\s*)([\d.]+)').firstMatch(description);
+    return m?.group(1);
+  }
+
   // ─── INFO SHEET ─────────────────────────────────────────────────────────────
   // Fixed bottom sheet — no drag handle, never overlaps player (230 px)
 
-  void _showInfoSheet(BuildContext ctx) {
+  void _showInfoSheet(BuildContext ctx, {List<Chapter> chapters = const []}) {
       final manga = widget.manga;
       showModalBottomSheet(
         context: ctx,
@@ -749,11 +871,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           final statusH = MediaQuery.of(ctx).padding.top;
           final maxH    = screen - 230 - statusH;
 
-          final desc = (manga.description ?? '').trim();
+          // Synopsis — drop the extension's trailing meta token (e.g.
+          // "★ 4.96 · 1 season") and any embedded gallery payload so the
+          // synopsis text stays pure prose; those facts live in the info grid.
+          final rawDesc = (manga.description ?? '').trim();
+          final desc = rawDesc
+              .replaceAll(RegExp(r'\n*★\s*[\d.]+\s*·\s*\d+\s*season.*$',
+                  dotAll: true), '')
+              .replaceAll(RegExp(r'\n*__GALLERY__:.*$', dotAll: true), '')
+              .trim();
           final genres = (manga.genre ?? []).where((g) => !g.startsWith('·')).toList();
           final countrySheet = (manga.genre ?? []).where((g) => g.startsWith('·'))
               .map((g) => g.substring(1)).firstOrNull;
-          final year   = (manga.author ?? '').trim();
           final _aS = (manga.artist ?? '').split(',').map((s) => s.trim())
               .where((s) => s.isNotEmpty).toList();
           final dirSheet  = _aS.isNotEmpty ? _aS.first : null;
@@ -765,11 +894,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             decoration: BoxDecoration(color: _surface),
             child: Column(
               children: [
-                // ── Close button only (no title, no handle) ──────────────────
+                // ── Header: title + close button, separator below ─────────────
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 10),
                   child: Row(
                     children: [
+                      Text(
+                        context.l10n.media_details,
+                        style: TextStyle(
+                            color: _textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700),
+                      ),
                       const Spacer(),
                       GestureDetector(
                         onTap: () => Navigator.pop(sheetCtx),
@@ -777,12 +913,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           width: 28, height: 28,
                           decoration: BoxDecoration(
                               color: _card, shape: BoxShape.circle),
-                          child: Icon(Icons.close, size: 16, color: _grey),
+                          child: Icon(Broken.close_circle, size: 16, color: _grey),
                         ),
                       ),
                     ],
                   ),
                 ),
+                Divider(height: 1, color: _faint),
                 // ── Scrollable IMDB-style content ─────────────────────────────
                 Expanded(
                   child: ListView(
@@ -852,16 +989,16 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                                     ),
                                   ),
                                 const SizedBox(height: 8),
-                                // Language + source pills
+                                // Language + source pills (Broken icon pack,
+                                // consistent with the rest of the detail page)
                                 Wrap(
                                   spacing: 6,
                                   runSpacing: 6,
                                   children: [
                                     if (lang.isNotEmpty)
-                                      _infoPill(Icons.language, lang),
+                                      _infoPill(Broken.language_circle, lang),
                                     if ((manga.source ?? '').isNotEmpty)
-                                      _infoPill(Icons.storage_outlined,
-                                          manga.source!),
+                                      _infoPill(Broken.folder, manga.source!),
                                   ],
                                 ),
                               ],
@@ -945,7 +1082,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         const SizedBox(height: 12),
                         if (countrySheet != null) ...[
                           _castRow(
-                            Icons.public_outlined,
+                            Broken.global,
                             context.l10n.media_country,
                             countrySheet,
                           ),
@@ -953,7 +1090,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         ],
                         if (dirSheet != null) ...[
                           _castRow(
-                            Icons.movie_creation_outlined,
+                            Broken.video_play,
                             context.l10n.media_director,
                             dirSheet,
                           ),
@@ -961,26 +1098,17 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                         ],
                         if (castSheet != null)
                           _castRow(
-                            Icons.people_outlined,
+                            Broken.people,
                             context.l10n.media_cast,
                             castSheet,
                           ),
                         const SizedBox(height: 22),
                       ],
 
-                      // ── Info table ───────────────────────────────────────
-                      _sheetSectionLabel(context.l10n.media_details),
+                      // ── Info table — 3-col icon grid ─────────────────────
+                      _sheetSectionLabel(context.l10n.media_information),
                       const SizedBox(height: 12),
-                      _infoRow(
-                        context.l10n.media_language,
-                        lang.isNotEmpty ? lang : '—',
-                      ),
-                      _infoRow(
-                        context.l10n.media_status,
-                        _statusLabel(manga.status),
-                      ),
-                      if ((manga.source ?? '').isNotEmpty)
-                        _infoRow(context.l10n.browse_create_source, manga.source!),
+                      _infoGrid3(context, chapters, lang, countrySheet),
                     ],
                   ),
                 ),
@@ -1021,20 +1149,180 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       );
     }
 
-    Widget _infoRow(String label, String value) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        child: Row(
+    /// 3-column icon grid of the title's key facts, shown in the Info sheet.
+    ///
+    /// Everything is sourced from what the extension publishes (rating token,
+    /// ·-prefixed country, season markers, year in author, …); fields the
+    /// extension does not provide are simply omitted so the grid never shows
+    /// placeholder dashes.
+    Widget _infoGrid3(
+      BuildContext context,
+      List<Chapter> chapters,
+      String lang,
+      String? country,
+    ) {
+      final manga = widget.manga;
+      final isMovie = _isMovie(chapters);
+
+      final cells = <_SheetInfoCell>[];
+
+      final rating = _ratingLabel(manga.description ?? '');
+      if (rating != null) {
+        cells.add(_SheetInfoCell(
+          icon: Broken.star,
+          label: context.l10n.media_rating,
+          value: rating,
+          accent: true,
+          accentColor: const Color(0xFFF59E0B),
+        ));
+      }
+
+      if (country != null && country.trim().isNotEmpty) {
+        cells.add(_SheetInfoCell(
+          icon: Broken.global,
+          label: context.l10n.media_country,
+          value: country.trim(),
+        ));
+      }
+
+      if (!isMovie && chapters.isNotEmpty) {
+        final seasons = _detectSeasons(chapters);
+        cells.add(_SheetInfoCell(
+          icon: Broken.monitor,
+          label: context.l10n.media_seasons,
+          value: '${seasons.isEmpty ? 1 : seasons.length}',
+        ));
+      }
+
+      if (lang.isNotEmpty) {
+        cells.add(_SheetInfoCell(
+          icon: Broken.language_circle,
+          label: context.l10n.media_language,
+          value: lang,
+        ));
+      }
+
+      // Director / studio — the extension publishes it in `artist`.
+      final director = (manga.artist ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .firstOrNull;
+      if (director != null) {
+        cells.add(_SheetInfoCell(
+          icon: Broken.user,
+          label: context.l10n.media_director,
+          value: director,
+        ));
+      }
+
+      final year = (manga.author ?? '').trim();
+      if (RegExp(r'^\d{4}$').hasMatch(year)) {
+        cells.add(_SheetInfoCell(
+          icon: Broken.calendar,
+          label: context.l10n.media_year,
+          value: year,
+        ));
+      }
+
+      if (chapters.isNotEmpty) {
+        cells.add(_SheetInfoCell(
+          icon: isMovie ? Broken.video_play : Broken.play_circle,
+          label: isMovie ? context.l10n.media_type : context.l10n.media_episodes,
+          value: isMovie ? context.l10n.media_film : '${chapters.length}',
+          accent: true,
+          accentColor: _accent,
+        ));
+      }
+
+      cells.add(_SheetInfoCell(
+        icon: Broken.verify,
+        label: context.l10n.media_status,
+        value: _statusLabel(manga.status),
+      ));
+
+      if ((manga.source ?? '').isNotEmpty) {
+        cells.add(_SheetInfoCell(
+          icon: Broken.folder,
+          label: context.l10n.browse_create_source,
+          value: manga.source!,
+        ));
+      }
+
+      if (cells.isEmpty) return const SizedBox.shrink();
+
+      const gap = 8.0;
+      final rows = <Widget>[];
+      for (var i = 0; i < cells.length; i += 3) {
+        final rowCells = cells.sublist(i, (i + 3).clamp(0, cells.length));
+        rows.add(Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(label,
-                style: TextStyle(
-                    color: _grey, fontSize: 13, fontWeight: FontWeight.w500)),
-            const Spacer(),
-            Text(value,
-                style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500)),
+            for (var j = 0; j < 3; j++) ...[
+              if (j > 0) const SizedBox(width: gap),
+              Expanded(
+                child: j < rowCells.length
+                    ? _sheetInfoCell(context, rowCells[j])
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ],
+        ));
+        if (i + 3 < cells.length) rows.add(const SizedBox(height: gap));
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: rows,
+      );
+    }
+
+    Widget _sheetInfoCell(BuildContext context, _SheetInfoCell cell) {
+      final tint = cell.accent ? cell.accentColor! : _accent;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: cell.accent
+              ? cell.accentColor!.withValues(alpha: 0.09)
+              : _card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cell.accent
+                ? cell.accentColor!.withValues(alpha: 0.30)
+                : _faint.withValues(alpha: 0.45),
+            width: 0.8,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Icon(cell.icon, size: 15, color: tint),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              cell.label,
+              style: TextStyle(color: _grey, fontSize: 10.5),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              cell.value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: cell.accent ? cell.accentColor! : _textPrimary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       );
@@ -1388,101 +1676,26 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   fontWeight: FontWeight.w600),
             ),
             const Spacer(),
-            if (source != null) ...[
-              Text(
-                context.l10n.media_provided_by,
-                style: TextStyle(color: _grey, fontSize: 11),
+            // Options button — opens the same bottom sheet as the season /
+            // language / quality pills instead of an anchored popup menu, so
+            // every selector on the page behaves identically.
+            GestureDetector(
+              onTap: () => _showResourceMenuSheet(
+                context,
+                chapters: chapters,
+                source: source,
               ),
-              const SizedBox(width: 5),
-              if ((source.iconUrl ?? '').isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: cachedNetworkImage(
-                    imageUrl: source.iconUrl!,
-                    width: 18,
-                    height: 18,
-                    fit: BoxFit.cover,
-                  ),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: _card,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _faint, width: 0.7),
                 ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  source.name?.trim().isNotEmpty == true
-                      ? source.name!.trim()
-                      : context.l10n.watch_home_extension,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      color: _grey,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500),
-                ),
+                child: Icon(Broken.more, size: 18, color: _textPrimary),
               ),
-            ],
-            ArrowPopupMenuButton<_ResourceMenuAction>(
-              tooltip: context.l10n.media_source_options,
-              icon: Icon(Broken.more, size: 20, color: _grey),
-              color: _surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              elevation: 10,
-              menuWidth: 224,
-              offset: const Offset(0, 8),
-              onSelected: (action) {
-                switch (action) {
-                  case _ResourceMenuAction.refresh:
-                    widget.checkForUpdate(true);
-                  case _ResourceMenuAction.openInBrowser:
-                    _openInBrowser();
-                  case _ResourceMenuAction.extensionSettings:
-                    if (source != null) {
-                      context.pushNamed('extension_detail', extra: source);
-                    }
-                  case _ResourceMenuAction.share:
-                    _share(context);
-                  case _ResourceMenuAction.downloadAll:
-                    _downloadAll(chapters);
-                }
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: _ResourceMenuAction.refresh,
-                  child: _ResourceMenuItem(
-                    icon: Broken.refresh,
-                    label: context.l10n.media_refresh,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: _ResourceMenuAction.openInBrowser,
-                  child: _ResourceMenuItem(
-                    icon: Broken.export,
-                    label: context.l10n.open_in_browser,
-                  ),
-                ),
-                if (source != null)
-                  PopupMenuItem(
-                    value: _ResourceMenuAction.extensionSettings,
-                    child: _ResourceMenuItem(
-                      icon: Broken.setting_2,
-                      label: context.l10n.extension_settings,
-                    ),
-                  ),
-                PopupMenuItem(
-                  value: _ResourceMenuAction.share,
-                  child: _ResourceMenuItem(
-                    icon: Broken.share,
-                    label: context.l10n.media_share,
-                  ),
-                ),
-                PopupMenuItem(
-                  value: _ResourceMenuAction.downloadAll,
-                  child: _ResourceMenuItem(
-                    icon: Broken.document_download,
-                    label: context.l10n.media_download_all,
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -1580,6 +1793,48 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             _sortedEpisodes(filtered),
             _sortedEpisodes(chapters),
           ),
+
+        // ── Footer: "Fourni par <extension>" — fond droite ──────────────
+        // The enclosing metadata column carries a 16 px right inset; the
+        // footer breaks out of it so the extension credit sits flush against
+        // the screen edge instead of leaving a dead strip on the right.
+        if (source != null) ...[
+          const SizedBox(height: 14),
+          Transform.translate(
+            offset: const Offset(16, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Text(
+                  context.l10n.media_provided_by,
+                  style: TextStyle(color: _grey, fontSize: 11),
+                ),
+                const SizedBox(width: 5),
+                if ((source.iconUrl ?? '').isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: cachedNetworkImage(
+                      imageUrl: source.iconUrl!,
+                      width: 18,
+                      height: 18,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                const SizedBox(width: 5),
+                Text(
+                  source.name?.trim().isNotEmpty == true
+                      ? source.name!.trim()
+                      : context.l10n.watch_home_extension,
+                  style: TextStyle(
+                      color: _grey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1656,7 +1911,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           height: 28,
                           decoration: BoxDecoration(
                               color: _card, shape: BoxShape.circle),
-                          child: Icon(Icons.close, size: 16, color: _grey),
+                          child: Icon(Broken.close_circle, size: 16, color: _grey),
                         ),
                       ),
                     ],
@@ -1727,6 +1982,133 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     }
 
   // _buildSelectorRow replaced by _buildDropdownPill + _showDropdownSheet above
+
+  // ── Options menu (bottom sheet) ──────────────────────────────────────────────
+  // Same surface, header and row styling as the season / language / quality
+  // sheets, so the "⋮" button no longer opens an anchored popup.
+  void _showResourceMenuSheet(
+    BuildContext ctx, {
+    required List<Chapter> chapters,
+    required Source? source,
+  }) {
+    showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      barrierColor: Colors.transparent,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      builder: (sheetCtx) {
+        final screen = MediaQuery.of(ctx).size.height;
+        final statusH = MediaQuery.of(ctx).padding.top;
+        final maxH = screen - 230 - statusH;
+
+        final actions = <({IconData icon, String label, VoidCallback onTap})>[
+          (
+            icon: Broken.refresh,
+            label: context.l10n.media_refresh,
+            onTap: () => widget.checkForUpdate(true),
+          ),
+          (
+            icon: Broken.export,
+            label: context.l10n.open_in_browser,
+            onTap: _openInBrowser,
+          ),
+          if (source != null)
+            (
+              icon: Broken.setting_2,
+              label: context.l10n.extension_settings,
+              onTap: () =>
+                  context.pushNamed('extension_detail', extra: source),
+            ),
+          (
+            icon: Broken.share,
+            label: context.l10n.media_share,
+            onTap: () => _share(context),
+          ),
+          (
+            icon: Broken.document_download,
+            label: context.l10n.media_download_all,
+            onTap: () => _downloadAll(chapters),
+          ),
+        ];
+
+        return Container(
+          height: maxH,
+          decoration: BoxDecoration(color: _surface),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                child: Row(
+                  children: [
+                    Text(
+                      context.l10n.media_source_options,
+                      style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(sheetCtx),
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                            color: _card, shape: BoxShape.circle),
+                        child: Icon(Broken.close_circle, size: 16, color: _grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: _faint),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  children: [
+                    for (final action in actions)
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(sheetCtx);
+                          action.onTap();
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: _card,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(action.icon, size: 18, color: _accent),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  action.label,
+                                  style: TextStyle(
+                                    color: _textPrimary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   // ─── MOVIE BOX — small rectangle, title only ─────────────────────────────────
 
@@ -1909,15 +2291,21 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     void _showAllEpisodesSheet(BuildContext ctx, List<Chapter> allChapters) {
     final seasons = _detectSeasons(allChapters);
     // Start on the currently-selected season so the sheet matches the active filter.
-    String? sheetSeason = (_selectedSeason != null && seasons.contains(_selectedSeason))
-        ? _selectedSeason
-        : (seasons.isNotEmpty ? seasons.first : null);
+    String? sheetSeason =
+        (_selectedSeason != null && seasons.contains(_selectedSeason))
+            ? _selectedSeason
+            : (seasons.isNotEmpty ? seasons.first : null);
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
+      barrierColor: Colors.transparent,
       backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (sheetCtx) {
+        final screen  = MediaQuery.of(ctx).size.height;
+        final statusH = MediaQuery.of(ctx).padding.top;
+        final maxH    = screen - 230 - statusH;
         return StatefulBuilder(
           builder: (_, setSt) {
             // Filter by selected season if any
@@ -1955,210 +2343,120 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               display = deduped;
             }
 
-            final bg = Theme.of(ctx).scaffoldBackgroundColor;
-            final card = Theme.of(ctx).colorScheme.surfaceContainerHighest;
-            final onSurface = Theme.of(ctx).colorScheme.onSurface;
-            final accent = ctx.primaryColor;
-            final grey = onSurface.withValues(alpha: 0.50);
-            final faint = onSurface.withValues(alpha: 0.25);
-
-            final _maxFrac = ((MediaQuery.of(ctx).size.height - 230 - MediaQuery.of(ctx).padding.top) / MediaQuery.of(ctx).size.height).clamp(0.40, 0.92);
-            return DraggableScrollableSheet(
-              initialChildSize: (_maxFrac * 0.85).clamp(0.40, _maxFrac),
-              minChildSize: 0.40,
-              maxChildSize: _maxFrac,
-              expand: false,
-              builder: (_, scrollCtrl) {
-                return Container(
-                  decoration: BoxDecoration(
-                    color: bg,
-                  ),
-                  child: Column(
-                    children: [
-                      // Drag handle
-                      Padding(
-                        padding: const EdgeInsets.only(top: 10, bottom: 6),
-                        child: Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: faint,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+            return Container(
+              height: maxH,
+              decoration: BoxDecoration(color: _surface),
+              child: Column(
+                children: [
+                  // ── Header: title + close button, separator below ──────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 10),
+                    child: Row(
+                      children: [
+                        Text(
+                          context.l10n.media_episodes_label(display.length),
+                          style: TextStyle(
+                              color: _textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700),
                         ),
-                      ),
-                      // Header: season pill (if multi-season) + close
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                        child: Row(
-                          children: [
-                            if (seasons.length > 1) ...[
-                              GestureDetector(
-                                onTap: () async {
-                                  final picked = await showModalBottomSheet<String>(
-                                    context: sheetCtx,
-                                    backgroundColor: bg,
-                                    shape: const RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.vertical(
-                                          top: Radius.circular(16)),
-                                    ),
-                                    builder: (_) => ListView(
-                                      shrinkWrap: true,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 8),
-                                      children: seasons.map((s) {
-                                        final isSel = s == sheetSeason;
-                                        return GestureDetector(
-                                          onTap: () =>
-                                              Navigator.pop(sheetCtx, s),
-                                          child: AnimatedContainer(
-                                            duration: const Duration(
-                                                milliseconds: 150),
-                                            margin: const EdgeInsets.symmetric(
-                                                vertical: 4),
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 16, vertical: 14),
-                                            decoration: BoxDecoration(
-                                              gradient: isSel
-                                                  ? LinearGradient(
-                                                      begin:
-                                                          Alignment.centerLeft,
-                                                      end: Alignment.centerRight,
-                                                      colors: [
-                                                        accent.withValues(
-                                                            alpha: 0.30),
-                                                        accent.withValues(
-                                                            alpha: 0.10),
-                                                      ],
-                                                    )
-                                                  : null,
-                                              color: isSel ? null : card,
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              border: Border.all(
-                                                color: isSel
-                                                    ? accent.withValues(
-                                                        alpha: 0.55)
-                                                    : Colors.transparent,
-                                                width: 0.8,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              s,
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: isSel ? accent : onSurface,
-                                                fontSize: 14,
-                                                fontWeight: isSel
-                                                    ? FontWeight.w600
-                                                    : FontWeight.w400,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  );
-                                  if (picked != null) {
-                                    setSt(() => sheetSeason = picked);
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: card,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        sheetSeason ?? seasons.first,
-                                        style: TextStyle(
-                                          color: onSurface,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(Icons.keyboard_arrow_down_rounded,
-                                          size: 18, color: grey),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ] else
-                              Text(
-                                context.l10n.media_episodes_label(display.length),
-                                style: TextStyle(
-                                  color: onSurface,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: () => Navigator.pop(sheetCtx),
-                              child: Icon(Icons.close_rounded,
-                                  size: 22, color: grey),
+                        const Spacer(),
+                        if (seasons.length > 1)
+                          GestureDetector(
+                            onTap: () => _showDropdownSheet(
+                              sheetSeason ?? seasons.first,
+                              seasons,
+                              (v) => setSt(() => sheetSeason = v),
+                              sheetTitle: context.l10n.media_choose_season,
+                              displayLabel: _seasonLabel,
                             ),
-                          ],
-                        ),
-                      ),
-                      // Episode grid
-                      Expanded(
-                        child: GridView.builder(
-                          controller: scrollCtrl,
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            // 5 columns on narrow phones (≤ 390 pt, e.g. iPhone 7/SE),
-                            // 6 on wider devices — keeps cells readable.
-                            crossAxisCount: MediaQuery.of(sheetCtx).size.width <= 390 ? 5 : 6,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1.05,
-                          ),
-                          itemCount: display.length,
-                          itemBuilder: (_, i) {
-                            final ch = display[i];
-                            final epNum = _epNum(ch.name, i + 1);
-                            final label =
-                                epNum.toString().padLeft(2, '0');
-                            final isWatched = ch.isRead ?? false;
-                            return GestureDetector(
-                              onTap: () {
-                                Navigator.pop(sheetCtx);
-                                _loadEpisodeInBanner(ch);
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isWatched
-                                      ? accent.withValues(alpha: 0.85)
-                                      : card,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  label,
-                                  style: TextStyle(
-                                    color: isWatched
-                                        ? Colors.white
-                                        : onSurface,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: _card,
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                            );
-                          },
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _seasonLabel(sheetSeason ?? seasons.first),
+                                    style: TextStyle(
+                                      color: _textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.keyboard_arrow_down_rounded,
+                                      size: 18, color: _grey),
+                                ],
+                              ),
+                            ),
+                          ),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(sheetCtx),
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                                color: _card, shape: BoxShape.circle),
+                            child: Icon(Broken.close_circle, size: 16, color: _grey),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                );
-              },
+                  Divider(height: 1, color: _faint),
+                  // ── Episode grid ───────────────────────────────────────────
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        // 5 columns on narrow phones (≤ 390 pt, e.g. iPhone 7/SE),
+                        // 6 on wider devices — keeps cells readable.
+                        crossAxisCount:
+                            MediaQuery.of(sheetCtx).size.width <= 390 ? 5 : 6,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 1.05,
+                      ),
+                      itemCount: display.length,
+                      itemBuilder: (_, i) {
+                        final ch = display[i];
+                        final epNum = _epNum(ch.name, i + 1);
+                        final label = epNum.toString().padLeft(2, '0');
+                        final isWatched = ch.isRead ?? false;
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.pop(sheetCtx);
+                            _loadEpisodeInBanner(ch);
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isWatched
+                                  ? _accent.withValues(alpha: 0.85)
+                                  : _card,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              label,
+                              style: TextStyle(
+                                color: isWatched ? Colors.white : _textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -2245,20 +2543,38 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     // Année (uniquement si c'est vraiment une année numérique)
     if (year.isNotEmpty && RegExp(r'^\d{4}$').hasMatch(year)) {
       infoRows.add(
-        _DetailInfoRow(label: context.l10n.media_year, value: year),
+        _DetailInfoRow(
+          label: context.l10n.media_year,
+          value: year,
+          icon: Broken.calendar,
+        ),
       );
     }
     if (country != null && country.isNotEmpty) {
       infoRows.add(
-        _DetailInfoRow(label: context.l10n.media_country, value: country),
+        _DetailInfoRow(
+          label: context.l10n.media_country,
+          value: country,
+          icon: Broken.global,
+        ),
       );
     }
     if (imdbRating != null) {
-      infoRows.add(_DetailInfoRow(label: 'IMDb', value: '★ ' + imdbRating));
+      infoRows.add(_DetailInfoRow(
+        label: context.l10n.media_rating,
+        value: imdbRating,
+        icon: Broken.star,
+        accent: true,
+        accentColor: const Color(0xFFF59E0B),
+      ));
     }
     if (director != null && director.isNotEmpty) {
       infoRows.add(
-        _DetailInfoRow(label: context.l10n.media_director, value: director),
+        _DetailInfoRow(
+          label: context.l10n.media_director,
+          value: director,
+          icon: Broken.user,
+        ),
       );
     }
     // Nb épisodes / type
@@ -2266,8 +2582,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       infoRows.add(_DetailInfoRow(
         label: isMovie ? context.l10n.media_type : context.l10n.media_episodes,
         value: isMovie ? context.l10n.media_film : '${chapters.length}',
+        icon: isMovie ? Broken.video_play : Broken.play_circle,
         accent: true,
         accentColor: _accent,
+      ));
+    }
+    // Nombre de saisons (série)
+    if (!isMovie && chapters.isNotEmpty) {
+      final seasons = _detectSeasons(chapters);
+      infoRows.add(_DetailInfoRow(
+        label: context.l10n.media_seasons,
+        value: '${seasons.isEmpty ? 1 : seasons.length}',
+        icon: Broken.monitor,
       ));
     }
     // Statut
@@ -2275,6 +2601,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       infoRows.add(_DetailInfoRow(
         label: context.l10n.media_status,
         value: statusLabel,
+        icon: Broken.verify,
         accent: true,
         accentColor: statusColor,
       ));
@@ -2285,13 +2612,18 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         _DetailInfoRow(
           label: context.l10n.media_language,
           value: manga.lang!.toUpperCase(),
+          icon: Broken.global,
         ),
       );
     }
     // Format
     if (typeTag != null) {
       infoRows.add(
-        _DetailInfoRow(label: context.l10n.media_format, value: typeTag),
+        _DetailInfoRow(
+          label: context.l10n.media_format,
+          value: typeTag,
+          icon: Broken.category,
+        ),
       );
     }
     // Source
@@ -2300,6 +2632,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         _DetailInfoRow(
           label: context.l10n.browse_create_source,
           value: manga.source!,
+          icon: Broken.folder,
         ),
       );
     }
@@ -2599,29 +2932,54 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor, width: 0.8),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            row.label,
-            style: TextStyle(
-              color: _grey,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w500,
+          if (row.icon != null) ...[
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: (row.accent ? row.accentColor! : _accent)
+                    .withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                row.icon,
+                size: 15,
+                color: row.accent ? row.accentColor! : _accent,
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            row.value,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              height: 1.1,
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  row.label,
+                  style: TextStyle(
+                    color: _grey,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  row.value,
+                  style: TextStyle(
+                    color: valueColor,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -2938,35 +3296,6 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 }
 
-class _ResourceMenuItem extends StatelessWidget {
-  const _ResourceMenuItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Row(
-      children: [
-        Icon(icon, size: 17, color: colors.onSurfaceVariant),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colors.onSurface,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // ─── COMMENT MODEL ──────────────────────────────────────────────────────────
 
@@ -4147,13 +4476,148 @@ class _ThreeDotsAnimationState extends State<_ThreeDotsAnimation>
 class _DetailInfoRow {
   final String label;
   final String value;
+  final IconData? icon;
   final bool accent;
   final Color? accentColor;
 
   const _DetailInfoRow({
     required this.label,
     required this.value,
+    this.icon,
     this.accent = false,
     this.accentColor,
   });
+}
+
+/// A single fact shown in the Info sheet's 3-column grid.
+class _SheetInfoCell {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool accent;
+  final Color? accentColor;
+
+  const _SheetInfoCell({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.accent = false,
+    this.accentColor,
+  });
+}
+
+// ─── In-player toast (bottom of the video surface) ───────────────────────────
+
+class _PlayerToast extends StatelessWidget {
+  final String message;
+
+  const _PlayerToast({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.82),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white24, width: 0.8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Broken.info_circle, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Player failure overlay (Lottie error + retry) ───────────────────────────
+
+class _PlayerFailureOverlay extends StatelessWidget {
+  final String message;
+  final String retryLabel;
+  final VoidCallback onRetry;
+
+  const _PlayerFailureOverlay({
+    required this.message,
+    required this.retryLabel,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.55),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Lottie.asset(
+                'assets/animations/error.json',
+                width: 96,
+                height: 96,
+                fit: BoxFit.contain,
+                repeat: true,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: onRetry,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Broken.refresh, color: Colors.white, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        retryLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

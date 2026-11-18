@@ -92,5 +92,18 @@ void main() {
       expect(restored.badges, isNull);
       expect(restored.status, Status.unknown);
     });
+
+    test('object genres are flattened to their label, never a map dump', () {
+      final restored = MManga.fromJson({
+        'name': 'Sample',
+        'genre': [
+          {'name': 'fantasy'},
+          {'title': 'blow job'},
+          'creampie',
+          {'unknown': 'x'},
+        ],
+      });
+      expect(restored.genre, ['fantasy', 'blow job', 'creampie', '']);
+    });
   });
 }

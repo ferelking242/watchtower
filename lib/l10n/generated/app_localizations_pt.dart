@@ -9036,6 +9036,12 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get player_load_failed => 'Unable to play this video';
+
+  @override
+  String get player_retry => 'Retry';
+
+  @override
   String get player_no_source_to_download => 'No source to download';
 
   @override

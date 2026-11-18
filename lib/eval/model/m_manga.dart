@@ -2,6 +2,23 @@ import 'package:watchtower/eval/model/m_chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 
+/// Flattens a genre/badge entry to its display label.
+///
+/// Extensions occasionally publish genres as objects (`{name: "fantasy"}`)
+/// instead of plain strings; `toString()` on such an entry leaks the map
+/// wrapper into the UI ("{name: fantasy}"). Unwrap the common label keys and
+/// fall back to `toString()` only for genuinely scalar values.
+String _genreLabel(dynamic entry) {
+  if (entry is Map) {
+    for (final key in const ['name', 'title', 'label', 'value', 'text']) {
+      final v = entry[key];
+      if (v != null && v.toString().trim().isNotEmpty) return v.toString();
+    }
+    return '';
+  }
+  return entry.toString();
+}
+
 class MManga {
   String? name;
 
@@ -63,8 +80,8 @@ class MManga {
         4 => Status.publishingFinished,
         _ => Status.unknown,
       },
-      genre: (json['genre'] as List?)?.map((e) => e.toString()).toList() ?? [],
-      badges: (json['badges'] as List?)?.map((e) => e.toString()).toList(),
+      genre: (json['genre'] as List?)?.map(_genreLabel).toList() ?? [],
+      badges: (json['badges'] as List?)?.map(_genreLabel).toList(),
       chapters: json['chapters'] != null
           ? (json['chapters'] as List).map((e) => MChapter.fromJson(e)).toList()
           : json['episodes'] != null

@@ -30,6 +30,12 @@ class WatchInlinePlayer {
   // ignore: avoid_setters_without_getters
   set onEpisodeTap(void Function(Chapter)? _) {}
 
+  // Load-failure / resume callbacks — no-op on web (HTML5 stub has no resume).
+  // ignore: avoid_setters_without_getters
+  set onLoadFailed(VoidCallback? _) {}
+  // ignore: avoid_setters_without_getters
+  set onResumed(void Function(Duration position)? _) {}
+
   // Controls visibility notifier — stub returns a constant false notifier
   final ValueNotifier<bool> controlsVisible = ValueNotifier(false);
 

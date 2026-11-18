@@ -24,8 +24,11 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
+import 'package:watchtower/models/history.dart';
+import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/video.dart' as wt;
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
+import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
 import 'package:watchtower/modules/more/settings/player/providers/player_prefs_provider.dart';
 import 'package:watchtower/services/download_manager/partial/partial_playback_plan.dart';
 import 'package:watchtower/services/download_manager/partial/partial_playback_resolver.dart';
@@ -445,6 +448,21 @@ class WatchInlinePlayer {
   List<Chapter> chapters = [];
   void Function(Chapter)? onEpisodeTap;
 
+  /// Fired when a [load] finishes without a playable stream (all qualities
+  /// failed, no URL, or an exception). The parent uses it to surface an in-player
+  /// toast and the retry overlay instead of leaving the bare cover on screen.
+  VoidCallback? onLoadFailed;
+
+  /// Fired once playback has been resumed to a saved position, with the target
+  /// position. The parent surfaces the "Reprise à …" toast on it.
+  void Function(Duration position)? onResumed;
+
+  /// Periodically persists the current position so a plain Library tap can
+  /// resume it later. Lives here (not in an overlay) because the portrait
+  /// banner has no `_FullscreenControlsOverlay`, which used to be the only
+  /// place progress was written — so watching in portrait never saved anything.
+  Timer? _progressSaveTimer;
+
   /// Cover de l'entrée (série/film) — fallback quand un épisode n'a pas sa
   /// propre miniature dans le panneau d'épisodes.
   String? coverUrl;
@@ -456,6 +474,8 @@ class WatchInlinePlayer {
 
   void dispose() {
     _isDisposed = true;
+    _progressSaveTimer?.cancel();
+    unawaited(_saveProgressNow());
     _actualDurationSub?.cancel();
     _widthSub?.cancel();
     _heightSub?.cancel();
@@ -464,6 +484,67 @@ class WatchInlinePlayer {
     fitNotifier.dispose();
     controlsVisible.dispose();
     isPortraitFormat.dispose();
+  }
+
+  /// Persists the current (title, chapter) position. Called on a 5 s timer and
+  /// on dispose so leaving the page always records where the user stopped.
+  Future<void> _saveProgressNow() async {
+    final chapterId = loadedChapterId;
+    if (chapterId == null || title.isEmpty) return;
+    try {
+      final state = _player.state;
+      final ms = state.position.inMilliseconds;
+      if (ms <= 0) return;
+      final dur = state.duration;
+      final completed =
+          dur > Duration.zero && ms >= dur.inMilliseconds - 5000;
+      await writeWatchResume(title, chapterId, ms, completed: completed);
+      _recordHistory(chapterId);
+    } catch (error) {
+      AppLogger.log('Ignored error (watch_player_io.dart)',
+          logLevel: LogLevel.debug, tag: LogTag.watch, error: error);
+    }
+  }
+
+  /// Upserts the Isar `History` row for the watched title.
+  ///
+  /// Videos previously never touched `History`, so a watched episode could not
+  /// appear on the History page and had nothing to resume from there. One row
+  /// per title (keyed by `mangaId`) is kept, pointing at the latest episode.
+  void _recordHistory(int chapterId) {
+    if (_ref?.read(incognitoModeStateProvider) ?? false) return;
+    final chapter = isar.chapters.getSync(chapterId);
+    final mangaId = chapter?.mangaId ?? _activeChapter?.mangaId;
+    if (chapter == null || mangaId == null) return;
+    final manga = isar.mangas.getSync(mangaId);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final existing =
+        isar.historys.where().mangaIdEqualTo(mangaId).findFirstSync();
+    final record = (existing ??
+            History(
+              mangaId: mangaId,
+              chapterId: chapterId,
+              itemType: manga?.itemType ?? ItemType.anime,
+              date: now.toString(),
+            ))
+      ..mangaId = mangaId
+      ..chapterId = chapterId
+      ..itemType = manga?.itemType ?? ItemType.anime
+      ..date = now.toString()
+      ..updatedAt = now
+      ..chapter.value = chapter;
+    isar.writeTxnSync(() {
+      isar.historys.putSync(record);
+      record.chapter.saveSync();
+    });
+  }
+
+  void _startProgressSaveTimer() {
+    _progressSaveTimer?.cancel();
+    _progressSaveTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_saveProgressNow()),
+    );
   }
 
   /// Callback fired when quality changes (so the page UI can rebuild).
@@ -1088,6 +1169,7 @@ class WatchInlinePlayer {
     _ref = ref;
     loadFailed = false;
     hasVideoUrl = false;
+    _startProgressSaveTimer();
     final previousDuration = _player.state.duration;
     _activeChapter = chapter;
     partialPlan = null;
@@ -1163,6 +1245,7 @@ class WatchInlinePlayer {
           logLevel: LogLevel.error,
           tag: LogTag.watch,
         );
+        _notifyLoadFailed();
         return;
       }
 
@@ -1532,6 +1615,7 @@ class WatchInlinePlayer {
         logLevel: LogLevel.error,
         tag: LogTag.watch,
       );
+      _notifyLoadFailed();
     } catch (e, st) {
       loadFailed = true;
       AppLogger.log(
@@ -1541,7 +1625,13 @@ class WatchInlinePlayer {
         error: e,
         stackTrace: st,
       );
+      _notifyLoadFailed();
     }
+  }
+
+  void _notifyLoadFailed() {
+    if (_isDisposed) return;
+    onLoadFailed?.call();
   }
 
   /// Seeks to [startPosition] once the media is open (resume from History),
@@ -1564,6 +1654,7 @@ class WatchInlinePlayer {
             );
         if (_isDisposed) return;
         await seekReal(pos);
+        if (!_isDisposed) onResumed?.call(pos);
       } catch (error) { AppLogger.log('Ignored error (watch_player_io.dart)', logLevel: LogLevel.debug, tag: LogTag.watch, error: error); }
     }());
   }
