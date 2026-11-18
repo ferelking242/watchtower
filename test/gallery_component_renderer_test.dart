@@ -55,10 +55,12 @@ void main() {
     }
     expect(home.map((d) => d.id), contains('spotlight'));
     expect(home.map((d) => d.id), contains('manga-chapter'));
-    // The mock manga hero/banner are retired from the picker; the shared
-    // `spotlight` is the one hero every layout must open with.
+    // Le faux hero/bannière manga est supprimé : le hero partagé `spotlight`
+    // (MediaHeroCarousel) est le seul, le même que toutes les extensions.
     expect(home.map((d) => d.id), isNot(contains('manga-spotlight')));
     expect(home.map((d) => d.id), isNot(contains('manga-banner')));
+    expect(GalleryComponentCatalog.descriptors.map((d) => d.id),
+        isNot(contains('manga-resume')));
   });
 
   test('palette exposes configurable parameters per family', () {
@@ -79,11 +81,9 @@ void main() {
 
   test('duplicate gallery variants are not offered for new layouts', () {
     const retiredIds = [
-      // Le faux hero/bannière manga et la reprise factice sont retirés au
-      // profit de `spotlight` (MediaHeroCarousel) et de l'historique réel.
-      'manga-spotlight',
-      'manga-banner',
-      'manga-resume',
+      // Les faux hero/bannière/reprise manga sont supprimés du catalogue :
+      // le hero réel est `spotlight` (MediaHeroCarousel) et la reprise vient
+      // de l'historique réel.
       'poster-card-compact',
       'discovery',
       'animated-discovery',

@@ -1428,31 +1428,6 @@ class GalleryComponentCatalog {
       loadingPreview: LayoutComponentLoadingPreview.hero,
     ),
     GalleryComponentDescriptor(
-      id: 'manga-resume',
-      className: 'MangaResumeCard',
-      label: 'Reprise de lecture',
-      category: 'MANGA & LECTURE',
-      description: 'Section "Reprendre la lecture"',
-      renderer: GalleryComponentFamily.homeHero,
-      loadingPreview: LayoutComponentLoadingPreview.hero,
-      // Retirée : la carte affichait une progression et un « Chapitre 148 »
-      // inventés (jamais lus). La vraie reprise viendra de l'historique.
-      selectable: false,
-    ),
-    GalleryComponentDescriptor(
-      id: 'manga-spotlight',
-      className: 'MangaSpotlightCard',
-      label: 'Spotlight manga',
-      category: 'MANGA & LECTURE',
-      description: 'Hero du home manga',
-      renderer: GalleryComponentFamily.homeHero,
-      loadingPreview: LayoutComponentLoadingPreview.hero,
-      // Retiré : le vrai hero est `spotlight` (MediaHeroCarousel), le même que
-      // toutes les autres extensions. Conservé uniquement pour relire les
-      // anciens layouts qui citeraient encore cet id.
-      selectable: false,
-    ),
-    GalleryComponentDescriptor(
       id: 'manga-genre',
       className: 'MangaGenreCard',
       label: 'Genre manga',
@@ -1469,18 +1444,6 @@ class GalleryComponentCatalog {
       description: 'Liste "Dernières mises à jour"',
       renderer: GalleryComponentFamily.homeHero,
       loadingPreview: LayoutComponentLoadingPreview.hero,
-    ),
-    GalleryComponentDescriptor(
-      id: 'manga-banner',
-      className: 'MangaBannerCard',
-      label: 'Bannière manga',
-      category: 'MANGA & LECTURE',
-      description: 'Section pleine largeur du home manga',
-      renderer: GalleryComponentFamily.homeHero,
-      loadingPreview: LayoutComponentLoadingPreview.hero,
-      // Retirée : trop grande et redondante avec `spotlight`. Conservée
-      // uniquement pour relire les anciens layouts qui citeraient cet id.
-      selectable: false,
     ),
     GalleryComponentDescriptor(
       id: 'manga-top3',

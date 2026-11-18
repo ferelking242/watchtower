@@ -300,24 +300,6 @@ class GalleryComponentRenderer {
     'manga-universe-map',
   }.contains(id);
 
-  /// Full-width spotlight used by the extension renderer.
-  static Widget spotlight(
-    GalleryComponentContext ctx,
-    List<ContentItem> items,
-    int index,
-  ) => manga_home.MangaSpotlightCard(
-    item: items[index],
-    onTap: () => ctx.onOpen(index),
-    height: ctx.decimal('height') ?? 230,
-  );
-
-  /// Full-width banner used by the extension renderer.
-  static Widget banner(
-    GalleryComponentContext ctx,
-    ContentItem item,
-    int index,
-  ) => manga_home.MangaBannerCard(item: item, onTap: () => ctx.onOpen(index));
-
   // ── Layout plumbing ──────────────────────────────────────────────────────
 
   static List<ContentItem> limited(GalleryComponentContext ctx) {
@@ -408,8 +390,6 @@ class GalleryComponentRenderer {
       'manga-trending-list',
       'manga-collection-showcase',
       'manga-scan-group',
-      'manga-spotlight',
-      'manga-banner',
       'manga-latest-update',
       'manga-vote',
       'home-hero-banner',
@@ -554,13 +534,11 @@ class GalleryComponentRenderer {
     'manga-quick-access' ||
     'manga-reader-floating' => 380,
     'manga-reading-direction' => 300,
-    'manga-update-row' || 'manga-resume' || 'manga-reader-floating-card' => 330,
+    'manga-update-row' || 'manga-reader-floating-card' => 330,
     'manga-featured' => 168,
     'manga-genre' => 118,
     'manga-vote' => 320,
     'manga-latest-update' => 300,
-    'manga-banner' => 640,
-    'manga-spotlight' => 560,
     'manga-page-progress' => 280,
     'home-hero-banner' => 640,
     'home-mini-player-card' => 420,
@@ -1730,20 +1708,6 @@ class GalleryComponentRenderer {
           onTap: onTap,
           width: w ?? 168,
         );
-      case 'manga-resume':
-        return manga_home.MangaResumeCard(
-          item: item,
-          subtitle: ctx.text('subtitle'),
-          // Aucune progression inventée : sans valeur réelle, pas de barre.
-          progress: ctx.decimal('progress'),
-          onTap: onTap,
-        );
-      case 'manga-spotlight':
-        return manga_home.MangaSpotlightCard(
-          item: item,
-          height: ctx.decimal('height') ?? 210,
-          onTap: onTap,
-        );
       case 'manga-update-row':
         return manga_home.MangaUpdateRow(
           item: item,
@@ -1751,8 +1715,6 @@ class GalleryComponentRenderer {
           time: ctx.text('time'),
           onTap: onTap,
         );
-      case 'manga-banner':
-        return manga_home.MangaBannerCard(item: item, onTap: onTap);
       case 'manga-latest-update':
         return manga_home.MangaLatestUpdateCard(
           item: item,
@@ -1927,7 +1889,9 @@ class GalleryComponentRenderer {
         );
       case GalleryComponentFamily.spotlight:
       case GalleryComponentFamily.banner:
-        return manga_home.MangaBannerCard(item: item, onTap: onTap);
+        // Le hero réel (`spotlight` → MediaHeroCarousel) est rendu par l'écran
+        // d'accueil ; la famille ne sert plus qu'au repli d'un ancien layout.
+        return PosterCard(item: item, width: w ?? 120, onTap: onTap);
       case GalleryComponentFamily.mangaUniverse:
         return MangaLinkedSeriesCard(
           items: _relationEntries(ctx, items),

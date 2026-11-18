@@ -2798,8 +2798,7 @@ class ShowcaseSkeleton extends StatelessWidget {
   }
 }
 
-/// Full-width banner card with bottom title (MediaBannerRail, MangaBannerCard,
-/// MangaSpotlightCard).
+/// Full-width banner skeleton with the title overlaid at the bottom.
 class BannerSkeleton extends StatelessWidget {
   const BannerSkeleton({this.width = 340, this.ratio = 2.05, super.key});
 
@@ -9056,41 +9055,6 @@ List<_ComponentSpec> _buildComponents() => [
   ),
   _ComponentSpec(
     section: 'MANGA · ACCUEIL',
-    title: 'Reprise de lecture',
-    className: 'MangaResumeCard',
-    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
-    usage: 'Section "Reprendre la lecture"',
-    icon: Icons.play_circle_outline_rounded,
-    kind: _PreviewKind.mangaList,
-    result: (_) => SizedBox(
-      width: 330,
-      child: manga_home.MangaResumeCard(
-        item: ContentItem.fromManga(_extensionItems[2]),
-        subtitle: 'Chapitre 12',
-        progress: 0.42,
-        onTap: () {},
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'MANGA · ACCUEIL',
-    title: 'Spotlight manga',
-    className: 'MangaSpotlightCard',
-    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
-    usage: 'Hero du home manga',
-    icon: Icons.auto_awesome_rounded,
-    kind: _PreviewKind.mangaSpotlight,
-    result: (_) => SizedBox(
-      width: 320,
-      child: manga_home.MangaSpotlightCard(
-        item: ContentItem.fromManga(_extensionItems[3]),
-        height: 180,
-        onTap: () {},
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'MANGA · ACCUEIL',
     title: 'Genre manga',
     className: 'MangaGenreCard',
     path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
@@ -9121,22 +9085,6 @@ List<_ComponentSpec> _buildComponents() => [
         item: ContentItem.fromManga(_extensionItems[0]),
         subtitle: 'Chapitre 147',
         time: '2 h',
-        onTap: () {},
-      ),
-    ),
-  ),
-  _ComponentSpec(
-    section: 'MANGA · ACCUEIL',
-    title: 'Bannière manga',
-    className: 'MangaBannerCard',
-    path: 'lib/modules/manga/home/widgets/manga_home_cards.dart',
-    usage: 'Section pleine largeur du home manga',
-    icon: Icons.panorama_outlined,
-    kind: _PreviewKind.banner,
-    result: (_) => SizedBox(
-      width: 320,
-      child: manga_home.MangaBannerCard(
-        item: ContentItem.fromManga(_extensionItems[2]),
         onTap: () {},
       ),
     ),
