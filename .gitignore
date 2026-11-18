@@ -105,8 +105,9 @@ packaging/
 /server/
 /server.py
 
-# Empty ghost dirs
-watchtower/
+# Empty ghost dirs (root-level only — without the leading slash this also
+# swallowed android/app/src/main/kotlin/com/kodjodevf/watchtower/)
+/watchtower/
 
 # Misc scratch
 colab_deploy.ipynb
