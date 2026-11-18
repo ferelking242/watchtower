@@ -2096,13 +2096,16 @@ class _FullscreenControlsOverlayState
   bool _audioOnly = false;
   bool _showSubPanel = false;
 
-  // ── Double-tap escalation (skip zones) ────────────────────────────────────
+  // ── Double-tap skip (skip zones) ──────────────────────────────────────────
   int _doubleTapCount = 0;
   bool? _doubleTapRight;
   Timer? _doubleTapResetTimer;
   bool _showLeftSkipHUD = false;
   bool _showRightSkipHUD = false;
   Timer? _skipHudTimer;
+  // Bumped on every double-tap so the HUD replays its animation from the start
+  // instead of keeping the previous frame.
+  int _skipHudToken = 0;
   // Debounce: accumulate delta, fire ONE seek per rapid-tap burst
   Timer? _seekDebounceTimer;
   int _accumulatedSeekDelta = 0;
@@ -2494,14 +2497,14 @@ class _FullscreenControlsOverlayState
     }
     _doubleTapResetTimer?.cancel();
 
-    // Reset count/accumulator if side changed
+    // Reset the accumulator if the side changed
     if (_doubleTapRight != null && _doubleTapRight != isRight) {
       _doubleTapCount = 0;
       _accumulatedSeekDelta = 0;
     }
     _doubleTapRight = isRight;
-    // Cap at 4 consecutive taps (chaque tap vaut _seekSeconds)
-    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 4);
+    // Escalate up to 3 arrows within a burst; a new burst restarts at 1.
+    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 3);
 
     final increment = _seekSeconds;
     _accumulatedSeekDelta += isRight ? increment : -increment;
@@ -2517,6 +2520,7 @@ class _FullscreenControlsOverlayState
     // Show HUD — stays visible until 800 ms after the last tap
     _skipHudTimer?.cancel();
     setState(() {
+      _skipHudToken++;
       _showLeftSkipHUD = !isRight;
       _showRightSkipHUD = isRight;
     });
@@ -2525,12 +2529,15 @@ class _FullscreenControlsOverlayState
         setState(() {
           _showLeftSkipHUD = false;
           _showRightSkipHUD = false;
+          // The burst is over once the HUD is gone: the next double-tap
+          // restarts the animation at one arrow instead of adding a fourth.
+          _doubleTapCount = 0;
+          _doubleTapRight = null;
         });
     });
 
-    // Reset escalation counter 1 s after last tap
+    // Reset the burst 1 s after the last tap
     _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
-      _doubleTapCount = 0;
       _doubleTapRight = null;
       _accumulatedSeekDelta = 0;
     });
@@ -2879,12 +2886,16 @@ class _FullscreenControlsOverlayState
       },
       child: Stack(
         children: [
-          // ── Left-half double-tap zone (seek back) — also single-tap toggles controls
+          // ── Tap zones: left = seek back, centre = pause/resume, right =
+          // seek forward. Each also toggles the controls on a single tap.
+          // They sit BELOW the controls overlay, whose scrim is not
+          // hit-testable, so a tap in the empty middle reaches these zones
+          // while the real buttons (top/bottom bars) keep their own hits.
           Positioned(
             left: 0,
             top: 0,
             bottom: 0,
-            width: size.width * 0.5,
+            width: size.width * 0.3,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onDoubleTap: () {
@@ -2894,12 +2905,28 @@ class _FullscreenControlsOverlayState
               onTap: _onTap,
             ),
           ),
-          // ── Right-half double-tap zone (seek forward) — also single-tap toggles controls
+          Positioned(
+            left: size.width * 0.3,
+            top: 0,
+            bottom: 0,
+            width: size.width * 0.4,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onDoubleTap: () {
+                if (_locked) return;
+                if (_doubleTapToPauseEnabled) {
+                  widget.player.playOrPause();
+                  _resetHideTimer();
+                }
+              },
+              onTap: _onTap,
+            ),
+          ),
           Positioned(
             right: 0,
             top: 0,
             bottom: 0,
-            width: size.width * 0.5,
+            width: size.width * 0.3,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onDoubleTap: () {
@@ -2923,6 +2950,7 @@ class _FullscreenControlsOverlayState
                     isRight: _showRightSkipHUD,
                     seconds: _seekSeconds,
                     count: _doubleTapCount,
+                    token: _skipHudToken,
                   ),
                 ),
               ),
@@ -3447,11 +3475,12 @@ class _FullscreenControlsOverlayState
     required bool isRight,
     required int seconds,
     int count = 1,
+    int token = 0,
   }) {
     final arrows = count.clamp(1, 3);
     final icon = isRight ? Broken.forward : Broken.backward;
     return TweenAnimationBuilder<double>(
-      key: ValueKey('skip_${isRight}_$seconds'),
+      key: ValueKey('skip_${isRight}_${seconds}_$token'),
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
@@ -3686,8 +3715,16 @@ class _FullscreenControlsOverlayState
     final safeArea = MediaQuery.of(context).padding;
     return Stack(
       children: [
-        Container(
-          color: const Color(0x55000000),
+        // Scrim — deliberately NOT hit-testable: a full-screen ColoredBox is
+        // opaque and would swallow every tap, so the seek/pause tap zones
+        // below this overlay would never receive a double-tap while the
+        // controls are visible. Only the real bars/buttons absorb their taps.
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: ColoredBox(color: Color(0x55000000)),
+          ),
+        ),
+        Padding(
           padding: EdgeInsets.only(
             left: safeArea.left,
             right: safeArea.right,
@@ -6126,6 +6163,9 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
   bool _showLeftSkipHUD = false;
   bool _showRightSkipHUD = false;
   Timer? _skipHudTimer;
+  // Bumped on every double-tap so the HUD replays its animation from the start
+  // instead of keeping the previous frame.
+  int _skipHudToken = 0;
   Timer? _seekDebounceTimer;
   int _accumulatedSeekDelta = 0;
 
@@ -6242,7 +6282,8 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
       _accumulatedSeekDelta = 0;
     }
     _doubleTapRight = isRight;
-    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 4);
+    // Escalate up to 3 arrows within a burst; a new burst restarts at 1.
+    _doubleTapCount = (_doubleTapCount + 1).clamp(1, 3);
     final increment = 15;
     _accumulatedSeekDelta += isRight ? increment : -increment;
 
@@ -6258,6 +6299,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
     // Portrait: flèches latérales animées (style YouTube)
     _skipHudTimer?.cancel();
     setState(() {
+      _skipHudToken++;
       _showLeftSkipHUD = !isRight;
       _showRightSkipHUD = isRight;
     });
@@ -6266,12 +6308,15 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
         setState(() {
           _showLeftSkipHUD = false;
           _showRightSkipHUD = false;
+          // The burst is over once the HUD is gone: the next double-tap
+          // restarts the animation at one arrow instead of adding a fourth.
+          _doubleTapCount = 0;
+          _doubleTapRight = null;
         });
       }
     });
 
     _doubleTapResetTimer = Timer(const Duration(milliseconds: 1000), () {
-      _doubleTapCount = 0;
       _doubleTapRight = null;
       _accumulatedSeekDelta = 0;
     });
@@ -6506,11 +6551,12 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
     required bool isRight,
     required int seconds,
     int count = 1,
+    int token = 0,
   }) {
     final arrows = count.clamp(1, 3);
     final icon = isRight ? Broken.forward : Broken.backward;
     return TweenAnimationBuilder<double>(
-      key: ValueKey('fs_skip_${isRight}_$seconds'),
+      key: ValueKey('fs_skip_${isRight}_${seconds}_$token'),
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
@@ -6646,6 +6692,7 @@ class _PortraitPlayerOverlayState extends ConsumerState<_PortraitPlayerOverlay> 
                     isRight: _showRightSkipHUD,
                     seconds: 15,
                     count: _doubleTapCount,
+                    token: _skipHudToken,
                   ),
                 ),
               ),
