@@ -98,12 +98,22 @@ class _ImageViewVerticalState extends ConsumerState<ImageViewVertical> {
     // replaces [data.cropImage]. Wide-page handling below only applies when the
     // page really is wider than tall and the user asked for it.
     final BoxFit imageFit;
+    // BoxFit only chooses how the image is painted inside its layout box; it
+    // never sizes that box (ExtendedRenderImage always preserves the image's
+    // aspect ratio). A page narrower than the viewport therefore keeps its
+    // intrinsic width and leaves gutters, so Webtoon pages must force the
+    // available width explicitly. The rotate path is exempt: the image is laid
+    // out inside a RotatedBox (unbounded width) and rotated to fit.
+    final bool forceViewportWidth;
     if (rotateWide && _isWide) {
       imageFit = BoxFit.contain;
+      forceViewportWidth = false;
     } else if (fitWidth) {
       imageFit = BoxFit.fitWidth;
+      forceViewportWidth = !isHorizontal;
     } else {
       imageFit = getBoxFit(ref.watch(scaleTypeStateProvider));
+      forceViewportWidth = false;
     }
 
     Widget imageWidget = ExtendedImage(
@@ -112,6 +122,7 @@ class _ImageViewVerticalState extends ConsumerState<ImageViewVertical> {
       image: data.getImageProvider(ref, true),
       filterQuality: FilterQuality.medium,
       handleLoadingProgress: true,
+      width: forceViewportWidth ? double.infinity : null,
       fit: imageFit,
       enableLoadState: true,
       loadStateChanged: (state) {

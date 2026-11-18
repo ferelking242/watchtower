@@ -153,7 +153,8 @@ jobs:
         run: |
           flutter test \
             test/reader_page_scroll_test.dart \
-            test/reader_webtoon_layout_test.dart
+            test/reader_webtoon_layout_test.dart \
+            test/reader_webtoon_width_test.dart
 
       - name: Run onboarding showcase tests
         run: |
