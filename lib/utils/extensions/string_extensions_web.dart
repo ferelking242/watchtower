@@ -82,11 +82,33 @@ extension StringExtensions on String {
     return out;
   }
 
+  /// True when this URL points at a progressive video file (`.mp4`, `.mkv`…).
+  ///
+  /// Matches the extension against the URL *path* only, after dropping the
+  /// query, the fragment and any trailing slash. Signed CDN links append a
+  /// token after the file name (`…/720p.mp4?token=…`, KVS serves
+  /// `…/720p.mp4/?v-acctoken=…`), and testing `endsWith('mp4')` on the raw
+  /// string rejected every one of them — the download then found "no playable
+  /// URL" for a file it could have fetched. The extension must also be a real
+  /// dotted extension, so a directory named `mov` is not mistaken for a movie.
   bool isMediaVideo() {
-    return [
+    var path = this;
+    try {
+      final uri = Uri.tryParse(this);
+      path = uri != null && uri.hasScheme
+          ? uri.path
+          : split('?').first.split('#').first;
+    } catch (_) {
+      // Opaque chapter tokens are not URLs; fall through with the raw value.
+    }
+    while (path.endsWith('/')) {
+      path = path.substring(0, path.length - 1);
+    }
+    final lower = path.toLowerCase();
+    return const [
       "3gp", "avi", "mpg", "mpeg", "webm", "ogg", "flv",
       "m4v", "mvp", "mp4", "wmv", "mkv", "mov",
-    ].any((extension) => toLowerCase().endsWith(extension));
+    ].any((extension) => lower.endsWith('.$extension'));
   }
 }
 

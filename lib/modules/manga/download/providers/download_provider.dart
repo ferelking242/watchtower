@@ -16,6 +16,7 @@ import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart' show isCloudflareError;
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
 import 'package:watchtower/services/download_manager/download_settings_service.dart';
 import 'package:watchtower/modules/more/download_queue/download_queue_grouping.dart';
@@ -2166,15 +2167,24 @@ Future<void> downloadChapter(
               u.contains('hls-cdn') ||
               u.contains('hls.'))
             return true;
+          // An explicit progressive extension wins over a generic "Auto"
+          // label: extensions commonly label a plain mp4 "Auto", and routing
+          // it to the segment downloader produced a few-KB invalid file.
+          if ((v.originalUrl ?? '').toString().isMediaVideo()) return false;
           final q = (v.quality ?? '').toString().toLowerCase();
           if (q.contains('hls') || q.contains('auto')) return true;
           return false;
         }
 
-        final m3u8Urls = value.$1.where(looksLikeHls).toList();
-        final nonM3u8Urls = value.$1
-            .where((element) => !looksLikeHls(element) && element.originalUrl.isMediaVideo())
-            .toList();
+        // A URL that is neither an HLS manifest nor a recognised media file
+        // (a tokenised CDN link, say) is far more likely a stream than a
+        // progressive file, so it keeps the HLS pipeline rather than being
+        // discarded as "no playable URL".
+        bool isPlayableDirect(dynamic v) =>
+            !looksLikeHls(v) && (v.originalUrl ?? '').toString().isMediaVideo();
+
+        final nonM3u8Urls = value.$1.where(isPlayableDirect).toList();
+        final m3u8Urls = value.$1.where((v) => !isPlayableDirect(v)).toList();
         nonM3U8File = nonM3u8Urls.isNotEmpty;
         hasM3U8File = nonM3U8File ? false : m3u8Urls.isNotEmpty;
         var videosUrls = nonM3U8File ? nonM3u8Urls : m3u8Urls;
@@ -2331,12 +2341,19 @@ Future<void> downloadChapter(
       // l'utilisateur croyait que le bouton n'avait rien fait.
       _notifyDownloadFailure(fetchError!);
       // Route the "Battre le challenge" notification back to this download so
-      // the queue opens on this row with the inline bypass panel.
+      // the queue opens on this row with the inline bypass panel — but only
+      // when the failure is actually a Cloudflare refusal. Recording every
+      // failure force-opened the panel (and its "Battre le challenge" retry)
+      // on downloads that failed for an unrelated reason (expired URL, empty
+      // getVideoList, unsupported extension), where the panel correctly showed
+      // no challenge and the retry just failed again.
       final challengeUrl =
           chapterPageUrl ??
           (pageUrls.isNotEmpty ? pageUrls.first.url : null) ??
           (pageUrlsForCache.isNotEmpty ? pageUrlsForCache.first.url : null);
-      if (chapter.id != null && challengeUrl != null) {
+      if (chapter.id != null &&
+          challengeUrl != null &&
+          isCloudflareError(fetchError)) {
         ChallengeInbox.instance.record(
           chapterId: chapter.id!,
           url: challengeUrl,
