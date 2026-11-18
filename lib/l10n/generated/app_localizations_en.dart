@@ -7553,8 +7553,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get media_download_all => 'Download all';
 
   @override
-  String media_download_count(Object count) {
-    return 'Download $count item(s)';
+  String media_download_count(Object count, Object unit) {
+    return '$count $unit';
   }
 
   @override
@@ -7941,6 +7941,74 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String media_videos_count(Object count) {
     return '$count videos';
+  }
+
+  @override
+  String get media_unit_video => 'video';
+
+  @override
+  String get media_unit_videos => 'videos';
+
+  @override
+  String get media_unit_manga => 'manga';
+
+  @override
+  String get media_unit_mangas => 'mangas';
+
+  @override
+  String get media_unit_novel => 'novel';
+
+  @override
+  String get media_unit_novels => 'novels';
+
+  @override
+  String get media_unit_chapter => 'chapter';
+
+  @override
+  String get media_unit_chapters => 'chapters';
+
+  @override
+  String get media_unit_episode => 'episode';
+
+  @override
+  String get media_unit_episodes => 'episodes';
+
+  @override
+  String get media_unit_track => 'track';
+
+  @override
+  String get media_unit_tracks => 'tracks';
+
+  @override
+  String get media_unit_music => 'album';
+
+  @override
+  String get media_unit_musics => 'albums';
+
+  @override
+  String get media_unit_game => 'game';
+
+  @override
+  String get media_unit_games => 'games';
+
+  @override
+  String media_download_n_items(Object count, Object unit) {
+    return 'Download $count $unit';
+  }
+
+  @override
+  String media_n_items_size(Object count, Object size, Object unit) {
+    return '$count $unit · $size';
+  }
+
+  @override
+  String media_n_items_ratio(Object selected, Object total, Object unit) {
+    return '$selected/$total $unit';
+  }
+
+  @override
+  String media_download_unit_header(Object unit) {
+    return 'Download $unit in bulk';
   }
 
   @override

@@ -1246,6 +1246,7 @@ class _ExtensionPersonVideosState extends ConsumerState<_ExtensionPersonVideos> 
               ),
             ),
             CatalogDownloadMenuButton(
+              itemType: widget.source?.itemType,
               onSelected: (action) => unawaited(_handleMenuAction(action)),
               onRefresh: () => _refreshVideos(),
               onSelectMultiple: _toggleSelectionMode,

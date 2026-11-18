@@ -13346,8 +13346,8 @@ abstract class AppLocalizations {
   /// No description provided for @media_download_count.
   ///
   /// In en, this message translates to:
-  /// **'Download {count} item(s)'**
-  String media_download_count(Object count);
+  /// **'{count} {unit}'**
+  String media_download_count(Object count, Object unit);
 
   /// No description provided for @media_download_selection.
   ///
@@ -14074,6 +14074,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} videos'**
   String media_videos_count(Object count);
+
+  /// No description provided for @media_unit_video.
+  ///
+  /// In en, this message translates to:
+  /// **'video'**
+  String get media_unit_video;
+
+  /// No description provided for @media_unit_videos.
+  ///
+  /// In en, this message translates to:
+  /// **'videos'**
+  String get media_unit_videos;
+
+  /// No description provided for @media_unit_manga.
+  ///
+  /// In en, this message translates to:
+  /// **'manga'**
+  String get media_unit_manga;
+
+  /// No description provided for @media_unit_mangas.
+  ///
+  /// In en, this message translates to:
+  /// **'mangas'**
+  String get media_unit_mangas;
+
+  /// No description provided for @media_unit_novel.
+  ///
+  /// In en, this message translates to:
+  /// **'novel'**
+  String get media_unit_novel;
+
+  /// No description provided for @media_unit_novels.
+  ///
+  /// In en, this message translates to:
+  /// **'novels'**
+  String get media_unit_novels;
+
+  /// No description provided for @media_unit_chapter.
+  ///
+  /// In en, this message translates to:
+  /// **'chapter'**
+  String get media_unit_chapter;
+
+  /// No description provided for @media_unit_chapters.
+  ///
+  /// In en, this message translates to:
+  /// **'chapters'**
+  String get media_unit_chapters;
+
+  /// No description provided for @media_unit_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'episode'**
+  String get media_unit_episode;
+
+  /// No description provided for @media_unit_episodes.
+  ///
+  /// In en, this message translates to:
+  /// **'episodes'**
+  String get media_unit_episodes;
+
+  /// No description provided for @media_unit_track.
+  ///
+  /// In en, this message translates to:
+  /// **'track'**
+  String get media_unit_track;
+
+  /// No description provided for @media_unit_tracks.
+  ///
+  /// In en, this message translates to:
+  /// **'tracks'**
+  String get media_unit_tracks;
+
+  /// No description provided for @media_unit_music.
+  ///
+  /// In en, this message translates to:
+  /// **'album'**
+  String get media_unit_music;
+
+  /// No description provided for @media_unit_musics.
+  ///
+  /// In en, this message translates to:
+  /// **'albums'**
+  String get media_unit_musics;
+
+  /// No description provided for @media_unit_game.
+  ///
+  /// In en, this message translates to:
+  /// **'game'**
+  String get media_unit_game;
+
+  /// No description provided for @media_unit_games.
+  ///
+  /// In en, this message translates to:
+  /// **'games'**
+  String get media_unit_games;
+
+  /// No description provided for @media_download_n_items.
+  ///
+  /// In en, this message translates to:
+  /// **'Download {count} {unit}'**
+  String media_download_n_items(Object count, Object unit);
+
+  /// No description provided for @media_n_items_size.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} {unit} · {size}'**
+  String media_n_items_size(Object count, Object size, Object unit);
+
+  /// No description provided for @media_n_items_ratio.
+  ///
+  /// In en, this message translates to:
+  /// **'{selected}/{total} {unit}'**
+  String media_n_items_ratio(Object selected, Object total, Object unit);
+
+  /// No description provided for @media_download_unit_header.
+  ///
+  /// In en, this message translates to:
+  /// **'Download {unit} in bulk'**
+  String media_download_unit_header(Object unit);
 
   /// No description provided for @media_elements_count.
   ///

@@ -18,17 +18,17 @@ list(APPEND FLUTTER_PLUGIN_LIST
   isar_community_flutter_libs
   local_auth_windows
   media_kit_libs_windows_video
+  media_kit_video
   permission_handler_windows
   screen_brightness_windows
   screen_retriever_windows
+  share_plus
   speech_to_text_windows
   sqlite3_flutter_libs
   syncfusion_pdfviewer_windows
   tray_manager
   url_launcher_windows
-  share_plus
   volume_controller
-  media_kit_video
   window_manager
   window_to_front
 )

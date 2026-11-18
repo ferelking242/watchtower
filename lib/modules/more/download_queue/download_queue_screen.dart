@@ -3075,6 +3075,51 @@ class _GroupedDownloadTabListState
     );
   }
 
+  /// Background revealed while swiping a download card, matching the action
+  /// configured for that side. Uses the same icon, colour and label as the
+  /// compact swipe panel so a gesture means the same thing everywhere.
+  Widget _swipeBackgroundFor(
+    SwipeAction action, {
+    required Alignment alignment,
+    required bool isPaused,
+    required bool isCancelled,
+  }) {
+    final l10n = context.l10n;
+    final (IconData icon, String label, Color color) = switch (action) {
+      SwipeAction.pauseResume => (
+        isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+        isPaused ? l10n.queue_resume : l10n.queue_pause,
+        Colors.orange.shade700,
+      ),
+      SwipeAction.cancel => (
+        Icons.close_rounded,
+        l10n.downloads_swipe_cancel,
+        Colors.red.shade700,
+      ),
+      SwipeAction.delete => (
+        Icons.delete_outline_rounded,
+        l10n.downloads_swipe_delete,
+        Colors.red.shade900,
+      ),
+      SwipeAction.retry => (
+        Icons.replay_rounded,
+        l10n.downloads_swipe_retry,
+        Colors.blueGrey.shade700,
+      ),
+      SwipeAction.none => (
+        Icons.block_rounded,
+        l10n.downloads_swipe_disabled,
+        Colors.grey.shade700,
+      ),
+    };
+    return _swipeBackground(
+      alignment: alignment,
+      color: color,
+      icon: icon,
+      label: label,
+    );
+  }
+
   /// A download's own artwork when the extension provides one, otherwise the
   /// parent series cover. Resolving it here keeps every card on its own
   /// thumbnail instead of all falling back to the same series poster.
@@ -3209,72 +3254,62 @@ class _GroupedDownloadTabListState
     final priority = _queueState.priorities[element.id ?? -1] ?? 0;
     final liveProgress = _queueState.liveProgress[element.id ?? -1];
 
+    // Swipe sides follow the configured gesture actions ("Balayer à droite" =
+    // startToEnd, "Balayer à gauche" = endToStart) instead of the previous
+    // hardcoded delete/pause pair, which ignored the setting entirely. A side
+    // set to `none` is simply not swipeable.
+    final startAction = widget.swipeRight;
+    final endAction = widget.swipeLeft;
+    final direction = switch ((startAction, endAction)) {
+      (SwipeAction.none, SwipeAction.none) => DismissDirection.none,
+      (SwipeAction.none, _) => DismissDirection.endToStart,
+      (_, SwipeAction.none) => DismissDirection.startToEnd,
+      _ => DismissDirection.horizontal,
+    };
+
     return Dismissible(
       key: ValueKey('dl_swipe_${element.id ?? identityHashCode(element)}'),
-      direction: DismissDirection.horizontal,
+      direction: direction,
       dismissThresholds: const {
         DismissDirection.startToEnd: 0.30,
         DismissDirection.endToStart: 0.30,
       },
-      background: Container(
-        color: Colors.red.shade700,
+      background: _swipeBackgroundFor(
+        startAction,
         alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.delete_outline_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              context.l10n.delete,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+        isPaused: isPaused,
+        isCancelled: isCancelled,
       ),
-      secondaryBackground: Container(
-        color: Colors.orange.shade700,
+      secondaryBackground: _swipeBackgroundFor(
+        endAction,
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 28),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              isPaused ? context.l10n.resume : context.l10n.pause,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+        isPaused: isPaused,
+        isCancelled: isCancelled,
       ),
       confirmDismiss: (direction) async {
-        if (direction == DismissDirection.endToStart) {
-          if (isCancelled) {
+        final action = direction == DismissDirection.startToEnd
+            ? startAction
+            : endAction;
+        switch (action) {
+          case SwipeAction.pauseResume:
+            if (isCancelled) {
+              widget.onRetry(element);
+            } else {
+              widget.onPauseResume(element);
+            }
+            return false;
+          case SwipeAction.cancel:
+            widget.onCancel(element);
+            return false;
+          case SwipeAction.retry:
             widget.onRetry(element);
-          } else {
-            widget.onPauseResume(element);
-          }
-          return false;
+            return false;
+          case SwipeAction.delete:
+            widget.onDelete(element);
+            return true;
+          case SwipeAction.none:
+            return false;
         }
-        widget.onDelete(element);
-        return true;
       },
       child: GestureDetector(
         // Long-press toggles Speed Master queue priority (haute ↔ normale).

@@ -1629,6 +1629,7 @@ class _ExtensionLayoutSectionState extends ConsumerState<_ExtensionLayoutSection
     // (Télécharger, Tout télécharger, Télécharger 5/10/25…), so a section can
     // be queued straight from the home feed.
     final trailing = CatalogDownloadMenuButton(
+      itemType: widget.source.itemType,
       onSelected: (action) =>
           CatalogBulkDownload.handleMenu(context, ref, widget.source, items, action),
     );

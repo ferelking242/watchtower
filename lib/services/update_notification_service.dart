@@ -330,8 +330,12 @@ class WatchtowerNotificationService {
         response.payload?.contains('"type":"new_extensions"') == true;
     final isDownloadGroup =
         response.payload?.contains('"type":"download_group"') == true;
+    // Bulk-enqueue progress notification: tapping its body opens the download
+    // queue, so a run sent to the background stays one tap away.
+    final isDownloadQueue =
+        response.payload?.contains('"type":"download_queue"') == true;
     // Tapping the notification body (no action id) when install is pending.
-    if (isDownloadGroup && actionId == null) {
+    if ((isDownloadGroup || isDownloadQueue) && actionId == null) {
       unawaited(_openDownloadQueue());
     } else if ((actionId == null || actionId == _kActionInstall) &&
         _pendingInstallPath != null) {

@@ -81,6 +81,7 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   int _page = 1;
   bool _hasNext = true;
   bool _loadingMore = false;
+  Future<void>? _drainTask;
   final _seen = <String>{};
 
   late TabController _tabs;
@@ -666,6 +667,61 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     }
   }
 
+  /// Bulk downloads act on the whole result set, not only the pages already
+  /// loaded, so every remaining page is fetched first.
+  Future<void> _onDownloadMenuAction(CatalogBulkDownloadAction action) async {
+    if (_isBulkDownload(action)) {
+      await _drainAllResults();
+      if (!mounted || _results == null) return;
+    }
+    CatalogBulkDownload.handleMenu(
+      context,
+      ref,
+      widget.source,
+      _results ?? const [],
+      action,
+    );
+  }
+
+  static bool _isBulkDownload(CatalogBulkDownloadAction action) => switch (action) {
+    CatalogBulkDownloadAction.download ||
+    CatalogBulkDownloadAction.downloadAll ||
+    CatalogBulkDownloadAction.download5 ||
+    CatalogBulkDownloadAction.download10 ||
+    CatalogBulkDownloadAction.download25 ||
+    CatalogBulkDownloadAction.download50 ||
+    CatalogBulkDownloadAction.download100 ||
+    CatalogBulkDownloadAction.download250 ||
+    CatalogBulkDownloadAction.downloadCustom => true,
+    CatalogBulkDownloadAction.downloadsSubMenuHeader => false,
+  };
+
+  /// Pulls page after page until the extension reports no more results, the
+  /// screen changes (new query / tab), or several pages in a row add nothing —
+  /// a stalled page is not proof of the end, since some listings repeat a card.
+  Future<void> _drainAllResults() async {
+    final inFlight = _drainTask;
+    if (inFlight != null) return inFlight;
+    final task = _drainAllResultsOnce();
+    _drainTask = task;
+    return task.whenComplete(() {
+      if (identical(_drainTask, task)) _drainTask = null;
+    });
+  }
+
+  Future<void> _drainAllResultsOnce() async {
+    var stalls = 0;
+    while (mounted && _hasNext && !_loadingMore && _results != null) {
+      final version = _searchRequestVersion;
+      final before = _results!.length;
+      await _loadMore();
+      if (!mounted || version != _searchRequestVersion) return;
+      if (_loadingMore) return;
+      stalls = (_results?.length ?? before) == before ? stalls + 1 : 0;
+      if (stalls >= 3) return;
+    }
+  }
+
   /// Clears the field and keeps the keyboard open. Used as the first step of
   /// the back gesture (see [handleSearchBack]).
   void _clearAll() {
@@ -806,13 +862,8 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: CatalogDownloadMenuButton(
-                        onSelected: (action) => CatalogBulkDownload.handleMenu(
-                          context,
-                          ref,
-                          widget.source,
-                          _results!,
-                          action,
-                        ),
+                        itemType: widget.source.itemType,
+                        onSelected: _onDownloadMenuAction,
                       ),
                     ),
                 ],

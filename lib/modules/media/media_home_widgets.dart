@@ -47,6 +47,7 @@ import 'tmdb_genres_screen.dart';
 import 'widgets/bulk_enqueue_controller.dart';
 import 'widgets/bulk_enqueue_dialog.dart';
 import 'widgets/catalog_bulk_download_sheet.dart';
+import 'widgets/download_unit.dart';
 
 /// One feed composition for both Hub destinations. Only the selected data
 /// lists and the catalogue paths change between films and series.
@@ -1806,9 +1807,14 @@ abstract final class CatalogBulkDownload {
   }
 
   static List<PopupMenuEntry<CatalogBulkDownloadAction>> menuItems(
-    BuildContext context,
-  ) {
+    BuildContext context, {
+    ItemType? itemType,
+  }) {
     final l10n = context.l10n;
+    // The sub-header and every count follow the extension: a manga menu reads
+    // "Télécharger des mangas · 5 mangas" where a video source keeps "vidéos".
+    final entryUnit = (int count) =>
+        catalogEntryUnitLabel(l10n, itemType, count);
     return [
     PopupMenuItem(
       value: CatalogBulkDownloadAction.download,
@@ -1826,7 +1832,9 @@ abstract final class CatalogBulkDownload {
       child: Padding(
         padding: const EdgeInsets.only(left: 26),
         child: Text(
-          l10n.media_download_nb,
+          l10n.media_download_unit_header(
+            catalogEntryUnitPluralLabel(l10n, itemType),
+          ),
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ),
@@ -1843,7 +1851,10 @@ abstract final class CatalogBulkDownload {
         value: action,
         child: Padding(
           padding: const EdgeInsets.only(left: 26),
-          child: _menuRow(Broken.arrow_right_2, l10n.media_elements_count(count)),
+          child: _menuRow(
+            Broken.arrow_right_2,
+            l10n.media_download_count(count, entryUnit(count)),
+          ),
         ),
       ),
     ];
@@ -2069,7 +2080,16 @@ abstract final class CatalogBulkDownload {
       final queued = controller.queued;
       final failed = controller.failed;
       final remaining = controller.remaining;
-      final weightSummary = ' · ${controller.estimatedSizeSummary}';
+      // Manga pages have no up-front weight, so the estimate is left out
+      // instead of appending a meaningless "Poids indisponible".
+      final isManga = source.itemType == ItemType.manga;
+      final weightSummary = isManga
+          ? ''
+          : ' · ${controller.estimatedSizeSummary}';
+      final queuedLabel = l10n.media_download_count(
+        '$queued',
+        queuedUnitLabel(l10n, source.itemType, queued),
+      );
       controller.complete();
       if (!controller.backgrounded) closeDialog();
       if (context.mounted) {
@@ -2081,8 +2101,7 @@ abstract final class CatalogBulkDownload {
                         '${l10n.media_queue_failed('$failed', '$remaining')}'
                         '$weightSummary'
                   : failed == 0
-                  ? '${l10n.media_queue_added}'
-                        '${l10n.media_videos_count('$queued')}$weightSummary.'
+                  ? '${l10n.media_queue_added}$queuedLabel$weightSummary.'
                   : '${l10n.media_queue_queued('$queued')}'
                         '${l10n.media_queue_failed_short('$failed')}'
                         '$weightSummary.',
@@ -2227,6 +2246,7 @@ class CatalogDownloadMenuButton extends StatelessWidget {
     this.selectionActive = false,
     this.selectedCount = 0,
     this.onDownloadSelection,
+    this.itemType,
     super.key,
   });
 
@@ -2236,6 +2256,10 @@ class CatalogDownloadMenuButton extends StatelessWidget {
   final bool selectionActive;
   final int selectedCount;
   final VoidCallback? onDownloadSelection;
+
+  /// Content type of the catalogue behind this button, so the "download nb"
+  /// entries name the right unit (mangas, vidéos, romans, albums…).
+  final ItemType? itemType;
 
   @override
   Widget build(BuildContext context) {
@@ -2253,6 +2277,7 @@ class CatalogDownloadMenuButton extends StatelessWidget {
         selectionActive: selectionActive,
         selectedCount: selectedCount,
         onDownloadSelection: onDownloadSelection,
+        itemType: itemType,
       ),
     );
   }
@@ -2267,6 +2292,7 @@ class _CatalogDownloadMenuOverlay extends StatefulWidget {
     required this.selectionActive,
     required this.selectedCount,
     required this.onDownloadSelection,
+    this.itemType,
   });
 
   final VoidCallback close;
@@ -2276,6 +2302,7 @@ class _CatalogDownloadMenuOverlay extends StatefulWidget {
   final bool selectionActive;
   final int selectedCount;
   final VoidCallback? onDownloadSelection;
+  final ItemType? itemType;
 
   @override
   State<_CatalogDownloadMenuOverlay> createState() =>
@@ -2378,7 +2405,10 @@ class _CatalogDownloadMenuOverlayState
           (CatalogBulkDownloadAction.download250, 250),
         ])
           AdaptiveOverlayItem(
-            label: l10n.media_elements_count(count),
+            label: l10n.media_download_count(
+              count,
+              catalogEntryUnitLabel(l10n, widget.itemType, count),
+            ),
             onTap: () => select(action),
           ),
         AdaptiveOverlayItem(
@@ -2478,6 +2508,12 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   bool _loading = false;
   bool _hasMore = true;
   int _page = 1;
+
+  /// Safety valve for the pre-download drain, so a paginating extension that
+  /// never reports the last page cannot spin forever.
+  static const int _autoDrainPageCap = 250;
+  Future<void>? _drainTask;
+
   late CatalogFilterState _filter;
   String _searchQuery = '';
   List<dynamic> _extensionFilters = [];
@@ -2842,7 +2878,25 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
 
   // ── Menu 3 points (même composant que la barre de la page Librairie) ──────
 
-  void _onListMenuAction(CatalogBulkDownloadAction action) {
+  /// Menu entry point: before a bulk download, drain every remaining page so
+  /// "Tout télécharger" (and the counts shown in its sheet) covers the whole
+  /// catalogue rather than only the cards already on screen.
+  Future<void> _onListMenuAction(CatalogBulkDownloadAction action) async {
+    final isBulk =
+        action == CatalogBulkDownloadAction.downloadAll ||
+        action == CatalogBulkDownloadAction.download ||
+        action == CatalogBulkDownloadAction.download5 ||
+        action == CatalogBulkDownloadAction.download10 ||
+        action == CatalogBulkDownloadAction.download25 ||
+        action == CatalogBulkDownloadAction.download50 ||
+        action == CatalogBulkDownloadAction.download100 ||
+        action == CatalogBulkDownloadAction.download250 ||
+        action == CatalogBulkDownloadAction.downloadCustom;
+    if (isBulk && _isExtension) {
+      await _drainAllPages();
+      if (!mounted) return;
+    }
+    if (!mounted) return;
     CatalogBulkDownload.handleMenu(
       context,
       ref,
@@ -2850,6 +2904,33 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       _extensionItems,
       action,
     );
+  }
+
+  /// Loads every remaining page one after another. A page that adds nothing is
+  /// not necessarily the end (listings repeat a card across page boundaries),
+  /// so it only stops after several consecutive empty pages.
+  Future<void> _drainAllPages() {
+    final inFlight = _drainTask;
+    if (inFlight != null) return inFlight;
+    final task = _drainAllPagesOnce();
+    _drainTask = task;
+    return task.whenComplete(() {
+      if (identical(_drainTask, task)) _drainTask = null;
+    });
+  }
+
+  Future<void> _drainAllPagesOnce() async {
+    var stalls = 0;
+    while (mounted && _hasMore && !_loading && _page < _autoDrainPageCap) {
+      final before = _extensionItems.length;
+      await _loadPage();
+      if (!mounted || !_hasMore) return;
+      stalls = _extensionItems.length == before ? stalls + 1 : 0;
+      if (stalls >= 3) {
+        if (mounted) setState(() => _hasMore = false);
+        return;
+      }
+    }
   }
 
   // ── Filtres appliqués aux items affichés ─────────────────────────────────
@@ -2987,7 +3068,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         actions: [
           _buildFilterButton(),
           // Menu 3 points, même composant glass que la Librairie.
-          CatalogDownloadMenuButton(onSelected: _onListMenuAction),
+          CatalogDownloadMenuButton(
+            onSelected: _onListMenuAction,
+            itemType: widget.extensionSource?.itemType,
+          ),
           const SizedBox(width: 6),
         ],
       ),

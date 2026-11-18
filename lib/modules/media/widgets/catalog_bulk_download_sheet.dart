@@ -15,6 +15,7 @@ import 'package:watchtower/modules/manga/download/providers/download_provider.da
 import 'package:watchtower/modules/media/extension_image_headers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/widgets/bulk_download_formats.dart';
+import 'package:watchtower/modules/media/widgets/download_unit.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/get_video_list.dart';
@@ -243,6 +244,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   bool get _resolvingRows =>
       _rows.any((row) => row.loading || row.formatsLoading);
 
+  /// Manga (and webtoon) chapters are page galleries, not streams: there is no
+  /// quality, no language track and no season to pick. The quality/language
+  /// boxes are hidden and the rows keep only the chapter list.
+  bool get _isMangaLike => widget.source.itemType == db_manga.ItemType.manga;
+
   @override
   void initState() {
     super.initState();
@@ -303,6 +309,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
 
   Future<void> _loadVideoOptions(_ResolvedVideo row, MManga detail) async {
     if (row.chapters.isEmpty) return;
+    // A manga chapter resolves to page images at download time; probing a
+    // "video list" would call the extension once per title for nothing, which
+    // is what made "Tout télécharger" crawl on manga sources.
+    if (_isMangaLike) return;
     row.formatsLoading = true;
     if (mounted) setState(() {});
     try {
@@ -587,7 +597,14 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
             children: [
               Expanded(
                 child: Text(
-                  context.l10n.media_download_n_videos(widget.items.length),
+                  context.l10n.media_download_n_items(
+                    widget.items.length,
+                    catalogEntryUnitLabel(
+                      context.l10n,
+                      widget.source.itemType,
+                      widget.items.length,
+                    ),
+                  ),
                   style: TextStyle(
                     color: cs.onSurface,
                     fontSize: 16,
@@ -601,84 +618,89 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: _BulkDropdown<String?>(
-                  label: context.l10n.media_quality_all,
-                  value: _bulkQuality,
-                  items: [
-                    DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text(context.l10n.media_auto_best),
-                    ),
-                    for (final q in _formats)
-                      DropdownMenuItem<String?>(value: q, child: Text(q)),
-                  ],
-                  onChanged: _applyBulkQuality,
+          // Manga chapters carry neither a quality, a fallback language nor a
+          // season; the four boxes only add noise. Everything is already
+          // selected, so the sheet opens straight on the chapter list.
+          if (!_isMangaLike) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: _BulkDropdown<String?>(
+                    label: context.l10n.media_quality_all,
+                    value: _bulkQuality,
+                    items: [
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text(context.l10n.media_auto_best),
+                      ),
+                      for (final q in _formats)
+                        DropdownMenuItem<String?>(value: q, child: Text(q)),
+                    ],
+                    onChanged: _applyBulkQuality,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _BulkDropdown<QualityFallback>(
-                  label: context.l10n.media_if_missing,
-                  value: _bulkFallback,
-                  items: [
-                    DropdownMenuItem(
-                      value: QualityFallback.higher,
-                      child: Text(context.l10n.media_higher),
-                    ),
-                    DropdownMenuItem(
-                      value: QualityFallback.lower,
-                      child: Text(context.l10n.media_lower),
-                    ),
-                    DropdownMenuItem(
-                      value: QualityFallback.exact,
-                      child: Text(context.l10n.media_exact),
-                    ),
-                  ],
-                  onChanged: (v) => _applyBulkFallback(v),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _BulkDropdown<QualityFallback>(
+                    label: context.l10n.media_if_missing,
+                    value: _bulkFallback,
+                    items: [
+                      DropdownMenuItem(
+                        value: QualityFallback.higher,
+                        child: Text(context.l10n.media_higher),
+                      ),
+                      DropdownMenuItem(
+                        value: QualityFallback.lower,
+                        child: Text(context.l10n.media_lower),
+                      ),
+                      DropdownMenuItem(
+                        value: QualityFallback.exact,
+                        child: Text(context.l10n.media_exact),
+                      ),
+                    ],
+                    onChanged: (v) => _applyBulkFallback(v),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _BulkDropdown<String?>(
-                  label: context.l10n.media_language_all,
-                  value: _bulkLanguage,
-                  items: [
-                    DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text(context.l10n.media_all_languages),
-                    ),
-                    for (final l in _headerLanguages)
-                      DropdownMenuItem<String?>(value: l, child: Text(l)),
-                  ],
-                  onChanged: _applyBulkLanguage,
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _BulkDropdown<String?>(
+                    label: context.l10n.media_language_all,
+                    value: _bulkLanguage,
+                    items: [
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text(context.l10n.media_all_languages),
+                      ),
+                      for (final l in _headerLanguages)
+                        DropdownMenuItem<String?>(value: l, child: Text(l)),
+                    ],
+                    onChanged: _applyBulkLanguage,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _BulkDropdown<String?>(
-                  label: 'Saison (toutes)',
-                  value: _bulkSeason,
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('Toutes'),
-                    ),
-                    for (final s in _headerSeasons)
-                      DropdownMenuItem<String?>(value: s, child: Text(s)),
-                  ],
-                  onChanged: _applyBulkSeason,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _BulkDropdown<String?>(
+                    label: 'Saison (toutes)',
+                    value: _bulkSeason,
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Toutes'),
+                      ),
+                      for (final s in _headerSeasons)
+                        DropdownMenuItem<String?>(value: s, child: Text(s)),
+                    ],
+                    onChanged: _applyBulkSeason,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -772,7 +794,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               fontSize: 11.5,
             ),
           ),
-          trailing: _qualityBox(row, isSeries: isSeries),
+          trailing: _qualityBox(
+            row,
+            isSeries: isSeries,
+            showQuality: !_isMangaLike,
+          ),
           children: [
             if (row.error != null)
               Align(
@@ -783,49 +809,57 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                 ),
               )
             else if (isSeries) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: _BulkDropdown<String?>(
-                      label: context.l10n.media_language,
-                      value: row.language,
-                      items: [
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text(context.l10n.media_all_fem),
-                        ),
-                        for (final l in row.languages)
-                          DropdownMenuItem<String?>(value: l, child: Text(l)),
-                      ],
-                      onChanged: (v) => setState(() => row.language = v),
+              if (!_isMangaLike) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _BulkDropdown<String?>(
+                        label: context.l10n.media_language,
+                        value: row.language,
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(context.l10n.media_all_fem),
+                          ),
+                          for (final l in row.languages)
+                            DropdownMenuItem<String?>(value: l, child: Text(l)),
+                        ],
+                        onChanged: (v) => setState(() => row.language = v),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _BulkDropdown<String?>(
-                      label: context.l10n.media_season,
-                      value: row.season,
-                      items: [
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text(context.l10n.media_all_fem),
-                        ),
-                        for (final s in row.seasons)
-                          DropdownMenuItem<String?>(value: s, child: Text(s)),
-                      ],
-                      onChanged: (v) => setState(() {
-                        row.season = v;
-                        row.selected = {...row.visibleIndices};
-                      }),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _BulkDropdown<String?>(
+                        label: context.l10n.media_season,
+                        value: row.season,
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(context.l10n.media_all_fem),
+                          ),
+                          for (final s in row.seasons)
+                            DropdownMenuItem<String?>(value: s, child: Text(s)),
+                        ],
+                        onChanged: (v) => setState(() {
+                          row.season = v;
+                          row.selected = {...row.visibleIndices};
+                        }),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
+                  ],
+                ),
+                const SizedBox(height: 6),
+              ],
               Row(
                 children: [
                   Text(
-                    context.l10n.episodes,
+                    _capitalize(
+                      queuedUnitLabel(
+                        context.l10n,
+                        widget.source.itemType,
+                        row.chapters.length,
+                      ),
+                    ),
                     style: TextStyle(
                       color: cs.onSurface,
                       fontSize: 12.5,
@@ -883,9 +917,17 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   /// downloaded and therefore hidden from the picker).
   String _rowSubtitle(BuildContext context, _ResolvedVideo row, bool isSeries) {
     final l10n = context.l10n;
+    final unit = queuedUnitLabel(
+      l10n,
+      widget.source.itemType,
+      row.chapters.length,
+    );
+    // One item is a single chapter/episode/track: naming the count would just
+    // repeat "1 vidéo", so the unit word alone reads better. Several items show
+    // "selected/total" so a partial selection is visible at a glance.
     final base = isSeries
-        ? l10n.media_episodes_ratio(row.selected.length, row.chapters.length)
-        : l10n.media_one_video;
+        ? l10n.media_n_items_ratio(row.selected.length, row.chapters.length, unit)
+        : unit;
     final parts = <String>[base];
     final perVideo = _selectedSizeBytes(row);
     final size = perVideo == null
@@ -932,7 +974,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
 
   /// Per-video quality box, pinned at the right end of the row, followed by the
   /// chevron that unfolds the episode picker (series only).
-  Widget _qualityBox(_ResolvedVideo row, {required bool isSeries}) {
+  Widget _qualityBox(
+    _ResolvedVideo row, {
+    required bool isSeries,
+    bool showQuality = true,
+  }) {
     final cs = Theme.of(context).colorScheme;
     if (row.loading || row.error != null) {
       return isSeries
@@ -945,43 +991,44 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 104,
-            height: 34,
-            padding: const EdgeInsets.symmetric(horizontal: 7),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.32),
-              ),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String?>(
-                isExpanded: true,
-                isDense: true,
-                icon: Icon(
-                  Icons.expand_more_rounded,
-                  color: cs.onSurfaceVariant,
-                  size: 18,
+          if (showQuality)
+            Container(
+              width: 104,
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 7),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.32),
                 ),
-                value: options.contains(row.quality) ? row.quality : null,
-                style: TextStyle(color: cs.onSurface, fontSize: 12),
-                items: [
-                  for (final q in options)
-                    DropdownMenuItem<String?>(
-                      value: q,
-                      child: Text(
-                        _qualityOptionLabel(row, q),
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  isExpanded: true,
+                  isDense: true,
+                  icon: Icon(
+                    Icons.expand_more_rounded,
+                    color: cs.onSurfaceVariant,
+                    size: 18,
+                  ),
+                  value: options.contains(row.quality) ? row.quality : null,
+                  style: TextStyle(color: cs.onSurface, fontSize: 12),
+                  items: [
+                    for (final q in options)
+                      DropdownMenuItem<String?>(
+                        value: q,
+                        child: Text(
+                          _qualityOptionLabel(row, q),
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
                       ),
-                    ),
-                ],
-                onChanged: (v) => setState(() => row.quality = v),
+                  ],
+                  onChanged: (v) => setState(() => row.quality = v),
+                ),
               ),
             ),
-          ),
           if (isSeries) ...[
             const SizedBox(width: 1),
             AnimatedRotation(
@@ -1042,9 +1089,24 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                                 : context.l10n.media_fetching_parallel(
                                     widget.items.length,
                                   ))
-                          : context.l10n.media_n_videos_size(
+                          : _isMangaLike
+                          // Manga pages have no measurable size up front.
+                          ? context.l10n.media_download_count(
+                              _totalSelected,
+                              queuedUnitLabel(
+                                context.l10n,
+                                widget.source.itemType,
+                                _totalSelected,
+                              ),
+                            )
+                          : context.l10n.media_n_items_size(
                               _totalSelected,
                               _selectedSizeSummary(context),
+                              queuedUnitLabel(
+                                context.l10n,
+                                widget.source.itemType,
+                                _totalSelected,
+                              ),
                             ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1153,6 +1215,9 @@ String? _resolveQuality(
       return ranked.first.label;
   }
 }
+
+String _capitalize(String value) =>
+    value.isEmpty ? value : value[0].toUpperCase() + value.substring(1);
 
 String _normQuality(String raw) {
   if (raw.trim().isEmpty) return 'Auto';
