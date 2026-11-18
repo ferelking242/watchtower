@@ -183,7 +183,7 @@ final libraryUnreadBadgeProvider =
 
 /// Actions available for the left/right swipe gesture, Mihon-style. The list
 /// carries values only; labels resolve through [librarySwipeActionLabel].
-const kLibrarySwipeActions = <int>[0, 1, 2, 3, 4, 5];
+const kLibrarySwipeActions = <int>[0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 /// Localised label for a value from [kLibrarySwipeActions].
 String librarySwipeActionLabel(AppLocalizations l10n, int action) {
@@ -194,13 +194,20 @@ String librarySwipeActionLabel(AppLocalizations l10n, int action) {
     3 => l10n.add_to_library,
     4 => l10n.download,
     5 => l10n.share,
+    6 => l10n.library_swipe_copy_link,
+    7 => l10n.library_swipe_remove_from_library,
+    8 => l10n.library_swipe_mark_unread,
+    9 => l10n.remove,
     _ => l10n.library_settings_swipe_none,
   };
 }
 
 class LibrarySwipeLeftNotifier extends Notifier<int> {
   @override
-  int build() => _read('swipe_left', 0); // Marquer le chapitre
+  // Swipe towards the left edge: mark the first unread chapter (default).
+  // The opposite rightward swipe marks as read — see
+  // `librarySwipeRightProvider`.
+  int build() => _read('swipe_left', 0);
 
   void set(int v) {
     _write('swipe_left', v);
@@ -378,3 +385,93 @@ class LibraryOverlayNotifier extends Notifier<bool> {
 
 final libraryOverlayProvider =
     NotifierProvider<LibraryOverlayNotifier, bool>(LibraryOverlayNotifier.new);
+
+// ── Continue-reading provider watermark ──────────────────────────────────────
+
+/// When on, the continue-reading button shows the source (extension) that
+/// provides the entry, mirroring the watermark drawn on download-manager
+/// covers. Defaults to on.
+class LibraryShowProviderBadgeNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final raw = _box?.get('show_provider_badge');
+    return raw is bool ? raw : true;
+  }
+
+  void set(bool v) {
+    _write('show_provider_badge', v);
+    state = v;
+  }
+}
+
+final libraryShowProviderBadgeProvider =
+    NotifierProvider<LibraryShowProviderBadgeNotifier, bool>(
+  LibraryShowProviderBadgeNotifier.new,
+);
+
+// ── Content rating (classification) filter ───────────────────────────────────
+
+/// Content-rating markers. `safe`/`suggestive`/`nsfw` are the selectable
+/// buckets; entries whose genre does not match any marker are treated as safe.
+const kLibraryContentRatingMarkers = <String>{
+  'r18',
+  'r-18',
+  '18+',
+  'nsfw',
+  'adult',
+  'hentai',
+  'ecchi',
+  'suggestive',
+  'smut',
+  'mature',
+};
+
+/// Whether [manga] carries an adult/explicit marker in its genre list.
+bool isNsfwGenre(Iterable<String>? genre) {
+  if (genre == null) return false;
+  for (final g in genre) {
+    if (kLibraryContentRatingMarkers.contains(g.trim().toLowerCase())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Whether [manga] carries a "suggestive" marker (but not a hard adult one).
+bool isSuggestiveGenre(Iterable<String>? genre) {
+  if (genre == null) return false;
+  const suggestive = {'suggestive', 'ecchi', 'smut', 'mature'};
+  for (final g in genre) {
+    if (suggestive.contains(g.trim().toLowerCase())) return true;
+  }
+  return false;
+}
+
+/// Selected classification buckets (empty = show everything). Persisted per
+/// item type in the `library_settings` box.
+class LibraryContentRatingFilterNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => _readStringSet('content_rating_filter');
+
+  void set(Set<String> v) {
+    _write('content_rating_filter', v.toList());
+    state = v;
+  }
+
+  void toggle(String bucket) {
+    final next = {...state};
+    next.contains(bucket) ? next.remove(bucket) : next.add(bucket);
+    set(next);
+  }
+}
+
+final libraryContentRatingFilterProvider =
+    NotifierProvider<LibraryContentRatingFilterNotifier, Set<String>>(
+  LibraryContentRatingFilterNotifier.new,
+);
+
+Set<String> _readStringSet(String key) {
+  final raw = _box?.get(key);
+  if (raw is List) return raw.whereType<String>().toSet();
+  return <String>{};
+}

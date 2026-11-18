@@ -111,12 +111,12 @@ class LibraryListViewWidget extends ConsumerWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 3,
+                        vertical: 4,
                       ),
                       child: Container(
-                        height: 45,
+                        height: 76,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -125,12 +125,12 @@ class LibraryListViewWidget extends ConsumerWidget {
                               child: Row(
                                 children: [
                                   ClipRRect(
-                                    borderRadius: BorderRadius.circular(5),
+                                    borderRadius: BorderRadius.circular(6),
                                     child: Material(
                                       child: Ink.image(
                                         fit: BoxFit.cover,
-                                        width: 40,
-                                        height: 45,
+                                        width: 56,
+                                        height: 76,
                                         image: entry.customCoverImage != null
                                             ? coverMemoryImage(
                                                 entry.customCoverImage
@@ -177,7 +177,7 @@ class LibraryListViewWidget extends ConsumerWidget {
                               padding: const EdgeInsets.all(5),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(8),
                                   color: overlay
                                       ? context.primaryColor.withValues(
                                           alpha: 0.85,
@@ -185,7 +185,7 @@ class LibraryListViewWidget extends ConsumerWidget {
                                       : context.primaryColor,
                                 ),
                                 child: SizedBox(
-                                  height: 22,
+                                  height: 30,
                                   child: Row(
                                     children: [
                                       if (localSource && isLocalArchive)
@@ -193,57 +193,54 @@ class LibraryListViewWidget extends ConsumerWidget {
                                           decoration: BoxDecoration(
                                             borderRadius:
                                                 const BorderRadius.only(
-                                                  topLeft: Radius.circular(3),
+                                                  topLeft: Radius.circular(8),
                                                   bottomLeft: Radius.circular(
-                                                    3,
+                                                    8,
                                                   ),
                                                 ),
                                             color: Theme.of(context).hintColor,
                                           ),
                                           child: const Padding(
-                                            padding: EdgeInsets.only(
-                                              left: 3,
-                                              right: 3,
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 8,
                                             ),
-                                            child: Text(
-                                              "Local",
-                                              style: TextStyle(
-                                                color: Colors.white,
+                                            child: Center(
+                                              child: Text(
+                                                "Local",
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
                                       if (downloadedChapter)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 5,
-                                          ),
-                                          child: Consumer(
-                                            builder: (context, ref, child) {
-                                              final downloadedCount =
-                                                  entryStats.downloaded;
-                                              if (downloadedCount == 0) {
-                                                return const SizedBox.shrink();
-                                              }
-                                              return Container(
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      const BorderRadius.only(
-                                                        topLeft:
-                                                            Radius.circular(3),
-                                                        bottomLeft:
-                                                            Radius.circular(3),
-                                                      ),
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).hintColor,
-                                                ),
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        left: 3,
-                                                        right: 3,
-                                                      ),
+                                        Consumer(
+                                          builder: (context, ref, child) {
+                                            final downloadedCount =
+                                                entryStats.downloaded;
+                                            if (downloadedCount == 0) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Container(
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    const BorderRadius.only(
+                                                      topLeft:
+                                                          Radius.circular(8),
+                                                      bottomLeft:
+                                                          Radius.circular(8),
+                                                    ),
+                                                color: Theme.of(
+                                                  context,
+                                                ).hintColor,
+                                              ),
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
+                                                child: Center(
                                                   child: Text(
                                                     downloadedCount.toString(),
                                                     style: const TextStyle(
@@ -251,46 +248,44 @@ class LibraryListViewWidget extends ConsumerWidget {
                                                     ),
                                                   ),
                                                 ),
-                                              );
-                                            },
-                                          ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 3,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
                                         ),
-                                        child: Text(
-                                          (showUnread
-                                                  ? entryStats.unread
-                                                  : entryStats.total)
-                                              .toString(),
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                        child: Center(
+                                          child: Text(
+                                            (showUnread
+                                                    ? entryStats.unread
+                                                    : entryStats.total)
+                                                .toString(),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ),
                                       if (language && entry.lang!.isNotEmpty)
                                         Container(
-                                          color: context.primaryColor,
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                                  const BorderRadius.only(
-                                                    topRight: Radius.circular(
-                                                      3,
-                                                    ),
-                                                    bottomRight:
-                                                        Radius.circular(3),
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                const BorderRadius.only(
+                                                  topRight: Radius.circular(8),
+                                                  bottomRight: Radius.circular(
+                                                    8,
                                                   ),
-                                              color: Theme.of(
-                                                context,
-                                              ).hintColor,
+                                                ),
+                                            color: Theme.of(context).hintColor,
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
                                             ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(
-                                                left: 3,
-                                                right: 3,
-                                              ),
+                                            child: Center(
                                               child: Text(
                                                 entry.lang!.toUpperCase(),
                                                 style: const TextStyle(

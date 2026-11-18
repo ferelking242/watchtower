@@ -9,6 +9,7 @@ import 'package:watchtower/modules/library/providers/library_state_provider.dart
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/library/widgets/library_gridview_widget.dart';
 import 'package:watchtower/modules/library/widgets/library_listview_widget.dart';
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -109,11 +110,15 @@ class LibraryBody extends ConsumerWidget {
                       ignoreFiltersOnSearch: ignoreFiltersOnSearch,
                     ),
                   );
-                  final entries = applyLibrarySourceAndCategoryFilters(
+                  var entries = applyLibrarySourceAndCategoryFilters(
                     itemType,
                     baseEntries,
                     selectedSources: selectedSources,
                     selectedCategories: selectedCategories,
+                  );
+                  entries = applyLibraryContentRatingFilter(
+                    entries,
+                    ref.watch(libraryContentRatingFilterProvider),
                   );
 
                   if (entries.isEmpty) {

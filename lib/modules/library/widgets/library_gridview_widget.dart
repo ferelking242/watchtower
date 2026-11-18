@@ -76,7 +76,10 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
             : rawGridSize;
         return GridViewWidget(
           gridSize: gridSize,
-          childAspectRatio: widget.isComfortableGrid ? 0.642 : 0.69,
+          // Landscape thumbnails, like the video grids on streaming sites. The
+          // comfortable grid keeps extra vertical room for its title label.
+          childAspectRatio: widget.isComfortableGrid ? 1.05 : 1.35,
+          maxTileWidth: widget.isComfortableGrid ? 210 : 200,
           itemCount: widget.entriesManga.length,
           itemBuilder: (context, index) {
             final entry = widget.entriesManga[index];

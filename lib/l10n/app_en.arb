@@ -4200,5 +4200,24 @@
   "manga_rank_trending": "#{rank} · Trending",
   "anime_episode_label": "EP {number} · {title}",
   "categories_empty_title": "No category yet",
-  "categories_empty_subtitle": "Create a category to organise your library."
+  "categories_empty_subtitle": "Create a category to organise your library.",
+  "library_menu_activity": "Activity",
+  "library_menu_maintenance": "Maintenance",
+  "library_restore_defaults": "Restore default settings",
+  "library_swipe_copy_link": "Copy link",
+  "library_swipe_remove_from_library": "Remove from library",
+  "library_swipe_mark_unread": "Mark as unread",
+  "library_delete_storage_hint": "Deletes the downloaded files from the device",
+  "library_delete_library_hint": "Removes the series from the library",
+  "library_show_provider_badge": "Show provider badge",
+  "settings_purge_missing_downloads": "Clean up broken downloads",
+  "settings_purge_missing_downloads_desc": "Removes download entries whose files are no longer on the device",
+  "settings_purged_downloads": "Cleaned up: {count}",
+  "@settings_purged_downloads": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  }
 }

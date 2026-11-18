@@ -23150,6 +23150,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Create a category to organise your library.'**
   String get categories_empty_subtitle;
+
+  /// No description provided for @library_menu_activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get library_menu_activity;
+
+  /// No description provided for @library_menu_maintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get library_menu_maintenance;
+
+  /// No description provided for @library_restore_defaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore default settings'**
+  String get library_restore_defaults;
+
+  /// No description provided for @library_swipe_copy_link.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get library_swipe_copy_link;
+
+  /// No description provided for @library_swipe_remove_from_library.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from library'**
+  String get library_swipe_remove_from_library;
+
+  /// No description provided for @library_swipe_mark_unread.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as unread'**
+  String get library_swipe_mark_unread;
+
+  /// No description provided for @library_delete_storage_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes the downloaded files from the device'**
+  String get library_delete_storage_hint;
+
+  /// No description provided for @library_delete_library_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the series from the library'**
+  String get library_delete_library_hint;
+
+  /// No description provided for @library_show_provider_badge.
+  ///
+  /// In en, this message translates to:
+  /// **'Show provider badge'**
+  String get library_show_provider_badge;
+
+  /// No description provided for @settings_purge_missing_downloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean up broken downloads'**
+  String get settings_purge_missing_downloads;
+
+  /// No description provided for @settings_purge_missing_downloads_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes download entries whose files are no longer on the device'**
+  String get settings_purge_missing_downloads_desc;
+
+  /// No description provided for @settings_purged_downloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleaned up: {count}'**
+  String settings_purged_downloads(String count);
 }
 
 class _AppLocalizationsDelegate

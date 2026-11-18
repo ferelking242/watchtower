@@ -28,7 +28,7 @@ class LibrarySwipeWrapper extends ConsumerWidget {
     final rightAction = ref.watch(librarySwipeRightProvider);
 
     Future<void> run(int action) async {
-      await runLibrarySwipeAction(ref, manga, action);
+      await runLibrarySwipeAction(ref, manga, action, context: context);
       // No manual `ref.invalidate` here: the action writes through Isar, and
       // both providers below are `.watch()` streams that re-emit on that write.
       // Invalidating them forced a teardown/re-subscription of the whole
@@ -44,20 +44,23 @@ class LibrarySwipeWrapper extends ConsumerWidget {
         DismissDirection.endToStart: 0.25,
       },
       confirmDismiss: (direction) async {
+        // `startToEnd` is a swipe towards the right edge, `endToStart` towards
+        // the left one. The configured "right" action must therefore run on a
+        // rightward swipe — the mapping used to be the other way round.
         final action = direction == DismissDirection.startToEnd
-            ? leftAction
-            : rightAction;
+            ? rightAction
+            : leftAction;
         await run(action);
         // Never actually dismiss: the action is the whole point.
         return false;
       },
       background: _SwipeBackground(
         alignment: Alignment.centerLeft,
-        action: leftAction,
+        action: rightAction,
       ),
       secondaryBackground: _SwipeBackground(
         alignment: Alignment.centerRight,
-        action: rightAction,
+        action: leftAction,
       ),
       child: child,
     );
@@ -89,14 +92,22 @@ class _SwipeBackground extends StatelessWidget {
       3 => Icons.library_add,
       4 => Icons.download,
       5 => Icons.share,
+      6 => Icons.link,
+      7 => Icons.library_add_check_outlined,
+      8 => Icons.remove_done,
+      9 => Icons.delete_outline,
       _ => Icons.check,
     };
+    // The background sits behind the card, so the icon/text must mirror the
+    // swipe direction to stay on the leading edge of the gesture.
+    final mirrored = alignment == Alignment.centerRight;
     return Container(
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       color: Theme.of(context).colorScheme.primaryContainer,
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        textDirection: mirrored ? TextDirection.rtl : TextDirection.ltr,
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 8),

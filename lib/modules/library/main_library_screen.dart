@@ -7,12 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/category.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
+import 'package:watchtower/modules/library/providers/library_state_provider.dart';
+import 'package:watchtower/modules/library/services/library_maintenance.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
@@ -38,11 +41,18 @@ const _kTypes = <ItemType>[
 ];
 const _kCarouselCopies = 1000;
 
+// ─── App-bar action button size ──────────────────────────────────────────────
+// Shared by every right-side action (search / filter / three-dots) and used to
+// budget the row width, so the group reads as one evenly-spaced strip.
+const _kActionBtnSize = 38.0;
+const _kActionBtnIconSize = 20.0;
+const _kActionBtnGap = 8.0;
+
 // ─── Type icons (Broken set) ─────────────────────────────────────────────────
 const _kTypeIcons = <ItemType, IconData>{
   ItemType.anime: Broken.video,
   ItemType.manga: Broken.book,
-  ItemType.novel: Broken.document_text,
+  ItemType.novel: Broken.note_text,
   ItemType.game: Broken.game,
 };
 
@@ -85,9 +95,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
   late final PageController _arcPageCtrl = PageController(
-    // Three positions fit in the viewport: the selected type is in front,
-    // with one neighboring type visible on either side.
-    viewportFraction: 0.34,
+    // A quarter of the viewport per slot: the selected type sits centered with
+    // its two neighbours peeking close on either side, so the icons read as one
+    // tight group hugging the left edge instead of drifting apart in a wide,
+    // half-empty strip.
+    viewportFraction: 1 / 4,
     initialPage: _arcPage,
   );
 
@@ -212,8 +224,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           final diff = (i - _arcPage).abs().toDouble();
           // Keep the selected type clear while the two adjacent items remain
           // visible and tappable.
-          final scale = (1.0 - diff * 0.16).clamp(0.72, 1.0);
-          final opacity = (1.0 - diff * 0.40).clamp(0.40, 1.0);
+          final scale = (1.0 - diff * 0.12).clamp(0.80, 1.0);
+          final opacity = (1.0 - diff * 0.32).clamp(0.45, 1.0);
 
           return Center(
             child: AnimatedScale(
@@ -323,8 +335,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          width: 34,
-          height: 34,
+          width: _kActionBtnSize,
+          height: _kActionBtnSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: active
@@ -344,7 +356,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   : (isDark
                         ? cs.onSurface.withValues(alpha: 0.60)
                         : cs.onSurface.withValues(alpha: 0.55)),
-              size: 17,
+              size: _kActionBtnIconSize,
             ),
           ),
         ),
@@ -431,25 +443,68 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       data: (c) => c,
       orElse: () => <Category>[],
     );
+    // Category tabs and per-category item counts are user-toggled from the
+    // Display menu; the tabs are on by default.
+    final showCategoryTabs = settings == null ||
+        ref.watch(
+          libraryShowCategoryTabsStateProvider(
+            itemType: _currentType,
+            settings: settings,
+          ),
+        );
+    final showItemCounts = settings != null &&
+        ref.watch(
+          libraryShowNumbersOfItemsStateProvider(
+            itemType: _currentType,
+            settings: settings,
+          ),
+        );
+    // Highlight the filter icon whenever a filter actually narrows the list.
+    final filtersActive = settings != null &&
+        libraryFiltersActive(
+          ref,
+          itemType: _currentType,
+          settings: settings,
+          entries: mangaList,
+        );
     final filterButton = AdaptiveOverlayMenuButton(
       menuWidth: 250,
-      trigger: Tooltip(
-        message: l10n.filter,
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isDark
-                ? cs.onSurface.withValues(alpha: 0.08)
-                : cs.onSurface.withValues(alpha: 0.06),
-          ),
-          child: Icon(
-            Broken.filter,
-            color: cs.onSurface.withValues(alpha: 0.60),
-            size: 17,
-          ),
-        ),
+      trigger: ValueListenableBuilder<Set<String>>(
+        valueListenable: selectedLibrarySourcesFilter(_currentType),
+        builder: (context, selectedSources, _) =>
+            ValueListenableBuilder<Set<int>>(
+              valueListenable: selectedLibraryCategoriesFilter(_currentType),
+              builder: (context, selectedCategories, _) {
+                // `libraryFiltersActive` reads the source/category/rating
+                // selections imperatively, so the two builders above are what
+                // make the icon repaint when they change.
+                final active = filtersActive;
+                return Tooltip(
+                  message: l10n.filter,
+                  child: Container(
+                    width: _kActionBtnSize,
+                    height: _kActionBtnSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active
+                          ? cs.primary.withValues(alpha: 0.90)
+                          : (isDark
+                                ? cs.onSurface.withValues(alpha: 0.08)
+                                : cs.onSurface.withValues(alpha: 0.06)),
+                    ),
+                    child: Icon(
+                      Broken.filter,
+                      color: active
+                          ? cs.onSurface
+                          : (isDark
+                                ? cs.onSurface.withValues(alpha: 0.60)
+                                : cs.onSurface.withValues(alpha: 0.55)),
+                      size: _kActionBtnIconSize,
+                    ),
+                  ),
+                );
+              },
+            ),
       ),
       contentBuilder: _buildFilterOverlayContent,
     );
@@ -468,15 +523,19 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
         children: [
           // ── Row 1: arc type selector + action icons ────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 14, 14, 0),
+            padding: const EdgeInsets.fromLTRB(0, 14, 14, 0),
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final rowWidth = constraints.maxWidth;
-                const actionStripWidth = 34 * 3 + 6 * 2;
-                const selectorGap = 8.0;
-                final selectorWidth = (rowWidth - actionStripWidth - selectorGap)
-                    .clamp(0.0, 260.0)
-                    .toDouble();
+                const actionStripWidth = _kActionBtnSize * 3 + 8 * 2;
+                const selectorGap = 10.0;
+                // Keep the carousel tight — a few slots wide — so the icons sit
+                // close together and the group hugs the left edge. The actions
+                // stay pinned to the right through the [Spacer] below.
+                final selectorWidth =
+                    (rowWidth - actionStripWidth - selectorGap)
+                        .clamp(0.0, 196.0)
+                        .toDouble();
                 return SizedBox(
                   width: rowWidth,
                   height: 56,
@@ -496,7 +555,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                   height: 56,
                                   child: _buildArcTypeSelector(cs, isDark),
                                 ),
-                                const SizedBox(width: selectorGap),
+                                const Spacer(),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -510,9 +569,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                           ? 1
                                           : 0,
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: _kActionBtnGap),
                                     filterButton,
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: _kActionBtnGap),
                                     _buildThreeDotsBtn(
                                       context,
                                       l10n,
@@ -562,10 +621,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ),
 
           // ── Category bar ──────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: _buildCategoryBar(context, cats, cs, isDark),
-          ),
+          if (showCategoryTabs)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: _buildCategoryBar(
+                context,
+                cats,
+                cs,
+                isDark,
+                mangaList,
+                showItemCounts,
+              ),
+            ),
 
           const SizedBox(height: 8),
 
@@ -722,8 +789,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     List<Category> cats,
     ColorScheme cs,
     bool isDark,
+    List<Manga> mangaList,
+    bool showItemCounts,
   ) {
     final l10n = l10nLocalizations(context)!;
+    int? countFor(int? catId) {
+      if (!showItemCounts) return null;
+      if (catId == null) return mangaList.length;
+      return mangaList
+          .where((m) => m.categories?.contains(catId) ?? false)
+          .length;
+    }
+
     return Row(
       children: [
         Tooltip(
@@ -778,6 +855,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 children: [
                   _pill(
                     label: l10n.media_all,
+                    count: countFor(null),
                     selected: _selectedCatIndex == 0,
                     onTap: () => setState(() => _selectedCatIndex = 0),
                     cs: cs,
@@ -786,6 +864,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   for (int i = 0; i < cats.length; i++)
                     _pill(
                       label: cats[i].name ?? '',
+                      count: countFor(cats[i].id),
                       selected: _selectedCatIndex == i + 1,
                       onTap: () => setState(() => _selectedCatIndex = i + 1),
                       cs: cs,
@@ -806,6 +885,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     required VoidCallback onTap,
     required ColorScheme cs,
     required bool isDark,
+    int? count,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -819,15 +899,34 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               : Colors.transparent,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected
-                ? cs.primary
-                : cs.onSurfaceVariant.withValues(alpha: 0.65),
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            fontSize: 13,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: selected
+                    ? cs.primary
+                    : cs.onSurfaceVariant.withValues(alpha: 0.65),
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                fontSize: 13,
+              ),
+            ),
+            if (count != null) ...[
+              const SizedBox(width: 5),
+              Text(
+                '($count)',
+                style: TextStyle(
+                  color: (selected
+                          ? cs.primary
+                          : cs.onSurfaceVariant.withValues(alpha: 0.65))
+                      .withValues(alpha: 0.75),
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -842,8 +941,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 34,
-      height: 34,
+      width: _kActionBtnSize,
+      height: _kActionBtnSize,
       child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
@@ -858,7 +957,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               color: isDark
                   ? cs.onSurface.withValues(alpha: 0.60)
                   : cs.onSurface.withValues(alpha: 0.55),
-              size: 17,
+              size: _kActionBtnIconSize,
             ),
             padding: EdgeInsets.zero,
             menuWidth: 230,
@@ -915,7 +1014,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   children: [
                     const Icon(Broken.clock, size: 18),
                     const SizedBox(width: 12),
-                    Text(l10n.history),
+                    Text(l10n.library_menu_activity),
+                    const Spacer(),
+                    const Icon(Broken.arrow_right_3, size: 14),
                   ],
                 ),
               ),
@@ -923,29 +1024,26 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 value: 6,
                 child: Row(
                   children: [
-                    const Icon(Broken.notification, size: 18),
+                    const Icon(Broken.setting, size: 18),
                     const SizedBox(width: 12),
-                    Text(l10n.updates),
+                    Text(l10n.library_menu_maintenance),
+                    const Spacer(),
+                    const Icon(Broken.arrow_right_3, size: 14),
                   ],
                 ),
               ),
-              PopupMenuItem<int>(
-                value: 7,
-                child: Row(
-                  children: [
-                    const Icon(Broken.calendar, size: 18),
-                    const SizedBox(width: 12),
-                    Text(l10n.schedule),
-                  ],
-                ),
+              const PopupMenuItem<int>(
+                enabled: false,
+                value: 99,
+                child: Divider(height: 1, indent: 0, endIndent: 0),
               ),
               PopupMenuItem<int>(
-                value: 8,
+                value: 10,
                 child: Row(
                   children: [
-                    const Icon(Broken.document_download, size: 18),
+                    const Icon(Broken.setting_2, size: 18),
                     const SizedBox(width: 12),
-                    Text(l10n.downloads),
+                    Text(l10n.library_settings_title),
                   ],
                 ),
               ),
@@ -970,21 +1068,116 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                   addTorrent(context);
                   break;
                 case 5:
-                  context.push('/history');
+                  _showActivityMenu(context);
                   break;
                 case 6:
-                  context.push('/updates');
+                  _showMaintenanceMenu(context);
                   break;
-                case 7:
-                  context.push('/schedule');
-                  break;
-                case 8:
-                  context.push('/downloads');
+                case 10:
+                  context.push('/librarySettings');
                   break;
               }
             },
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Activity sub-menu (History / Updates / Schedule / Downloads) ───────────
+
+  void _showActivityMenu(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _LibraryMenuSheet(
+        title: l10n.library_menu_activity,
+        items: [
+          _LibraryMenuItem(
+            icon: Broken.clock,
+            label: l10n.history,
+            onTap: () => ctx.push('/history'),
+          ),
+          _LibraryMenuItem(
+            icon: Broken.notification,
+            label: l10n.updates,
+            onTap: () => ctx.push('/updates'),
+          ),
+          _LibraryMenuItem(
+            icon: Broken.calendar,
+            label: l10n.schedule,
+            onTap: () => ctx.push('/schedule'),
+          ),
+          _LibraryMenuItem(
+            icon: Broken.document_download,
+            label: l10n.downloads,
+            onTap: () => ctx.push('/downloads'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Maintenance sub-menu (Reindex / Downloads not in library) ──────────────
+
+  void _showMaintenanceMenu(BuildContext context) {
+    final l10n = l10nLocalizations(context)!;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _LibraryMenuSheet(
+        title: l10n.library_menu_maintenance,
+        items: [
+          _LibraryMenuItem(
+            icon: Broken.refresh_left_square,
+            label: l10n.settings_reindex_downloads,
+            subtitle: l10n.settings_reindex_downloads_desc,
+            onTap: () async {
+              Navigator.pop(ctx);
+              botToast(l10n.settings_reindexing);
+              try {
+                final result = await reindexDownloads();
+                if (!context.mounted) return;
+                botToast(reindexToastMessage(l10n, result));
+              } catch (_) {
+                botToast(l10n.settings_error);
+              }
+            },
+          ),
+          _LibraryMenuItem(
+            icon: Broken.folder_favorite,
+            label: l10n.settings_downloads_not_in_library,
+            subtitle: l10n.settings_downloads_not_in_library_desc,
+            onTap: () async {
+              Navigator.pop(ctx);
+              botToast(l10n.settings_checking);
+              try {
+                final added = await addDownloadedToLibrary();
+                if (!context.mounted) return;
+                botToast(addDownloadedToastMessage(l10n, added));
+              } catch (_) {
+                botToast(l10n.settings_error);
+              }
+            },
+          ),
+          _LibraryMenuItem(
+            icon: Broken.trash,
+            label: l10n.settings_purge_missing_downloads,
+            subtitle: l10n.settings_purge_missing_downloads_desc,
+            onTap: () async {
+              Navigator.pop(ctx);
+              botToast(l10n.settings_checking);
+              try {
+                final purged = await purgeMissingDownloads();
+                if (!context.mounted) return;
+                botToast(purgeMissingToastMessage(l10n, purged));
+              } catch (_) {
+                botToast(l10n.settings_error);
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -1631,6 +1824,89 @@ class _CatRow extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Library sub-menu sheet (Activity / Maintenance) ─────────────────────────
+
+/// A single row inside a [_LibraryMenuSheet].
+class _LibraryMenuItem {
+  const _LibraryMenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final VoidCallback onTap;
+}
+
+/// Bottom sheet used for the nested "Activité" and "Maintenance" sub-menus of
+/// the library three-dots button.
+class _LibraryMenuSheet extends StatelessWidget {
+  const _LibraryMenuSheet({required this.title, required this.items});
+
+  final String title;
+  final List<_LibraryMenuItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? cs.surfaceContainerHigh
+              : cs.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.09)
+                : Colors.black.withValues(alpha: 0.06),
+            width: 0.8,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurface,
+                ),
+              ),
+            ),
+            for (final item in items)
+              ListTile(
+                leading: Icon(item.icon, color: cs.onSurfaceVariant),
+                title: Text(item.label),
+                subtitle: item.subtitle == null
+                    ? null
+                    : Text(
+                        item.subtitle!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                        ),
+                      ),
+                onTap: item.onTap,
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

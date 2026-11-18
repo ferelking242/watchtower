@@ -159,7 +159,7 @@ class _LibraryFilterSortMenuState
           onTap: () => _go(_Level.sort),
         ),
         AdaptiveOverlayItem(
-          icon: Broken.slider_horizontal,
+          icon: Broken.filter,
           label: l10n.filter,
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => _go(_Level.filter),
@@ -171,8 +171,121 @@ class _LibraryFilterSortMenuState
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => _go(_Level.display),
         ),
+        const AdaptiveOverlayDivider(),
+        AdaptiveOverlayItem(
+          icon: Broken.refresh_left_square,
+          label: l10n.reset,
+          onTap: _resetFilters,
+        ),
+        AdaptiveOverlayItem(
+          icon: Broken.rotate_left,
+          label: l10n.library_restore_defaults,
+          onTap: _restoreDefaults,
+        ),
       ],
     );
+  }
+
+  /// Clears every active filter (tri-state filters, sources, categories and
+  /// classification) without touching the display settings.
+  void _resetFilters() {
+    final itemType = widget.itemType;
+    final settings = widget.settings;
+    final entries = widget.entries;
+    ref
+        .read(mangaFilterDownloadedStateProvider(
+          itemType: itemType,
+          mangaList: entries,
+          settings: settings,
+        ).notifier)
+        .setType(0);
+    ref
+        .read(mangaFilterTrackingStateProvider(
+          itemType: itemType,
+          mangaList: entries,
+          settings: settings,
+        ).notifier)
+        .setType(0);
+    ref
+        .read(mangaFilterUnreadStateProvider(
+          itemType: itemType,
+          mangaList: entries,
+          settings: settings,
+        ).notifier)
+        .setType(0);
+    ref
+        .read(mangaFilterStartedStateProvider(
+          itemType: itemType,
+          mangaList: entries,
+          settings: settings,
+        ).notifier)
+        .setType(0);
+    ref
+        .read(mangaFilterCompletedStateProvider(
+          itemType: itemType,
+          mangaList: entries,
+          settings: settings,
+        ).notifier)
+        .setType(0);
+    selectedLibrarySourcesFilter(itemType).value = <String>{};
+    selectedLibraryCategoriesFilter(itemType).value = <int>{};
+    ref.read(libraryContentRatingFilterProvider.notifier).set(<String>{});
+    HapticFeedback.lightImpact();
+  }
+
+  /// Restores the library display settings to their shipped defaults.
+  void _restoreDefaults() {
+    final itemType = widget.itemType;
+    final settings = widget.settings;
+    ref
+        .read(libraryDisplayTypeStateProvider(
+          itemType: itemType,
+          settings: settings,
+        ).notifier)
+        .setLibraryDisplayType(DisplayType.compactGrid);
+    ref.read(libraryGridSizeStateProvider(itemType: itemType).notifier).set(
+          null,
+          end: true,
+        );
+    ref
+        .read(libraryDownloadedChaptersStateProvider(
+          itemType: itemType,
+          settings: settings,
+        ).notifier)
+        .set(false);
+    ref
+        .read(libraryLanguageStateProvider(
+          itemType: itemType,
+          settings: settings,
+        ).notifier)
+        .set(false);
+    ref
+        .read(libraryLocalSourceStateProvider(
+          itemType: itemType,
+          settings: settings,
+        ).notifier)
+        .set(false);
+    ref
+        .read(libraryShowContinueReadingButtonStateProvider(
+          itemType: itemType,
+          settings: settings,
+        ).notifier)
+        .set(false);
+    ref
+        .read(libraryShowCategoryTabsStateProvider(
+          itemType: itemType,
+          settings: settings,
+        ).notifier)
+        .set(true);
+    ref
+        .read(libraryShowNumbersOfItemsStateProvider(
+          itemType: itemType,
+          settings: settings,
+        ).notifier)
+        .set(true);
+    ref.read(libraryShowUnreadChaptersProvider.notifier).set(true);
+    ref.read(libraryOverlayProvider.notifier).set(true);
+    HapticFeedback.lightImpact();
   }
 
   // ── Level: display ─────────────────────────────────────────────────────────
@@ -333,6 +446,11 @@ class _LibraryFilterSortMenuState
           l10n.overlay,
           overlay,
           (v) => ref.read(libraryOverlayProvider.notifier).set(v),
+        ),
+        toggle(
+          l10n.library_show_provider_badge,
+          ref.watch(libraryShowProviderBadgeProvider),
+          (v) => ref.read(libraryShowProviderBadgeProvider.notifier).set(v),
         ),
 
         const AdaptiveOverlayDivider(),
@@ -580,6 +698,7 @@ class _LibraryFilterSortMenuState
         ),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
+          icon: Broken.filter,
           label: context.l10n.common_classification,
           trailing: const Icon(Broken.arrow_right_3, size: 14),
           onTap: () => _go(_Level.contentRating),
@@ -648,34 +767,65 @@ class _LibraryFilterSortMenuState
     );
   }
 
-  // ── Level: content rating (no backing metadata yet) ────────────────────────
+  // ── Level: content rating ──────────────────────────────────────────────────
 
   Widget _buildContentRating(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
-    Widget disabledCheck(String label) => AdaptiveOverlayItem(
-          label: label,
-          enabled: false,
-          trailing: _soonBadge(context),
-        );
+    final selected = ref.watch(libraryContentRatingFilterProvider);
+
+    Widget rating(String bucket, String label) {
+      final active = selected.contains(bucket);
+      return AdaptiveOverlayItem(
+        label: label,
+        trailing: Icon(
+          active ? Broken.tick_circle : Broken.record_circle,
+          size: 16,
+          color: active ? context.primaryColor : context.secondaryColor,
+        ),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          ref
+              .read(libraryContentRatingFilterProvider.notifier)
+              .toggle(bucket);
+        },
+      );
+    }
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _backHeader(l10n.common_classification, () => _go(_Level.filter)),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-          child: Text(
-            l10n.library_classification_unavailable,
-            style: TextStyle(
-              fontSize: 11,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
+        // "All" clears the selection; an empty set already means "show every
+        // rating", so it just needs to reset the buckets.
+        AdaptiveOverlayItem(
+          label: l10n.media_all,
+          trailing: Icon(
+            selected.isEmpty ? Broken.tick_circle : Broken.record_circle,
+            size: 16,
+            color: selected.isEmpty
+                ? context.primaryColor
+                : context.secondaryColor,
           ),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            ref.read(libraryContentRatingFilterProvider.notifier).set(<String>{});
+          },
         ),
-        disabledCheck(l10n.library_rating_safe),
-        disabledCheck(l10n.library_rating_suggestive),
-        disabledCheck(l10n.browse_diag_nsfw),
+        rating('safe', l10n.library_rating_safe),
+        rating('suggestive', l10n.library_rating_suggestive),
+        rating('nsfw', l10n.browse_diag_nsfw),
+        const AdaptiveOverlayDivider(),
+        AdaptiveOverlayItem(
+          icon: Broken.close_circle,
+          label: context.l10n.browse_clear_filters,
+          onTap: () {
+            ref
+                .read(libraryContentRatingFilterProvider.notifier)
+                .set(<String>{});
+            HapticFeedback.lightImpact();
+          },
+        ),
       ],
     );
   }
@@ -861,4 +1011,65 @@ List<Manga> applyLibrarySourceAndCategoryFilters(
         .toList();
   }
   return mangas;
+}
+
+/// Applies the Classification (content rating) selection on top of an already
+/// filtered list. [selected] holds any of `safe`, `suggestive`, `nsfw`; an
+/// empty set is a no-op. An entry matches `safe` when it carries no adult
+/// marker, `nsfw` when it does, and `suggestive` when it has a soft marker.
+List<Manga> applyLibraryContentRatingFilter(
+  List<Manga> mangas,
+  Set<String> selected,
+) {
+  if (selected.isEmpty) return mangas;
+  return mangas.where((manga) {
+    final nsfw = isNsfwGenre(manga.genre);
+    final suggestive = isSuggestiveGenre(manga.genre);
+    if (selected.contains('nsfw') && nsfw) return true;
+    if (selected.contains('suggestive') && suggestive) return true;
+    if (selected.contains('safe') && !nsfw && !suggestive) return true;
+    return false;
+  }).toList();
+}
+
+/// Whether any library filter is currently narrowing the list — drives the
+/// highlighted state of the app-bar filter icon.
+bool libraryFiltersActive(
+  WidgetRef ref, {
+  required ItemType itemType,
+  required Settings settings,
+  required List<Manga> entries,
+}) {
+  bool tri(int value) => value != 0;
+  final active =
+      tri(ref.watch(mangaFilterDownloadedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ))) ||
+      tri(ref.watch(mangaFilterTrackingStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ))) ||
+      tri(ref.watch(mangaFilterUnreadStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ))) ||
+      tri(ref.watch(mangaFilterStartedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ))) ||
+      tri(ref.watch(mangaFilterCompletedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      )));
+  if (active) return true;
+  if (selectedLibrarySourcesFilter(itemType).value.isNotEmpty) return true;
+  if (selectedLibraryCategoriesFilter(itemType).value.isNotEmpty) return true;
+  if (ref.watch(libraryContentRatingFilterProvider).isNotEmpty) return true;
+  return false;
 }

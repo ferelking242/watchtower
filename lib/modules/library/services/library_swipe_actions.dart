@@ -1,22 +1,29 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:watchtower/main.dart';
+import 'package:watchtower/models/download.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/modules/manga/reader/providers/reader_controller_provider.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/utils/extensions/chapter.dart';
 
 /// Runs the library swipe action the user configured for the left/right swipe.
 ///
-/// [actionIndex] indexes into [kLibrarySwipeActions].
+/// [actionIndex] indexes into [kLibrarySwipeActions]. [context] is only needed
+/// by actions that surface UI (the delete confirmation).
 Future<void> runLibrarySwipeAction(
   WidgetRef ref,
   Manga manga,
-  int actionIndex,
-) async {
+  int actionIndex, {
+  BuildContext? context,
+}) async {
   if (actionIndex < 0 || actionIndex >= kLibrarySwipeActions.length) return;
 
   switch (actionIndex) {
@@ -32,6 +39,16 @@ Future<void> runLibrarySwipeAction(
       await _downloadFirstUnread(ref, manga);
     case 5: // Partager
       await _share(manga);
+    case 6: // Copier le lien
+      await _copyLink(manga);
+    case 7: // Retirer de la bibliothèque
+      await _removeFromLibrary(manga);
+    case 8: // Marquer comme non lu
+      await _markUnread(ref, manga);
+    case 9: // Supprimer (bibliothèque / stockage)
+      if (context != null) {
+        await showSwipeDeleteDialog(context: context, ref: ref, manga: manga);
+      }
   }
 }
 
@@ -94,10 +111,126 @@ Future<void> _addToLibrary(Manga manga) async {
   isar.writeTxnSync(() => isar.mangas.putSync(manga));
 }
 
+/// Removes the series from the library without touching its files.
+Future<void> _removeFromLibrary(Manga manga) async {
+  if (manga.favorite != true) return;
+  manga.favorite = false;
+  manga.updatedAt = DateTime.now().millisecondsSinceEpoch;
+  isar.writeTxnSync(() => isar.mangas.putSync(manga));
+}
+
+/// Clears the read state of every chapter and the continue-reading pointer.
+Future<void> _markUnread(WidgetRef ref, Manga manga) async {
+  final chapters = _chaptersOf(manga);
+  if (chapters.isEmpty) return;
+
+  final now = DateTime.now().millisecondsSinceEpoch;
+  for (final chapter in chapters) {
+    chapter
+      ..isRead = false
+      ..lastPageRead = '0'
+      ..updatedAt = now
+      ..manga.value = manga;
+  }
+  manga
+    ..lastRead = null
+    ..updatedAt = now;
+
+  isar.writeTxnSync(() {
+    isar.chapters.putAllSync(chapters);
+    isar.mangas.putSync(manga);
+  });
+}
+
 Future<void> _share(Manga manga) async {
   final name = manga.name ?? '';
   final link = manga.link ?? '';
   final text = link.isEmpty ? name : '$name\n$link';
   if (text.trim().isEmpty) return;
   await SharePlus.instance.share(ShareParams(text: text));
+}
+
+Future<void> _copyLink(Manga manga) async {
+  final link = manga.link ?? '';
+  if (link.trim().isEmpty) return;
+  await Clipboard.setData(ClipboardData(text: link));
+}
+
+/// Confirmation dialog used by the "Supprimer" swipe action. Two independent
+/// checkboxes let the user remove the series from the library, wipe the
+/// downloaded files, or both.
+Future<void> showSwipeDeleteDialog({
+  required BuildContext context,
+  required WidgetRef ref,
+  required Manga manga,
+}) async {
+  final l10n = l10nLocalizations(context)!;
+  var fromLibrary = manga.favorite == true;
+  var fromStorage = false;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text(l10n.remove),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CheckboxListTile(
+                  value: fromLibrary,
+                  onChanged: (v) => setState(() => fromLibrary = v ?? false),
+                  title: Text(l10n.from_library),
+                  subtitle: Text(
+                    l10n.library_delete_library_hint,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                ),
+                CheckboxListTile(
+                  value: fromStorage,
+                  onChanged: (v) => setState(() => fromStorage = v ?? false),
+                  title: Text(l10n.storage),
+                  subtitle: Text(
+                    l10n.library_delete_storage_hint,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.cancel),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(l10n.ok),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  if (confirmed != true) return;
+
+  if (fromStorage) {
+    for (final chapter in _chaptersOf(manga)) {
+      if (isar.downloads.getSync(chapter.id!) != null) {
+        await chapter.deleteDownloadedFiles();
+      }
+    }
+  }
+
+  if (fromLibrary) {
+    manga.favorite = false;
+    manga.updatedAt = DateTime.now().millisecondsSinceEpoch;
+    isar.writeTxnSync(() => isar.mangas.putSync(manga));
+  }
 }

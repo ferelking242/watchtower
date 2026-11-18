@@ -561,11 +561,11 @@ class LibraryShowCategoryTabsState extends _$LibraryShowCategoryTabsState {
   bool build({required ItemType itemType, required Settings settings}) {
     switch (itemType) {
       case ItemType.manga:
-        return settings.libraryShowCategoryTabs!;
+        return settings.libraryShowCategoryTabs ?? true;
       case ItemType.anime:
-        return settings.animeLibraryShowCategoryTabs!;
+        return settings.animeLibraryShowCategoryTabs ?? true;
       default:
-        return settings.novelLibraryShowCategoryTabs ?? false;
+        return settings.novelLibraryShowCategoryTabs ?? true;
     }
   }
 
@@ -701,11 +701,11 @@ class LibraryShowNumbersOfItemsState extends _$LibraryShowNumbersOfItemsState {
   bool build({required ItemType itemType, required Settings settings}) {
     switch (itemType) {
       case ItemType.manga:
-        return settings.libraryShowNumbersOfItems!;
+        return settings.libraryShowNumbersOfItems ?? true;
       case ItemType.anime:
-        return settings.animeLibraryShowNumbersOfItems!;
+        return settings.animeLibraryShowNumbersOfItems ?? true;
       default:
-        return settings.novelLibraryShowNumbersOfItems ?? false;
+        return settings.novelLibraryShowNumbersOfItems ?? true;
     }
   }
 

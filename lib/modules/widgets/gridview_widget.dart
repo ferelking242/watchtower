@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:watchtower/ui/responsive/breakpoints.dart';
-
 class GridViewWidget extends StatelessWidget {
   final ScrollController? controller;
   final int? itemCount;
@@ -9,6 +7,13 @@ class GridViewWidget extends StatelessWidget {
   final double? childAspectRatio;
   final Widget? Function(BuildContext, int) itemBuilder;
   final int? gridSize;
+
+  /// Upper bound for a single tile's width. Without it, asking for one column
+  /// on a phone stretches the lone cover across the whole screen — huge and
+  /// "zoomed". Tiles are capped at this width and the grid is centered, so a
+  /// one-per-row layout still reads as a tidy card.
+  final double maxTileWidth;
+
   const GridViewWidget({
     super.key,
     this.controller,
@@ -17,69 +22,27 @@ class GridViewWidget extends StatelessWidget {
     this.reverse = false,
     this.childAspectRatio = 0.69,
     this.gridSize,
+    this.maxTileWidth = 200,
   });
 
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final isLandscape = mq.orientation == Orientation.landscape;
-    final sizeClass = windowSizeClassFor(mq.size.width);
-    // In landscape the screen is wider → smaller cells → more columns.
-    // We also account for horizontal safe-area insets (camera cutouts, etc.)
-    // by using the available width after padding.
-    final safeWidth = mq.size.width - mq.padding.left - mq.padding.right;
+    final available = mq.size.width - mq.padding.left - mq.padding.right;
 
-    // A desktop window is wide enough that the user's column count (three by
-    // default) would stretch each cover into a billboard. Derive the column
-    // count from the width instead, keeping the preference as a floor so a user
-    // who asked for five columns still gets at least five.
-    final isDesktopWide = sizeClass.index >= WindowSizeClass.expanded.index;
-    if (isDesktopWide) {
-      final spec = AdaptiveGridSpec.resolve(
-        safeWidth,
-        minTileWidth: 150,
-        maxColumns: 12,
-        spacing: 14,
-      );
-      final columns = gridSize != null && gridSize! > spec.columns
-          ? gridSize!
-          : spec.columns;
-      return SafeArea(
-        top: false,
-        bottom: false,
-        child: Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          child: GridView.builder(
-            padding: EdgeInsets.only(
-              top: 13,
-              left: mq.padding.left + 8,
-              right: mq.padding.right + 8,
-            ),
-            controller: controller,
-            reverse: reverse,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisSpacing: spec.spacing,
-              crossAxisSpacing: spec.spacing,
-              childAspectRatio: childAspectRatio!,
-            ),
-            itemCount: itemCount,
-            itemBuilder: itemBuilder,
-          ),
-        ),
-      );
-    }
+    const spacing = 8.0;
+    final hasExplicitColumns = gridSize != null && gridSize! > 0;
+    // No explicit preference: pick a count from the width. Landscape is wider,
+    // so it fits more columns at the same tile size.
+    final int columns = hasExplicitColumns
+        ? gridSize!
+        : (available / (isLandscape ? 150 : 120)).round().clamp(3, 8);
 
-    final double maxExtent;
-    if (gridSize != null && gridSize != 0) {
-      maxExtent = 140; // ignored when fixedCrossAxisCount is used
-    } else if (isLandscape) {
-      // landscape: aim for 4-6 columns depending on screen width
-      maxExtent = (safeWidth / 5).clamp(100, 130);
-    } else {
-      // portrait: 3 columns on phones, 4-5 on tablets
-      maxExtent = 140;
-    }
+    var tileWidth = (available - spacing * (columns - 1)) / columns;
+    if (tileWidth > maxTileWidth) tileWidth = maxTileWidth;
+    final contentWidth = tileWidth * columns + spacing * (columns - 1);
+    final sidePad = ((available - contentWidth) / 2).clamp(0.0, double.infinity);
 
     return SafeArea(
       top: false,
@@ -89,20 +52,17 @@ class GridViewWidget extends StatelessWidget {
         child: GridView.builder(
           padding: EdgeInsets.only(
             top: 13,
-            left: mq.padding.left,
-            right: mq.padding.right,
+            left: mq.padding.left + sidePad,
+            right: mq.padding.right + sidePad,
           ),
           controller: controller,
           reverse: reverse,
-          gridDelegate: (gridSize == null || gridSize == 0)
-              ? SliverGridDelegateWithMaxCrossAxisExtent(
-                  childAspectRatio: childAspectRatio!,
-                  maxCrossAxisExtent: maxExtent,
-                )
-              : SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: gridSize!,
-                  childAspectRatio: childAspectRatio!,
-                ),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            childAspectRatio: childAspectRatio!,
+          ),
           itemCount: itemCount,
           itemBuilder: itemBuilder,
         ),

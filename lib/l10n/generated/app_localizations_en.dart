@@ -12993,4 +12993,45 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get categories_empty_subtitle =>
       'Create a category to organise your library.';
+
+  @override
+  String get library_menu_activity => 'Activity';
+
+  @override
+  String get library_menu_maintenance => 'Maintenance';
+
+  @override
+  String get library_restore_defaults => 'Restore default settings';
+
+  @override
+  String get library_swipe_copy_link => 'Copy link';
+
+  @override
+  String get library_swipe_remove_from_library => 'Remove from library';
+
+  @override
+  String get library_swipe_mark_unread => 'Mark as unread';
+
+  @override
+  String get library_delete_storage_hint =>
+      'Deletes the downloaded files from the device';
+
+  @override
+  String get library_delete_library_hint =>
+      'Removes the series from the library';
+
+  @override
+  String get library_show_provider_badge => 'Show provider badge';
+
+  @override
+  String get settings_purge_missing_downloads => 'Clean up broken downloads';
+
+  @override
+  String get settings_purge_missing_downloads_desc =>
+      'Removes download entries whose files are no longer on the device';
+
+  @override
+  String settings_purged_downloads(String count) {
+    return 'Cleaned up: $count';
+  }
 }

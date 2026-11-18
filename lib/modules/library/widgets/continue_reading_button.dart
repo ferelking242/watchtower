@@ -6,54 +6,95 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
 import 'package:watchtower/modules/more/providers/incognito_mode_state_provider.dart';
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
 
-/// The round "continue reading" play button drawn on a library card.
+/// The "continue reading" control drawn on a library card.
 ///
 /// It reads the single shared [libraryHistoryByMangaProvider] instead of
 /// opening its own Isar query watcher per card, and it resolves the linked
 /// chapter lazily on tap — reading `history.chapter.value` while building would
 /// issue one synchronous Isar read per visible card.
+///
+/// When [libraryShowProviderBadgeProvider] is on the pill also carries the
+/// source (extension) that provides the entry, the same watermark the download
+/// manager paints on its covers.
 class ContinueReadingButton extends ConsumerWidget {
   const ContinueReadingButton({super.key, required this.entry});
 
   final Manga entry;
 
+  void _open(BuildContext context, WidgetRef ref) {
+    final history = ref.read(libraryHistoryByMangaProvider).value?[entry.id];
+    final incognitoMode = ref.read(incognitoModeStateProvider);
+    if (history != null && !incognitoMode) {
+      final chapter = history.chapter.value;
+      if (chapter != null) {
+        chapter.pushToReaderView(context);
+        return;
+      }
+    }
+    // Index-backed read instead of the lazy `entry.chapters` backlink,
+    // which ran a full synchronous chapter load on the UI isolate on tap.
+    final chapters = entry.id == null
+        ? <Chapter>[]
+        : isar.chapters.where().mangaIdEqualTo(entry.id!).findAllSync();
+    if (chapters.isNotEmpty) {
+      chapters.reversed.toList().last.pushToReaderView(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final history = ref.watch(libraryHistoryByMangaProvider).value?[entry.id];
-    final incognitoMode = ref.watch(incognitoModeStateProvider);
+    final showProvider = ref.watch(libraryShowProviderBadgeProvider);
+    var provider = (entry.source ?? '')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toUpperCase();
+    if (provider.length > 8) provider = provider.substring(0, 8);
+    final showBadge = showProvider && provider.isNotEmpty;
 
+    final radius = BorderRadius.circular(999);
     return GestureDetector(
-      onTap: () {
-        if (history != null && !incognitoMode) {
-          final chapter = history.chapter.value;
-          if (chapter != null) {
-            chapter.pushToReaderView(context);
-            return;
-          }
-        }
-        // Index-backed read instead of the lazy `entry.chapters` backlink,
-        // which ran a full synchronous chapter load on the UI isolate on tap.
-        final chapters = entry.id == null
-            ? <Chapter>[]
-            : isar.chapters
-                  .where()
-                  .mangaIdEqualTo(entry.id!)
-                  .findAllSync();
-        if (chapters.isNotEmpty) {
-          chapters.reversed.toList().last.pushToReaderView(context);
-        }
-      },
+      onTap: () => _open(context, ref),
       child: Container(
+        margin: const EdgeInsets.all(5),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(5),
-          color: context.primaryColor.withValues(alpha: 0.9),
+          borderRadius: radius,
+          color: context.primaryColor.withValues(alpha: 0.92),
         ),
-        child: const Padding(
-          padding: EdgeInsets.all(7),
-          child: Icon(Icons.play_arrow, size: 19, color: Colors.white),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Icon(
+                  Icons.play_arrow_rounded,
+                  size: 22,
+                  color: Colors.white,
+                ),
+              ),
+              if (showBadge) ...[
+                Container(
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 7),
+                  alignment: Alignment.center,
+                  color: Colors.black.withValues(alpha: 0.22),
+                  child: Text(
+                    provider,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
