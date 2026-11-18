@@ -12636,6 +12636,100 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get smart_library_watch_title => 'Smart Library Watch';
+
+  @override
+  String get smart_library_manga_title => 'Smart Library Manga';
+
+  @override
+  String get smart_library_music_title => 'Smart Library Music';
+
+  @override
+  String get smart_filter_albums => 'Albums';
+
+  @override
+  String get smart_filter_singles => 'Singles';
+
+  @override
+  String get smart_edit_entry => 'Edit entry';
+
+  @override
+  String get smart_edit_title => 'Title';
+
+  @override
+  String get smart_edit_kind => 'Type';
+
+  @override
+  String get smart_edit_season => 'Season';
+
+  @override
+  String get smart_edit_episode => 'Episode';
+
+  @override
+  String get smart_edit_artist => 'Artist';
+
+  @override
+  String get smart_edit_album => 'Album';
+
+  @override
+  String get smart_edit_save => 'Save';
+
+  @override
+  String get smart_edit_cancel => 'Cancel';
+
+  @override
+  String get smart_edit_saved => 'Entry updated';
+
+  @override
+  String get smart_requery => 'Search again';
+
+  @override
+  String get smart_requery_running => 'Searching the catalogue…';
+
+  @override
+  String smart_requery_found(Object title) {
+    return 'Match found: $title';
+  }
+
+  @override
+  String get smart_requery_none =>
+      'No match found. You can fill the fields by hand.';
+
+  @override
+  String smart_requery_failed(Object error) {
+    return 'Lookup failed: $error';
+  }
+
+  @override
+  String get smart_rename => 'Rename';
+
+  @override
+  String get smart_rename_preview => 'Rename to';
+
+  @override
+  String get smart_rename_apply => 'Rename';
+
+  @override
+  String get smart_rename_done => 'File renamed';
+
+  @override
+  String smart_rename_failed(Object reason) {
+    return 'Rename failed: $reason';
+  }
+
+  @override
+  String get smart_rename_not_needed => 'Already correctly named';
+
+  @override
+  String smart_track_count(Object count) {
+    return '$count tracks';
+  }
+
+  @override
+  String get smart_unknown_help =>
+      'This entry could not be classified. Edit it or search the catalogue again.';
+
+  @override
   String get appearance_ui_subtitle =>
       'Carousel, blur, animations and visual effects';
 

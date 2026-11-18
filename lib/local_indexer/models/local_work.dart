@@ -27,6 +27,8 @@ class LocalWork {
   /// A single-file movie (or an unclassified one) has nothing to number.
   bool get isMovie => !isSeries;
 
+  bool get isMusic => kind == LocalMediaKind.music;
+
   int get fileCount => files.length;
 
   int get totalSize => files.fold(0, (sum, f) => sum + f.fileSize);
@@ -69,17 +71,28 @@ class LocalWork {
   static List<LocalWork> group(List<LocalIndexedItem> items) {
     final buckets = <String, List<LocalIndexedItem>>{};
     for (final item in items) {
-      final seasonKey =
-          item.kind == LocalMediaKind.series ||
-              item.kind == LocalMediaKind.anime
-          ? 's${item.season ?? 1}'
-          : 'film';
-      buckets
-          .putIfAbsent(
-            '${item.kind.name}:${item.canonicalKey}:$seasonKey',
-            () => [],
-          )
-          .add(item);
+      final String bucketKey;
+      if (item.kind == LocalMediaKind.music) {
+        // A track is not a "work": group the whole album so the Smart Library
+        // shows one card per album instead of one per song. Fall back to the
+        // artist, then to the canonical key for a loose single.
+        final album = item.album?.trim();
+        final artist = item.artist?.trim();
+        final albumKey = (album != null && album.isNotEmpty)
+            ? album.toLowerCase()
+            : (artist != null && artist.isNotEmpty
+                  ? 'artist:${artist.toLowerCase()}'
+                  : 'single:${item.canonicalKey}');
+        bucketKey = 'music:${(artist ?? '').toLowerCase()}:$albumKey';
+      } else {
+        final seasonKey =
+            item.kind == LocalMediaKind.series ||
+                item.kind == LocalMediaKind.anime
+            ? 's${item.season ?? 1}'
+            : 'film';
+        bucketKey = '${item.kind.name}:${item.canonicalKey}:$seasonKey';
+      }
+      buckets.putIfAbsent(bucketKey, () => []).add(item);
     }
 
     final works = <LocalWork>[];
@@ -95,9 +108,14 @@ class LocalWork {
       works.add(
         LocalWork(
           canonicalKey: first.canonicalKey,
-          title: first.title,
+          title: first.kind == LocalMediaKind.music
+              ? (first.album?.trim().isNotEmpty ?? false
+                    ? first.album!.trim()
+                    : first.title)
+              : first.title,
           kind: first.kind,
-          season: first.kind == LocalMediaKind.movie
+          season: first.kind == LocalMediaKind.movie ||
+                  first.kind == LocalMediaKind.music
               ? null
               : (first.season ?? 1),
           files: files,

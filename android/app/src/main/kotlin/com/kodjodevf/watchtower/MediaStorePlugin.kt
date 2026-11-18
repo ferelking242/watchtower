@@ -23,6 +23,7 @@ import io.flutter.plugin.common.MethodChannel
  * Méthodes MethodChannel :
  *  - queryVideos  → List<Map> : tous les fichiers vidéo indexés par MediaStore
  *  - queryImages  → List<Map> : tous les fichiers image indexés par MediaStore
+ *  - queryAudio   → List<Map> : tous les fichiers audio indexés par MediaStore
  *
  * EventChannel events : Map { type: "inserted"|"updated"|"deleted", path: String? }
  */
@@ -84,6 +85,13 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     result.success(queryImages())
                 } catch (e: Exception) {
                     result.error("QUERY_IMAGES_FAILED", e.message, null)
+                }
+            }
+            "queryAudio" -> {
+                try {
+                    result.success(queryAudio())
+                } catch (e: Exception) {
+                    result.error("QUERY_AUDIO_FAILED", e.message, null)
                 }
             }
             else -> result.notImplemented()
@@ -198,6 +206,61 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         return results
     }
 
+    private fun queryAudio(): List<Map<String, Any?>> {
+        val results = mutableListOf<Map<String, Any?>>()
+
+        val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        } else {
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        }
+
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.DISPLAY_NAME,
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.SIZE,
+            MediaStore.Audio.Media.DATE_MODIFIED,
+            MediaStore.Audio.Media.MIME_TYPE,
+            MediaStore.Audio.Media.DURATION,
+        )
+
+        context.contentResolver.query(
+            collection,
+            projection,
+            null,
+            null,
+            "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"
+        )?.use { cursor ->
+            val idCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val durCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+
+            while (cursor.moveToNext()) {
+                val id       = cursor.getLong(idCol)
+                val dataPath = cursor.getString(dataCol) ?: run {
+                    // Android 10+ : reconstruire depuis content URI
+                    val uri = ContentUris.withAppendedId(collection, id)
+                    uri.toString()
+                }
+                results.add(mapOf(
+                    "path"        to dataPath,
+                    "displayName" to cursor.getString(nameCol),
+                    "size"        to cursor.getLong(sizeCol),
+                    "modifiedAt"  to cursor.getLong(dateCol) * 1000L,
+                    "mimeType"    to cursor.getString(mimeCol),
+                    "duration"    to cursor.getLong(durCol),
+                ))
+            }
+        }
+
+        return results
+    }
+
     // ── ContentObserver (changements en temps réel) ──────────────────────────
 
     private fun startObserving() {
@@ -216,7 +279,7 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
         contentObserver = observer
 
-        // Observer les deux collections (vidéo + images)
+        // Observer les collections (vidéo + images + audio)
         context.contentResolver.registerContentObserver(
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
             true,
@@ -224,6 +287,11 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         )
         context.contentResolver.registerContentObserver(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            true,
+            observer
+        )
+        context.contentResolver.registerContentObserver(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             true,
             observer
         )

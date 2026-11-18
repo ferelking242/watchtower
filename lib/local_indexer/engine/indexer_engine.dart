@@ -61,7 +61,7 @@ class IndexerEngine {
       entryPoint: AnalysisStage.isolateEntryPoint,
     );
 
-    _discovery = const DiscoveryStage(
+    _discovery = DiscoveryStage(
       batchSize: 300,
       policy: ScanPolicy.videos(),
     );
@@ -93,9 +93,11 @@ class IndexerEngine {
     if (!_initialized) await initialize();
     if (_scanning) return IndexerStats.empty();
     _scanning = true;
-    final policy = mode == LocalScanMode.manga
-        ? const ScanPolicy.manga()
-        : const ScanPolicy.videos();
+    final policy = switch (mode) {
+      LocalScanMode.manga => const ScanPolicy.manga(),
+      LocalScanMode.music => const ScanPolicy.music(),
+      LocalScanMode.videos => ScanPolicy.videos(),
+    };
     _discovery = DiscoveryStage(batchSize: 300, policy: policy);
     _activeMode = mode;
 
@@ -125,10 +127,29 @@ class IndexerEngine {
                 analysisName: entry.path.startsWith('content://')
                     ? entry.displayName
                     : null,
+                durationMs: entry.duration,
               )));
         } on MediaStoreException {
           // The filesystem fallback still works when MediaStore permission
           // is unavailable or the device does not expose the bridge.
+        }
+      } else if (mode == LocalScanMode.music && AndroidMediaStore.isAvailable) {
+        // MediaStore knows every track the media scanner indexed, including
+        // those under Android/data that a plain directory walk cannot read.
+        try {
+          final entries = await AndroidMediaStore.queryAudio();
+          mediaStoreFiles.addAll(entries.map((entry) => DiscoveredFile(
+                path: entry.path,
+                size: entry.size,
+                modifiedAt: entry.modifiedAt,
+                extension: _mediaStoreExtension(entry),
+                analysisName: entry.path.startsWith('content://')
+                    ? entry.displayName
+                    : null,
+                durationMs: entry.duration,
+              )));
+        } on MediaStoreException {
+          // Fall back to the filesystem walk below.
         }
       }
 
@@ -331,6 +352,17 @@ class IndexerEngine {
     if (_activeMode == LocalScanMode.manga &&
         DiscoveryStage.mangaPageExtensions.contains(_ext(path)) &&
         !DiscoveryStage.isLikelyMangaPath(path)) {
+      return;
+    }
+    // The same quality gate the full scan applies, so a file dropped by the
+    // scan is not silently re-added by the live watcher.
+    final activePolicy = switch (_activeMode) {
+      LocalScanMode.manga => const ScanPolicy.manga(),
+      LocalScanMode.music => const ScanPolicy.music(),
+      LocalScanMode.videos => ScanPolicy.videos(),
+    };
+    if (stat.size < activePolicy.minimumFileSize ||
+        activePolicy.rejectsName(discovered.basename)) {
       return;
     }
 

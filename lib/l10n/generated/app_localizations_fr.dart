@@ -12828,6 +12828,100 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get smart_library_watch_title => 'Smart Library Watch';
+
+  @override
+  String get smart_library_manga_title => 'Smart Library Manga';
+
+  @override
+  String get smart_library_music_title => 'Smart Library Music';
+
+  @override
+  String get smart_filter_albums => 'Albums';
+
+  @override
+  String get smart_filter_singles => 'Singles';
+
+  @override
+  String get smart_edit_entry => 'Modifier l\'entrée';
+
+  @override
+  String get smart_edit_title => 'Titre';
+
+  @override
+  String get smart_edit_kind => 'Type';
+
+  @override
+  String get smart_edit_season => 'Saison';
+
+  @override
+  String get smart_edit_episode => 'Épisode';
+
+  @override
+  String get smart_edit_artist => 'Artiste';
+
+  @override
+  String get smart_edit_album => 'Album';
+
+  @override
+  String get smart_edit_save => 'Enregistrer';
+
+  @override
+  String get smart_edit_cancel => 'Annuler';
+
+  @override
+  String get smart_edit_saved => 'Entrée mise à jour';
+
+  @override
+  String get smart_requery => 'Rechercher à nouveau';
+
+  @override
+  String get smart_requery_running => 'Recherche dans le catalogue…';
+
+  @override
+  String smart_requery_found(Object title) {
+    return 'Correspondance trouvée : $title';
+  }
+
+  @override
+  String get smart_requery_none =>
+      'Aucune correspondance. Vous pouvez remplir les champs à la main.';
+
+  @override
+  String smart_requery_failed(Object error) {
+    return 'Échec de la recherche : $error';
+  }
+
+  @override
+  String get smart_rename => 'Renommer';
+
+  @override
+  String get smart_rename_preview => 'Renommer en';
+
+  @override
+  String get smart_rename_apply => 'Renommer';
+
+  @override
+  String get smart_rename_done => 'Fichier renommé';
+
+  @override
+  String smart_rename_failed(Object reason) {
+    return 'Échec du renommage : $reason';
+  }
+
+  @override
+  String get smart_rename_not_needed => 'Déjà correctement nommé';
+
+  @override
+  String smart_track_count(Object count) {
+    return '$count pistes';
+  }
+
+  @override
+  String get smart_unknown_help =>
+      'Cette entrée n\'a pas pu être classée. Modifiez-la ou relancez la recherche.';
+
+  @override
   String get appearance_ui_subtitle =>
       'Carousel, flou, animations et effets visuels';
 

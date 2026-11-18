@@ -82,6 +82,9 @@ class AnalysisStage {
       'language': result.language,
       'releaseGroup': result.releaseGroup,
       'confidence': result.confidence,
+      'artist': result.artist,
+      'album': result.album,
+      'durationSeconds': payload['durationSeconds'] as int?,
     };
   }
 
@@ -105,6 +108,11 @@ class AnalysisStage {
       releaseGroup: result.releaseGroup,
       confidence: result.confidence,
       mimeType: _mimeOf(file.extension),
+      artist: result.artist,
+      album: result.album,
+      durationSeconds: file.durationMs == null
+          ? null
+          : (file.durationMs! / 1000).round(),
     );
   }
 
@@ -127,6 +135,9 @@ class AnalysisStage {
       releaseGroup: map['releaseGroup'] as String?,
       confidence: (map['confidence'] as num).toDouble(),
       mimeType: map['mime'] as String?,
+      artist: map['artist'] as String?,
+      album: map['album'] as String?,
+      durationSeconds: map['durationSeconds'] as int?,
     );
   }
 
@@ -160,6 +171,21 @@ class AnalysisStage {
         '.jpeg': 'image/jpeg',
         '.png': 'image/png',
         '.webp': 'image/webp',
+        '.mp3': 'audio/mpeg',
+        '.m4a': 'audio/mp4',
+        '.aac': 'audio/aac',
+        '.flac': 'audio/flac',
+        '.opus': 'audio/opus',
+        '.ogg': 'audio/ogg',
+        '.oga': 'audio/ogg',
+        '.wav': 'audio/wav',
+        '.wma': 'audio/x-ms-wma',
+        '.alac': 'audio/mp4',
+        '.aiff': 'audio/aiff',
+        '.aif': 'audio/aiff',
+        '.ape': 'audio/x-ape',
+        '.wv': 'audio/x-wavpack',
+        '.mka': 'audio/x-matroska',
       }[ext];
 }
 
@@ -181,6 +207,9 @@ class AnalysisResult {
   final String? releaseGroup;
   final double confidence;
   final String? mimeType;
+  final String? artist;
+  final String? album;
+  final int? durationSeconds;
 
   const AnalysisResult({
     required this.discoveredFile,
@@ -199,5 +228,8 @@ class AnalysisResult {
     this.releaseGroup,
     required this.confidence,
     this.mimeType,
+    this.artist,
+    this.album,
+    this.durationSeconds,
   });
 }

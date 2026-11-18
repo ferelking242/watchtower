@@ -22667,6 +22667,174 @@ abstract class AppLocalizations {
   /// **'Scanning storage · {count} files'**
   String smart_scanning_storage_count(Object count);
 
+  /// No description provided for @smart_library_watch_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Library Watch'**
+  String get smart_library_watch_title;
+
+  /// No description provided for @smart_library_manga_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Library Manga'**
+  String get smart_library_manga_title;
+
+  /// No description provided for @smart_library_music_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Library Music'**
+  String get smart_library_music_title;
+
+  /// No description provided for @smart_filter_albums.
+  ///
+  /// In en, this message translates to:
+  /// **'Albums'**
+  String get smart_filter_albums;
+
+  /// No description provided for @smart_filter_singles.
+  ///
+  /// In en, this message translates to:
+  /// **'Singles'**
+  String get smart_filter_singles;
+
+  /// No description provided for @smart_edit_entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit entry'**
+  String get smart_edit_entry;
+
+  /// No description provided for @smart_edit_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get smart_edit_title;
+
+  /// No description provided for @smart_edit_kind.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get smart_edit_kind;
+
+  /// No description provided for @smart_edit_season.
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get smart_edit_season;
+
+  /// No description provided for @smart_edit_episode.
+  ///
+  /// In en, this message translates to:
+  /// **'Episode'**
+  String get smart_edit_episode;
+
+  /// No description provided for @smart_edit_artist.
+  ///
+  /// In en, this message translates to:
+  /// **'Artist'**
+  String get smart_edit_artist;
+
+  /// No description provided for @smart_edit_album.
+  ///
+  /// In en, this message translates to:
+  /// **'Album'**
+  String get smart_edit_album;
+
+  /// No description provided for @smart_edit_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get smart_edit_save;
+
+  /// No description provided for @smart_edit_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get smart_edit_cancel;
+
+  /// No description provided for @smart_edit_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry updated'**
+  String get smart_edit_saved;
+
+  /// No description provided for @smart_requery.
+  ///
+  /// In en, this message translates to:
+  /// **'Search again'**
+  String get smart_requery;
+
+  /// No description provided for @smart_requery_running.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching the catalogue…'**
+  String get smart_requery_running;
+
+  /// No description provided for @smart_requery_found.
+  ///
+  /// In en, this message translates to:
+  /// **'Match found: {title}'**
+  String smart_requery_found(Object title);
+
+  /// No description provided for @smart_requery_none.
+  ///
+  /// In en, this message translates to:
+  /// **'No match found. You can fill the fields by hand.'**
+  String get smart_requery_none;
+
+  /// No description provided for @smart_requery_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Lookup failed: {error}'**
+  String smart_requery_failed(Object error);
+
+  /// No description provided for @smart_rename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get smart_rename;
+
+  /// No description provided for @smart_rename_preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename to'**
+  String get smart_rename_preview;
+
+  /// No description provided for @smart_rename_apply.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get smart_rename_apply;
+
+  /// No description provided for @smart_rename_done.
+  ///
+  /// In en, this message translates to:
+  /// **'File renamed'**
+  String get smart_rename_done;
+
+  /// No description provided for @smart_rename_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename failed: {reason}'**
+  String smart_rename_failed(Object reason);
+
+  /// No description provided for @smart_rename_not_needed.
+  ///
+  /// In en, this message translates to:
+  /// **'Already correctly named'**
+  String get smart_rename_not_needed;
+
+  /// No description provided for @smart_track_count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} tracks'**
+  String smart_track_count(Object count);
+
+  /// No description provided for @smart_unknown_help.
+  ///
+  /// In en, this message translates to:
+  /// **'This entry could not be classified. Edit it or search the catalogue again.'**
+  String get smart_unknown_help;
+
   /// No description provided for @appearance_ui_subtitle.
   ///
   /// In en, this message translates to:

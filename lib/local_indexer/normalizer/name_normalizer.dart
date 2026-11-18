@@ -23,6 +23,12 @@ class NormalizeResult {
   final String? releaseGroup;
   final double confidence;
 
+  /// Music only: artist parsed from "Artist - Title" or the parent folder.
+  final String? artist;
+
+  /// Music only: album parsed from the parent folder.
+  final String? album;
+
   const NormalizeResult({
     required this.title,
     required this.canonicalKey,
@@ -38,6 +44,8 @@ class NormalizeResult {
     this.language,
     this.releaseGroup,
     required this.confidence,
+    this.artist,
+    this.album,
   });
 
   @override
@@ -159,6 +167,8 @@ class NameNormalizer {
     final kind = _detectKind(filename, episode);
     var chapter = episode.chapter;
     var volume = episode.volume;
+    String? artist;
+    String? album;
     if (kind == LocalMediaKind.manga) {
       // Le volume/chapitre peut vivre dans un dossier parent
       // ("/Manga/Berserk/Vol. 2/page.cbz") : la tokenisation ne voit que le
@@ -172,6 +182,14 @@ class NameNormalizer {
       if (parentTitle != null && _isPageLikeTitle(title)) {
         title = parentTitle;
       }
+    } else if (kind == LocalMediaKind.music) {
+      // "Artist - Title" is the dominant convention for a tagged-less file.
+      // The parent folder supplies the album, its parent the artist, mirroring
+      // the usual "Artist/Album/NN Title.mp3" layout.
+      final musicMeta = _musicMetadata(filename, title);
+      title = musicMeta.title;
+      artist = musicMeta.artist;
+      album = musicMeta.album;
     }
 
     // ── 10. Clé canonique ────────────────────────────────────────────────
@@ -203,6 +221,8 @@ class NameNormalizer {
       language: lang.language,
       releaseGroup: releaseGroup,
       confidence: conf,
+      artist: artist,
+      album: album,
     );
   }
 
@@ -230,6 +250,70 @@ class NameNormalizer {
     final dot = name.lastIndexOf('.');
     if (dot > 0) name = name.substring(0, dot);
     return name.replaceAll(RegExp(r'[_\-\.]'), ' ').trim();
+  }
+
+  /// Extracts a music track's title, artist and album from its path.
+  ///
+  /// Filenames follow "Artist - Title" (or "NN - Artist - Title"); the parent
+  /// folder is the album and its parent the artist, matching the common
+  /// "Artist/Album/NN Title.mp3" layout. Any part that is missing stays null.
+  static ({String title, String? artist, String? album}) _musicMetadata(
+    String filename,
+    String fallbackTitle,
+  ) {
+    final parts = filename
+        .split(RegExp(r'[/\\]'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final base = parts.isEmpty ? filename : parts.last;
+    final stem = base.replaceFirst(RegExp(r'\.[a-zA-Z0-9]{2,5}$'), '');
+    final dirs = parts.length > 1 ? parts.sublist(0, parts.length - 1) : <String>[];
+
+    // Split on the LAST " - " so "Artist - Sub - Title" keeps a single artist.
+    var title = stem.trim();
+    String? artist;
+    final dash = stem.lastIndexOf(' - ');
+    if (dash > 0) {
+      artist = stem.substring(0, dash).trim();
+      title = stem.substring(dash + 3).trim();
+      // Drop a leading track number ("01 - " or "01. ") from the artist side.
+      artist = artist.replaceFirst(RegExp(r'^\d{1,3}[.)]?\s*'), '').trim();
+    } else {
+      // Strip a leading track number from a plain "01 Title" filename.
+      title = title.replaceFirst(RegExp(r'^\d{1,3}[.)]?\s+'), '').trim();
+    }
+    if (title.isEmpty) title = fallbackTitle;
+    if (artist != null && artist.isEmpty) artist = null;
+
+    // "Artist/Album/NN Title" — use the folders only when the name was silent.
+    String? album;
+    final cleanedDirs = dirs.where((d) => !_isGenericMusicFolder(d)).toList();
+    if (cleanedDirs.isNotEmpty) {
+      album = _cleanTitle(cleanedDirs.last);
+      if (artist == null && cleanedDirs.length >= 2) {
+        artist = _cleanTitle(cleanedDirs[cleanedDirs.length - 2]);
+      }
+    }
+    return (title: title, artist: artist, album: album);
+  }
+
+  static bool _isGenericMusicFolder(String name) {
+    return const {
+      'music',
+      'musique',
+      'audio',
+      'songs',
+      'song',
+      'tracks',
+      'track',
+      'albums',
+      'download',
+      'downloads',
+      'storage',
+      'emulated',
+      '0',
+      'sdcard',
+    }.contains(name.toLowerCase().trim());
   }
 
   /// Extrait le volume/chapitre depuis les dossiers parents
@@ -306,6 +390,16 @@ class NameNormalizer {
     if (const {'.cbz', '.cbr', '.cbt', '.cb7'}.contains(ext)) {
       return LocalMediaKind.manga;
     }
+
+    // Audio → music. Checked before the video block so a music library never
+    // leaks into the Watch surface.
+    if (const {
+      '.mp3', '.m4a', '.aac', '.flac', '.opus', '.ogg', '.oga', '.wav', '.wma',
+      '.alac', '.aiff', '.aif', '.ape', '.wv', '.mka',
+    }.contains(ext)) {
+      return LocalMediaKind.music;
+    }
+
     // A plain ZIP is treated as manga only when its path or name gives a
     // comic/chapter signal. This avoids indexing arbitrary ZIP downloads as
     // manga while still supporting common manga archives.

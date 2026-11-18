@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:path/path.dart' as p;
 
-/// The two Smart Library scanners are intentionally disjoint.
-enum LocalScanMode { videos, manga }
+/// The three Smart Library scanners are intentionally disjoint.
+enum LocalScanMode { videos, manga, music }
 
 /// Étape 1 du pipeline : Découverte des fichiers sur le disque.
 ///
@@ -28,6 +28,10 @@ class DiscoveryStage {
     '.jpg', '.jpeg', '.png', '.webp', '.avif',
   };
   static const novelExtensions = {'.epub', '.mobi', '.azw3', '.fb2'};
+  static const audioExtensions = {
+    '.mp3', '.m4a', '.aac', '.flac', '.opus', '.ogg', '.oga', '.wav', '.wma',
+    '.alac', '.aiff', '.aif', '.ape', '.wv', '.mka',
+  };
 
   final int batchSize;
   final bool followLinks;
@@ -60,6 +64,7 @@ class DiscoveryStage {
     for (final file in additionalFiles) {
       if (!allowed.contains(file.extension) ||
           file.size < policy.minimumFileSize ||
+          !_passesQualityGate(file) ||
           !seen.add(file.path)) {
         continue;
       }
@@ -110,6 +115,12 @@ class DiscoveryStage {
           continue;
         }
 
+        // A filename that announces an extra ("...sample.mkv") is not a movie
+        // or an episode; drop it before it reaches the library.
+        if (policy.rejectsName(p.basename(entity.path))) {
+          continue;
+        }
+
         batch.add(DiscoveredFile(
           path: entity.path,
           size: stat.size,
@@ -130,6 +141,20 @@ class DiscoveryStage {
     }
 
     if (batch.isNotEmpty) yield List.unmodifiable(batch);
+  }
+
+  /// True when a discovered file passes the policy's duration and name gates.
+  ///
+  /// The filesystem walk never knows a duration (it would need to open the
+  /// file), so this only ever rejects MediaStore rows. A rejected file is not a
+  /// movie or an episode.
+  bool _passesQualityGate(DiscoveredFile file) {
+    if (policy.minimumDurationMs > 0 &&
+        file.durationMs != null &&
+        file.durationMs! < policy.minimumDurationMs) {
+      return false;
+    }
+    return !policy.rejectsName(file.basename);
   }
 
   /// Recursively yields the entries under [dir], skipping unreadable subtrees.
@@ -196,6 +221,7 @@ class DiscoveryStage {
   /// Catégorie d'un fichier basée uniquement sur son extension.
   static FileCategory categoryOf(String ext) {
     if (videoExtensions.contains(ext)) return FileCategory.video;
+    if (audioExtensions.contains(ext)) return FileCategory.audio;
     if (mangaArchiveExtensions.contains(ext)) return FileCategory.archive;
     if (novelExtensions.contains(ext)) return FileCategory.novel;
     if (mangaPageExtensions.contains(ext)) return FileCategory.image;
@@ -327,74 +353,52 @@ class ScanPolicy {
   final Set<String> ignoredDirectories;
   final List<RegExp> ignoredPatterns;
   final int minimumFileSize;
+
+  /// Minimum duration (ms) a video must reach to be indexed. Short clips
+  /// (ringtones, memes, screen recordings) are not movies or series, so the
+  /// Watch scan skips them. `0` disables the duration gate (manga/music).
+  final int minimumDurationMs;
+
+  /// File-name signals that mark a candidate as *not* a movie/series (sample,
+  /// trailer, featurette, bonus…). A matched name is rejected during
+  /// discovery so the noise never reaches the library.
+  final List<RegExp> excludedNamePatterns;
+
   final int? maximumDepth;
   final bool includeImages;
 
   const ScanPolicy({
     this.mode = LocalScanMode.videos,
     this.allowedExtensions = DiscoveryStage.videoExtensions,
-    this.ignoredDirectories = const {
-      '.git',
-      '.svn',
-      '__pycache__',
-      'node_modules',
-      '.thumbnails',
-      'cache',
-      'caches',
-      'tmp',
-      'temp',
-      'lost.dir',
-      '.trash',
-      'lost+found',
-      'system volume information',
-    },
+    this.ignoredDirectories = _defaultIgnoredDirectories,
     this.ignoredPatterns = const [],
     this.minimumFileSize = 1,
+    this.minimumDurationMs = 0,
+    this.excludedNamePatterns = const [],
     this.maximumDepth,
     this.includeImages = false,
   });
 
-  const ScanPolicy.videos({
-    this.ignoredDirectories = const {
-      '.git',
-      '.svn',
-      '__pycache__',
-      'node_modules',
-      '.thumbnails',
-      'cache',
-      'caches',
-      'tmp',
-      'temp',
-      'lost.dir',
-      '.trash',
-      'lost+found',
-      'system volume information',
-    },
+  ScanPolicy.videos({
+    this.ignoredDirectories = _defaultIgnoredDirectories,
     this.ignoredPatterns = const [],
-    this.minimumFileSize = 1,
+    // A 0-byte stub is not a movie. 24 MB filters the thumbnails, voice notes
+    // and tiny clips that share the video container with real films.
+    this.minimumFileSize = 24 * 1024 * 1024,
+    // Below ~4 minutes a file is a clip, not a movie or an episode.
+    this.minimumDurationMs = 4 * 60 * 1000,
     this.maximumDepth,
   })  : mode = LocalScanMode.videos,
         allowedExtensions = DiscoveryStage.videoExtensions,
-        includeImages = false;
+        includeImages = false,
+        excludedNamePatterns = _videoNoisePatterns;
 
   const ScanPolicy.manga({
-    this.ignoredDirectories = const {
-      '.git',
-      '.svn',
-      '__pycache__',
-      'node_modules',
-      '.thumbnails',
-      'cache',
-      'caches',
-      'tmp',
-      'temp',
-      'lost.dir',
-      '.trash',
-      'lost+found',
-      'system volume information',
-    },
+    this.ignoredDirectories = _defaultIgnoredDirectories,
     this.ignoredPatterns = const [],
     this.minimumFileSize = 1,
+    this.minimumDurationMs = 0,
+    this.excludedNamePatterns = const [],
     this.maximumDepth,
   })  : mode = LocalScanMode.manga,
         allowedExtensions = const {
@@ -402,7 +406,53 @@ class ScanPolicy {
           ...DiscoveryStage.mangaPageExtensions,
         },
         includeImages = true;
+
+  const ScanPolicy.music({
+    this.ignoredDirectories = _defaultIgnoredDirectories,
+    this.ignoredPatterns = const [],
+    // Music files carry real audio well under a megabyte; 64 KB drops the
+    // truncated/placeholder files without excluding legitimately tiny tracks.
+    this.minimumFileSize = 64 * 1024,
+    this.minimumDurationMs = 0,
+    this.excludedNamePatterns = const [],
+    this.maximumDepth,
+  })  : mode = LocalScanMode.music,
+        allowedExtensions = DiscoveryStage.audioExtensions,
+        includeImages = false;
+
+  /// True when [name] (a file basename) carries a signal that rules the file
+  /// out as a movie/series entry.
+  bool rejectsName(String name) {
+    if (excludedNamePatterns.isEmpty) return false;
+    final lower = name.toLowerCase();
+    return excludedNamePatterns.any((pattern) => pattern.hasMatch(lower));
+  }
 }
+
+const _defaultIgnoredDirectories = {
+  '.git',
+  '.svn',
+  '__pycache__',
+  'node_modules',
+  '.thumbnails',
+  'cache',
+  'caches',
+  'tmp',
+  'temp',
+  'lost.dir',
+  '.trash',
+  'lost+found',
+  'system volume information',
+};
+
+/// File-name markers that mean "extras", not a movie or an episode. The match
+/// is anchored on a separator so a title legitimately containing the word
+/// ("The Trailer Park Boys") is not rejected.
+final _videoNoisePatterns = <RegExp>[
+  RegExp(r'(^|[\s._\-\[(])(sample|trailer|teaser|featurette|behind[\s._-]?the'
+      r'[\s._-]?scenes|deleted[\s._-]?scenes|bloopers?|outtakes?|interview|'
+      r'extras?|bonus|promo|clip)([\s._\-\])]|$)'),
+];
 
 /// Fichier découvert sur le disque (pas encore analysé).
 class DiscoveredFile {
@@ -412,12 +462,18 @@ class DiscoveredFile {
   final String extension;
   final String? analysisName;
 
+  /// Duration in milliseconds when the platform knows it (MediaStore video
+  /// rows). `null` on a plain filesystem walk, where the duration gate cannot
+  /// be applied without opening the file.
+  final int? durationMs;
+
   const DiscoveredFile({
     required this.path,
     required this.size,
     required this.modifiedAt,
     required this.extension,
     this.analysisName,
+    this.durationMs,
   });
 
   String get basename => p.basename(path);
@@ -425,4 +481,4 @@ class DiscoveredFile {
   FileCategory get category => DiscoveryStage.categoryOf(extension);
 }
 
-enum FileCategory { video, archive, novel, image, unknown }
+enum FileCategory { video, audio, archive, novel, image, unknown }

@@ -17,6 +17,12 @@ part 'local_indexer_provider.g.dart';
 /// Construite une seule fois et réutilisée sur toute la session.
 final _sharedSearchEngine = LocalSearchEngine();
 
+/// Exposes the shared in-memory search engine so manual edits and renames can
+/// keep it in sync with Isar without rebuilding the whole index.
+final localSearchEngineProvider = Provider<LocalSearchEngine>(
+  (ref) => _sharedSearchEngine,
+);
+
 // ── Provider du moteur ──────────────────────────────────────────────────────────
 
 /// Fournit l'[IndexerEngine] initialisé.

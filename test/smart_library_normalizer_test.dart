@@ -84,5 +84,40 @@ void main() {
         LocalMediaKind.novel,
       );
     });
+
+    test('classifies audio files as music and parses artist/title/album', () {
+      final result = NameNormalizer.normalize(
+        '/Music/Daft Punk/Random Access Memories/01 - Get Lucky.flac',
+      );
+
+      expect(result.kind, LocalMediaKind.music);
+      expect(result.title, 'Get Lucky');
+      expect(result.artist, 'Daft Punk');
+      expect(result.album, 'Random Access Memories');
+    });
+
+    test('reads a music artist from the filename when folders are generic', () {
+      final result = NameNormalizer.normalize('/storage/emulated/0/Download/Nirvana - Smells Like Teen Spirit.mp3');
+
+      expect(result.kind, LocalMediaKind.music);
+      expect(result.title, 'Smells Like Teen Spirit');
+      expect(result.artist, 'Nirvana');
+    });
+
+    test('strips a leading track number from a plain music filename', () {
+      final result = NameNormalizer.normalize('/Music/Album/07 Wonderwall.m4a');
+
+      expect(result.kind, LocalMediaKind.music);
+      expect(result.title, 'Wonderwall');
+    });
+
+    test('never classifies audio as a movie or series', () {
+      for (final ext in ['.mp3', '.flac', '.opus', '.wav', '.m4a']) {
+        expect(
+          NameNormalizer.normalize('/Media/Some.2020.Song$ext').kind,
+          LocalMediaKind.music,
+        );
+      }
+    });
   });
 }

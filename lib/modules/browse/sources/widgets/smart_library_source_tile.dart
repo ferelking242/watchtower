@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/more/settings/downloads/smart_library_icon.dart';
+import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/utils/language.dart';
 
 /// Browser entry for the on-device index. It is intentionally separate from
@@ -17,8 +18,16 @@ class SmartLibrarySourceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isManga = itemType == ItemType.manga;
+    final l10n = context.l10n;
     final theme = Theme.of(context);
+    final String title;
+    if (itemType == ItemType.music) {
+      title = l10n.smart_library_music_title;
+    } else if (itemType == ItemType.manga) {
+      title = l10n.smart_library_manga_title;
+    } else {
+      title = l10n.smart_library_watch_title;
+    }
 
     // Same chrome as [SourceListTile]: a neutral 37px icon well on the left,
     // the name, and the language line underneath. `completeLanguageName('multi')`
@@ -33,18 +42,20 @@ class SmartLibrarySourceTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(5),
         ),
         child: Center(
-          child: SmartLibraryIcon(
-            isManga: isManga,
-            color: theme.colorScheme.primary,
-            size: 26,
-          ),
+          child: itemType == ItemType.music
+              ? Icon(
+                  Icons.music_note_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 22,
+                )
+              : SmartLibraryIcon(
+                  isManga: itemType == ItemType.manga,
+                  color: theme.colorScheme.primary,
+                  size: 26,
+                ),
         ),
       ),
-      title: Text(
-        isManga ? 'Smart Library Manga' : 'Smart Library Watch',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         completeLanguageName('multi'),
         style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 12),

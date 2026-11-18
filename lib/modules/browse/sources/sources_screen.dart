@@ -474,7 +474,8 @@ class _SourcesScreenState extends ConsumerState<SourcesScreen> {
                           ),
                         ),
                         if (widget.itemType == ItemType.anime ||
-                            widget.itemType == ItemType.manga)
+                            widget.itemType == ItemType.manga ||
+                            widget.itemType == ItemType.music)
                           SliverToBoxAdapter(
                             child: SmartLibrarySourceTile(
                               itemType: widget.itemType,

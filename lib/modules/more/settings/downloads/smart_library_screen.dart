@@ -14,6 +14,7 @@ import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_work.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
+import 'package:watchtower/modules/more/settings/downloads/local_work_detail_sheet.dart';
 import 'package:watchtower/modules/widgets/animated_empty_state.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
@@ -47,6 +48,18 @@ const _androidMediaDirectories = [
   'Watchtower',
 ];
 
+/// Music-specific fallback folders. Kept separate so the Watch scan does not
+/// pick up ringtones or notification sounds under /Audio.
+const _androidMusicDirectories = [
+  'Music',
+  'Podcasts',
+  'Recordings',
+  'Download',
+  'Downloads',
+  'watchtower',
+  'Watchtower',
+];
+
 class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   _SmartLibraryFilter _filter = _SmartLibraryFilter.all;
   bool _starting = false;
@@ -63,6 +76,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   }
 
   bool get _isManga => widget.itemType == ItemType.manga;
+  bool get _isMusic => widget.itemType == ItemType.music;
 
   /// Directories that are worth walking for media.
   ///
@@ -78,7 +92,9 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     final roots = <String>[];
 
     if (!kIsWeb && Platform.isAndroid) {
-      if (_isManga) {
+      if (_isMusic) {
+        await storage.requestAudioPermission();
+      } else if (_isManga) {
         await storage.requestMediaPermission();
       } else {
         await storage.requestVideoPermission();
@@ -87,7 +103,10 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       if (Directory(sharedStorage).existsSync()) {
         roots.add(sharedStorage);
       } else {
-        for (final name in _androidMediaDirectories) {
+        final fallback = _isMusic
+            ? _androidMusicDirectories
+            : _androidMediaDirectories;
+        for (final name in fallback) {
           final path = '/storage/emulated/0/$name';
           if (Directory(path).existsSync()) roots.add(path);
         }
@@ -108,7 +127,11 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       if (roots.isEmpty) {
         throw StateError('Aucun emplacement de stockage accessible.');
       }
-      final scanMode = _isManga ? LocalScanMode.manga : LocalScanMode.videos;
+      final scanMode = _isMusic
+          ? LocalScanMode.music
+          : _isManga
+          ? LocalScanMode.manga
+          : LocalScanMode.videos;
       final scan = ref.read(localIndexerScanProvider.notifier);
       if (fullRescan) {
         await scan.fullRescan(roots, mode: scanMode);
@@ -157,6 +180,9 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
 
   bool _kindAllowed(LocalMediaKind kind) {
     if (kind == LocalMediaKind.novel) return false;
+    if (_isMusic) {
+      return kind == LocalMediaKind.music || kind == LocalMediaKind.unknown;
+    }
     if (_isManga) {
       return kind == LocalMediaKind.manga || kind == LocalMediaKind.unknown;
     }
@@ -173,14 +199,24 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         case _SmartLibraryFilter.all:
           return true;
         case _SmartLibraryFilter.movies:
+          // Music reuses this slot for "Albums": a multi-track release.
+          if (_isMusic) return work.fileCount > 1;
           return work.kind == LocalMediaKind.movie;
         case _SmartLibraryFilter.series:
+          // Music reuses this slot for "Singles": a lone track.
+          if (_isMusic) return work.fileCount == 1;
           return work.isSeries;
         case _SmartLibraryFilter.review:
           return work.kind == LocalMediaKind.unknown ||
               work.missingEpisodes.isNotEmpty;
       }
     }).toList();
+  }
+
+  String get _libraryTitle {
+    if (_isMusic) return context.l10n.smart_library_music_title;
+    if (_isManga) return context.l10n.smart_library_manga_title;
+    return context.l10n.smart_library_watch_title;
   }
 
   @override
@@ -197,8 +233,9 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
         child: Column(
           children: [
             _Header(
-              title: _isManga ? 'Smart Library Manga' : 'Smart Library Watch',
+              title: _libraryTitle,
               isManga: _isManga,
+              isMusic: _isMusic,
               isScanning: isScanning,
               discovered: status?.discovered ?? 0,
               onScan: () => _scan(fullRescan: false),
@@ -228,6 +265,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
                         SliverToBoxAdapter(
                           child: _FilterBar(
                             isManga: _isManga,
+                            isMusic: _isMusic,
                             selected: _filter,
                             onChanged: (f) => setState(() => _filter = f),
                           ),
@@ -260,21 +298,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   }
 
   void _openWork(LocalWork work) {
-    // Local playback wiring is owned by the reader/player modules; until a
-    // local player route exists we surface the work so the entry is not a
-    // dead end.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          work.files.length == 1
-              ? p.basename(work.files.first.filePath)
-              : context.l10n.smart_work_episodes(
-                  work.title,
-                  work.episodes.length,
-                ),
-        ),
-      ),
-    );
+    LocalWorkDetailSheet.show(context, work);
   }
 }
 
@@ -283,6 +307,7 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
 class _Header extends StatelessWidget {
   final String title;
   final bool isManga;
+  final bool isMusic;
   final bool isScanning;
   final int discovered;
   final VoidCallback onScan;
@@ -291,6 +316,7 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.title,
     required this.isManga,
+    required this.isMusic,
     required this.isScanning,
     required this.discovered,
     required this.onScan,
@@ -305,7 +331,11 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            isManga ? Broken.book : Broken.video_play,
+            isMusic
+                ? Broken.musicnote
+                : isManga
+                ? Broken.book
+                : Broken.video_play,
             size: 22,
             color: cs.primary,
           ),
@@ -365,11 +395,13 @@ class _Header extends StatelessWidget {
 
 class _FilterBar extends StatelessWidget {
   final bool isManga;
+  final bool isMusic;
   final _SmartLibraryFilter selected;
   final ValueChanged<_SmartLibraryFilter> onChanged;
 
   const _FilterBar({
     required this.isManga,
+    required this.isMusic,
     required this.selected,
     required this.onChanged,
   });
@@ -379,9 +411,17 @@ class _FilterBar extends StatelessWidget {
     final l10n = context.l10n;
     final segments = <(_SmartLibraryFilter, String, IconData)>[
       (_SmartLibraryFilter.all, l10n.home_tab_all, Broken.element_3),
-      if (!isManga) ...[
+      if (!isManga && !isMusic) ...[
         (_SmartLibraryFilter.movies, l10n.home_movies, Broken.video),
         (_SmartLibraryFilter.series, l10n.home_series, Broken.monitor),
+      ],
+      if (isMusic) ...[
+        (_SmartLibraryFilter.movies, l10n.smart_filter_albums, Broken.music),
+        (
+          _SmartLibraryFilter.series,
+          l10n.smart_filter_singles,
+          Broken.musicnote,
+        ),
       ],
       (_SmartLibraryFilter.review, l10n.smart_to_review, Broken.warning_2),
     ];
@@ -555,7 +595,7 @@ class _WorkCard extends StatelessWidget {
                 ),
               ),
               Text(
-                _subtitle(metadata),
+                _subtitle(context, metadata),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -570,7 +610,15 @@ class _WorkCard extends StatelessWidget {
     );
   }
 
-  String _subtitle(LocalMediaMetadata? metadata) {
+  String _subtitle(BuildContext context, LocalMediaMetadata? metadata) {
+    if (work.isMusic) {
+      final artist = work.files.first.artist;
+      final parts = <String>[
+        if (artist != null && artist.isNotEmpty) artist,
+        context.l10n.smart_track_count(work.fileCount),
+      ];
+      return parts.join(' · ');
+    }
     final parts = <String>[
       if (work.isSeries && (work.season ?? 1) > 1) 'Saison ${work.season}',
       if (metadata?.year != null) '${metadata!.year}',
@@ -589,6 +637,7 @@ class _WorkCard extends StatelessWidget {
         LocalMediaKind.movie => Broken.video,
         LocalMediaKind.series || LocalMediaKind.anime => Broken.monitor,
         LocalMediaKind.manga => Broken.book,
+        LocalMediaKind.music => Broken.music,
         LocalMediaKind.novel => Broken.document_text,
         LocalMediaKind.unknown => Broken.warning_2,
       },

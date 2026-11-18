@@ -126,6 +126,28 @@ class StorageProvider {
     return legacy.isGranted || legacy.isLimited;
   }
 
+  /// Requests only the Android audio permission used by the Music Smart
+  /// Library. Videos and photos are not needed to build the music library.
+  Future<bool> requestAudioPermission({bool requestIfNeeded = true}) async {
+    if (kIsWeb || !Platform.isAndroid) return true;
+
+    if (await Permission.manageExternalStorage.isGranted ||
+        await Permission.storage.isGranted) {
+      return true;
+    }
+
+    final current = await Permission.audio.status;
+    if (current.isGranted || current.isLimited) return true;
+    if (!requestIfNeeded) return false;
+
+    final requested = await Permission.audio.request();
+    if (requested.isGranted || requested.isLimited) return true;
+
+    // Android 12 and earlier use READ_EXTERNAL_STORAGE instead.
+    final legacy = await Permission.storage.request();
+    return legacy.isGranted || legacy.isLimited;
+  }
+
   // Resolves the app's base "watchtower" folder on Android.
   //
   // Previously this always hardcoded /storage/emulated/0/watchtower/, even
@@ -480,7 +502,7 @@ class StorageProvider {
     // We store a tiny version file next to the DB and wipe the DB files
     // before opening if the version doesn't match — guaranteeing a clean slate.
     const kCurrentDbVersion =
-        '13'; // +plugin ItemType (schema enum change forces wipe)
+        '14'; // +LocalIndexer music kind/tags (schema enum change forces wipe)
     final versionFile = File('${dir!.path}/watchtowerDb.schema_version');
     try {
       final storedVersion = await versionFile.exists()

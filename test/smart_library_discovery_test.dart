@@ -11,6 +11,11 @@ Future<void> _writeFile(String path) async {
   await file.writeAsBytes([1, 2, 3, 4]);
 }
 
+/// Watch policy with the real 24 MB / 4-minute quality gates relaxed so a
+/// handful of byte-sized fixtures can exercise the discovery mechanics.
+/// The gates themselves are covered by their own test below.
+ScanPolicy _relaxedVideoPolicy() => ScanPolicy.videos(minimumFileSize: 1);
+
 void main() {
   group('Smart Library scan policies', () {
     late Directory root;
@@ -30,12 +35,39 @@ void main() {
 
       final files = <DiscoveredFile>[];
       await for (final batch in DiscoveryStage(
-        policy: const ScanPolicy.videos(),
+        policy: _relaxedVideoPolicy(),
       ).discover([root.path])) {
         files.addAll(batch);
       }
 
       expect(files.map((file) => file.extension), ['.mp4']);
+    });
+
+    test('Watch mode drops files below the size and duration gates', () async {
+      await _writeFile('${root.path}/Movies/Tiny.mp4');
+
+      final files = <DiscoveredFile>[];
+      await for (final batch in DiscoveryStage(
+        policy: ScanPolicy.videos(),
+      ).discover([root.path])) {
+        files.addAll(batch);
+      }
+
+      expect(files, isEmpty);
+    });
+
+    test('Watch mode drops extras such as samples and trailers', () async {
+      await _writeFile('${root.path}/Movies/Film.sample.mp4');
+      await _writeFile('${root.path}/Movies/Film.trailer.mp4');
+
+      final files = <DiscoveredFile>[];
+      await for (final batch in DiscoveryStage(
+        policy: _relaxedVideoPolicy(),
+      ).discover([root.path])) {
+        files.addAll(batch);
+      }
+
+      expect(files, isEmpty);
     });
 
     test('Manga mode keeps one page representative per chapter folder', () async {
@@ -59,6 +91,25 @@ void main() {
           'One Piece Chapter 12.cbz');
     });
 
+    test('Music mode discovers audio but never video or manga', () async {
+      await _writeFile('${root.path}/Music/Album/Track.mp3');
+      await _writeFile('${root.path}/Music/Album/Other.flac');
+      await _writeFile('${root.path}/Movies/Film.mp4');
+      await _writeFile('${root.path}/Manga/One Piece/Chapter 1.cbz');
+
+      final files = <DiscoveredFile>[];
+      await for (final batch in DiscoveryStage(
+        policy: const ScanPolicy.music(minimumFileSize: 1),
+      ).discover([root.path])) {
+        files.addAll(batch);
+      }
+
+      expect(
+        files.map((file) => file.extension).toSet(),
+        {'.mp3', '.flac'},
+      );
+    });
+
     test('an unreadable subdirectory does not abort the whole walk', () async {
       await _writeFile('${root.path}/Movies/Film.mp4');
       final blocked = Directory('${root.path}/Movies/Private')..createSync();
@@ -71,7 +122,7 @@ void main() {
 
       final files = <DiscoveredFile>[];
       await for (final batch in DiscoveryStage(
-        policy: const ScanPolicy.videos(),
+        policy: _relaxedVideoPolicy(),
       ).discover([root.path])) {
         files.addAll(batch);
       }
@@ -125,7 +176,7 @@ void main() {
 
       final files = <DiscoveredFile>[];
       await for (final batch in DiscoveryStage(
-        policy: const ScanPolicy.videos(),
+        policy: _relaxedVideoPolicy(),
       ).discover([root.path], additionalFiles: entries)) {
         files.addAll(batch);
       }

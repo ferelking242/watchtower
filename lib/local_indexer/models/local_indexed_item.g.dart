@@ -17,6 +17,16 @@ const LocalIndexedItemSchema = CollectionSchema(
   name: r'LocalIndexedItem',
   id: 6736314745990097625,
   properties: {
+    r'album': PropertySchema(
+      id: 22,
+      name: r'album',
+      type: IsarType.string,
+    ),
+    r'artist': PropertySchema(
+      id: 23,
+      name: r'artist',
+      type: IsarType.string,
+    ),
     r'audioCodec': PropertySchema(
       id: 0,
       name: r'audioCodec',
@@ -38,6 +48,11 @@ const LocalIndexedItemSchema = CollectionSchema(
       id: 5,
       name: r'duplicateIds',
       type: IsarType.longList,
+    ),
+    r'durationSeconds': PropertySchema(
+      id: 24,
+      name: r'durationSeconds',
+      type: IsarType.long,
     ),
     r'episode': PropertySchema(id: 6, name: r'episode', type: IsarType.long),
     r'filePath': PropertySchema(
@@ -94,6 +109,11 @@ const LocalIndexedItemSchema = CollectionSchema(
       id: 20,
       name: r'updatedAt',
       type: IsarType.long,
+    ),
+    r'userLocked': PropertySchema(
+      id: 25,
+      name: r'userLocked',
+      type: IsarType.bool,
     ),
     r'volume': PropertySchema(id: 21, name: r'volume', type: IsarType.long),
   },
@@ -159,6 +179,18 @@ int _localIndexedItemEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.album;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.artist;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   {
     final value = object.audioCodec;
     if (value != null) {
@@ -241,6 +273,10 @@ void _localIndexedItemSerialize(
   writer.writeString(offsets[19], object.title);
   writer.writeLong(offsets[20], object.updatedAt);
   writer.writeLong(offsets[21], object.volume);
+  writer.writeString(offsets[22], object.album);
+  writer.writeString(offsets[23], object.artist);
+  writer.writeLong(offsets[24], object.durationSeconds);
+  writer.writeBool(offsets[25], object.userLocked);
 }
 
 LocalIndexedItem _localIndexedItemDeserialize(
@@ -250,6 +286,8 @@ LocalIndexedItem _localIndexedItemDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = LocalIndexedItem();
+  object.album = reader.readStringOrNull(offsets[22]);
+  object.artist = reader.readStringOrNull(offsets[23]);
   object.audioCodec = reader.readStringOrNull(offsets[0]);
   object.canonicalKey = reader.readString(offsets[1]);
   object.chapter = reader.readLongOrNull(offsets[2]);
@@ -275,6 +313,8 @@ LocalIndexedItem _localIndexedItemDeserialize(
   object.title = reader.readString(offsets[19]);
   object.updatedAt = reader.readLongOrNull(offsets[20]);
   object.volume = reader.readLongOrNull(offsets[21]);
+  object.durationSeconds = reader.readLongOrNull(offsets[24]);
+  object.userLocked = reader.readBool(offsets[25]);
   return object;
 }
 
@@ -330,6 +370,14 @@ P _localIndexedItemDeserializeProp<P>(
       return (reader.readLongOrNull(offset)) as P;
     case 21:
       return (reader.readLongOrNull(offset)) as P;
+    case 22:
+      return (reader.readStringOrNull(offset)) as P;
+    case 23:
+      return (reader.readStringOrNull(offset)) as P;
+    case 24:
+      return (reader.readLongOrNull(offset)) as P;
+    case 25:
+      return (reader.readBool(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -342,6 +390,7 @@ const _LocalIndexedItemkindEnumValueMap = {
   'manga': 3,
   'novel': 4,
   'unknown': 5,
+  'music': 6,
 };
 const _LocalIndexedItemkindValueEnumMap = {
   0: LocalMediaKind.anime,
@@ -350,6 +399,7 @@ const _LocalIndexedItemkindValueEnumMap = {
   3: LocalMediaKind.manga,
   4: LocalMediaKind.novel,
   5: LocalMediaKind.unknown,
+  6: LocalMediaKind.music,
 };
 
 Id _localIndexedItemGetId(LocalIndexedItem object) {

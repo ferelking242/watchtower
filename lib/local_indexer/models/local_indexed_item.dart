@@ -2,7 +2,10 @@ import 'package:isar_community/isar.dart';
 part 'local_indexed_item.g.dart';
 
 /// Catégorie de média local.
-enum LocalMediaKind { anime, series, movie, manga, novel, unknown }
+///
+/// L'ordre est persisté par Isar (enum ordinal) : [music] est ajouté **en
+/// fin** pour ne pas décaler les entrées déjà indexées.
+enum LocalMediaKind { anime, series, movie, manga, novel, unknown, music }
 
 /// Un élément de média indexé sur le stockage local.
 ///
@@ -49,6 +52,21 @@ class LocalIndexedItem {
 
   /// Audio codec : "AAC", "FLAC", "Opus", etc.
   String? audioCodec;
+
+  // ── Musique ─────────────────────────────────────────────────────────────
+  /// Artiste, extrait du nom ("Artiste - Titre") ou du dossier parent.
+  String? artist;
+
+  /// Album, extrait du dossier parent ("Artiste/Album/Titre.mp3").
+  String? album;
+
+  /// Durée en secondes, quand le lecteur/MediaStore la connaît.
+  int? durationSeconds;
+
+  /// True once the user edited the entry by hand (title, kind, artist…). A
+  /// re-scan must not clobber those corrections, so the writer keeps the
+  /// existing values for a locked row instead of the freshly analysed ones.
+  bool userLocked = false;
 
   // ── Fichier source ──────────────────────────────────────────────────────
   @Index(unique: true, caseSensitive: false)
@@ -122,6 +140,9 @@ class LocalIndexedItem {
         'language': language,
         'releaseGroup': releaseGroup,
         'audioCodec': audioCodec,
+        'artist': artist,
+        'album': album,
+        'durationSeconds': durationSeconds,
         'filePath': filePath,
         'fileSize': fileSize,
         'modifiedAt': modifiedAt,

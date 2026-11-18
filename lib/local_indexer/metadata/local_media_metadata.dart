@@ -18,6 +18,10 @@ class LocalMediaMetadata {
   final List<String> people;
   final double matchScore;
 
+  /// Music only: resolved track artist and album (MusicBrainz).
+  final String? artist;
+  final String? album;
+
   const LocalMediaMetadata({
     required this.provider,
     required this.externalId,
@@ -29,6 +33,8 @@ class LocalMediaMetadata {
     this.genres = const [],
     this.people = const [],
     required this.matchScore,
+    this.artist,
+    this.album,
   });
 
   Map<String, dynamic> toJson() => {
@@ -43,6 +49,8 @@ class LocalMediaMetadata {
     'genres': genres,
     'people': people,
     'matchScore': matchScore,
+    'artist': artist,
+    'album': album,
     'updatedAt': DateTime.now().millisecondsSinceEpoch,
   };
 
@@ -58,6 +66,8 @@ class LocalMediaMetadata {
       genres: (json['genres'] as List?)?.whereType<String>().toList() ?? const [],
       people: (json['people'] as List?)?.whereType<String>().toList() ?? const [],
       matchScore: (json['matchScore'] as num?)?.toDouble() ?? 0,
+      artist: json['artist'] as String?,
+      album: json['album'] as String?,
     );
   }
 }

@@ -101,6 +101,9 @@ class IsarWriterStage {
         ..audioCodec = r.audioCodec
         ..language = r.language
         ..releaseGroup = r.releaseGroup
+        ..artist = r.artist
+        ..album = r.album
+        ..durationSeconds = r.durationSeconds
         ..filePath = file.path
         ..fileSize = file.size
         ..modifiedAt = file.modifiedAt
@@ -148,6 +151,22 @@ class IsarWriterStage {
         if (existing != null) {
           newItems[i].id = existing.id;
           newItems[i].duplicateIds = List<int>.from(existing.duplicateIds);
+          if (existing.userLocked) {
+            // The user corrected this entry by hand; keep their title, kind and
+            // music tags instead of overwriting them with the raw analysis.
+            newItems[i]
+              ..title = existing.title
+              ..canonicalKey = existing.canonicalKey
+              ..kind = existing.kind
+              ..season = existing.season
+              ..episode = existing.episode
+              ..chapter = existing.chapter
+              ..volume = existing.volume
+              ..part = existing.part
+              ..artist = existing.artist
+              ..album = existing.album
+              ..userLocked = true;
+          }
         }
         final existingCache = await _isar.localFileCaches
             .where()

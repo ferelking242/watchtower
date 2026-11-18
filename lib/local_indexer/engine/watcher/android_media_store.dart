@@ -55,6 +55,23 @@ class AndroidMediaStore {
     }
   }
 
+  /// Récupère tous les fichiers audio indexés par MediaStore.
+  ///
+  /// Requiert READ_MEDIA_AUDIO (Android 13+) ou READ_EXTERNAL_STORAGE.
+  static Future<List<MediaStoreEntry>> queryAudio() async {
+    if (!isAvailable) return [];
+    try {
+      final result = await _channel.invokeMethod<List>('queryAudio');
+      if (result == null) return [];
+      return result
+          .cast<Map>()
+          .map((m) => MediaStoreEntry.fromMap(Map<String, dynamic>.from(m)))
+          .toList();
+    } on PlatformException catch (e) {
+      throw MediaStoreException('queryAudio failed: ${e.message}');
+    }
+  }
+
   /// Scan complémentaire pour les archives manga non indexées par MediaStore
   /// dans les dossiers typiques Watchtower.
   static Future<List<String>> queryCustomFormats({

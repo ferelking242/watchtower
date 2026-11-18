@@ -20,8 +20,32 @@ class LocalMetadataResolver {
   static const _maximumLookupsPerScan = 30;
   static const _requestSpacing = Duration(milliseconds: 250);
   static const _timeout = Duration(seconds: 12);
+  // MusicBrainz requires a descriptive UA with a contact URL; a generic one is
+  // rate-limited or blocked outright.
+  static const _musicBrainzUserAgent =
+      'Watchtower/1.0 (https://github.com/ferelking242/watchtower)';
 
   final http.Client _client = http.Client();
+
+  /// Looks one item up on demand — used by the "re-query" action on an entry
+  /// the user corrected. Unlike [enrich] it ignores the negative cache and the
+  /// per-scan lookup cap, so the user always gets a fresh answer.
+  Future<LocalMediaMetadata?> resolveOne(LocalIndexedItem item) async {
+    final metadata = switch (item.kind) {
+      LocalMediaKind.music => await _resolveMusicBrainz(item),
+      _ when _usesTmdb(item) => await _resolveTmdb(item),
+      LocalMediaKind.anime || LocalMediaKind.manga =>
+        await _resolveAniList(item),
+      _ => null,
+    };
+    if (metadata != null &&
+        metadata.matchScore >= _minimumMatchConfidence) {
+      await LocalMediaMetadataStore.instance.put(item, metadata);
+      return metadata;
+    }
+    await LocalMediaMetadataStore.instance.markNoMatch(item);
+    return null;
+  }
 
   Future<LocalMetadataEnrichmentSummary> enrich(
     Iterable<LocalIndexedItem> items,
@@ -58,9 +82,11 @@ class LocalMetadataResolver {
 
       lookedUp++;
       try {
-        final metadata = _usesTmdb(item)
-            ? await _resolveTmdb(item)
-            : await _resolveAniList(item);
+        final metadata = switch (item.kind) {
+          LocalMediaKind.music => await _resolveMusicBrainz(item),
+          _ when _usesTmdb(item) => await _resolveTmdb(item),
+          _ => await _resolveAniList(item),
+        };
         if (metadata != null &&
             metadata.matchScore >= _minimumMatchConfidence) {
           await store.put(item, metadata);
@@ -88,7 +114,9 @@ class LocalMetadataResolver {
     LocalMediaKind.movie ||
     LocalMediaKind.series ||
     LocalMediaKind.anime ||
-    LocalMediaKind.manga => true,
+    LocalMediaKind.manga ||
+    // Music is enriched by the dedicated MusicBrainz resolver, not here.
+    LocalMediaKind.music => true,
     LocalMediaKind.novel || LocalMediaKind.unknown => false,
   };
 
@@ -270,6 +298,100 @@ query ($search: String!, $type: MediaType!) {
       matchScore: matchScore,
     );
   }
+
+  /// MusicBrainz: the free, tag-based music catalogue. Lucene search over the
+  /// recording index; the top-scoring recording wins.
+  Future<LocalMediaMetadata?> _resolveMusicBrainz(LocalIndexedItem item) async {
+    final query = StringBuffer('recording:"${_luceneEscape(item.title)}"');
+    final artist = item.artist?.trim();
+    if (artist != null && artist.isNotEmpty) {
+      query.write(' AND artist:"${_luceneEscape(artist)}"');
+    }
+    final uri = Uri.parse('https://musicbrainz.org/ws/2/recording').replace(
+      queryParameters: {
+        'query': query.toString(),
+        'fmt': 'json',
+        'limit': '5',
+        'inc': 'artist-credits+releases',
+      },
+    );
+    final response = await _client
+        .get(uri, headers: const {'User-Agent': _musicBrainzUserAgent})
+        .timeout(_timeout);
+    if (response.statusCode != 200) {
+      throw StateError('MusicBrainz returned ${response.statusCode}.');
+    }
+    final root = jsonDecode(response.body) as Map<String, dynamic>;
+    final recordings =
+        (root['recordings'] as List? ?? const []).whereType<Map>();
+    Map<String, dynamic>? best;
+    var bestScore = 0.0;
+    for (final raw in recordings) {
+      final recording = raw.cast<String, dynamic>();
+      final title = recording['title'] as String? ?? '';
+      final credit =
+          ((recording['artist-credit'] as List? ?? const []).whereType<Map>())
+              .map((c) => c['name'] as String? ?? '')
+              .where((n) => n.isNotEmpty)
+              .join(', ');
+      final score = _matchScore(item.title, [title]);
+      // A recording with the right artist is a stronger match than the title
+      // alone; nudge it above a same-titled cover.
+      final artistBonus =
+          artist != null && credit.toLowerCase().contains(artist.toLowerCase())
+              ? 0.1
+              : 0.0;
+      final total = (score + artistBonus).clamp(0.0, 1.0);
+      if (total > bestScore) {
+        bestScore = total;
+        best = recording;
+      }
+    }
+    if (best == null || bestScore < _minimumMatchConfidence) return null;
+
+    final id = best['id'] as String?;
+    if (id == null) return null;
+    final releases = (best['releases'] as List? ?? const []).whereType<Map>();
+    final release =
+        releases.isEmpty ? null : releases.first.cast<String, dynamic>();
+    final releaseGroup = release?['release-group'] as Map?;
+    final artistName = ((best['artist-credit'] as List? ?? const [])
+            .whereType<Map>()
+            .map((c) => c['name'] as String? ?? '')
+            .where((n) => n.isNotEmpty)
+            .firstOrNull) ??
+        artist;
+    final album = (release?['title'] as String?) ??
+        (releaseGroup?['title'] as String?);
+    final year = _musicBrainzYear(release);
+
+    return LocalMediaMetadata(
+      provider: 'musicbrainz',
+      externalId: id.hashCode,
+      title: best['title'] as String? ?? item.title,
+      overview: releaseGroup?['primary-type'] as String?,
+      externalUrl: 'https://musicbrainz.org/recording/$id',
+      year: year,
+      genres: (best['tags'] as List? ?? const [])
+          .whereType<Map>()
+          .map((tag) => tag['name'] as String? ?? '')
+          .where((name) => name.isNotEmpty)
+          .toList(growable: false),
+      people: artistName == null ? const [] : [artistName],
+      matchScore: bestScore,
+      artist: artistName,
+      album: album,
+    );
+  }
+
+  int? _musicBrainzYear(Map<String, dynamic>? release) {
+    final date = release?['date'] as String?;
+    if (date == null || date.length < 4) return null;
+    return int.tryParse(date.substring(0, 4));
+  }
+
+  String _luceneEscape(String value) =>
+      value.replaceAll(RegExp(r'([+\-!(){}\[\]^"~*?:\\/])'), r'\$1');
 
   Map<String, dynamic>? _bestCandidate(
     String target,
