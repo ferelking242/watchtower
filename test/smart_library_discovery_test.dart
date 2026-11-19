@@ -236,6 +236,38 @@ void main() {
       expect(kept.single.displayName, 'Interstellar.2014.1080p.mkv');
     });
 
+    test('the shared gate rejects the same MediaStore rows the walk rejects',
+        () async {
+      // Guards the refactor: MediaStore rows are handed to DiscoveryStage as
+      // additionalFiles, so both sources go through one gate. If the gate ever
+      // moves back into the engine these expectations break.
+      const thumbnail = DiscoveredFile(
+        path: 'content://media/external/video/media/11',
+        size: 3 * 1024 * 1024,
+        modifiedAt: 0,
+        extension: '.mp4',
+        durationMs: 5 * 1000,
+      );
+      const fullFilm = DiscoveredFile(
+        path: 'content://media/external/video/media/12',
+        size: 4 * 1024 * 1024 * 1024,
+        modifiedAt: 0,
+        extension: '.mkv',
+        analysisName: 'Dune.Part.Two.2024.mkv',
+        durationMs: 166 * 60 * 1000,
+      );
+
+      final files = <DiscoveredFile>[];
+      await for (final batch in DiscoveryStage(
+        policy: ScanPolicy.videos(),
+      ).discover(const [], additionalFiles: [thumbnail, fullFilm])) {
+        files.addAll(batch);
+      }
+
+      expect(files, hasLength(1));
+      expect(files.single.analysisName, 'Dune.Part.Two.2024.mkv');
+    });
+
     test('video discovery does not need a filesystem walk when MediaStore '
         'already returned rows', () async {
       // The whole point of the MediaStore-first path: an empty root list must
