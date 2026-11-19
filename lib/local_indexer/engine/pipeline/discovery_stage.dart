@@ -495,9 +495,6 @@ const _defaultIgnoredDirectories = {
   'system volume information',
 };
 
-/// File-name markers that mean "extras", not a movie or an episode. The match
-/// is anchored on a separator so a title legitimately containing the word
-/// ("The Trailer Park Boys") is not rejected.
 /// Names that mark an audio file as a sound effect rather than a track.
 final _musicNoisePattern = RegExp(
   r'(^|[\s._\-\[(])(ringtone|ring\s?tone|notification|nokia|alarm|'
@@ -505,6 +502,9 @@ final _musicNoisePattern = RegExp(
   caseSensitive: false,
 );
 
+/// File-name markers that mean "extras", not a movie or an episode. The match
+/// is anchored on a separator so a title legitimately containing the word
+/// ("The Trailer Park Boys") is not rejected.
 final _videoNoisePatterns = <RegExp>[
   RegExp(r'(^|[\s._\-\[(])(sample|trailer|teaser|featurette|behind[\s._-]?the'
       r'[\s._-]?scenes|deleted[\s._-]?scenes|bloopers?|outtakes?|interview|'

@@ -3,9 +3,9 @@ import 'dart:io'
     if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/engine/watcher/android_media_store.dart';
@@ -63,20 +63,6 @@ const _androidMusicDirectories = [
 /// Well-known media folders inside the user's home directory, used on desktop
 /// (Windows/macOS/Linux) and iOS so a scan covers the whole device and not just
 /// the app's own documents folder.
-const _desktopMediaDirectories = [
-  'Music',
-  'Musique',
-  'Podcasts',
-  'Downloads',
-  'Téléchargements',
-  'Movies',
-  'Videos',
-  'Vidéos',
-  'Pictures',
-  'Images',
-  'Documents',
-];
-
 class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   _SmartLibraryFilter _filter = _SmartLibraryFilter.all;
   bool _starting = false;
@@ -148,19 +134,13 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     final base = await storage.getDefaultDirectory();
     if (base != null && !roots.contains(base.path)) roots.add(base.path);
 
-    // On desktop and iOS the shared storage root is not the whole device: the
-    // user's media usually lives in their home folder. Add the well-known media
-    // directories (Music/Movies/Downloads…) so the scan reaches them too.
+    // On desktop and iOS there is no MediaStore and no shared-storage root:
+    // the user's library lives somewhere under their home folder. Walking the
+    // home folder is what makes the scan cover "the whole device" there, and
+    // the ignored-directory list keeps caches, node_modules and friends out.
     if (!kIsWeb && !Platform.isAndroid) {
       final home = _userHomeDirectory();
-      if (home != null) {
-        for (final name in _desktopMediaDirectories) {
-          final path = p.join(home, name);
-          if (Directory(path).existsSync() && !roots.contains(path)) {
-            roots.add(path);
-          }
-        }
-      }
+      if (home != null && !roots.contains(home)) roots.add(home);
     }
 
     return roots;
