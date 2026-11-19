@@ -90,11 +90,17 @@ class CatalogTaxonomy {
   ];
 
   /// Curation tags. Only an explicit opt-in or a real date may produce these.
+  ///
+  /// `dead` comes from the explicit `dead` flag a maintainer sets on an index
+  /// entry after verifying the site is gone. It is never inferred from a failed
+  /// request: a Cloudflare 403 or a timeout from one network is not evidence, so
+  /// the catalogue cannot mark a live source as dead by accident.
   static const List<String> curationTags = [
     'featured',
     'popular',
     'trending',
     'new',
+    'dead',
   ];
 
   static const List<String> allTags = [
@@ -244,6 +250,7 @@ class CatalogTaxonomy {
         'new' => l10n.catalog_tag_new,
         'popular' => l10n.catalog_tag_popular,
         'trending' => l10n.catalog_tag_trending,
+        'dead' => l10n.catalog_tag_dead,
         _ => tag,
       };
 }

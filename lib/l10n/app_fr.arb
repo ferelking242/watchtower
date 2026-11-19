@@ -815,6 +815,7 @@
   "catalog_tag_new": "Nouveau",
   "catalog_tag_popular": "Populaire",
   "catalog_tag_trending": "Tendance",
+  "catalog_tag_dead": "Hors service",
   "catalog_shelf_watch_popular": "Populaire à regarder",
   "catalog_shelf_read_popular": "Populaire à lire",
   "catalog_shelf_new_watch": "Nouvelles sources vidéo",

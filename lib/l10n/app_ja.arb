@@ -876,6 +876,7 @@
   "catalog_tag_new": "New",
   "catalog_tag_popular": "Popular",
   "catalog_tag_trending": "Trending",
+  "catalog_tag_dead": "利用不可",
   "catalog_shelf_watch_popular": "Popular to watch",
   "catalog_shelf_read_popular": "Popular to read",
   "catalog_shelf_new_watch": "New watch sources",
