@@ -62,4 +62,54 @@ void main() {
       store.clear(9002);
     });
   });
+
+  group('ArchiveProgressStore cold start', () {
+    test('drops a second-pass marker no worker owns', () async {
+      // A process killed while packing wrote this marker; on the next launch
+      // nothing is packing, so restoring it left the row with an animated
+      // golden bar for the whole download.
+      SharedPreferences.setMockInitialValues({
+        'watchtower_archive_progress':
+            '{"4242":{"done":0,"total":1,"indeterminate":true}}',
+      });
+      final store = ArchiveProgressStore.instance;
+      store.resetForTest();
+
+      await store.load(isLive: (id) => false);
+
+      expect(store.of(4242), isNull);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('watchtower_archive_progress'), '{}');
+    });
+
+    test('keeps the marker of a chapter this process is still working on', () async {
+      SharedPreferences.setMockInitialValues({
+        'watchtower_archive_progress':
+            '{"4243":{"done":3,"total":10,"indeterminate":false}}',
+      });
+      final store = ArchiveProgressStore.instance;
+      store.resetForTest();
+
+      await store.load(isLive: (id) => id == 4243);
+
+      final entry = store.of(4243)!;
+      expect(entry.done, 3);
+      expect(entry.value, 0.3);
+      store.clear(4243);
+    });
+
+    test('restores everything when no liveness filter is given', () async {
+      SharedPreferences.setMockInitialValues({
+        'watchtower_archive_progress':
+            '{"4244":{"done":1,"total":4,"indeterminate":false}}',
+      });
+      final store = ArchiveProgressStore.instance;
+      store.resetForTest();
+
+      await store.load();
+
+      expect(store.of(4244)!.value, 0.25);
+      store.clear(4244);
+    });
+  });
 }

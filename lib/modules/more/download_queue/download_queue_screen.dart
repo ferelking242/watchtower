@@ -3169,7 +3169,15 @@ class _GroupedDownloadTabListState
     } else if (animeHasExactTotals && animeTotalBytes > 0) {
       seriesProgress = (animeDownloadedBytes / animeTotalBytes).clamp(0.0, 1.0);
     } else {
-      seriesProgress = null;
+      // Episodes whose byte total is still unknown (queued behind the active
+      // one, or a CDN that never sent a length) used to leave the header with
+      // no value at all, so the whole series swept indefinitely. Count the
+      // finished episodes instead: coarse, but it moves.
+      seriesProgress = equalWeightedProgress(
+        items.map(
+          (download) => download.isDownload == true ? 1.0 : 0.0,
+        ),
+      );
     }
     final seriesPercent = seriesProgress == null
         ? null
@@ -3843,6 +3851,21 @@ class _DownloadCard extends ConsumerWidget {
         !live.isIndeterminate &&
         live.totalUnits > 1;
     final hasObservedBytes = (exactDownloadedBytes ?? 0) > 0;
+    // Engines that report percentages or segments (Aria2, ZeusDL) persist a
+    // plain `succeeded/total` pair in KB or units and never emit a byte total.
+    // Those counters are a real fraction, so a resumed episode can show its
+    // position on the very first frame instead of sweeping until the first
+    // progress event arrives.
+    final storedUnitFraction =
+        itemType == ItemType.anime &&
+        !invalidVideoCounters &&
+        exactTotalBytes == null &&
+        !hasKnownUnitProgress &&
+        storedTotal > 1 &&
+        storedSucceeded > 0 &&
+        storedSucceeded <= storedTotal
+        ? (storedSucceeded / storedTotal).clamp(0.0, 1.0).toDouble()
+        : null;
     final isIndeterminateTransfer =
         !isComplete &&
         !hasFailed &&
@@ -3850,6 +3873,7 @@ class _DownloadCard extends ConsumerWidget {
         itemType == ItemType.anime &&
         exactTotalBytes == null &&
         !hasKnownUnitProgress &&
+        storedUnitFraction == null &&
         (download.status == 'downloading' || download.status == 'initializing');
     final progress = exactTotalBytes != null && exactTotalBytes > 0
         ? ((exactDownloadedBytes ?? 0) / exactTotalBytes)
@@ -3857,9 +3881,8 @@ class _DownloadCard extends ConsumerWidget {
               .toDouble()
         : hasKnownUnitProgress
         ? (live!.completedUnits / live!.totalUnits).clamp(0.0, 1.0).toDouble()
-        : itemType == ItemType.manga
-        ? mangaProgress!.value
-        : 0.0;
+        : storedUnitFraction ??
+              (itemType == ItemType.manga ? mangaProgress!.value : 0.0);
     final fileMetadata = <String>[];
     if (itemType == ItemType.anime && isComplete) {
       final quality = download.quality?.trim();
@@ -3904,11 +3927,25 @@ class _DownloadCard extends ConsumerWidget {
         !isPaused &&
         download.status == 'downloading' &&
         mangaProgress?.isDeterminate != true;
-    final isProgressIndeterminate =
-        isRetrievingMetadata ||
-        isPreparingDownload ||
-        isMangaTransferIndeterminate ||
-        isIndeterminateTransfer;
+    // A real denominator always beats the "preparing" states below. On a cold
+    // start the queue restores the stored counters (and the page scan writes
+    // the chapter total) *before* the transfer begins, so `initializing` and
+    // `fetching_metadata` describe a row that already has a percentage. Without
+    // this precedence the bar swept left→right until the first page landed,
+    // which is the "progress animates forever" report.
+    final hasDeterminateFraction =
+        (mangaProgress?.isDeterminate == true &&
+            (mangaProgress?.totalPages ?? 0) > 1) ||
+        (exactTotalBytes != null && exactTotalBytes > 0) ||
+        hasKnownUnitProgress ||
+        storedUnitFraction != null;
+    final isProgressIndeterminate = queueProgressIsIndeterminate(
+      hasDeterminateFraction: hasDeterminateFraction,
+      isRetrievingMetadata: isRetrievingMetadata,
+      isPreparing: isPreparingDownload,
+      isMangaTransferWithoutTotal: isMangaTransferIndeterminate,
+      isByteTransferWithoutTotal: isIndeterminateTransfer,
+    );
 
     // The bar's sweep/wave tickers run only while bytes are actually moving.
     // A queued item waiting for a concurrency slot or Wi-Fi, or an item that is
@@ -4010,6 +4047,7 @@ class _DownloadCard extends ConsumerWidget {
         : !isComplete &&
               (progress > 0 ||
                   isProgressIndeterminate ||
+                  hasDeterminateFraction ||
                   hasKnownUnitProgress ||
                   (itemType == ItemType.manga && total > 1))
         ? MbGradientProgressBar(

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:watchtower/services/download_manager/active_download_registry.dart';
 
 /// Progress of the second pass that runs after a transfer has finished. Two
 /// passes feed it: the archive-packing ("compression") pass that packs every
@@ -81,9 +82,15 @@ class ArchiveProgressStore {
   Map<int, ArchiveProgress> _current = const {};
   bool _loaded = false;
 
-  /// Loads any progress persisted by a previous session. Values whose archive
-  /// already exists are pruned the next time [set] is called for that chapter.
-  Future<void> load() async {
+  /// Loads any progress persisted by a previous session.
+  ///
+  /// [isLive] tells which chapters have a worker in this process. Only those
+  /// entries survive: a marker written by a session that was killed during the
+  /// second pass has no pass left to report, and restoring it made the row show
+  /// an indeterminate golden bar for the whole download after a cold start.
+  /// Entries set during this session are never pruned, because [load] only runs
+  /// once per process.
+  Future<void> load({bool Function(int chapterId)? isLive}) async {
     if (_loaded) return;
     _loaded = true;
     try {
@@ -93,20 +100,46 @@ class ArchiveProgressStore {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return;
       final restored = <int, ArchiveProgress>{};
+      var dropped = 0;
       decoded.forEach((key, value) {
         final id = int.tryParse(key.toString());
         final parsed = ArchiveProgress.fromJson(value);
-        if (id != null && parsed != null) restored[id] = parsed;
+        if (id == null || parsed == null) {
+          dropped++;
+          return;
+        }
+        // Keep whatever this process already reported: a pass that started
+        // while the preferences were being read is newer than the snapshot.
+        if (_current.containsKey(id)) return;
+        if (isLive != null && !isLive(id)) {
+          dropped++;
+          return;
+        }
+        restored[id] = parsed;
       });
-      if (restored.isEmpty) return;
-      _current = Map<int, ArchiveProgress>.unmodifiable(restored);
-      _emit();
+      if (restored.isNotEmpty) {
+        _current = Map<int, ArchiveProgress>.unmodifiable({
+          ...restored,
+          ..._current,
+        });
+        _emit();
+      }
+      // Rewrite the snapshot so a stale marker is not re-read next launch.
+      if (dropped > 0) _persist();
     } catch (_) {
       // Persisted progress is best-effort only.
     }
   }
 
   ArchiveProgress? of(int chapterId) => _current[chapterId];
+
+  /// Drops the in-memory state and re-arms [load] so a test can replay a cold
+  /// start. Never called from app code.
+  @visibleForTesting
+  void resetForTest() {
+    _loaded = false;
+    _current = const {};
+  }
 
   void set(
     int chapterId, {
@@ -169,6 +202,9 @@ class ArchiveProgressStore {
 final archiveProgressProvider =
     StreamProvider<Map<int, ArchiveProgress>>((ref) async* {
   final store = ArchiveProgressStore.instance;
-  unawaited(store.load());
+  // A marker persisted by a process that was killed mid-pass must not be
+  // restored: no worker is packing that chapter, so the row would render the
+  // golden indeterminate bar for the whole download after a cold start.
+  unawaited(store.load(isLive: ActiveDownloadRegistry.isActive));
   yield* store.watch();
 }, name: 'archiveProgressProvider');

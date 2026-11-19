@@ -66,7 +66,7 @@ void main() {
       );
     });
 
-    test('does not claim a percentage while any page total is unknown', () {
+    test('falls back to chapter weighting while a page total is unknown', () {
       final known = mangaChapterProgress(
         storedCompleted: 36,
         storedTotal: 36,
@@ -78,7 +78,10 @@ void main() {
         isComplete: false,
       );
 
-      expect(mangaSeriesProgress([known, unknown]), isNull);
+      // Page weighting is impossible here, but refusing a value left the
+      // series header sweeping for the whole batch. One finished chapter out of
+      // two is 50% of the series.
+      expect(mangaSeriesProgress([known, unknown]), 0.5);
     });
 
     test('does not turn impossible stored counters into completed pages', () {
@@ -130,6 +133,122 @@ void main() {
       expect(progress.totalPages, 20);
       expect(progress.completedPages, 5);
       expect(progress.isDeterminate, isTrue);
+    });
+  });
+
+  group('series fallback', () {
+    test('a batch with queued chapters still reports a percentage', () {
+      // A bulk download queues every chapter with the 0/1 sentinel total, so
+      // only the active chapter knows its page count. The header used to give
+      // up entirely and sweep forever.
+      final chapters = <MangaChapterProgress>[
+        mangaChapterProgress(
+          storedCompleted: 0,
+          storedTotal: 40,
+          isComplete: true,
+        ),
+        for (var i = 0; i < 5; i++)
+          mangaChapterProgress(
+            storedCompleted: 0,
+            storedTotal: 1,
+            isComplete: false,
+          ),
+      ];
+
+      expect(mangaSeriesProgress(chapters), closeTo(1 / 6, 0.0001));
+    });
+
+    test('a batch of untouched chapters still has no percentage', () {
+      // Nothing is known about any chapter's size yet, so 0% would be a guess.
+      final chapters = [
+        for (var i = 0; i < 4; i++)
+          mangaChapterProgress(
+            storedCompleted: 0,
+            storedTotal: 1,
+            isComplete: false,
+          ),
+      ];
+
+      expect(mangaSeriesProgress(chapters), isNull);
+    });
+
+    test('page weighting still wins when every chapter knows its total', () {
+      final chapters = [
+        mangaChapterProgress(
+          storedCompleted: 9,
+          storedTotal: 10,
+          isComplete: false,
+        ),
+        mangaChapterProgress(
+          storedCompleted: 0,
+          storedTotal: 90,
+          isComplete: false,
+        ),
+      ];
+
+      expect(mangaSeriesProgress(chapters), 0.09);
+    });
+
+    test('equal weighting clamps and averages finished items', () {
+      expect(equalWeightedProgress([1.0, 0.0]), 0.5);
+      expect(equalWeightedProgress([2.0, -1.0]), 0.5);
+      expect(equalWeightedProgress(const []), isNull);
+    });
+  });
+
+  group('indeterminate decision', () {
+    test('a known denominator keeps the bar determinate while preparing', () {
+      // Cold start: the row is `initializing` but its page/byte total is
+      // already restored, so it must show that percentage, not sweep.
+      expect(
+        queueProgressIsIndeterminate(
+          hasDeterminateFraction: true,
+          isRetrievingMetadata: true,
+          isPreparing: true,
+          isMangaTransferWithoutTotal: true,
+          isByteTransferWithoutTotal: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('no denominator and no transfer state sweeps', () {
+      expect(
+        queueProgressIsIndeterminate(
+          hasDeterminateFraction: false,
+          isRetrievingMetadata: false,
+          isPreparing: true,
+          isMangaTransferWithoutTotal: false,
+          isByteTransferWithoutTotal: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('a running transfer with no denominator sweeps', () {
+      expect(
+        queueProgressIsIndeterminate(
+          hasDeterminateFraction: false,
+          isRetrievingMetadata: false,
+          isPreparing: false,
+          isMangaTransferWithoutTotal: true,
+          isByteTransferWithoutTotal: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('a settled row is determinate even without a denominator', () {
+      expect(
+        queueProgressIsIndeterminate(
+          hasDeterminateFraction: false,
+          isRetrievingMetadata: false,
+          isPreparing: false,
+          isMangaTransferWithoutTotal: false,
+          isByteTransferWithoutTotal: false,
+        ),
+        isFalse,
+      );
     });
   });
 }
