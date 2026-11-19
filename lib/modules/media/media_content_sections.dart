@@ -535,7 +535,6 @@ class MediaGridSection extends StatelessWidget {
         .clamp(1, 4)
         .toInt();
     final horizontal = scrollDirection == 'horizontal';
-    final visible = items.take(columnCount * rowCount).toList(growable: false);
     final isTagGrid = cardStyle == 'tag';
     final isLandscapeGrid = cardStyle == 'landscape';
     // TagCard has a fixed 72 px height; every other cell derives its height
@@ -563,14 +562,43 @@ class MediaGridSection extends StatelessWidget {
             final horizontalPadding = AppUI.pagePadding(context);
             final effectiveCrossAxisSpacing = crossAxisSpacing ?? 12.0;
             final effectiveCardWidth = cardWidth ?? 132.0;
+            // A poster cell is `cellWidth / childAspectRatio` tall, so a fixed
+            // column count on a wide screen turns each card into a ~450 px
+            // poster and the section taller than the viewport. Widen the grid
+            // instead of the cards: the extra room shows more columns.
+            final effectiveColumnCount = horizontal
+                ? columnCount
+                : _adaptiveColumns(
+                    availableWidth: constraints.maxWidth,
+                    horizontalPadding: horizontalPadding,
+                    spacing: effectiveCrossAxisSpacing,
+                    requested: columnCount,
+                    maxCellWidth: isTagGrid
+                        ? 220.0
+                        : isLandscapeGrid
+                        ? 260.0
+                        : 170.0,
+                  );
             final cellWidth = horizontal
                 ? effectiveCardWidth
                 : ((constraints.maxWidth -
                               horizontalPadding * 2 -
-                              effectiveCrossAxisSpacing * (columnCount - 1)) /
-                          columnCount)
+                              effectiveCrossAxisSpacing *
+                                  (effectiveColumnCount - 1)) /
+                          effectiveColumnCount)
                       .clamp(1.0, double.infinity)
                       .toDouble();
+            final visibleItems = items
+                .take(effectiveColumnCount * rowCount)
+                .toList(growable: false);
+            // Only the rows that actually hold an item count: a wide screen
+            // shows the whole shelf in one row, so reserving `rowCount` rows
+            // left a large empty block under it.
+            final usedRows =
+                ((visibleItems.length / effectiveColumnCount).ceil()).clamp(
+                  1,
+                  rowCount,
+                );
 
             // The section's box must be exactly as tall as the rows it holds.
             // A hard-coded per-row height (the old 215 px) is *shorter* than
@@ -584,7 +612,7 @@ class MediaGridSection extends StatelessWidget {
                 ? 72.0
                 : cellWidth / childAspectRatio;
             final gridHeight =
-                rowCount * cellHeight + (rowCount - 1) * rowSpacing;
+                usedRows * cellHeight + (usedRows - 1) * rowSpacing;
 
             return SizedBox(
               height: gridHeight,
@@ -594,9 +622,11 @@ class MediaGridSection extends StatelessWidget {
                 physics: horizontal
                     ? const BouncingScrollPhysics()
                     : const NeverScrollableScrollPhysics(),
-                itemCount: visible.length,
+                itemCount: visibleItems.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: horizontal ? rowCount : columnCount,
+                  crossAxisCount: horizontal
+                      ? rowCount
+                      : effectiveColumnCount,
                   // A tag tile keeps the TagCard's own 72 px height whatever
                   // the column width, so it is never clipped on narrow phones.
                   mainAxisExtent: horizontal
@@ -609,7 +639,7 @@ class MediaGridSection extends StatelessWidget {
                   childAspectRatio: childAspectRatio,
                 ),
                 itemBuilder: (context, index) {
-                  final item = visible[index];
+                  final item = visibleItems[index];
                   final onTap = () => onOpen(index);
                   if (isTagGrid) {
                     return TagCard(
@@ -645,6 +675,26 @@ class MediaGridSection extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Column count for a fixed-width grid section.
+///
+/// [requested] is the layout's own choice and stays a floor: a phone must keep
+/// the 3 columns its design asks for. On a wide screen the extra room becomes
+/// more columns instead of wider cards, because a poster cell's height is
+/// `cellWidth / aspectRatio` — stretching a 3-column grid to 1400 px produced
+/// 450 px posters and a section taller than the viewport.
+int _adaptiveColumns({
+  required double availableWidth,
+  required double horizontalPadding,
+  required double spacing,
+  required int requested,
+  required double maxCellWidth,
+}) {
+  final usable = availableWidth - horizontalPadding * 2;
+  if (usable <= 0) return requested;
+  final fit = ((usable + spacing) / (maxCellWidth + spacing)).floor();
+  return fit <= requested ? requested : fit.clamp(requested, 12);
 }
 
 class _MediaMetaChip extends StatelessWidget {

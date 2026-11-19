@@ -138,7 +138,10 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     volume.directory?.absolutePath
                 } else {
-                    volume.path
+                    // StorageVolume.getPath() was removed from the public SDK
+                    // (compileSdk 36 no longer resolves it), so read it
+                    // reflectively on API < 30 where it is the only source.
+                    legacyVolumePath(volume)
                 }
                 if (!path.isNullOrEmpty() && !volumes.contains(path)) {
                     volumes.add(path)
@@ -152,6 +155,20 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
 
         return volumes
+    }
+
+    /// Absolute path of a [android.os.storage.StorageVolume] on API < 30.
+    ///
+    /// `StorageVolume.getPath()` is not part of the public SDK on compileSdk 36,
+    /// so the call does not compile; reflection keeps removable-volume support
+    /// without pinning the build to an older SDK.
+    private fun legacyVolumePath(volume: android.os.storage.StorageVolume): String? {
+        return try {
+            val method = volume.javaClass.getMethod("getPath")
+            method.invoke(volume) as? String
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // ── Requêtes MediaStore ──────────────────────────────────────────────────

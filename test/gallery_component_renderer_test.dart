@@ -19,7 +19,6 @@ import 'package:watchtower/modules/media/manga_volume_cards.dart';
 import 'package:watchtower/modules/media/rich_media_cards.dart';
 import 'package:watchtower/modules/media/ranking_cards.dart';
 import 'package:watchtower/modules/media/streaming_cards.dart';
-import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/watch/home/gallery_component_renderer.dart';
 import 'package:watchtower/modules/watch/home/watch_extension_home_screen.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_cards.dart'
@@ -451,6 +450,46 @@ void main() {
     // Two rows of posters: the last row starts below the first one, i.e. the
     // grid really laid out both rows inside the section instead of clipping.
     expect(lastCard.top, greaterThan(firstCard.top));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a wide screen adds grid columns instead of stretching posters', (
+    tester,
+  ) async {
+    // Regression: the grid kept the layout's 3 columns whatever the width, so
+    // a 1400 px surface produced ~450 px posters (a poster cell is
+    // cellWidth / .5 tall) and the section overflowed the viewport.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(1400, 1400);
+    addTearDown(tester.view.reset);
+
+    final items = [
+      for (var i = 0; i < 12; i++) ContentItem(key: 'w$i', title: 'Item $i'),
+    ];
+    final ctx = GalleryComponentContext(
+      componentId: 'media-grid',
+      items: items,
+      params: const {'columns': 3, 'rows': 2},
+      onOpen: (_) {},
+    );
+
+    await tester.pumpWidget(_app(GalleryComponentRenderer.section(ctx)));
+    await tester.pumpAndSettle();
+
+    final grid = tester.widget<GridView>(find.byType(GridView));
+    final delegate =
+        grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+    expect(
+      delegate.crossAxisCount,
+      greaterThan(3),
+      reason: 'a wide screen must show more columns, not wider cards',
+    );
+    final poster = tester.getSize(find.byType(PosterCard).first);
+    expect(
+      poster.width,
+      lessThanOrEqualTo(200),
+      reason: 'poster cells must stay near their design width',
+    );
     expect(tester.takeException(), isNull);
   });
 
