@@ -77,13 +77,27 @@ class WatchtowerBackDispatcher extends RootBackButtonDispatcher {
   }) : _router = router,
        _defaultLocation = defaultLocation {
     ensureAttached();
+    active = this;
   }
+
+  /// The dispatcher serving the running app, so surfaces that intercept a back
+  /// press themselves (the shell's `PopScope`) resolve the same destination
+  /// instead of jumping to a hard-coded tab.
+  static WatchtowerBackDispatcher? active;
 
   final GoRouter Function() _router;
   final String Function() _defaultLocation;
 
   @visibleForTesting
   final BackHistory history = BackHistory();
+
+  /// Where a back press on [location] should go, or `null` to leave the app.
+  ///
+  /// Mirrors [didPopRoute]'s fallback: the previously visited top-level
+  /// location, so a page reached from the menu/dock returns to where the user
+  /// came from rather than to the default tab.
+  String? backTargetFor(String? location) =>
+      history.backTarget(location, _defaultLocation());
 
   GoRouter? _attachedRouter;
 
@@ -153,5 +167,6 @@ class WatchtowerBackDispatcher extends RootBackButtonDispatcher {
   void detach() {
     _attachedRouter?.routerDelegate.removeListener(_onRouteChanged);
     _attachedRouter = null;
+    if (identical(active, this)) active = null;
   }
 }

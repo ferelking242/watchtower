@@ -23,6 +23,7 @@ import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/router/back_navigation.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
 import 'package:watchtower/services/library_auto_updater.dart';
@@ -95,6 +96,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _mobileDestinationsCache.clear();
   }
 
+  /// Destination for a back press inside the shell.
+  ///
+  /// Returns `null` when the press should leave the app (the user is on the
+  /// default tab with nothing before it). Otherwise returns the previously
+  /// visited top-level location so back retraces the visit order instead of
+  /// always landing on the default tab.
+  String? _backTargetFor(String? current) {
+    final dispatcher = WatchtowerBackDispatcher.active;
+    if (dispatcher != null) return dispatcher.backTargetFor(current);
+    // No dispatcher (tests, an unusual boot): keep the old, safe behaviour.
+    if (current == null || current == _defaultLocation) return null;
+    return _defaultLocation;
+  }
+
   String getHyphenatedUpdatesLabel(String languageCode, String defaultLabel) {
     final cacheKey = '$languageCode:$defaultLabel';
     return _hyphenatedLabelsCache.putIfAbsent(cacheKey, () {
@@ -130,7 +145,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.go(_defaultLocation);
+        // Only steer to the default tab when the router has no real location
+        // yet. The shell is rebuilt whenever a page that lives outside it
+        // (settings, statistics) is closed, and forcing the default tab there
+        // sent the user to the hub instead of the page they came from.
+        final location = ref.read(routerCurrentLocationStateProvider);
+        if (location == null || location == '/' || location == '/onboarding') {
+          context.go(_defaultLocation);
+        }
         _initializeTimers();
         _initializeProviders();
       }
@@ -450,12 +472,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             onPopInvokedWithResult: (didPop, _) {
               if (didPop) return;
               final current = ref.read(routerCurrentLocationStateProvider);
-              if (current != null && current != _defaultLocation) {
-                ref.read(menuOpenProvider.notifier).state = false;
-                route.go(_defaultLocation);
+              ref.read(menuOpenProvider.notifier).state = false;
+              // Retrace the visit order rather than always jumping to the
+              // default tab: the dock/menu destinations are siblings, so a page
+              // opened from another one must return to it.
+              final target = _backTargetFor(current);
+              if (target == null) {
+                SystemNavigator.pop();
                 return;
               }
-              SystemNavigator.pop();
+              route.go(target);
             },
             child: _TabletLayout(
               isLongPressed: isLongPressed,
@@ -473,19 +499,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         return PopScope(
           // On web, leave the browser's own back handling alone. On mobile,
           // when the user is on a non-root tab (settings, history, …) the
-          // system back button must return to the home tab rather than
-          // letting the shell pop itself and close the app.
+          // system back button must return to the page they came from rather
+          // than letting the shell pop itself and close the app.
           canPop: kIsWeb,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
             final current = ref.read(routerCurrentLocationStateProvider);
-            if (current != null && current != _defaultLocation) {
-              ref.read(menuOpenProvider.notifier).state = false;
-              route.go(_defaultLocation);
+            ref.read(menuOpenProvider.notifier).state = false;
+            final target = _backTargetFor(current);
+            // No previous page: the platform closes the app.
+            if (target == null) {
+              SystemNavigator.pop();
               return;
             }
-            // Already on the default tab: let the platform close the app.
-            SystemNavigator.pop();
+            route.go(target);
           },
           child: Column(
           children: [
