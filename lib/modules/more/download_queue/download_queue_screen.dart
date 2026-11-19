@@ -19,6 +19,7 @@ import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
+import 'package:watchtower/services/download_manager/download_failure_store.dart';
 import 'package:watchtower/services/download_manager/link_download_service.dart';
 import 'package:watchtower/services/download_manager/social_url_detector.dart';
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
@@ -3440,6 +3441,12 @@ class _DownloadCard extends ConsumerWidget {
     final failed = download.failed ?? 0;
     final isComplete = download.isDownload ?? false;
     final hasFailed = failed > 0 && !isComplete;
+    // The reason is stored per chapter because the failure toast is shown once
+    // and is dropped entirely when no Overlay is live — the normal case for a
+    // background batch, which left the user with red rows and no explanation.
+    final failureReason = download.id == null
+        ? null
+        : ref.watch(downloadFailuresProvider).value?[download.id!]?.message;
     final isCancelled = download.status == 'cancelled';
     final isPaused = this.isPaused;
     final live = liveProgress;
@@ -3596,7 +3603,8 @@ class _DownloadCard extends ConsumerWidget {
           ? fileDetails
           : context.l10n.queue_status_completed;
     } else if (hasFailed) {
-      statusText = context.l10n.queue_status_failed;
+      statusText = failureReason?.split('\n').first ??
+          context.l10n.queue_status_failed;
     } else if (isCancelled) {
       statusText = context.l10n.queue_status_canceled;
     } else if (isPaused) {

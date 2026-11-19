@@ -814,14 +814,52 @@ final Set<String> _browserRequiredHosts = <String>{};
 /// segments/files so they can short-circuit cleanly.
 final Set<String> _workerCancelledTasks = <String>{};
 
-/// Converts any exception to a plain [Exception] containing only the string
-/// representation so it can safely cross isolate boundaries via [SendPort].
+/// Converts any exception to a sendable form so it can cross isolate
+/// boundaries via [SendPort].
 ///
 /// [RhttpClient] (and other flutter_rust_bridge objects) hold a [RustArc]
 /// which is NOT sendable between Dart isolates. Forwarding a raw
 /// [RhttpWrappedClientException] / [DownloadPoolException] that wraps one
 /// causes: "Illegal argument in isolate message: object is unsendable".
-Exception _toSendable(Object e) => Exception(e.toString());
+///
+/// A [DownloadPoolException] is converted to [DownloadPoolFailure], which
+/// keeps the structured fields (partial counts, `Retry-After`) that the main
+/// isolate needs to tell "3 of 40 pages missing" from "the whole chapter
+/// failed", while dropping the unsendable wrapped error.
+Exception _toSendable(Object e) {
+  if (e is DownloadPoolException) {
+    return DownloadPoolFailure(
+      e.message,
+      retryable: e.retryable,
+      retryAfter: e.retryAfter,
+      failedCount: e.failedCount,
+      totalCount: e.totalCount,
+    );
+  }
+  return Exception(e.toString());
+}
+
+/// Sendable snapshot of a [DownloadPoolException] for the isolate boundary.
+class DownloadPoolFailure implements Exception {
+  final String message;
+  final bool retryable;
+  final Duration? retryAfter;
+  final int failedCount;
+  final int totalCount;
+
+  const DownloadPoolFailure(
+    this.message, {
+    this.retryable = true,
+    this.retryAfter,
+    this.failedCount = 0,
+    this.totalCount = 0,
+  });
+
+  bool get isPartial => failedCount > 0 && failedCount < totalCount;
+
+  @override
+  String toString() => 'DownloadPoolException: $message';
+}
 
 /// Isolate worker entry point
 void _workerEntryPoint(_WorkerInit init) async {
@@ -939,11 +977,19 @@ Future<void> _processFileDownload(
     );
     // Circular slot buffer: slot i is awaited before launching item i,
     // guaranteeing at most `concurrency` downloads in flight at once.
+    //
+    // A page that keeps failing after its own retries must not abort the
+    // chapter: a 40-page chapter used to be thrown away because page 31 got a
+    // 429, and the next attempt re-downloaded the first 30 pages for nothing.
+    // Pages are attempted in order, failures are collected, and the task only
+    // fails when nothing usable came back at all — otherwise the chapter is
+    // reported as partially complete so the user sees which pages are missing
+    // instead of a generic failure.
     Object? firstError;
     StackTrace? firstStackTrace;
+    final failedPages = <PageUrl>[];
 
     for (int i = 0; i < params.pageUrls.length; i++) {
-      if (firstError != null) break;
       if (_isCancelled(taskId)) {
         await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
         replyPort.send(
@@ -956,7 +1002,7 @@ Future<void> _processFileDownload(
 
       final slotIdx = i % concurrency;
       await slots[slotIdx];
-      if (firstError != null || _isCancelled(taskId)) break;
+      if (_isCancelled(taskId)) break;
 
       final pageUrl = params.pageUrls[i];
       slots[slotIdx] =
@@ -1003,6 +1049,15 @@ Future<void> _processFileDownload(
                   error,
                 );
                 firstStackTrace ??= stackTrace;
+                failedPages.add(pageUrl);
+                replyPort.send(
+                  _DownloadPoolLog(
+                    taskId,
+                    'page failed file=${path.basename(pageUrl.fileName ?? "?")} '
+                    'error=$error',
+                    LogLevel.warning,
+                  ),
+                );
               });
     }
 
@@ -1010,9 +1065,6 @@ Future<void> _processFileDownload(
     // reporting failure. Otherwise a retry can race with writes from this
     // failed attempt and both can rename the same temporary file.
     await Future.wait(slots, eagerError: false);
-    if (firstError != null) {
-      Error.throwWithStackTrace(firstError!, firstStackTrace!);
-    }
 
     if (_isCancelled(taskId)) {
       replyPort.send(
@@ -1021,6 +1073,41 @@ Future<void> _processFileDownload(
         ),
       );
       return;
+    }
+
+    final outcome = resolvePageTransferOutcome(
+      failedCount: failedPages.length,
+      total: total,
+    );
+    switch (outcome) {
+      case PageTransferOutcome.failed:
+        Error.throwWithStackTrace(firstError!, firstStackTrace!);
+      case PageTransferOutcome.partial:
+        replyPort.send(
+          _DownloadPoolLog(
+            taskId,
+            'transfer finished with ${failedPages.length}/$total pages failed',
+            LogLevel.warning,
+          ),
+        );
+        // Keep the underlying cause in the message: the caller needs it to
+        // recognise a rate limit (and cool the host down) rather than treat a
+        // throttled host like a broken one.
+        final cause = _failureCause(firstError);
+        replyPort.send(
+          _toSendable(
+            DownloadPoolException.partial(
+              '${failedPages.length} page(s) sur $total n’ont pas pu être '
+              'téléchargées${cause == null ? "" : " ($cause)"}',
+              firstError,
+              failedPages.length,
+              total,
+            ),
+          ),
+        );
+        return;
+      case PageTransferOutcome.complete:
+        break;
     }
 
     replyPort.send(
@@ -1472,6 +1559,9 @@ Future<void> _downloadResumableImage({
         'Invalid image response for ${path.basename(outputPath)}: '
         'HTTP ${response.statusCode}',
         retryable: isRetryableImageHttpStatus(response.statusCode),
+        retryAfter: response.statusCode == 429 || response.statusCode == 503
+            ? parseRetryAfter(_responseHeader(response, 'retry-after'))
+            : null,
       );
     }
 
@@ -2249,8 +2339,12 @@ Future<void> _downloadSegment(
             return;
           }
         }
-        throw DownloadPoolException(
+        throw DownloadPoolException.policy(
           'Failed to download segment: ${ts.name} (HTTP ${response.statusCode})',
+          retryable: true,
+          retryAfter: response.statusCode == 429 || response.statusCode == 503
+              ? parseRetryAfter(_responseHeader(response, 'retry-after'))
+              : null,
         );
       }
 
@@ -2355,9 +2449,20 @@ Uint8List _aesDecrypt(
   }
 }
 
-/// Helper for retry. Now uses bounded exponential backoff (200ms, 500ms,
-/// 1000ms…) so transient network blips don't immediately fail a download
-/// and so we don't hot-loop and burn CPU when a server is briefly unhappy.
+/// Longest `Retry-After` worth waiting for inside a single worker. Anything
+/// longer is handed to the host cooldown instead of pinning a concurrency slot.
+const _maxInlineRetryAfter = Duration(seconds: 30);
+
+/// Helper for retry with bounded exponential backoff (200ms, 400ms, 800ms…),
+/// so transient network blips don't immediately fail a download and we don't
+/// hot-loop when a server is briefly unhappy.
+///
+/// When the failure carries an HTTP `Retry-After`, that wait wins: a 429 means
+/// the host wants us gone, and a 200 ms retry only earns another 429. This is
+/// what made a 173-chapter batch die around chapter 20 and recover 20 minutes
+/// later — the pages kept hammering a throttled host inside a ~6 s retry
+/// window, so every remaining chapter failed until the host's own window
+/// expired.
 Future<T> _withRetry<T>(Future<T> Function() operation, int maxRetries) async {
   int attempts = 0;
   Object? lastError;
@@ -2369,8 +2474,20 @@ Future<T> _withRetry<T>(Future<T> Function() operation, int maxRetries) async {
       lastError = e;
       if (e is DownloadPoolException && !e.retryable) rethrow;
       if (attempts >= maxRetries) break;
-      final backoffMs = 200 * (1 << (attempts - 1)); // 200, 400, 800, …
-      await Future.delayed(Duration(milliseconds: backoffMs.clamp(200, 2000)));
+      final requested = e is DownloadPoolException ? e.retryAfter : null;
+      // A long Retry-After must not pin this worker: waiting minutes here
+      // blocks a concurrency slot that another chapter could use. Hand the
+      // hint up instead — the caller cools the host down and the queue moves
+      // on, which is what the server is asking for anyway.
+      if (requested != null && requested > _maxInlineRetryAfter) rethrow;
+      if (requested != null) {
+        await Future.delayed(requested);
+      } else {
+        final backoffMs = 200 * (1 << (attempts - 1)); // 200, 400, 800, …
+        await Future.delayed(
+          Duration(milliseconds: backoffMs.clamp(200, 2000)),
+        );
+      }
     }
   }
   throw DownloadPoolException(
@@ -2379,24 +2496,121 @@ Future<T> _withRetry<T>(Future<T> Function() operation, int maxRetries) async {
   );
 }
 
+/// Condenses a failure to a short, log-safe cause such as `HTTP 429`.
+String? _failureCause(Object? error) {
+  if (error == null) return null;
+  final text = error.toString();
+  final status = RegExp(r'\b(?:401|403|404|408|429|5\d\d)\b').firstMatch(text);
+  if (status != null) return 'HTTP ${status.group(0)}';
+  final firstLine = text.split('\n').first.trim();
+  if (firstLine.isEmpty) return null;
+  return firstLine.length > 80 ? '${firstLine.substring(0, 80)}…' : firstLine;
+}
+
+/// Outcome of a page transfer, decided from how many pages failed.
+enum PageTransferOutcome {
+  /// Every page landed.
+  complete,
+
+  /// Some pages landed: keep the chapter and report the gap.
+  partial,
+
+  /// Nothing landed: a real failure worth surfacing as such.
+  failed,
+}
+
+/// Decides what a page transfer means from its failure count.
+///
+/// Kept as a pure function because the rule is the whole point of the fix and
+/// the surrounding loop needs isolates and Rust to run: a single bad page used
+/// to throw away an otherwise complete chapter, so a 40-page chapter was lost
+/// because page 31 hit a 429.
+@visibleForTesting
+PageTransferOutcome resolvePageTransferOutcome({
+  required int failedCount,
+  required int total,
+}) {
+  if (failedCount <= 0) return PageTransferOutcome.complete;
+  if (total > 0 && failedCount >= total) return PageTransferOutcome.failed;
+  return PageTransferOutcome.partial;
+}
+
 /// Pool exception
 class DownloadPoolException implements Exception {
   final String message;
   final dynamic originalError;
   final bool retryable;
 
-  DownloadPoolException(this.message, [this.originalError]) : retryable = true;
+  /// How long the server asked us to wait (HTTP `Retry-After`), when it said
+  /// so. A 429 from a manga host is a real "slow down", not a blip: retrying
+  /// 200 ms later just re-triggers it, and the whole batch then fails.
+  final Duration? retryAfter;
+
+  DownloadPoolException(this.message, [this.originalError])
+    : retryable = true,
+      retryAfter = null,
+      failedCount = 0,
+      totalCount = 0;
 
   DownloadPoolException.policy(
     this.message, {
     this.originalError,
     required this.retryable,
-  });
+    this.retryAfter,
+  }) : failedCount = 0,
+       totalCount = 0;
 
   DownloadPoolException.notRetryable(this.message, [this.originalError])
-    : retryable = false;
+    : retryable = false,
+      retryAfter = null,
+      failedCount = 0,
+      totalCount = 0;
+
+  /// Some pages were written and some were not. Not retryable at this level:
+  /// re-running the whole chapter would re-fetch the pages that already
+  /// succeeded, and the caller decides whether to keep or requeue it.
+  DownloadPoolException.partial(
+    this.message, [
+    this.originalError,
+    this.failedCount = 0,
+    this.totalCount = 0,
+  ]) : retryable = false,
+       retryAfter = null;
+
+  /// How many pages of the chapter failed, and the chapter size. Both are 0
+  /// unless this came from [DownloadPoolException.partial].
+  final int failedCount;
+  final int totalCount;
+
+  /// True when the chapter is incomplete but usable.
+  bool get isPartial => failedCount > 0 && failedCount < totalCount;
 
   @override
   String toString() =>
       'DownloadPoolException: $message${originalError != null ? ' ($originalError)' : ''}';
+}
+
+/// Parses an HTTP `Retry-After` header into a delay.
+///
+/// The header is normally a number of seconds ("120"); an HTTP date is also
+/// legal, so ISO-ish dates are accepted too. Values are clamped so a hostile
+/// or broken server cannot park a download for hours, and a missing or
+/// unparseable header yields null (the caller falls back to plain backoff).
+/// Deliberately avoids `HttpDate` (dart:io) so this stays web-safe.
+@visibleForTesting
+Duration? parseRetryAfter(String? raw, {DateTime? now}) {
+  final value = raw?.trim();
+  if (value == null || value.isEmpty) return null;
+  Duration? delay;
+  final seconds = int.tryParse(value);
+  if (seconds != null) {
+    delay = Duration(seconds: seconds);
+  } else {
+    final at = DateTime.tryParse(value);
+    if (at == null) return null;
+    delay = at.difference(now ?? DateTime.now().toUtc());
+  }
+  if (delay.isNegative) return Duration.zero;
+  const maxWait = Duration(minutes: 5);
+  return delay > maxWait ? maxWait : delay;
 }

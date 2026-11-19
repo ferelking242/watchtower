@@ -32,6 +32,8 @@ import 'package:watchtower/services/download_manager/download_connectivity.dart'
 import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/download_queue_scheduler_signal.dart';
+import 'package:watchtower/services/download_manager/download_failure_store.dart';
+import 'package:watchtower/services/download_manager/host_cooldown_registry.dart';
 import 'package:watchtower/services/download_manager/external_downloader_launcher.dart';
 import 'package:watchtower/services/download_manager/m_downloader.dart';
 import 'package:watchtower/services/manga_download_manifest.dart';
@@ -109,6 +111,59 @@ Future<void> _writeMangaDownloadManifest(File file, MangaDownloadManifest manife
 bool _isRefreshablePageUrlError(Object error) =>
     RegExp(r'\b(?:401|403)\b').hasMatch(error.toString());
 
+/// Whether a failure means "slow down" rather than "this URL is stale".
+///
+/// Deliberately not part of [_isRefreshablePageUrlError]: refreshing the page
+/// list cannot fix a 429, and the extra extension call would add load to the
+/// host that is already refusing us. A rate limit is handled by cooling the
+/// host down instead (see [HostCooldownRegistry]).
+bool _isRateLimitError(Object error) {
+  final text = error.toString();
+  return RegExp(r'\b(?:429|503)\b').hasMatch(text) ||
+      text.contains('too many requests') ||
+      text.contains('rate limit');
+}
+
+/// Clears the cooldown for the host(s) behind [pageUrls] after a success.
+void _clearHostCooldown(List<PageUrl> pageUrls) {
+  for (final page in pageUrls) {
+    final host = Uri.tryParse(page.url)?.host;
+    if (host != null && host.isNotEmpty) {
+      HostCooldownRegistry.instance.registerSuccess(host);
+    }
+  }
+}
+
+/// Puts the host(s) behind [pageUrls] into cooldown after a rate-limit
+/// failure, so the queue stops feeding that host new chapters until its
+/// window expires instead of failing every remaining chapter in the batch.
+void _recordHostCooldownFromError(List<PageUrl> pageUrls, Object error) {
+  if (!_isRateLimitError(error)) return;
+  // The server's own hint beats our guess when it gave one.
+  final hint = error is DownloadPoolFailure
+      ? error.retryAfter
+      : error is DownloadPoolException
+      ? error.retryAfter
+      : null;
+  final hosts = <String>{};
+  for (final page in pageUrls) {
+    final host = Uri.tryParse(page.url)?.host;
+    if (host != null && host.isNotEmpty) hosts.add(host);
+  }
+  for (final host in hosts) {
+    final cooldown = HostCooldownRegistry.instance.registerFailure(
+      host,
+      retryAfter: hint,
+    );
+    AppLogger.log(
+      '[cooldown] $host rate limited; pausing new downloads for '
+      '${cooldown.inSeconds}s',
+      logLevel: LogLevel.warning,
+      tag: LogTag.download,
+    );
+  }
+}
+
 String _safeManifestFailure(Object error) {
   final status = RegExp(
     r'\b(?:401|403|404|408|429|5\d\d)\b',
@@ -118,6 +173,16 @@ String _safeManifestFailure(Object error) {
 
 /// Convert a raw exception into a human-readable French message.
 String friendlyErrorMessage(Object e) {
+  // A partial chapter has a usable result, so say what is missing instead of
+  // claiming the whole download failed.
+  if (e is DownloadPoolFailure && e.isPartial) {
+    return '${e.failedCount} page(s) sur ${e.totalCount} n’ont pas pu être '
+        'téléchargées.\nRelancez le chapitre pour compléter les pages manquantes.';
+  }
+  if (e is DownloadPoolException && e.isPartial) {
+    return '${e.failedCount} page(s) sur ${e.totalCount} n’ont pas pu être '
+        'téléchargées.\nRelancez le chapitre pour compléter les pages manquantes.';
+  }
   final msg = e.toString().toLowerCase();
   if (e is SocketException) {
     return 'Impossible de se connecter au serveur.\nVérifiez votre connexion Internet.';
@@ -1147,6 +1212,9 @@ Future<void> addDownloadToQueue(Ref ref, {required Chapter chapter}) async {
       logLevel: LogLevel.info,
       tag: LogTag.download,
     );
+    // The chapter is queued again, so any reason from a previous attempt is
+    // stale and must not keep showing on the row.
+    if (id != null) DownloadFailureStore.instance.clear(id);
   } catch (error, stackTrace) {
     AppLogger.log(
       '[ch:${id ?? "?"}] queue persistence failed',
@@ -2765,6 +2833,12 @@ Future<void> downloadChapter(
           // is idempotent (processConvert skips if the archive already exists).
           if (!interruptedByQueueAction) {
             await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
+            // A full chapter landed, so the host is serving us again: clear any
+            // cooldown so the rest of the batch is not held back needlessly.
+            _clearHostCooldown(pageUrls);
+            if (chapter.id != null) {
+              DownloadFailureStore.instance.clear(chapter.id!);
+            }
             AppLogger.log(
               '[ch:' + (chapter.id?.toString() ?? '?') + '] COMPLETE ✓',
               logLevel: LogLevel.info,
@@ -2776,6 +2850,7 @@ Future<void> downloadChapter(
           if (itemType == ItemType.manga) {
             await reconcileAndPersistMangaManifest(markFailed: true, failure: e);
           }
+          _recordHostCooldownFromError(pageUrls, e);
           log(
             '[downloadChapter][manga] FAILED chapterId=${chapter.id} '
             'errorType=${e.runtimeType}',
@@ -3092,7 +3167,23 @@ Future<void> downloadChapter(
     // Always fire the callback even on error so processDownloads can unblock
     // its slot counter and exit cleanly instead of looping forever.
     log('[downloadChapter] UNCAUGHT ERROR chapterId=${chapter.id}: $e\n$st');
-    _notifyDownloadFailure(friendlyErrorMessage(e));
+    final friendly = friendlyErrorMessage(e);
+    _notifyDownloadFailure(friendly);
+    // Persist the reason per chapter: the toast above is shown once and is
+    // dropped outright when no Overlay is live, which is the normal case for a
+    // background batch. Without this the queue showed a red row with no reason.
+    if (chapter.id != null) {
+      DownloadFailureStore.instance.set(
+        chapter.id!,
+        DownloadFailure(
+          message: friendly,
+          at: DateTime.now(),
+          partial: e is DownloadPoolFailure && e.isPartial,
+          failedPages: e is DownloadPoolFailure ? e.failedCount : 0,
+          totalPages: e is DownloadPoolFailure ? e.totalCount : 0,
+        ),
+      );
+    }
     AppLogger.log('[ch:${chapter.id}] CRASH: $e', logLevel: LogLevel.error, tag: LogTag.download);
     // Mark as failed so processDownloads does NOT re-queue endlessly.
     // Without this, any uncaught exception leaves the chapter as
@@ -3178,6 +3269,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   // Keep this provider alive so it can run for the full duration of the queue.
   final keepAlive = ref.keepAlive();
   final loggedConcurrencyBlocks = <int>{};
+  final loggedCooldowns = <int>{};
   String? lastQueueWaitState;
   // Resume the queue as soon as the connection comes back: reset the rows the
   // offline gate parked so the next tick dispatches them, instead of leaving
@@ -3577,6 +3669,28 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
               );
             }
             continue;
+          }
+
+          // A source that just rate-limited us must not receive the next
+          // chapter: without this the queue re-feeds a throttled host on every
+          // tick, so every remaining chapter in a long batch fails the same
+          // way until the host's window expires on its own.
+          if (HostCooldownRegistry.instance.isCoolingDown(chSrc)) {
+            final left =
+                HostCooldownRegistry.instance.remaining(chSrc)?.inSeconds ?? 0;
+            final chapterId = chapter.id;
+            if (chapterId != null && loggedCooldowns.add(chapterId)) {
+              AppLogger.log(
+                '[ch:$chapterId] source=$chSrc cooling down (${left}s left); '
+                'holding this chapter',
+                logLevel: LogLevel.info,
+                tag: LogTag.download,
+              );
+            }
+            continue;
+          }
+          if (chapter.id != null) {
+            loggedCooldowns.remove(chapter.id!);
           }
           if (chapter.id != null) {
             loggedConcurrencyBlocks.remove(chapter.id!);
