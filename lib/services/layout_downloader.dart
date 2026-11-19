@@ -22,11 +22,17 @@ class LayoutDownloader {
     if (layoutPath == null || layoutPath.isEmpty) return false;
 
     final url = '$_rawBase$layoutPath';
-    AppLogger.log('[LayoutDownloader] GET $url', tag: LogTag.extension_);
+    // The layout is served from a mutable `main` path, so a CDN or platform
+    // HTTP cache can answer the previous body long after the file changed.
+    // The source-code download cache-busts for the same reason.
+    final bustUrl = url.contains('?')
+        ? url
+        : '$url?_=${DateTime.now().millisecondsSinceEpoch}';
+    AppLogger.log('[LayoutDownloader] GET $bustUrl', tag: LogTag.extension_);
 
     try {
       final response = await MClient.init(reqcopyWith: {'useDartHttpClient': true})
-          .get(Uri.parse(url))
+          .get(Uri.parse(bustUrl))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200) {

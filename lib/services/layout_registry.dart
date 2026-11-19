@@ -33,6 +33,14 @@ class LayoutRegistry {
 
   /// Load layout from local storage for [source] and update the memory cache.
   /// Safe to call multiple times.
+  ///
+  /// The cached file is only trusted when it was written for the layout
+  /// version the installed source declares. A layout is downloaded once at
+  /// install time and then lives on disk, so without this check a catalogue
+  /// that edits `ui-layouts/<slug>.json` and bumps `uiLayoutVersion` would
+  /// never reach an installed app: the old JSON was served forever. A stale
+  /// cache is discarded instead of loaded, which leaves [has] false so the
+  /// caller (the home screen) downloads the current layout.
   Future<void> load(Source source) async {
     final id = source.id;
     if (id == null || _cache.containsKey(id)) return;
@@ -41,6 +49,13 @@ class LayoutRegistry {
         final prefs = await SharedPreferences.getInstance();
         final content = prefs.getString(_webLayoutKey(id));
         if (content == null) return;
+        final stamp = prefs.getString(_webVersionKey(id));
+        if (_isStale(source, stamp)) {
+          _logStale(source, stamp);
+          await prefs.remove(_webLayoutKey(id));
+          await prefs.remove(_webVersionKey(id));
+          return;
+        }
         _rawCache[id] = content;
         _cache[id] = UiLayout.fromJson(
           jsonDecode(content) as Map<String, dynamic>,
@@ -49,6 +64,12 @@ class LayoutRegistry {
       }
       final file = await _layoutFile(source);
       if (!await file.exists()) return;
+      final stamp = await _readVersionStamp(source);
+      if (_isStale(source, stamp)) {
+        _logStale(source, stamp);
+        await file.delete();
+        return;
+      }
       final content = await file.readAsString();
       final json = jsonDecode(content) as Map<String, dynamic>;
       _rawCache[id] = content;
@@ -144,11 +165,13 @@ class LayoutRegistry {
       _rawCache[sourceId] = jsonContent;
       if (kIsWeb) {
         final prefs = await SharedPreferences.getInstance();
-        return prefs.setString(_webLayoutKey(sourceId), jsonContent);
+        await prefs.setString(_webLayoutKey(sourceId), jsonContent);
+        return await _writeVersionStamp(source, prefs: prefs);
       }
       final file = await _layoutFile(source);
       await file.parent.create(recursive: true);
       await file.writeAsString(jsonContent);
+      await _writeVersionStamp(source);
       AppLogger.log(
         '[LayoutRegistry] Saved ${source.name}',
         tag: LogTag.extension_,
@@ -182,11 +205,14 @@ class LayoutRegistry {
     if (kIsWeb) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_webLayoutKey(source.id!));
+      await prefs.remove(_webVersionKey(source.id!));
       return;
     }
     try {
       final file = await _layoutFile(source);
       if (await file.exists()) await file.delete();
+      final stamp = await _versionFile(source);
+      if (await stamp.exists()) await stamp.delete();
     } catch (_) {}
   }
 
@@ -235,6 +261,65 @@ class LayoutRegistry {
     return File('${dir.path}/layouts/${source.id}.json');
   }
 
+  /// Sidecar recording which `uiLayoutVersion` the cached JSON belongs to.
+  /// Sits next to the layout (`<id>.json.version`) so both live and die
+  /// together, and reading it never depends on the platform directory twice.
+  static Future<File> _versionFile(Source source) async {
+    final layout = await _layoutFile(source);
+    return File('${layout.path}.version');
+  }
+
+  Future<String?> _readVersionStamp(Source source) async {
+    try {
+      final file = await _versionFile(source);
+      if (!await file.exists()) return null;
+      return (await file.readAsString()).trim();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> _writeVersionStamp(
+    Source source, {
+    SharedPreferences? prefs,
+  }) async {
+    final version = source.uiLayoutVersion?.trim() ?? '';
+    try {
+      if (prefs != null) {
+        await prefs.setString(_webVersionKey(source.id!), version);
+        return true;
+      }
+      final file = await _versionFile(source);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(version);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// True when the cached JSON was written for a different layout version.
+  /// An unversioned catalogue entry (`uiLayoutVersion == null`) opts out: there
+  /// is nothing to compare against, so the cache stays authoritative.
+  static bool _isStale(Source source, String? cachedVersion) {
+    final expected = source.uiLayoutVersion?.trim();
+    if (expected == null || expected.isEmpty) return false;
+    return (cachedVersion ?? '') != expected;
+  }
+
+  void _logStale(Source source, String? cachedVersion) {
+    AppLogger.log(
+      '[LayoutRegistry] Stale layout for ${source.name} '
+      '(cached "${cachedVersion ?? "none"}", expected '
+      '"${source.uiLayoutVersion}") — refetching',
+      logLevel: LogLevel.warning,
+      tag: LogTag.extension_,
+    );
+  }
+
   static String _webLayoutKey(int sourceId) =>
       'watchtower_layout_json_$sourceId';
+
+  static String _webVersionKey(int sourceId) =>
+      'watchtower_layout_version_$sourceId';
 }
