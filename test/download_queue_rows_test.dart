@@ -176,4 +176,57 @@ void main() {
       expect(order, ['a', 'b']);
     });
   });
+
+  group('QueueRowFilter', () {
+    Download entry({
+      required int id,
+      bool complete = false,
+      String status = 'downloading',
+      int failed = 0,
+    }) => _download(id: id, mangaId: 10, source: 'alpha', complete: complete)
+      ..status = status
+      ..failed = failed;
+
+    test('all keeps every row, finished included', () {
+      final rows = [
+        entry(id: 1),
+        entry(id: 2, status: 'paused'),
+        entry(id: 3, complete: true),
+      ];
+      expect(QueueRowFilter.all.apply(rows), hasLength(3));
+    });
+
+    test('active hides finished, paused and failed rows', () {
+      final rows = [
+        entry(id: 1),
+        entry(id: 2, status: 'paused'),
+        entry(id: 3, failed: 2),
+        entry(id: 4, complete: true),
+      ];
+      expect(QueueRowFilter.active.apply(rows).map((d) => d.id), [1]);
+    });
+
+    test('paused matches the live engine state, not just the status', () {
+      final rows = [entry(id: 1), entry(id: 2)];
+      final paused = QueueRowFilter.paused.apply(rows, pausedIds: {2});
+      expect(paused.map((d) => d.id), [2]);
+    });
+
+    test('failed matches a retry counter left above zero', () {
+      final rows = [entry(id: 1), entry(id: 2, failed: 1)];
+      expect(QueueRowFilter.failed.apply(rows).map((d) => d.id), [2]);
+    });
+
+    test('an entry with no id is not treated as paused', () {
+      final orphan = Download(
+        total: 1,
+        succeeded: 0,
+        failed: 0,
+        isDownload: false,
+        isStartDownload: false,
+      )..status = 'downloading';
+      expect(QueueRowFilter.paused.matches(orphan), isFalse);
+      expect(QueueRowFilter.active.matches(orphan), isTrue);
+    });
+  });
 }

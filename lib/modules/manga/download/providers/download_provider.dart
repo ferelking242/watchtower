@@ -129,7 +129,17 @@ bool _isRateLimitError(Object error) {
 /// Keyed like [_recordHostCooldownFromError] so a success actually lifts the
 /// hold the dispatch loop is checking.
 void _clearHostCooldown(String source, {List<PageUrl>? pageUrls}) {
-  HostCooldownRegistry.instance.registerSuccess(HostCooldownRegistry.keyForSource(source));
+  final key = HostCooldownRegistry.keyForSource(source);
+  final wasHeld = HostCooldownRegistry.instance.isCoolingDown(key);
+  HostCooldownRegistry.instance.registerSuccess(key);
+  if (wasHeld) {
+    AppLogger.log(
+      '[cooldown] source=$key answered normally again; hold lifted and the '
+      'queue resumes immediately',
+      logLevel: LogLevel.info,
+      tag: LogTag.download,
+    );
+  }
   for (final page in pageUrls ?? const <PageUrl>[]) {
     final host = Uri.tryParse(page.url)?.host;
     if (host != null && host.isNotEmpty) {
@@ -162,8 +172,9 @@ void _recordHostCooldownFromError(
     retryAfter: hint,
   );
   AppLogger.log(
-    '[cooldown] $key rate limited; pausing new downloads for '
-    '${cooldown.inSeconds}s',
+    '[cooldown] source=$key answered with a rate limit (429/503); every '
+    'chapter of this extension is held for ${cooldown.inSeconds}s, then the '
+    'queue resumes on its own',
     logLevel: LogLevel.warning,
     tag: LogTag.download,
   );
@@ -292,6 +303,25 @@ void _markRateLimited(int? id) {
   } catch (_) {
     // Same policy as [_setDownloadStatus]: a corrupt row must not break the queue.
   }
+}
+
+/// Cooldown still in force for the source that owns [chapter], or null.
+///
+/// Every gate (scheduler, worker, retry action) has to ask this question with
+/// the same key, otherwise a forced start slips past a cooldown the queue is
+/// still honouring. The key is the canonical source name, matching the value
+/// recorded when the rate-limit failure happened.
+Duration? _sourceCooldownFor(Chapter chapter) =>
+    _sourceCooldownForName(resolveChapterManga(chapter)?.source);
+
+/// Cooldown still in force for [source], or null.
+Duration? _sourceCooldownForName(String? source) {
+  if (source == null) return null;
+  final remaining = HostCooldownRegistry.instance.remaining(
+    HostCooldownRegistry.keyForSource(source),
+  );
+  if (remaining == null || remaining.isNegative) return null;
+  return remaining;
 }
 
 /// Tear-off of `read` shared by [WidgetRef] and [ProviderContainer], so the
@@ -464,6 +494,24 @@ Future<void> _handleMediaDownloadNotificationAction(
         return;
       }
       ensureChapterLinksLoaded(chapter);
+      // Retry means "start over", so it clears the counters below. While the
+      // source is cooling down that would throw away pages and bytes the
+      // paused transfer had already saved, and the worker would still refuse to
+      // start — the user loses progress and gains nothing. Park the row instead
+      // and let the scheduler resume it when the window expires.
+      final retryCooldown = _sourceCooldownFor(chapter);
+      if (retryCooldown != null) {
+        AppLogger.log(
+          '[ch:$chapterId] retry refused: source is rate limited '
+          '(${retryCooldown.inSeconds}s left); keeping saved progress',
+          logLevel: LogLevel.warning,
+          tag: LogTag.download,
+        );
+        notifier.setPaused(chapterId, false, updateEngine: false);
+        _markRateLimited(chapterId);
+        await notifications.cancelMediaDownloadNotification(chapterId);
+        return;
+      }
       notifier.incrementRetry(chapterId);
       notifier.clearLiveProgress(chapterId);
       notifier.setPaused(chapterId, false, updateEngine: false);
@@ -1166,6 +1214,57 @@ const _pendingDownloadStatuses = {
 
 const _terminalDownloadStatuses = {'paused', 'failed', 'cancelled', 'completed'};
 
+/// Statuses that only a live worker can hold.
+///
+/// A row persisted with one of these while no worker owns it was interrupted
+/// mid-transfer — the process was killed, or the isolate died without reaching
+/// its `finally`. Such a row is not in [_pendingDownloadStatuses], so without
+/// an explicit repair the scheduler never looks at it again and the queue shows
+/// an animated row nothing is working on.
+const _inFlightDownloadStatuses = {
+  'fetching_metadata',
+  'initializing',
+  'downloading',
+};
+
+/// Number of interrupted-transfer repairs before a row is given up on.
+const _maxOrphanRepairs = 2;
+
+/// Requeues [download] when it was left mid-transfer by a dead process.
+///
+/// Returns true when the row was changed. Counters are kept so the restart
+/// resumes from the saved offsets instead of re-downloading everything.
+///
+/// The counter is deliberately *not* persisted in `Download.failed`: the queue
+/// renders any row with `failed > 0` as a red failure, so an interrupted — but
+/// healthy — transfer would look broken between the repair and its restart.
+bool repairOrphanedInFlightRow(
+  Download download, {
+  required bool isActive,
+  int previousRepairs = 0,
+}) {
+  if (download.isDownload == true) return false;
+  final status = download.status;
+  if (status == null || !_inFlightDownloadStatuses.contains(status)) {
+    return false;
+  }
+  // A registered worker may still be writing this row; only a row nobody owns
+  // is an orphan.
+  if (isActive) return false;
+  if (previousRepairs >= _maxOrphanRepairs) {
+    download
+      ..status = 'failed'
+      ..isStartDownload = false
+      ..isDownload = false;
+    return true;
+  }
+  download
+    ..status = 'queued'
+    ..isStartDownload = true
+    ..isDownload = false;
+  return true;
+}
+
 bool _isPendingDownload(Download download) {
   if (download.isDownload == true || _terminalDownloadStatuses.contains(download.status)) {
     return false;
@@ -1394,10 +1493,8 @@ Future<void> downloadChapter(
     // action, a queued row that survived a restart) bypasses that loop. Refuse
     // here too: park the row as rate-limited and let the scheduler auto-resume
     // it once the window expires.
-    final cooldownLeft = HostCooldownRegistry.instance.remaining(
-      HostCooldownRegistry.keyForSource(sourceName),
-    );
-    if (cooldownLeft != null && !cooldownLeft.isNegative) {
+    final cooldownLeft = _sourceCooldownForName(sourceName);
+    if (cooldownLeft != null) {
       AppLogger.log(
         '[ch:$chapterId] source=$sourceName rate limited '
         '(${cooldownLeft.inSeconds}s left); start refused',
@@ -3382,6 +3479,10 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   final keepAlive = ref.keepAlive();
   final loggedConcurrencyBlocks = <int>{};
   final loggedCooldowns = <int>{};
+  // Per-chapter count of "process died mid-transfer" repairs, so a chapter that
+  // kills the app on every attempt ends up failed instead of looping.
+  final orphanRepairs = <int, int>{};
+  var isFirstTick = true;
   String? lastQueueWaitState;
   // Resume the queue as soon as the connection comes back: reset the rows the
   // offline gate parked so the next tick dispatches them, instead of leaving
@@ -3552,6 +3653,47 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
             tag: LogTag.download,
           );
         }
+
+        // Rows left mid-transfer by a process that died are not pending, so
+        // without this pass they would never run again: the queue shows an
+        // animated row that nothing is working on. Requeue them (offsets kept)
+        // so the batch resumes on its own when the app comes back.
+        //
+        // Scanning every row on every tick would be wasteful, so the full pass
+        // runs once when the scheduler starts and afterwards only when the
+        // reaper actually released a slot — the only way a new orphan can
+        // appear while this loop is alive.
+        if (isFirstTick || reaped.isNotEmpty) {
+          final orphans = <int>[];
+          try {
+            isar.writeTxnSync(() {
+              for (final row in isar.downloads.where().findAllSync()) {
+                final id = row.id;
+                if (id == null) continue;
+                final repaired = repairOrphanedInFlightRow(
+                  row,
+                  isActive: ActiveDownloadRegistry.isActive(id),
+                  previousRepairs: orphanRepairs[id] ?? 0,
+                );
+                if (!repaired) continue;
+                orphanRepairs[id] = (orphanRepairs[id] ?? 0) + 1;
+                isar.downloads.putSync(row);
+                orphans.add(id);
+              }
+            });
+          } catch (_) {
+            // A corrupt row must not abort the whole scheduler tick.
+          }
+          for (final id in orphans) {
+            AppLogger.log(
+              '[ch:$id] transfer was interrupted by a process stop; '
+              'requeued to resume from its saved offsets',
+              logLevel: LogLevel.warning,
+              tag: LogTag.download,
+            );
+          }
+        }
+        isFirstTick = false;
 
         final stalePendingRows = <Download>[];
         for (final dl in ongoingRaw) {

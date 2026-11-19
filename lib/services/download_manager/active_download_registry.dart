@@ -43,6 +43,25 @@ class ActiveDownloadRegistry {
   // progress callback arrived).
   static final _heartbeat = <int, DateTime>{};
 
+  // When pause/preempt/cancel last asked each download to stop.
+  //
+  // The registry entry is deliberately kept after a stop request until the
+  // worker reaches its own `finally`. A worker stuck on an await that never
+  // completes never gets there, so the entry (and its queue slot) survived for
+  // the full [ghostTimeout] and the chapter could not be restarted: the row
+  // spun its progress bar forever and the resume button did nothing. Stamping
+  // the request lets [resume] and [reapGhosts] release the slot after a short,
+  // bounded grace period instead of waiting ten minutes.
+  static final _stopRequestedAt = <int, DateTime>{};
+
+  /// How long a stopped worker gets to reach its `finally` before the registry
+  /// treats its entry as a ghost.
+  ///
+  /// Long enough for a cancelled isolate to unwind a page/segment write (the
+  /// pool's own inactivity watchdog is far shorter), short enough that a user
+  /// who taps resume sees the download restart within one refresh.
+  static const Duration cancelGrace = Duration(seconds: 20);
+
   /// A registered download that has produced no heartbeat for this long is
   /// treated as a ghost and released.
   ///
@@ -65,11 +84,20 @@ class ActiveDownloadRegistry {
   /// Releases registry entries whose worker stopped reporting.
   ///
   /// Returns the IDs that were reaped, so the caller can log/requeue them.
-  static List<int> reapGhosts({Duration? timeout}) {
+  static List<int> reapGhosts({Duration? timeout, Duration? stopGrace}) {
     final limit = timeout ?? ghostTimeout;
+    final grace = stopGrace ?? cancelGrace;
     final now = DateTime.now();
     final ghosts = <int>[];
     for (final id in allActiveIds) {
+      // A stop request starts a much shorter clock: the worker was already
+      // told to exit, so a slot it still holds is a ghost the moment the grace
+      // period lapses, not after [ghostTimeout].
+      final stopAt = _stopRequestedAt[id];
+      if (stopAt != null) {
+        if (now.difference(stopAt) > grace) ghosts.add(id);
+        continue;
+      }
       final last = _heartbeat[id];
       if (last == null) {
         // Registered but never heartbeated: start the clock now instead of
@@ -80,6 +108,14 @@ class ActiveDownloadRegistry {
       if (now.difference(last) > limit) ghosts.add(id);
     }
     for (final id in ghosts) {
+      // Re-issue the cancellation: the worker ignored the first one (that is
+      // why its entry outlived the grace period), so it must not keep writing
+      // to the same files once the scheduler starts a fresh worker for this
+      // chapter.
+      final taskId = _internalTaskIds[id];
+      if (taskId != null) {
+        DownloadIsolatePool.instance.cancelTask(taskId);
+      }
       unregister(id);
       _preemptedIds.remove(id);
     }
@@ -100,6 +136,7 @@ class ActiveDownloadRegistry {
     String source = '_unknown',
   }) {
     _interruptedIds.remove(downloadId);
+    _stopRequestedAt.remove(downloadId);
     _heartbeat[downloadId] = DateTime.now();
     _engines[downloadId] = engine;
     _engineItemType[downloadId] = itemType;
@@ -118,6 +155,7 @@ class ActiveDownloadRegistry {
     String? source,
   }) {
     _interruptedIds.remove(downloadId);
+    _stopRequestedAt.remove(downloadId);
     _heartbeat[downloadId] = DateTime.now();
     _internalTaskIds[downloadId] = taskId;
     _internalItemType[downloadId] = itemType ?? ItemType.manga;
@@ -160,6 +198,7 @@ class ActiveDownloadRegistry {
     _activeOrder.remove(downloadId);
     _interruptedIds.remove(downloadId);
     _heartbeat.remove(downloadId);
+    _stopRequestedAt.remove(downloadId);
   }
 
   // ── Counting ──────────────────────────────────────────────────────────────
@@ -230,6 +269,7 @@ class ActiveDownloadRegistry {
   ///   still draining. The worker's `finally` block unregisters it.
   static Future<void> pause(int downloadId) async {
     _interruptedIds.add(downloadId);
+    _stopRequestedAt[downloadId] = DateTime.now();
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.pause();
       return;
@@ -251,6 +291,9 @@ class ActiveDownloadRegistry {
   /// * Internal: the re-query loop in processDownloads automatically picks
   ///   up the chapter on the next tick once it's no longer in pausedIds.
   static Future<void> resume(int downloadId) async {
+    // The user asked for this download to run again, so it is no longer a
+    // ghost-in-waiting: drop the stop stamp before deciding what to release.
+    _stopRequestedAt.remove(downloadId);
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.resume();
       return;
@@ -261,6 +304,10 @@ class ActiveDownloadRegistry {
     // live in the pool, the entry is a ghost: release it now so the next tick
     // can restart the chapter, instead of the row sitting idle for the whole
     // staleness window.
+    //
+    // `isTaskActive` only covers tasks already handed to a worker; a task still
+    // sitting in the pool queue after its cancellation never appears there, so
+    // a cancelled-then-resumed row could keep its entry and never restart.
     final taskId = _internalTaskIds[downloadId];
     if (taskId != null && !DownloadIsolatePool.instance.isTaskActive(taskId)) {
       unregister(downloadId);
@@ -303,6 +350,7 @@ class ActiveDownloadRegistry {
   static Future<void> preempt(int downloadId) async {
     _interruptedIds.add(downloadId);
     _preemptedIds.add(downloadId);
+    _stopRequestedAt[downloadId] = DateTime.now();
     final engine = _engines[downloadId];
     if (engine != null) {
       try {

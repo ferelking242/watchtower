@@ -2368,6 +2368,25 @@ class _TabBadge extends StatelessWidget {
 // with drag-to-reorder between groups.
 // ──────────────────────────────────────────────────────────────
 
+extension _QueueFilterPresentation on QueueRowFilter {
+  String label(AppLocalizations l10n) => switch (this) {
+    QueueRowFilter.all => l10n.browse_diag_all,
+    QueueRowFilter.active => l10n.download_downloading,
+    QueueRowFilter.paused => l10n.queue_status_paused,
+    QueueRowFilter.failed => l10n.queue_status_failed,
+  };
+
+  IconData get icon => switch (this) {
+    QueueRowFilter.all => Icons.filter_alt_off_outlined,
+    QueueRowFilter.active => Icons.downloading_rounded,
+    QueueRowFilter.paused => Icons.pause_circle_outline_rounded,
+    QueueRowFilter.failed => Icons.error_outline_rounded,
+  };
+}
+
+/// Section-wide actions behind the header's overflow menu.
+enum _SourceMenuAction { togglePause, retryFailed, deleteFinished }
+
 class _GroupedDownloadTabList extends ConsumerStatefulWidget {
   final List<Download> entries;
   final List<Download> allEntries;
@@ -2421,6 +2440,13 @@ class _GroupedDownloadTabListState
 
   /// Custom source order persisted in [DownloadSettingsService].
   List<String> _order = [];
+
+  /// Rows kept visible in every section, chosen from a header's filter button.
+  QueueRowFilter _filter = QueueRowFilter.all;
+
+  /// Entries this section renders after [_filter] is applied.
+  List<Download> get _visibleEntries =>
+      _filter.apply(widget.entries, pausedIds: _queueState.pausedIds);
 
   /// Latest queue state, read here so progress ticks rebuild this list (and its
   /// visible cards) instead of the whole screen scaffold.
@@ -2560,7 +2586,7 @@ class _GroupedDownloadTabListState
   }
 
   Map<String, List<Download>> _groupBySource() =>
-      groupDownloadsBySource(widget.entries);
+      groupDownloadsBySource(_visibleEntries);
 
   /// Returns sources in the user's preferred order, with any new sources
   /// appended at the end.
@@ -2573,9 +2599,147 @@ class _GroupedDownloadTabListState
     return s[0].toUpperCase() + s.substring(1);
   }
 
+  /// Asks which state to keep visible; the choice applies to every section of
+  /// this tab, so switching tabs resets it (each tab keeps its own instance).
+  Future<void> _pickFilter(BuildContext context) async {
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final chosen = await showModalBottomSheet<QueueRowFilter>(
+      context: context,
+      backgroundColor: scheme.surfaceContainerHigh,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.filter_alt_outlined,
+                    size: 18,
+                    color: scheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    l10n.filter,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final option in QueueRowFilter.values)
+              ListTile(
+                dense: true,
+                leading: Icon(
+                  option.icon,
+                  size: 20,
+                  color: option == _filter
+                      ? scheme.primary
+                      : scheme.onSurfaceVariant,
+                ),
+                title: Text(option.label(l10n)),
+                trailing: option == _filter
+                    ? Icon(Icons.check_rounded, size: 18, color: scheme.primary)
+                    : null,
+                onTap: () => Navigator.pop(ctx, option),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !mounted || chosen == _filter) return;
+    setState(() => _filter = chosen);
+  }
+
+  /// Section-wide actions for the header's overflow menu.
+  Future<void> _showSourceMenu(
+    BuildContext context, {
+    required String src,
+    required List<Download> items,
+    required bool allPaused,
+  }) async {
+    final l10n = context.l10n;
+    final scheme = Theme.of(context).colorScheme;
+    final action = await showModalBottomSheet<_SourceMenuAction>(
+      context: context,
+      backgroundColor: scheme.surfaceContainerHigh,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _displayName(src),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              dense: true,
+              leading: Icon(
+                allPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                size: 20,
+              ),
+              title: Text(allPaused ? l10n.queue_resume : l10n.queue_pause),
+              onTap: () => Navigator.pop(ctx, _SourceMenuAction.togglePause),
+            ),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.refresh_rounded, size: 20),
+              title: Text(l10n.queue_retry),
+              onTap: () => Navigator.pop(ctx, _SourceMenuAction.retryFailed),
+            ),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.cleaning_services_outlined, size: 20),
+              title: Text(l10n.queue_clear_completed),
+              onTap: () => Navigator.pop(ctx, _SourceMenuAction.deleteFinished),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case _SourceMenuAction.togglePause:
+        for (final item in items) {
+          final id = item.id ?? -1;
+          if (item.isDownload == true || item.status == 'cancelled') continue;
+          final isPaused =
+              _queueState.pausedIds.contains(id) || item.status == 'paused';
+          if (allPaused || !isPaused) widget.onPauseResume(item);
+        }
+      case _SourceMenuAction.retryFailed:
+        for (final item in items) {
+          if (item.isDownload == true) continue;
+          final failed = item.status == 'failed' || (item.failed ?? 0) > 0;
+          if (failed) widget.onRetry(item);
+        }
+      case _SourceMenuAction.deleteFinished:
+        for (final item in items) {
+          if (item.isDownload == true) widget.onDelete(item);
+        }
+    }
+  }
+
   /// Flattens sources → series → chapters into the exact rows rendered.
   List<DownloadQueueRow> _flatten(List<String> sources) => flattenDownloadQueue(
-    entries: widget.entries,
+    entries: _visibleEntries,
     collapsedSources: _collapsed,
     collapsedSeries: _collapsedSeries,
     preferredSourceOrder: sources,
@@ -2585,6 +2749,42 @@ class _GroupedDownloadTabListState
   Widget build(BuildContext context) {
     _queueState = ref.watch(downloadQueueStateProvider);
     final groups = _groupBySource();
+    if (groups.isEmpty && _filter != QueueRowFilter.all) {
+      // The section has rows, the filter just hides all of them: say so instead
+      // of claiming the queue is empty, and offer the way back in one tap.
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                _filter.icon,
+                size: 54,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.12),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                widget.emptyLabel,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: () => setState(() => _filter = QueueRowFilter.all),
+                icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+                label: Text(context.l10n.browse_diag_all),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (groups.isEmpty) {
       return Center(
         child: Column(
@@ -2838,7 +3038,44 @@ class _GroupedDownloadTabListState
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 2),
+                      // Filter keeps only the rows of one state, so a section
+                      // that looks empty ("where did my failed chapter go?")
+                      // can be inspected without scrolling the whole queue.
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
+                        iconSize: 18,
+                        tooltip: context.l10n.filter,
+                        color: _filter == QueueRowFilter.all
+                            ? scheme.onSurfaceVariant
+                            : scheme.primary,
+                        icon: Icon(_filter.icon),
+                        onPressed: () => _pickFilter(context),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 32,
+                          height: 32,
+                        ),
+                        iconSize: 18,
+                        tooltip: context.l10n.queue_manage,
+                        color: scheme.onSurfaceVariant,
+                        icon: const Icon(Icons.more_vert_rounded),
+                        onPressed: () => _showSourceMenu(
+                          context,
+                          src: src,
+                          items: items,
+                          allPaused: allPaused,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
                       AnimatedRotation(
                         turns: isCollapsed ? -0.25 : 0,
                         duration: const Duration(milliseconds: 200),
@@ -3735,9 +3972,9 @@ class _DownloadCard extends ConsumerWidget {
         : hasFailed
         ? Colors.redAccent
         : isPaused
-        ? Colors.orange
+        ? mbGrey
         : isRateLimited
-        ? Colors.amber
+        ? mbAmber
         : isWaiting
         ? scheme.onSurfaceVariant
         : scheme.onSurface.withValues(alpha: 0.54);
@@ -3903,6 +4140,7 @@ class _DownloadCard extends ConsumerWidget {
               hasFailed: hasFailed,
               isPaused: isPaused,
               isWaiting: isWaiting,
+              isRateLimited: isRateLimited,
               onPauseResume: onPauseResume,
               onRetry: onRetry,
               onOpen: onOpen,
@@ -4308,6 +4546,7 @@ class _DownloadCard extends ConsumerWidget {
                         hasFailed: hasFailed,
                         isPaused: isPaused,
                         isWaiting: isWaiting,
+                        isRateLimited: isRateLimited,
                         onPauseResume: onPauseResume,
                         onRetry: onRetry,
                         onOpen: onOpen,

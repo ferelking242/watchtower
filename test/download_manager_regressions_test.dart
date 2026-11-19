@@ -160,6 +160,49 @@ void main() {
       expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
     });
 
+    test('a paused worker that never exits is released after the grace period', () {
+      // BUG-D: resume did nothing. The pause request kept the registry entry
+      // until the worker's `finally`, which never ran, so the scheduler saw the
+      // chapter as busy forever and the row spun its bar without downloading.
+      expect(
+        ActiveDownloadRegistry.tryRegisterInternal(
+          downloadId,
+          '$downloadId',
+          itemType: ItemType.manga,
+          source: 'test',
+        ),
+        isTrue,
+      );
+      ActiveDownloadRegistry.reapGhosts();
+      ActiveDownloadRegistry.pause(downloadId);
+
+      // Inside the grace period the worker still owns its files.
+      expect(ActiveDownloadRegistry.reapGhosts(), isEmpty);
+      expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
+
+      // Past it, the slot is freed so a fresh worker can start.
+      expect(
+        ActiveDownloadRegistry.reapGhosts(stopGrace: Duration.zero),
+        contains(downloadId),
+      );
+      expect(ActiveDownloadRegistry.isActive(downloadId), isFalse);
+    });
+
+    test('resume releases an entry whose task already drained', () async {
+      expect(
+        ActiveDownloadRegistry.tryRegisterInternal(
+          downloadId,
+          '$downloadId',
+          itemType: ItemType.manga,
+          source: 'test',
+        ),
+        isTrue,
+      );
+      await ActiveDownloadRegistry.pause(downloadId);
+      await ActiveDownloadRegistry.resume(downloadId);
+      expect(ActiveDownloadRegistry.isActive(downloadId), isFalse);
+    });
+
     test('cancel is idempotent and clears the slot', () {
       expect(
         ActiveDownloadRegistry.tryRegisterInternal(

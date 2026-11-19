@@ -43,6 +43,43 @@ class DownloadEntryRow extends DownloadQueueRow {
   });
 }
 
+/// Which rows a section keeps visible.
+///
+/// Scoped to one section on purpose: a global filter on a queue that mixes five
+/// content types hides work the user is looking at, whereas a per-section
+/// filter answers "where did my failed chapter go?" in place.
+enum QueueRowFilter { all, active, paused, failed }
+
+extension QueueRowFilterMatch on QueueRowFilter {
+  /// Whether [download] belongs in a section filtered by `this`.
+  ///
+  /// [pausedIds] is the live engine state, which is ahead of the persisted
+  /// status while a pause is still unwinding; a row counts as paused when
+  /// either says so.
+  bool matches(Download download, {Set<int> pausedIds = const {}}) {
+    final id = download.id ?? -1;
+    final isPaused = pausedIds.contains(id) || download.status == 'paused';
+    final isFailed = download.status == 'failed' || (download.failed ?? 0) > 0;
+    final isFinished = download.isDownload == true;
+    return switch (this) {
+      QueueRowFilter.all => true,
+      QueueRowFilter.active => !isFinished && !isPaused && !isFailed,
+      QueueRowFilter.paused => isPaused,
+      QueueRowFilter.failed => isFailed,
+    };
+  }
+
+  /// Applies the filter to a whole section.
+  List<Download> apply(
+    Iterable<Download> entries, {
+    Set<int> pausedIds = const {},
+  }) => this == QueueRowFilter.all
+      ? entries.toList(growable: false)
+      : entries
+            .where((download) => matches(download, pausedIds: pausedIds))
+            .toList(growable: false);
+}
+
 /// The source an entry belongs to (extension name, or `autre` when unknown).
 String downloadSourceOf(Download download) =>
     download.chapter.value?.manga.value?.source ?? 'autre';

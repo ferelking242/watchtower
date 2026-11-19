@@ -26,6 +26,7 @@ import 'package:watchtower/remote/remote_web_sync.dart'
     if (dart.library.io) 'package:watchtower/remote/remote_web_sync_stub.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/models/custom_button.dart';
+import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/source.dart';
@@ -764,6 +765,7 @@ class _MyAppState extends ConsumerState<MyApp>
   StreamSubscription<Uri>? _linkSubscription;
   Uri? lastUri;
   bool _extensionRefreshInFlight = false;
+  bool _downloadResumeInFlight = false;
 
   /// Gives top-level pages a back destination when the router has nothing to
   /// pop, so a system back press never closes the app from a settings or
@@ -885,6 +887,11 @@ class _MyAppState extends ConsumerState<MyApp>
         // The function checks permission internally and is idempotent.
         _setupMpvConfig().catchError((_) {});
       }
+      // A queue that was running when the app went to background has no
+      // scheduler left if the OS killed the process: the rows are persisted but
+      // nothing dispatches them, so the batch looks dead until the user opens
+      // the queue screen. Kick the scheduler again whenever work is pending.
+      if (!kIsWeb) unawaited(_resumePendingDownloads());
     }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
@@ -899,6 +906,32 @@ class _MyAppState extends ConsumerState<MyApp>
       if (lockEnabled) {
         ref.read(appUnlockedStateProvider.notifier).lock();
       }
+    }
+  }
+
+  /// Restarts the download queue after the app returns to the foreground.
+  ///
+  /// The scheduler lives in an auto-disposed provider that only runs while a
+  /// screen keeps it alive. If Android or iOS killed the process mid-batch, the
+  /// persisted rows come back but nothing drives them; the queue then sits at
+  /// whatever percentage it reached until the user opens the queue screen.
+  Future<void> _resumePendingDownloads() async {
+    if (_downloadResumeInFlight) return;
+    _downloadResumeInFlight = true;
+    try {
+      final pending = isar.downloads
+          .filter()
+          .isStartDownloadEqualTo(true)
+          .findFirstSync();
+      if (pending == null || pending.isDownload == true) return;
+      // The scheduler keeps itself alive (`ref.keepAlive()`), so reading it is
+      // enough to start it; the returned future only completes when the queue
+      // drains.
+      unawaited(ref.read(processDownloadsProvider().future));
+    } catch (_) {
+      // Never let a queue restart break the resume path.
+    } finally {
+      _downloadResumeInFlight = false;
     }
   }
 

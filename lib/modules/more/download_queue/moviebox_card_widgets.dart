@@ -12,6 +12,81 @@ const Color mbTeal = Color(0xFF00BFA5);
 const Color mbAmber = Color(0xFFFFB300);
 const Color mbRed = Color(0xFFFF5252);
 
+/// Neutral grey used for every "nothing is moving right now" state: paused,
+/// waiting for a slot, waiting for Wi-Fi, waiting out a source cooldown.
+const Color mbGrey = Color(0xFF9E9E9E);
+const Color mbGreyLight = Color(0xFFBDBDBD);
+
+/// Colour + icon pair for one queue row state.
+///
+/// The row used to derive its gradient and its icon in three different places
+/// (row actions, play/pause button, card), so states drifted apart: paused was
+/// orange here and grey there. One descriptor keeps them in sync, and makes the
+/// mapping explicit: pause is grey, failure is red with the retry glyph, a
+/// rate-limited row is amber with a clock.
+class MbRowStateStyle {
+  final LinearGradient gradient;
+  final IconData icon;
+  final Color accent;
+
+  const MbRowStateStyle({
+    required this.gradient,
+    required this.icon,
+    required this.accent,
+  });
+
+  static const failed = MbRowStateStyle(
+    gradient: LinearGradient(colors: [mbRed, Color(0xFFFF7043)]),
+    icon: Icons.refresh_rounded,
+    accent: mbRed,
+  );
+
+  static const complete = MbRowStateStyle(
+    gradient: LinearGradient(colors: [mbTeal, mbGreen]),
+    icon: Icons.folder_open_rounded,
+    accent: mbTeal,
+  );
+
+  static const paused = MbRowStateStyle(
+    gradient: LinearGradient(colors: [mbGrey, mbGreyLight]),
+    icon: Icons.play_arrow_rounded,
+    accent: mbGrey,
+  );
+
+  static const waiting = MbRowStateStyle(
+    gradient: LinearGradient(colors: [mbGrey, mbGreyLight]),
+    icon: Icons.schedule_rounded,
+    accent: mbGrey,
+  );
+
+  static const rateLimited = MbRowStateStyle(
+    gradient: LinearGradient(colors: [mbAmber, Color(0xFFFFC107)]),
+    icon: Icons.hourglass_top_rounded,
+    accent: mbAmber,
+  );
+
+  static const active = MbRowStateStyle(
+    gradient: LinearGradient(colors: [mbGreen, mbTeal]),
+    icon: Icons.pause_rounded,
+    accent: mbGreen,
+  );
+
+  static MbRowStateStyle resolve({
+    required bool isComplete,
+    required bool hasFailed,
+    required bool isPaused,
+    bool isWaiting = false,
+    bool isRateLimited = false,
+  }) {
+    if (hasFailed) return failed;
+    if (isComplete) return complete;
+    if (isPaused) return paused;
+    if (isRateLimited) return rateLimited;
+    if (isWaiting) return waiting;
+    return active;
+  }
+}
+
 /// Poster thumbnail: centered play overlay for video rows and a bottom-left
 /// source badge on a dark scrim — MovieBox signature.
 class MbThumb extends StatelessWidget {
@@ -482,6 +557,9 @@ class MbRowActions extends StatelessWidget {
   /// Queued behind a concurrency limit or Wi-Fi gate: not transferring yet.
   /// Shown grey with a clock so the user can tell it apart from an active row.
   final bool isWaiting;
+
+  /// Held by a source cooldown: nothing will move until the window expires.
+  final bool isRateLimited;
   final VoidCallback onPauseResume;
   final VoidCallback onRetry;
   final VoidCallback onOpen;
@@ -492,6 +570,7 @@ class MbRowActions extends StatelessWidget {
     required this.hasFailed,
     required this.isPaused,
     this.isWaiting = false,
+    this.isRateLimited = false,
     required this.onPauseResume,
     required this.onRetry,
     required this.onOpen,
@@ -499,26 +578,22 @@ class MbRowActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient = hasFailed
-        ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
-        : isComplete
-        ? const LinearGradient(colors: [mbTeal, mbGreen])
-        : isWaiting
-        ? const LinearGradient(colors: [Color(0xFF9E9E9E), Color(0xFFBDBDBD)])
-        : const LinearGradient(colors: [mbGreen, mbTeal]);
-    final icon = isComplete
-        ? Icons.folder_open_rounded
-        : hasFailed
-        ? Icons.refresh_rounded
-        : isPaused
-        ? Icons.play_arrow_rounded
-        : isWaiting
-        ? Icons.schedule_rounded
-        : Icons.pause_rounded;
+    final style = MbRowStateStyle.resolve(
+      isComplete: isComplete,
+      hasFailed: hasFailed,
+      isPaused: isPaused,
+      isWaiting: isWaiting,
+      isRateLimited: isRateLimited,
+    );
+    // A rate-limited row is not actionable either: the retry/start path refuses
+    // to run during the cooldown, so offering a button that silently does
+    // nothing would be worse than no button at all.
     final onTap = hasFailed
         ? onRetry
         : isComplete
         ? onOpen
+        : isRateLimited
+        ? null
         : onPauseResume;
 
     return GestureDetector(
@@ -526,8 +601,11 @@ class MbRowActions extends StatelessWidget {
       child: Container(
         width: 30,
         height: 30,
-        decoration: BoxDecoration(shape: BoxShape.circle, gradient: gradient),
-        child: Icon(icon, color: Colors.white, size: 17),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: style.gradient,
+        ),
+        child: Icon(style.icon, color: Colors.white, size: 17),
       ),
     );
   }
@@ -541,6 +619,9 @@ class MbPlayPauseButton extends StatelessWidget {
 
   /// Queued behind a concurrency limit or Wi-Fi gate: not transferring yet.
   final bool isWaiting;
+
+  /// Held by a source cooldown: nothing will move until the window expires.
+  final bool isRateLimited;
   final VoidCallback onPauseResume;
   final VoidCallback onRetry;
   final VoidCallback onOpen;
@@ -552,6 +633,7 @@ class MbPlayPauseButton extends StatelessWidget {
     required this.hasFailed,
     required this.isPaused,
     this.isWaiting = false,
+    this.isRateLimited = false,
     required this.onPauseResume,
     required this.onRetry,
     required this.onOpen,
@@ -560,26 +642,19 @@ class MbPlayPauseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient = hasFailed
-        ? const LinearGradient(colors: [mbRed, Color(0xFFFF7043)])
-        : isComplete
-        ? const LinearGradient(colors: [mbTeal, mbGreen])
-        : isWaiting
-        ? const LinearGradient(colors: [Color(0xFF9E9E9E), Color(0xFFBDBDBD)])
-        : const LinearGradient(colors: [mbGreen, mbTeal]);
-    final icon = isComplete
-        ? Icons.folder_open_rounded
-        : hasFailed
-        ? Icons.refresh_rounded
-        : isPaused
-        ? Icons.play_arrow_rounded
-        : isWaiting
-        ? Icons.schedule_rounded
-        : Icons.pause_rounded;
+    final style = MbRowStateStyle.resolve(
+      isComplete: isComplete,
+      hasFailed: hasFailed,
+      isPaused: isPaused,
+      isWaiting: isWaiting,
+      isRateLimited: isRateLimited,
+    );
     final onTap = hasFailed
         ? onRetry
         : isComplete
         ? onOpen
+        : isRateLimited
+        ? null
         : onPauseResume;
 
     return GestureDetector(
@@ -587,8 +662,11 @@ class MbPlayPauseButton extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, gradient: gradient),
-        child: Icon(icon, color: Colors.white, size: size * 0.55),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: style.gradient,
+        ),
+        child: Icon(style.icon, color: Colors.white, size: size * 0.55),
       ),
     );
   }
