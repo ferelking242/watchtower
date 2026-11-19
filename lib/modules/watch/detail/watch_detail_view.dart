@@ -33,6 +33,8 @@ import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/watch_resume_store.dart'
     show latestWatchResume;
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
+import 'package:watchtower/services/anti_bot/cloudflare_challenge_bus.dart';
 
 import 'watch_player_stub.dart' if (dart.library.ffi) 'watch_player_io.dart';
 
@@ -84,12 +86,67 @@ class WatchDetailView extends ConsumerStatefulWidget {
 
 class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     with TickerProviderStateMixin {
-  late final TabController _tabController;
+  late TabController _tabController;
   late final WatchInlinePlayer _player;
 
   String? _selectedSeason;
   String? _selectedLanguage;
   bool _isDescriptionExpanded = false;
+
+  /// A Cloudflare refusal currently blocking this title. Non-null adds the
+  /// "Cloudflare" tab to the tab bar and drives its inline bypass panel.
+  CloudflareChallenge? _pendingChallenge;
+
+  /// Set when the user closes the in-player challenge overlay. The challenge
+  /// stays available in the "Cloudflare" tab; the overlay is only hidden.
+  bool _challengeOverlayHidden = false;
+
+  /// Index of the Cloudflare tab when it is present. The decorative tabs are
+  /// fixed at 0/1, so the challenge tab is always last.
+  int get _challengeTabIndex => 2;
+
+  bool get _challengeTabVisible => _pendingChallenge != null;
+
+  /// True when the bypass panel must be shown *inside* the player box.
+  ///
+  /// Only while the player has no playable stream: if the video is already
+  /// playing, a background refusal must not cover it. The tab stays available.
+  bool get _showPlayerChallengeOverlay =>
+      _challengeTabVisible &&
+      !_challengeOverlayHidden &&
+      !_player.hasVideoUrl;
+
+  void _selectTab(int index) {
+    if (!_tabController.indexIsChanging && _tabController.index == index) return;
+    _tabController.animateTo(index);
+  }
+
+  void _dismissChallenge() {
+    CloudflareChallengeBus.instance.clear();
+    _rebuildTabController(length: 2, selectIndex: 0);
+    setState(() {
+      _pendingChallenge = null;
+      _challengeOverlayHidden = false;
+    });
+  }
+
+  /// Rebuilds [_tabController] with [length] pages, preserving the current tab
+  /// unless [selectIndex] is given. Required whenever the Cloudflare tab is
+  /// added or removed, because `TabController.length` is immutable.
+  void _rebuildTabController({required int length, int? selectIndex}) {
+    if (_tabController.length == length) return;
+    final previous = _tabController;
+    previous.removeListener(_onTabChanged);
+    _tabController = TabController(
+      length: length,
+      vsync: this,
+      initialIndex: selectIndex ?? previous.index.clamp(0, length - 1),
+    );
+    _tabController.addListener(_onTabChanged);
+    // Dispose only after the rebuild has swapped the new controller into the
+    // TabBar/TabBarView, so nothing animates against a disposed controller.
+    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+  }
 
   // In-player toast (bottom of the video surface). Kept here rather than in a
   // global overlay so it reads as part of the player, like MovieBox.
@@ -117,6 +174,42 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     _player = WatchInlinePlayer();
     _player.onQualityChanged = () { if (mounted) setState(() {}); };
     _nestedScrollCtrl.addListener(_onScroll);
+    // A Cloudflare refusal that reaches us while the user is on this screen
+    // (typically the player resolving the stream) opens the bypass tab so the
+    // challenge can be solved inline instead of leaving a silent failed load.
+    CloudflareChallengeBus.instance.challenge.addListener(_onChallengeChanged);
+    // A refusal raised before this screen mounted (e.g. the detail fetch itself)
+    // is picked up here so the tab is present from the first frame.
+    final pending = CloudflareChallengeBus.instance.challenge.value;
+    if (pending != null && _challengeAppliesTo(pending)) {
+      _rebuildTabController(length: _challengeTabIndex + 1);
+      _pendingChallenge = pending;
+    }
+  }
+
+  /// True when [challenge] concerns the extension behind this title. A refusal
+  /// with no source id is shown anyway: it is the only signal we have.
+  bool _challengeAppliesTo(CloudflareChallenge challenge) {
+    if (challenge.sourceId == null || widget.manga.sourceId == null) return true;
+    return challenge.sourceId == widget.manga.sourceId;
+  }
+
+  void _onChallengeChanged() {
+    final challenge = CloudflareChallengeBus.instance.challenge.value;
+    if (!mounted || challenge == null || !_challengeAppliesTo(challenge)) return;
+    // Grow the controller so the TabBar/TabBarView can host the extra page.
+    _rebuildTabController(length: _challengeTabIndex + 1);
+    setState(() {
+      _pendingChallenge = challenge;
+      // A fresh refusal re-opens the in-player panel even if the user closed
+      // the previous one.
+      _challengeOverlayHidden = false;
+    });
+    // Select the challenge tab only after the rebuild that added it, so the
+    // TabBarView already has the third page when we move to index 2.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _challengeTabVisible) _selectTab(_challengeTabIndex);
+    });
   }
 
   /// Les onglets décoratifs se chargent désormais en parallèle de la vidéo
@@ -167,6 +260,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       overlays: SystemUiOverlay.values,
     );
     _playerToastTimer?.cancel();
+    CloudflareChallengeBus.instance.challenge
+        .removeListener(_onChallengeChanged);
     _nestedScrollCtrl.removeListener(_onScroll);
     _nestedScrollCtrl.dispose();
     _headerTitleOpacity.dispose();
@@ -512,6 +607,21 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                           ],
                         ),
                       ),
+                      // Only present while a Cloudflare refusal is pending:
+                      // the tab hosts the inline bypass panel so the challenge
+                      // is solved right here, next to the player.
+                      if (_challengeTabVisible)
+                        Tab(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Broken.shield_search,
+                                  size: 15, color: Colors.orange),
+                              const SizedBox(width: 6),
+                              const Text('Cloudflare'),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                   color: _bg,
@@ -523,6 +633,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               children: [
                 _buildRecommendationsTab(),
                 _buildCommentsTab(),
+                if (_challengeTabVisible) _buildChallengeTab(chapters),
               ],
             ),
           ),
@@ -541,13 +652,17 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
       children: [
         SizedBox.expand(child: _buildBannerImageOnly()),
         // Failure feedback must also appear in landscape: previously a failed
-        // load silently left the cover on screen with no way to retry.
-        if (_player.loadFailed)
+        // load silently left the cover on screen with no way to retry. The
+        // challenge overlay replaces it when the refusal is a Cloudflare one.
+        if (_player.loadFailed && !_showPlayerChallengeOverlay)
           _PlayerFailureOverlay(
             message: context.l10n.player_load_failed,
             retryLabel: context.l10n.player_retry,
             onRetry: () => _retryLoadedEpisode(chapters),
+            onChallenge: _challengeTabVisible ? () => _selectTab(_challengeTabIndex) : null,
           ),
+        if (_showPlayerChallengeOverlay)
+          _buildPlayerChallengeOverlay(chapters),
         if (_playerToastMsg != null)
           Positioned(
             left: 16,
@@ -592,12 +707,20 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
 
         // Load failure — retry overlay (Lottie error animation + button),
         // centered on the player surface.
-        if (_player.loadFailed && !_player.hasVideoUrl)
+        if (_player.loadFailed && !_player.hasVideoUrl &&
+            !_showPlayerChallengeOverlay)
           _PlayerFailureOverlay(
             message: context.l10n.player_load_failed,
             retryLabel: context.l10n.player_retry,
             onRetry: () => _retryLoadedEpisode(chapters),
+            onChallenge: _challengeTabVisible ? () => _selectTab(_challengeTabIndex) : null,
           ),
+
+        // Cloudflare refusal detected while resolving the stream: the bypass
+        // panel is shown *inside the player box*, so the challenge is beaten
+        // where the user is looking instead of in a separate screen.
+        if (_showPlayerChallengeOverlay)
+          _buildPlayerChallengeOverlay(chapters),
 
         // In-player toast — bottom of the surface, MovieBox style.
         if (_playerToastMsg != null)
@@ -1676,6 +1799,42 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                   fontWeight: FontWeight.w600),
             ),
             const Spacer(),
+            // "Fourni par <extension>" — the extension credit sits immediately
+            // before the options icon so the two read as one group on the right.
+            if (source != null) ...[
+              Text(
+                context.l10n.media_provided_by,
+                style: TextStyle(color: _grey, fontSize: 11),
+              ),
+              const SizedBox(width: 4),
+              if ((source.iconUrl ?? '').isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: cachedNetworkImage(
+                    imageUrl: source.iconUrl!,
+                    width: 16,
+                    height: 16,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              const SizedBox(width: 4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 110),
+                child: Text(
+                  source.name?.trim().isNotEmpty == true
+                      ? source.name!.trim()
+                      : context.l10n.watch_home_extension,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _grey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             // Options button — opens the same bottom sheet as the season /
             // language / quality pills instead of an anchored popup menu, so
             // every selector on the page behaves identically.
@@ -1686,16 +1845,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
                 source: source,
               ),
               behavior: HitTestBehavior.opaque,
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: _card,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _faint, width: 0.7),
-                ),
-                child: Icon(Broken.more, size: 18, color: _textPrimary),
-              ),
+              // Three-dot "more" glyph, no chip behind it: the icon alone sits
+              // flush next to the "Fourni par <extension>" credit.
+              child: Icon(Broken.more, size: 22, color: _textPrimary),
             ),
           ],
         ),
@@ -1794,47 +1946,8 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             _sortedEpisodes(chapters),
           ),
 
-        // ── Footer: "Fourni par <extension>" — fond droite ──────────────
-        // The enclosing metadata column carries a 16 px right inset; the
-        // footer breaks out of it so the extension credit sits flush against
-        // the screen edge instead of leaving a dead strip on the right.
-        if (source != null) ...[
-          const SizedBox(height: 14),
-          Transform.translate(
-            offset: const Offset(16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Text(
-                  context.l10n.media_provided_by,
-                  style: TextStyle(color: _grey, fontSize: 11),
-                ),
-                const SizedBox(width: 5),
-                if ((source.iconUrl ?? '').isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: cachedNetworkImage(
-                      imageUrl: source.iconUrl!,
-                      width: 18,
-                      height: 18,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                const SizedBox(width: 5),
-                Text(
-                  source.name?.trim().isNotEmpty == true
-                      ? source.name!.trim()
-                      : context.l10n.watch_home_extension,
-                  style: TextStyle(
-                      color: _grey,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-        ],
+        // The "Fourni par <extension>" credit now lives in the section header,
+        // right before the options icon — see _buildRessourcesSection.
       ],
     );
   }
@@ -3211,6 +3324,117 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
     );
   }
 
+  /// Inline Cloudflare bypass tab.
+  ///
+  /// Appears only while a refusal is pending. The panel loads the refused URL
+  /// (the extension page, or the media playlist for a stream) in a real browser
+  /// session, lets the user clear the challenge, persists the clearance, and
+  /// then retries the current episode so playback resumes without leaving the
+  /// screen.
+  Widget _buildChallengeTab(List<Chapter> allChapters) {
+    final challenge = _pendingChallenge!;
+    final chapters = _sortedEpisodes(_filterChapters(allChapters));
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        Row(
+          children: [
+            const Icon(Broken.shield_search, size: 18, color: Colors.orange),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Challenge Cloudflare',
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: _dismissChallenge,
+              behavior: HitTestBehavior.opaque,
+              child: Icon(Icons.close_rounded, size: 20, color: _grey),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Le site s’affiche ci-dessous : résous le défi, puis relance la '
+          'lecture. Le lecteur reprendra automatiquement.',
+          style: TextStyle(color: _grey, fontSize: 12, height: 1.35),
+        ),
+        const SizedBox(height: 12),
+        CloudflareBypassPanel(
+          url: challenge.url,
+          sourceId: challenge.sourceId ?? widget.manga.sourceId,
+          onResolved: () => _retryLoadedEpisode(chapters),
+          onRetry: () => _retryLoadedEpisode(chapters),
+        ),
+      ],
+    );
+  }
+
+  /// The Cloudflare bypass panel rendered *inside the player box*.
+  ///
+  /// The player cannot play because the stream host refused the request with a
+  /// Cloudflare challenge; showing the resolver here means the user beats the
+  /// challenge without leaving the video they are trying to watch. Closing it
+  /// keeps the "Cloudflare" tab available for a later attempt.
+  Widget _buildPlayerChallengeOverlay(List<Chapter> chapters) {
+    final challenge = _pendingChallenge!;
+    final ordered = _sortedEpisodes(_filterChapters(chapters));
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.72),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+              child: Row(
+                children: [
+                  const Icon(Broken.shield_search,
+                      size: 16, color: Colors.orange),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Challenge Cloudflare — résous-le puis la lecture reprend',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _challengeOverlayHidden = true),
+                    behavior: HitTestBehavior.opaque,
+                    child: const Icon(Icons.close_rounded,
+                        size: 20, color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: CloudflareBypassPanel(
+                  url: challenge.url,
+                  sourceId: challenge.sourceId ?? widget.manga.sourceId,
+                  compact: true,
+                  bounded: true,
+                  onResolved: () => _retryLoadedEpisode(ordered),
+                  onRetry: () => _retryLoadedEpisode(ordered),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCommentsTab() {
     final source = getSource(
       widget.manga.lang ?? '',
@@ -4555,10 +4779,16 @@ class _PlayerFailureOverlay extends StatelessWidget {
   final String retryLabel;
   final VoidCallback onRetry;
 
+  /// When set, an extra "Battre le challenge" action is offered: the load
+  /// failure is a Cloudflare refusal, so the user is taken straight to the
+  /// inline bypass panel instead of only being told the load failed.
+  final VoidCallback? onChallenge;
+
   const _PlayerFailureOverlay({
     required this.message,
     required this.retryLabel,
     required this.onRetry,
+    this.onChallenge,
   });
 
   @override
@@ -4588,6 +4818,36 @@ class _PlayerFailureOverlay extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              if (onChallenge != null) ...[
+                GestureDetector(
+                  onTap: onChallenge,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade700,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Broken.shield_search,
+                            color: Colors.white, size: 16),
+                        SizedBox(width: 6),
+                        Text(
+                          'Battre le challenge',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               GestureDetector(
                 onTap: onRetry,
                 child: Container(

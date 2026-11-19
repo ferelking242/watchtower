@@ -49,6 +49,11 @@ class CloudflareBypassPanel extends StatefulWidget {
   /// Small heading style for embedded cards (no big hero layout).
   final bool compact;
 
+  /// When true the panel fills the height its parent gives it instead of
+  /// requesting a fixed one. Required inside the short player box, where a
+  /// fixed 300 px would overflow the surface.
+  final bool bounded;
+
   const CloudflareBypassPanel({
     super.key,
     required this.url,
@@ -57,6 +62,7 @@ class CloudflareBypassPanel extends StatefulWidget {
     this.onRetry,
     this.onClose,
     this.compact = false,
+    this.bounded = false,
   });
 
   @override
@@ -392,7 +398,9 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
-        height: _expanded ? expanded : collapsed,
+        // Bounded mode inherits the parent's height (player box): asking for a
+        // fixed 300 px there overflows the ~230 px surface.
+        height: widget.bounded ? null : (_expanded ? expanded : collapsed),
         child: Stack(
           children: [
             Positioned.fill(child: _buildSurface(cs, supported)),
@@ -400,7 +408,7 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             Positioned(
               top: 6,
               right: 6,
-              child: _buildControls(cs, allowExpand: supported),
+              child: _buildControls(cs, allowExpand: supported && !widget.bounded),
             ),
             if (_statusNote != null)
               Positioned(

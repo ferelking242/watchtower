@@ -57,7 +57,7 @@ dependencies:
   flutter_qjs:
     git:
       url: https://github.com/ferelking242/quickjsR.git
-      ref: 619c9f8afd00a810dbc0efd0f68f8901695a36c5
+      ref: 074332e
   http: ^1.6.0
   http_parser: ^4.1.2
   re_editor: ^0.10.0

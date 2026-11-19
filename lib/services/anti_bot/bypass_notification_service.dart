@@ -5,12 +5,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
+import 'package:isar_community/isar.dart';
+import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/router/router.dart' show navigatorKey;
 import 'package:watchtower/services/anti_bot/browser_fetch.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_content.dart';
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
+import 'package:watchtower/services/anti_bot/cloudflare_challenge_bus.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 typedef CloudflareSourceResolver = Source? Function(String url);
@@ -178,7 +181,33 @@ class BypassNotificationService {
         tag: LogTag.network,
       );
     }
-    if (source == null) return;
+    // The refused URL is not always the extension's own page: a media CDN
+    // (MissAV's Surrit) is refused on its own host, which matches no source.
+    // Fall back to the source recorded with the alert, then to the dedicated
+    // resolver screen — pushing the extension home for a CDN URL landed the
+    // user on a listing with no challenge in sight, which read as "nothing
+    // happens".
+    source ??= _sourceById(_lastSourceIdFor(url));
+    final sourceId = _lastSourceIdFor(url) ?? source?.id;
+    if (source == null) {
+      CloudflareChallengeBus.instance.publish(url, sourceId: sourceId);
+      try {
+        context.push(
+          '/cloudflareChallenge',
+          extra: (url, sourceId),
+        );
+      } catch (error) {
+        AppLogger.log(
+          'Opening the challenge resolver failed: $error',
+          logLevel: LogLevel.warning,
+          tag: LogTag.network,
+        );
+      }
+      return;
+    }
+    // The extension home renders the inline bypass panel from the bus, so the
+    // challenge is visible the moment the action lands there too.
+    CloudflareChallengeBus.instance.publish(url, sourceId: sourceId);
     try {
       if (source.itemType == ItemType.anime) {
         context.push('/watchExtensionHome', extra: source);
@@ -227,6 +256,9 @@ class BypassNotificationService {
     // (browser_fetch.dart): the challenge is about to clear on its own, so
     // alerting the user would be pure noise.
     if (BrowserFetchService.isResolving(url)) return;
+    // The browser could not clear this one, so surface the inline bypass panel
+    // where the user is (player/detail screen) as well as the notification.
+    CloudflareChallengeBus.instance.publish(url, sourceId: sourceId);
     if (!_initialized) await init();
 
     final name = (sourceName?.trim().isNotEmpty ?? false)
@@ -241,6 +273,9 @@ class BypassNotificationService {
       name,
       () => BlockedSourceAlert(name: name, url: url, sourceId: sourceId),
     );
+    // The payload only carries the URL; remember which extension it belongs to
+    // so the action can still find it when the URL is a CDN host.
+    _rememberSourceId(url, sourceId);
     _flushTimer ??= Timer(const Duration(milliseconds: 900), () {
       _flushTimer = null;
       unawaited(_flushBatch(id));
@@ -339,5 +374,41 @@ class BypassNotificationService {
     } catch (_) {
       return url;
     }
+  }
+
+  /// Extension that raised the alert for each refused URL.
+  ///
+  /// The notification payload only carries the refused URL, and for a media
+  /// CDN that URL belongs to no extension (`surrit.com`, not `missav.ws`), so
+  /// the source is remembered here when the alert is built. Bounded: an alert
+  /// older than the notification itself is useless.
+  final Map<String, int> _sourceIdByUrl = {};
+
+  int? _lastSourceIdFor(String url) => _sourceIdByUrl[url.trim()];
+
+  void _rememberSourceId(String url, int? sourceId) {
+    final key = url.trim();
+    if (key.isEmpty || sourceId == null) return;
+    _sourceIdByUrl[key] = sourceId;
+    while (_sourceIdByUrl.length > 64) {
+      _sourceIdByUrl.remove(_sourceIdByUrl.keys.first);
+    }
+  }
+
+  /// Resolves [sourceId] against the installed extensions.
+  ///
+  /// Uses the injected resolver when it can answer, so this file does not
+  /// depend on the global database handle (which is `late` and uninitialised
+  /// in tests and in the CLI).
+  Source? _sourceById(int? sourceId) {
+    if (sourceId == null) return null;
+    try {
+      for (final source in isar.sources.where().findAllSync()) {
+        if (source.id == sourceId) return source;
+      }
+    } catch (_) {
+      // An unreadable database must not break the notification action.
+    }
+    return null;
   }
 }

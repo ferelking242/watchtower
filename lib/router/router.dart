@@ -9,6 +9,7 @@ import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/track.dart';
 import 'package:watchtower/models/track_preference.dart';
 import 'package:watchtower/models/track_search.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_challenge_screen.dart';
 import 'package:watchtower/modules/anime/anime_player_view.dart';
 import 'package:watchtower/modules/anime/anime_discovery_screen.dart';
 import 'package:watchtower/modules/anime/anime_directory_screen.dart';
@@ -265,6 +266,16 @@ class RouterNotifier extends ChangeNotifier {
         _genericRoute(
           name: "notifications",
           child: const NotificationsScreen(),
+        ),
+        // Full-screen Cloudflare resolver opened by the "Battre le challenge"
+        // notification action. It takes the refused URL as `extra` so it works
+        // for a media CDN too, where no extension home would show the panel.
+        _genericRoute<(String, int?)>(
+          name: "cloudflareChallenge",
+          builder: (data) => CloudflareChallengeScreen(
+            url: data.$1,
+            sourceId: data.$2,
+          ),
         ),
         _genericRoute(name: "browse", child: const BrowseScreen()),
         _genericRoute(name: "marketplace", child: const MarketplaceScreen()),

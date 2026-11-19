@@ -723,7 +723,7 @@ function extLog(level, msg) {
   @override
   Future<List<Map<String, dynamic>>> getRecommendations(String url) async {
     _extInfo(
-      '\$_id \u00b7 getRecommendations origin=${safeUrlOriginForLog(url)}',
+      '$_id · getRecommendations origin=${safeUrlOriginForLog(url)}',
     );
     try {
       final raw = await _extensionCallAsync<List>(
@@ -734,14 +734,14 @@ function extLog(level, msg) {
           .map((e) => e.cast<String, dynamic>())
           .toList();
     } catch (e) {
-      _extWarn('\$_id \u00b7 getRecommendations FAILED <- \$e');
+      _extWarn('$_id · getRecommendations FAILED <- $e');
       return [];
     }
   }
 
   @override
   Future<List<Map<String, dynamic>>> getComments(String url) async {
-    _extInfo('\$_id \u00b7 getComments origin=${safeUrlOriginForLog(url)}');
+    _extInfo('$_id · getComments origin=${safeUrlOriginForLog(url)}');
     try {
       final raw = await _extensionCallAsync<List>(
         'getComments(' + jsonEncode(url) + ')',
@@ -751,7 +751,7 @@ function extLog(level, msg) {
           .map((e) => e.cast<String, dynamic>())
           .toList();
     } catch (e) {
-      _extWarn('\$_id \u00b7 getComments FAILED <- \$e');
+      _extWarn('$_id · getComments FAILED <- $e');
       return [];
     }
   }

@@ -471,6 +471,14 @@ class AppLogger {
 
     await _writeSessionHeader();
     await flush();
+
+    // Safety net: even a DEBUG-only trail reaches disk within a second, so a
+    // crash that bypasses Dart's error handling still leaves the last lines on
+    // disk. Cancelled in [dispose].
+    _periodicFlushTimer ??= Timer.periodic(
+      _kLogFlushInterval,
+      (_) => unawaited(_drainPendingLines(flush: true)),
+    );
   }
 
   // ── Buffered file sink ────────────────────────────────────────────────────
@@ -490,12 +498,25 @@ class AppLogger {
   static final List<String> _pendingLines = <String>[];
   static int _pendingChars = 0;
   static Timer? _logFlushTimer;
+  static Timer? _periodicFlushTimer;
   static Future<void> _fileWriteQueue = Future<void>.value();
 
   static const int _kLogBatchChars = 48 * 1024;
   static const Duration _kLogFlushInterval = Duration(milliseconds: 400);
 
-  static void _queueFileWrite(String entry) {
+  static void _queueFileWrite(String entry, {bool urgent = false}) {
+    if (urgent) {
+      // A native crash (SIGSEGV in the QuickJS bridge) kills the process with
+      // no Dart unwind: neither a buffered IOSink nor an in-memory queue
+      // survives it. Warnings and errors are therefore appended synchronously,
+      // so the line is on disk before the crashing call even returns.
+      _pendingLines.add(entry);
+      _pendingChars += entry.length + 1;
+      _logFlushTimer?.cancel();
+      _logFlushTimer = null;
+      _drainPendingLinesSync();
+      return;
+    }
     _pendingLines.add(entry);
     _pendingChars += entry.length + 1;
     if (_pendingChars >= _kLogBatchChars) {
@@ -512,18 +533,54 @@ class AppLogger {
     });
   }
 
+  /// Writes everything buffered with `writeAsStringSync`, bypassing the sink.
+  ///
+  /// The asynchronous sink is fast but its buffer only reaches the OS when it
+  /// is flushed — too late if the process is about to die in native code.
+  static void _drainPendingLinesSync() {
+    if (_pendingLines.isEmpty || !_initialized) {
+      _pendingLines.clear();
+      _pendingChars = 0;
+      return;
+    }
+    final batch = '${_pendingLines.join('\n')}\n';
+    _pendingLines.clear();
+    _pendingChars = 0;
+    try {
+      _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: true);
+    } catch (_) {
+      // A failing crash-path write must never throw: this runs inside the
+      // error reporting of an already failing operation.
+    }
+  }
+
   /// Joins the buffered entries into one batch and appends it to the session
   /// file. Batches are serialised through [_fileWriteQueue] so entries can
-  /// never interleave on disk.
-  static Future<void> _drainPendingLines() {
-    if (_pendingLines.isEmpty) return _fileWriteQueue;
+  /// never interleave on disk. When [flush] is set the sink is flushed too, so
+  /// the batch reaches the OS before the caller returns to the event loop.
+  static Future<void> _drainPendingLines({bool flush = false}) {
+    if (_pendingLines.isEmpty) {
+      return flush ? _flushSink() : _fileWriteQueue;
+    }
     final batch = '${_pendingLines.join('\n')}\n';
     _pendingLines.clear();
     _pendingChars = 0;
     _fileWriteQueue = _fileWriteQueue
         .then((_) => _appendToLogFile(batch))
         .catchError((Object _) {});
+    if (flush) {
+      _fileWriteQueue = _fileWriteQueue.then((_) => _flushSink());
+    }
     return _fileWriteQueue;
+  }
+
+  static Future<void> _flushSink() async {
+    if (!_initialized) return;
+    try {
+      await _sink.flush();
+    } catch (_) {
+      // Keep the in-memory logs available if the file sink has been closed.
+    }
   }
 
   /// Waits for all queued entries to reach the current log file.
@@ -744,7 +801,10 @@ class AppLogger {
     // Apply file-writing filters (level, tags, image suppression).
     if (!_passesLogFilters(logLevel, tag, safeMessage)) return;
 
-    _queueFileWrite(formatted);
+    // Warnings and errors are written and flushed immediately: a native crash
+    // in the QuickJS bridge ends the process without unwinding, so a buffered
+    // line would never reach the file.
+    _queueFileWrite(formatted, urgent: logLevel.index >= LogLevel.warning.index);
   }
 
   static String _timestamp() {
@@ -761,6 +821,8 @@ class AppLogger {
 
   static Future<void> dispose() async {
     if (!_initialized) return;
+    _periodicFlushTimer?.cancel();
+    _periodicFlushTimer = null;
     await flush();
     await _sink.close();
     _initialized = false;

@@ -72,6 +72,7 @@ import 'package:watchtower/modules/onboarding/onboarding_state.dart';
 import 'package:watchtower/utils/window_geometry.dart';
 import 'package:watchtower/services/anti_bot/browser_bridge.dart';
 import 'package:watchtower/services/anti_bot/bypass_notification_service.dart';
+import 'package:watchtower/services/anti_bot/cloudflare_challenge_bus.dart';
 import 'package:watchtower/services/mpv_config_service.dart';
 import 'package:watchtower/modules/media/widgets/bulk_enqueue_controller.dart';
 import 'package:watchtower/services/update_notification_service.dart';
@@ -789,6 +790,9 @@ class _MyAppState extends ConsumerState<MyApp>
     // extension/download worker is reported to the root isolate (the only one
     // that can raise a notification) through the browser bridge.
     BrowserBridge.onBrowserUnavailable = (url, sourceId) {
+      // Publish to the in-app bus first: the player/detail screen shows the
+      // inline bypass panel where the user is looking.
+      CloudflareChallengeBus.instance.publish(url, sourceId: sourceId);
       unawaited(
         BypassNotificationService.instance.notifyChallengeDetected(
           url: url,
