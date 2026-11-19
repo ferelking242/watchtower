@@ -205,9 +205,17 @@ class IndexerEngine {
       final orphans = await _cache.purgeOrphans(
         extensions: policy.allowedExtensions,
       );
+      // content:// rows cannot be probed with File.exists(), so they are
+      // reconciled against the MediaStore answer instead.
+      final stalePlatformRows = mediaStore == null
+          ? 0
+          : await _cache.reconcilePlatformPaths(
+              mediaStore.files.map((f) => f.path).toSet(),
+            );
       final missingIndexed = await _removeMissingIndexedItems(
         roots,
         extensions: policy.allowedExtensions,
+        platformPaths: mediaStore?.files.map((f) => f.path).toSet(),
       );
 
       stopwatch.stop();
@@ -215,7 +223,7 @@ class IndexerEngine {
         discovered: discovered,
         cached: cached,
         analyzed: analyzed,
-        orphansPurged: orphans + missingIndexed,
+        orphansPurged: orphans + stalePlatformRows + missingIndexed,
         duration: stopwatch.elapsed,
         writerStats: _writer.stats,
       );
@@ -396,17 +404,32 @@ class IndexerEngine {
     await _cache.evict(path);
   }
 
+  /// Drops index rows whose file no longer exists.
+  ///
+  /// [platformPaths] is the set of `content://` paths the latest MediaStore
+  /// query returned. Those rows cannot be probed with `File.exists()`, so
+  /// without it a video deleted from the phone stayed in the library forever
+  /// as a ghost card. `null` means MediaStore was not consulted this run, so
+  /// platform rows are left untouched.
   Future<int> _removeMissingIndexedItems(
     List<String> roots, {
     required Set<String> extensions,
+    Set<String>? platformPaths,
   }) async {
     final items = await _isar.localIndexedItems.where().findAll();
     final normalizedRoots = roots.map(_normalizeRoot).toList();
     final candidates = <LocalIndexedItem>[];
     for (final item in items) {
       // MediaStore entries can be content:// URIs (Android 10+); File() can
-      // never resolve those, so they would look deleted on every scan.
-      if (item.filePath.startsWith('content://')) continue;
+      // never resolve those, so reconcile them against the query result
+      // instead of the filesystem.
+      if (item.filePath.startsWith('content://')) {
+        if (platformPaths != null &&
+            FileCache.isStalePlatformPath(item.filePath, platformPaths)) {
+          candidates.add(item);
+        }
+        continue;
+      }
       final path = _normalizeRoot(item.filePath);
       final belongsToScan = normalizedRoots.any(
         (root) => path == root || path.startsWith('$root/'),
@@ -422,7 +445,10 @@ class IndexerEngine {
     // before the scan could finish.
     final missing = <LocalIndexedItem>[];
     for (final item in candidates) {
-      if (!await File(item.filePath).exists()) missing.add(item);
+      if (item.filePath.startsWith('content://') ||
+          !await File(item.filePath).exists()) {
+        missing.add(item);
+      }
     }
     if (missing.isEmpty) return 0;
 

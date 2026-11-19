@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/local_indexer/cache/file_cache.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/engine/watcher/android_media_store.dart';
 
@@ -291,6 +292,20 @@ void main() {
 
       expect(files, hasLength(1));
       expect(files.single.analysisName, 'Breaking.Bad.S01E03.mkv');
+    });
+
+    test('platform rows the query no longer returns are treated as deleted',
+        () {
+      // MediaStore rows are content:// URIs: File.exists() cannot probe them,
+      // so a video deleted from the phone used to keep its card forever.
+      const kept = 'content://media/external/video/media/1';
+      const deleted = 'content://media/external/video/media/2';
+      const realFile = '/storage/emulated/0/Movies/film.mkv';
+
+      expect(FileCache.isStalePlatformPath(kept, {kept}), isFalse);
+      expect(FileCache.isStalePlatformPath(deleted, {kept}), isTrue);
+      // A real path is never "stale" here: the filesystem decides for it.
+      expect(FileCache.isStalePlatformPath(realFile, {kept}), isFalse);
     });
   });
 }

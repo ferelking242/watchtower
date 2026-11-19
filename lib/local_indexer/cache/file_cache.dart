@@ -183,6 +183,36 @@ class FileCache {
     return toDelete.length;
   }
 
+  /// True when [path] is a platform (`content://`) path the latest MediaStore
+  /// query did not return, i.e. the file was deleted or unmounted.
+  ///
+  /// Kept as a pure function so the rule is testable without opening Isar and
+  /// so the engine and the cache cannot disagree about what "stale" means.
+  static bool isStalePlatformPath(String path, Set<String> seen) =>
+      path.startsWith('content://') && !seen.contains(path);
+
+  /// Removes cache rows for `content://` paths that the platform no longer
+  /// reports.
+  ///
+  /// Those rows cannot be validated with `File.exists()`, so [purgeOrphans]
+  /// leaves them alone — but without this a video deleted from the phone kept
+  /// its cache entry, and since the cache signature never changed, the stale
+  /// item was never re-analysed either. [seen] is the exact set of MediaStore
+  /// paths the latest query returned: anything else is gone.
+  Future<int> reconcilePlatformPaths(Set<String> seen) async {
+    final all = await _isar.localFileCaches.where().findAll();
+    final toDelete = <int>[];
+    for (final entry in all) {
+      if (!isStalePlatformPath(entry.filePath, seen)) continue;
+      toDelete.add(entry.id);
+      _ramCache.remove(entry.filePath);
+      _accessOrder.remove(entry.filePath);
+    }
+    if (toDelete.isEmpty) return 0;
+    await _isar.writeTxn(() => _isar.localFileCaches.deleteAll(toDelete));
+    return toDelete.length;
+  }
+
   /// Statistiques du cache.
   Future<CacheStats> stats() async {
     final total = await _isar.localFileCaches.count();
