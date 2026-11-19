@@ -108,8 +108,15 @@ Future<void> _writeMangaDownloadManifest(File file, MangaDownloadManifest manife
   await temporary.rename(file.path);
 }
 
+/// Whether re-asking the extension for the page list can plausibly fix this
+/// failure, i.e. the URLs we hold are stale rather than the host being busy.
+///
+/// 404/410 belong here as much as 401/403: a manga CDN that renamed or removed
+/// a page answers 404, and every retry then re-requests the same dead URL from
+/// the cached list. That is the "downloads one page, fails, relaunch, fails
+/// again" loop — the cache has to be dropped before a retry can differ.
 bool _isRefreshablePageUrlError(Object error) =>
-    RegExp(r'\b(?:401|403)\b').hasMatch(error.toString());
+    RegExp(r'\b(?:401|403|404|410)\b').hasMatch(error.toString());
 
 /// Whether a failure means "slow down" rather than "this URL is stale".
 ///
@@ -2954,6 +2961,7 @@ Future<void> downloadChapter(
                 subDownloadDir: chapterDirectory.path,
                 concurrentDownloads: mangaConnections,
                 shouldCancel: isQueueActionPending,
+                chapterPageCount: pageUrls.length,
               ).download((progress) {
                 final visibleProgress =
                     itemType == ItemType.manga && !progress.isCompleted && progress.total > 0

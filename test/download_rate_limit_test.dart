@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/models/manga.dart';
+import 'package:watchtower/models/page.dart';
 import 'package:watchtower/services/download_manager/download_isolate_pool.dart';
 import 'package:watchtower/services/download_manager/host_cooldown_registry.dart';
 
@@ -75,6 +77,96 @@ void main() {
         resolvePageTransferOutcome(failedCount: 3, total: 0),
         PageTransferOutcome.partial,
       );
+    });
+
+    test('a resumed chapter is judged against its real size', () {
+      // A 17-page chapter with 16 pages on disk retries only page 17. Judged
+      // against the pending subset (1), that failure looked total: the chapter
+      // was marked failed and the 16 verified pages were dropped, so every
+      // relaunch died on the same page.
+      expect(
+        resolvePageTransferOutcome(failedCount: 1, total: 17),
+        PageTransferOutcome.partial,
+      );
+      expect(
+        resolvePageTransferOutcome(failedCount: 1, total: 1),
+        PageTransferOutcome.failed,
+      );
+    });
+  });
+
+  group('Speed Master throttle', () {
+    test('a KB/s setting becomes bytes per second', () {
+      // The setting is in kilobytes while the bucket counts bytes. Passing the
+      // raw number capped a 500 KB/s limit at 500 B/s, so every page ran past
+      // the 30 s image timeout and the chapter died after the first page.
+      expect(throttleBytesPerSecond(500), 500 * 1024);
+      expect(throttleBytesPerSecond(1), 1024);
+    });
+
+    test('zero and negative values mean unlimited', () {
+      expect(throttleBytesPerSecond(0), 0);
+      expect(throttleBytesPerSecond(-10), 0);
+    });
+
+    test('a 120 KB page is not throttled for minutes at 500 KB/s', () {
+      final bytesPerSecond = throttleBytesPerSecond(500);
+      expect(120 * 1024 / bytesPerSecond, lessThan(1));
+    });
+  });
+
+  group('page retry passes', () {
+    test('a failed pass gets another chance until the budget runs out', () {
+      // "One page downloaded, then it fails" came from stopping at the first
+      // bad page; a transient failure must not end the chapter.
+      expect(shouldRetryPagePass(passIndex: 0), isTrue);
+      expect(shouldRetryPagePass(passIndex: 1), isTrue);
+      expect(shouldRetryPagePass(passIndex: 2), isFalse);
+    });
+
+    test('retries are bounded so a dead host is not hammered', () {
+      var passes = 0;
+      while (shouldRetryPagePass(passIndex: passes)) {
+        passes++;
+        expect(passes, lessThan(10));
+      }
+      expect(passes, 2);
+    });
+  });
+
+  group('FileDownloadParams chapter denominator', () {
+    List<PageUrl> pages(int count) => [
+      for (var i = 0; i < count; i++)
+        PageUrl('https://cdn.example.com/$i.jpg'),
+    ];
+
+    test('defaults to the pending page count', () {
+      final params = FileDownloadParams(
+        pageUrls: pages(3),
+        concurrentDownloads: 2,
+        itemType: ItemType.manga,
+      );
+      expect(params.chapterTotal, 3);
+    });
+
+    test('keeps the chapter size on a resume with fewer pending pages', () {
+      final params = FileDownloadParams(
+        pageUrls: pages(1),
+        concurrentDownloads: 2,
+        itemType: ItemType.manga,
+        chapterTotal: 17,
+      );
+      expect(params.chapterTotal, 17);
+    });
+
+    test('ignores a chapter size smaller than the pending pages', () {
+      final params = FileDownloadParams(
+        pageUrls: pages(5),
+        concurrentDownloads: 2,
+        itemType: ItemType.manga,
+        chapterTotal: 2,
+      );
+      expect(params.chapterTotal, 5);
     });
   });
 

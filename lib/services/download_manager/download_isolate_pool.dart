@@ -152,6 +152,7 @@ class DownloadIsolatePool {
     required void Function(Exception) onError,
     void Function()? onCancelled,
     bool Function()? shouldCancel,
+    int? chapterTotal,
   }) async {
     if (!_initialized) await initialize();
 
@@ -183,6 +184,7 @@ class DownloadIsolatePool {
         pageUrls: pageUrls,
         concurrentDownloads: concurrentDownloads,
         itemType: itemType,
+        chapterTotal: chapterTotal,
         writeMode: writeMode,
         speedLimitKBs: speedLimitKBs,
       ),
@@ -524,6 +526,16 @@ class FileDownloadParams {
   final int concurrentDownloads;
   final ItemType itemType;
 
+  /// Size of the whole chapter, including the pages already on disk.
+  ///
+  /// [pageUrls] only holds the pages still missing, so a resumed chapter can
+  /// pass a single page. Judging the transfer against that subset made
+  /// "1 of 1 pending page failed" look like "the whole chapter failed", which
+  /// discarded a chapter that was already 16/17 complete and failed again on
+  /// every relaunch. The outcome is decided against this denominator instead.
+  final int? _chapterTotal;
+  int get chapterTotal => _chapterTotal ?? pageUrls.length;
+
   /// Mode d'écriture disque :
   /// 0 = .part + rename atomique (défaut, reprise Range possible)
   /// 1 = pré-allocation de l'espace puis écriture
@@ -537,9 +549,12 @@ class FileDownloadParams {
     required this.pageUrls,
     required this.concurrentDownloads,
     required this.itemType,
+    int? chapterTotal,
     this.writeMode = 0,
     this.speedLimitKBs = 0,
-  });
+  }) : _chapterTotal = chapterTotal == null || chapterTotal < pageUrls.length
+           ? null
+           : chapterTotal;
 }
 
 /// Parameters for M3U8 download
@@ -587,6 +602,16 @@ class M3u8DownloadParams {
   });
 }
 
+/// Converts the Speed Master setting (KB/s, 0 = unlimited) into bytes per
+/// second, the unit the token bucket counts in.
+///
+/// The setting is stored in kilobytes; passing it to the bucket unchanged
+/// capped a "500 KB/s" limit at 500 B/s, so every page ran past the 30 s image
+/// timeout and the chapter died after the first page, on every retry.
+@visibleForTesting
+double throttleBytesPerSecond(int kiloBytesPerSec) =>
+    kiloBytesPerSec > 0 ? kiloBytesPerSec * 1024.0 : 0;
+
 /// Token-bucket partagé entre tous les slots d'une même tâche — implémente la
 /// limite de débit du Speed Master sans bloquer les autres téléchargements.
 class _Throttle {
@@ -597,6 +622,9 @@ class _Throttle {
   _Throttle(this.bytesPerSec)
     : _tokens = bytesPerSec, // burst initial = 1 s de budget
       _lastRefill = DateTime.now();
+
+  factory _Throttle.fromKiloBytesPerSecond(int kiloBytesPerSec) =>
+      _Throttle(throttleBytesPerSecond(kiloBytesPerSec));
 
   void _refill() {
     final now = DateTime.now();
@@ -940,8 +968,18 @@ void _workerEntryPoint(_WorkerInit init) async {
           );
         }
       } catch (e) {
+        // Keep the cause in the message: the main isolate recognises a rate
+        // limit by reading the failure text, and a bare "Task failed" made a
+        // 429 look like a broken chapter, so the host was never cooled down
+        // and the next chapter hit the same wall.
+        final cause = _failureCause(e);
         message.replyPort.send(
-          _toSendable(DownloadPoolException('Task failed', e)),
+          _toSendable(
+            DownloadPoolException(
+              'Task failed${cause == null ? '' : ' ($cause)'}',
+              e,
+            ),
+          ),
         );
       } finally {
         _workerCancelledTasks.remove(message.taskId);
@@ -951,6 +989,24 @@ void _workerEntryPoint(_WorkerInit init) async {
 }
 
 bool _isCancelled(String taskId) => _workerCancelledTasks.contains(taskId);
+
+/// Passes over the page list: the first one, then a retry for the pages it
+/// left behind.
+///
+/// A page already retries internally with backoff; these passes exist for the
+/// failures that outlive that, typically a connection reset or a short burst
+/// limit. Three passes bound the extra work to a few seconds while still
+/// turning "one page, then the chapter fails" into a completed chapter.
+const int _kPageRetryPasses = 3;
+
+/// Pause between two passes, so a host that just refused us gets a breath
+/// instead of the same burst that failed a moment ago.
+const Duration _kPageRetryPassDelay = Duration(seconds: 2);
+
+/// Whether the pass that just ran gets another one.
+@visibleForTesting
+bool shouldRetryPagePass({required int passIndex}) =>
+    passIndex + 1 < _kPageRetryPasses;
 
 /// Process a file download
 ///
@@ -984,7 +1040,7 @@ Future<void> _processFileDownload(
   final slots = List<Future<void>>.filled(concurrency, Future<void>.value());
 
   try {
-    final throttle = _Throttle(params.speedLimitKBs.toDouble());
+    final throttle = _Throttle.fromKiloBytesPerSecond(params.speedLimitKBs);
     replyPort.send(
       _DownloadPoolLog(
         taskId,
@@ -1004,11 +1060,93 @@ Future<void> _processFileDownload(
     // instead of a generic failure.
     Object? firstError;
     StackTrace? firstStackTrace;
-    final failedPages = <PageUrl>[];
+    var failedPages = <PageUrl>[];
 
-    for (int i = 0; i < params.pageUrls.length; i++) {
+    // One pass over [queue]: page i is launched into slot i % concurrency,
+    // which keeps at most `concurrency` requests in flight. Every future is
+    // drained before the pass returns, so a later pass can never race with
+    // writes from this one on the same temporary file.
+    Future<void> runPass(List<PageUrl> queue, int passIndex) async {
+      for (var i = 0; i < queue.length; i++) {
+        if (_isCancelled(taskId)) break;
+
+        final slotIdx = i % concurrency;
+        await slots[slotIdx];
+        if (_isCancelled(taskId)) break;
+
+        final pageUrl = queue[i];
+        slots[slotIdx] =
+            _downloadFile(
+                  taskId,
+                  pageUrl,
+                  client,
+                  params.itemType,
+                  replyPort,
+                  writeMode: params.writeMode,
+                  throttle: throttle,
+                  stagingSuffix: '$attemptToken-$passIndex-$i',
+                  onImageProgress: params.itemType == ItemType.manga
+                      ? (downloadedBytes, totalBytes) {
+                          replyPort.send(
+                            DownloadProgress(
+                              completed,
+                              total,
+                              params.itemType,
+                              pageUrl: pageUrl,
+                              downloadedBytes: downloadedBytes,
+                              totalBytes: totalBytes,
+                            ),
+                          );
+                        }
+                      : null,
+                )
+                .then((_) {
+                  if (params.itemType != ItemType.anime) {
+                    completed++;
+                    replyPort.send(
+                      DownloadProgress(
+                        pageUrl: pageUrl,
+                        completed,
+                        total,
+                        params.itemType,
+                      ),
+                    );
+                  }
+                })
+                .catchError((Object error, StackTrace stackTrace) {
+                  firstError ??= DownloadPoolException(
+                    'Error downloading ${pageUrl.fileName}',
+                    error,
+                  );
+                  firstStackTrace ??= stackTrace;
+                  failedPages.add(pageUrl);
+                  replyPort.send(
+                    _DownloadPoolLog(
+                      taskId,
+                      'page failed '
+                      'file=${path.basename(pageUrl.fileName ?? "?")} '
+                      'error=$error',
+                      LogLevel.warning,
+                    ),
+                  );
+                });
+      }
+      await Future.wait(slots, eagerError: false);
+    }
+
+    // A single transient failure used to end the whole chapter: one page hit a
+    // reset or a 429 after its own retries and the run stopped there, so the
+    // user saw "one page downloaded, then it fails" and every relaunch died at
+    // the same place. Pages left behind are retried in their own pass, which
+    // also keeps the pages that do work instead of throwing them away.
+    var queue = params.pageUrls;
+    for (var pass = 0; pass < _kPageRetryPasses; pass++) {
+      failedPages = <PageUrl>[];
+      firstError = null;
+      firstStackTrace = null;
+      await runPass(queue, pass);
+
       if (_isCancelled(taskId)) {
-        await Future.wait(slots, eagerError: false).catchError((_) => <void>[]);
         replyPort.send(
           _toSendable(
             DownloadPoolException('Task $taskId cancelled by user', null),
@@ -1016,72 +1154,21 @@ Future<void> _processFileDownload(
         );
         return;
       }
+      if (failedPages.isEmpty) break;
 
-      final slotIdx = i % concurrency;
-      await slots[slotIdx];
-      if (_isCancelled(taskId)) break;
-
-      final pageUrl = params.pageUrls[i];
-      slots[slotIdx] =
-          _downloadFile(
-                taskId,
-                pageUrl,
-                client,
-                params.itemType,
-                replyPort,
-                writeMode: params.writeMode,
-                throttle: throttle,
-                stagingSuffix: '$attemptToken-$i',
-                onImageProgress: params.itemType == ItemType.manga
-                    ? (downloadedBytes, totalBytes) {
-                        replyPort.send(
-                          DownloadProgress(
-                            completed,
-                            total,
-                            params.itemType,
-                            pageUrl: pageUrl,
-                            downloadedBytes: downloadedBytes,
-                            totalBytes: totalBytes,
-                          ),
-                        );
-                      }
-                    : null,
-              )
-              .then((_) {
-                if (params.itemType != ItemType.anime) {
-                  completed++;
-                  replyPort.send(
-                    DownloadProgress(
-                      pageUrl: pageUrl,
-                      completed,
-                      total,
-                      params.itemType,
-                    ),
-                  );
-                }
-              })
-              .catchError((Object error, StackTrace stackTrace) {
-                firstError ??= DownloadPoolException(
-                  'Error downloading ${pageUrl.fileName}',
-                  error,
-                );
-                firstStackTrace ??= stackTrace;
-                failedPages.add(pageUrl);
-                replyPort.send(
-                  _DownloadPoolLog(
-                    taskId,
-                    'page failed file=${path.basename(pageUrl.fileName ?? "?")} '
-                    'error=$error',
-                    LogLevel.warning,
-                  ),
-                );
-              });
+      queue = List<PageUrl>.of(failedPages);
+      if (shouldRetryPagePass(passIndex: pass)) {
+        replyPort.send(
+          _DownloadPoolLog(
+            taskId,
+            'retrying ${queue.length}/$total failed page(s) '
+            '(pass ${pass + 2}/$_kPageRetryPasses)',
+            LogLevel.info,
+          ),
+        );
+        await Future<void>.delayed(_kPageRetryPassDelay);
+      }
     }
-
-    // Always drain every in-flight page before returning the worker or
-    // reporting failure. Otherwise a retry can race with writes from this
-    // failed attempt and both can rename the same temporary file.
-    await Future.wait(slots, eagerError: false);
 
     if (_isCancelled(taskId)) {
       replyPort.send(
@@ -1094,7 +1181,11 @@ Future<void> _processFileDownload(
 
     final outcome = resolvePageTransferOutcome(
       failedCount: failedPages.length,
-      total: total,
+      // The chapter denominator, not the pending subset: when a resume leaves
+      // one page to fetch, that page failing means a partial chapter (16/17 on
+      // disk), not a failed one. Using `total` here marked the chapter failed,
+      // dropped the 16 verified pages and failed again on every relaunch.
+      total: params.chapterTotal,
     );
     switch (outcome) {
       case PageTransferOutcome.failed:
@@ -1103,7 +1194,8 @@ Future<void> _processFileDownload(
         replyPort.send(
           _DownloadPoolLog(
             taskId,
-            'transfer finished with ${failedPages.length}/$total pages failed',
+            'transfer finished with ${failedPages.length}/'
+            '${params.chapterTotal} pages failed',
             LogLevel.warning,
           ),
         );
@@ -1114,11 +1206,12 @@ Future<void> _processFileDownload(
         replyPort.send(
           _toSendable(
             DownloadPoolException.partial(
-              '${failedPages.length} page(s) sur $total n’ont pas pu être '
-              'téléchargées${cause == null ? "" : " ($cause)"}',
+              '${failedPages.length} page(s) sur ${params.chapterTotal} '
+              'n’ont pas pu être téléchargées'
+              '${cause == null ? "" : " ($cause)"}',
               firstError,
               failedPages.length,
-              total,
+              params.chapterTotal,
             ),
           ),
         );
@@ -2105,7 +2198,7 @@ Future<void> _processM3u8Download(
   }
 
   try {
-    final throttle = _Throttle(params.speedLimitKBs.toDouble());
+    final throttle = _Throttle.fromKiloBytesPerSecond(params.speedLimitKBs);
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
     final slots = List<Future<void>>.filled(concurrency, Future.value());
 

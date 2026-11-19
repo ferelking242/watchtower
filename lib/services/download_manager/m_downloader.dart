@@ -24,6 +24,13 @@ class MDownloader {
   final String? subDownloadDir;
   final bool Function()? shouldCancel;
 
+  /// Pages the whole chapter has, including the ones already on disk.
+  ///
+  /// [pageUrls] is only the pending subset on a resume, so the pool needs the
+  /// real chapter size to tell "the last missing page failed" (a partial
+  /// chapter, keep the pages already verified) from "nothing landed".
+  final int? chapterPageCount;
+
   static var httpClient = MClient.httpClient(
     settings: const ClientSettings(
       throwOnStatusCode: false,
@@ -38,6 +45,7 @@ class MDownloader {
     required this.subDownloadDir,
     this.shouldCancel,
     this.concurrentDownloads = 1,
+    this.chapterPageCount,
   });
 
   /// Item type drives progress rendering; the chapter may arrive with an
@@ -182,6 +190,7 @@ class MDownloader {
           completer.completeError(error);
         }
       },
+      chapterTotal: chapterPageCount,
       onCancelled: () {
         // Download was paused/cancelled — exit download() cleanly without
         // marking the chapter as failed. The download entry stays in the
