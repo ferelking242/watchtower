@@ -77,6 +77,14 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         // seconds. VLC/PlayIt read MediaStore off the main thread, which is
         // why they list a full library almost instantly.
         when (call.method) {
+            // "All files access" (MANAGE_EXTERNAL_STORAGE) is what lets a media
+            // player walk the whole device — including folders Android's media
+            // scanner ignores (.nomedia, exotic extensions, sidecar files).
+            // Without it the app can only read MediaStore rows, so the Dart
+            // side must know which mode it is in before deciding whether a
+            // filesystem walk is worth starting.
+            "hasAllFilesAccess" -> result.success(hasAllFilesAccess())
+            "storageVolumes" -> result.success(storageVolumes())
             "queryVideos", "queryImages", "queryAudio" -> {
                 Thread {
                     try {
@@ -99,6 +107,51 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
             else -> result.notImplemented()
         }
+    }
+
+    // ── Accès stockage ───────────────────────────────────────────────────────
+
+    /// True when the app may read the whole shared storage, i.e. it can behave
+    /// like a media player that walks the device instead of only listing what
+    /// Android's media scanner indexed.
+    private fun hasAllFilesAccess(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return android.os.Environment.isExternalStorageManager()
+        }
+        // Below Android 11 READ_EXTERNAL_STORAGE already covers the volume.
+        return context.checkSelfPermission(
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    /// Mount points of every external volume: internal shared storage, SD card
+    /// and USB OTG. A library kept on a card must be found like any other.
+    @Suppress("DEPRECATION")
+    private fun storageVolumes(): List<String> {
+        val volumes = mutableListOf<String>()
+
+        val manager = context.getSystemService(Context.STORAGE_SERVICE)
+            as? android.os.storage.StorageManager
+        val storageVolumes = manager?.storageVolumes
+        if (storageVolumes != null) {
+            for (volume in storageVolumes) {
+                val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    volume.directory?.absolutePath
+                } else {
+                    volume.path
+                }
+                if (!path.isNullOrEmpty() && !volumes.contains(path)) {
+                    volumes.add(path)
+                }
+            }
+        }
+
+        val shared = android.os.Environment.getExternalStorageDirectory()?.absolutePath
+        if (!shared.isNullOrEmpty() && !volumes.contains(shared)) {
+            volumes.add(shared)
+        }
+
+        return volumes
     }
 
     // ── Requêtes MediaStore ──────────────────────────────────────────────────

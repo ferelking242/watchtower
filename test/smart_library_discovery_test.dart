@@ -334,6 +334,42 @@ void main() {
       );
     });
 
+    test('the same file found as a content URI and as a real path is '
+        'indexed once', () async {
+      // With All files access the walk runs even when MediaStore answered, so
+      // a film Android exposes as content://.../video/media/7 is also found at
+      // /storage/.../Dune.2024.mkv. Both rows describe one file.
+      final dir = await Directory.systemTemp.createTemp('dedupe');
+      final file = File('${dir.path}/Dune.2024.mkv');
+      await file.writeAsBytes(List.filled(30 * 1024 * 1024, 0));
+
+      final rows = [
+        DiscoveredFile(
+          path: 'content://media/external/video/media/7',
+          size: 30 * 1024 * 1024,
+          modifiedAt: 0,
+          extension: '.mkv',
+          analysisName: 'Dune.2024.mkv',
+        ),
+      ];
+
+      final files = <DiscoveredFile>[];
+      final stage = DiscoveryStage(
+        policy: ScanPolicy.videos(ignoredDirectories: const {}),
+      );
+      await for (final batch in stage.discover(
+        [dir.path],
+        additionalFiles: rows,
+      )) {
+        files.addAll(batch);
+      }
+
+      expect(files, hasLength(1));
+      // The MediaStore row wins: it carries the duration the walk cannot know.
+      expect(files.single.path, startsWith('content://'));
+      await dir.delete(recursive: true);
+    });
+
     test('each scan mode maps to its MediaStore collection', () {
       expect(LocalScanMode.videos.mediaStoreCollection, 'video');
       expect(LocalScanMode.music.mediaStoreCollection, 'audio');

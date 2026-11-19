@@ -21,6 +21,41 @@ class AndroidMediaStore {
 
   // ── API publique ────────────────────────────────────────────────────────────
 
+  /// True when the app holds "All files access" (MANAGE_EXTERNAL_STORAGE) on
+  /// Android 11+, or READ_EXTERNAL_STORAGE below that.
+  ///
+  /// This is the difference between an app that lists what Android's media
+  /// scanner indexed and a player that walks the device like VLC does: without
+  /// it, files in `.nomedia` folders or with formats MediaStore does not track
+  /// are invisible, and no amount of walking can read them.
+  static Future<bool> hasAllFilesAccess() async {
+    if (!isAvailable) return false;
+    try {
+      return await _channel.invokeMethod<bool>('hasAllFilesAccess') ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Every external mount point (shared storage, SD card, USB OTG).
+  ///
+  /// MediaStore reports files from all of them, so a filesystem walk that only
+  /// covers `/storage/emulated/0` silently misses a library kept on an SD card.
+  /// Returns an empty list when the bridge is unavailable.
+  static Future<List<String>> storageVolumes() async {
+    if (!isAvailable) return const [];
+    try {
+      final result = await _channel.invokeMethod<List>('storageVolumes');
+      return result?.cast<String>() ?? const [];
+    } on PlatformException {
+      return const [];
+    } on MissingPluginException {
+      return const [];
+    }
+  }
+
   /// Récupère tous les fichiers vidéo indexés par MediaStore.
   ///
   /// Retourne une liste de [MediaStoreEntry].

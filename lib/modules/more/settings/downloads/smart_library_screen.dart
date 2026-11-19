@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
+import 'package:watchtower/local_indexer/engine/watcher/android_media_store.dart';
 import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_work.dart';
@@ -122,10 +123,18 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       } else {
         await storage.requestVideoPermission();
       }
-      const sharedStorage = '/storage/emulated/0';
-      if (Directory(sharedStorage).existsSync()) {
-        roots.add(sharedStorage);
-      } else {
+      // Every mounted volume, not just the internal shared storage: a library
+      // kept on an SD card or a USB stick is exactly what a media player is
+      // expected to find. MediaStore reports those files too, so the walk must
+      // cover the same ground.
+      final volumes = await AndroidMediaStore.storageVolumes();
+      final androidRoots = volumes.isEmpty
+          ? const ['/storage/emulated/0']
+          : volumes;
+      for (final volume in androidRoots) {
+        if (Directory(volume).existsSync()) roots.add(volume);
+      }
+      if (roots.isEmpty) {
         final fallback = _isMusic
             ? _androidMusicDirectories
             : _androidMediaDirectories;
@@ -550,7 +559,15 @@ class _ScanProgressBar extends StatelessWidget {
           processed,
           total,
         ),
-      SmartLibraryScanPhase.enriching => l10n.smart_scanning_storage,
+      // Enrichment is one lookup at a time with a rate-limit pause between
+      // calls, so a fixed label looks frozen. Show the real counter.
+      SmartLibraryScanPhase.enriching => total > 0
+          ? l10n.smart_scan_notif_progress_percent(
+              ((progress ?? 0) * 100).clamp(0, 100).floor(),
+              processed,
+              total,
+            )
+          : l10n.smart_scanning_storage,
       _ => l10n.smart_scan_notif_starting,
     };
     return Column(

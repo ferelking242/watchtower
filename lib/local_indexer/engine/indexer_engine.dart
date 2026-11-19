@@ -16,6 +16,10 @@ import 'package:watchtower/local_indexer/search/search_engine.dart';
 /// système peut être considéré comme complet pour ce mode.
 class _MediaStoreQueryResult {
   final List<DiscoveredFile> files;
+
+  /// True when MediaStore returned rows, i.e. it can be trusted as a source.
+  /// It never means "this is everything": Android's media scanner skips
+  /// `.nomedia` folders, sidecar files and formats it does not track.
   final bool complete;
   const _MediaStoreQueryResult(this.files, {required this.complete});
 }
@@ -137,66 +141,84 @@ class IndexerEngine {
       // sert que de repli (permission refusée, bridge absent, desktop/iOS) ou
       // de complément pour les formats que MediaStore n'indexe pas (.cbz…).
       final mediaStore = await _queryMediaStore(mode);
-      // DiscoveryStage applies the size/duration/name/extension gates to the
-      // MediaStore rows too, so a thumbnail or a ringtone never reaches the
-      // library and the rules cannot drift between the two sources.
-      final walkRoots = mediaStore == null || !mediaStore.complete
+      // With "All files access" the app can read everything a media player
+      // reads, so the walk always runs over the whole device: MediaStore only
+      // knows what Android's scanner indexed, and skipping the walk there hid
+      // every file in a `.nomedia` folder or in a format MediaStore does not
+      // track. Without that permission the walk could only list what it is
+      // allowed to read, so MediaStore alone is the fast path.
+      final hasAllFiles = await AndroidMediaStore.hasAllFilesAccess();
+      final walkRoots = mediaStore == null || hasAllFiles || !mediaStore.complete
           ? roots
           : const <String>[];
 
-      final allFiles = <DiscoveredFile>[];
+      // Analysis and writing run *while* discovery is still walking, in
+      // chunks. Collecting every path first (the previous behaviour) meant
+      // nothing reached Isar until the whole device had been walked, so the
+      // grid stayed empty and the progress bar looked frozen for minutes —
+      // exactly the "no progressive progress" complaint.
+      const chunkSize = 400;
+      var pending = <DiscoveredFile>[];
+
+      Future<void> drain({required bool force}) async {
+        while (pending.length >= chunkSize || (force && pending.isNotEmpty)) {
+          final take = pending.length < chunkSize ? pending.length : chunkSize;
+          final chunk = pending.sublist(0, take);
+          pending = pending.sublist(take);
+
+          // Batch cache check: one Isar query for the whole chunk instead of
+          // one awaited query per file.
+          final unchanged = await _cache.unchangedPaths(
+            paths: [for (final f in chunk) f.path],
+            sizes: [for (final f in chunk) f.size],
+            modifiedAts: [for (final f in chunk) f.modifiedAt],
+          );
+
+          final toAnalyze = <DiscoveredFile>[];
+          for (final file in chunk) {
+            if (unchanged.contains(file.path)) {
+              cached++;
+            } else {
+              toAnalyze.add(file);
+            }
+          }
+
+          if (toAnalyze.isNotEmpty) {
+            final analysisResults = await _analyzeParallel(toAnalyze);
+            analyzed += analysisResults.length;
+            await _writer.addAll(analysisResults);
+          }
+
+          _emit(IndexerStatus.scanning(
+            discovered,
+            analyzed,
+            processed: cached + analyzed,
+            // Discovery is still running, so the total is a moving target:
+            // report what is known so far rather than nothing.
+            total: discovered,
+            phase: IndexerPhase.analyzing,
+          ));
+        }
+      }
+
       await for (final batch in _discovery.discover(
         walkRoots,
         additionalFiles: mediaStore?.files ?? const <DiscoveredFile>[],
       )) {
-        allFiles.addAll(batch);
-        discovered = allFiles.length;
-        _emit(IndexerStatus.scanning(
-          discovered,
-          0,
-          total: discovered,
-          phase: IndexerPhase.discovering,
-        ));
-      }
-
-      // ── 2 + 3 + 4. Cache, analyse parallèle, écriture batch ────────────────
-      final total = allFiles.length;
-      const chunkSize = 400;
-      for (var start = 0; start < total; start += chunkSize) {
-        final end = (start + chunkSize > total) ? total : start + chunkSize;
-        final chunk = allFiles.sublist(start, end);
-
-        // Batch cache check: one Isar query for the whole chunk instead of one
-        // awaited query per file.
-        final unchanged = await _cache.unchangedPaths(
-          paths: [for (final f in chunk) f.path],
-          sizes: [for (final f in chunk) f.size],
-          modifiedAts: [for (final f in chunk) f.modifiedAt],
-        );
-
-        final toAnalyze = <DiscoveredFile>[];
-        for (final file in chunk) {
-          if (unchanged.contains(file.path)) {
-            cached++;
-          } else {
-            toAnalyze.add(file);
-          }
-        }
-
-        if (toAnalyze.isNotEmpty) {
-          final analysisResults = await _analyzeParallel(toAnalyze);
-          analyzed += analysisResults.length;
-          await _writer.addAll(analysisResults);
-        }
-
+        pending.addAll(batch);
+        discovered += batch.length;
         _emit(IndexerStatus.scanning(
           discovered,
           analyzed,
           processed: cached + analyzed,
-          total: total,
-          phase: IndexerPhase.analyzing,
+          total: discovered,
+          phase: IndexerPhase.discovering,
         ));
+        await drain(force: false);
       }
+
+      // ── 2 + 3 + 4. Cache, analyse parallèle, écriture batch ────────────────
+      await drain(force: true);
 
       // Flush final
       await _writer.close();

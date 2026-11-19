@@ -75,6 +75,13 @@ class DiscoveryStage {
     final batch = <DiscoveredFile>[];
     final seen = <String>{};
     final seenMangaFolders = <String>{};
+    // A MediaStore row can name the same file as a different path: on Android
+    // 10+ the DATA column may be withheld and the row arrives as a
+    // `content://` URI while the walk finds `/storage/.../film.mkv`. Path
+    // de-duplication cannot catch that, so the display name plus the byte size
+    // identifies the file instead. MediaStore rows come first, which is what
+    // we want: they carry the duration the walk cannot know.
+    final seenIdentities = <String>{};
 
     // Android MediaStore can provide the same file as the filesystem walk.
     // De-duplicate before the expensive analysis stage.
@@ -82,7 +89,8 @@ class DiscoveryStage {
       if (!allowed.contains(file.extension) ||
           file.size < policy.minimumFileSize ||
           !_passesQualityGate(file) ||
-          !seen.add(file.path)) {
+          !seen.add(file.path) ||
+          !seenIdentities.add(_identityOf(file))) {
         continue;
       }
       batch.add(file);
@@ -131,6 +139,11 @@ class DiscoveryStage {
         if (stat.size < policy.minimumFileSize || !seen.add(entity.path)) {
           continue;
         }
+        if (!seenIdentities.add(
+          '${p.basename(entity.path).toLowerCase()}|${stat.size}',
+        )) {
+          continue;
+        }
 
         // A filename that announces an extra ("...sample.mkv") is not a movie
         // or an episode; drop it before it reaches the library.
@@ -158,6 +171,17 @@ class DiscoveryStage {
     }
 
     if (batch.isNotEmpty) yield List.unmodifiable(batch);
+  }
+
+  /// Identity of a MediaStore row, used to recognise the same file found again
+  /// by the filesystem walk under a different path.
+  ///
+  /// [DiscoveredFile.analysisName] holds the real display name when the row
+  /// came as a `content://` URI; without it the basename is the numeric row id
+  /// and would never match.
+  static String _identityOf(DiscoveredFile file) {
+    final name = (file.analysisName ?? file.basename).toLowerCase();
+    return '$name|${file.size}';
   }
 
   /// True when a discovered file passes the policy's duration and name gates.

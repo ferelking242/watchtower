@@ -61,9 +61,14 @@ class LocalMetadataResolver {
     return null;
   }
 
+  /// [onProgress] is called after every lookup with the number of entries
+  /// already looked up and the size of the work list. Enrichment is strictly
+  /// sequential (MusicBrainz requires ~1 s between calls), so without it the
+  /// UI shows an unchanging "enriching" label for minutes on a real library.
   Future<LocalMetadataEnrichmentSummary> enrich(
-    Iterable<LocalIndexedItem> items,
-  ) async {
+    Iterable<LocalIndexedItem> items, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     final store = LocalMediaMetadataStore.instance;
     final unique = <String, LocalIndexedItem>{};
     for (final item in items) {
@@ -119,6 +124,7 @@ class LocalMetadataResolver {
         debugPrint('[LocalMetadataResolver] lookup failed: $error');
         failed++;
       }
+      onProgress?.call(lookedUp, candidates.length);
       await Future<void>.delayed(_spacingFor(item));
     }
 

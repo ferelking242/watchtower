@@ -278,7 +278,18 @@ class LocalIndexerScan extends _$LocalIndexerScan {
     try {
       final works = await ref.read(localWorksProvider.future);
       final items = [for (final work in works) work.files.first];
-      final summary = await LocalMetadataResolver.instance.enrich(items);
+      final summary = await LocalMetadataResolver.instance.enrich(
+        items,
+        onProgress: (done, total) {
+          if (total <= 0) return;
+          state = state.copyWith(
+            phase: SmartLibraryScanPhase.enriching,
+            processed: done,
+            total: total,
+          );
+          ref.invalidate(localWorksProvider);
+        },
+      );
       ref.invalidate(localWorksProvider);
       return summary;
     } catch (error) {
