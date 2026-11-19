@@ -2598,6 +2598,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get catalog_tag_trending => 'Tendance';
 
   @override
+  String get catalog_tag_dead => 'Hors service';
+
+  @override
   String get catalog_shelf_watch_popular => 'Populaire à regarder';
 
   @override

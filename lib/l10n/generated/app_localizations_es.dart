@@ -2598,6 +2598,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get catalog_tag_trending => 'Trending';
 
   @override
+  String get catalog_tag_dead => 'Fuera de servicio';
+
+  @override
   String get catalog_shelf_watch_popular => 'Popular to watch';
 
   @override
@@ -15754,6 +15757,9 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
 
   @override
   String get catalog_tag_trending => 'Trending';
+
+  @override
+  String get catalog_tag_dead => 'Fuera de servicio';
 
   @override
   String get catalog_shelf_watch_popular => 'Popular to watch';

@@ -4793,6 +4793,12 @@ abstract class AppLocalizations {
   /// **'Trending'**
   String get catalog_tag_trending;
 
+  /// No description provided for @catalog_tag_dead.
+  ///
+  /// In en, this message translates to:
+  /// **'Dead'**
+  String get catalog_tag_dead;
+
   /// No description provided for @catalog_shelf_watch_popular.
   ///
   /// In en, this message translates to:

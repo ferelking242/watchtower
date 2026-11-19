@@ -2606,6 +2606,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get catalog_tag_trending => 'Trending';
 
   @override
+  String get catalog_tag_dead => 'Недоступен';
+
+  @override
   String get catalog_shelf_watch_popular => 'Popular to watch';
 
   @override

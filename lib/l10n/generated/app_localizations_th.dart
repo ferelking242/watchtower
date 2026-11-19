@@ -2567,6 +2567,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get catalog_tag_trending => 'Trending';
 
   @override
+  String get catalog_tag_dead => 'ปิดใช้งาน';
+
+  @override
   String get catalog_shelf_watch_popular => 'Popular to watch';
 
   @override
