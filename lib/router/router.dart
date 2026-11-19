@@ -577,7 +577,11 @@ class RouterNotifier extends ChangeNotifier {
       allowNullExtra: true, // opened from Settings without an ItemType
       builder: (itemType) => LocalBrowserPage(itemType: itemType ?? ItemType.manga),
     ),
-    _genericRoute(name: "smartLibrary", child: const SmartLibraryScreen()),
+    _genericRoute<ItemType?>(
+      name: "smartLibrary",
+      allowNullExtra: true, // opened from the marketplace without a pinned type
+      builder: (itemType) => SmartLibraryScreen(itemType: itemType),
+    ),
     _genericRoute(
       name: "watchtowerSearch",
       child: const WatchtowerSearchScreen(),

@@ -12,6 +12,14 @@ import 'package:watchtower/local_indexer/engine/watcher/fs_watcher.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/search/search_engine.dart';
 
+/// Résultat d'une requête MediaStore : les fichiers trouvés et si l'index
+/// système peut être considéré comme complet pour ce mode.
+class _MediaStoreQueryResult {
+  final List<DiscoveredFile> files;
+  final bool complete;
+  const _MediaStoreQueryResult(this.files, {required this.complete});
+}
+
 /// Moteur principal du Local Indexer.
 ///
 /// Orchestre l'ensemble du pipeline :
@@ -117,60 +125,22 @@ class IndexerEngine {
       _writer.startAutoFlush();
 
       // ── 1. Découverte ──────────────────────────────────────────────────────
-      // Collect the whole file list before analysing anything: it gives the
-      // analysis phase a real denominator, so the notification can show a
-      // determinate percentage instead of a spinner. Discovery only stats
-      // files, it never opens them, so holding the list is cheap.
-      final mediaStoreFiles = <DiscoveredFile>[];
-      if (mode == LocalScanMode.videos && AndroidMediaStore.isAvailable) {
-        try {
-          final entries = await AndroidMediaStore.queryVideos();
-          mediaStoreFiles.addAll(entries.map((entry) => DiscoveredFile(
-                path: entry.path,
-                size: entry.size,
-                modifiedAt: entry.modifiedAt,
-                extension: _mediaStoreExtension(entry),
-                // Android 10+ may expose the file as a content:// URI whose
-                // last path segment is the numeric MediaStore id. Analysing
-                // that would title every entry "1234", so the real filename
-                // stands in for the path — but only there: for a real path the
-                // full path still drives the /Anime/ folder classification.
-                analysisName: entry.path.startsWith('content://')
-                    ? entry.displayName
-                    : null,
-                durationMs: entry.duration,
-              )));
-        } on MediaStoreException {
-          // The filesystem fallback still works when MediaStore permission
-          // is unavailable or the device does not expose the bridge.
-        }
-      } else if (mode == LocalScanMode.music && AndroidMediaStore.isAvailable) {
-        // MediaStore knows every track the media scanner indexed, including
-        // those under Android/data that a plain directory walk cannot read.
-        try {
-          final entries = await AndroidMediaStore.queryAudio();
-          mediaStoreFiles.addAll(entries.map((entry) => DiscoveredFile(
-                path: entry.path,
-                size: entry.size,
-                modifiedAt: entry.modifiedAt,
-                extension: _mediaStoreExtension(entry),
-                analysisName: entry.path.startsWith('content://')
-                    ? entry.displayName
-                    : null,
-                durationMs: entry.duration,
-              )));
-        } on MediaStoreException {
-          // Fall back to the filesystem walk below.
-        }
-      }
-
+      // On Android, MediaStore est la source de vérité : le système a déjà
+      // indexé chaque vidéo/audio au moment où le fichier a été créé. VLC,
+      // PlayIt et consorts ne font rien d'autre — c'est ce qui leur permet de
+      // lister des milliers de fichiers en quelques secondes. La marche
+      // récursive du stockage partagé, elle, doit ouvrir chaque dossier et
+      // stat-er chaque entrée : sur /storage/emulated/0 elle prend des
+      // dizaines de minutes (Android/data, obb, caches d'applications…).
+      //
+      // MediaStore est donc utilisé seul quand il répond, et la marche FS ne
+      // sert que de repli (permission refusée, bridge absent, desktop/iOS) ou
+      // de complément pour les formats que MediaStore n'indexe pas (.cbz…).
+      final mediaStore = await _queryMediaStore(mode);
       final allFiles = <DiscoveredFile>[];
-      await for (final batch in _discovery.discover(
-        roots,
-        additionalFiles: mediaStoreFiles,
-      )) {
-        allFiles.addAll(batch);
-        discovered += batch.length;
+      if (mediaStore != null) {
+        allFiles.addAll(mediaStore.files);
+        discovered = allFiles.length;
         _emit(IndexerStatus.scanning(
           discovered,
           0,
@@ -178,6 +148,40 @@ class IndexerEngine {
           phase: IndexerPhase.discovering,
         ));
       }
+
+      final needsWalk = mediaStore == null ||
+          !mediaStore.complete ||
+          mode == LocalScanMode.manga;
+      if (needsWalk) {
+        // Formats non indexés par MediaStore : seule la marche FS les trouve.
+        final walkRoots = mediaStore == null
+            ? roots
+            : _supplementaryRoots(roots, mode);
+        await for (final batch in _discovery.discover(
+          walkRoots,
+          additionalFiles: const [],
+        )) {
+          allFiles.addAll(batch);
+          discovered = allFiles.length;
+          _emit(IndexerStatus.scanning(
+            discovered,
+            0,
+            total: discovered,
+            phase: IndexerPhase.discovering,
+          ));
+        }
+      }
+
+      // MediaStore rows and the FS walk can point at the same file; keep the
+      // first occurrence so a film is not indexed twice.
+      final seenPaths = <String>{};
+      final uniqueFiles = <DiscoveredFile>[
+        for (final file in allFiles)
+          if (seenPaths.add(file.path)) file,
+      ];
+      allFiles
+        ..clear()
+        ..addAll(uniqueFiles);
 
       // ── 2 + 3 + 4. Cache, analyse parallèle, écriture batch ────────────────
       final total = allFiles.length;
@@ -422,19 +426,28 @@ class IndexerEngine {
   }) async {
     final items = await _isar.localIndexedItems.where().findAll();
     final normalizedRoots = roots.map(_normalizeRoot).toList();
-    final missing = items.where((item) {
+    final candidates = <LocalIndexedItem>[];
+    for (final item in items) {
       // MediaStore entries can be content:// URIs (Android 10+); File() can
       // never resolve those, so they would look deleted on every scan.
-      if (item.filePath.startsWith('content://')) return false;
+      if (item.filePath.startsWith('content://')) continue;
       final path = _normalizeRoot(item.filePath);
       final belongsToScan = normalizedRoots.any(
         (root) => path == root || path.startsWith('$root/'),
       );
-      final extension = _ext(item.filePath);
-      return belongsToScan &&
-          extensions.contains(extension) &&
-          !File(item.filePath).existsSync();
-    }).toList();
+      if (belongsToScan && extensions.contains(_ext(item.filePath))) {
+        candidates.add(item);
+      }
+    }
+    if (candidates.isEmpty) return 0;
+
+    // Await each existence check: a synchronous existsSync per indexed item
+    // blocked the UI isolate for the whole library and Android killed the app
+    // before the scan could finish.
+    final missing = <LocalIndexedItem>[];
+    for (final item in candidates) {
+      if (!await File(item.filePath).exists()) missing.add(item);
+    }
     if (missing.isEmpty) return 0;
 
     await _isar.writeTxn(() async {
@@ -454,6 +467,11 @@ class IndexerEngine {
     return i >= 0 ? path.substring(i).toLowerCase() : '';
   }
 
+  String _basename(String path) {
+    final i = path.lastIndexOf('/');
+    return i >= 0 ? path.substring(i + 1) : path;
+  }
+
   /// Extension of a MediaStore entry.
   ///
   /// Android 10+ hides the absolute path, so [MediaStoreEntry.path] is a
@@ -464,6 +482,84 @@ class IndexerEngine {
   /// the display name or MIME type instead.
   String _mediaStoreExtension(MediaStoreEntry entry) =>
       AndroidMediaStore.extensionOf(entry);
+
+  /// Interroge MediaStore pour [mode].
+  ///
+  /// Retourne `null` quand MediaStore n'est pas exploitable (plateforme non
+  /// Android, bridge absent, permission refusée) : l'appelant retombe alors
+  /// sur la marche FS. [complete] indique si l'index système couvre tout ce que
+  /// le mode recherche ; sinon la marche FS vient en complément.
+  Future<_MediaStoreQueryResult?> _queryMediaStore(LocalScanMode mode) async {
+    if (!AndroidMediaStore.isAvailable) return null;
+    final policy = switch (mode) {
+      LocalScanMode.manga => const ScanPolicy.manga(),
+      LocalScanMode.music => const ScanPolicy.music(),
+      LocalScanMode.videos => ScanPolicy.videos(),
+    };
+    try {
+      final entries = switch (mode) {
+        LocalScanMode.music => await AndroidMediaStore.queryAudio(),
+        // MediaStore n'indexe pas les archives manga ni les pages d'un
+        // dossier ; la marche FS reste la seule source pour ce mode.
+        LocalScanMode.manga => const <MediaStoreEntry>[],
+        LocalScanMode.videos => await AndroidMediaStore.queryVideos(),
+      };
+      final files = <DiscoveredFile>[];
+      for (final entry in entries) {
+        final extension = _mediaStoreExtension(entry);
+        // Same gates as the FS walk: MediaStore returns thumbnails, ringtones
+        // and screen recordings too, and they are not films or tracks.
+        if (entry.size < policy.minimumFileSize) continue;
+        if (policy.minimumDurationMs > 0 &&
+            entry.duration != null &&
+            entry.duration! < policy.minimumDurationMs) {
+          continue;
+        }
+        // rejectsName expects a basename: passing a full path made the
+        // "sample"/"trailer" checks depend on the parent folder name.
+        if (policy.rejectsName(
+          _basename(entry.displayName ?? entry.path),
+        )) {
+          continue;
+        }
+        files.add(DiscoveredFile(
+          path: entry.path,
+          size: entry.size,
+          modifiedAt: entry.modifiedAt,
+          extension: extension,
+          // Android 10+ may expose the file as a content:// URI whose last
+          // path segment is the numeric MediaStore id. Analysing that would
+          // title every entry "1234", so the real filename stands in — but
+          // only there: for a real path the full path still drives the
+          // /Anime/ folder classification.
+          analysisName:
+              entry.path.startsWith('content://') ? entry.displayName : null,
+          durationMs: entry.duration,
+        ));
+      }
+      return _MediaStoreQueryResult(
+        files,
+        // An empty answer is ambiguous: it can mean "no media on the device"
+        // or "the media permission was denied and MediaStore silently
+        // returned nothing". Treating it as complete would show an empty
+        // library with no fallback, so the FS walk still runs in that case.
+        complete: mode != LocalScanMode.manga && files.isNotEmpty,
+      );
+    } on MediaStoreException {
+      // Permission refusée ou bridge indisponible : repli sur la marche FS.
+      return null;
+    }
+  }
+
+  /// Racines à parcourir quand MediaStore fournit déjà les vidéos/audio.
+  ///
+  /// Seuls les dossiers qui peuvent contenir des formats absents de l'index
+  /// système sont visités — et seulement ceux qui existent réellement, ce qui
+  /// évite de relancer la marche coûteuse de tout `/storage/emulated/0`.
+  List<String> _supplementaryRoots(List<String> roots, LocalScanMode mode) {
+    if (mode != LocalScanMode.manga) return const [];
+    return roots;
+  }
 
   void _emit(IndexerStatus status) {
     _lastStatus = status;

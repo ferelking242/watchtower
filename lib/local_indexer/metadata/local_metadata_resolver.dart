@@ -25,6 +25,10 @@ class LocalMetadataResolver {
   /// usable title, so music gets its own, lower floor.
   static const _minimumMusicConfidence = 0.2;
   static const _maximumLookupsPerScan = 30;
+
+  /// Upper bound on a single enrichment pass. The library is already usable
+  /// when this starts, so it must never hold the scan hostage.
+  static const _enrichmentDeadline = Duration(minutes: 2);
   static const _requestSpacing = Duration(milliseconds: 250);
   // MusicBrainz allows one request per second per client and answers 503 when
   // it is exceeded; TMDB/AniList tolerate the tighter [_requestSpacing].
@@ -81,9 +85,14 @@ class LocalMetadataResolver {
     var failed = 0;
     var tmdbUnavailable = false;
     var lookedUp = 0;
+    // Hard ceiling for the whole enrichment pass. Each lookup already has its
+    // own timeout, but with 30 lookups a dead network could keep the scan
+    // "enriching" for minutes after the library itself was already usable.
+    final deadline = DateTime.now().add(_enrichmentDeadline);
 
     for (final item in candidates) {
       if (lookedUp >= _maximumLookupsPerScan) break;
+      if (DateTime.now().isAfter(deadline)) break;
       if (!await store.shouldRetry(item)) continue;
 
       if (_usesTmdb(item) && tmdbReadToken.isEmpty) {

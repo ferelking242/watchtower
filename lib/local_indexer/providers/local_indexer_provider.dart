@@ -134,6 +134,7 @@ class SmartLibraryScanState {
 @riverpod
 class LocalIndexerScan extends _$LocalIndexerScan {
   StreamSubscription<IndexerStatus>? _statusSub;
+  DateTime? _lastPartialRefresh;
 
   @override
   SmartLibraryScanState build() {
@@ -188,6 +189,17 @@ class LocalIndexerScan extends _$LocalIndexerScan {
             discovered: status.discovered ?? 0,
           ),
         );
+        // Publish results as they land instead of only at the very end: the
+        // writer flushes in batches, so the grid can fill in progressively
+        // while the scan is still running.
+        final now = DateTime.now();
+        final last = _lastPartialRefresh;
+        if (last == null || now.difference(last) > const Duration(seconds: 1)) {
+          _lastPartialRefresh = now;
+          ref.invalidate(localWorksProvider);
+          ref.invalidate(localIndexedCountProvider);
+          ref.invalidate(localIndexedCountByKindProvider);
+        }
       } else if (status.isDone) {
         stats = status.stats;
       }

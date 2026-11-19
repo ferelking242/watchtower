@@ -185,5 +185,80 @@ void main() {
       expect(files.single.extension, '.mp4');
       expect(files.single.analysisName, 'Film.2020.mp4');
     });
+
+    test('MediaStore rows pass the same size, duration and name gates',
+        () async {
+      // MediaStore returns thumbnails, ringtones and screen recordings too.
+      // A 2 MB clip, a 30-second video and a "sample" are not films.
+      final entries = [
+        MediaStoreEntry(
+          path: 'content://media/external/video/media/1',
+          size: 2 * 1024 * 1024,
+          modifiedAt: 0,
+          displayName: 'TinyClip.mp4',
+          duration: 90 * 60 * 1000,
+        ),
+        MediaStoreEntry(
+          path: 'content://media/external/video/media/2',
+          size: 800 * 1024 * 1024,
+          modifiedAt: 0,
+          displayName: 'ShortClip.mp4',
+          duration: 30 * 1000,
+        ),
+        MediaStoreEntry(
+          path: 'content://media/external/video/media/3',
+          size: 800 * 1024 * 1024,
+          modifiedAt: 0,
+          displayName: 'Film.sample.mkv',
+          duration: 90 * 60 * 1000,
+        ),
+        MediaStoreEntry(
+          path: 'content://media/external/video/media/4',
+          size: 800 * 1024 * 1024,
+          modifiedAt: 0,
+          displayName: 'Interstellar.2014.1080p.mkv',
+          duration: 169 * 60 * 1000,
+        ),
+      ];
+
+      final policy = ScanPolicy.videos();
+      final kept = entries.where((entry) {
+        if (entry.size < policy.minimumFileSize) return false;
+        if (policy.minimumDurationMs > 0 &&
+            entry.duration != null &&
+            entry.duration! < policy.minimumDurationMs) {
+          return false;
+        }
+        return !policy.rejectsName(entry.displayName ?? entry.path);
+      }).toList();
+
+      expect(kept, hasLength(1));
+      expect(kept.single.displayName, 'Interstellar.2014.1080p.mkv');
+    });
+
+    test('video discovery does not need a filesystem walk when MediaStore '
+        'already returned rows', () async {
+      // The whole point of the MediaStore-first path: an empty root list must
+      // still surface the rows instead of throwing or scanning the device.
+      final entries = [
+        const DiscoveredFile(
+          path: 'content://media/external/video/media/7',
+          size: 900 * 1024 * 1024,
+          modifiedAt: 0,
+          extension: '.mkv',
+          analysisName: 'Breaking.Bad.S01E03.mkv',
+        ),
+      ];
+
+      final files = <DiscoveredFile>[];
+      await for (final batch in DiscoveryStage(
+        policy: ScanPolicy.videos(),
+      ).discover(const [], additionalFiles: entries)) {
+        files.addAll(batch);
+      }
+
+      expect(files, hasLength(1));
+      expect(files.single.analysisName, 'Breaking.Bad.S01E03.mkv');
+    });
   });
 }

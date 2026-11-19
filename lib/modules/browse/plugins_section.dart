@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/modules/browse/marketplace_palette.dart';
+import 'package:watchtower/models/manga.dart' show ItemType;
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/more/widgets/binaries_section.dart';
 import 'package:watchtower/providers/storage_provider.dart';
@@ -230,6 +231,17 @@ class _PluginsSectionState extends State<PluginsSection> {
               child: Text(l10n.plugins_action_open),
             ),
             color: Colors.indigo,
+          ),
+          _card(
+            icon: Icons.music_note_rounded,
+            title: l10n.smart_library_music_title,
+            description: l10n.plugins_smart_library_description,
+            trailing: OutlinedButton(
+              onPressed: () =>
+                  context.push('/smartLibrary', extra: ItemType.music),
+              child: Text(l10n.plugins_action_open),
+            ),
+            color: Colors.pink,
           ),
           _sectionHeader(l10n.plugins_section_engines, Icons.memory_rounded),
           _card(

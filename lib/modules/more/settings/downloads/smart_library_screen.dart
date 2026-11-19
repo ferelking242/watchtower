@@ -80,9 +80,16 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
   _SmartLibraryFilter _filter = _SmartLibraryFilter.all;
   bool _starting = false;
 
+  /// Which scanner this screen drives. The route may pin it (opened from the
+  /// Music tab), otherwise the user picks between Watch, Manga and Music here
+  /// — previously the screen was always in Watch mode, so music and manga
+  /// could never be scanned from the Smart Library entry point.
+  late ItemType _itemType;
+
   @override
   void initState() {
     super.initState();
+    _itemType = widget.itemType ?? ItemType.anime;
     // Opening the library used to leave the grid empty until the user found
     // the refresh button, which read as "the scan does nothing". Kick off an
     // incremental scan once on first build; the cache makes it cheap.
@@ -91,8 +98,8 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     });
   }
 
-  bool get _isManga => widget.itemType == ItemType.manga;
-  bool get _isMusic => widget.itemType == ItemType.music;
+  bool get _isManga => _itemType == ItemType.manga;
+  bool get _isMusic => _itemType == ItemType.music;
 
   /// Directories that are worth walking for media.
   ///
@@ -198,6 +205,16 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     }
   }
 
+  /// Switches the scanner and rescans with the new mode.
+  Future<void> _switchType(ItemType type) async {
+    if (type == _itemType) return;
+    setState(() {
+      _itemType = type;
+      _filter = _SmartLibraryFilter.all;
+    });
+    await _scan(fullRescan: false);
+  }
+
   bool _kindAllowed(LocalMediaKind kind) {
     if (kind == LocalMediaKind.novel) return false;
     if (_isMusic) {
@@ -285,6 +302,11 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
               onScan: () => _scan(fullRescan: false),
               onFullRescan: () => _scan(fullRescan: true),
             ),
+            if (widget.itemType == null)
+              _TypeSelector(
+                selected: _itemType,
+                onChanged: _switchType,
+              ),
             if (scan.isBusy)
               _ScanProgressBar(
                 phase: scan.phase,
@@ -355,6 +377,51 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
 }
 
 // ── Header ────────────────────────────────────────────────────────────────────
+
+/// Segmented Watch / Manga / Music selector.
+///
+/// Without it the Smart Library entry point was hard-wired to Watch, so music
+/// and manga were unreachable from the plugin page.
+class _TypeSelector extends StatelessWidget {
+  final ItemType selected;
+  final ValueChanged<ItemType> onChanged;
+
+  const _TypeSelector({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      child: SegmentedButton<ItemType>(
+        showSelectedIcon: false,
+        style: const ButtonStyle(
+          visualDensity: VisualDensity.compact,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        segments: [
+          ButtonSegment(
+            value: ItemType.anime,
+            icon: const Icon(Broken.video_play, size: 16),
+            label: Text(l10n.watch),
+          ),
+          ButtonSegment(
+            value: ItemType.manga,
+            icon: const Icon(Broken.book, size: 16),
+            label: Text(l10n.manga),
+          ),
+          ButtonSegment(
+            value: ItemType.music,
+            icon: const Icon(Broken.musicnote, size: 16),
+            label: Text(l10n.catalog_tab_music),
+          ),
+        ],
+        selected: {selected},
+        onSelectionChanged: (selection) => onChanged(selection.first),
+      ),
+    );
+  }
+}
 
 class _Header extends StatelessWidget {
   final String title;

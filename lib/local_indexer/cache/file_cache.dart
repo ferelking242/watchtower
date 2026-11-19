@@ -165,8 +165,11 @@ class FileCache {
       // evicting them here would drop a valid file's cache entry each scan.
       if (e.filePath.startsWith('content://')) continue;
       final extension = p.extension(e.filePath).toLowerCase();
-      if ((extensions == null || extensions.contains(extension)) &&
-          !File(e.filePath).existsSync()) {
+      if (extensions != null && !extensions.contains(extension)) continue;
+      // Async stat, not existsSync: a full library is tens of thousands of
+      // rows, and blocking the UI isolate for each one froze the app long
+      // enough for Android to kill it mid-scan.
+      if (!await File(e.filePath).exists()) {
         toDelete.add(e.id);
         _ramCache.remove(e.filePath);
         _accessOrder.remove(e.filePath);

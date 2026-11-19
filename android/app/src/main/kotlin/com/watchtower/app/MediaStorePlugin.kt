@@ -72,27 +72,30 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     // ── MethodCall handler ───────────────────────────────────────────────────
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        // MediaStore queries walk tens of thousands of rows; running them on
+        // the platform thread freezes the UI (and can trigger an ANR) for
+        // seconds. VLC/PlayIt read MediaStore off the main thread, which is
+        // why they list a full library almost instantly.
         when (call.method) {
-            "queryVideos" -> {
-                try {
-                    result.success(queryVideos())
-                } catch (e: Exception) {
-                    result.error("QUERY_VIDEOS_FAILED", e.message, null)
-                }
-            }
-            "queryImages" -> {
-                try {
-                    result.success(queryImages())
-                } catch (e: Exception) {
-                    result.error("QUERY_IMAGES_FAILED", e.message, null)
-                }
-            }
-            "queryAudio" -> {
-                try {
-                    result.success(queryAudio())
-                } catch (e: Exception) {
-                    result.error("QUERY_AUDIO_FAILED", e.message, null)
-                }
+            "queryVideos", "queryImages", "queryAudio" -> {
+                Thread {
+                    try {
+                        val rows = when (call.method) {
+                            "queryVideos" -> queryVideos()
+                            "queryImages" -> queryImages()
+                            else -> queryAudio()
+                        }
+                        Handler(Looper.getMainLooper()).post { result.success(rows) }
+                    } catch (e: Exception) {
+                        Handler(Looper.getMainLooper()).post {
+                            result.error(
+                                "${call.method}_FAILED",
+                                e.message,
+                                null
+                            )
+                        }
+                    }
+                }.start()
             }
             else -> result.notImplemented()
         }

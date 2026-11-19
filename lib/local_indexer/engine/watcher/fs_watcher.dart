@@ -121,14 +121,26 @@ class FsWatcher {
     r'\.(mkv|mp4|avi|mov|flv|wmv|mpeg|mpg|ts|m2ts|mts|webm|m4v|3gp)$',
     caseSensitive: false,
   );
+  static final _audioExts = RegExp(
+    r'\.(mp3|m4a|aac|flac|opus|ogg|oga|wav|wma|alac|aiff|aif|ape|wv|mka)$',
+    caseSensitive: false,
+  );
   static final _mangaArchiveExts = RegExp(
     r'\.(cbz|cbr|cbt|cb7|zip)$',
     caseSensitive: false,
   );
   bool _isMediaFile(String path) {
-    if (mode == LocalScanMode.videos) return _videoExts.hasMatch(path);
-    return _mangaArchiveExts.hasMatch(path) &&
-        (!_isZip(path) || DiscoveryStage.isLikelyMangaPath(path));
+    switch (mode) {
+      case LocalScanMode.videos:
+        return _videoExts.hasMatch(path);
+      case LocalScanMode.music:
+        // Music mode used to fall through to the manga branch, so a track
+        // dropped on the device was never picked up live.
+        return _audioExts.hasMatch(path);
+      case LocalScanMode.manga:
+        return _mangaArchiveExts.hasMatch(path) &&
+            (!_isZip(path) || DiscoveryStage.isLikelyMangaPath(path));
+    }
   }
 
   bool _isZip(String path) => p.extension(path).toLowerCase() == '.zip';
