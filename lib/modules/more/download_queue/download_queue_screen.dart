@@ -17,6 +17,7 @@ import 'package:watchtower/modules/more/download_queue/download_queue_rows.dart'
 import 'package:watchtower/modules/more/download_queue/download_queue_progress.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/download_manager/host_cooldown_registry.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/services/download_manager/archive_progress_store.dart';
 import 'package:watchtower/services/download_manager/download_failure_store.dart';
@@ -57,10 +58,17 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   /// Bumped on every challenge tap so re-tapping the same chapter re-scrolls.
   int _focusToken = 0;
 
+  /// Rebuilds the rate-limit banners once a second so the remaining time counts
+  /// down without the page having to poll the registry itself.
+  Timer? _cooldownTicker;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    _cooldownTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
     // A tapped challenge notification opens this screen *and* queues a focus;
     // pick it up whether it arrived before or after we mounted.
     ChallengeInbox.instance.target.addListener(_handleChallengeTarget);
@@ -124,6 +132,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   @override
   void dispose() {
     ChallengeInbox.instance.target.removeListener(_handleChallengeTarget);
+    _cooldownTicker?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -714,6 +723,19 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
           ref,
           id,
           MediaDownloadNotificationAction.retry,
+        ),
+      );
+      return;
+    }
+    // A failed or rate-limited row is not "playing", so the toggle must resume
+    // it. Treating it as running sent `pause` instead, which wrote status
+    // "paused" over the failure and left the row looking stuck forever.
+    if (element.status == 'failed' || element.status == 'rate_limited') {
+      unawaited(
+        handleMediaDownloadNotificationAction(
+          ref,
+          id,
+          MediaDownloadNotificationAction.resume,
         ),
       );
       return;
@@ -2255,6 +2277,61 @@ class _OptionTile extends StatelessWidget {
 }
 
 // ──────────────────────────────────────────────────────────────
+// Rate-limit notice
+// ──────────────────────────────────────────────────────────────
+
+/// Banner shown above a source's logo while its host is rate limiting us.
+///
+/// Kept visually calm (amber, small) because it is an expected, self-healing
+/// state: the queue resumes on its own when the countdown reaches zero.
+class _RateLimitNotice extends StatelessWidget {
+  final Duration remaining;
+  const _RateLimitNotice({required this.remaining});
+
+  @override
+  Widget build(BuildContext context) {
+    final seconds = remaining.inSeconds.clamp(0, 1 << 31);
+    final label = seconds >= 60
+        ? '${(seconds / 60).ceil()} min'
+        : '$seconds s';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.amber.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.hourglass_top_rounded,
+              size: 14,
+              color: Colors.amber,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                context.l10n.queue_rate_limited(label),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.amber,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
 // Tab Badge
 // ──────────────────────────────────────────────────────────────
 
@@ -2628,6 +2705,13 @@ class _GroupedDownloadTabListState
           return _queueState.pausedIds.contains(id) || item.status == 'paused';
         });
 
+    // While the source is cooling down after a rate limit, say so above the
+    // logo: a batch that stops dead looks broken otherwise, and the countdown
+    // makes it obvious that it will resume on its own.
+    final cooldownLeft = HostCooldownRegistry.instance.remaining(
+      HostCooldownRegistry.keyForSource(src),
+    );
+
     return Dismissible(
       key: ValueKey('src_swipe_$src'),
       direction: DismissDirection.horizontal,
@@ -2688,75 +2772,83 @@ class _GroupedDownloadTabListState
                   ),
                 ),
               ),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: sourceIconUrl?.isNotEmpty == true
-                        ? cachedNetworkImage(
-                            imageUrl: sourceIconUrl!,
-                            fit: BoxFit.contain,
-                            width: 28,
-                            height: 28,
-                            useCustomNetworkImage: false,
-                            errorWidget: Icon(
-                              sourceFallbackIcon,
-                              size: 15,
-                              color: scheme.primary,
-                            ),
-                          )
-                        : Icon(
-                            sourceFallbackIcon,
-                            size: 15,
-                            color: scheme.primary,
+                  if (cooldownLeft != null && !cooldownLeft.isNegative)
+                    _RateLimitNotice(remaining: cooldownLeft),
+                  Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: sourceIconUrl?.isNotEmpty == true
+                            ? cachedNetworkImage(
+                                imageUrl: sourceIconUrl!,
+                                fit: BoxFit.contain,
+                                width: 28,
+                                height: 28,
+                                useCustomNetworkImage: false,
+                                errorWidget: Icon(
+                                  sourceFallbackIcon,
+                                  size: 15,
+                                  color: scheme.primary,
+                                ),
+                              )
+                            : Icon(
+                                sourceFallbackIcon,
+                                size: 15,
+                                color: scheme.primary,
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _displayName(src),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: scheme.onSurface,
                           ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _displayName(src),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurface,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${unfinished.length}',
-                      style: TextStyle(
-                        color: scheme.primary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${unfinished.length}',
+                          style: TextStyle(
+                            color: scheme.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  AnimatedRotation(
-                    turns: isCollapsed ? -0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 20,
-                      color: scheme.onSurfaceVariant,
-                    ),
+                      const SizedBox(width: 6),
+                      AnimatedRotation(
+                        turns: isCollapsed ? -0.25 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Icon(
+                          Icons.expand_more_rounded,
+                          size: 20,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -3597,6 +3689,7 @@ class _DownloadCard extends ConsumerWidget {
 
     // Queued behind a concurrency limit or Wi-Fi gate: nothing is happening yet,
     // so the card shows a grey "waiting" state instead of an active transfer.
+    final isRateLimited = !isComplete && download.status == 'rate_limited';
     final isWaiting =
         !isComplete &&
         !hasFailed &&
@@ -3605,7 +3698,8 @@ class _DownloadCard extends ConsumerWidget {
         !isCompressing &&
         (download.status == 'queued' ||
             download.status == 'waiting_wifi' ||
-            download.status == 'waiting_network');
+            download.status == 'waiting_network' ||
+            isRateLimited);
 
     final String statusText;
     if (isCompressing) {
@@ -3625,6 +3719,8 @@ class _DownloadCard extends ConsumerWidget {
       statusText = context.l10n.queue_status_canceled;
     } else if (isPaused) {
       statusText = context.l10n.queue_status_paused;
+    } else if (isRateLimited) {
+      statusText = context.l10n.queue_status_rate_limited;
     } else if (isWaiting) {
       statusText = context.l10n.queue_status_waiting;
     } else {
@@ -3640,6 +3736,8 @@ class _DownloadCard extends ConsumerWidget {
         ? Colors.redAccent
         : isPaused
         ? Colors.orange
+        : isRateLimited
+        ? Colors.amber
         : isWaiting
         ? scheme.onSurfaceVariant
         : scheme.onSurface.withValues(alpha: 0.54);

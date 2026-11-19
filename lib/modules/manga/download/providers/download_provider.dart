@@ -124,9 +124,13 @@ bool _isRateLimitError(Object error) {
       text.contains('rate limit');
 }
 
-/// Clears the cooldown for the host(s) behind [pageUrls] after a success.
-void _clearHostCooldown(List<PageUrl> pageUrls) {
-  for (final page in pageUrls) {
+/// Clears the cooldown for the source (and page hosts) after a success.
+///
+/// Keyed like [_recordHostCooldownFromError] so a success actually lifts the
+/// hold the dispatch loop is checking.
+void _clearHostCooldown(String source, {List<PageUrl>? pageUrls}) {
+  HostCooldownRegistry.instance.registerSuccess(HostCooldownRegistry.keyForSource(source));
+  for (final page in pageUrls ?? const <PageUrl>[]) {
     final host = Uri.tryParse(page.url)?.host;
     if (host != null && host.isNotEmpty) {
       HostCooldownRegistry.instance.registerSuccess(host);
@@ -134,10 +138,17 @@ void _clearHostCooldown(List<PageUrl> pageUrls) {
   }
 }
 
-/// Puts the host(s) behind [pageUrls] into cooldown after a rate-limit
-/// failure, so the queue stops feeding that host new chapters until its
-/// window expires instead of failing every remaining chapter in the batch.
-void _recordHostCooldownFromError(List<PageUrl> pageUrls, Object error) {
+/// Puts the source behind this download into cooldown after a rate-limit
+/// failure, so the queue stops feeding it until the window expires.
+///
+/// [source] is the extension name, which is what the dispatch loop gates on.
+/// Page hosts are recorded too, for diagnostics and for hosts shared by
+/// several extensions.
+void _recordHostCooldownFromError(
+  Object error, {
+  required String source,
+  List<PageUrl>? pageUrls,
+}) {
   if (!_isRateLimitError(error)) return;
   // The server's own hint beats our guess when it gave one.
   final hint = error is DownloadPoolFailure
@@ -145,22 +156,22 @@ void _recordHostCooldownFromError(List<PageUrl> pageUrls, Object error) {
       : error is DownloadPoolException
       ? error.retryAfter
       : null;
-  final hosts = <String>{};
-  for (final page in pageUrls) {
+  final key = HostCooldownRegistry.keyForSource(source);
+  final cooldown = HostCooldownRegistry.instance.registerFailure(
+    key,
+    retryAfter: hint,
+  );
+  AppLogger.log(
+    '[cooldown] $key rate limited; pausing new downloads for '
+    '${cooldown.inSeconds}s',
+    logLevel: LogLevel.warning,
+    tag: LogTag.download,
+  );
+  for (final page in pageUrls ?? const <PageUrl>[]) {
     final host = Uri.tryParse(page.url)?.host;
-    if (host != null && host.isNotEmpty) hosts.add(host);
-  }
-  for (final host in hosts) {
-    final cooldown = HostCooldownRegistry.instance.registerFailure(
-      host,
-      retryAfter: hint,
-    );
-    AppLogger.log(
-      '[cooldown] $host rate limited; pausing new downloads for '
-      '${cooldown.inSeconds}s',
-      logLevel: LogLevel.warning,
-      tag: LogTag.download,
-    );
+    if (host != null && host.isNotEmpty && host != key) {
+      HostCooldownRegistry.instance.registerFailure(host, retryAfter: hint);
+    }
   }
 }
 
@@ -259,6 +270,27 @@ void _setDownloadStatus(int? id, String status) {
     // Une entrée corrompue / migration non jouée peut lever un RangeError
     // lors de la désérialisation. On ignore silencieusement : l'important est
     // de ne pas faire planter la boucle de téléchargement.
+  }
+}
+
+/// Parks a row as rate-limited: kept in the queue (so the scheduler can resume
+/// it automatically once the source's cooldown expires) but marked with a
+/// dedicated status so the UI can show why nothing is moving.
+void _markRateLimited(int? id) {
+  if (id == null) return;
+  try {
+    final download = isar.downloads.getSync(id);
+    if (download == null || download.isDownload == true) return;
+    isar.writeTxnSync(() {
+      isar.downloads.putSync(
+        download
+          ..isDownload = false
+          ..isStartDownload = true
+          ..status = 'rate_limited',
+      );
+    });
+  } catch (_) {
+    // Same policy as [_setDownloadStatus]: a corrupt row must not break the queue.
   }
 }
 
@@ -372,7 +404,15 @@ Future<void> _handleMediaDownloadNotificationAction(
         await notifications.cancelMediaDownloadNotification(chapterId);
         return;
       }
-      if (!isPaused || download.status == 'cancelled') return;
+      if (download.status == 'cancelled') return;
+      // Only a paused row used to be resumable, so resuming a failed or
+      // rate-limited one silently did nothing — the "resume never restarts"
+      // report. Both are stopped states and must be re-queued here.
+      if (!isPaused &&
+          download.status != 'failed' &&
+          download.status != 'rate_limited') {
+        return;
+      }
       // Resume keeps the existing succeeded/total/downloadedBytes offsets so
       // the transfer continues where it stopped instead of restarting at 0.
       notifier.setPaused(chapterId, false, updateEngine: false);
@@ -1119,6 +1159,9 @@ const _pendingDownloadStatuses = {
   'waiting_network',
   'fetching_metadata',
   'initializing',
+  // Held by a source cooldown rather than by the user. Stays pending so the
+  // scheduler resumes it automatically once the rate limit expires.
+  'rate_limited',
 };
 
 const _terminalDownloadStatuses = {'paused', 'failed', 'cancelled', 'completed'};
@@ -1341,6 +1384,32 @@ Future<void> downloadChapter(
       keepAlive.close();
       return;
     }
+    // Canonical source name. The queue scheduler gates dispatching on
+    // `manga.source`, so every cooldown record/clear in this worker must use
+    // the same value or the gate can never match.
+    final sourceName = manga.source ?? '_unknown';
+
+    // Hard rate-limit hold. The scheduler already refuses to dispatch a
+    // cooling-down source, but a forced start (retry button, notification
+    // action, a queued row that survived a restart) bypasses that loop. Refuse
+    // here too: park the row as rate-limited and let the scheduler auto-resume
+    // it once the window expires.
+    final cooldownLeft = HostCooldownRegistry.instance.remaining(
+      HostCooldownRegistry.keyForSource(sourceName),
+    );
+    if (cooldownLeft != null && !cooldownLeft.isNegative) {
+      AppLogger.log(
+        '[ch:$chapterId] source=$sourceName rate limited '
+        '(${cooldownLeft.inSeconds}s left); start refused',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+      );
+      _markRateLimited(chapterId);
+      ActiveDownloadRegistry.unregister(chapterId ?? -1);
+      callback?.call();
+      keepAlive.close();
+      return;
+    }
     // Do NOT call requestPermission() here — permission is granted during
     // onboarding. Calling it at download time shows a system dialog mid-session.
     final mangaMainDirectory = await storageProvider.getMangaMainDirectory(chapter);
@@ -1508,6 +1577,7 @@ Future<void> downloadChapter(
 
     Future<void> setProgress(DownloadProgress progress) async {
       final currentDownload = chapterId == null ? null : isar.downloads.getSync(chapterId);
+      if (chapterId != null) ActiveDownloadRegistry.heartbeat(chapterId);
       if (currentDownload?.status == 'paused' || currentDownload?.status == 'cancelled') {
         return;
       }
@@ -2405,6 +2475,17 @@ Future<void> downloadChapter(
         tag: LogTag.download,
       );
       log('[downloadChapter] aborting — fetch error: $fetchError');
+      // A rate-limited extension refuses the *metadata* call (getChapterPages /
+      // getVideoList), before any page URL exists. Without recording the
+      // cooldown here, the queue fed the throttled source the next chapter on
+      // the very next tick — which is why chapter ~20 onwards all failed while
+      // the first ones succeeded. pageUrls is empty at this point, so the key
+      // is the source name, which is exactly what the scheduler checks.
+      _recordHostCooldownFromError(
+        fetchError!,
+        source: sourceName,
+        pageUrls: pageUrls,
+      );
       // Rendre l'échec visible : sinon l'icône revenait à son état initial et
       // l'utilisateur croyait que le bouton n'avait rien fait.
       _notifyDownloadFailure(fetchError!);
@@ -2429,7 +2510,10 @@ Future<void> downloadChapter(
           sourceName: manga.source,
         );
       }
-      if (chapter.id != null) {
+      // A rate-limited row is waiting, not broken: don't fire the "download
+      // failed" notification for it, or a long batch would spam one per chapter.
+      final rateLimited = _isRateLimitError(fetchError);
+      if (chapter.id != null && !rateLimited) {
         unawaited(
           WatchtowerNotificationService.instance.markMediaDownloadFailed(
             chapter.id!,
@@ -2439,6 +2523,10 @@ Future<void> downloadChapter(
           ),
         );
       }
+      // Parking a rate-limited source as 'failed' made it terminal, so the
+      // queue dropped it and only a manual retry could bring it back. Keep it
+      // pending as 'rate_limited' instead: the scheduler skips it while the
+      // cooldown lasts and picks it up by itself afterwards.
       // Use writeTxnSync + getSync/putSync — never mix sync ops inside
       // async writeTxn; that nests an implicit read-txn inside the write-txn
       // and causes "Cannot perform this operation from within an active
@@ -2450,12 +2538,12 @@ Future<void> downloadChapter(
           if (dl != null) {
             isar.downloads.putSync(
               dl
-                ..failed = (dl.failed ?? 0) + 1
+                ..failed = (dl.failed ?? 0) + (rateLimited ? 0 : 1)
                 ..isDownload = false
-                ..status = 'failed'
+                ..status = rateLimited ? 'rate_limited' : 'failed'
                 // Stop processDownloads from re-queuing this chapter on every
                 // 900ms tick.  The user can retry manually from the queue UI.
-                ..isStartDownload = false,
+                ..isStartDownload = !rateLimited,
             );
           }
         } catch (_) {
@@ -2833,9 +2921,9 @@ Future<void> downloadChapter(
           // is idempotent (processConvert skips if the archive already exists).
           if (!interruptedByQueueAction) {
             await setProgress(DownloadProgress(1, 1, itemType, isCompleted: true));
-            // A full chapter landed, so the host is serving us again: clear any
-            // cooldown so the rest of the batch is not held back needlessly.
-            _clearHostCooldown(pageUrls);
+            // A full chapter landed, so the source is serving us again: clear
+            // any cooldown so the rest of the batch is not held back needlessly.
+            _clearHostCooldown(sourceName, pageUrls: pageUrls);
             if (chapter.id != null) {
               DownloadFailureStore.instance.clear(chapter.id!);
             }
@@ -2857,7 +2945,7 @@ Future<void> downloadChapter(
               failure: preempted ? null : e,
             );
           }
-          _recordHostCooldownFromError(pageUrls, e);
+          _recordHostCooldownFromError(e, source: sourceName, pageUrls: pageUrls);
           log(
             '[downloadChapter][manga] FAILED chapterId=${chapter.id} '
             'errorType=${e.runtimeType}',
@@ -3205,26 +3293,34 @@ Future<void> downloadChapter(
     // Without this, any uncaught exception leaves the chapter as
     // isDownload=false + isStartDownload=true in Isar → infinite retry loop.
     if (chapter.id != null) {
-      unawaited(
-        WatchtowerNotificationService.instance.markMediaDownloadFailed(
-          chapter.id!,
-          seriesTitle: mangaForRegistry?.name ?? chapter.name ?? '',
-          chapterTitle: chapter.name ?? 'Téléchargement',
-          itemType: mangaForRegistry?.itemType.name ?? ItemType.manga.name,
-        ),
-      );
+      // A rate limit is a temporary "come back later", not a broken chapter:
+      // park it as rate_limited so the scheduler resumes it once the cooldown
+      // expires, instead of dropping it until the user retries by hand.
+      final rateLimited = _isRateLimitError(e);
+      if (!rateLimited) {
+        unawaited(
+          WatchtowerNotificationService.instance.markMediaDownloadFailed(
+            chapter.id!,
+            seriesTitle: mangaForRegistry?.name ?? chapter.name ?? '',
+            chapterTitle: chapter.name ?? 'Téléchargement',
+            itemType: mangaForRegistry?.itemType.name ?? ItemType.manga.name,
+          ),
+        );
+      }
       try {
         final dl = isar.downloads.getSync(chapter.id!);
         if (dl != null) {
           isar.writeTxnSync(() {
             isar.downloads.putSync(
               dl
-                ..failed = 1
+                ..failed = rateLimited ? (dl.failed ?? 0) : 1
                 ..isDownload = false
-                ..status = 'failed'
+                ..status = rateLimited ? 'rate_limited' : 'failed'
                 // Stop infinite retry — leave isStartDownload=false so
                 // processDownloads skips this chapter until user retries.
-                ..isStartDownload = false,
+                // A rate-limited row is the exception: it must stay startable
+                // so the scheduler picks it up when the cooldown lifts.
+                ..isStartDownload = rateLimited,
             );
           });
         }
@@ -3443,6 +3539,19 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         // runtime ("Property does not support this filter"). Read the
         // collection and apply the same predicate in Dart.
         final ongoingRaw = isar.downloads.where().findAllSync().where(_isPendingDownload).toList();
+
+        // Release registry entries whose worker died without unregistering.
+        // A paused/cancelled worker is kept registered until its own `finally`
+        // runs; if that never happens the chapter is skipped forever and the
+        // queue silently stalls on one row.
+        final reaped = ActiveDownloadRegistry.reapGhosts();
+        for (final id in reaped) {
+          AppLogger.log(
+            '[ch:$id] worker stopped reporting; released its queue slot',
+            logLevel: LogLevel.warning,
+            tag: LogTag.download,
+          );
+        }
 
         final stalePendingRows = <Download>[];
         for (final dl in ongoingRaw) {
@@ -3795,12 +3904,14 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           }
 
           // A source that just rate-limited us must not receive the next
-          // chapter: without this the queue re-feeds a throttled host on every
-          // tick, so every remaining chapter in a long batch fails the same
-          // way until the host's window expires on its own.
-          if (HostCooldownRegistry.instance.isCoolingDown(chSrc)) {
+          // chapter: without this the queue re-feeds a throttled source on
+          // every tick, so every remaining chapter in a long batch fails the
+          // same way until the source's window expires on its own.
+          final cooldownKey = HostCooldownRegistry.keyForSource(chSrc);
+          if (HostCooldownRegistry.instance.isCoolingDown(cooldownKey)) {
             final left =
-                HostCooldownRegistry.instance.remaining(chSrc)?.inSeconds ?? 0;
+                HostCooldownRegistry.instance.remaining(cooldownKey)?.inSeconds ??
+                0;
             final chapterId = chapter.id;
             if (chapterId != null && loggedCooldowns.add(chapterId)) {
               AppLogger.log(
@@ -3809,6 +3920,9 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
                 logLevel: LogLevel.info,
                 tag: LogTag.download,
               );
+              // Surface the hold on the row itself, so a queued batch shows
+              // "rate limited" instead of looking stuck for no reason.
+              _markRateLimited(chapterId);
             }
             continue;
           }
@@ -3821,10 +3935,10 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
 
           if (d.status == 'waiting_wifi' ||
               d.status == 'waiting_network' ||
+              d.status == 'rate_limited' ||
               d.status == 'queued') {
             _setDownloadStatus(d.id, 'fetching_metadata');
           }
-
           AppLogger.log(
             'Queue dispatch [ch:${chapter.id}] type=${type.name} '
             'source=$chSrc active=$curType/$tLimit sourceActive=$curSrc/$sLimit '

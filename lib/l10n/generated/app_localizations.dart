@@ -12521,6 +12521,12 @@ abstract class AppLocalizations {
   /// **'Transfer'**
   String get queue_transfer;
 
+  /// Shown above a download source while its host rate limits us. The placeholder is a countdown such as 45 s or 3 min.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate limited by the source · resuming in {remaining}'**
+  String queue_rate_limited(Object remaining);
+
   /// No description provided for @queue_quick_actions.
   ///
   /// In en, this message translates to:
@@ -12562,6 +12568,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Paused'**
   String get queue_status_paused;
+
+  /// No description provided for @queue_status_rate_limited.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate limited'**
+  String get queue_status_rate_limited;
 
   /// No description provided for @queue_status_waiting.
   ///

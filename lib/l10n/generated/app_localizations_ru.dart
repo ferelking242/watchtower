@@ -7152,6 +7152,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get queue_transfer => 'Transfer';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return 'Источник ограничил запросы · возобновление через $remaining';
+  }
+
+  @override
   String get queue_quick_actions => 'Quick actions';
 
   @override
@@ -7171,6 +7176,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get queue_status_paused => 'Paused';
+
+  @override
+  String get queue_status_rate_limited => 'Ограничено';
 
   @override
   String get queue_status_waiting => 'Waiting';

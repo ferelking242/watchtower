@@ -29,6 +29,16 @@ class HostCooldownRegistry {
   static const Duration _baseCooldown = Duration(seconds: 30);
   static const Duration _maxCooldown = Duration(minutes: 15);
 
+  /// Canonical cooldown key for an extension source.
+  ///
+  /// The scheduler gates dispatch on `manga.source` and the UI groups rows by
+  /// the same name, so both must ask the registry about exactly this value.
+  /// (Recording failures per URL host instead meant a host like
+  /// "cdn.example.org" never matched the source name "MangaDex", and no
+  /// cooldown ever fired.)
+  static String keyForSource(String source) =>
+      source.isEmpty ? '_unknown' : source;
+
   /// Cooldown currently in force for [host], or null when it may be used.
   DateTime? cooldownUntil(String host) {
     final until = _until[host];

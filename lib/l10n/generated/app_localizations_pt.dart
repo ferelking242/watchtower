@@ -7138,6 +7138,11 @@ class AppLocalizationsPt extends AppLocalizations {
   String get queue_transfer => 'Transfer';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return 'Limitado pela fonte · retoma em $remaining';
+  }
+
+  @override
   String get queue_quick_actions => 'Quick actions';
 
   @override
@@ -7157,6 +7162,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get queue_status_paused => 'Paused';
+
+  @override
+  String get queue_status_rate_limited => 'Limitado';
 
   @override
   String get queue_status_waiting => 'Waiting';
@@ -19746,6 +19754,11 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
   String get queue_transfer => 'Transfer';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return 'Limitado pela fonte · retoma em $remaining';
+  }
+
+  @override
   String get queue_quick_actions => 'Quick actions';
 
   @override
@@ -19765,6 +19778,9 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get queue_status_paused => 'Paused';
+
+  @override
+  String get queue_status_rate_limited => 'Limitado';
 
   @override
   String get queue_status_waiting => 'Waiting';

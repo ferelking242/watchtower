@@ -184,5 +184,17 @@ void main() {
       expect(registry.registerFailure(''), Duration.zero);
       expect(registry.isCoolingDown(''), isFalse);
     });
+
+    test('the scheduler key and the recorder key are the same value', () {
+      // BUG-A: dispatch gated on the page host while failures were recorded
+      // against the source name, so no cooldown ever matched and a throttled
+      // source kept receiving every queued chapter.
+      expect(HostCooldownRegistry.keyForSource('MangaDex'), 'MangaDex');
+      expect(HostCooldownRegistry.keyForSource(''), '_unknown');
+      final registry = HostCooldownRegistry.instance;
+      final key = HostCooldownRegistry.keyForSource('MangaDex');
+      registry.registerFailure(key);
+      expect(registry.isCoolingDown(HostCooldownRegistry.keyForSource('MangaDex')), isTrue);
+    });
   });
 }

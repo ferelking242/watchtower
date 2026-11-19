@@ -2426,6 +2426,13 @@
   "queue_download_finished": "Download finished",
   "queue_received": "{size} received",
   "queue_transfer": "Transfer",
+  "queue_rate_limited": "Rate limited by the source · resuming in {remaining}",
+  "@queue_rate_limited": {
+    "description": "Shown above a download source while its host rate limits us. The placeholder is a countdown such as 45 s or 3 min.",
+    "placeholders": {
+      "remaining": {}
+    }
+  },
   "queue_quick_actions": "Quick actions",
   "queue_start": "Start",
   "queue_retry": "Retry",
@@ -2433,6 +2440,7 @@
   "queue_status_muxing": "Muxing",
   "queue_status_compressing": "Compressing",
   "queue_status_paused": "Paused",
+  "queue_status_rate_limited": "Rate limited",
   "queue_status_waiting": "Waiting",
   "queue_cloudflare_challenge": "Cloudflare challenge — {source}",
   "queue_resume": "Resume",

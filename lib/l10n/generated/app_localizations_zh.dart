@@ -7030,6 +7030,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get queue_transfer => 'Transfer';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return '来源已限流 · $remaining 后恢复';
+  }
+
+  @override
   String get queue_quick_actions => 'Quick actions';
 
   @override
@@ -7049,6 +7054,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get queue_status_paused => 'Paused';
+
+  @override
+  String get queue_status_rate_limited => '限流中';
 
   @override
   String get queue_status_waiting => 'Waiting';

@@ -34,6 +34,12 @@ final downloadTaskCancellation = <String, bool>{};
 /// it receives, preventing stale terminal events from corrupting the new download.
 final _listenerVersion = <String, int>{};
 
+/// Task IDs currently handed to a worker (or waiting in the pool queue).
+///
+/// The registry uses this to tell a live worker from a ghost entry: a paused
+/// task whose worker never drained must not block the chapter forever.
+final _liveTaskIds = <String>{};
+
 /// Shared Isolate pool to optimize performance
 /// Instead of creating a new Isolate for each download,
 /// we use a limited pool of workers that process tasks in queue.
@@ -382,6 +388,7 @@ class DownloadIsolatePool {
       _availableWorkers.remove(workerIndex);
       final worker = _workers[workerIndex];
 
+      _liveTaskIds.add(task.taskId);
       AppLogger.log(
         '[ch:${task.taskId}] pool dispatch worker=$workerIndex '
         'active=$activeWorkers pending=$pendingTasks',
@@ -393,6 +400,7 @@ class DownloadIsolatePool {
           .executeTask(task)
           .then<void>(
             (_) {
+              _liveTaskIds.remove(task.taskId);
               _availableWorkers.add(workerIndex); // Worker is free again
               AppLogger.log(
                 '[ch:${task.taskId}] pool worker=$workerIndex finished '
@@ -403,6 +411,7 @@ class DownloadIsolatePool {
               _processQueue(); // Process the next task
             },
             onError: (Object error, StackTrace stackTrace) {
+              _liveTaskIds.remove(task.taskId);
               _availableWorkers.add(workerIndex);
               AppLogger.log(
                 '[ch:${task.taskId}] pool worker=$workerIndex failed while '
@@ -417,6 +426,13 @@ class DownloadIsolatePool {
           );
     }
   }
+
+  /// Whether [taskId] is still running on a worker or waiting in the pool.
+  ///
+  /// Returns false for a task that was cancelled and whose worker has already
+  /// drained, which is what lets the scheduler retry it immediately instead of
+  /// waiting for a staleness timeout.
+  bool isTaskActive(String taskId) => _liveTaskIds.contains(taskId);
 
   /// Number of pending tasks
   int get pendingTasks => _taskQueue.length;
@@ -433,6 +449,7 @@ class DownloadIsolatePool {
     _taskQueue.clear();
     _availableWorkers.clear();
     downloadTaskCancellation.clear();
+    _liveTaskIds.clear();
     _initialized = false;
     _initializationGate.reset();
   }

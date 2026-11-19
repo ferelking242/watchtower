@@ -7070,6 +7070,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get queue_transfer => 'Transfer';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return 'ソースにより制限中 · $remaining 後に再開';
+  }
+
+  @override
   String get queue_quick_actions => 'Quick actions';
 
   @override
@@ -7089,6 +7094,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get queue_status_paused => 'Paused';
+
+  @override
+  String get queue_status_rate_limited => '制限中';
 
   @override
   String get queue_status_waiting => 'Waiting';

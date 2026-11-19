@@ -117,6 +117,49 @@ void main() {
       expect(ActiveDownloadRegistry.wasInterrupted(downloadId), isFalse);
     });
 
+    test('a ghost entry is reaped so the chapter can restart', () {
+      // BUG-C: a worker that never reaches its `finally` left the registry
+      // entry behind, so the scheduler skipped that chapter on every tick and
+      // the row froze forever.
+      expect(
+        ActiveDownloadRegistry.tryRegisterInternal(
+          downloadId,
+          '$downloadId',
+          itemType: ItemType.manga,
+          source: 'test',
+        ),
+        isTrue,
+      );
+      expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
+
+      // No heartbeat has been seen yet, so the reaper only starts its clock.
+      expect(ActiveDownloadRegistry.reapGhosts(), isEmpty);
+      expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
+
+      final reaped = ActiveDownloadRegistry.reapGhosts(timeout: Duration.zero);
+      expect(reaped, contains(downloadId));
+      expect(ActiveDownloadRegistry.isActive(downloadId), isFalse);
+    });
+
+    test('a heartbeating download is never reaped', () {
+      expect(
+        ActiveDownloadRegistry.tryRegisterInternal(
+          downloadId,
+          '$downloadId',
+          itemType: ItemType.manga,
+          source: 'test',
+        ),
+        isTrue,
+      );
+      ActiveDownloadRegistry.reapGhosts();
+      ActiveDownloadRegistry.heartbeat(downloadId);
+      expect(
+        ActiveDownloadRegistry.reapGhosts(timeout: const Duration(minutes: 10)),
+        isEmpty,
+      );
+      expect(ActiveDownloadRegistry.isActive(downloadId), isTrue);
+    });
+
     test('cancel is idempotent and clears the slot', () {
       expect(
         ActiveDownloadRegistry.tryRegisterInternal(

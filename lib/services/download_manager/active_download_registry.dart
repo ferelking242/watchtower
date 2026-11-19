@@ -39,6 +39,53 @@ class ActiveDownloadRegistry {
   // deliberate preemption from a real error and requeue instead of failing.
   static final _preemptedIds = <int>{};
 
+  // Last moment each download proved it was still alive (registered, or a
+  // progress callback arrived).
+  static final _heartbeat = <int, DateTime>{};
+
+  /// A registered download that has produced no heartbeat for this long is
+  /// treated as a ghost and released.
+  ///
+  /// Why this exists: [pause] deliberately keeps the registry entry until the
+  /// worker unregisters itself. When a cancelled worker never reaches its
+  /// `finally` (stuck on an await that no longer completes), the entry stayed
+  /// forever, so the scheduler skipped that chapter on every tick and logged
+  /// nothing but a single "no eligible item" line — the row spun in the UI and
+  /// never resumed. The threshold is well above the pool's own retry/inactivity
+  /// watchdog so a genuinely slow transfer is never reaped.
+  static const Duration ghostTimeout = Duration(minutes: 10);
+
+  /// Records that [downloadId] is still alive. Called on registration and on
+  /// every progress callback.
+  static void heartbeat(int downloadId) {
+    if (!isActive(downloadId)) return;
+    _heartbeat[downloadId] = DateTime.now();
+  }
+
+  /// Releases registry entries whose worker stopped reporting.
+  ///
+  /// Returns the IDs that were reaped, so the caller can log/requeue them.
+  static List<int> reapGhosts({Duration? timeout}) {
+    final limit = timeout ?? ghostTimeout;
+    final now = DateTime.now();
+    final ghosts = <int>[];
+    for (final id in allActiveIds) {
+      final last = _heartbeat[id];
+      if (last == null) {
+        // Registered but never heartbeated: start the clock now instead of
+        // reaping a download that just claimed its slot.
+        _heartbeat[id] = now;
+        continue;
+      }
+      if (now.difference(last) > limit) ghosts.add(id);
+    }
+    for (final id in ghosts) {
+      unregister(id);
+      _preemptedIds.remove(id);
+    }
+    return ghosts;
+  }
+
   // ── Registration ──────────────────────────────────────────────────────────
 
   /// Register an external engine (e.g. Aria2) for [downloadId].
@@ -53,6 +100,7 @@ class ActiveDownloadRegistry {
     String source = '_unknown',
   }) {
     _interruptedIds.remove(downloadId);
+    _heartbeat[downloadId] = DateTime.now();
     _engines[downloadId] = engine;
     _engineItemType[downloadId] = itemType;
     _engineSource[downloadId] = source;
@@ -70,6 +118,7 @@ class ActiveDownloadRegistry {
     String? source,
   }) {
     _interruptedIds.remove(downloadId);
+    _heartbeat[downloadId] = DateTime.now();
     _internalTaskIds[downloadId] = taskId;
     _internalItemType[downloadId] = itemType ?? ItemType.manga;
     _internalSource[downloadId] = source ?? '_unknown';
@@ -110,6 +159,7 @@ class ActiveDownloadRegistry {
     _internalSource.remove(downloadId);
     _activeOrder.remove(downloadId);
     _interruptedIds.remove(downloadId);
+    _heartbeat.remove(downloadId);
   }
 
   // ── Counting ──────────────────────────────────────────────────────────────
@@ -203,9 +253,18 @@ class ActiveDownloadRegistry {
   static Future<void> resume(int downloadId) async {
     if (_engines.containsKey(downloadId)) {
       await _engines[downloadId]!.resume();
+      return;
     }
     // Internal resume is handled automatically by processDownloads re-querying
-    // Isar on each tick.
+    // Isar on each tick — but only once this entry is gone, and a worker that
+    // never reached its `finally` leaves it behind. If its task is no longer
+    // live in the pool, the entry is a ghost: release it now so the next tick
+    // can restart the chapter, instead of the row sitting idle for the whole
+    // staleness window.
+    final taskId = _internalTaskIds[downloadId];
+    if (taskId != null && !DownloadIsolatePool.instance.isTaskActive(taskId)) {
+      unregister(downloadId);
+    }
   }
 
   /// Cancel and remove the download from the registry.

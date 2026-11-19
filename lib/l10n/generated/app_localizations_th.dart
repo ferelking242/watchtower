@@ -7103,6 +7103,11 @@ class AppLocalizationsTh extends AppLocalizations {
   String get queue_transfer => 'Transfer';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return 'แหล่งที่มาจะจำกัดคำขอ · จะดำเนินการต่อใน $remaining';
+  }
+
+  @override
   String get queue_quick_actions => 'Quick actions';
 
   @override
@@ -7122,6 +7127,9 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get queue_status_paused => 'Paused';
+
+  @override
+  String get queue_status_rate_limited => 'ถูกจำกัด';
 
   @override
   String get queue_status_waiting => 'Waiting';

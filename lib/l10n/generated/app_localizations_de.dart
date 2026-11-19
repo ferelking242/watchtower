@@ -7133,6 +7133,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get queue_transfer => 'Transfer';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return 'Vom Anbieter begrenzt · Fortsetzung in $remaining';
+  }
+
+  @override
   String get queue_quick_actions => 'Quick actions';
 
   @override
@@ -7152,6 +7157,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get queue_status_paused => 'Paused';
+
+  @override
+  String get queue_status_rate_limited => 'Begrenzt';
 
   @override
   String get queue_status_waiting => 'Waiting';

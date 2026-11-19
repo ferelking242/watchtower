@@ -7223,6 +7223,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get queue_transfer => 'Téléchargement';
 
   @override
+  String queue_rate_limited(Object remaining) {
+    return 'Limité par la source · reprise dans $remaining';
+  }
+
+  @override
   String get queue_quick_actions => 'Actions rapides';
 
   @override
@@ -7242,6 +7247,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get queue_status_paused => 'En pause';
+
+  @override
+  String get queue_status_rate_limited => 'Limité par la source';
 
   @override
   String get queue_status_waiting => 'En attente';
