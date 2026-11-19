@@ -183,13 +183,27 @@ class FileCache {
     return toDelete.length;
   }
 
-  /// True when [path] is a platform (`content://`) path the latest MediaStore
-  /// query did not return, i.e. the file was deleted or unmounted.
+  /// True when [path] is a platform (`content://`) path in one of
+  /// [collections] that the latest MediaStore query did not return — the file
+  /// was deleted or its volume was unmounted.
+  ///
+  /// A MediaStore URI looks like `content://media/external/video/media/123`, so
+  /// it carries no file extension; [collections] (`video`, `audio`) is what
+  /// scopes the purge to the mode being scanned. Without that scope a music
+  /// scan, whose query never returns videos, would drop every video row and
+  /// force a full re-analysis on the next Watch scan.
   ///
   /// Kept as a pure function so the rule is testable without opening Isar and
   /// so the engine and the cache cannot disagree about what "stale" means.
-  static bool isStalePlatformPath(String path, Set<String> seen) =>
-      path.startsWith('content://') && !seen.contains(path);
+  static bool isStalePlatformPath(
+    String path,
+    Set<String> seen, {
+    required Set<String> collections,
+  }) {
+    if (!path.startsWith('content://')) return false;
+    if (seen.contains(path)) return false;
+    return collections.any((collection) => path.contains('/$collection/'));
+  }
 
   /// Removes cache rows for `content://` paths that the platform no longer
   /// reports.
@@ -199,11 +213,22 @@ class FileCache {
   /// its cache entry, and since the cache signature never changed, the stale
   /// item was never re-analysed either. [seen] is the exact set of MediaStore
   /// paths the latest query returned: anything else is gone.
-  Future<int> reconcilePlatformPaths(Set<String> seen) async {
+  ///
+  /// [collections] scopes the purge to the mode being scanned; see
+  /// [isStalePlatformPath].
+  Future<int> reconcilePlatformPaths(
+    Set<String> seen, {
+    required Set<String> collections,
+  }) async {
     final all = await _isar.localFileCaches.where().findAll();
     final toDelete = <int>[];
     for (final entry in all) {
-      if (!isStalePlatformPath(entry.filePath, seen)) continue;
+      final stale = isStalePlatformPath(
+        entry.filePath,
+        seen,
+        collections: collections,
+      );
+      if (!stale) continue;
       toDelete.add(entry.id);
       _ramCache.remove(entry.filePath);
       _accessOrder.remove(entry.filePath);

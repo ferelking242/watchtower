@@ -302,10 +302,43 @@ void main() {
       const deleted = 'content://media/external/video/media/2';
       const realFile = '/storage/emulated/0/Movies/film.mkv';
 
-      expect(FileCache.isStalePlatformPath(kept, {kept}), isFalse);
-      expect(FileCache.isStalePlatformPath(deleted, {kept}), isTrue);
+      const videos = {'video'};
+
+      expect(
+        FileCache.isStalePlatformPath(kept, {kept}, collections: videos),
+        isFalse,
+      );
+      expect(
+        FileCache.isStalePlatformPath(deleted, {kept}, collections: videos),
+        isTrue,
+      );
       // A real path is never "stale" here: the filesystem decides for it.
-      expect(FileCache.isStalePlatformPath(realFile, {kept}), isFalse);
+      expect(
+        FileCache.isStalePlatformPath(realFile, {kept}, collections: videos),
+        isFalse,
+      );
+    });
+
+    test('a music scan never purges video rows', () {
+      // The audio query cannot return videos, so an unscoped purge would drop
+      // the whole video cache on every music scan and force a full
+      // re-analysis on the next Watch scan.
+      const video = 'content://media/external/video/media/42';
+      expect(
+        FileCache.isStalePlatformPath(video, const {}, collections: {'audio'}),
+        isFalse,
+      );
+      expect(
+        FileCache.isStalePlatformPath(video, const {}, collections: {'video'}),
+        isTrue,
+      );
+    });
+
+    test('each scan mode maps to its MediaStore collection', () {
+      expect(LocalScanMode.videos.mediaStoreCollection, 'video');
+      expect(LocalScanMode.music.mediaStoreCollection, 'audio');
+      // Manga archives are not in MediaStore, so nothing to reconcile.
+      expect(LocalScanMode.manga.mediaStoreCollection, isNull);
     });
   });
 }

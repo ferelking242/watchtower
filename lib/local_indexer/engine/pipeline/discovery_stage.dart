@@ -3,7 +3,24 @@ import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.
 import 'package:path/path.dart' as p;
 
 /// The three Smart Library scanners are intentionally disjoint.
-enum LocalScanMode { videos, manga, music }
+enum LocalScanMode {
+  videos,
+  manga,
+  music;
+
+  /// MediaStore collection this mode reads, or `null` when the mode has no
+  /// platform index (manga archives are not in MediaStore).
+  ///
+  /// A MediaStore URI has the shape
+  /// `content://media/external/<collection>/media/<id>`, so this is what
+  /// scopes stale-row reconciliation to the mode being scanned instead of
+  /// letting a music scan purge every video.
+  String? get mediaStoreCollection => switch (this) {
+        LocalScanMode.videos => 'video',
+        LocalScanMode.music => 'audio',
+        LocalScanMode.manga => null,
+      };
+}
 
 /// Étape 1 du pipeline : Découverte des fichiers sur le disque.
 ///

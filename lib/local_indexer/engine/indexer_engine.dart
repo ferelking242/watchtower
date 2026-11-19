@@ -206,16 +206,23 @@ class IndexerEngine {
         extensions: policy.allowedExtensions,
       );
       // content:// rows cannot be probed with File.exists(), so they are
-      // reconciled against the MediaStore answer instead.
-      final stalePlatformRows = mediaStore == null
+      // reconciled against the MediaStore answer instead — scoped to the
+      // collection this mode reads, otherwise a music scan would treat every
+      // video as deleted.
+      final collection = mode.mediaStoreCollection;
+      final stalePlatformRows = mediaStore == null || collection == null
           ? 0
           : await _cache.reconcilePlatformPaths(
               mediaStore.files.map((f) => f.path).toSet(),
+              collections: {collection},
             );
       final missingIndexed = await _removeMissingIndexedItems(
         roots,
         extensions: policy.allowedExtensions,
         platformPaths: mediaStore?.files.map((f) => f.path).toSet(),
+        platformCollections: {
+          if (mode.mediaStoreCollection != null) mode.mediaStoreCollection!,
+        },
       );
 
       stopwatch.stop();
@@ -415,6 +422,7 @@ class IndexerEngine {
     List<String> roots, {
     required Set<String> extensions,
     Set<String>? platformPaths,
+    Set<String> platformCollections = const {},
   }) async {
     final items = await _isar.localIndexedItems.where().findAll();
     final normalizedRoots = roots.map(_normalizeRoot).toList();
@@ -425,7 +433,11 @@ class IndexerEngine {
       // instead of the filesystem.
       if (item.filePath.startsWith('content://')) {
         if (platformPaths != null &&
-            FileCache.isStalePlatformPath(item.filePath, platformPaths)) {
+            FileCache.isStalePlatformPath(
+              item.filePath,
+              platformPaths,
+              collections: platformCollections,
+            )) {
           candidates.add(item);
         }
         continue;
