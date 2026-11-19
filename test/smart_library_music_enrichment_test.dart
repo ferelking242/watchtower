@@ -44,6 +44,31 @@ void main() {
       }
     });
 
+    test('platform tags beat the filename', () {
+      // MediaStore already parsed ARTIST/ALBUM/TITLE from the file. A messily
+      // named file must still display its real metadata, and no MusicBrainz
+      // round trip is needed to get there.
+      final result = NameNormalizer.normalize(
+        '/Music/Unknown/01 - track_03_mix_final.mp3',
+        tagTitle: 'Bohemian Rhapsody',
+        tagArtist: 'Queen',
+        tagAlbum: 'A Night at the Opera',
+      );
+      expect(result.kind, LocalMediaKind.music);
+      expect(result.title, 'Bohemian Rhapsody');
+      expect(result.artist, 'Queen');
+      expect(result.album, 'A Night at the Opera');
+    });
+
+    test('an untagged file still falls back to the filename', () {
+      final result = NameNormalizer.normalize(
+        '/Music/Unknown/Queen - Bohemian Rhapsody.mp3',
+      );
+      expect(result.kind, LocalMediaKind.music);
+      expect(result.title, 'Bohemian Rhapsody');
+      expect(result.artist, 'Queen');
+    });
+
     test('a titled track clears the music floor', () {
       final result = NameNormalizer.normalize(
         '/Music/Daft Punk/Random Access Memories/01 - Get Lucky.flac',

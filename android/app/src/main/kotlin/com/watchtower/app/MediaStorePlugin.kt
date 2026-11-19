@@ -279,6 +279,13 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             MediaStore.Audio.Media.DATE_MODIFIED,
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.DURATION,
+            // Tags the platform already parsed from the file. Reading them
+            // here means a track shows its real artist and album immediately,
+            // instead of a filename guess plus a MusicBrainz round trip.
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM,
+            MediaStore.Audio.Media.IS_MUSIC,
         )
 
         context.contentResolver.query(
@@ -288,15 +295,25 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             null,
             "${MediaStore.Audio.Media.DATE_MODIFIED} DESC"
         )?.use { cursor ->
-            val idCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
-            val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-            val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
-            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
-            val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
-            val durCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val idCol     = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val nameCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
+            val dataCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+            val sizeCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+            val dateCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
+            val mimeCol   = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val durCol    = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+            val titleCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            val albumCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+            val musicCol  = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.IS_MUSIC)
 
             while (cursor.moveToNext()) {
+                // The audio collection also holds ringtones, notifications,
+                // alarms and voice recordings. IS_MUSIC is the flag Android
+                // sets for real tracks, and it is exactly the "not a film or
+                // a series" gate music needs.
+                if (cursor.getInt(musicCol) == 0) continue
+
                 val id       = cursor.getLong(idCol)
                 val dataPath = cursor.getString(dataCol) ?: run {
                     // Android 10+ : reconstruire depuis content URI
@@ -310,6 +327,9 @@ class MediaStorePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     "modifiedAt"  to cursor.getLong(dateCol) * 1000L,
                     "mimeType"    to cursor.getString(mimeCol),
                     "duration"    to cursor.getLong(durCol),
+                    "title"       to cursor.getString(titleCol),
+                    "artist"      to cursor.getString(artistCol),
+                    "album"       to cursor.getString(albumCol),
                 ))
             }
         }

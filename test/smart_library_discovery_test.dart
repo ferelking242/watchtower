@@ -370,6 +370,48 @@ void main() {
       await dir.delete(recursive: true);
     });
 
+    test('music rejects ringtones and short clips', () async {
+      final dir = await Directory.systemTemp.createTemp('music-gate');
+      // Long enough, but it is a sound effect, not a track.
+      await File('${dir.path}/Nokia Ringtone.mp3')
+          .writeAsBytes(List.filled(200 * 1024, 0));
+      // A real title, but only a few seconds long.
+      await File('${dir.path}/Artist - Real Song.mp3')
+          .writeAsBytes(List.filled(200 * 1024, 0));
+
+      final policy = ScanPolicy.music(ignoredDirectories: const {});
+      expect(policy.rejectsName('Nokia Ringtone.mp3'), isTrue);
+      expect(policy.rejectsName('Artist - Real Song.mp3'), isFalse);
+      // The same name is a valid video title: the gate must be music-only.
+      expect(ScanPolicy.videos().rejectsName('Nokia Ringtone.mp3'), isFalse);
+
+      // Duration is only known from MediaStore, so it is applied there.
+      final rows = [
+        DiscoveredFile(
+          path: 'content://media/external/audio/media/1',
+          size: 200 * 1024,
+          modifiedAt: 0,
+          extension: '.mp3',
+          analysisName: 'Artist - Real Song.mp3',
+          durationMs: 5 * 1000,
+        ),
+      ];
+      final files = <DiscoveredFile>[];
+      final stage = DiscoveryStage(policy: policy);
+      await for (final batch in stage.discover(
+        [dir.path],
+        additionalFiles: rows,
+      )) {
+        files.addAll(batch);
+      }
+      // The 5 s row is dropped, the ringtone is dropped, and the real track
+      // found by the walk survives even though the walk knows no duration.
+      expect(files, hasLength(1));
+      expect(files.single.basename, 'Artist - Real Song.mp3');
+
+      await dir.delete(recursive: true);
+    });
+
     test('each scan mode maps to its MediaStore collection', () {
       expect(LocalScanMode.videos.mediaStoreCollection, 'video');
       expect(LocalScanMode.music.mediaStoreCollection, 'audio');

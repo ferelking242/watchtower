@@ -79,7 +79,17 @@ class NameNormalizer {
 
   /// Analyse un nom de fichier complet (basename avec extension) et retourne
   /// les métadonnées structurées.
-  static NormalizeResult normalize(String filename) {
+  ///
+  /// [tagTitle], [tagArtist] and [tagAlbum] are the tags the platform read
+  /// from the file itself. When present they win over the filename: a track
+  /// tagged "Bohemian Rhapsody" by "Queen" must not be titled after whatever
+  /// "01 - queen_bohemian_rhapsody_remaster.mp3" happens to parse into.
+  static NormalizeResult normalize(
+    String filename, {
+    String? tagTitle,
+    String? tagArtist,
+    String? tagAlbum,
+  }) {
     // ── 1. Tokenisation ────────────────────────────────────────────────────
     final tokens = Tokenizer.tokenize(filename);
 
@@ -187,9 +197,15 @@ class NameNormalizer {
       // The parent folder supplies the album, its parent the artist, mirroring
       // the usual "Artist/Album/NN Title.mp3" layout.
       final musicMeta = _musicMetadata(filename, title);
-      title = musicMeta.title;
-      artist = musicMeta.artist;
-      album = musicMeta.album;
+      title = tagTitle?.trim().isNotEmpty == true
+          ? tagTitle!.trim()
+          : musicMeta.title;
+      artist = tagArtist?.trim().isNotEmpty == true
+          ? tagArtist!.trim()
+          : musicMeta.artist;
+      album = tagAlbum?.trim().isNotEmpty == true
+          ? tagAlbum!.trim()
+          : musicMeta.album;
     }
 
     // ── 10. Clé canonique ────────────────────────────────────────────────

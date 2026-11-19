@@ -454,7 +454,9 @@ class ScanPolicy {
     // Music files carry real audio well under a megabyte; 64 KB drops the
     // truncated/placeholder files without excluding legitimately tiny tracks.
     this.minimumFileSize = 64 * 1024,
-    this.minimumDurationMs = 0,
+    // Ringtones, alarms and notification sounds live in the audio collection
+    // too. They run a few seconds; a track does not.
+    this.minimumDurationMs = 20 * 1000,
     this.excludedNamePatterns = const [],
     this.maximumDepth,
   })  : mode = LocalScanMode.music,
@@ -464,8 +466,15 @@ class ScanPolicy {
   /// True when [name] (a file basename) carries a signal that rules the file
   /// out as a movie/series entry.
   bool rejectsName(String name) {
-    if (excludedNamePatterns.isEmpty) return false;
     final lower = name.toLowerCase();
+    // A ringtone or a notification sound sits in the audio collection next to
+    // real tracks, so music needs its own name gate. It is applied here rather
+    // than through [excludedNamePatterns] because a RegExp cannot be const and
+    // this policy must stay const-constructible.
+    if (mode == LocalScanMode.music && _musicNoisePattern.hasMatch(lower)) {
+      return true;
+    }
+    if (excludedNamePatterns.isEmpty) return false;
     return excludedNamePatterns.any((pattern) => pattern.hasMatch(lower));
   }
 }
@@ -489,6 +498,13 @@ const _defaultIgnoredDirectories = {
 /// File-name markers that mean "extras", not a movie or an episode. The match
 /// is anchored on a separator so a title legitimately containing the word
 /// ("The Trailer Park Boys") is not rejected.
+/// Names that mark an audio file as a sound effect rather than a track.
+final _musicNoisePattern = RegExp(
+  r'(^|[\s._\-\[(])(ringtone|ring\s?tone|notification|nokia|alarm|'
+  r'alert|beep|siren|message\s?tone)([\s._\-\])]|$)',
+  caseSensitive: false,
+);
+
 final _videoNoisePatterns = <RegExp>[
   RegExp(r'(^|[\s._\-\[(])(sample|trailer|teaser|featurette|behind[\s._-]?the'
       r'[\s._-]?scenes|deleted[\s._-]?scenes|bloopers?|outtakes?|interview|'
@@ -508,6 +524,12 @@ class DiscoveredFile {
   /// be applied without opening the file.
   final int? durationMs;
 
+  /// Tags the platform already parsed from the audio file. They beat anything
+  /// guessed from the filename, which is why they are carried this far.
+  final String? tagTitle;
+  final String? tagArtist;
+  final String? tagAlbum;
+
   const DiscoveredFile({
     required this.path,
     required this.size,
@@ -515,6 +537,9 @@ class DiscoveredFile {
     required this.extension,
     this.analysisName,
     this.durationMs,
+    this.tagTitle,
+    this.tagArtist,
+    this.tagAlbum,
   });
 
   String get basename => p.basename(path);

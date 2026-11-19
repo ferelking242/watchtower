@@ -351,6 +351,9 @@ class IndexerEngine {
           'modifiedAt': file.modifiedAt,
           'extension': file.extension,
           'analysisName': file.analysisName,
+          'tagTitle': file.tagTitle,
+          'tagArtist': file.tagArtist,
+          'tagAlbum': file.tagAlbum,
         }));
 
     final maps = await Future.wait(futures);
@@ -548,6 +551,9 @@ class IndexerEngine {
                     ? entry.displayName
                     : null,
                 durationMs: entry.duration,
+                tagTitle: entry.title,
+                tagArtist: entry.artist,
+                tagAlbum: entry.album,
               ))
           .toList();
       return _MediaStoreQueryResult(

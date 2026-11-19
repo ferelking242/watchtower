@@ -59,6 +59,9 @@ class AnalysisStage {
 
     final result = NameNormalizer.normalize(
       payload['analysisName'] as String? ?? path,
+      tagTitle: payload['tagTitle'] as String?,
+      tagArtist: payload['tagArtist'] as String?,
+      tagAlbum: payload['tagAlbum'] as String?,
     );
     final mime = _mimeOf(extension);
 
@@ -90,7 +93,12 @@ class AnalysisStage {
 
   /// Analyse en-process (sans isolate) pour les petits lots.
   static AnalysisResult analyzeSync(DiscoveredFile file) {
-    final result = NameNormalizer.normalize(file.analysisName ?? file.path);
+    final result = NameNormalizer.normalize(
+      file.analysisName ?? file.path,
+      tagTitle: file.tagTitle,
+      tagArtist: file.tagArtist,
+      tagAlbum: file.tagAlbum,
+    );
     return AnalysisResult(
       discoveredFile: file,
       title: result.title,

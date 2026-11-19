@@ -211,6 +211,12 @@ class MediaStoreEntry {
   final String? displayName;
   final int? duration; // ms (pour les vidéos)
 
+  /// Tags read by the platform from the audio file itself. They are what makes
+  /// a track display correctly without any network lookup.
+  final String? title;
+  final String? artist;
+  final String? album;
+
   const MediaStoreEntry({
     required this.path,
     required this.size,
@@ -218,9 +224,22 @@ class MediaStoreEntry {
     this.mimeType,
     this.displayName,
     this.duration,
+    this.title,
+    this.artist,
+    this.album,
   });
 
   factory MediaStoreEntry.fromMap(Map<String, dynamic> m) {
+    // Android reports "<unknown>" for a missing tag; treating that as a real
+    // artist would title a library "Various Artists: <unknown>".
+    String? tag(Object? value) {
+      final text = value as String?;
+      if (text == null) return null;
+      final trimmed = text.trim();
+      if (trimmed.isEmpty || trimmed.toLowerCase() == '<unknown>') return null;
+      return trimmed;
+    }
+
     return MediaStoreEntry(
       path: m['path'] as String,
       size: (m['size'] as num?)?.toInt() ?? 0,
@@ -228,6 +247,9 @@ class MediaStoreEntry {
       mimeType: m['mimeType'] as String?,
       displayName: m['displayName'] as String?,
       duration: (m['duration'] as num?)?.toInt(),
+      title: tag(m['title']),
+      artist: tag(m['artist']),
+      album: tag(m['album']),
     );
   }
 }
