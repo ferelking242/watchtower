@@ -611,6 +611,21 @@ function extLog(level, msg) {
     for (final element in await _extensionCallAsync<List>(
       'getVideoList(${jsonEncode(url)})',
     )) {
+      // Older extensions advertised the watch page as a "Web player" entry so
+      // the in-app browser would open it, but Video has no kind field: mpv got
+      // HTML, never decoded a frame, and the watchdog failed the chapter ~20 s
+      // later. Drop those entries here so a stale extension cannot stall
+      // playback; the player then reports "no source" immediately.
+      final rawKind = element['kind'] ?? element['type'];
+      final kind = rawKind?.toString().toLowerCase() ?? '';
+      if (kind == 'webview') {
+        _vidSkipped++;
+        _extWarn(
+          '$_id · getVideoList  dropped webview entry '
+          '← Video has no webview support; mpv would be handed HTML and hang',
+        );
+        continue;
+      }
       if (element['url'] != null && element['originalUrl'] != null) {
         videos.add(Video.fromJson(element));
       } else {
@@ -625,7 +640,8 @@ function extLog(level, msg) {
     final result = videos.toList();
     if (_vidSkipped > 0 && result.isEmpty) {
       _extError(
-        '$_id · getVideoList → 0 usable videos ($_vidSkipped entries had null url/originalUrl) '
+        '$_id · getVideoList → 0 usable videos ($_vidSkipped entries unusable: '
+        'webview kind or null url/originalUrl) '
         '← check JS getVideoList() — this causes infinite-loading',
       );
     } else if (result.isEmpty) {
