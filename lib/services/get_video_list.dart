@@ -423,6 +423,19 @@ Future<String?> _fetchHlsPlaylist(String url, List<Video> videos) async {
     req.headers.set('Accept', '*/*');
     final resp = await req.close().timeout(const Duration(seconds: 2));
     if (resp.statusCode != 200) {
+      // Surrit refuses this client's TLS fingerprint while accepting mpv, so a
+      // browser replay cannot make the player's request succeed: it only costs
+      // a WebView round-trip and raises a false "blocked by Cloudflare" alert.
+      // The extension already returned the playable master, so keep it.
+      if (BrowserFetchService.isMissAvHlsPlaylistRefusal(url, resp.statusCode)) {
+        AppLogger.log(
+          '[HLS] $url → ${resp.statusCode} · Surrit refuses this client '
+          '(TLS fingerprint), not the user — keeping the master playlist entry',
+          logLevel: LogLevel.debug,
+          tag: LogTag.watch,
+        );
+        return null;
+      }
       // The host refuses this client's fingerprint, not the request: the same
       // playlist loads in the WebView. Replay it in the browser session before
       // giving up, and remember the verdict so the next episode skips the

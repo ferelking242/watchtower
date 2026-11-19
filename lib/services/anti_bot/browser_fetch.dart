@@ -44,9 +44,15 @@ class BrowserFetchResponse {
 class BrowserFetchService {
   BrowserFetchService._();
 
-  /// A Surrit playlist can return a plain 403 to the native client without
-  /// Cloudflare response markers. In that case, retry only the known MissAV
-  /// media host in the browser, using the source page as the browser origin.
+  /// True when [url] is a MissAV media URL whose 403 is a *client* verdict
+  /// rather than a challenge.
+  ///
+  /// Surrit answers a Dart/BoringSSL handshake with a Cloudflare-branded 403
+  /// while the exact same request (same UA, same `Referer`) gets 200 from curl
+  /// or mpv: the WAF fingerprints the TLS/HTTP stack, not the headers. Replaying
+  /// that in the WebView cannot fix the player's request — mpv is accepted as-is
+  /// — so a Surrit refusal must never raise a challenge, open the bypass panel
+  /// or spin up a browser session. Playback opens the master playlist directly.
   static bool isMissAvHlsPlaylistRefusal(String url, int statusCode) {
     if (statusCode != 403) return false;
     final uri = Uri.tryParse(url);

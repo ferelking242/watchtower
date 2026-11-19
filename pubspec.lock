@@ -1049,8 +1049,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "074332e"
-      resolved-ref: "074332ee3926f7fa2b83f60796a4031bf6ec9c9c"
+      ref: ff5793e
+      resolved-ref: ff5793e74fa00f30d461f84a1c6c909dcfe37ce2
       url: "https://github.com/ferelking242/quickjsR.git"
     source: git
     version: "0.0.1"

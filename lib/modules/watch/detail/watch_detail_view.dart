@@ -1847,7 +1847,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               behavior: HitTestBehavior.opaque,
               // Three-dot "more" glyph, no chip behind it: the icon alone sits
               // flush next to the "Fourni par <extension>" credit.
-              child: Icon(Broken.more, size: 22, color: _textPrimary),
+              child: Icon(Broken.more_2, size: 22, color: _textPrimary),
             ),
           ],
         ),

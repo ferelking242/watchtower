@@ -255,7 +255,9 @@ Future<String> _toHttpResponse(
     // this the home layout paid a native 403 per shelf before every browser
     // round-trip.
     var browserAttempted = false;
-    if (method == "GET" && BrowserFetchService.nativeProbeIsPointless(url)) {
+    if (method == "GET" &&
+        BrowserFetchService.nativeProbeIsPointless(url) &&
+        !BrowserFetchService.isMissAvMediaUrl(url)) {
       browserAttempted = true;
       final earlyBrowser = await _browserResponseForRefused(
         url,
@@ -278,15 +280,27 @@ Future<String> _toHttpResponse(
     // the same URL loads in the app's WebView because that engine runs the
     // challenge JavaScript. Let the browser send this request instead of
     // handing the clearance back to a client Cloudflare will refuse again.
-    if (method == "GET" &&
+    //
+    // MissAV's Surrit CDN is the exception: it refuses the app's TLS stack
+    // while accepting mpv, so a browser replay changes nothing for playback and
+    // only costs a WebView round-trip plus a false "blocked by Cloudflare"
+    // alert. Such a refusal is reported to the caller as-is, which is what lets
+    // the extension fall back to the playable master playlist.
+    final missAvRefusal = resp.statusCode == 403 &&
+        BrowserFetchService.isMissAvMediaUrl(url);
+    if (missAvRefusal) {
+      AppLogger.log(
+        '$method $url → ${resp.statusCode} · Surrit refuses this client '
+        '(TLS fingerprint), not the user — keeping the native answer so the '
+        'player can open the master playlist',
+        logLevel: LogLevel.debug,
+        tag: LogTag.network,
+      );
+    } else if (method == "GET" &&
         (antiBotAssessmentOf(resp).challenge ||
             (browserFetchOnError &&
                 sourceId != null &&
-                resp.statusCode == 403) ||
-            BrowserFetchService.isMissAvHlsPlaylistRefusal(
-              url,
-              resp.statusCode,
-            ))) {
+                resp.statusCode == 403))) {
       // Remember the verdict so a later call on this host skips the probe.
       BrowserFetchService.markNativeChallenged(url);
       if (!browserAttempted) {

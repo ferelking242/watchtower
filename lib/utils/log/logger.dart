@@ -472,11 +472,11 @@ class AppLogger {
     await _writeSessionHeader();
     await flush();
 
-    // Safety net: even a DEBUG-only trail reaches disk within a second, so a
+    // Safety net: even a DEBUG-only trail reaches disk within ~120 ms, so a
     // crash that bypasses Dart's error handling still leaves the last lines on
     // disk. Cancelled in [dispose].
     _periodicFlushTimer ??= Timer.periodic(
-      _kLogFlushInterval,
+      _kCrashSafeFlushInterval,
       (_) => unawaited(_drainPendingLines(flush: true)),
     );
   }
@@ -503,6 +503,15 @@ class AppLogger {
 
   static const int _kLogBatchChars = 48 * 1024;
   static const Duration _kLogFlushInterval = Duration(milliseconds: 400);
+
+  /// Cadence of the safety-net flush for buffered DEBUG/INFO lines.
+  ///
+  /// The batch timer alone loses up to 400 ms of trail, and a native SIGSEGV
+  /// in the QuickJS bridge kills the process instantly — the log then stops
+  /// right where the crash is, which is exactly the report this app kept
+  /// getting. A tighter net costs one append per tick and keeps the last
+  /// lines on disk when Dart never gets to run again.
+  static const Duration _kCrashSafeFlushInterval = Duration(milliseconds: 120);
 
   static void _queueFileWrite(String entry, {bool urgent = false}) {
     if (urgent) {
@@ -596,6 +605,20 @@ class AppLogger {
     } catch (_) {
       // Keep the in-memory logs available if the file sink has been closed.
     }
+  }
+
+  /// Writes every buffered line to disk *synchronously*, right now.
+  ///
+  /// A native crash (SIGSEGV in the QuickJS bridge) ends the process with no
+  /// Dart unwind: nothing queued, buffered in the sink, or waiting on the
+  /// periodic timer ever reaches the file. Calling this immediately before
+  /// entering native code guarantees the diagnostic trail is already on disk
+  /// when the app dies, which is what makes a post-mortem log possible at all.
+  /// Cheap by design (one append), so it is safe on the hot path.
+  static void flushSync() {
+    _logFlushTimer?.cancel();
+    _logFlushTimer = null;
+    _drainPendingLinesSync();
   }
 
   /// Appends one batch, recreating the folder, file and sink if they went away

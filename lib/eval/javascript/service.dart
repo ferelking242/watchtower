@@ -406,6 +406,11 @@ function extLog(level, msg) {
   JsEvalResult _evaluateExtensionScript(String script) {
     if (kIsWeb) return runtime.evaluate(script);
 
+    // Entering QuickJS is the one step in the app that can end the process in
+    // native code with no Dart unwind. Flush first so the log already holds
+    // everything that led here.
+    AppLogger.flushSync();
+
     final cacheKey = _bytecodeCacheKey(script);
     final cachedBytecode = _takeCachedBytecode(cacheKey);
     final Uint8List bytecode;
@@ -454,8 +459,20 @@ function extLog(level, msg) {
   @override
   void dispose() {
     if (!_isInitialized) return;
-    _jsDomSelector.dispose();
     _isInitialized = false;
+    try {
+      _jsDomSelector.dispose();
+    } catch (_) {}
+    // Releasing the native engine is mandatory. Leaving it alive kept the
+    // FFI trampoline installed after Dart had dropped every reference to this
+    // service: the orphaned runtime could still run a pending promise job and
+    // call `js_channel`, which then jumped into a freed Dart callback — the
+    // `libqjs.so (js_channel+100)` SIGSEGV with a null fault address.
+    try {
+      runtime.dispose();
+    } catch (error) {
+      _extWarn('$_id · engine release failed: $error');
+    }
     _extDebug('$_id · disposed');
   }
 
@@ -860,6 +877,9 @@ function extLog(level, msg) {
   /// HTTP layer (JsHttpClient) and is a network error, not a JS logic bug.
   Future<T> _extensionCallAsync<T>(String call) async {
     _init();
+    // Same reason as _evaluateExtensionScript: the promise is driven by native
+    // callbacks, so make sure the log is on disk before handing control over.
+    AppLogger.flushSync();
     final sw = Stopwatch()..start();
     final method = call.contains('(')
         ? call.substring(0, call.indexOf('('))

@@ -226,11 +226,20 @@ class BypassNotificationService {
   }
 
   Future<BuildContext?> _mainContext() async {
-    for (var attempt = 0; attempt < 20; attempt++) {
+    // A cold start from the notification action reaches here before the first
+    // frame, and the router can take several seconds on a slow device. Giving
+    // up silently after 2 s made the "Battre le challenge" button look dead:
+    // the tap worked, the action ran, and it returned without a trace.
+    for (var attempt = 0; attempt < 100; attempt++) {
       final context = navigatorKey.currentContext;
-      if (context != null) return context;
+      if (context != null && context.mounted) return context;
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
+    AppLogger.log(
+      'Challenge action could not reach a navigator context after 10s',
+      logLevel: LogLevel.warning,
+      tag: LogTag.network,
+    );
     return null;
   }
 
