@@ -119,6 +119,10 @@ class ActiveDownloadRegistry {
       _engines.isNotEmpty || _internalTaskIds.isNotEmpty;
 
   /// Number of active downloads (pool tasks + engines) for a given [ItemType].
+  ///
+  /// Downloads stopped by a lowered limit are still counted: they are draining
+  /// but their network work has not stopped yet, so treating them as free would
+  /// let the queue overshoot the new limit for as long as the teardown takes.
   static int activeCountForType(ItemType type) {
     int count = 0;
     // Internal pool tasks

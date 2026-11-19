@@ -72,4 +72,41 @@ void main() {
       expect(ordered, items);
     });
   });
+
+  group('compareChapterLabels', () {
+    test('orders numbers numerically, not lexicographically', () {
+      expect(compareChapterLabels('Chapitre 2', 'Chapitre 10'), lessThan(0));
+      expect(compareChapterLabels('Chapitre 23', 'Chapitre 3'), greaterThan(0));
+    });
+
+    test('sorts a whole queue from chapter 1 upward', () {
+      final names = [
+        'Chapitre 23',
+        'Chapitre 10',
+        'Chapitre 2',
+        'Chapitre 1',
+        'Chapitre 3',
+      ];
+      names.sort(compareChapterLabels);
+      expect(names, [
+        'Chapitre 1',
+        'Chapitre 2',
+        'Chapitre 3',
+        'Chapitre 10',
+        'Chapitre 23',
+      ]);
+    });
+
+    test('handles decimal chapter numbers', () {
+      expect(compareChapterLabels('Chapitre 2.5', 'Chapitre 3'), lessThan(0));
+      expect(compareChapterLabels('Chapitre 10', 'Chapitre 9.5'), greaterThan(0));
+    });
+
+    test('falls back to the label when there is no number', () {
+      expect(compareChapterLabels('Bonus', 'Chapitre 1'), greaterThan(0));
+      expect(compareChapterLabels('Bonus', 'Bonus'), 0);
+      expect(compareChapterLabels(null, 'Chapitre 1'), greaterThan(0));
+      expect(compareChapterLabels('Chapitre 1', null), lessThan(0));
+    });
+  });
 }

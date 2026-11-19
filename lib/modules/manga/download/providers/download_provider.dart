@@ -2848,7 +2848,14 @@ Future<void> downloadChapter(
           }
         } catch (e) {
           if (itemType == ItemType.manga) {
-            await reconcileAndPersistMangaManifest(markFailed: true, failure: e);
+            // A preempted chapter must not be recorded as failed: it is queued
+            // again and will resume as soon as a slot frees up.
+            final preempted =
+                chapter.id != null && ActiveDownloadRegistry.wasPreempted(chapter.id!);
+            await reconcileAndPersistMangaManifest(
+              markFailed: !preempted,
+              failure: preempted ? null : e,
+            );
           }
           _recordHostCooldownFromError(pageUrls, e);
           log(
@@ -3164,6 +3171,15 @@ Future<void> downloadChapter(
     callback?.call();
     keepAlive.close();
   } catch (e, st) {
+    // A lowered limit stopped this worker on purpose. The row was already put
+    // back in the queue by [_preemptDownload]; marking it failed here would
+    // drop it from the queue and lose the download the user still wants.
+    if (chapter.id != null && ActiveDownloadRegistry.wasPreempted(chapter.id!)) {
+      log('[downloadChapter] preempted chapterId=${chapter.id}: keeping it queued');
+      callback?.call();
+      keepAlive.close();
+      return;
+    }
     // Always fire the callback even on error so processDownloads can unblock
     // its slot counter and exit cleanly instead of looping forever.
     log('[downloadChapter] UNCAUGHT ERROR chapterId=${chapter.id}: $e\n$st');
@@ -3300,6 +3316,63 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
     }
   });
   log('[processDownloads] scheduler started');
+
+  /// Stops the workers that exceed the limits *as soon as* the user lowers
+  /// "simultaneous", instead of waiting for the next tick.
+  ///
+  /// The scheduler only re-evaluates every 900 ms and, more importantly, used
+  /// to leave the extra downloads running until they finished, so going from 7
+  /// to 3 kept seven downloads alive. This pass reads the freshly saved limits
+  /// (the settings map is already updated in memory when the save wakes us) and
+  /// preempts the newest over-budget workers on the spot. Raising a limit needs
+  /// nothing here: the wakeup makes the next tick dispatch the extra items.
+  void applyLoweredLimitsNow() {
+    try {
+      final service = DownloadSettingsService.instance;
+      final typeMax = <ItemType, int>{
+        ItemType.manga: service.mangaSimultaneous,
+        ItemType.anime: service.watchSimultaneous,
+        ItemType.novel: service.novelSimultaneous,
+        ItemType.music: service.musicSimultaneous,
+        ItemType.game: service.gameSimultaneous,
+      };
+      final typePerSrcMax = <ItemType, int>{
+        ItemType.manga: service.mangaSimultaneousPerSource,
+        ItemType.anime: service.watchSimultaneousPerSource,
+        ItemType.novel: service.novelSimultaneousPerSource,
+        ItemType.music: service.musicSimultaneousPerSource,
+        ItemType.game: service.gameSimultaneousPerSource,
+      };
+      final slotsByType = <ItemType, List<ActiveSlot>>{};
+      for (final id in ActiveDownloadRegistry.allActiveIds) {
+        final type = ActiveDownloadRegistry.activeTypeOf(id);
+        if (type == null) continue;
+        (slotsByType[type] ??= <ActiveSlot>[]).add(
+          ActiveSlot(
+            downloadId: id,
+            source: ActiveDownloadRegistry.activeSourceOf(id) ?? '_unknown',
+            preempted: ActiveDownloadRegistry.wasPreempted(id),
+          ),
+        );
+      }
+      for (final entry in slotsByType.entries) {
+        final toPreempt = selectPreemptions(
+          slots: entry.value,
+          total: typeMax[entry.key] ?? 2,
+          perSourceCap: typePerSrcMax[entry.key] ?? 2,
+        );
+        for (final id in toPreempt) {
+          unawaited(_preemptDownload(id));
+        }
+      }
+    } catch (e) {
+      // A settings or registry hiccup must not break the queue: the next tick
+      // performs the same pass with the same values.
+      log('[processDownloads] immediate limit pass failed: $e');
+    }
+  }
+
+  registerDownloadLimitApplier(applyLoweredLimitsNow);
   // Acquire wakelock + start Android foreground service so the OS does not
   // kill the process while downloads are running in the background.
   unawaited(BackgroundKeepAlive.start());
@@ -3518,10 +3591,20 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         // and use it as the tie-breaker to keep the FIFO (chapter) order.
         // Re-read every tick so toggling priority in the queue UI applies
         // immediately without restarting the scheduler.
+        //
+        // The list comes from `findAllSync()`, whose order is storage order, so
+        // the index alone cannot guarantee chapter order: compare the chapter
+        // labels naturally instead (Chapitre 2 before Chapitre 10, and chapter 1
+        // first), which is what makes a bulk manga download start at the
+        // beginning rather than at chapter 23.
         final prioMap = ref.read(downloadQueueStateProvider).priorities;
         final ordered = orderByPriorityDescending(
           toStart,
           priorityOf: (d) => prioMap[d.chapter.value?.id ?? -1] ?? 0,
+          compare: (a, b) => compareChapterLabels(
+            a.chapter.value?.name,
+            b.chapter.value?.name,
+          ),
         );
         toStart
           ..clear()
@@ -3589,6 +3672,9 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         //
         // Per-source workload (queued + already running) per type, so a share
         // covers both the slots a source uses and the ones it still needs.
+        // A worker that was already preempted is only draining: it no longer
+        // occupies a slot, so counting it would shrink the budget of the source
+        // it belongs to and preempt even more work.
         final pendingByType = <ItemType, Map<String, int>>{};
         for (final d in toStart) {
           final manga = d.chapter.value?.manga.value;
@@ -3600,6 +3686,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
         for (final id in ActiveDownloadRegistry.allActiveIds) {
           final type = ActiveDownloadRegistry.activeTypeOf(id);
           if (type == null) continue;
+          if (ActiveDownloadRegistry.wasPreempted(id)) continue;
           final src = ActiveDownloadRegistry.activeSourceOf(id) ?? '_unknown';
           final bySource = pendingByType[type] ??= <String, int>{};
           bySource[src] = (bySource[src] ?? 0) + 1;
@@ -3614,27 +3701,48 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
               perSourceCap: typePerSrcMax[type] ?? 2,
             );
 
+        // Items that can be launched right now, per type and source. A row that
+        // is parked (Wi-Fi, no network, retry backoff) cannot use a slot this
+        // tick, so its source must not keep a reserved share idle while another
+        // source with ready work waits for the same total budget.
+        final startableByType = <ItemType, Map<String, int>>{};
+        for (final d in toStart) {
+          if (d.status == 'waiting_wifi' || d.status == 'waiting_network') {
+            continue;
+          }
+          final manga = d.chapter.value?.manga.value;
+          final type = manga?.itemType ?? ItemType.manga;
+          final src = manga?.source ?? '_unknown';
+          final bySource = startableByType[type] ??= <String, int>{};
+          bySource[src] = (bySource[src] ?? 0) + 1;
+        }
+
         // Preempt the running downloads that no longer fit the budget, so a
         // *lowered* total or per-source limit applies at once instead of only
         // when a slot happens to free up. The oldest workers (started first) are
         // kept; the newest over-budget ones are stopped and put back in the
         // queue, then the budget is dispatched against the resulting counts.
-        final keptPerType = <ItemType, Map<String, int>>{};
+        final activeSlotsByType = <ItemType, List<ActiveSlot>>{};
         for (final id in ActiveDownloadRegistry.allActiveIds) {
           final type = ActiveDownloadRegistry.activeTypeOf(id);
           if (type == null) continue;
-          // Already preempted but not yet torn down: leave it alone and do not
-          // count it against the budget, so a legitimate worker can keep its slot.
-          if (ActiveDownloadRegistry.wasPreempted(id)) continue;
-          final src = ActiveDownloadRegistry.activeSourceOf(id) ?? '_unknown';
-          final budget = budgetFor(type);
-          final kept = keptPerType[type] ??= <String, int>{};
-          final keptForSource = kept[src] ?? 0;
-          if (keptForSource >= (budget[src] ?? 0)) {
+          (activeSlotsByType[type] ??= <ActiveSlot>[]).add(
+            ActiveSlot(
+              downloadId: id,
+              source: ActiveDownloadRegistry.activeSourceOf(id) ?? '_unknown',
+              preempted: ActiveDownloadRegistry.wasPreempted(id),
+            ),
+          );
+        }
+        for (final entry in activeSlotsByType.entries) {
+          final toPreempt = selectPreemptions(
+            slots: entry.value,
+            total: typeMax[entry.key] ?? 2,
+            perSourceCap: typePerSrcMax[entry.key] ?? 2,
+          );
+          for (final id in toPreempt) {
             unawaited(_preemptDownload(id));
-            continue;
           }
-          kept[src] = keptForSource + 1;
         }
 
         for (final d in toStart) {
@@ -3654,10 +3762,25 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           final sLimit = typePerSrcMax[type] ?? 2;
 
           // Share of the type budget this source may use, given every source's
-          // workload — never more than its "Src" cap.
+          // workload — never more than its "Src" cap. The share only decides
+          // who gets a free slot first: when no other source can use it, the
+          // slot is handed to this source instead of staying idle.
           final share = budgetFor(type)[chSrc] ?? 0;
+          final activeBySource = <String, int>{
+            for (final src in pendingByType[type]?.keys ?? const <String>[])
+              src: ActiveDownloadRegistry.activeCountForSource(type, src),
+          };
+          final shareBlocks =
+              curSrc >= share &&
+              hasCompetingSource(
+                source: chSrc,
+                startableBySource: startableByType[type] ?? const {},
+                activeBySource: activeBySource,
+                shareBySource: budgetFor(type),
+                perSourceCap: sLimit,
+              );
 
-          if (curType >= tLimit || curSrc >= sLimit || curSrc >= share) {
+          if (curType >= tLimit || curSrc >= sLimit || shareBlocks) {
             final chapterId = chapter.id;
             if (chapterId != null && loggedConcurrencyBlocks.add(chapterId)) {
               AppLogger.log(
@@ -3716,6 +3839,18 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
           // Start the download. Its worker claims the registry slot before its
           // first await, so another scheduler cannot launch the same chapter.
           ref.read(downloadChapterProvider(chapter: chapter, useWifi: effectiveUseWifi));
+
+          // This source just consumed one of its ready items: stop counting it
+          // as waiting for a slot, so the rest of the budget goes to the others
+          // in this same tick.
+          final remaining = startableByType[type]?[chSrc];
+          if (remaining != null) {
+            if (remaining <= 1) {
+              startableByType[type]!.remove(chSrc);
+            } else {
+              startableByType[type]![chSrc] = remaining - 1;
+            }
+          }
         }
 
         return true; // keep polling
@@ -3724,6 +3859,7 @@ Future<void> processDownloads(Ref ref, {bool? useWifi}) async {
   } finally {
     // Always release the wakelock and stop the foreground service, whether
     // the queue drained normally, threw, or was cancelled.
+    clearDownloadLimitApplier(applyLoweredLimitsNow);
     keepAlive.close();
     unawaited(connectivitySub.cancel());
     unawaited(BackgroundKeepAlive.stop());

@@ -478,10 +478,6 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
             .where((d) => typeOf(d) == ItemType.game)
             .toList();
 
-        final unfinishedDownloadCount = entries
-            .where((download) => download.isDownload != true)
-            .length;
-
         final scheme = Theme.of(context).colorScheme;
         return Scaffold(
           appBar: AppBar(
@@ -548,13 +544,27 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
                 child: Row(
                   children: [
-                    Text(
-                      context.l10n.queue_unfinished(unfinishedDownloadCount),
-                      style: TextStyle(
-                        color: scheme.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    // The count and "Gérer" both describe the section the user
+                    // is on, since the sheet acts only on that section.
+                    AnimatedBuilder(
+                      animation: _tabController,
+                      builder: (context, _) {
+                        final sectionCount = switch (_tabController.index) {
+                          0 => watchEntries,
+                          2 => novelEntries,
+                          3 => musicEntries,
+                          4 => gameEntries,
+                          _ => mangaEntries,
+                        }.where((download) => download.isDownload != true).length;
+                        return Text(
+                          context.l10n.queue_unfinished(sectionCount),
+                          style: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
                     ),
                     const Spacer(),
                     GestureDetector(
@@ -971,12 +981,25 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
     List<Download> entries,
     WidgetRef ref,
   ) {
+    // The sheet acts on the section the user is currently looking at.
+    const tabTypes = [
+      ItemType.anime,
+      ItemType.manga,
+      ItemType.novel,
+      ItemType.music,
+      ItemType.game,
+    ];
+    final sectionType = tabTypes[_tabController.index.clamp(0, 4)];
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _GererSheet(entries: entries, parentRef: ref),
+      builder: (_) => _GererSheet(
+        entries: entries,
+        parentRef: ref,
+        sectionType: sectionType,
+      ),
     );
   }
 }
@@ -988,7 +1011,17 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
 class _GererSheet extends ConsumerStatefulWidget {
   final List<Download> entries;
   final WidgetRef parentRef;
-  const _GererSheet({required this.entries, required this.parentRef});
+
+  /// Section (tab) the queue was on when "Gérer" was tapped. Every action in
+  /// this sheet is scoped to it: the quick actions only touch that section's
+  /// downloads, and only that section's simultaneous controls are shown.
+  final ItemType sectionType;
+
+  const _GererSheet({
+    required this.entries,
+    required this.parentRef,
+    required this.sectionType,
+  });
 
   @override
   ConsumerState<_GererSheet> createState() => _GererSheetState();
@@ -1003,7 +1036,15 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
-    final entries = widget.entries;
+    // Every control in this sheet is scoped to the section the user was on.
+    final sectionType = widget.sectionType;
+    final entries = widget.entries
+        .where(
+          (d) =>
+              (d.chapter.value?.manga.value?.itemType ?? ItemType.manga) ==
+              sectionType,
+        )
+        .toList(growable: false);
 
     final watchTotal = ref.watch(watchSimultaneousStateProvider);
     final mangaTotal = ref.watch(mangaSimultaneousStateProvider);
@@ -1211,7 +1252,7 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
 
                   const SizedBox(height: 20),
 
-                  // ── Simultanés par type ──────────────────────────────────
+                  // ── Simultanés de la section courante ────────────────────
                   _SheetSection(
                     label: l10n.queue_simultaneous,
                     scheme: scheme,
@@ -1220,99 +1261,74 @@ class _GererSheetState extends ConsumerState<_GererSheet> {
                   ),
                   const SizedBox(height: 10),
 
+                  // Only the section the user is on is shown: "Watch" controls
+                  // watch, "Manga" controls manga, and so on.
                   _SimultaneousRow(
-                    icon: Icons.play_circle_outline,
-                    label: l10n.catalog_tab_watch,
-                    iconColor: scheme.primary,
-                    total: watchTotal,
-                    perSource: watchPerSrc,
+                    icon: switch (sectionType) {
+                      ItemType.anime => Icons.play_circle_outline,
+                      ItemType.novel => Icons.auto_stories_outlined,
+                      ItemType.music => Icons.music_note_outlined,
+                      ItemType.game => Icons.sports_esports_outlined,
+                      _ => Icons.menu_book_outlined,
+                    },
+                    label: _gererTypeLabel(l10n, sectionType),
+                    iconColor: sectionType == ItemType.manga
+                        ? scheme.secondary
+                        : sectionType == ItemType.novel
+                        ? scheme.tertiary
+                        : scheme.primary,
+                    total: switch (sectionType) {
+                      ItemType.anime => watchTotal,
+                      ItemType.novel => novelTotal,
+                      ItemType.music => musicTotal,
+                      ItemType.game => gameTotal,
+                      _ => mangaTotal,
+                    },
+                    perSource: switch (sectionType) {
+                      ItemType.anime => watchPerSrc,
+                      ItemType.novel => novelPerSrc,
+                      ItemType.music => musicPerSrc,
+                      ItemType.game => gamePerSrc,
+                      _ => mangaPerSrc,
+                    },
                     maxTotal: 20,
                     maxPerSource: 10,
-                    onTotalChanged: (v) => ref
-                        .read(watchSimultaneousStateProvider.notifier)
-                        .set(v),
-                    onPerSourceChanged: (v) => ref
-                        .read(watchSimultaneousPerSourceStateProvider.notifier)
-                        .set(v),
+                    onTotalChanged: (v) => switch (sectionType) {
+                      ItemType.anime => ref
+                          .read(watchSimultaneousStateProvider.notifier)
+                          .set(v),
+                      ItemType.novel => ref
+                          .read(novelSimultaneousStateProvider.notifier)
+                          .set(v),
+                      ItemType.music => ref
+                          .read(musicSimultaneousStateProvider.notifier)
+                          .set(v),
+                      ItemType.game => ref
+                          .read(gameSimultaneousStateProvider.notifier)
+                          .set(v),
+                      _ => ref
+                          .read(mangaSimultaneousStateProvider.notifier)
+                          .set(v),
+                    },
+                    onPerSourceChanged: (v) => switch (sectionType) {
+                      ItemType.anime => ref
+                          .read(watchSimultaneousPerSourceStateProvider.notifier)
+                          .set(v),
+                      ItemType.novel => ref
+                          .read(novelSimultaneousPerSourceStateProvider.notifier)
+                          .set(v),
+                      ItemType.music => ref
+                          .read(musicSimultaneousPerSourceStateProvider.notifier)
+                          .set(v),
+                      ItemType.game => ref
+                          .read(gameSimultaneousPerSourceStateProvider.notifier)
+                          .set(v),
+                      _ => ref
+                          .read(mangaSimultaneousPerSourceStateProvider.notifier)
+                          .set(v),
+                    },
                     scheme: scheme,
-                    onOpenSettings: () =>
-                        setState(() => _openType = ItemType.anime),
-                  ),
-                  const SizedBox(height: 8),
-                  _SimultaneousRow(
-                    icon: Icons.menu_book_outlined,
-                    label: l10n.catalog_tab_manga,
-                    iconColor: scheme.secondary,
-                    total: mangaTotal,
-                    perSource: mangaPerSrc,
-                    maxTotal: 20,
-                    maxPerSource: 10,
-                    onTotalChanged: (v) => ref
-                        .read(mangaSimultaneousStateProvider.notifier)
-                        .set(v),
-                    onPerSourceChanged: (v) => ref
-                        .read(mangaSimultaneousPerSourceStateProvider.notifier)
-                        .set(v),
-                    scheme: scheme,
-                    onOpenSettings: () =>
-                        setState(() => _openType = ItemType.manga),
-                  ),
-                  const SizedBox(height: 8),
-                  _SimultaneousRow(
-                    icon: Icons.auto_stories_outlined,
-                    label: l10n.catalog_tag_novel,
-                    iconColor: scheme.tertiary,
-                    total: novelTotal,
-                    perSource: novelPerSrc,
-                    maxTotal: 20,
-                    maxPerSource: 10,
-                    onTotalChanged: (v) => ref
-                        .read(novelSimultaneousStateProvider.notifier)
-                        .set(v),
-                    onPerSourceChanged: (v) => ref
-                        .read(novelSimultaneousPerSourceStateProvider.notifier)
-                        .set(v),
-                    scheme: scheme,
-                    onOpenSettings: () =>
-                        setState(() => _openType = ItemType.novel),
-                  ),
-                  const SizedBox(height: 8),
-                  _SimultaneousRow(
-                    icon: Icons.music_note_outlined,
-                    label: context.l10n.music_word,
-                    iconColor: scheme.primary,
-                    total: musicTotal,
-                    perSource: musicPerSrc,
-                    maxTotal: 20,
-                    maxPerSource: 10,
-                    onTotalChanged: (v) => ref
-                        .read(musicSimultaneousStateProvider.notifier)
-                        .set(v),
-                    onPerSourceChanged: (v) => ref
-                        .read(musicSimultaneousPerSourceStateProvider.notifier)
-                        .set(v),
-                    scheme: scheme,
-                    onOpenSettings: () =>
-                        setState(() => _openType = ItemType.music),
-                  ),
-                  const SizedBox(height: 8),
-                  _SimultaneousRow(
-                    icon: Icons.sports_esports_outlined,
-                    label: l10n.browse_local_type_game,
-                    iconColor: scheme.secondary,
-                    total: gameTotal,
-                    perSource: gamePerSrc,
-                    maxTotal: 20,
-                    maxPerSource: 10,
-                    onTotalChanged: (v) => ref
-                        .read(gameSimultaneousStateProvider.notifier)
-                        .set(v),
-                    onPerSourceChanged: (v) => ref
-                        .read(gameSimultaneousPerSourceStateProvider.notifier)
-                        .set(v),
-                    scheme: scheme,
-                    onOpenSettings: () =>
-                        setState(() => _openType = ItemType.game),
+                    onOpenSettings: () => setState(() => _openType = sectionType),
                   ),
 
                   const SizedBox(height: 20),

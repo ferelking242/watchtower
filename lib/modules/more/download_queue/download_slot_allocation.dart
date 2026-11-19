@@ -1,5 +1,88 @@
 import 'dart:math' as math;
 
+/// One running download, as seen by the preemption pass.
+class ActiveSlot {
+  final int downloadId;
+  final String source;
+
+  /// True when the download was already preempted and is only draining; such a
+  /// worker is never preempted twice.
+  final bool preempted;
+
+  const ActiveSlot({
+    required this.downloadId,
+    required this.source,
+    this.preempted = false,
+  });
+}
+
+/// Chooses which running downloads must stop so the workers fit [total] and
+/// [perSourceCap].
+///
+/// [slots] must be in start order (oldest first): the downloads that started
+/// first are kept and the newest over-budget ones are returned, so lowering a
+/// limit stops the most recent work instead of the work closest to finishing.
+/// Already-[ActiveSlot.preempted] workers are ignored.
+///
+/// Only the two limits the user actually sets are enforced. The proportional
+/// share is *not* a cap here: it decides who gets a free slot first, so
+/// preempting on it would stop downloads to reserve slots that nothing uses.
+///
+/// Returns the IDs to preempt, in the order they should be stopped.
+List<int> selectPreemptions({
+  required List<ActiveSlot> slots,
+  required int total,
+  required int perSourceCap,
+}) {
+  if (total <= 0 || perSourceCap <= 0) {
+    return [
+      for (final slot in slots)
+        if (!slot.preempted) slot.downloadId,
+    ];
+  }
+  final keptPerSource = <String, int>{};
+  var keptTotal = 0;
+  final toPreempt = <int>[];
+  for (final slot in slots) {
+    if (slot.preempted) continue;
+    final kept = keptPerSource[slot.source] ?? 0;
+    if (keptTotal >= total || kept >= perSourceCap) {
+      toPreempt.add(slot.downloadId);
+      continue;
+    }
+    keptPerSource[slot.source] = kept + 1;
+    keptTotal++;
+  }
+  return toPreempt;
+}
+
+/// Whether a source other than [source] can still use a free slot of the type.
+///
+/// The proportional share reserves slots for short queues, but it must never
+/// leave a slot idle: when no other source can start work, the current source
+/// is allowed to run above its own share. Without this, one stalled source
+/// (waiting for Wi-Fi, a dead extension) kept the whole queue below the total
+/// the user asked for.
+///
+/// [startableBySource] counts the items that can be launched *now*, so a source
+/// whose remaining items are all parked (Wi-Fi, network, retry backoff) does
+/// not hold a slot it cannot fill.
+bool hasCompetingSource({
+  required String source,
+  required Map<String, int> startableBySource,
+  required Map<String, int> activeBySource,
+  required Map<String, int> shareBySource,
+  required int perSourceCap,
+}) {
+  for (final entry in startableBySource.entries) {
+    if (entry.key == source || entry.value <= 0) continue;
+    final active = activeBySource[entry.key] ?? 0;
+    final share = shareBySource[entry.key] ?? 0;
+    if (active < share && active < perSourceCap) return true;
+  }
+  return false;
+}
+
 /// Splits a type's simultaneous-download budget across the sources that still
 /// have pending work.
 ///

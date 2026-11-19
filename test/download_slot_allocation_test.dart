@@ -128,4 +128,148 @@ void main() {
       expect(slots.values.reduce((a, b) => a + b), 6);
     });
   });
+
+  group('selectPreemptions', () {
+    test('keeps the oldest workers and stops the newest over budget', () {
+      final active = [
+        const ActiveSlot(downloadId: 1, source: 'a'),
+        const ActiveSlot(downloadId: 2, source: 'a'),
+        const ActiveSlot(downloadId: 3, source: 'a'),
+        const ActiveSlot(downloadId: 4, source: 'a'),
+        const ActiveSlot(downloadId: 5, source: 'a'),
+        const ActiveSlot(downloadId: 6, source: 'a'),
+        const ActiveSlot(downloadId: 7, source: 'a'),
+      ];
+
+      final preempted = selectPreemptions(
+        slots: active,
+        total: 3,
+        perSourceCap: 10,
+      );
+
+      expect(preempted, [4, 5, 6, 7]);
+    });
+
+    test('enforces the per-source cap as well as the total', () {
+      final active = [
+        const ActiveSlot(downloadId: 1, source: 'a'),
+        const ActiveSlot(downloadId: 2, source: 'a'),
+        const ActiveSlot(downloadId: 3, source: 'a'),
+        const ActiveSlot(downloadId: 4, source: 'b'),
+      ];
+
+      final preempted = selectPreemptions(
+        slots: active,
+        total: 10,
+        perSourceCap: 2,
+      );
+
+      expect(preempted, [3]);
+    });
+
+    test('does not preempt for a share the user never set', () {
+      // Five workers on one source with total 10 and src cap 10: nothing is
+      // over either limit, so nothing may be stopped.
+      final preempted = selectPreemptions(
+        slots: const [
+          ActiveSlot(downloadId: 1, source: 'a'),
+          ActiveSlot(downloadId: 2, source: 'a'),
+          ActiveSlot(downloadId: 3, source: 'a'),
+          ActiveSlot(downloadId: 4, source: 'a'),
+          ActiveSlot(downloadId: 5, source: 'a'),
+        ],
+        total: 10,
+        perSourceCap: 10,
+      );
+
+      expect(preempted, isEmpty);
+    });
+
+    test('ignores workers that are already stopping', () {
+      final active = [
+        const ActiveSlot(downloadId: 1, source: 'a'),
+        const ActiveSlot(downloadId: 2, source: 'a', preempted: true),
+        const ActiveSlot(downloadId: 3, source: 'a'),
+      ];
+
+      final preempted = selectPreemptions(
+        slots: active,
+        total: 1,
+        perSourceCap: 10,
+      );
+
+      // Worker 2 is already draining: it must not push a live worker out, and
+      // it must not be preempted a second time.
+      expect(preempted, [3]);
+    });
+
+    test('a zero limit stops everything that is still running', () {
+      final active = [
+        const ActiveSlot(downloadId: 1, source: 'a'),
+        const ActiveSlot(downloadId: 2, source: 'b', preempted: true),
+        const ActiveSlot(downloadId: 3, source: 'b'),
+      ];
+
+      expect(
+        selectPreemptions(slots: active, total: 0, perSourceCap: 5),
+        [1, 3],
+      );
+    });
+  });
+
+  group('hasCompetingSource', () {
+    test('is true while another source is below its share', () {
+      expect(
+        hasCompetingSource(
+          source: 'a',
+          startableBySource: const {'a': 10, 'b': 10},
+          activeBySource: const {'a': 4, 'b': 0},
+          shareBySource: const {'a': 2, 'b': 2},
+          perSourceCap: 5,
+        ),
+        isTrue,
+      );
+    });
+
+    test('is false when the other source has no pending work left', () {
+      expect(
+        hasCompetingSource(
+          source: 'a',
+          startableBySource: const {'a': 10, 'b': 0},
+          activeBySource: const {'a': 4, 'b': 0},
+          shareBySource: const {'a': 2, 'b': 2},
+          perSourceCap: 5,
+        ),
+        isFalse,
+        reason: 'an empty source must not keep a slot idle',
+      );
+    });
+
+    test('is false when the other source already started all its work', () {
+      expect(
+        hasCompetingSource(
+          source: 'a',
+          startableBySource: const {'a': 10, 'b': 2},
+          activeBySource: const {'a': 1, 'b': 2},
+          shareBySource: const {'a': 2, 'b': 2},
+          perSourceCap: 5,
+        ),
+        isFalse,
+        reason: 'a source with nothing left to start must not reserve a slot',
+      );
+    });
+
+    test('is false when the other source already reached its share', () {
+      expect(
+        hasCompetingSource(
+          source: 'a',
+          startableBySource: const {'a': 10, 'b': 10},
+          activeBySource: const {'a': 4, 'b': 2},
+          shareBySource: const {'a': 2, 'b': 2},
+          perSourceCap: 5,
+        ),
+        isFalse,
+      );
+    });
+  });
 }
