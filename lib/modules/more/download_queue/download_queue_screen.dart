@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:watchtower/utils/mosaic_cover.dart';
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show ValueListenable, listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,21 +60,38 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
 
   /// Rebuilds the rate-limit banners once a second so the remaining time counts
   /// down without the page having to poll the registry itself.
+  ///
+  /// It is a [ValueNotifier] the banners listen to, not a `setState`: a
+  /// screen-wide rebuild every second re-grouped every download and re-laid out
+  /// every visible row, which is what made the queue stutter while a batch ran.
+  final _cooldownTick = ValueNotifier<int>(0);
   Timer? _cooldownTicker;
+
+  /// Chapter id -> item type, filled the first time an entry is classified.
+  ///
+  /// The queue builder runs on every Isar emission, and resolving a type walks
+  /// the chapter -> manga links (sync reads when they are not loaded yet). The
+  /// mapping is immutable for a chapter, so resolving it once is enough.
+  final _itemTypeCache = <int, ItemType>{};
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
     _cooldownTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      // Only notify when a source is actually cooling down: with no cooldown
+      // the countdown has nothing to redraw.
+      if (HostCooldownRegistry.instance.hasActiveCooldown) {
+        _cooldownTick.value++;
+      }
     });
     // A tapped challenge notification opens this screen *and* queues a focus;
     // pick it up whether it arrived before or after we mounted.
     ChallengeInbox.instance.target.addListener(_handleChallengeTarget);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _cleanupOrphanedDownloads();
+      unawaited(_cleanupOrphanedDownloads());
       ref.read(processDownloadsProvider());
       _handleChallengeTarget();
     });
@@ -133,18 +150,39 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void dispose() {
     ChallengeInbox.instance.target.removeListener(_handleChallengeTarget);
     _cooldownTicker?.cancel();
+    _cooldownTick.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  void _cleanupOrphanedDownloads() {
+  /// Deletes download rows whose chapter no longer exists, and repairs a
+  /// chapter -> manga link that a `put` dropped.
+  ///
+  /// Async and awaited per row on purpose: the previous synchronous version ran
+  /// `findAllSync()` plus a `loadSync()` per row inside the first post-frame
+  /// callback, so opening the queue on a large library froze the first frame for
+  /// as long as the scan took. Yielding between rows lets frames render.
+  Future<void> _cleanupOrphanedDownloads() async {
     // On ne supprime QUE les entrées dont le chapitre n'existe plus.
     // Avant, celles dont seul le lien manga manquait étaient supprimées :
     // le gestionnaire se vidait donc tout seul au moindre lien effacé.
     final orphanIds = <int>[];
-    for (final download in isar.downloads.where().findAllSync()) {
-      if (!download.chapter.isLoaded) download.chapter.loadSync();
-      final chapter = download.chapter.value;
+    final repaired = <Chapter>[];
+    List<Download> all;
+    try {
+      all = await isar.downloads.where().findAll();
+    } catch (_) {
+      return;
+    }
+    for (final download in all) {
+      if (!mounted) return;
+      Chapter? chapter;
+      try {
+        if (!download.chapter.isLoaded) await download.chapter.load();
+        chapter = download.chapter.value;
+      } catch (_) {
+        chapter = null;
+      }
       if (chapter == null) {
         if (download.id != null) orphanIds.add(download.id!);
         continue;
@@ -153,25 +191,26 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
       // (Isar efface un lien non chargé lors d'un `put`).
       if (!chapter.manga.isLoaded && chapter.mangaId != null) {
         try {
-          chapter.manga.loadSync();
+          await chapter.manga.load();
         } catch (_) {}
       }
       if (chapter.manga.value == null && chapter.mangaId != null) {
-        final manga = isar.mangas.getSync(chapter.mangaId!);
+        final manga = await isar.mangas.get(chapter.mangaId!);
         if (manga != null) {
-          isar.writeTxnSync(() {
-            chapter.manga.value = manga;
-            isar.chapters.putSync(chapter);
-          });
+          chapter.manga.value = manga;
+          repaired.add(chapter);
         }
       }
     }
+    if (repaired.isNotEmpty) {
+      try {
+        await isar.writeTxn(() async => isar.chapters.putAll(repaired));
+      } catch (_) {}
+    }
     if (orphanIds.isEmpty) return;
-    isar.writeTxnSync(() {
-      for (final id in orphanIds) {
-        isar.downloads.deleteSync(id);
-      }
-    });
+    try {
+      await isar.writeTxn(() async => isar.downloads.deleteAll(orphanIds));
+    } catch (_) {}
   }
 
   /// Returns to the page the queue was opened from. `go('/WatchtowerHome')`
@@ -469,8 +508,23 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
 
         // Split into 3 tabs by ItemType (type inconnu → Manga, pour qu'aucune
         // entrée ne disparaisse silencieusement).
-        ItemType typeOf(Download d) =>
-            d.chapter.value?.manga.value?.itemType ?? ItemType.manga;
+        //
+        // The item type of a series never changes, but this loop runs on every
+        // Isar emission — and an active transfer writes a row a few times a
+        // second, which is what made the queue re-scan the whole library while
+        // downloading. Cache the resolved types; unresolved entries are left
+        // out of the cache so a later emission can still classify them.
+        ItemType typeOf(Download d) {
+          final chapter = d.chapter.value;
+          final id = chapter?.id;
+          if (id != null) {
+            final cached = _itemTypeCache[id];
+            if (cached != null) return cached;
+          }
+          final resolved = chapter?.manga.value?.itemType;
+          if (resolved != null && id != null) _itemTypeCache[id] = resolved;
+          return resolved ?? ItemType.manga;
+        }
         final watchEntries = entries
             .where((d) => typeOf(d) == ItemType.anime)
             .toList();
@@ -636,6 +690,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      cooldownTick: _cooldownTick,
                       focusChapterId: _focusChapterId,
                       focusToken: _focusToken,
                       onChallengeClosed: _closeChallengePanel,
@@ -652,6 +707,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      cooldownTick: _cooldownTick,
                       focusChapterId: _focusChapterId,
                       focusToken: _focusToken,
                       onChallengeClosed: _closeChallengePanel,
@@ -668,6 +724,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      cooldownTick: _cooldownTick,
                       focusChapterId: _focusChapterId,
                       focusToken: _focusToken,
                       onChallengeClosed: _closeChallengePanel,
@@ -684,6 +741,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      cooldownTick: _cooldownTick,
                       focusChapterId: _focusChapterId,
                       focusToken: _focusToken,
                       onChallengeClosed: _closeChallengePanel,
@@ -700,6 +758,7 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                       onDelete: (e) => _deleteDownload(e, ref),
                       onRetry: (e) => _retryDownload(e, ref, context),
                       onOpen: (e) => _openDownload(e, context),
+                      cooldownTick: _cooldownTick,
                       focusChapterId: _focusChapterId,
                       focusToken: _focusToken,
                       onChallengeClosed: _closeChallengePanel,
@@ -2406,6 +2465,10 @@ class _GroupedDownloadTabList extends ConsumerStatefulWidget {
   /// Bumped on every challenge tap so re-tapping the same chapter re-scrolls.
   final int focusToken;
 
+  /// Ticks once a second while a source is cooling down, so the rate-limit
+  /// notice can count down without rebuilding the whole queue.
+  final ValueListenable<int> cooldownTick;
+
   /// Called when the inline bypass panel is closed, so the screen can clear the
   /// focus and hide the panel again.
   final VoidCallback? onChallengeClosed;
@@ -2422,6 +2485,7 @@ class _GroupedDownloadTabList extends ConsumerStatefulWidget {
     required this.onDelete,
     required this.onRetry,
     required this.onOpen,
+    required this.cooldownTick,
     this.focusChapterId,
     this.focusToken = 0,
     this.onChallengeClosed,
@@ -2811,7 +2875,12 @@ class _GroupedDownloadTabListState
     }
 
     final sources = _orderedSources(groups);
-    final rows = _flatten(sources);
+    final rows = flattenDownloadGroups(
+      groups: groups,
+      collapsedSources: _collapsed,
+      collapsedSeries: _collapsedSeries,
+      preferredSourceOrder: sources,
+    );
     // Row index of each source header, aligned with [sources]; used to map a
     // reorderable drag back onto the source order.
     final headerRows = <int>[
@@ -2907,10 +2976,8 @@ class _GroupedDownloadTabListState
 
     // While the source is cooling down after a rate limit, say so above the
     // logo: a batch that stops dead looks broken otherwise, and the countdown
-    // makes it obvious that it will resume on its own.
-    final cooldownLeft = HostCooldownRegistry.instance.remaining(
-      HostCooldownRegistry.keyForSource(src),
-    );
+    // makes it obvious that it will resume on its own. Only the notice listens
+    // to the one-second tick, so the rest of the header is not rebuilt.
 
     return Dismissible(
       key: ValueKey('src_swipe_$src'),
@@ -2976,8 +3043,17 @@ class _GroupedDownloadTabListState
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (cooldownLeft != null && !cooldownLeft.isNegative)
-                    _RateLimitNotice(remaining: cooldownLeft),
+                  ValueListenableBuilder<int>(
+                    valueListenable: widget.cooldownTick,
+                    builder: (context, _, _) {
+                      final cooldownLeft = HostCooldownRegistry.instance
+                          .remaining(HostCooldownRegistry.keyForSource(src));
+                      if (cooldownLeft == null || cooldownLeft.isNegative) {
+                        return const SizedBox.shrink();
+                      }
+                      return _RateLimitNotice(remaining: cooldownLeft);
+                    },
+                  ),
                   Row(
                     children: [
                       Container(
@@ -4635,14 +4711,20 @@ class _DownloadCard extends ConsumerWidget {
 
   /// MovieBox card title: `Series [lang]… S01 E02`. Falls back to the series
   /// name for films (no episode marker in the chapter name).
+  ///
+  /// The pattern is a static field: `_cardTitle` runs for every visible card on
+  /// every rebuild, and recompiling the RegExp per call showed up while
+  /// scrolling a long queue.
+  static final _episodeMarker = RegExp(
+    r'(?:S\s?(\d{1,3})\s?)?[ExXÉ]\s?(\d{1,3})',
+    caseSensitive: false,
+  );
+
   static String _cardTitle(Chapter? chapter, Manga? manga) {
     final series = (manga?.name ?? 'Inconnu').trim();
     final raw = (chapter?.name ?? '').trim();
     if (raw.isEmpty) return series;
-    final em = RegExp(
-      r'(?:S\s?(\d{1,3})\s?)?[ExXÉ]\s?(\d{1,3})',
-      caseSensitive: false,
-    ).firstMatch(raw);
+    final em = _episodeMarker.firstMatch(raw);
     if (em == null) return series;
     final season = (em.group(1) ?? '1').padLeft(2, '0');
     final episode = (em.group(2) ?? '1').padLeft(2, '0');

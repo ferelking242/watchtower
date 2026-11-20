@@ -853,8 +853,13 @@ class DownloadQueueState extends _$DownloadQueueState {
   }
 
   void setSpeed(int downloadId, double speedMBs) {
+    // Rounded to a tenth of a MB/s: the card only prints one decimal, so
+    // publishing every float wobble rebuilt every visible row for a label that
+    // does not change.
+    final rounded = double.parse(speedMBs.toStringAsFixed(1));
+    if (state.speeds[downloadId] == rounded) return;
     final map = Map<int, double>.from(state.speeds);
-    map[downloadId] = speedMBs;
+    map[downloadId] = rounded;
     state = state.copyWith(speeds: map);
   }
 
@@ -865,6 +870,10 @@ class DownloadQueueState extends _$DownloadQueueState {
   /// comme une taille réelle. Cette valeur sert uniquement à rendre la carte
   /// fluide pendant le téléchargement.
   void setLiveProgress(int downloadId, DownloadLiveProgress progress) {
+    // The transfer callback fires several times a second per download; when the
+    // counters did not move, replacing the map only rebuilds every visible row
+    // for identical pixels.
+    if (state.liveProgress[downloadId] == progress) return;
     final map = Map<int, DownloadLiveProgress>.from(state.liveProgress);
     map[downloadId] = progress;
     state = state.copyWith(liveProgress: map);
@@ -980,4 +989,25 @@ class DownloadLiveProgress {
     required this.totalUnits,
     this.isIndeterminate = false,
   });
+
+  /// Value equality matters: the transfer callback rebuilds this object on
+  /// every progress event (up to a few times a second per download) and the
+  /// notifier uses it to drop updates that would repaint identical pixels.
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadLiveProgress &&
+      other.downloadedBytes == downloadedBytes &&
+      other.totalBytes == totalBytes &&
+      other.completedUnits == completedUnits &&
+      other.totalUnits == totalUnits &&
+      other.isIndeterminate == isIndeterminate;
+
+  @override
+  int get hashCode => Object.hash(
+    downloadedBytes,
+    totalBytes,
+    completedUnits,
+    totalUnits,
+    isIndeterminate,
+  );
 }

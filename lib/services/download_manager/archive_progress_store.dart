@@ -125,7 +125,12 @@ class ArchiveProgressStore {
         _emit();
       }
       // Rewrite the snapshot so a stale marker is not re-read next launch.
-      if (dropped > 0) _persist();
+      // Flushed synchronously: this is a one-shot repair, and delaying it would
+      // let the next launch restore the very markers just dropped.
+      if (dropped > 0) {
+        _persistPending = true;
+        await _flushPersist();
+      }
     } catch (_) {
       // Persisted progress is best-effort only.
     }
@@ -139,6 +144,11 @@ class ArchiveProgressStore {
   void resetForTest() {
     _loaded = false;
     _current = const {};
+    // A debounce timer armed by a previous test would otherwise fire into the
+    // next one, since the store is a process-wide singleton.
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    _persistPending = false;
   }
 
   void set(
@@ -178,23 +188,55 @@ class ArchiveProgressStore {
     final next = Map<int, ArchiveProgress>.from(_current)..remove(chapterId);
     _current = Map<int, ArchiveProgress>.unmodifiable(next);
     _emit();
-    _persist();
+    // Flush instead of debouncing: this is the end of the pass, and a marker
+    // left behind by a killed process is exactly what rendered a golden bar
+    // over the whole download after a cold start.
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    _persistPending = true;
+    unawaited(_flushPersist());
   }
 
+  /// Coalesces the `SharedPreferences` writes.
+  ///
+  /// [set] is called once per packed page (and per muxed fragment), which for a
+  /// 200-page chapter is hundreds of full-map JSON encodes and disk writes on
+  /// the platform channel. Only the last snapshot matters, so a short timer
+  /// batches them. [clear] flushes immediately: it is the end of the pass and
+  /// the marker must not outlive it.
+  static const _persistDebounce = Duration(milliseconds: 700);
+  Timer? _persistTimer;
+  bool _persistPending = false;
+
   void _persist() {
+    _persistPending = true;
+    if (_persistTimer?.isActive ?? false) return;
+    _persistTimer = Timer(_persistDebounce, () => unawaited(_flushPersist()));
+  }
+
+  Future<void> _flushPersist() {
+    _persistTimer?.cancel();
+    _persistTimer = null;
+    if (!_persistPending) return Future<void>.value();
+    _persistPending = false;
     final payload = <String, dynamic>{
       for (final entry in _current.entries)
         entry.key.toString(): entry.value.toJson(),
     };
-    unawaited(() async {
+    return () async {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_prefsKey, jsonEncode(payload));
       } catch (_) {
         // Best-effort persistence.
       }
-    }());
+    }();
   }
+
+  /// Writes any debounced snapshot now, for tests that need to observe the
+  /// persisted value.
+  @visibleForTesting
+  Future<void> flushForTest() => _flushPersist();
 }
 
 /// Exposes the archive-packing progress to the UI. A plain [StreamProvider]

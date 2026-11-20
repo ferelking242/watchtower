@@ -7,6 +7,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    ArchiveProgressStore.instance.resetForTest();
   });
 
   group('ArchiveProgress', () {
@@ -60,6 +61,42 @@ void main() {
       expect(entry.value, 0.5);
 
       store.clear(9002);
+    });
+
+    test('publishes every tick but coalesces the persisted writes', () async {
+      // A 200-page chapter calls set() once per page; writing the whole map to
+      // SharedPreferences each time is what stalled the packing pass.
+      final store = ArchiveProgressStore.instance;
+      store.clear(9100);
+
+      for (var done = 1; done <= 20; done++) {
+        store.set(9100, done: done, total: 20);
+      }
+
+      // The UI sees the latest value immediately.
+      expect(store.of(9100)!.done, 20);
+      // The debounced write has not landed yet.
+      var prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('watchtower_archive_progress'), isNull);
+
+      await store.flushForTest();
+      prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('watchtower_archive_progress'), contains('9100'));
+
+      store.clear(9100);
+    });
+
+    test('clear persists immediately so no marker outlives the pass', () async {
+      final store = ArchiveProgressStore.instance;
+      store.set(9101, done: 1, total: 2);
+      await store.flushForTest();
+
+      store.clear(9101);
+      // clear() is synchronous by API, so let its fire-and-forget write land.
+      await Future<void>.delayed(Duration.zero);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('watchtower_archive_progress'), '{}');
     });
   });
 

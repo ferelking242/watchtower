@@ -614,17 +614,35 @@ double throttleBytesPerSecond(int kiloBytesPerSec) =>
 
 /// Token-bucket partagé entre tous les slots d'une même tâche — implémente la
 /// limite de débit du Speed Master sans bloquer les autres téléchargements.
-class _Throttle {
+///
+/// Public so the accounting can be regression tested: the earlier version slept
+/// for the deficit and never charged it, which silently doubled the limit.
+class DownloadThrottle {
   final double bytesPerSec;
   double _tokens;
   DateTime _lastRefill;
 
-  _Throttle(this.bytesPerSec)
+  DownloadThrottle(this.bytesPerSec)
     : _tokens = bytesPerSec, // burst initial = 1 s de budget
       _lastRefill = DateTime.now();
 
-  factory _Throttle.fromKiloBytesPerSecond(int kiloBytesPerSec) =>
-      _Throttle(throttleBytesPerSecond(kiloBytesPerSec));
+  factory DownloadThrottle.fromKiloBytesPerSecond(int kiloBytesPerSec) =>
+      DownloadThrottle(throttleBytesPerSecond(kiloBytesPerSec));
+
+  /// Tokens currently available, without refilling. Test hook.
+  @visibleForTesting
+  double get remainingTokens => _tokens;
+
+  /// Refills and charges [n] without waiting. Returns false when the bucket is
+  /// short, so a test can assert the accounting without real delays.
+  @visibleForTesting
+  bool tryTake(int n) {
+    if (bytesPerSec <= 0 || n <= 0) return true;
+    _refill();
+    if (_tokens < n) return false;
+    _tokens -= n;
+    return true;
+  }
 
   void _refill() {
     final now = DateTime.now();
@@ -635,18 +653,24 @@ class _Throttle {
     _lastRefill = now;
   }
 
+  /// Waits until [n] bytes may be sent, then charges them to the bucket.
+  ///
+  /// The previous version slept for the deficit and returned without charging,
+  /// so every caller got its bytes for free after the first sleep — the limit
+  /// leaked to roughly double the configured rate.
   Future<void> acquire(int n) async {
     if (bytesPerSec <= 0 || n <= 0) return;
-    _refill();
-    if (_tokens >= n) {
-      _tokens -= n;
-      return;
+    while (true) {
+      _refill();
+      if (_tokens >= n) {
+        _tokens -= n;
+        return;
+      }
+      final deficit = n - _tokens;
+      await Future<void>.delayed(
+        Duration(milliseconds: (deficit / bytesPerSec * 1000).ceil()),
+      );
     }
-    final deficit = n - _tokens;
-    _tokens = 0;
-    await Future<void>.delayed(
-      Duration(milliseconds: (deficit / bytesPerSec * 1000).ceil()),
-    );
   }
 }
 
@@ -1040,7 +1064,9 @@ Future<void> _processFileDownload(
   final slots = List<Future<void>>.filled(concurrency, Future<void>.value());
 
   try {
-    final throttle = _Throttle.fromKiloBytesPerSecond(params.speedLimitKBs);
+    final throttle = DownloadThrottle.fromKiloBytesPerSecond(
+      params.speedLimitKBs,
+    );
     replyPort.send(
       _DownloadPoolLog(
         taskId,
@@ -1589,7 +1615,7 @@ Future<void> _downloadResumableImage({
   required PageUrl pageUrl,
   required Client client,
   required String backupSuffix,
-  _Throttle? throttle,
+  DownloadThrottle? throttle,
   void Function(int downloadedBytes, int? totalBytes)? onProgress,
 }) async {
   const imageTimeout = Duration(seconds: 30);
@@ -1864,7 +1890,7 @@ Future<void> _downloadFile(
   ItemType itemType,
   SendPort replyPort, {
   int writeMode = 0,
-  _Throttle? throttle,
+  DownloadThrottle? throttle,
   required String stagingSuffix,
   void Function(int downloadedBytes, int? totalBytes)? onImageProgress,
 }) async {
@@ -2198,7 +2224,9 @@ Future<void> _processM3u8Download(
   }
 
   try {
-    final throttle = _Throttle.fromKiloBytesPerSecond(params.speedLimitKBs);
+    final throttle = DownloadThrottle.fromKiloBytesPerSecond(
+      params.speedLimitKBs,
+    );
     final int concurrency = params.concurrentDownloads.clamp(1, 32);
     final slots = List<Future<void>>.filled(concurrency, Future.value());
 
@@ -2380,7 +2408,7 @@ Future<void> _downloadSegment(
   M3u8DownloadParams params,
   Client client, {
   void Function(int bytes)? onChunk,
-  _Throttle? throttle,
+  DownloadThrottle? throttle,
 }) async {
   const segmentTimeout = Duration(seconds: 45);
   final file = File(path.join(params.tempDir, '${ts.name}.ts'));

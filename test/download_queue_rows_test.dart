@@ -134,6 +134,65 @@ void main() {
     });
   });
 
+  group('flattenDownloadGroups', () {
+    test('produces the same rows as flattenDownloadQueue', () {
+      final entries = [
+        _download(id: 1, mangaId: 10, source: 'alpha'),
+        _download(id: 2, mangaId: 10, source: 'alpha'),
+        _download(id: 3, mangaId: 20, source: 'beta'),
+      ];
+
+      final viaEntries = flattenDownloadQueue(
+        entries: entries,
+        collapsedSeries: const {'manga:10'},
+        preferredSourceOrder: const ['beta'],
+      );
+      final viaGroups = flattenDownloadGroups(
+        groups: groupDownloadsBySource(entries),
+        collapsedSeries: const {'manga:10'},
+        preferredSourceOrder: const ['beta'],
+      );
+
+      expect(
+        viaGroups.map((row) => row.runtimeType).toList(),
+        viaEntries.map((row) => row.runtimeType).toList(),
+      );
+      expect(
+        viaGroups.whereType<DownloadSourceHeaderRow>().map((r) => r.source),
+        ['beta', 'alpha'],
+      );
+    });
+  });
+
+  group('orderDownloadSources', () {
+    test('preferred sources come first, the rest keep first-seen order', () {
+      expect(
+        orderDownloadSources(
+          ['alpha', 'beta', 'gamma'],
+          preferredOrder: ['gamma', 'beta'],
+        ),
+        ['gamma', 'beta', 'alpha'],
+      );
+    });
+
+    test('ignores preferred names that are not present and repeats', () {
+      expect(
+        orderDownloadSources(
+          ['alpha', 'beta'],
+          preferredOrder: ['missing', 'beta', 'beta'],
+        ),
+        ['beta', 'alpha'],
+      );
+    });
+
+    test('keeps a large source list intact', () {
+      final sources = [for (var i = 0; i < 500; i++) 'src$i'];
+      final ordered = orderDownloadSources(sources);
+      expect(ordered, sources);
+      expect(ordered.length, 500);
+    });
+  });
+
   group('reorderDownloadSources', () {
     test('moving the first source below the second swaps them', () {
       // rows: [src a (0)], [child], [child], [src b (3)]

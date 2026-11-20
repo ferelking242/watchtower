@@ -100,17 +100,23 @@ Map<String, List<Download>> groupDownloadsBySource(Iterable<Download> entries) {
 
 /// Returns the source keys in [preferredOrder] first, then any source that is
 /// not listed yet appended in first-seen order.
+///
+/// Set-based membership: this runs on every queue rebuild, and the previous
+/// `List.contains` pair made it O(sources²) — quadratic in the number of
+/// installed extensions, on the UI thread, per progress tick.
 List<String> orderDownloadSources(
   Iterable<String> sources, {
   List<String> preferredOrder = const [],
 }) {
   final all = sources.toList(growable: false);
+  final present = all.toSet();
   final result = <String>[];
+  final seen = <String>{};
   for (final source in preferredOrder) {
-    if (all.contains(source) && !result.contains(source)) result.add(source);
+    if (present.contains(source) && seen.add(source)) result.add(source);
   }
   for (final source in all) {
-    if (!result.contains(source)) result.add(source);
+    if (seen.add(source)) result.add(source);
   }
   return result;
 }
@@ -139,8 +145,24 @@ List<DownloadQueueRow> flattenDownloadQueue({
   Set<String> collapsedSources = const {},
   Set<String> collapsedSeries = const {},
   List<String> preferredSourceOrder = const [],
+}) => flattenDownloadGroups(
+  groups: groupDownloadsBySource(entries),
+  collapsedSources: collapsedSources,
+  collapsedSeries: collapsedSeries,
+  preferredSourceOrder: preferredSourceOrder,
+);
+
+/// Same as [flattenDownloadQueue] but reuses groups the caller already built.
+///
+/// The queue's `build` needs the groups (to know whether the section is empty)
+/// *and* the rows; grouping twice per rebuild doubled the allocation on a list
+/// that can hold hundreds of thousands of entries.
+List<DownloadQueueRow> flattenDownloadGroups({
+  required Map<String, List<Download>> groups,
+  Set<String> collapsedSources = const {},
+  Set<String> collapsedSeries = const {},
+  List<String> preferredSourceOrder = const [],
 }) {
-  final groups = groupDownloadsBySource(entries);
   final sources = orderDownloadSources(
     groups.keys,
     preferredOrder: preferredSourceOrder,

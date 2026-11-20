@@ -52,6 +52,17 @@ class HostCooldownRegistry {
   /// True when [host] is cooling down and must not receive new work.
   bool isCoolingDown(String host) => cooldownUntil(host) != null;
 
+  /// True while at least one host is cooling down.
+  ///
+  /// The queue's one-second countdown ticker checks this before notifying its
+  /// listeners, so an idle queue costs nothing per second.
+  bool get hasActiveCooldown {
+    if (_until.isEmpty) return false;
+    final now = DateTime.now();
+    _until.removeWhere((_, until) => !until.isAfter(now));
+    return _until.isNotEmpty;
+  }
+
   /// Remaining cooldown for [host], or null.
   Duration? remaining(String host) {
     final until = cooldownUntil(host);

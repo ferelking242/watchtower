@@ -53,18 +53,24 @@ List<T> orderByPriorityDescending<T>(
 /// comparison when a label carries no number. Downloads are dispatched in
 /// ascending order, so a freshly queued manga starts at chapter 1 instead of
 /// whichever row Isar happens to return first.
+///
+/// The pattern is a top-level `final`: this is the comparator of a sort, so it
+/// runs O(n log n) times and used to recompile the RegExp on every comparison.
+final _chapterNumberPattern = RegExp(r'\d+(?:[.,]\d+)?');
+
 int compareChapterLabels(String? a, String? b) {
   final left = (a ?? '').trim();
   final right = (b ?? '').trim();
   if (left.isEmpty && right.isEmpty) return 0;
   if (left.isEmpty) return 1;
   if (right.isEmpty) return -1;
-  final numberPattern = RegExp(r'\d+(?:[.,]\d+)?');
   final leftNumber = double.tryParse(
-    numberPattern.firstMatch(left)?.group(0)?.replaceAll(',', '.') ?? '',
+    _chapterNumberPattern.firstMatch(left)?.group(0)?.replaceAll(',', '.') ??
+        '',
   );
   final rightNumber = double.tryParse(
-    numberPattern.firstMatch(right)?.group(0)?.replaceAll(',', '.') ?? '',
+    _chapterNumberPattern.firstMatch(right)?.group(0)?.replaceAll(',', '.') ??
+        '',
   );
   if (leftNumber != null && rightNumber != null) {
     final byNumber = leftNumber.compareTo(rightNumber);
