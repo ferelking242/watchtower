@@ -643,6 +643,23 @@ function extLog(level, msg) {
         );
         continue;
       }
+      // A source that has no `kind` field can still return the watch page as
+      // its only "stream" — the same HTML the player was opened from. mpv then
+      // probes 200 and waits forever for a first frame, so the chapter fails
+      // ~20 s later with no usable error. Drop any entry pointing back at the
+      // page itself unless it carries a media extension.
+      final entryUrl = element['url']?.toString() ?? '';
+      if (entryUrl.isNotEmpty &&
+          entryUrl == url &&
+          !_looksLikeMediaUrl(entryUrl)) {
+        _vidSkipped++;
+        _extWarn(
+          '$_id · getVideoList  dropped page-as-stream entry '
+          '← entry points at the watch page, not a media URL; '
+          'mpv would probe 200 and never decode a frame',
+        );
+        continue;
+      }
       if (element['url'] != null && element['originalUrl'] != null) {
         videos.add(Video.fromJson(element));
       } else {
@@ -679,6 +696,21 @@ function extLog(level, msg) {
       }
     }
     return result;
+  }
+
+  /// True when [url] carries an extension mpv can demux: HLS playlists,
+  /// progressive video containers and DASH manifests. Used to tell a real
+  /// stream apart from an entry that only echoes the page URL.
+  static bool _looksLikeMediaUrl(String url) {
+    final path = Uri.tryParse(url)?.path.toLowerCase() ?? url.toLowerCase();
+    return path.endsWith('.m3u8') ||
+        path.endsWith('.mpd') ||
+        path.endsWith('.mp4') ||
+        path.endsWith('.mkv') ||
+        path.endsWith('.webm') ||
+        path.endsWith('.ts') ||
+        path.endsWith('.mov') ||
+        path.endsWith('.avi');
   }
 
   // ── LN / HTML content operations ─────────────────────────────────────────
