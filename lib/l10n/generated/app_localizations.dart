@@ -23006,6 +23006,54 @@ abstract class AppLocalizations {
   /// **'Lookup failed: {error}'**
   String smart_requery_failed(Object error);
 
+  /// No description provided for @smart_search_catalogue.
+  ///
+  /// In en, this message translates to:
+  /// **'Search the catalogue'**
+  String get smart_search_catalogue;
+
+  /// No description provided for @smart_search_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Title or artist to look up'**
+  String get smart_search_hint;
+
+  /// No description provided for @smart_search_running.
+  ///
+  /// In en, this message translates to:
+  /// **'Searching…'**
+  String get smart_search_running;
+
+  /// No description provided for @smart_search_none.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing found for that name.'**
+  String get smart_search_none;
+
+  /// No description provided for @smart_search_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Search failed: {error}'**
+  String smart_search_failed(String error);
+
+  /// No description provided for @smart_search_apply.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this match'**
+  String get smart_search_apply;
+
+  /// No description provided for @smart_search_use_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Search this name'**
+  String get smart_search_use_title;
+
+  /// No description provided for @smart_edit_title_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type the real name, then search the catalogue'**
+  String get smart_edit_title_hint;
+
   /// No description provided for @smart_rename.
   ///
   /// In en, this message translates to:
@@ -23053,6 +23101,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 missing} other{{count} missing}}'**
   String smart_missing_episodes(int count);
+
+  /// Button that renames all files of one work at once
+  ///
+  /// In en, this message translates to:
+  /// **'Rename every file'**
+  String get smart_rename_all;
+
+  /// No description provided for @smart_rename_all_done.
+  ///
+  /// In en, this message translates to:
+  /// **'{renamed} renamed, {blocked} skipped'**
+  String smart_rename_all_done(int renamed, int blocked);
 
   /// No description provided for @smart_unknown_help.
   ///

@@ -8,6 +8,7 @@ import 'package:watchtower/local_indexer/engine/pipeline/analysis_stage.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/isar_writer_stage.dart';
 import 'package:watchtower/local_indexer/engine/watcher/android_media_store.dart';
+import 'package:watchtower/local_indexer/engine/watcher/ios_media_library.dart';
 import 'package:watchtower/local_indexer/engine/watcher/fs_watcher.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/search/search_engine.dart';
@@ -527,15 +528,11 @@ class IndexerEngine {
   /// Les filtres (taille, durée, nom, extension) sont appliqués par
   /// [DiscoveryStage], pas ici : une seule règle pour les deux sources.
   Future<_MediaStoreQueryResult?> _queryMediaStore(LocalScanMode mode) async {
-    if (!AndroidMediaStore.isAvailable) return null;
+    // Both platforms expose their media through a system index rather than a
+    // walkable tree: MediaStore on Android, Photos + the iPod library on iOS.
+    final entries = await _platformMediaRows(mode);
+    if (entries == null) return null;
     try {
-      final entries = switch (mode) {
-        LocalScanMode.music => await AndroidMediaStore.queryAudio(),
-        // MediaStore n'indexe ni les archives manga ni les pages d'un
-        // dossier : la marche FS reste la seule source pour ce mode.
-        LocalScanMode.manga => const <MediaStoreEntry>[],
-        LocalScanMode.videos => await AndroidMediaStore.queryVideos(),
-      };
       final files = entries
           .map((entry) => DiscoveredFile(
                 path: entry.path,
@@ -568,6 +565,28 @@ class IndexerEngine {
       // Permission refusée ou bridge indisponible : repli sur la marche FS.
       return null;
     }
+  }
+
+  /// Media rows from the platform index, or `null` when there is none to ask.
+  ///
+  /// Returns an empty list when the platform is supported but holds no media,
+  /// which the caller treats as "fall back to the filesystem walk".
+  Future<List<MediaStoreEntry>?> _platformMediaRows(LocalScanMode mode) async {
+    if (AndroidMediaStore.isAvailable) {
+      // MediaStore n'indexe ni les archives manga ni les pages d'un dossier :
+      // la marche FS reste la seule source pour ce mode.
+      if (mode == LocalScanMode.manga) return const <MediaStoreEntry>[];
+      return mode == LocalScanMode.music
+          ? AndroidMediaStore.queryAudio()
+          : AndroidMediaStore.queryVideos();
+    }
+    if (IosMediaLibrary.isAvailable) {
+      if (mode == LocalScanMode.manga) return const <MediaStoreEntry>[];
+      return mode == LocalScanMode.music
+          ? IosMediaLibrary.queryAudio()
+          : IosMediaLibrary.queryVideos();
+    }
+    return null;
   }
 
   void _emit(IndexerStatus status) {

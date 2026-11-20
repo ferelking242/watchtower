@@ -14,7 +14,9 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
   	<string>Watchtower needs access to save downloaded media to your Photos library.</string>
   	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Watchtower needs access to your photo library to save and restore backups.</string>
+	<string>Watchtower reads your video library to build the Smart Library and saves downloaded media to Photos.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Watchtower reads your music library to build the Smart Library and look up tracks on MusicBrainz.</string>
 	<key>NSDocumentUsageDescription</key>
 	<string>Watchtower needs access to your files to create and restore backups.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

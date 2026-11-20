@@ -12891,6 +12891,33 @@ class AppLocalizationsAs extends AppLocalizations {
   }
 
   @override
+  String get smart_search_catalogue => 'Search the catalogue';
+
+  @override
+  String get smart_search_hint => 'Title or artist to look up';
+
+  @override
+  String get smart_search_running => 'Searching…';
+
+  @override
+  String get smart_search_none => 'Nothing found for that name.';
+
+  @override
+  String smart_search_failed(String error) {
+    return 'Search failed: $error';
+  }
+
+  @override
+  String get smart_search_apply => 'Use this match';
+
+  @override
+  String get smart_search_use_title => 'Search this name';
+
+  @override
+  String get smart_edit_title_hint =>
+      'Type the real name, then search the catalogue';
+
+  @override
   String get smart_rename => 'Rename';
 
   @override
@@ -12924,6 +12951,14 @@ class AppLocalizationsAs extends AppLocalizations {
       one: '1 missing',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get smart_rename_all => 'Rename every file';
+
+  @override
+  String smart_rename_all_done(int renamed, int blocked) {
+    return '$renamed renamed, $blocked skipped';
   }
 
   @override

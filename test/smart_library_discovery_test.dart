@@ -419,4 +419,34 @@ void main() {
       expect(LocalScanMode.manga.mediaStoreCollection, isNull);
     });
   });
+
+  group('Smart Library desktop volume walk', () {
+    final policy = ScanPolicy.videos();
+
+    test('operating-system folders are never walked', () {
+      for (final name in const [
+        'windows',
+        'program files',
+        'programdata',
+        'appdata',
+        r'$recycle.bin',
+        'proc',
+        'sys',
+        'dev',
+        'snap',
+      ]) {
+        expect(
+          policy.ignoredDirectories.contains(name),
+          isTrue,
+          reason: '$name must stay out of a volume walk',
+        );
+      }
+    });
+
+    test('a real film folder is still walked', () {
+      for (final name in const ['movies', 'films', 'downloads', 'media']) {
+        expect(policy.ignoredDirectories.contains(name), isFalse);
+      }
+    });
+  });
 }

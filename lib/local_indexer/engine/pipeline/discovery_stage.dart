@@ -493,6 +493,25 @@ const _defaultIgnoredDirectories = {
   '.trash',
   'lost+found',
   'system volume information',
+  // Walking a whole desktop volume now that the scan covers every drive would
+  // otherwise crawl the OS itself: none of these ever holds a user's films.
+  'windows',
+  'program files',
+  'program files (x86)',
+  'programdata',
+  'appdata',
+  'applications',
+  'library',
+  r'$recycle.bin',
+  'recovery',
+  'proc',
+  'sys',
+  'dev',
+  'boot',
+  'snap',
+  'docker',
+  'containerd',
+  'overlay2',
 };
 
 /// Names that mark an audio file as a sound effect rather than a track.

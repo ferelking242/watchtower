@@ -9,11 +9,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/local_indexer/engine/pipeline/discovery_stage.dart';
 import 'package:watchtower/local_indexer/engine/watcher/android_media_store.dart';
+import 'package:watchtower/local_indexer/engine/watcher/ios_media_library.dart';
 import 'package:watchtower/local_indexer/metadata/local_media_metadata.dart';
 import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_work.dart';
 import 'package:watchtower/local_indexer/providers/local_indexer_provider.dart';
 import 'package:watchtower/models/manga.dart' show ItemType;
+import 'package:watchtower/modules/plugin/nfile/ui/screens/audio_player/audio_player_screen.dart';
+import 'package:watchtower/modules/plugin/nfile/ui/screens/video_player/video_player_screen.dart';
 import 'package:watchtower/modules/more/settings/downloads/local_work_detail_sheet.dart';
 import 'package:watchtower/modules/widgets/animated_empty_state.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -102,6 +105,11 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
     final roots = <String>[];
 
     if (!kIsWeb && Platform.isAndroid) {
+      // Ask for "All files access" first: that is what lets the scan behave
+      // like a media player and walk every folder, including the ones Android's
+      // media scanner ignores. The per-type media permission is still requested
+      // as the fallback path (MediaStore rows) when the user declines it.
+      await storage.requestAllFilesAccess();
       if (_isMusic) {
         await storage.requestAudioPermission();
       } else if (_isManga) {
@@ -131,18 +139,54 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
       }
     }
 
+    // iOS has no walkable media tree: videos live in Photos and tracks in the
+    // iPod library, both behind their own permission. Asking here means the
+    // scan can read them through [IosMediaLibrary] instead of only finding the
+    // files the user copied into the app's Documents folder.
+    if (!kIsWeb && Platform.isIOS) {
+      if (_isMusic) {
+        await storage.requestAudioPermission();
+      } else if (!_isManga) {
+        await IosMediaLibrary.requestPhotoAccess();
+      }
+    }
+
     final base = await storage.getDefaultDirectory();
     if (base != null && !roots.contains(base.path)) roots.add(base.path);
 
-    // On desktop and iOS there is no MediaStore and no shared-storage root:
-    // the user's library lives somewhere under their home folder. Walking the
-    // home folder is what makes the scan cover "the whole device" there, and
-    // the ignored-directory list keeps caches, node_modules and friends out.
-    if (!kIsWeb && !Platform.isAndroid) {
-      final home = _userHomeDirectory();
-      if (home != null && !roots.contains(home)) roots.add(home);
+    // On desktop there is no MediaStore: the user's library lives somewhere
+    // under their home folder, so walking it is what makes the scan cover "the
+    // whole device". Secondary drives are walked too — a film collection on
+    // D:\ or /mnt/data is exactly what a media player is expected to find.
+    if (!kIsWeb && !Platform.isAndroid && !Platform.isIOS) {
+      for (final root in _desktopScanRoots()) {
+        if (!roots.contains(root)) roots.add(root);
+      }
     }
 
+    return roots;
+  }
+
+  /// Home folder plus the mounted volumes that can hold media on desktop.
+  ///
+  /// The home folder always comes first: it is where a personal library almost
+  /// always lives, and the ignored-directory list keeps caches and
+  /// `node_modules` out of the walk.
+  List<String> _desktopScanRoots() {
+    final roots = <String>[];
+    final home = _userHomeDirectory();
+    if (home != null) roots.add(home);
+
+    if (Platform.isWindows) {
+      for (final drive in 'CDEFGHIJKLMNOPQRSTUVWXYZ'.split('')) {
+        final path = '$drive:\\';
+        if (Directory(path).existsSync()) roots.add(path);
+      }
+    } else {
+      for (final path in const ['/mnt', '/media', '/run/media']) {
+        if (Directory(path).existsSync()) roots.add(path);
+      }
+    }
     return roots;
   }
 
@@ -346,7 +390,11 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
                             ),
                           )
                         else
-                          _WorkSliverGrid(works: visible, onOpen: _openWork),
+                          _WorkSliverGrid(
+                            works: visible,
+                            onOpen: _openWork,
+                            onPlay: _playWork,
+                          ),
                         const SliverToBoxAdapter(child: SizedBox(height: 120)),
                       ],
                     );
@@ -362,6 +410,34 @@ class _SmartLibraryScreenState extends ConsumerState<SmartLibraryScreen> {
 
   void _openWork(LocalWork work) {
     LocalWorkDetailSheet.show(context, work);
+  }
+
+  /// Plays a work straight from its card, the way a media player behaves: a
+  /// track opens the audio player, a film or episode the video player. Without
+  /// this the Smart Library was a catalogue you could browse but not use.
+  void _playWork(LocalWork work) {
+    final item = work.files.isEmpty ? null : work.files.first;
+    if (item == null) return;
+    if (work.isMusic) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AudioPlayerScreen(
+            audioPath: item.filePath,
+            title: item.title,
+            artist: item.artist ?? work.title,
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VideoPlayerScreen(
+          videoPath: item.filePath,
+          playlist: [for (final file in work.files) file.filePath],
+        ),
+      ),
+    );
   }
 }
 
@@ -531,23 +607,24 @@ class _ScanProgressBar extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final l10n = context.l10n;
     final label = switch (phase) {
-      SmartLibraryScanPhase.discovering =>
-        l10n.smart_scan_notif_discovering(discovered),
-      SmartLibraryScanPhase.analyzing =>
-        l10n.smart_scan_notif_progress_percent(
-          ((progress ?? 0) * 100).clamp(0, 100).floor(),
-          processed,
-          total,
-        ),
+      SmartLibraryScanPhase.discovering => l10n.smart_scan_notif_discovering(
+        discovered,
+      ),
+      SmartLibraryScanPhase.analyzing => l10n.smart_scan_notif_progress_percent(
+        ((progress ?? 0) * 100).clamp(0, 100).floor(),
+        processed,
+        total,
+      ),
       // Enrichment is one lookup at a time with a rate-limit pause between
       // calls, so a fixed label looks frozen. Show the real counter.
-      SmartLibraryScanPhase.enriching => total > 0
-          ? l10n.smart_scan_notif_progress_percent(
-              ((progress ?? 0) * 100).clamp(0, 100).floor(),
-              processed,
-              total,
-            )
-          : l10n.smart_scanning_storage,
+      SmartLibraryScanPhase.enriching =>
+        total > 0
+            ? l10n.smart_scan_notif_progress_percent(
+                ((progress ?? 0) * 100).clamp(0, 100).floor(),
+                processed,
+                total,
+              )
+            : l10n.smart_scanning_storage,
       _ => l10n.smart_scan_notif_starting,
     };
     return Column(
@@ -669,8 +746,13 @@ class _FilterBar extends StatelessWidget {
 class _WorkSliverGrid extends StatelessWidget {
   final List<LocalWork> works;
   final void Function(LocalWork) onOpen;
+  final void Function(LocalWork) onPlay;
 
-  const _WorkSliverGrid({required this.works, required this.onOpen});
+  const _WorkSliverGrid({
+    required this.works,
+    required this.onOpen,
+    required this.onPlay,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -693,8 +775,11 @@ class _WorkSliverGrid extends StatelessWidget {
           crossAxisSpacing: 12,
         ),
         delegate: SliverChildBuilderDelegate(
-          (context, i) =>
-              _WorkCard(work: works[i], onTap: () => onOpen(works[i])),
+          (context, i) => _WorkCard(
+            work: works[i],
+            onTap: () => onPlay(works[i]),
+            onLongPress: () => onOpen(works[i]),
+          ),
           childCount: works.length,
         ),
       ),
@@ -706,7 +791,16 @@ class _WorkCard extends StatelessWidget {
   final LocalWork work;
   final VoidCallback onTap;
 
-  const _WorkCard({required this.work, required this.onTap});
+  /// Opens the detail sheet. Tapping the card plays the work, the way a media
+  /// player behaves; the sheet is where the user fixes a wrong entry, so it
+  /// sits behind a long press instead of competing with playback.
+  final VoidCallback onLongPress;
+
+  const _WorkCard({
+    required this.work,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -718,6 +812,7 @@ class _WorkCard extends StatelessWidget {
         final poster = metadata?.posterUrl;
         return InkWell(
           onTap: onTap,
+          onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

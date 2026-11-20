@@ -22,6 +22,7 @@ import 'package:watchtower/local_indexer/models/local_indexed_item.dart';
 import 'package:watchtower/local_indexer/models/local_file_cache.dart';
 import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/utils/chapter_link.dart';
+import 'package:on_audio_query/on_audio_query.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
@@ -126,10 +127,52 @@ class StorageProvider {
     return legacy.isGranted || legacy.isLimited;
   }
 
-  /// Requests only the Android audio permission used by the Music Smart
-  /// Library. Videos and photos are not needed to build the music library.
-  Future<bool> requestAudioPermission({bool requestIfNeeded = true}) async {
+  /// Requests "All files access" (MANAGE_EXTERNAL_STORAGE), the permission a
+  /// media player like VLC asks for.
+  ///
+  /// The media permissions only expose what Android's media scanner indexed.
+  /// Without this one the Smart Library scan cannot read files inside a
+  /// `.nomedia` folder, on an SD card root, or in a container MediaStore does
+  /// not track — which is why a library could come back empty on a device that
+  /// clearly had the files. Returns false when the user declines, so callers
+  /// can fall back to MediaStore rows plus a best-effort walk.
+  Future<bool> requestAllFilesAccess({bool requestIfNeeded = true}) async {
     if (kIsWeb || !Platform.isAndroid) return true;
+    try {
+      if (await Permission.manageExternalStorage.isGranted) return true;
+      if (await Permission.storage.isGranted) return true;
+      if (!requestIfNeeded) return false;
+      // Opens the system "All files access" settings page on Android 11+;
+      // permission_handler falls back to the runtime dialog below that.
+      final status = await Permission.manageExternalStorage.request();
+      if (status.isGranted) return true;
+      return (await Permission.storage.request()).isGranted;
+    } catch (error) {
+      // Some OEM/Android TV builds do not expose the settings intent.
+      debugPrint('[StorageProvider] all-files request failed: $error');
+      return false;
+    }
+  }
+
+  /// Requests the audio permission used by the Music Smart Library.
+  ///
+  /// On iOS the tracks live in the iPod library behind the MediaPlayer
+  /// permission, which has to be asked for through `on_audio_query`; on
+  /// Android it is READ_MEDIA_AUDIO. Videos and photos are not needed to
+  /// build the music library, so neither is requested here.
+  Future<bool> requestAudioPermission({bool requestIfNeeded = true}) async {
+    if (kIsWeb) return true;
+    if (Platform.isIOS) {
+      try {
+        final query = OnAudioQuery();
+        if (await query.permissionsStatus()) return true;
+        return requestIfNeeded ? await query.permissionsRequest() : false;
+      } catch (error) {
+        debugPrint('[StorageProvider] audio request failed: $error');
+        return false;
+      }
+    }
+    if (!Platform.isAndroid) return true;
 
     if (await Permission.manageExternalStorage.isGranted ||
         await Permission.storage.isGranted) {

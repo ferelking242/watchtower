@@ -9,6 +9,8 @@ import 'package:watchtower/local_indexer/normalizer/name_normalizer.dart';
 /// to be skipped before MusicBrainz was ever asked, which left albums without
 /// covers, artists or years. The floor is now per-kind.
 void main() {
+  _manualSearchTests();
+
   group('Smart Library music enrichment floor', () {
     test('a bare track name stays under the general video floor', () {
       final result = NameNormalizer.normalize('/Music/Album/Track.mp3');
@@ -80,6 +82,39 @@ void main() {
           LocalMetadataResolver.minimumConfidenceFor(LocalMediaKind.music),
         ),
       );
+    });
+  });
+}
+
+/// The user can rescue an entry the parser never matched by typing the real
+/// name and searching the catalogue ("this is an anime called …"). Music and
+/// video route to different providers, and an empty query must not fire a
+/// request at all.
+void _manualSearchTests() {
+  group('Smart Library manual catalogue search', () {
+    test('an empty query is rejected before any provider call', () async {
+      for (final kind in [
+        LocalMediaKind.movie,
+        LocalMediaKind.anime,
+        LocalMediaKind.music,
+      ]) {
+        expect(
+          await LocalMetadataResolver.instance.searchByTitle('   ', kind: kind),
+          isNull,
+        );
+      }
+    });
+
+    test('kinds with no provider are rejected', () async {
+      for (final kind in [LocalMediaKind.unknown, LocalMediaKind.novel]) {
+        expect(
+          await LocalMetadataResolver.instance.searchByTitle(
+            'Anything',
+            kind: kind,
+          ),
+          isNull,
+        );
+      }
     });
   });
 }

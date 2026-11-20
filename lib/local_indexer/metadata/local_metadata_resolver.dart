@@ -41,15 +41,45 @@ class LocalMetadataResolver {
 
   final http.Client _client = http.Client();
 
+  /// Looks up a title the user typed by hand, for the "this is an anime called
+  /// X" case the filename parser cannot recover.
+  ///
+  /// Unlike [resolveOne] nothing is written to the store: the caller decides
+  /// whether to keep the result, and the entry may be renamed before it is
+  /// saved, which changes the store key.
+  Future<LocalMediaMetadata?> searchByTitle(
+    String title, {
+    required LocalMediaKind kind,
+    String? artist,
+  }) async {
+    final query = title.trim();
+    if (query.isEmpty) return null;
+    return switch (kind) {
+      LocalMediaKind.music => await _resolveMusicBrainz(query, artist: artist),
+      LocalMediaKind.movie || LocalMediaKind.series => await _resolveTmdb(
+        query,
+        kind: kind,
+      ),
+      LocalMediaKind.anime => await _resolveAniList(query, manga: false),
+      LocalMediaKind.manga => await _resolveAniList(query, manga: true),
+      LocalMediaKind.novel || LocalMediaKind.unknown => null,
+    };
+  }
+
   /// Looks one item up on demand — used by the "re-query" action on an entry
   /// the user corrected. Unlike [enrich] it ignores the negative cache and the
   /// per-scan lookup cap, so the user always gets a fresh answer.
   Future<LocalMediaMetadata?> resolveOne(LocalIndexedItem item) async {
     final metadata = switch (item.kind) {
-      LocalMediaKind.music => await _resolveMusicBrainz(item),
-      _ when _usesTmdb(item) => await _resolveTmdb(item),
-      LocalMediaKind.anime || LocalMediaKind.manga =>
-        await _resolveAniList(item),
+      LocalMediaKind.music => await _resolveMusicBrainz(
+        item.title,
+        artist: item.artist,
+      ),
+      _ when _usesTmdb(item) => await _resolveTmdb(item.title, kind: item.kind),
+      LocalMediaKind.anime || LocalMediaKind.manga => await _resolveAniList(
+        item.title,
+        manga: item.kind == LocalMediaKind.manga,
+      ),
       _ => null,
     };
     if (metadata != null &&
@@ -108,9 +138,18 @@ class LocalMetadataResolver {
       lookedUp++;
       try {
         final metadata = switch (item.kind) {
-          LocalMediaKind.music => await _resolveMusicBrainz(item),
-          _ when _usesTmdb(item) => await _resolveTmdb(item),
-          _ => await _resolveAniList(item),
+          LocalMediaKind.music => await _resolveMusicBrainz(
+            item.title,
+            artist: item.artist,
+          ),
+          _ when _usesTmdb(item) => await _resolveTmdb(
+            item.title,
+            kind: item.kind,
+          ),
+          _ => await _resolveAniList(
+            item.title,
+            manga: item.kind == LocalMediaKind.manga,
+          ),
         };
         if (metadata != null &&
             metadata.matchScore >= _minimumMatchConfidence) {
@@ -163,11 +202,14 @@ class LocalMetadataResolver {
   bool _usesTmdb(LocalIndexedItem item) =>
       item.kind == LocalMediaKind.movie || item.kind == LocalMediaKind.series;
 
-  Future<LocalMediaMetadata?> _resolveTmdb(LocalIndexedItem item) async {
-    final mediaType = item.kind == LocalMediaKind.movie ? 'movie' : 'tv';
+  Future<LocalMediaMetadata?> _resolveTmdb(
+    String title, {
+    required LocalMediaKind kind,
+  }) async {
+    final mediaType = kind == LocalMediaKind.movie ? 'movie' : 'tv';
     final searchUri = Uri.parse('$tmdbApiBase/search/$mediaType').replace(
       queryParameters: {
-        'query': item.title,
+        'query': title,
         'include_adult': 'false',
         'language': 'fr-FR',
         'page': '1',
@@ -184,7 +226,7 @@ class LocalMetadataResolver {
         .whereType<Map>()
         .map((value) => value.cast<String, dynamic>())
         .toList(growable: false);
-    final candidate = _bestCandidate(item.title, results, mediaType);
+    final candidate = _bestCandidate(title, results, mediaType);
     if (candidate == null) return null;
 
     final id = (candidate['id'] as num?)?.toInt();
@@ -212,7 +254,7 @@ class LocalMetadataResolver {
         .map((genre) => genre['name'] as String? ?? '')
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
-    final title = _tmdbTitle(candidate, mediaType);
+    final matchedTitle = _tmdbTitle(candidate, mediaType);
     final date = (candidate['release_date'] ??
             candidate['first_air_date'] ??
             details['release_date'] ??
@@ -222,7 +264,7 @@ class LocalMetadataResolver {
     return LocalMediaMetadata(
       provider: 'tmdb',
       externalId: id,
-      title: title,
+      title: matchedTitle,
       overview:
           (details['overview'] as String?) ??
           candidate['overview'] as String?,
@@ -236,7 +278,7 @@ class LocalMetadataResolver {
           : null,
       genres: genres,
       people: cast,
-      matchScore: _matchScore(item.title, [
+      matchScore: _matchScore(title, [
         _tmdbTitle(candidate, mediaType),
         (mediaType == 'movie'
                 ? candidate['original_title']
@@ -247,7 +289,10 @@ class LocalMetadataResolver {
     );
   }
 
-  Future<LocalMediaMetadata?> _resolveAniList(LocalIndexedItem item) async {
+  Future<LocalMediaMetadata?> _resolveAniList(
+    String title, {
+    required bool manga,
+  }) async {
     const query = r'''
 query ($search: String!, $type: MediaType!) {
   Media(search: $search, type: $type, format_not: NOVEL, isAdult: false) {
@@ -271,14 +316,14 @@ query ($search: String!, $type: MediaType!) {
     }
   }
 }''';
-    final mediaType = item.kind == LocalMediaKind.manga ? 'MANGA' : 'ANIME';
+    final mediaType = manga ? 'MANGA' : 'ANIME';
     final response = await _client
         .post(
           Uri.parse('https://graphql.anilist.co'),
           headers: const {'Content-Type': 'application/json'},
           body: jsonEncode({
             'query': query,
-            'variables': {'search': item.title, 'type': mediaType},
+            'variables': {'search': title, 'type': mediaType},
           }),
         )
         .timeout(_timeout);
@@ -290,7 +335,7 @@ query ($search: String!, $type: MediaType!) {
     if (media is! Map) return null;
     final candidate = media.cast<String, dynamic>();
     final titles = (candidate['title'] as Map?)?.cast<String, dynamic>() ?? {};
-    final matchScore = _matchScore(item.title, [
+    final matchScore = _matchScore(title, [
       titles['english'] as String? ?? '',
       titles['romaji'] as String? ?? '',
       titles['native'] as String? ?? '',
@@ -325,7 +370,7 @@ query ($search: String!, $type: MediaType!) {
       title: (titles['english'] as String?) ??
           (titles['romaji'] as String?) ??
           (titles['native'] as String?) ??
-          item.title,
+          title,
       overview: candidate['description'] as String?,
       posterUrl: (cover?['extraLarge'] as String?) ??
           cover?['large'] as String?,
@@ -341,9 +386,12 @@ query ($search: String!, $type: MediaType!) {
 
   /// MusicBrainz: the free, tag-based music catalogue. Lucene search over the
   /// recording index; the top-scoring recording wins.
-  Future<LocalMediaMetadata?> _resolveMusicBrainz(LocalIndexedItem item) async {
-    final query = StringBuffer('recording:"${_luceneEscape(item.title)}"');
-    final artist = item.artist?.trim();
+  Future<LocalMediaMetadata?> _resolveMusicBrainz(
+    String title, {
+    String? artist,
+  }) async {
+    final query = StringBuffer('recording:"${_luceneEscape(title)}"');
+    artist = artist?.trim();
     if (artist != null && artist.isNotEmpty) {
       query.write(' AND artist:"${_luceneEscape(artist)}"');
     }
@@ -368,13 +416,13 @@ query ($search: String!, $type: MediaType!) {
     var bestScore = 0.0;
     for (final raw in recordings) {
       final recording = raw.cast<String, dynamic>();
-      final title = recording['title'] as String? ?? '';
+      final recordingTitle = recording['title'] as String? ?? '';
       final credit =
           ((recording['artist-credit'] as List? ?? const []).whereType<Map>())
               .map((c) => c['name'] as String? ?? '')
               .where((n) => n.isNotEmpty)
               .join(', ');
-      final score = _matchScore(item.title, [title]);
+      final score = _matchScore(title, [recordingTitle]);
       // A recording with the right artist is a stronger match than the title
       // alone; nudge it above a same-titled cover.
       final artistBonus =
@@ -408,7 +456,7 @@ query ($search: String!, $type: MediaType!) {
     return LocalMediaMetadata(
       provider: 'musicbrainz',
       externalId: id.hashCode,
-      title: best['title'] as String? ?? item.title,
+      title: best['title'] as String? ?? title,
       overview: releaseGroup?['primary-type'] as String?,
       externalUrl: 'https://musicbrainz.org/recording/$id',
       year: year,

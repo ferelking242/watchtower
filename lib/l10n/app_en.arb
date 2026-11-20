@@ -4236,6 +4236,19 @@
   "smart_requery_found": "Match found: {title}",
   "smart_requery_none": "No match found. You can fill the fields by hand.",
   "smart_requery_failed": "Lookup failed: {error}",
+  "smart_search_catalogue": "Search the catalogue",
+  "smart_search_hint": "Title or artist to look up",
+  "smart_search_running": "Searching…",
+  "smart_search_none": "Nothing found for that name.",
+  "@smart_search_failed": {
+    "placeholders": {
+      "error": { "type": "String" }
+    }
+  },
+  "smart_search_failed": "Search failed: {error}",
+  "smart_search_apply": "Use this match",
+  "smart_search_use_title": "Search this name",
+  "smart_edit_title_hint": "Type the real name, then search the catalogue",
   "smart_rename": "Rename",
   "smart_rename_preview": "Rename to",
   "smart_rename_apply": "Rename",
@@ -4250,6 +4263,17 @@
       "count": {
         "type": "int"
       }
+    }
+  },
+  "smart_rename_all": "Rename every file",
+  "@smart_rename_all": {
+    "description": "Button that renames all files of one work at once"
+  },
+  "smart_rename_all_done": "{renamed} renamed, {blocked} skipped",
+  "@smart_rename_all_done": {
+    "placeholders": {
+      "renamed": {"type": "int"},
+      "blocked": {"type": "int"}
     }
   },
   "smart_unknown_help": "This entry could not be classified. Edit it or search the catalogue again.",
