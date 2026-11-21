@@ -38,6 +38,16 @@ import 'package:watchtower/modules/more/download_queue/download_queue_tree_conne
 import 'package:watchtower/modules/transfer/transfer_screen.dart'
     show showTransferPanel;
 
+/// Patterns used by the queue cards. They are top-level `final`s because the
+/// cards run on every progress tick: compiling them per call showed up while
+/// scrolling a long queue.
+final _nonAlphanumeric = RegExp(r'[^a-zA-Z0-9]');
+final _qualityMarker = RegExp(r'\b(8k|4k)\b', caseSensitive: false);
+final _resolutionMarker = RegExp(
+  r'(4320|2160|1440|1080|720|540|480|360|240)\s*p?',
+  caseSensitive: false,
+);
+
 class DownloadQueueScreen extends ConsumerStatefulWidget {
   const DownloadQueueScreen({super.key});
 
@@ -525,21 +535,27 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
           if (resolved != null && id != null) _itemTypeCache[id] = resolved;
           return resolved ?? ItemType.manga;
         }
-        final watchEntries = entries
-            .where((d) => typeOf(d) == ItemType.anime)
-            .toList();
-        final mangaEntries = entries
-            .where((d) => typeOf(d) == ItemType.manga)
-            .toList();
-        final novelEntries = entries
-            .where((d) => typeOf(d) == ItemType.novel)
-            .toList();
-        final musicEntries = entries
-            .where((d) => typeOf(d) == ItemType.music)
-            .toList();
-        final gameEntries = entries
-            .where((d) => typeOf(d) == ItemType.game)
-            .toList();
+        // One pass buckets the entries instead of five `where` passes, and the
+        // unfinished counts the tab bar needs fall out of the same loop. This
+        // runs on every progress tick, so the extra traversals were visible.
+        final buckets = <ItemType, List<Download>>{
+          for (final type in ItemType.values) type: <Download>[],
+        };
+        final unfinishedCounts = <ItemType, int>{
+          for (final type in ItemType.values) type: 0,
+        };
+        for (final download in entries) {
+          final type = typeOf(download);
+          buckets[type]!.add(download);
+          if (download.isDownload != true) {
+            unfinishedCounts[type] = unfinishedCounts[type]! + 1;
+          }
+        }
+        final watchEntries = buckets[ItemType.anime]!;
+        final mangaEntries = buckets[ItemType.manga]!;
+        final novelEntries = buckets[ItemType.novel]!;
+        final musicEntries = buckets[ItemType.music]!;
+        final gameEntries = buckets[ItemType.game]!;
 
         final scheme = Theme.of(context).colorScheme;
         return Scaffold(
@@ -653,21 +669,11 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
                   children: [
                     Flexible(
                       child: _buildChipTabBar(
-                        watchCount: watchEntries
-                            .where((download) => download.isDownload != true)
-                            .length,
-                        mangaCount: mangaEntries
-                            .where((download) => download.isDownload != true)
-                            .length,
-                        novelCount: novelEntries
-                            .where((download) => download.isDownload != true)
-                            .length,
-                        musicCount: musicEntries
-                            .where((download) => download.isDownload != true)
-                            .length,
-                        gameCount: gameEntries
-                            .where((download) => download.isDownload != true)
-                            .length,
+                        watchCount: unfinishedCounts[ItemType.anime]!,
+                        mangaCount: unfinishedCounts[ItemType.manga]!,
+                        novelCount: unfinishedCounts[ItemType.novel]!,
+                        musicCount: unfinishedCounts[ItemType.music]!,
+                        gameCount: unfinishedCounts[ItemType.game]!,
                       ),
                     ),
                   ],
@@ -3842,9 +3848,19 @@ class _DownloadCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final archiveProgress = download.id == null
+    // Both stores publish a map keyed by chapter, and every card watched the
+    // whole map: a single chapter advancing its archive pass, or recording a
+    // failure, rebuilt every card in the queue. `select` narrows each watch to
+    // this card's own entry, which is why those two models carry value
+    // equality.
+    final chapterId = download.id;
+    final archiveProgress = chapterId == null
         ? null
-        : ref.watch(archiveProgressProvider).value?[download.id!];
+        : ref.watch(
+            archiveProgressProvider.select(
+              (async) => async.value?[chapterId],
+            ),
+          );
     final isCompressing = archiveProgress != null;
     final manga = download.chapter.value?.manga.value;
     final chapter = download.chapter.value;
@@ -3873,9 +3889,13 @@ class _DownloadCard extends ConsumerWidget {
     // The reason is stored per chapter because the failure toast is shown once
     // and is dropped entirely when no Overlay is live — the normal case for a
     // background batch, which left the user with red rows and no explanation.
-    final failureReason = download.id == null
+    final failureReason = chapterId == null
         ? null
-        : ref.watch(downloadFailuresProvider).value?[download.id!]?.message;
+        : ref.watch(
+            downloadFailuresProvider.select(
+              (async) => async.value?[chapterId]?.message,
+            ),
+          );
     final isCancelled = download.status == 'cancelled';
     final isPaused = this.isPaused;
     final live = liveProgress;
@@ -4099,7 +4119,7 @@ class _DownloadCard extends ConsumerWidget {
         : scheme.primary;
 
     var srcBadge = (manga?.source ?? '')
-        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .replaceAll(_nonAlphanumeric, '')
         .toUpperCase();
     if (srcBadge.length > 10) srcBadge = srcBadge.substring(0, 10);
 
@@ -4823,12 +4843,9 @@ class _DownloadCard extends ConsumerWidget {
   }
 
   String _displayQualityLabel(String quality) {
-    final k = RegExp(r'\b(8k|4k)\b', caseSensitive: false).firstMatch(quality);
+    final k = _qualityMarker.firstMatch(quality);
     if (k != null) return k.group(1)!.toUpperCase();
-    final resolution = RegExp(
-      r'(4320|2160|1440|1080|720|540|480|360|240)\s*p?',
-      caseSensitive: false,
-    ).firstMatch(quality);
+    final resolution = _resolutionMarker.firstMatch(quality);
     if (resolution == null) return quality.trim();
     final number = resolution.group(1)!;
     if (number == '4320') return '8K';

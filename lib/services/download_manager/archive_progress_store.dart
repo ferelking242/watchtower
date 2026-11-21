@@ -53,6 +53,18 @@ class ArchiveProgress {
       indeterminate: json['indeterminate'] == true,
     );
   }
+
+  /// Value equality so a queue card can `select` its own chapter out of the
+  /// map: without it every card rebuilds whenever any chapter's pass advances.
+  @override
+  bool operator ==(Object other) =>
+      other is ArchiveProgress &&
+      other.done == done &&
+      other.total == total &&
+      other.indeterminate == indeterminate;
+
+  @override
+  int get hashCode => Object.hash(done, total, indeterminate);
 }
 
 class ArchiveProgressStore {

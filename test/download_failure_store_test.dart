@@ -29,6 +29,19 @@ void main() {
       expect(DownloadFailure.fromJson({'message': ''}), isNull);
       expect(DownloadFailure.fromJson({'message': 'x'}), isNull);
     });
+
+    test('compares by value so a card can select its own entry', () {
+      // The queue card selects its chapter's message out of the shared map;
+      // without value equality every card rebuilt on any chapter's failure.
+      final at = DateTime.fromMillisecondsSinceEpoch(1700000000000);
+      DownloadFailure make({String message = 'HTTP 429', int failed = 1}) =>
+          DownloadFailure(message: message, at: at, failedPages: failed);
+
+      expect(make(), make());
+      expect(make().hashCode, make().hashCode);
+      expect(make(), isNot(make(message: 'HTTP 500')));
+      expect(make(), isNot(make(failed: 2)));
+    });
   });
 
   group('DownloadFailureStore', () {

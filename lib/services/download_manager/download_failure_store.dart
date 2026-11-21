@@ -58,6 +58,21 @@ class DownloadFailure {
       totalPages: (json['totalPages'] as num?)?.toInt() ?? 0,
     );
   }
+
+  /// Value equality so a queue card can `select` its own chapter out of the
+  /// map: without it every card rebuilds whenever any chapter records a failure.
+  @override
+  bool operator ==(Object other) =>
+      other is DownloadFailure &&
+      other.message == message &&
+      other.at == at &&
+      other.partial == partial &&
+      other.failedPages == failedPages &&
+      other.totalPages == totalPages;
+
+  @override
+  int get hashCode =>
+      Object.hash(message, at, partial, failedPages, totalPages);
 }
 
 class DownloadFailureStore {

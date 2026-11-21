@@ -33,6 +33,27 @@ void main() {
     test('drops a payload with no usable total', () {
       expect(ArchiveProgress.fromJson({'done': 1, 'total': 0}), isNull);
     });
+
+    test('compares by value so a card can select its own entry', () {
+      // The queue card selects its chapter out of the shared map; without value
+      // equality a new map instance rebuilt every visible card.
+      expect(
+        const ArchiveProgress(done: 3, total: 6),
+        const ArchiveProgress(done: 3, total: 6),
+      );
+      expect(
+        const ArchiveProgress(done: 3, total: 6),
+        isNot(const ArchiveProgress(done: 4, total: 6)),
+      );
+      expect(
+        const ArchiveProgress(done: 3, total: 6),
+        isNot(const ArchiveProgress(done: 3, total: 6, indeterminate: true)),
+      );
+      expect(
+        const ArchiveProgress(done: 3, total: 6).hashCode,
+        const ArchiveProgress(done: 3, total: 6).hashCode,
+      );
+    });
   });
 
   group('ArchiveProgressStore', () {
