@@ -81,7 +81,7 @@ import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/search/tmdb_search_screen.dart';
 import 'package:watchtower/modules/media/tmdb_media_detail_screen.dart';
 import 'package:watchtower/modules/media/tmdb_people_screen.dart';
-import 'package:watchtower/modules/media/live_tv_screen.dart';
+import 'package:watchtower/modules/live_tv/screens/live_tv_screen.dart';
 import 'package:watchtower/modules/home/widgets/watchtower_search_screen.dart';
 import 'package:watchtower/modules/manga/detail/manga_detail_main.dart';
 import 'package:watchtower/modules/manga/home/manga_home_screen.dart';
