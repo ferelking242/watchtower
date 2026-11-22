@@ -194,6 +194,13 @@ class AppLogger {
   static late File _logFile;
   // dynamic to accept both dart:io.IOSink (native) and stub IOSink (web)
   static late dynamic _sink;
+
+  /// Set once [_sink] reported an asynchronous failure (or was closed under
+  /// us). Writing again would only re-raise the same "File closed" on
+  /// [IOSink.done], which nothing awaits, so it surfaces as an unhandled zone
+  /// error every single flush. The synchronous crash-path writer keeps working
+  /// regardless: it bypasses the sink entirely.
+  static bool _sinkBroken = false;
   static bool _initialized = false;
 
   // ── In-memory filter state ──────────────────────────────────────────────────
@@ -466,7 +473,7 @@ class AppLogger {
       }
     } catch (_) {}
 
-    _sink = _logFile.openWrite(mode: FileMode.append);
+    _openSink();
     _initialized = true;
 
     await _writeSessionHeader();
@@ -584,11 +591,12 @@ class AppLogger {
   }
 
   static Future<void> _flushSink() async {
-    if (!_initialized) return;
+    if (!_initialized || _sinkBroken) return;
     try {
       await _sink.flush();
     } catch (_) {
       // Keep the in-memory logs available if the file sink has been closed.
+      _sinkBroken = true;
     }
   }
 
@@ -599,11 +607,12 @@ class AppLogger {
     _logFlushTimer = null;
     await _drainPendingLines();
     await _fileWriteQueue;
-    if (!_initialized) return;
+    if (!_initialized || _sinkBroken) return;
     try {
       await _sink.flush();
     } catch (_) {
       // Keep the in-memory logs available if the file sink has been closed.
+      _sinkBroken = true;
     }
   }
 
@@ -624,6 +633,12 @@ class AppLogger {
   /// Appends one batch, recreating the folder, file and sink if they went away
   /// while the app was running.
   static Future<void> _appendToLogFile(String batch) async {
+    if (_sinkBroken) {
+      // Fall through to the synchronous writer instead of writing into a sink
+      // whose `done` already completed with an error.
+      _appendBatchSync(batch);
+      return;
+    }
     try {
       _sink.write(batch);
     } catch (_) {
@@ -632,7 +647,19 @@ class AppLogger {
         _sink.write(batch);
       } catch (_) {
         // Entries remain available in the in-memory ring and live stream.
+        _sinkBroken = true;
+        _appendBatchSync(batch);
       }
+    }
+  }
+
+  /// Synchronous append used whenever the sink is unusable. Never throws: it
+  /// runs from error paths and from the crash-path flush.
+  static void _appendBatchSync(String batch) {
+    try {
+      _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: true);
+    } catch (_) {
+      // Nothing left to try: the entry stays in the in-memory ring.
     }
   }
 
@@ -651,7 +678,28 @@ class AppLogger {
     if (!await _logFile.exists()) {
       await _logFile.create(recursive: true);
     }
-    _sink = _logFile.openWrite(mode: FileMode.append);
+    _openSink();
+  }
+
+  /// Opens the log sink and makes sure its [IOSink.done] failure is consumed.
+  ///
+  /// `done` completes with the first write error and is not awaited anywhere,
+  /// so an unhandled "FileSystemException: File closed" reached
+  /// `runZonedGuarded` on every flush once the file had been closed under the
+  /// app. Listening here turns that into a flag instead of a repeating zone
+  /// error, and the synchronous writer takes over.
+  static void _openSink() {
+    final sink = _logFile.openWrite(mode: FileMode.append);
+    _sink = sink;
+    _sinkBroken = false;
+    unawaited(
+      sink.done.then<void>(
+        (_) {},
+        onError: (Object _) {
+          _sinkBroken = true;
+        },
+      ),
+    );
   }
 
   // Call this after changing settings in the UI to update in-memory filters
@@ -765,8 +813,7 @@ class AppLogger {
     //    the ones the root isolate would discard anyway, before sanitising,
     //    encoding them as JSON and paying the isolate hop.
     final workerForwarder = _workerLogForwarder;
-    if (workerForwarder != null &&
-        !_passesLogFilters(logLevel, tag, message)) {
+    if (workerForwarder != null && !_passesLogFilters(logLevel, tag, message)) {
       return;
     }
 
@@ -827,7 +874,10 @@ class AppLogger {
     // Warnings and errors are written and flushed immediately: a native crash
     // in the QuickJS bridge ends the process without unwinding, so a buffered
     // line would never reach the file.
-    _queueFileWrite(formatted, urgent: logLevel.index >= LogLevel.warning.index);
+    _queueFileWrite(
+      formatted,
+      urgent: logLevel.index >= LogLevel.warning.index,
+    );
   }
 
   static String _timestamp() {
@@ -847,7 +897,11 @@ class AppLogger {
     _periodicFlushTimer?.cancel();
     _periodicFlushTimer = null;
     await flush();
-    await _sink.close();
+    try {
+      await _sink.close();
+    } catch (_) {
+      // Already closed or broken: nothing to release.
+    }
     _initialized = false;
   }
 }

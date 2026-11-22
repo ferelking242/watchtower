@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 import 'dart:ui' show RootIsolateToken;
 import 'package:watchtower/services/anti_bot/browser_capture.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Gives spawned isolates access to the browser engine of the root isolate.
@@ -107,19 +108,24 @@ class BrowserBridge {
     final reply = message['reply'];
     final raw = message['request'];
     if (reply is! SendPort || raw is! Map) return;
-    final request = BrowserCaptureRequest.fromMap(
-      raw.cast<String, dynamic>(),
-    );
+    final request = BrowserCaptureRequest.fromMap(raw.cast<String, dynamic>());
     try {
       final result = await BrowserCapture.fetch(request);
       if (result == null) {
         // The worker asked for a page the browser could not obtain: this is the
         // only place that runs in the root isolate, so raise the notification
         // here (a platform channel is unavailable in the worker).
-        try {
-          onBrowserUnavailable?.call(request.url, request.sourceId);
-        } catch (_) {
-          // Notification failures must never break the bridge reply.
+        //
+        // A raw media URL never reaches this point meaningfully: a WebView
+        // cannot serve a playlist or a segment, so the failure says nothing
+        // about Cloudflare and reporting it raised a false "blocked" alert
+        // while mpv was already playing the video. Stay silent for those.
+        if (!isRawMediaUrl(request.url)) {
+          try {
+            onBrowserUnavailable?.call(request.url, request.sourceId);
+          } catch (_) {
+            // Notification failures must never break the bridge reply.
+          }
         }
       }
       reply.send(

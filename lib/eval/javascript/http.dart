@@ -288,11 +288,15 @@ Future<String> _toHttpResponse(
     // the extension fall back to the playable master playlist.
     final missAvRefusal = resp.statusCode == 403 &&
         BrowserFetchService.isMissAvMediaUrl(url);
-    if (missAvRefusal) {
+    // Any raw media URL is answered by mpv/FFmpeg, never by a browser tab: a
+    // WebView cannot return a playlist, so replaying one only produced an
+    // "unavailable" reply and a false challenge. Keep the native answer for
+    // every media URL, not just Surrit's 403.
+    final mediaRefusal = resp.statusCode >= 400 && isRawMediaUrl(url);
+    if (missAvRefusal || mediaRefusal) {
       AppLogger.log(
-        '$method $url → ${resp.statusCode} · Surrit refuses this client '
-        '(TLS fingerprint), not the user — keeping the native answer so the '
-        'player can open the master playlist',
+        '$method $url → ${resp.statusCode} · media URL answered by mpv, not '
+        'the browser — keeping the native answer (no false challenge)',
         logLevel: LogLevel.debug,
         tag: LogTag.network,
       );

@@ -40,6 +40,15 @@ class CloudflareBypassPanel extends StatefulWidget {
   /// `cf_clearance` cookie persisted for the HTTP client.
   final VoidCallback? onResolved;
 
+  /// Called when the page loads normally but no clearance cookie was stored.
+  ///
+  /// This is the MissAV case: the site itself is reachable (the WebView renders
+  /// it), only the extension's HTTP client is refused. There is nothing left to
+  /// solve, so the panel is done — reporting it through [onResolved] would be a
+  /// lie (no cookie was obtained), but leaving the user in front of a panel that
+  /// will never change is worse.
+  final VoidCallback? onPageHealthy;
+
   /// Called when the user wants to retry the failing operation.
   final FutureOr<void> Function()? onRetry;
 
@@ -59,6 +68,7 @@ class CloudflareBypassPanel extends StatefulWidget {
     required this.url,
     this.sourceId,
     this.onResolved,
+    this.onPageHealthy,
     this.onRetry,
     this.onClose,
     this.compact = false,
@@ -380,6 +390,14 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             ? 'Challenge franchi — session non enregistrée'
             : 'Page normale — l’extension seule est refusée',
       );
+      // Nothing is left to solve here: the page loaded and no challenge was
+      // ever shown. Let the host drop the challenge surface instead of leaving
+      // the user in front of a panel whose state can never change.
+      if (!_challengeSeen && !_resolvedCallbackSent) {
+        _resolvedCallbackSent = true;
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (mounted) widget.onPageHealthy?.call();
+      }
     }
   }
 
@@ -408,7 +426,10 @@ class _CloudflareBypassPanelState extends State<CloudflareBypassPanel> {
             Positioned(
               top: 6,
               right: 6,
-              child: _buildControls(cs, allowExpand: supported && !widget.bounded),
+              child: _buildControls(
+                cs,
+                allowExpand: supported && !widget.bounded,
+              ),
             ),
             if (_statusNote != null)
               Positioned(

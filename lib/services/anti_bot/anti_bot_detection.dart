@@ -101,10 +101,7 @@ const List<String> kChallengeMarkers = [
 /// own forms. On their own they are NOT evidence of an interstitial: they only
 /// escalate to [AntiBotPageType.challenge] when the response itself is an error
 /// (403/503/429…) or when `cf-mitigated: challenge` is set.
-const List<String> kWeakChallengeMarkers = [
-  'challenge-platform',
-  'turnstile',
-];
+const List<String> kWeakChallengeMarkers = ['challenge-platform', 'turnstile'];
 
 /// Block-page markers (no interactive challenge).
 const List<String> kBlockMarkers = [
@@ -133,8 +130,10 @@ const List<String> _kCloudflareOnlyMarkers = [
   'cf-challenge-running',
 ];
 
-List<String> _foundMarkers(String haystack, List<String> markers) =>
-    [for (final marker in markers) if (haystack.contains(marker)) marker];
+List<String> _foundMarkers(String haystack, List<String> markers) => [
+  for (final marker in markers)
+    if (haystack.contains(marker)) marker,
+];
 
 Map<String, String> _normalizedHeaders(Map<String, String>? headers) {
   final normalized = <String, String>{};
@@ -201,8 +200,7 @@ AntiBotAssessment assessHttpResponse({
   // A weak marker is only an interstitial when the response is itself a
   // refusal (Cloudflare answers 403/503/429) — never on a 200 page that merely
   // embeds the challenge script or a Turnstile widget.
-  final refusal =
-      statusCode == 403 || statusCode == 429 || statusCode >= 500;
+  final refusal = statusCode == 403 || statusCode == 429 || statusCode >= 500;
   final weakChallengeConfirmed =
       weakMarkers.isNotEmpty && (challengeRequested || refusal);
   if (challengeMarkers.isNotEmpty ||
@@ -246,8 +244,8 @@ AntiBotAssessment assessHttpResponse({
 /// Inspects a page already rendered in a WebView (title + visible text).
 AntiBotAssessment assessPageContent({String? title, String? text}) {
   final haystack = '${title ?? ''}\n${text ?? ''}'.toLowerCase();
-  final hasContent = (title?.trim().isNotEmpty ?? false) ||
-      (text?.trim().isNotEmpty ?? false);
+  final hasContent =
+      (title?.trim().isNotEmpty ?? false) || (text?.trim().isNotEmpty ?? false);
 
   final challengeMarkers = _foundMarkers(haystack, kChallengeMarkers);
   if (challengeMarkers.isNotEmpty) {
@@ -436,4 +434,25 @@ String redactUrl(String url) {
   final uri = Uri.tryParse(url);
   if (uri == null || !uri.hasQuery) return url;
   return uri.replace(query: 'redacted').toString();
+}
+
+/// True when [url] is a raw media resource (HLS/DASH playlist, segment, file).
+///
+/// A WebView loads documents, not streams: asking a browser tab for a `.m3u8`
+/// returns a downloaded body with no page, which is indistinguishable from a
+/// refusal unless the URL is checked first. Such a request is answered by
+/// mpv/FFmpeg, never by the browser, and a failure on it says nothing about
+/// Cloudflare — reporting it raised a false "blocked by Cloudflare" alert while
+/// the video was already playing.
+bool isRawMediaUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null) return false;
+  final host = uri.host.toLowerCase();
+  if (host == 'surrit.com' || host.endsWith('.surrit.com')) return true;
+  final path = uri.path.toLowerCase();
+  return path.endsWith('.m3u8') ||
+      path.endsWith('.mpd') ||
+      path.endsWith('.ts') ||
+      path.endsWith('.m4s') ||
+      path.endsWith('.mp4');
 }
