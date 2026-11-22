@@ -10671,6 +10671,18 @@ abstract class AppLocalizations {
   /// **'Use ▲/▼ to turn the pages'**
   String get reader_volume_buttons_desc;
 
+  /// No description provided for @reader_lock_screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock the screen'**
+  String get reader_lock_screen;
+
+  /// No description provided for @reader_unlock_screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock the screen'**
+  String get reader_unlock_screen;
+
   /// No description provided for @reader_invert_volume.
   ///
   /// In en, this message translates to:

@@ -6083,6 +6083,12 @@ class AppLocalizationsIt extends AppLocalizations {
   String get reader_volume_buttons_desc => 'Use ▲/▼ to turn the pages';
 
   @override
+  String get reader_lock_screen => 'Blocca lo schermo';
+
+  @override
+  String get reader_unlock_screen => 'Sblocca lo schermo';
+
+  @override
   String get reader_invert_volume => 'Invert the volume buttons';
 
   @override

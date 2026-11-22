@@ -21,6 +21,7 @@ import 'package:watchtower/modules/manga/reader/mixins/reader_memory_management.
 import 'package:watchtower/modules/manga/reader/u_chap_data_preload.dart';
 import 'package:watchtower/modules/manga/reader/widgets/double_page_view.dart';
 import 'package:watchtower/modules/manga/reader/widgets/reader_app_bar.dart';
+import 'package:watchtower/modules/manga/reader/widgets/reader_lock_overlay.dart';
 import 'package:watchtower/modules/manga/reader/widgets/reader_bottom_bar.dart';
 import 'package:watchtower/modules/manga/reader/widgets/reader_gesture_handler.dart';
 import 'package:watchtower/modules/manga/reader/widgets/reader_settings_modal.dart';
@@ -32,6 +33,7 @@ import 'package:watchtower/modules/more/settings/reader/providers/reader_state_p
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/manga/reader/providers/push_router.dart';
 import 'package:watchtower/services/get_chapter_pages.dart';
+import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/utils/chapter_link.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/modules/manga/reader/image_view_paged.dart';
@@ -486,8 +488,11 @@ class _MangaChapterPageGalleryState
   Future<void> _initVolumeButtonNavigation() async {
     if (_volumeListenerActive) return;
     final generation = ++_volumeEnableGeneration;
-    final settings = isar.settings.getSync(kSettingsId) ?? Settings();
-    if (!(settings.volumeButtonNavigation ?? false)) return;
+    // A raw `getSync` throws on a corrupt record and would leave the reader
+    // permanently without key navigation; the safe read repairs instead.
+    final volumeNavEnabled =
+        readSettingsSafely(isar: isar).volumeButtonNavigation ?? false;
+    if (!volumeNavEnabled) return;
 
     final token = await VolumeKeyChannel.enable(_handleVolumeKey);
     if (token == null) return;
@@ -501,13 +506,18 @@ class _MangaChapterPageGalleryState
     _volumeListenerActive = true;
   }
 
+  /// Turns a volume-key direction into a page step.
+  ///
+  /// Fed by two mutually exclusive sources: the native host (which swallows the
+  /// key, so Flutter never sees it) and the keyboard fallback in
+  /// [ReaderKeyboardHandler] (which only fires when the host did not swallow
+  /// it). Exactly one of them runs per press, so this must not depend on which
+  /// one did.
   void _handleVolumeKey(int direction) {
-    if (!mounted || !_volumeListenerActive) return;
+    if (!mounted || _isLocked) return;
 
     final invert =
-        (isar.settings.getSync(kSettingsId) ?? Settings())
-            .invertVolumeButtonNavigation ??
-        false;
+        readSettingsSafely(isar: isar).invertVolumeButtonNavigation ?? false;
     final readerMode = ref.read(_currentReaderMode);
     if (readerMode == null) return;
     final index = _currentIndex;
@@ -575,6 +585,13 @@ class _MangaChapterPageGalleryState
       NotifierProvider<_ReaderModeNotifier, ReaderMode?>(_ReaderModeNotifier.new);
   PageMode? _pageMode;
   bool _isView = false;
+
+  /// Screen lock: while on, every tap zone and hardware key that turns a page
+  /// is ignored, so a stray touch or a volume press cannot lose the reader's
+  /// place. Locking also hides the bars, so the only thing left on screen is
+  /// the floating padlock, which is the way out.
+  bool _isLocked = false;
+
   Alignment _scalePosition = Alignment.center;
 
   // ── Preferences with a visible effect at open / on page change ──────────
@@ -684,21 +701,36 @@ class _MangaChapterPageGalleryState
     }
 
     final l10n = l10nLocalizations(context)!;
+    // Safety net for the volume keys. When the host swallows them Flutter never
+    // sees a key event, so these callbacks stay silent; when it does not (the
+    // sink arrived late, an OEM activity intercepts first, a non-Android
+    // build), the keys reach the framework and are consumed here instead of
+    // moving the system volume.
+    final volumeNavEnabled = ref.watch(volumeButtonNavigationStateProvider);
     return ReaderKeyboardHandler(
-      onPreviousPage: () => navigationService.previousPage(
-        readerMode: readerMode!,
-        currentIndex: _currentIndex!,
-        animate: _animateTransitions,
-      ),
-      onNextPage: () => navigationService.nextPage(
-        readerMode: readerMode!,
-        currentIndex: _currentIndex!,
-        maxPages: _pageViewPageCount,
-        animate: _animateTransitions,
-      ),
+      onVolumeUp: volumeNavEnabled ? () => _handleVolumeKey(1) : null,
+      onVolumeDown: volumeNavEnabled ? () => _handleVolumeKey(-1) : null,
+      onPreviousPage: () {
+        if (_isLocked) return;
+        navigationService.previousPage(
+          readerMode: readerMode!,
+          currentIndex: _currentIndex!,
+          animate: _animateTransitions,
+        );
+      },
+      onNextPage: () {
+        if (_isLocked) return;
+        navigationService.nextPage(
+          readerMode: readerMode!,
+          currentIndex: _currentIndex!,
+          maxPages: _pageViewPageCount,
+          animate: _animateTransitions,
+        );
+      },
       onEscape: () => _goBack(context),
       onFullScreen: () => _setFullScreen(),
       onNextChapter: () {
+        if (_isLocked) return;
         bool hasNextChapter = _readerController.getChapterIndex().$1 != 0;
         if (hasNextChapter) {
           _isNavigatingToChapter = true;
@@ -710,6 +742,7 @@ class _MangaChapterPageGalleryState
         }
       },
       onPreviousChapter: () {
+        if (_isLocked) return;
         bool hasPrevChapter =
             _readerController.getChapterIndex().$1 + 1 !=
             _readerController.getChaptersLength(
@@ -1119,6 +1152,11 @@ class _MangaChapterPageGalleryState
                         final navigationLayout = ref.watch(
                           readerNavigationLayoutStateProvider,
                         );
+                        // A locked screen has no active zone at all: dropping
+                        // the gesture layer is stronger than relying on the
+                        // overlay alone, and keeps page turns unreachable even
+                        // for a tap that slips past it.
+                        if (_isLocked) return const SizedBox.shrink();
                         return ReaderGestureHandler(
                           usePageTapZones: usePageTapZones,
                           invertTapZones: ref.watch(invertPageTapZonesProvider),
@@ -1152,6 +1190,8 @@ class _MangaChapterPageGalleryState
                       chapterTitle: _readerController.getChapterTitle(),
                       isVisible: _isView,
                       isBookmarked: _isBookmarked,
+                      isLocked: _isLocked,
+                      onLockPressed: _toggleScreenLock,
                       backgroundColor: _backgroundColor,
                       onBackPressed: () => Navigator.pop(context),
                       onBookmarkPressed: () {
@@ -1333,6 +1373,14 @@ class _MangaChapterPageGalleryState
                             chapter: c,
                           );
                         },
+                      ),
+                    // Last child on purpose: the lock has to sit above the app
+                    // bar, the bottom bar, the page indicator and the chapter
+                    // navigator, otherwise those stay tappable while locked.
+                    if (_isLocked)
+                      ReaderLockOverlay(
+                        onUnlock: _toggleScreenLock,
+                        tooltip: l10n.reader_unlock_screen,
                       ),
                   ],
                 );
@@ -1920,6 +1968,16 @@ class _MangaChapterPageGalleryState
       overlays: SystemUiOverlay.values,
     );
     Navigator.pop(context);
+  }
+
+  /// Toggles the screen lock. Locking also hides the bars, so the only control
+  /// left on screen is the floating padlock that unlocks again.
+  void _toggleScreenLock() {
+    setState(() {
+      _isLocked = !_isLocked;
+      if (_isLocked) _isView = false;
+    });
+    if (_isLocked) HapticFeedback.selectionClick();
   }
 
   void _isViewFunction() {

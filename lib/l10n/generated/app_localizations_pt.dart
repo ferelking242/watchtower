@@ -6079,6 +6079,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get reader_volume_buttons_desc => 'Use ▲/▼ to turn the pages';
 
   @override
+  String get reader_lock_screen => 'Bloquear o ecrã';
+
+  @override
+  String get reader_unlock_screen => 'Desbloquear o ecrã';
+
+  @override
   String get reader_invert_volume => 'Invert the volume buttons';
 
   @override
@@ -18735,6 +18741,12 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get reader_volume_buttons_desc => 'Use ▲/▼ to turn the pages';
+
+  @override
+  String get reader_lock_screen => 'Bloquear a tela';
+
+  @override
+  String get reader_unlock_screen => 'Desbloquear a tela';
 
   @override
   String get reader_invert_volume => 'Invert the volume buttons';

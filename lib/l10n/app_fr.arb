@@ -1845,6 +1845,8 @@
   "reader_section_navigation": "Navigation",
   "reader_volume_buttons": "Avec les boutons de volume",
   "reader_volume_buttons_desc": "Utilisez ▲/▼ pour tourner les pages",
+  "reader_lock_screen": "Verrouiller l'écran",
+  "reader_unlock_screen": "Déverrouiller l'écran",
   "reader_invert_volume": "Inverser les boutons de volume",
   "reader_volume_forward": "▲ → page suivante  •  ▼ → page précédente",
   "reader_volume_backward": "▲ → page précédente  •  ▼ → page suivante",

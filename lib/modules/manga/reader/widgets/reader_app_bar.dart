@@ -47,6 +47,12 @@ class ReaderAppBar extends ConsumerWidget {
   /// Callback when web view button is pressed
   final VoidCallback? onWebViewPressed;
 
+  /// Whether the reader screen is locked against accidental taps.
+  final bool isLocked;
+
+  /// Callback when the padlock is pressed.
+  final VoidCallback onLockPressed;
+
   /// Background color getter
   final Color Function(BuildContext) backgroundColor;
 
@@ -60,6 +66,8 @@ class ReaderAppBar extends ConsumerWidget {
     required this.onBackPressed,
     required this.onBookmarkPressed,
     this.onWebViewPressed,
+    this.isLocked = false,
+    required this.onLockPressed,
     required this.backgroundColor,
   });
 
@@ -139,6 +147,15 @@ class ReaderAppBar extends ConsumerWidget {
       // Web view button (only for non-local sources)
       if (!isLocalArchive && onWebViewPressed != null)
         IconButton(onPressed: onWebViewPressed, icon: const Icon(Icons.public)),
+
+      // Padlock: locks every tap zone so a stray touch cannot turn the page.
+      IconButton(
+        onPressed: onLockPressed,
+        tooltip: isLocked
+            ? context.l10n.reader_unlock_screen
+            : context.l10n.reader_lock_screen,
+        icon: Icon(isLocked ? Icons.lock_rounded : Icons.lock_open_rounded),
+      ),
     ];
   }
 }

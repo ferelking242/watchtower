@@ -6142,6 +6142,12 @@ class AppLocalizationsFr extends AppLocalizations {
       'Utilisez ▲/▼ pour tourner les pages';
 
   @override
+  String get reader_lock_screen => 'Verrouiller l\'écran';
+
+  @override
+  String get reader_unlock_screen => 'Déverrouiller l\'écran';
+
+  @override
   String get reader_invert_volume => 'Inverser les boutons de volume';
 
   @override

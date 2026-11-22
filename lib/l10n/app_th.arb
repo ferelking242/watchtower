@@ -1592,6 +1592,8 @@
   "reader_section_navigation": "Navigation",
   "reader_volume_buttons": "Use the volume buttons",
   "reader_volume_buttons_desc": "Use ▲/▼ to turn the pages",
+  "reader_lock_screen": "ล็อกหน้าจอ",
+  "reader_unlock_screen": "ปลดล็อกหน้าจอ",
   "reader_invert_volume": "Invert the volume buttons",
   "reader_volume_forward": "▲ → next page  •  ▼ → previous page",
   "reader_volume_backward": "▲ → previous page  •  ▼ → next page",

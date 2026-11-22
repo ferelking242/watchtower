@@ -45,6 +45,11 @@ class VolumeKeyChannel {
   /// Starts forwarding hardware volume keys, invoking [onDirection] with `1`
   /// (up) or `-1` (down). No-op on platforms without the native handler.
   ///
+  /// The returned token is non-null whenever the subscription is live, even if
+  /// the host had not installed its event sink yet: the host keeps the request
+  /// and re-checks the sink on every key, so interception starts on the first
+  /// key pressed after the sink arrives.
+  ///
   /// Returns an ownership token to hand back to [disable]. The reader is
   /// replaced on every chapter change (`pushReplacement`), and Flutter disposes
   /// the *old* reader *after* the new one has already subscribed; without the
@@ -77,9 +82,12 @@ class VolumeKeyChannel {
       },
     );
     try {
-      // EventChannel's onListen is asynchronous. Have the host confirm that it
-      // has a live event sink before treating navigation as enabled; otherwise
-      // an Android activity could swallow the key without delivering it.
+      // EventChannel's onListen is asynchronous, so poll briefly for the host
+      // to report a live sink. The poll is only an optimisation: the host keeps
+      // the request and re-checks its sink on every key, so a sink that shows up
+      // after this window still receives keys. Returning null here (as the old
+      // code did) tore the request down again and left the volume keys falling
+      // through to the system for the rest of the session.
       for (var attempt = 0; attempt < 8; attempt++) {
         final ready = await _methods.invokeMethod<bool>('setEnabled', {
           'enabled': true,
@@ -88,6 +96,7 @@ class VolumeKeyChannel {
         if (ready == true) return token;
         await Future<void>.delayed(const Duration(milliseconds: 25));
       }
+      return identical(_owner, token) ? token : null;
     } on MissingPluginException {
       // Desktop / web build: the reader falls back to no key navigation.
       await disable(token);
@@ -97,9 +106,6 @@ class VolumeKeyChannel {
       await disable(token);
       return null;
     }
-
-    await disable(token);
-    return null;
   }
 
   /// Stops forwarding and releases the native listener.

@@ -39,7 +39,13 @@ package com.watchtower.app
   // broadcast, which Android 13+ no longer delivers reliably. The reader
   // instead intercepts the hardware keys here and forwards the direction
   // over an EventChannel, so the system volume never moves.
-  private var volumeNavEnabled = false
+  // Two separate facts, deliberately. `volumeNavRequested` is the Dart reader
+  // saying "I want the volume keys"; `volumeNavSink` is whether the event
+  // channel is actually listening yet. Folding them into one flag made the
+  // handshake fail whenever the sink arrived a moment late (cold start, slow
+  // device): `setEnabled` reported "not ready", Dart gave up, and the keys fell
+  // through to the system for the whole session — the volume just went up.
+  private var volumeNavRequested = false
   private var volumeNavSink: io.flutter.plugin.common.EventChannel.EventSink? = null
       private val shizukuPermListener =
           Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
@@ -504,8 +510,11 @@ package com.watchtower.app
                   volumeNavSink = events
               }
               override fun onCancel(arguments: Any?) {
+                  // The listener is gone, so there is nowhere to deliver a
+                  // direction. Keep `volumeNavRequested` as-is: the reader is
+                  // usually only re-subscribing, and dropping the request here
+                  // is what made navigation die after a chapter change.
                   volumeNavSink = null
-                  volumeNavEnabled = false
               }
           })
 
@@ -522,10 +531,12 @@ package com.watchtower.app
               when (call.method) {
                   "setEnabled" -> {
                       val requested = call.argument<Boolean>("enabled") ?: false
-                      volumeNavEnabled = requested && volumeNavSink != null
-                      // Returning readiness lets Dart retry the brief interval
-                      // between subscribing to the EventChannel and onListen.
-                      result.success(!requested || volumeNavEnabled)
+                      volumeNavRequested = requested
+                      // The request is durable and the sink is checked again on
+                      // every key, so a late `onListen` now heals itself instead
+                      // of leaving the reader without navigation. The returned
+                      // value is only a readiness hint for Dart's retry loop.
+                      result.success(!requested || volumeNavSink != null)
                   }
                   else -> result.notImplemented()
               }
@@ -569,7 +580,7 @@ package com.watchtower.app
 
       override fun dispatchKeyEvent(event: KeyEvent): Boolean {
           val sink = volumeNavSink
-          if (volumeNavEnabled && sink != null) {
+          if (volumeNavRequested && sink != null) {
               val dir = when (event.keyCode) {
                   KeyEvent.KEYCODE_VOLUME_UP   -> 1
                   KeyEvent.KEYCODE_VOLUME_DOWN -> -1

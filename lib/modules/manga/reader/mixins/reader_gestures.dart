@@ -132,6 +132,15 @@ class ReaderKeyboardHandler {
   final VoidCallback? onNextChapter;
   final VoidCallback? onPreviousChapter;
 
+  /// Called for a hardware volume-up press. Only wired when the reader's
+  /// "use the volume buttons" preference is on and the native host is *not*
+  /// swallowing the keys: consuming the event here is what keeps the system
+  /// volume from moving.
+  final VoidCallback? onVolumeUp;
+
+  /// Called for a hardware volume-down press. See [onVolumeUp].
+  final VoidCallback? onVolumeDown;
+
   const ReaderKeyboardHandler({
     this.onEscape,
     this.onFullScreen,
@@ -139,7 +148,16 @@ class ReaderKeyboardHandler {
     this.onNextPage,
     this.onNextChapter,
     this.onPreviousChapter,
+    this.onVolumeUp,
+    this.onVolumeDown,
   });
+
+  /// Whether [event] is a volume key this handler consumes itself.
+  bool _isOwnedVolumeKey(KeyEvent event) =>
+      (event.logicalKey == LogicalKeyboardKey.audioVolumeUp &&
+          onVolumeUp != null) ||
+      (event.logicalKey == LogicalKeyboardKey.audioVolumeDown &&
+          onVolumeDown != null);
 
   /// Handles a key event and returns true if it was handled.
   bool handleKeyEvent(KeyEvent event, {bool isReverseHorizontal = false}) {
@@ -178,6 +196,16 @@ class ReaderKeyboardHandler {
         }
         return true;
 
+      case LogicalKeyboardKey.audioVolumeUp:
+        if (onVolumeUp == null) return false;
+        onVolumeUp!();
+        return true;
+
+      case LogicalKeyboardKey.audioVolumeDown:
+        if (onVolumeDown == null) return false;
+        onVolumeDown!();
+        return true;
+
       case LogicalKeyboardKey.keyN:
       case LogicalKeyboardKey.pageDown:
       case LogicalKeyboardKey.shiftRight:
@@ -205,11 +233,22 @@ class ReaderKeyboardHandler {
     required FocusNode focusNode,
     bool isReverseHorizontal = false,
   }) {
-    return KeyboardListener(
+    return Focus(
       autofocus: true,
       focusNode: focusNode,
-      onKeyEvent: (event) =>
-          handleKeyEvent(event, isReverseHorizontal: isReverseHorizontal),
+      onKeyEvent: (node, event) {
+        final handled = handleKeyEvent(
+          event,
+          isReverseHorizontal: isReverseHorizontal,
+        );
+        // Volume keys must be reported as handled, not merely acted on: on
+        // Android the host only skips its own volume handling when the
+        // framework claims the event. Reporting the navigation keys as ignored
+        // keeps their previous bubbling behaviour unchanged.
+        return handled && _isOwnedVolumeKey(event)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
+      },
       child: child,
     );
   }

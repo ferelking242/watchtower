@@ -11,6 +11,8 @@ class _Calls {
   int nextChapter = 0;
   int escape = 0;
   int fullScreen = 0;
+  int volumeUp = 0;
+  int volumeDown = 0;
 
   ReaderKeyboardHandler handler({bool reverse = false}) => ReaderKeyboardHandler(
     onPreviousPage: () => previousPage++,
@@ -19,6 +21,8 @@ class _Calls {
     onNextChapter: () => nextChapter++,
     onEscape: () => escape++,
     onFullScreen: () => fullScreen++,
+    onVolumeUp: () => volumeUp++,
+    onVolumeDown: () => volumeDown++,
   );
 }
 
@@ -80,6 +84,35 @@ void main() {
       final handler = _Calls().handler();
       expect(handler.handleKeyEvent(_key(LogicalKeyboardKey.keyZ)), isFalse);
     });
+
+    test('volume keys turn pages when no native interception is available', () {
+      final calls = _Calls();
+      final handler = calls.handler();
+      expect(
+        handler.handleKeyEvent(_key(LogicalKeyboardKey.audioVolumeUp)),
+        isTrue,
+      );
+      expect(
+        handler.handleKeyEvent(_key(LogicalKeyboardKey.audioVolumeDown)),
+        isTrue,
+      );
+      expect(calls.volumeUp, 1);
+      expect(calls.volumeDown, 1);
+    });
+
+    test('volume keys stay untouched when the reader did not opt in', () {
+      // Without callbacks the key must not be claimed, otherwise the system
+      // volume would stop working for a reader that never asked for it.
+      final handler = ReaderKeyboardHandler();
+      expect(
+        handler.handleKeyEvent(_key(LogicalKeyboardKey.audioVolumeUp)),
+        isFalse,
+      );
+      expect(
+        handler.handleKeyEvent(_key(LogicalKeyboardKey.audioVolumeDown)),
+        isFalse,
+      );
+    });
   });
 
   testWidgets('wrapWithKeyboardListener keeps one focus node across rebuilds', (
@@ -107,5 +140,42 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     expect(calls.nextPage, 1);
+  });
+
+  testWidgets('a volume key is claimed so the system volume does not move', (
+    tester,
+  ) async {
+    final calls = _Calls();
+    final handler = calls.handler();
+    final node = FocusNode(debugLabel: 'test-reader-volume');
+    addTearDown(node.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: handler.wrapWithKeyboardListener(
+          focusNode: node,
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // `sendKeyEvent` reports whether the framework claimed the event. Only a
+    // claimed event stops Android from raising the volume, so this assertion is
+    // the actual fix: a callback that fires but returns "ignored" would still
+    // let the system volume move.
+    expect(
+      await tester.sendKeyEvent(LogicalKeyboardKey.audioVolumeUp),
+      isTrue,
+      reason: 'an unclaimed volume key falls through to the system volume',
+    );
+    expect(
+      await tester.sendKeyEvent(LogicalKeyboardKey.audioVolumeDown),
+      isTrue,
+    );
+    await tester.pump();
+
+    expect(calls.volumeUp, 1);
+    expect(calls.volumeDown, 1);
   });
 }

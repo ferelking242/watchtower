@@ -6059,6 +6059,12 @@ class AppLocalizationsTr extends AppLocalizations {
   String get reader_volume_buttons_desc => 'Use ▲/▼ to turn the pages';
 
   @override
+  String get reader_lock_screen => 'Ekranı kilitle';
+
+  @override
+  String get reader_unlock_screen => 'Ekran kilidini aç';
+
+  @override
   String get reader_invert_volume => 'Invert the volume buttons';
 
   @override

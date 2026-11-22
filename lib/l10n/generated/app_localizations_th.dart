@@ -6044,6 +6044,12 @@ class AppLocalizationsTh extends AppLocalizations {
   String get reader_volume_buttons_desc => 'Use ▲/▼ to turn the pages';
 
   @override
+  String get reader_lock_screen => 'ล็อกหน้าจอ';
+
+  @override
+  String get reader_unlock_screen => 'ปลดล็อกหน้าจอ';
+
+  @override
   String get reader_invert_volume => 'Invert the volume buttons';
 
   @override
