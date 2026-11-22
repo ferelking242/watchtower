@@ -215,7 +215,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     const sideSize = 28.0;
     // Shoulders overlap the front circle's edge instead of leaving a visible
     // gap, so the three icons read as one tight cluster.
-    const shoulderGap = -4.0;
+    const shoulderGap = -7.0;
     const step = frontSize / 2 + shoulderGap + sideSize / 2;
     const height = 52.0;
     const totalWidth = step * 2 + sideSize;
@@ -598,7 +598,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               // 10 px on the leading edge only: the arc's first shoulder is a
               // circle, so its optical margin is larger than a square icon's and
               // needs a tighter gutter to look flush with the page edge.
-              padding: const EdgeInsets.fromLTRB(6, 8, 14, 0),
+              padding: const EdgeInsets.fromLTRB(2, 8, 14, 0),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final rowWidth = constraints.maxWidth;
