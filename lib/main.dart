@@ -454,6 +454,8 @@ void main(List<String> args) async {
         'reader_prefs',
         'player_prefs',
         'live_tv_providers',
+        'live_tv_epg',
+        'live_tv_favorites',
       ]) {
         await _openHiveBoxSafely(box);
       }

@@ -1,35 +1,61 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/live_tv/epg/epg_models.dart';
+import 'package:watchtower/modules/live_tv/epg/epg_providers.dart';
 import 'package:watchtower/modules/live_tv/models/live_provider.dart';
+import 'package:watchtower/modules/live_tv/widgets/live_common.dart';
 
 /// Full-screen live player.
 ///
 /// media_kit rather than a webview: the sources are HLS streams, and a native
 /// player handles them on every platform, including the desktop builds where no
 /// browser engine exists. On web media_kit falls back to the HTML video element.
-class LivePlayerScreen extends StatefulWidget {
-  const LivePlayerScreen({super.key, required this.channel});
+///
+/// Plays a list, not a single channel: the guide and the channel list both open
+/// it with everything they show, so zapping up and down stays inside what the
+/// user was browsing instead of jumping to an arbitrary order.
+class LivePlayerScreen extends ConsumerStatefulWidget {
+  LivePlayerScreen({
+    super.key,
+    LiveChannel? channel,
+    List<LiveChannel>? channels,
+    this.initialIndex = 0,
+  }) : channels = channels ?? (channel == null ? const [] : [channel]);
 
-  final LiveChannel channel;
+  final List<LiveChannel> channels;
+  final int initialIndex;
 
   @override
-  State<LivePlayerScreen> createState() => _LivePlayerScreenState();
+  ConsumerState<LivePlayerScreen> createState() => _LivePlayerScreenState();
 }
 
-class _LivePlayerScreenState extends State<LivePlayerScreen> {
+class _LivePlayerScreenState extends ConsumerState<LivePlayerScreen> {
   late final Player _player;
   late final VideoController _controller;
+
+  late int _index = widget.initialIndex.clamp(
+    0,
+    widget.channels.isEmpty ? 0 : widget.channels.length - 1,
+  );
 
   int _urlIndex = 0;
   bool _isBuffering = true;
   String? _error;
   bool _controlsVisible = true;
+  Timer? _hideTimer;
 
-  /// Mirrors that failed, so a retry starts from the next candidate instead of
-  /// replaying a URL already known to be dead.
-  final Set<int> _failedUrls = {};
+  /// Mirrors that failed for the current channel, so a retry starts from the
+  /// next candidate instead of replaying a URL already known to be dead.
+  Set<int> _failedUrls = {};
+
+  LiveChannel get _channel => widget.channels[_index];
+
+  bool get _canZap => widget.channels.length > 1;
 
   @override
   void initState() {
@@ -45,15 +71,36 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
       _handleFailure(message);
     });
     _openCurrentUrl();
+    _scheduleHide();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _player.dispose();
+    super.dispose();
+  }
+
+  /// Hides the overlay after a few idle seconds, like a TV remote would.
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _error == null) setState(() => _controlsVisible = false);
+    });
+  }
+
+  void _toggleControls() {
+    setState(() => _controlsVisible = !_controlsVisible);
+    if (_controlsVisible) _scheduleHide();
   }
 
   Future<void> _openCurrentUrl() async {
-    final urls = widget.channel.urls;
+    final urls = _channel.urls;
     if (urls.isEmpty) {
       setState(() => _error = 'Aucun flux pour cette chaîne.');
       return;
     }
-    final url = urls[_urlIndex];
+    final url = urls[_urlIndex.clamp(0, urls.length - 1)];
     setState(() {
       _isBuffering = true;
       _error = null;
@@ -82,20 +129,41 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
   }
 
   int? _nextHealthyUrl() {
-    for (var i = 0; i < widget.channel.urls.length; i++) {
+    for (var i = 0; i < _channel.urls.length; i++) {
       if (!_failedUrls.contains(i)) return i;
     }
     return null;
   }
 
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
+  /// Switches to another channel in the list, resetting per-channel state.
+  void _zap(int delta) {
+    if (!_canZap) return;
+    final next = (_index + delta) % widget.channels.length;
+    setState(() {
+      _index = next < 0 ? next + widget.channels.length : next;
+      _urlIndex = 0;
+      _failedUrls = {};
+      _error = null;
+    });
+    _openCurrentUrl();
+    _scheduleHide();
   }
 
   @override
   Widget build(BuildContext context) {
+    final guide = ref.watch(epgProvider.select((state) => state.guide));
+    final matcher = ref.watch(epgMatcherProvider);
+    final now = DateTime.now();
+    EpgProgramme? current;
+    EpgProgramme? next;
+    if (guide != null && matcher != null) {
+      final guideId = matcher.guideIdFor(_channel);
+      if (guideId != null) {
+        current = guide.currentOn(guideId, now);
+        next = guide.nextOn(guideId, now);
+      }
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -103,8 +171,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
           children: [
             Positioned.fill(
               child: GestureDetector(
-                onTap: () =>
-                    setState(() => _controlsVisible = !_controlsVisible),
+                onTap: _toggleControls,
                 child: _error != null
                     ? _buildError()
                     : Video(controller: _controller, controls: NoVideoControls),
@@ -117,7 +184,10 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
             AnimatedOpacity(
               opacity: _controlsVisible ? 1 : 0,
               duration: const Duration(milliseconds: 180),
-              child: _buildOverlay(context),
+              child: IgnorePointer(
+                ignoring: !_controlsVisible,
+                child: _buildOverlay(context, current, next, now),
+              ),
             ),
           ],
         ),
@@ -135,7 +205,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
             const Icon(Broken.video_slash, color: Colors.white54, size: 46),
             const SizedBox(height: 16),
             Text(
-              widget.channel.name,
+              _channel.name,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
@@ -152,7 +222,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
             const SizedBox(height: 22),
             FilledButton.icon(
               onPressed: () {
-                _failedUrls.clear();
+                _failedUrls = {};
                 _urlIndex = 0;
                 _openCurrentUrl();
               },
@@ -165,13 +235,16 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
     );
   }
 
-  Widget _buildOverlay(BuildContext context) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: IgnorePointer(
-        ignoring: !_controlsVisible,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 20),
+  Widget _buildOverlay(
+    BuildContext context,
+    EpgProgramme? current,
+    EpgProgramme? next,
+    DateTime now,
+  ) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(8, 8, 16, 24),
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -192,7 +265,7 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      widget.channel.name,
+                      _channel.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -201,28 +274,155 @@ class _LivePlayerScreenState extends State<LivePlayerScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (widget.channel.group != null)
-                      Text(
-                        widget.channel.group!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
+                    Text(
+                      [
+                        if (_channel.group != null) _channel.group!,
+                        if (_canZap) '${_index + 1}/${widget.channels.length}',
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
                       ),
+                    ),
                   ],
                 ),
               ),
-              if (widget.channel.urls.length > 1)
+              if (_channel.urls.length > 1)
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: Text(
-                    '${_urlIndex + 1}/${widget.channel.urls.length}',
+                    '${_urlIndex + 1}/${_channel.urls.length}',
                     style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
                 ),
             ],
+          ),
+        ),
+        const Spacer(),
+        if (current != null || next != null)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (current != null) ...[
+                  Row(
+                    children: [
+                      const Text(
+                        'EN DIRECT',
+                        style: TextStyle(
+                          color: Color(0xFF7CC4FF),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          current.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${clockLabel(current.start)} – '
+                    '${clockLabel(current.stop)} · '
+                    '${scheduleLabel(current, now)}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: current.progressAt(now),
+                      minHeight: 3,
+                      backgroundColor: Colors.white24,
+                    ),
+                  ),
+                ],
+                if (next != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Ensuite · ${clockLabel(next.start)} ${next.title}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        if (_canZap)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 22),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ZapButton(
+                  icon: Broken.arrow_down_2,
+                  flipped: true,
+                  label: 'Précédente',
+                  onPressed: () => _zap(-1),
+                ),
+                const SizedBox(width: 18),
+                _ZapButton(
+                  icon: Broken.arrow_down_2,
+                  label: 'Suivante',
+                  onPressed: () => _zap(1),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ZapButton extends StatelessWidget {
+  const _ZapButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.flipped = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool flipped;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.12),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: RotatedBox(
+              quarterTurns: flipped ? 2 : 0,
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
           ),
         ),
       ),
