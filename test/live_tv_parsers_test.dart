@@ -1,4 +1,6 @@
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/modules/live_tv/data/live_defaults.dart';
 import 'package:watchtower/modules/live_tv/sources/json_channel_parser.dart';
 import 'package:watchtower/modules/live_tv/sources/m3u_parser.dart';
 import 'package:watchtower/modules/live_tv/sources/xtream_parser.dart';
@@ -245,9 +247,59 @@ https://a/cnn.m3u8
       expect(channels.map((c) => c.name), ['Ok']);
     });
 
+
+    test('reads a grouped catalogue keyed by country', () {
+      const body = '{"countries":{"France":[{"n":"TF1","u":["https://tf1.m3u8"],'
+          '"l":"https://logo/tf1.png"}]},"categories":{"Sport":[{"n":"L Equipe",'
+          '"u":["https://lequipe.m3u8"]}]}}';
+      final channels = JsonChannelParser.parse(body, providerId: 'world');
+
+      expect(channels.map((c) => c.name), ['TF1', 'L Equipe']);
+      expect(channels.map((c) => c.group), ['France', 'Sport']);
+      expect(channels.first.logoUrl, 'https://logo/tf1.png');
+    });
+
+    test('a grouped entry keeps every mirror url', () {
+      const body = '{"countries":{"FR":[{"n":"C","u":["https://a","https://b"]}]}}';
+      final channels = JsonChannelParser.parse(body, providerId: 'p');
+
+      expect(channels.single.urls, ['https://a', 'https://b']);
+    });
+
+    test('an explicit group on a channel wins over its container', () {
+      const body = '{"countries":{"France":[{"n":"C","u":["https://a"],'
+          '"group":"Custom"}]}}';
+      final channels = JsonChannelParser.parse(body, providerId: 'p');
+
+      expect(channels.single.group, 'Custom');
+    });
+
+    test('a grouped catalogue skips malformed channels but keeps the rest', () {
+      const body = '{"countries":{"FR":[{"n":"NoUrl"},{"n":"Ok","u":["https://ok"]}]}}';
+      final channels = JsonChannelParser.parse(body, providerId: 'p');
+
+      expect(channels.map((c) => c.name), ['Ok']);
+    });
+
     test('invalid json yields no channels', () {
       expect(JsonChannelParser.parse('nope', providerId: 'p'), isEmpty);
       expect(JsonChannelParser.parse('{}', providerId: 'p'), isEmpty);
     });
+  });
+
+  group('bundled world catalogue', () {
+  test('the bundled world catalogue is readable and grouped', () async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final body = await rootBundle.loadString(LiveDefaults.bundledAsset);
+    final channels = JsonChannelParser.parse(
+      body,
+      providerId: LiveDefaults.bundledId,
+    );
+
+    expect(channels.length, greaterThan(1000));
+    expect(channels.any((c) => c.group == 'France'), isTrue);
+    expect(channels.any((c) => c.urls.length > 1), isTrue,
+        reason: 'mirrors are what make a dead stream survivable');
+  }, timeout: const Timeout(Duration(minutes: 2)));
   });
 }

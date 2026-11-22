@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:watchtower/modules/live_tv/data/live_builtin_catalog.dart';
+import 'package:watchtower/modules/live_tv/data/live_defaults.dart';
 import 'package:watchtower/modules/live_tv/data/live_provider_store.dart';
 
 /// Guards the fetch-stats design: stats must be readable and writable without
@@ -33,16 +33,16 @@ void main() {
   test('recording a fetch leaves the provider list untouched', () async {
     final before = store().read().map((p) => p.toJson()).toList();
 
-    await store().recordFetch(LiveBuiltinCatalog.iptvProId, 11554);
+    await store().recordFetch(LiveDefaults.bundledId, 11554);
 
     final after = store().read().map((p) => p.toJson()).toList();
     expect(after, before, reason: 'stats must not mutate providers');
   });
 
   test('a recorded fetch is readable back', () async {
-    await store().recordFetch(LiveBuiltinCatalog.iptvProId, 42);
+    await store().recordFetch(LiveDefaults.bundledId, 42);
 
-    final stat = store().readFetchStats()[LiveBuiltinCatalog.iptvProId];
+    final stat = store().readFetchStats()[LiveDefaults.bundledId];
     expect(stat, isNotNull);
     expect(stat!.channelCount, 42);
   });

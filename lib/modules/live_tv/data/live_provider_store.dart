@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
-import 'package:watchtower/modules/live_tv/data/live_builtin_catalog.dart';
+import 'package:watchtower/modules/live_tv/data/live_defaults.dart';
 import 'package:watchtower/modules/live_tv/models/live_provider.dart';
 
 /// Persistence for installed Live TV providers.
@@ -32,14 +32,19 @@ class LiveProviderStore {
     final stored = _readRaw();
     final byId = {for (final provider in stored) provider.id: provider};
 
-    for (final entry in LiveBuiltinCatalog.defaultInstalled) {
+    for (final entry in LiveDefaults.installed) {
       final existing = byId[entry.id];
       if (existing == null) {
         byId[entry.id] = entry;
         continue;
       }
       // A builtin is always present, but its user-controlled state is kept.
+      // Its flags come from the declaration, not the stored copy: a record
+      // written before a flag existed would otherwise keep the old default.
       byId[entry.id] = existing.copyWith(
+        isBuiltin: entry.isBuiltin,
+        isBundled: entry.isBundled,
+        kind: entry.kind,
         isEnabled: existing.isEnabled,
         version: existing.version,
       );
@@ -96,6 +101,7 @@ class LiveProviderStore {
         name: entry.name,
         source: entry.source,
         kind: entry.kind,
+        isBundled: entry.kind == LiveProviderKind.bundled,
         iconUrl: entry.iconUrl,
         description: entry.description,
         author: entry.author,

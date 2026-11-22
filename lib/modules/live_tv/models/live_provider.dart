@@ -12,6 +12,15 @@ enum LiveProviderKind {
 
   /// A JSON document listing channels.
   json,
+
+  /// A JSON catalogue bundled in the app's assets.
+  ///
+  /// Shipped by an extension repository as `source: 'assets/live/<name>.json'`
+  /// so the app can offer a large, pre-verified channel list without a network
+  /// round trip on first launch. The asset is read through the same parser as
+  /// [json], so a bundled catalogue and a remote one are indistinguishable
+  /// downstream.
+  bundled,
 }
 
 /// A channel as exposed by a provider, normalised across protocols.
@@ -98,6 +107,7 @@ class LiveProvider {
     this.author,
     this.description,
     this.isBuiltin = false,
+    this.isBundled = false,
     this.isEnabled = true,
     this.updatedAt,
     this.lastFetchedAt,
@@ -123,6 +133,13 @@ class LiveProvider {
   /// Shipped with the app: cannot be removed.
   final bool isBuiltin;
 
+  /// Reads its channels from an asset rather than the network.
+  ///
+  /// Separate from [isBuiltin]: a provider installed from the extension
+  /// catalogue can also be bundled, and the reader needs to know which without
+  /// inferring it from [kind].
+  final bool isBundled;
+
   final bool isEnabled;
 
   final DateTime? updatedAt;
@@ -138,6 +155,8 @@ class LiveProvider {
     String? version,
     String? author,
     String? description,
+    bool? isBuiltin,
+    bool? isBundled,
     bool? isEnabled,
     DateTime? updatedAt,
     DateTime? lastFetchedAt,
@@ -153,7 +172,8 @@ class LiveProvider {
       version: version ?? this.version,
       author: author ?? this.author,
       description: description ?? this.description,
-      isBuiltin: isBuiltin,
+      isBuiltin: isBuiltin ?? this.isBuiltin,
+      isBundled: isBundled ?? this.isBundled,
       isEnabled: isEnabled ?? this.isEnabled,
       updatedAt: updatedAt ?? this.updatedAt,
       lastFetchedAt: lastFetchedAt ?? this.lastFetchedAt,
@@ -172,6 +192,7 @@ class LiveProvider {
     if (author != null) 'author': author,
     if (description != null) 'description': description,
     'isBuiltin': isBuiltin,
+    'isBundled': isBundled,
     'isEnabled': isEnabled,
     if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
     if (lastFetchedAt != null)
@@ -202,6 +223,7 @@ class LiveProvider {
       author: json['author'] as String?,
       description: json['description'] as String?,
       isBuiltin: json['isBuiltin'] == true,
+      isBundled: json['isBundled'] == true,
       isEnabled: json['isEnabled'] != false,
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? ''),
       lastFetchedAt: DateTime.tryParse(json['lastFetchedAt'] as String? ?? ''),
@@ -248,6 +270,7 @@ class LiveProviderCatalogEntry {
     author: author,
     description: description,
     isBuiltin: isBuiltin,
+    isBundled: kind == LiveProviderKind.bundled,
   );
 
   static LiveProviderCatalogEntry? fromJson(Map<String, dynamic> json) {

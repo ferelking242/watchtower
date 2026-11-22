@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:watchtower/modules/live_tv/data/live_builtin_catalog.dart';
+import 'package:watchtower/modules/live_tv/data/live_extension_catalog.dart';
 import 'package:watchtower/modules/live_tv/data/live_provider_fetcher.dart';
 import 'package:watchtower/modules/live_tv/data/live_provider_store.dart';
 import 'package:watchtower/modules/live_tv/models/live_provider.dart';
@@ -21,6 +21,13 @@ class LiveProvidersNotifier extends Notifier<List<LiveProvider>> {
     state = _store.read();
   }
 
+  /// Installs a provider offered by the extension catalogue.
+  ///
+  /// Installed from the catalogue rather than added by hand, so it is not
+  /// bundled and can be removed again.
+  Future<void> install(LiveProviderCatalogEntry entry) =>
+      add(entry.toProvider());
+
   Future<void> remove(String id) async {
     await _store.remove(id);
     state = _store.read();
@@ -31,16 +38,18 @@ class LiveProvidersNotifier extends Notifier<List<LiveProvider>> {
     state = _store.read();
   }
 
-  /// Pulls the shipped catalogue and applies newer versions.
+  /// Pulls the extension catalogue and applies newer versions.
   ///
   /// Returns the providers that actually changed, so the caller can tell the
   /// user "updated IPTV Pro" instead of claiming a check ran when nothing did.
+  /// A catalogue failure propagates: silently reporting "everything is up to
+  /// date" when the index was unreachable would hide the outage.
   Future<List<LiveProvider>> checkForUpdates() async {
-    final updated = await _store.applyUpdates(LiveBuiltinCatalog.catalogue);
+    final catalogue = await LiveExtensionCatalog.fetch();
+    final updated = await _store.applyUpdates(catalogue);
     if (updated.isNotEmpty) state = _store.read();
     return updated;
   }
-
 }
 
 final liveProvidersProvider =
@@ -78,6 +87,16 @@ final enabledLiveProvidersProvider = Provider<List<LiveProvider>>((ref) {
       .where((provider) => provider.isEnabled)
       .toList();
 });
+
+/// The providers the extension catalogue offers, minus the installed ones.
+///
+/// Kept as a future rather than preloaded state: the list is only needed when
+/// the user opens "add a provider", and a launch that never touches it must not
+/// pay for a network call.
+final liveCatalogProvider =
+    FutureProvider<List<LiveProviderCatalogEntry>>((ref) async {
+      return LiveExtensionCatalog.fetch();
+    });
 
 /// Channels of one provider.
 ///

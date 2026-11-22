@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/modules/live_tv/data/live_builtin_catalog.dart';
 import 'package:watchtower/modules/live_tv/data/live_provider_store.dart';
 import 'package:watchtower/modules/live_tv/models/live_provider.dart';
 import 'package:watchtower/modules/live_tv/providers/live_providers.dart';
 import 'package:watchtower/modules/live_tv/screens/live_channels_screen.dart';
+import 'package:watchtower/modules/live_tv/screens/live_catalog_sheet.dart';
 import 'package:watchtower/modules/live_tv/screens/live_provider_form_sheet.dart';
 
 /// Live TV home: the installed providers, the way Browse lists extensions.
@@ -31,6 +31,11 @@ class LiveTvScreen extends ConsumerWidget {
             tooltip: 'Vérifier les mises à jour',
             onPressed: () => _checkUpdates(context, ref),
             icon: const Icon(Broken.refresh),
+          ),
+          IconButton(
+            tooltip: 'Parcourir le catalogue',
+            onPressed: () => _browseCatalog(context),
+            icon: const Icon(Broken.category),
           ),
           IconButton(
             tooltip: 'Ajouter un fournisseur',
@@ -76,6 +81,14 @@ class LiveTvScreen extends ConsumerWidget {
     await ref.read(liveProvidersProvider.notifier).add(created);
     if (!context.mounted) return;
     _toast(context, '« ${created.name} » ajouté.');
+  }
+
+  Future<void> _browseCatalog(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const LiveCatalogSheet(),
+    );
   }
 
   Future<void> _removeProvider(
@@ -243,6 +256,7 @@ class _ProviderAvatar extends StatelessWidget {
       LiveProviderKind.m3u => Broken.video_play,
       LiveProviderKind.xtream => Broken.lock,
       LiveProviderKind.json => Broken.document_text,
+      LiveProviderKind.bundled => Broken.folder,
     };
     final url = provider.iconUrl;
     return ClipRRect(
@@ -314,8 +328,8 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Activez un fournisseur intégré comme '
-              '${LiveBuiltinCatalog.entries.first.name}, ou ajoutez le vôtre.',
+              'Activez un fournisseur intégré, installez-en un depuis le '
+              'catalogue, ou ajoutez le vôtre.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

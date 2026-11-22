@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:watchtower/modules/live_tv/models/live_provider.dart';
 import 'package:watchtower/modules/live_tv/sources/json_channel_parser.dart';
@@ -33,8 +34,23 @@ class LiveProviderFetcher {
       case LiveProviderKind.json:
         final body = await _get(provider.source);
         return JsonChannelParser.parse(body, providerId: provider.id);
+      case LiveProviderKind.bundled:
+        final body = await _readAsset(provider.source);
+        return JsonChannelParser.parse(body, providerId: provider.id);
       case LiveProviderKind.xtream:
         return _fetchXtream(provider);
+    }
+  }
+
+  /// Reads a catalogue shipped inside the app.
+  ///
+  /// A missing asset is a provider that has not been installed yet, which is a
+  /// normal state rather than a crash: the caller shows "no channels".
+  Future<String> _readAsset(String path) async {
+    try {
+      return await rootBundle.loadString(path);
+    } catch (error) {
+      throw LiveProviderException('Catalogue intégré introuvable : $path');
     }
   }
 

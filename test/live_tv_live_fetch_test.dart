@@ -4,26 +4,44 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:watchtower/modules/live_tv/data/live_extension_catalog.dart';
 import 'package:watchtower/modules/live_tv/data/live_provider_fetcher.dart';
-import 'package:watchtower/modules/live_tv/data/live_builtin_catalog.dart';
+import 'package:watchtower/modules/live_tv/models/live_provider.dart';
 import 'package:watchtower/modules/live_tv/sources/m3u_parser.dart';
 
-/// End-to-end check against the real iptv-org playlists IPTV Pro ships with.
+/// End-to-end check against the real published Live TV catalogue.
 ///
 /// Tagged `live` and skipped by default: the unit suite must not depend on
-/// GitHub Pages being reachable. Run explicitly with
+/// GitHub being reachable. Run explicitly with
 /// `flutter test test/live_tv_live_fetch_test.dart --tags live`.
 ///
 /// This exists because the parser's own tests use fixtures, and a fixture can
-/// agree with a bug. Only the real 11k-entry playlist proves the shipped
-/// provider actually yields playable channels.
+/// agree with a bug. Only the real index proves the published providers
+/// actually resolve to channels.
 void main() {
-  test('every builtin playlist parses into channels', () async {
+  test('the published Live TV index parses', () async {
+    final entries = await LiveExtensionCatalog.fetch();
+
+    expect(entries, isNotEmpty, reason: 'index/live.json is empty or missing');
+    expect(
+      entries.map((e) => e.id).toSet().length,
+      entries.length,
+      reason: 'provider ids must be unique',
+    );
+    // ignore: avoid_print
+    for (final entry in entries) {
+      print('${entry.name} (${entry.kind.name}) v${entry.version}');
+    }
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('every published provider resolves to channels', () async {
     final fetcher = LiveProviderFetcher();
     addTearDown(fetcher.dispose);
 
-    for (final entry in LiveBuiltinCatalog.entries) {
-      final channels = await fetcher.fetch(entry.toProvider(isBuiltin: true));
+    final entries = await LiveExtensionCatalog.fetch();
+    for (final entry in entries) {
+      if (entry.kind == LiveProviderKind.xtream) continue; // needs credentials
+      final channels = await fetcher.fetch(entry.toProvider());
       expect(
         channels,
         isNotEmpty,
@@ -37,26 +55,7 @@ void main() {
       // ignore: avoid_print
       print('${entry.name}: ${channels.length} channels');
     }
-  }, timeout: const Timeout(Duration(minutes: 3)));
-
-  test('the shipped IPTV Pro playlist yields thousands of channels', () async {
-    final fetcher = LiveProviderFetcher();
-    addTearDown(fetcher.dispose);
-
-    final provider = LiveBuiltinCatalog.entries
-        .firstWhere((e) => e.id == LiveBuiltinCatalog.iptvProId)
-        .toProvider(isBuiltin: true);
-    final channels = await fetcher.fetch(provider);
-
-    expect(channels.length, greaterThan(5000));
-    expect(channels.any((c) => c.group != null), isTrue);
-    expect(channels.any((c) => c.logoUrl != null), isTrue);
-    expect(
-      channels.map((c) => c.id).toSet().length,
-      channels.length,
-      reason: 'channel ids must be unique',
-    );
-  }, timeout: const Timeout(Duration(minutes: 3)));
+  }, timeout: const Timeout(Duration(minutes: 5)));
 
   test('the real playlist is parsed without losing entries', () async {
     final file = File('/tmp/real.m3u');
