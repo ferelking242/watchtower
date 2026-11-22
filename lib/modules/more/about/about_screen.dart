@@ -70,6 +70,7 @@ class AboutScreen extends ConsumerStatefulWidget {
 
 class _AboutScreenState extends ConsumerState<AboutScreen> {
   bool _isCheckingUpdate = false;
+  bool _isCheckingUpdater = false;
   bool? _autoUpdateEnabled;
   bool _autoUpdateBusy = false;
 
@@ -109,6 +110,30 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               ? 'Mises à jour automatiques désactivées'
               : 'Automatic updates disabled'),
     );
+  }
+
+  /// Runs the app_updater flow on demand, so the notification path can be
+  /// tested without waiting for the launch or periodic check.
+  Future<void> _checkWithUpdater() async {
+    setState(() => _isCheckingUpdater = true);
+    try {
+      await AppUpdateService.instance.checkAndDownload();
+      final phase = AppUpdateService.instance.lastPhaseName;
+      if (!mounted) return;
+      final message = switch (phase) {
+        'upToDate' => _isFrench ? 'Application à jour' : 'App is up to date',
+        'available' ||
+        'downloading' ||
+        'readyToInstall' ||
+        'installed' =>
+          _isFrench ? 'Mise à jour téléchargée' : 'Update downloaded',
+        'failed' => _isFrench ? 'Échec de la vérification' : 'Check failed',
+        _ => _isFrench ? 'Vérification terminée' : 'Check finished',
+      };
+      botToast(message);
+    } finally {
+      if (mounted) setState(() => _isCheckingUpdater = false);
+    }
   }
 
   @override
@@ -371,6 +396,55 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                           if (mounted) setState(() => _isCheckingUpdate = false);
                                         }
                                       },
+                              ),
+                              const Divider(height: 1, indent: 14),
+                              ListTile(
+                                contentPadding:
+                                    const EdgeInsets.fromLTRB(14, 4, 14, 4),
+                                dense: true,
+                                leading: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.bolt_rounded,
+                                      color: cs.primary, size: 16),
+                                ),
+                                title: Text(
+                                  _isFrench
+                                      ? 'Vérifier avec les mises à jour auto'
+                                      : 'Check with automatic updates',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _isFrench
+                                      ? 'Télécharge en arrière-plan et notifie'
+                                      : 'Downloads in the background and notifies',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: cs.onSurface.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                trailing: _isCheckingUpdater
+                                    ? SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: cs.primary,
+                                        ),
+                                      )
+                                    : Icon(Icons.chevron_right_rounded,
+                                        size: 16,
+                                        color: cs.onSurface
+                                            .withValues(alpha: 0.3)),
+                                onTap:
+                                    _isCheckingUpdater ? null : _checkWithUpdater,
                               ),
                             ],
                           ),

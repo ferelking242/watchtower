@@ -10,6 +10,13 @@
   propose le bouton Installer.
 - Vérification au lancement (opt-in) et toutes les 6 h, sans bloquer l'UI.
 - Build web : stub sans effet, `app_updater` n'est pas compilé pour le web.
+- CI : `app-update.json` (version, build, SHA-256, taille) est généré puis
+  envoyé avec l'APK, et l'étape « Notify app_updater » publie la build sur le
+  serveur de mises à jour dès qu'elle est verte.
+- Comparaison : le numéro de build départage deux versions identiques, et les
+  releases glissantes (`android-latest`) sont prises en compte.
+- À propos : action « Vérifier avec les mises à jour auto » pour tester le
+  téléchargement et la notification sans attendre la vérification périodique.
 
 ## 2026-06-15 — Python Bionic runtime (Méthode B)
 - libpython.so (4KB) + libpython.zip.so (11MB) depuis youtubedl-android → jniLibs

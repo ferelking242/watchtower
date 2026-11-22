@@ -200,6 +200,10 @@ class AppUpdateService {
     }
   }
 
+  /// Name of the last [UpdatePhase], for the About screen. Null until the
+  /// first check ran.
+  String? get lastPhaseName => _controller?.state.phase.name;
+
   /// Checks immediately, bypassing the switch and the interval.
   Future<void> checkNow() async {
     await controller.check(manual: true, force: true);

@@ -11,6 +11,8 @@ class AppUpdateService {
 
   Future<void> setAutoUpdateEnabled(bool enabled) async {}
 
+  String? get lastPhaseName => null;
+
   Future<void> checkOnLaunch() async {}
 
   Future<void> checkNow() async {}
