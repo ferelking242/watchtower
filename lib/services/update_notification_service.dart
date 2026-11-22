@@ -1000,6 +1000,16 @@ class WatchtowerNotificationService {
     }
   }
 
+  /// Dismisses the "ready to install" notification, for example once the
+  /// install intent has been launched from the app itself.
+  Future<void> cancelUpdateNotification() async {
+    if (!_supported) return;
+    _pendingInstallPath = null;
+    try {
+      await _plugin.cancel(_kUpdateNotifId);
+    } catch (_) {}
+  }
+
   Future<int> _mediaNotificationIdForChapter(int chapterId) {
     final cachedId = _mediaNotificationIds[chapterId];
     if (cachedId != null) return Future<int>.value(cachedId);

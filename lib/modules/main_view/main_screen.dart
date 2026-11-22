@@ -26,6 +26,8 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/router/back_navigation.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/services/fetch_sources_list.dart';
+import 'package:watchtower/services/app_updater/app_update_service.dart'
+    if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/services/library_auto_updater.dart';
 import 'package:watchtower/services/sync_server.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
@@ -185,6 +187,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     Future.microtask(() {
       if (mounted) {
         ref.read(checkForUpdateProvider(context: context));
+        // Opt-in: checks, downloads and posts the "Installer" notification
+        // when the user enabled automatic updates in About.
+        if (!kIsWeb) {
+          unawaited(AppUpdateService.instance.checkOnLaunch());
+        }
         // Browse reads the installed sources directly from Isar. Do not
         // fetch every configured repository at app startup: that made each
         // Browse tab show a loading skeleton and could flood the network

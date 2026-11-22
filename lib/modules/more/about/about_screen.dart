@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
 import 'package:file_picker/file_picker.dart';
@@ -21,6 +22,8 @@ import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/app_updater/app_update_service.dart'
+    if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/services/download_manager/engines/aria2_binary_manager.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -67,6 +70,46 @@ class AboutScreen extends ConsumerStatefulWidget {
 
 class _AboutScreenState extends ConsumerState<AboutScreen> {
   bool _isCheckingUpdate = false;
+  bool? _autoUpdateEnabled;
+  bool _autoUpdateBusy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AppUpdateService.instance.isAutoUpdateEnabled().then((value) {
+      if (mounted) setState(() => _autoUpdateEnabled = value);
+    });
+  }
+
+  bool get _isFrench =>
+      Localizations.localeOf(context).languageCode == 'fr';
+
+  Future<void> _toggleAutoUpdate(bool value) async {
+    setState(() {
+      _autoUpdateEnabled = value;
+      _autoUpdateBusy = true;
+    });
+    try {
+      await AppUpdateService.instance.setAutoUpdateEnabled(value);
+      if (value) {
+        // Fetch right away so the install notification arrives without
+        // waiting for the next launch or the periodic check.
+        unawaited(AppUpdateService.instance.checkAndDownload());
+      }
+    } finally {
+      if (mounted) setState(() => _autoUpdateBusy = false);
+    }
+    if (!mounted) return;
+    botToast(
+      value
+          ? (_isFrench
+              ? 'Mises à jour automatiques activées'
+              : 'Automatic updates enabled')
+          : (_isFrench
+              ? 'Mises à jour automatiques désactivées'
+              : 'Automatic updates disabled'),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +259,45 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                   });
                                   ref.invalidate(checkForAppUpdatesProvider);
                                 },
+                              ),
+                              const Divider(height: 1, indent: 14),
+                              SwitchListTile(
+                                contentPadding:
+                                    const EdgeInsets.fromLTRB(14, 0, 8, 0),
+                                dense: true,
+                                secondary: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.bolt_rounded,
+                                      color: cs.primary, size: 18),
+                                ),
+                                title: Text(
+                                  _isFrench
+                                      ? 'Mises à jour automatiques'
+                                      : 'Automatic updates',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _isFrench
+                                      ? 'Télécharge et propose l\'installation en arrière-plan'
+                                      : 'Download and offer to install in the background',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: cs.onSurface.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                value: _autoUpdateEnabled ?? false,
+                                onChanged:
+                                    _autoUpdateEnabled == null || _autoUpdateBusy
+                                        ? null
+                                        : _toggleAutoUpdate,
                               ),
                               const Divider(height: 1, indent: 14),
                               ListTile(

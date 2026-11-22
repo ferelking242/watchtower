@@ -73,6 +73,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
+  app_updater:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: main
+      resolved-ref: "5fa1e1af74ad15763410f3c8dd6cd284f8cf3959"
+      url: "https://github.com/ferelking242/app_updater.git"
+    source: git
+    version: "3.0.0"
   archive:
     dependency: "direct main"
     description:
