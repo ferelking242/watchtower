@@ -15,6 +15,8 @@ import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/http/m_client.dart';
+import 'package:watchtower/services/app_updater/app_update_service.dart'
+    if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -893,6 +895,8 @@ class WatchtowerNotificationService {
   /// Vérifie GitHub et envoie une notification si une mise à jour est disponible.
   Future<void> checkForUpdateAndNotify() async {
     if (!_supported) return;
+    // About > Automatic updates owns the update notifications when enabled.
+    if (await AppUpdateService.instance.isAutoUpdateEnabled()) return;
     if (!_initialized) await init();
     try {
       final info = await PackageInfo.fromPlatform();

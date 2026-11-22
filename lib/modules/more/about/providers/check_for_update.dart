@@ -7,6 +7,8 @@ import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
+import 'package:watchtower/services/app_updater/app_update_service.dart'
+    if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:github_release_apk_updater/github_release_apk_updater.dart';
@@ -88,6 +90,13 @@ Future<void> checkForUpdate(
       final l10n = l10nLocalizations(context);
       botToast(l10n?.new_update_available ?? 'Mise à jour disponible');
       await Future.delayed(const Duration(seconds: 1));
+    }
+
+    // The background flow downloads and notifies on its own; opening the
+    // screen as well would download the same build twice.
+    if (!manualUpdate &&
+        await AppUpdateService.instance.isAutoUpdateEnabled()) {
+      return;
     }
 
     if (context != null && context.mounted) {
