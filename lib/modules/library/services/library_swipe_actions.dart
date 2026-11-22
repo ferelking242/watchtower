@@ -224,9 +224,14 @@ Future<void> showSwipeDeleteDialog({
 
   if (confirmed != true) return;
 
+  // Read the chapters once: both branches below need them, and the old code
+  // re-ran the index query for the storage pass alone.
+  final chapters = _chaptersOf(manga);
+
   if (fromStorage) {
-    for (final chapter in _chaptersOf(manga)) {
-      if (isar.downloads.getSync(chapter.id!) != null) {
+    for (final chapter in chapters) {
+      final id = chapter.id;
+      if (id != null && isar.downloads.getSync(id) != null) {
         await chapter.deleteDownloadedFiles();
       }
     }

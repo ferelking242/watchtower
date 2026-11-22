@@ -5580,7 +5580,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_downloads_not_in_library =>
-      'Téléchargés non en bibliothèque';
+      'Récupérer les téléchargements';
 
   @override
   String get settings_downloads_not_in_library_desc =>
@@ -12796,6 +12796,9 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get library_classification_unavailable =>
       'Bientôt disponible — aucune métadonnée de classification n’est encore associée aux entrées de la bibliothèque.';
+
+  @override
+  String get library_grid_auto => 'Auto';
 
   @override
   String get library_rating_safe => 'Safe';

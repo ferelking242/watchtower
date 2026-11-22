@@ -54,45 +54,58 @@ class ContinueReadingButton extends ConsumerWidget {
     if (provider.length > 8) provider = provider.substring(0, 8);
     final showBadge = showProvider && provider.isNotEmpty;
 
-    final radius = BorderRadius.circular(999);
     return GestureDetector(
       onTap: () => _open(context, ref),
       child: Container(
-        margin: const EdgeInsets.all(5),
+        margin: const EdgeInsets.all(6),
+        height: 32,
         decoration: BoxDecoration(
-          borderRadius: radius,
-          color: context.primaryColor.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(16),
+          color: context.primaryColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+              spreadRadius: -2,
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: radius,
+          borderRadius: BorderRadius.circular(16),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                padding: EdgeInsets.symmetric(horizontal: 9),
                 child: Icon(
                   Icons.play_arrow_rounded,
-                  size: 22,
+                  size: 20,
                   color: Colors.white,
                 ),
               ),
-              if (showBadge) ...[
+              if (showBadge)
                 Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 7),
+                  height: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   alignment: Alignment.center,
-                  color: Colors.black.withValues(alpha: 0.22),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [Color(0x4D000000), Color(0x66000000)],
+                    ),
+                  ),
                   child: Text(
                     provider,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
+                      color: Color(0xF2FFFFFF),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
                     ),
                   ),
                 ),
-              ],
             ],
           ),
         ),

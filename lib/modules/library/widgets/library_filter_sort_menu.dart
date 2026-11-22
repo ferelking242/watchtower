@@ -50,8 +50,7 @@ class LibraryFilterSortMenu extends ConsumerStatefulWidget {
 
 enum _Level { root, sort, filter, display, contentRating, sources, categories }
 
-class _LibraryFilterSortMenuState
-    extends ConsumerState<LibraryFilterSortMenu> {
+class _LibraryFilterSortMenuState extends ConsumerState<LibraryFilterSortMenu> {
   _Level _level = _Level.root;
 
   void _go(_Level level) => setState(() => _level = level);
@@ -105,8 +104,8 @@ class _LibraryFilterSortMenuState
         settings: widget.settings,
       ),
     );
-    final isGrid = displayType != DisplayType.list &&
-        displayType != DisplayType.wideList;
+    final isGrid =
+        displayType != DisplayType.list && displayType != DisplayType.wideList;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -193,39 +192,49 @@ class _LibraryFilterSortMenuState
     final settings = widget.settings;
     final entries = widget.entries;
     ref
-        .read(mangaFilterDownloadedStateProvider(
-          itemType: itemType,
-          mangaList: entries,
-          settings: settings,
-        ).notifier)
+        .read(
+          mangaFilterDownloadedStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ).notifier,
+        )
         .setType(0);
     ref
-        .read(mangaFilterTrackingStateProvider(
-          itemType: itemType,
-          mangaList: entries,
-          settings: settings,
-        ).notifier)
+        .read(
+          mangaFilterTrackingStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ).notifier,
+        )
         .setType(0);
     ref
-        .read(mangaFilterUnreadStateProvider(
-          itemType: itemType,
-          mangaList: entries,
-          settings: settings,
-        ).notifier)
+        .read(
+          mangaFilterUnreadStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ).notifier,
+        )
         .setType(0);
     ref
-        .read(mangaFilterStartedStateProvider(
-          itemType: itemType,
-          mangaList: entries,
-          settings: settings,
-        ).notifier)
+        .read(
+          mangaFilterStartedStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ).notifier,
+        )
         .setType(0);
     ref
-        .read(mangaFilterCompletedStateProvider(
-          itemType: itemType,
-          mangaList: entries,
-          settings: settings,
-        ).notifier)
+        .read(
+          mangaFilterCompletedStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ).notifier,
+        )
         .setType(0);
     selectedLibrarySourcesFilter(itemType).value = <String>{};
     selectedLibraryCategoriesFilter(itemType).value = <int>{};
@@ -238,50 +247,63 @@ class _LibraryFilterSortMenuState
     final itemType = widget.itemType;
     final settings = widget.settings;
     ref
-        .read(libraryDisplayTypeStateProvider(
-          itemType: itemType,
-          settings: settings,
-        ).notifier)
+        .read(
+          libraryDisplayTypeStateProvider(
+            itemType: itemType,
+            settings: settings,
+          ).notifier,
+        )
         .setLibraryDisplayType(DisplayType.compactGrid);
-    ref.read(libraryGridSizeStateProvider(itemType: itemType).notifier).set(
-          null,
-          end: true,
-        );
     ref
-        .read(libraryDownloadedChaptersStateProvider(
-          itemType: itemType,
-          settings: settings,
-        ).notifier)
+        .read(libraryGridSizeStateProvider(itemType: itemType).notifier)
+        .set(null, end: true);
+    ref
+        .read(
+          libraryDownloadedChaptersStateProvider(
+            itemType: itemType,
+            settings: settings,
+          ).notifier,
+        )
         .set(false);
     ref
-        .read(libraryLanguageStateProvider(
-          itemType: itemType,
-          settings: settings,
-        ).notifier)
+        .read(
+          libraryLanguageStateProvider(
+            itemType: itemType,
+            settings: settings,
+          ).notifier,
+        )
         .set(false);
     ref
-        .read(libraryLocalSourceStateProvider(
-          itemType: itemType,
-          settings: settings,
-        ).notifier)
+        .read(
+          libraryLocalSourceStateProvider(
+            itemType: itemType,
+            settings: settings,
+          ).notifier,
+        )
         .set(false);
     ref
-        .read(libraryShowContinueReadingButtonStateProvider(
-          itemType: itemType,
-          settings: settings,
-        ).notifier)
+        .read(
+          libraryShowContinueReadingButtonStateProvider(
+            itemType: itemType,
+            settings: settings,
+          ).notifier,
+        )
         .set(false);
     ref
-        .read(libraryShowCategoryTabsStateProvider(
-          itemType: itemType,
-          settings: settings,
-        ).notifier)
+        .read(
+          libraryShowCategoryTabsStateProvider(
+            itemType: itemType,
+            settings: settings,
+          ).notifier,
+        )
         .set(true);
     ref
-        .read(libraryShowNumbersOfItemsStateProvider(
-          itemType: itemType,
-          settings: settings,
-        ).notifier)
+        .read(
+          libraryShowNumbersOfItemsStateProvider(
+            itemType: itemType,
+            settings: settings,
+          ).notifier,
+        )
         .set(true);
     ref.read(libraryShowUnreadChaptersProvider.notifier).set(true);
     ref.read(libraryOverlayProvider.notifier).set(true);
@@ -349,19 +371,16 @@ class _LibraryFilterSortMenuState
       onTap: () => displayNotifier.setLibraryDisplayType(type),
     );
 
-    Widget toggle(
-      String label,
-      bool value,
-      ValueChanged<bool> onChanged,
-    ) => AdaptiveOverlayItem(
-      label: label,
-      trailing: Icon(
-        value ? Broken.tick_circle : Broken.record_circle,
-        size: 16,
-        color: value ? context.primaryColor : context.secondaryColor,
-      ),
-      onTap: () => onChanged(!value),
-    );
+    Widget toggle(String label, bool value, ValueChanged<bool> onChanged) =>
+        AdaptiveOverlayItem(
+          label: label,
+          trailing: Icon(
+            value ? Broken.tick_circle : Broken.record_circle,
+            size: 16,
+            color: value ? context.primaryColor : context.secondaryColor,
+          ),
+          onTap: () => onChanged(!value),
+        );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -382,16 +401,43 @@ class _LibraryFilterSortMenuState
           label: gridSize == 0
               ? l10n.default0
               : l10n.n_per_row(gridSize.toString()),
-          trailing: SizedBox(
-            width: 150,
-            child: Slider(
-              min: 0,
-              max: 7,
-              divisions: 7,
-              value: gridSize.toDouble(),
-              onChanged: (v) => gridSizeNotifier.set(v.toInt()),
-              onChangeEnd: (v) => gridSizeNotifier.set(v.toInt(), end: true),
-            ),
+          // A stepper instead of a slider: a slider is impossible to land on an
+          // exact column count with, which is why picking "1" used to feel like
+          // a random jump to a giant single tile.
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _stepperBtn(
+                icon: Broken.minus,
+                enabled: gridSize > 0,
+                onTap: () {
+                  final next = (gridSize <= 1) ? 0 : gridSize - 1;
+                  gridSizeNotifier.set(next, end: true);
+                },
+              ),
+              SizedBox(
+                width: 34,
+                child: Text(
+                  gridSize == 0 ? l10n.library_grid_auto : '$gridSize',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: context.primaryColor,
+                  ),
+                ),
+              ),
+              _stepperBtn(
+                icon: Broken.add,
+                enabled: gridSize < 8,
+                onTap: () {
+                  // From "Auto" the first tap lands on 1 column, which is now
+                  // a capped, centred card instead of a screen-wide blur.
+                  final next = gridSize == 0 ? 1 : gridSize + 1;
+                  gridSizeNotifier.set(next.clamp(1, 8), end: true);
+                },
+              ),
+            ],
           ),
         ),
 
@@ -511,6 +557,36 @@ class _LibraryFilterSortMenuState
     ),
   );
 
+  Widget _stepperBtn({
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: enabled
+                ? context.primaryColor.withValues(alpha: 0.55)
+                : context.secondaryColor.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: 14,
+          color: enabled
+              ? context.primaryColor
+              : context.secondaryColor.withValues(alpha: 0.35),
+        ),
+      ),
+    );
+  }
+
   // ── Level: sort ────────────────────────────────────────────────────────────
 
   Widget _buildSort(BuildContext context) {
@@ -550,7 +626,9 @@ class _LibraryFilterSortMenuState
         sortItem(l10n.date_added, 6),
         sortItem(l10n.last_update_check, 2),
         sortItem(
-          widget.itemType != ItemType.anime ? l10n.last_read : l10n.last_watched,
+          widget.itemType != ItemType.anime
+              ? l10n.last_read
+              : l10n.last_watched,
           1,
         ),
         sortItem(l10n.release_date, 7),
@@ -601,31 +679,41 @@ class _LibraryFilterSortMenuState
     final settings = widget.settings;
     final entries = widget.entries;
 
-    int downloaded = ref.watch(mangaFilterDownloadedStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int tracking = ref.watch(mangaFilterTrackingStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int unread = ref.watch(mangaFilterUnreadStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int started = ref.watch(mangaFilterStartedStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
-    int completed = ref.watch(mangaFilterCompletedStateProvider(
-      itemType: itemType,
-      mangaList: entries,
-      settings: settings,
-    ));
+    int downloaded = ref.watch(
+      mangaFilterDownloadedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    int tracking = ref.watch(
+      mangaFilterTrackingStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    int unread = ref.watch(
+      mangaFilterUnreadStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    int started = ref.watch(
+      mangaFilterStartedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
+    int completed = ref.watch(
+      mangaFilterCompletedStateProvider(
+        itemType: itemType,
+        mangaList: entries,
+        settings: settings,
+      ),
+    );
 
     Widget cycleItem(String label, int type, VoidCallback onTap) {
       return AdaptiveOverlayItem(
@@ -645,55 +733,65 @@ class _LibraryFilterSortMenuState
           l10n.downloaded,
           downloaded,
           () => ref
-              .read(mangaFilterDownloadedStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
+              .read(
+                mangaFilterDownloadedStateProvider(
+                  itemType: itemType,
+                  mangaList: entries,
+                  settings: settings,
+                ).notifier,
+              )
               .update(),
         ),
         cycleItem(
           l10n.tracked,
           tracking,
           () => ref
-              .read(mangaFilterTrackingStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
+              .read(
+                mangaFilterTrackingStateProvider(
+                  itemType: itemType,
+                  mangaList: entries,
+                  settings: settings,
+                ).notifier,
+              )
               .update(),
         ),
         cycleItem(
           itemType != ItemType.anime ? l10n.unread : l10n.unwatched,
           unread,
           () => ref
-              .read(mangaFilterUnreadStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
+              .read(
+                mangaFilterUnreadStateProvider(
+                  itemType: itemType,
+                  mangaList: entries,
+                  settings: settings,
+                ).notifier,
+              )
               .update(),
         ),
         cycleItem(
           l10n.started,
           started,
           () => ref
-              .read(mangaFilterStartedStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
+              .read(
+                mangaFilterStartedStateProvider(
+                  itemType: itemType,
+                  mangaList: entries,
+                  settings: settings,
+                ).notifier,
+              )
               .update(),
         ),
         cycleItem(
           l10n.completed,
           completed,
           () => ref
-              .read(mangaFilterCompletedStateProvider(
-                itemType: itemType,
-                mangaList: entries,
-                settings: settings,
-              ).notifier)
+              .read(
+                mangaFilterCompletedStateProvider(
+                  itemType: itemType,
+                  mangaList: entries,
+                  settings: settings,
+                ).notifier,
+              )
               .update(),
         ),
         const AdaptiveOverlayDivider(),
@@ -721,39 +819,49 @@ class _LibraryFilterSortMenuState
           label: context.l10n.browse_clear_filters,
           onTap: () {
             ref
-                .read(mangaFilterDownloadedStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
+                .read(
+                  mangaFilterDownloadedStateProvider(
+                    itemType: itemType,
+                    mangaList: entries,
+                    settings: settings,
+                  ).notifier,
+                )
                 .setType(0);
             ref
-                .read(mangaFilterTrackingStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
+                .read(
+                  mangaFilterTrackingStateProvider(
+                    itemType: itemType,
+                    mangaList: entries,
+                    settings: settings,
+                  ).notifier,
+                )
                 .setType(0);
             ref
-                .read(mangaFilterUnreadStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
+                .read(
+                  mangaFilterUnreadStateProvider(
+                    itemType: itemType,
+                    mangaList: entries,
+                    settings: settings,
+                  ).notifier,
+                )
                 .setType(0);
             ref
-                .read(mangaFilterStartedStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
+                .read(
+                  mangaFilterStartedStateProvider(
+                    itemType: itemType,
+                    mangaList: entries,
+                    settings: settings,
+                  ).notifier,
+                )
                 .setType(0);
             ref
-                .read(mangaFilterCompletedStateProvider(
-                  itemType: itemType,
-                  mangaList: entries,
-                  settings: settings,
-                ).notifier)
+                .read(
+                  mangaFilterCompletedStateProvider(
+                    itemType: itemType,
+                    mangaList: entries,
+                    settings: settings,
+                  ).notifier,
+                )
                 .setType(0);
             // Sources/Categories are separate client-side selections; clearing
             // only the tri-state filters left them applied, so the library
@@ -772,21 +880,49 @@ class _LibraryFilterSortMenuState
   Widget _buildContentRating(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
     final selected = ref.watch(libraryContentRatingFilterProvider);
+    final entries = widget.entries;
 
-    Widget rating(String bucket, String label) {
+    int countFor(String? bucket) {
+      if (bucket == null) return entries.length;
+      return entries.where((manga) {
+        final nsfw = isNsfwGenre(manga.genre);
+        final suggestive = isSuggestiveGenre(manga.genre);
+        return switch (bucket) {
+          'nsfw' => nsfw,
+          'suggestive' => suggestive && !nsfw,
+          'safe' => !nsfw && !suggestive,
+          _ => false,
+        };
+      }).length;
+    }
+
+    final safeCount = countFor('safe');
+    final suggestiveCount = countFor('suggestive');
+    final nsfwCount = countFor('nsfw');
+    // Genres drive classification, so an entry without genres lands in no
+    // bucket at all. Only then is the filter genuinely unusable.
+    final hasMetadata = safeCount + suggestiveCount + nsfwCount > 0;
+
+    Widget rating(String bucket, String label, int count) {
       final active = selected.contains(bucket);
       return AdaptiveOverlayItem(
         label: label,
-        trailing: Icon(
-          active ? Broken.tick_circle : Broken.record_circle,
-          size: 16,
-          color: active ? context.primaryColor : context.secondaryColor,
+        // Rows stay tappable even at 0: the counts reflect the *current* set of
+        // entries, and a user who just imported a title expects the filter to
+        // apply to it without waiting for a genre refresh.
+        enabled: hasMetadata,
+        trailing: Text(
+          '$count',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            color: active ? context.primaryColor : context.secondaryColor,
+          ),
         ),
+        selected: active,
         onTap: () {
           HapticFeedback.lightImpact();
-          ref
-              .read(libraryContentRatingFilterProvider.notifier)
-              .toggle(bucket);
+          ref.read(libraryContentRatingFilterProvider.notifier).toggle(bucket);
         },
       );
     }
@@ -800,21 +936,41 @@ class _LibraryFilterSortMenuState
         // rating", so it just needs to reset the buckets.
         AdaptiveOverlayItem(
           label: l10n.media_all,
-          trailing: Icon(
-            selected.isEmpty ? Broken.tick_circle : Broken.record_circle,
-            size: 16,
-            color: selected.isEmpty
-                ? context.primaryColor
-                : context.secondaryColor,
+          trailing: Text(
+            '${countFor(null)}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: selected.isEmpty ? FontWeight.w700 : FontWeight.w500,
+              color: selected.isEmpty
+                  ? context.primaryColor
+                  : context.secondaryColor,
+            ),
           ),
+          selected: selected.isEmpty,
           onTap: () {
             HapticFeedback.lightImpact();
-            ref.read(libraryContentRatingFilterProvider.notifier).set(<String>{});
+            ref
+                .read(libraryContentRatingFilterProvider.notifier)
+                .set(<String>{});
           },
         ),
-        rating('safe', l10n.library_rating_safe),
-        rating('suggestive', l10n.library_rating_suggestive),
-        rating('nsfw', l10n.browse_diag_nsfw),
+        if (!hasMetadata)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+            child: Text(
+              l10n.library_classification_unavailable,
+              style: TextStyle(
+                fontSize: 11,
+                height: 1.35,
+                color: context.secondaryColor,
+              ),
+            ),
+          )
+        else ...[
+          rating('safe', l10n.library_rating_safe, safeCount),
+          rating('suggestive', l10n.library_rating_suggestive, suggestiveCount),
+          rating('nsfw', l10n.browse_diag_nsfw, nsfwCount),
+        ],
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.close_circle,
@@ -834,13 +990,14 @@ class _LibraryFilterSortMenuState
 
   Widget _buildSources(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
-    final sources = widget.entries
-        .map((m) => m.source)
-        .whereType<String>()
-        .where((s) => s.trim().isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final sources =
+        widget.entries
+            .map((m) => m.source)
+            .whereType<String>()
+            .where((s) => s.trim().isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     final notifier = selectedLibrarySourcesFilter(widget.itemType);
 
     return ValueListenableBuilder<Set<String>>(
@@ -861,10 +1018,9 @@ class _LibraryFilterSortMenuState
                   l10n.library_no_source_detected,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
               )
@@ -910,24 +1066,23 @@ class _LibraryFilterSortMenuState
                           l10n.library_no_category_created,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                       ),
                     ]
                   : cats
-                      .where((c) => c.id != null)
-                      .map(
-                        (c) => AdaptiveOverlayItem(
-                          label: c.name ?? '',
-                          selected: selected.contains(c.id),
-                          onTap: () => _toggleInNotifier(notifier, c.id!),
-                        ),
-                      )
-                      .toList(),
+                        .where((c) => c.id != null)
+                        .map(
+                          (c) => AdaptiveOverlayItem(
+                            label: c.name ?? '',
+                            selected: selected.contains(c.id),
+                            onTap: () => _toggleInNotifier(notifier, c.id!),
+                          ),
+                        )
+                        .toList(),
               orElse: () => const <Widget>[],
             ),
           ],
@@ -945,13 +1100,13 @@ class _LibraryFilterSortMenuState
   // ── Small helpers ──────────────────────────────────────────────────────────
 
   Widget _soonBadge(BuildContext context) => Text(
-        l10nLocalizations(context)!.media_soon.toLowerCase(),
-        style: TextStyle(
-          fontSize: 10,
-          fontStyle: FontStyle.italic,
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
-        ),
-      );
+    l10nLocalizations(context)!.media_soon.toLowerCase(),
+    style: TextStyle(
+      fontSize: 10,
+      fontStyle: FontStyle.italic,
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+    ),
+  );
 
   Widget _tristateIcon(BuildContext context, int type) {
     final cs = Theme.of(context).colorScheme;
@@ -1005,9 +1160,7 @@ List<Manga> applyLibrarySourceAndCategoryFilters(
   }
   if (categories.isNotEmpty) {
     mangas = mangas
-        .where(
-          (manga) => manga.categories?.any(categories.contains) ?? false,
-        )
+        .where((manga) => manga.categories?.any(categories.contains) ?? false)
         .toList();
   }
   return mangas;
@@ -1042,31 +1195,51 @@ bool libraryFiltersActive(
 }) {
   bool tri(int value) => value != 0;
   final active =
-      tri(ref.watch(mangaFilterDownloadedStateProvider(
-        itemType: itemType,
-        mangaList: entries,
-        settings: settings,
-      ))) ||
-      tri(ref.watch(mangaFilterTrackingStateProvider(
-        itemType: itemType,
-        mangaList: entries,
-        settings: settings,
-      ))) ||
-      tri(ref.watch(mangaFilterUnreadStateProvider(
-        itemType: itemType,
-        mangaList: entries,
-        settings: settings,
-      ))) ||
-      tri(ref.watch(mangaFilterStartedStateProvider(
-        itemType: itemType,
-        mangaList: entries,
-        settings: settings,
-      ))) ||
-      tri(ref.watch(mangaFilterCompletedStateProvider(
-        itemType: itemType,
-        mangaList: entries,
-        settings: settings,
-      )));
+      tri(
+        ref.watch(
+          mangaFilterDownloadedStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ),
+        ),
+      ) ||
+      tri(
+        ref.watch(
+          mangaFilterTrackingStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ),
+        ),
+      ) ||
+      tri(
+        ref.watch(
+          mangaFilterUnreadStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ),
+        ),
+      ) ||
+      tri(
+        ref.watch(
+          mangaFilterStartedStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ),
+        ),
+      ) ||
+      tri(
+        ref.watch(
+          mangaFilterCompletedStateProvider(
+            itemType: itemType,
+            mangaList: entries,
+            settings: settings,
+          ),
+        ),
+      );
   if (active) return true;
   if (selectedLibrarySourcesFilter(itemType).value.isNotEmpty) return true;
   if (selectedLibraryCategoriesFilter(itemType).value.isNotEmpty) return true;

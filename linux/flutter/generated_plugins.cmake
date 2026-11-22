@@ -14,13 +14,13 @@ list(APPEND FLUTTER_PLUGIN_LIST
   gtk
   isar_community_flutter_libs
   media_kit_libs_linux
+  media_kit_video
   screen_retriever_linux
   sqlite3_flutter_libs
   syncfusion_pdfviewer_linux
   tray_manager
   url_launcher_linux
   volume_controller
-  media_kit_video
   window_manager
   window_to_front
 )

@@ -15,17 +15,21 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/modules/library/library_screen.dart';
 import 'package:watchtower/modules/library/providers/isar_providers.dart';
+import 'package:watchtower/modules/library/providers/library_filter_provider.dart';
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/library/services/library_maintenance.dart';
 import 'package:watchtower/modules/library/services/maintenance_notification_service.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
+import 'package:watchtower/modules/more/providers/downloaded_only_state_provider.dart';
+import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/services/library_updater.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
+import 'package:watchtower/utils/display_fonts.dart';
 
 // ─── Design tokens (resolved from theme at build time) ─────────────────────
 // cs.outlineVariant and _kTextSecondary replaced with cs.outlineVariant / cs.onSurfaceVariant
@@ -44,16 +48,20 @@ const _kTypes = <ItemType>[
 
 // ─── App-bar action button size ──────────────────────────────────────────────
 // Shared by every right-side action (search / filter / three-dots) and used to
-// budget the row width, so the group reads as one evenly-spaced strip.
-const _kActionBtnSize = 38.0;
+// budget the row width, so the group reads as one evenly-spaced strip. Sized a
+// notch below the selected type circle (46) so the two groups sit at the same
+// visual level without the right-hand icons looking puny.
+const _kActionBtnSize = 40.0;
 const _kActionBtnIconSize = 20.0;
-const _kActionBtnGap = 8.0;
+const _kActionBtnGap = 7.0;
 
 // ─── Type icons (Broken set) ─────────────────────────────────────────────────
 const _kTypeIcons = <ItemType, IconData>{
   ItemType.anime: Broken.video,
   ItemType.manga: Broken.book,
-  ItemType.novel: Broken.note_text,
+  // A lined prose page; the "story"/"note" glyphs read as a sticky note at the
+  // small size the arc renders them.
+  ItemType.novel: Broken.document_text,
   ItemType.game: Broken.game,
 };
 
@@ -194,138 +202,183 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   // ends of the arc, slightly smaller and dimmed so they read as "behind".
   // Dragging or scrolling spins the arc; the middle icon always ends up in
   // front. The wheel of types wraps, so the carousel never dead-ends.
+  //
+  // Geometry is fixed in pixels and anchored on the leading edge: the left
+  // shoulder of the arc sits at x == 0, so the group hugs the left margin
+  // instead of floating in the middle of a wide slot, and the three circles
+  // are one short step apart so they read as a single cluster.
   Widget _buildArcTypeSelector(ColorScheme cs, bool isDark) {
     final n = _kTypes.length;
+    final l10n = l10nLocalizations(context)!;
 
-    return Listener(
-      onPointerSignal: (event) {
-        if (event is! PointerScrollEvent) return;
-        final delta = event.scrollDelta.dy != 0
-            ? event.scrollDelta.dy
-            : event.scrollDelta.dx;
-        if (delta == 0) return;
-        _arcStep(delta > 0 ? 1 : -1);
-      },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragUpdate: (details) {
-          _arcAnim.stop();
-          setState(() => _arcOffset -= details.delta.dx / 64.0);
+    const frontSize = 46.0;
+    const sideSize = 28.0;
+    // Shoulders overlap the front circle's edge instead of leaving a visible
+    // gap, so the three icons read as one tight cluster.
+    const shoulderGap = -4.0;
+    const step = frontSize / 2 + shoulderGap + sideSize / 2;
+    const height = 52.0;
+    const totalWidth = step * 2 + sideSize;
+    const frontX = sideSize / 2 + step;
+    const frontY = 27.0;
+    const sideY = 32.0;
+
+    String nameOf(ItemType type) => switch (type) {
+      ItemType.anime => l10n.watch,
+      ItemType.manga => l10n.manga,
+      ItemType.novel => l10n.novel,
+      ItemType.game => l10n.catalog_tab_games,
+      ItemType.music => l10n.catalog_tab_music,
+      ItemType.plugin => l10n.browse_plugins,
+    };
+
+    return SizedBox(
+      width: totalWidth,
+      height: height,
+      child: Listener(
+        onPointerSignal: (event) {
+          if (event is! PointerScrollEvent) return;
+          final delta = event.scrollDelta.dy != 0
+              ? event.scrollDelta.dy
+              : event.scrollDelta.dx;
+          if (delta == 0) return;
+          _arcStep(delta > 0 ? 1 : -1);
         },
-        onHorizontalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0;
-          // A flick advances a whole slot; a slow drag just snaps to the
-          // nearest one (steps == 0), so the front icon is always unambiguous.
-          final steps = velocity.abs() > 250 ? (velocity < 0 ? 1 : -1) : 0;
-          _arcStep(steps);
-        },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final w = constraints.maxWidth;
-            final h = constraints.maxHeight;
-            final cx = w / 2;
-            // The front icon sits high on the arc; the neighbours drop toward
-            // the baseline at either end.
-            final frontY = h * 0.34;
-            final sideY = h * 0.66;
-            final sideX = w * 0.30;
-            final radius = 18.0;
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragUpdate: (details) {
+            _arcAnim.stop();
+            setState(() => _arcOffset -= details.delta.dx / 64.0);
+          },
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            // A flick advances a whole slot; a slow drag just snaps to the
+            // nearest one (steps == 0), so the front icon is always unambiguous.
+            final steps = velocity.abs() > 250 ? (velocity < 0 ? 1 : -1) : 0;
+            _arcStep(steps);
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (
+                var slotIndex = _arcOffset.round() - 1;
+                slotIndex <= _arcOffset.round() + 1;
+                slotIndex++
+              )
+                Builder(
+                  builder: (context) {
+                    final d = slotIndex - _arcOffset;
+                    final ad = d.abs();
+                    if (ad >= 1.5) return const SizedBox.shrink();
+                    final type = _kTypes[((slotIndex % n) + n) % n];
+                    // Full opacity at the front, ~0.55 on the shoulders, gone
+                    // at 1.5 — so the hand-off between the two end slots is
+                    // invisible.
+                    final opacity = ad <= 1.0
+                        ? 1.0 - 0.45 * ad
+                        : 0.55 * (1.5 - ad) / 0.5;
+                    final size =
+                        frontSize + (sideSize - frontSize) * ad.clamp(0.0, 1.0);
+                    final isFront = ad < 0.5;
+                    final x = frontX + d.clamp(-1.5, 1.5) * step;
+                    final y = frontY + (sideY - frontY) * ad.clamp(0.0, 1.0);
 
-            // Render the three slots around the nearest integer position. A
-            // slot's distance `d` is continuous, so the two end slots are only
-            // ever swapped while they sit at |d| ~ 1.5 and are fully faded out
-            // — the hand-off is invisible.
-            final centre = _arcOffset.round();
-            final painted = <Widget>[];
-            for (
-              var slotIndex = centre - 1;
-              slotIndex <= centre + 1;
-              slotIndex++
-            ) {
-              final d = slotIndex - _arcOffset;
-              final ad = d.abs();
-              if (ad >= 1.5) continue;
-              final type = _kTypes[((slotIndex % n) + n) % n];
-              // Full opacity at the front, ~0.55 on the shoulders, gone at 1.5.
-              final opacity = ad <= 1.0
-                  ? 1.0 - 0.45 * ad
-                  : 0.55 * (1.5 - ad) / 0.5;
-              final scale = ad <= 1.0 ? 1.0 - 0.22 * ad : 0.78;
-              final size = radius * 2 * scale;
-              final isFront = ad < 0.5;
-              // Parabolic lift: the front sits high, the shoulders at baseline.
-              final x = cx + d.clamp(-1.5, 1.5) * sideX;
-              final y = sideY + (frontY - sideY) * (1.0 - ad.clamp(0.0, 1.0));
-
-              painted.add(
-                Positioned(
-                  left: x - size / 2,
-                  top: y - size / 2,
-                  child: GestureDetector(
-                    onTap: () {
-                      final diff = slotIndex - _arcOffset.round();
-                      if (diff != 0) _arcStep(diff);
-                    },
-                    child: Opacity(
-                      opacity: opacity.clamp(0.0, 1.0),
-                      child: Container(
-                        width: size,
-                        height: size,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: isFront
-                              ? LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    cs.primary,
-                                    cs.primary.withValues(alpha: 0.75),
-                                  ],
-                                )
-                              : null,
-                          color: isFront
-                              ? null
-                              : cs.onSurface.withValues(alpha: 0.05),
-                          border: Border.all(
-                            color: isFront
-                                ? cs.primary.withValues(alpha: 0.85)
-                                : (isDark
-                                      ? cs.onSurface.withValues(alpha: 0.22)
-                                      : cs.outline.withValues(alpha: 0.35)),
-                            width: isFront ? 1.5 : 1.0,
-                          ),
-                          boxShadow: isFront
-                              ? [
-                                  BoxShadow(
-                                    color: cs.primary.withValues(alpha: 0.35),
-                                    blurRadius: 14,
-                                    spreadRadius: -2,
+                    return Positioned(
+                      left: x - size / 2,
+                      top: y - size / 2,
+                      width: size,
+                      height: size,
+                      child: GestureDetector(
+                        onTap: () {
+                          final diff = slotIndex - _arcOffset.round();
+                          if (diff != 0) _arcStep(diff);
+                        },
+                        child: Opacity(
+                          opacity: opacity.clamp(0.0, 1.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: isFront
+                                  ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        cs.primary,
+                                        cs.primary.withValues(alpha: 0.75),
+                                      ],
+                                    )
+                                  : null,
+                              color: isFront
+                                  ? null
+                                  : cs.onSurface.withValues(alpha: 0.05),
+                              border: Border.all(
+                                color: isFront
+                                    ? cs.primary.withValues(alpha: 0.85)
+                                    : (isDark
+                                          ? cs.onSurface.withValues(alpha: 0.22)
+                                          : cs.outline.withValues(alpha: 0.35)),
+                                width: isFront ? 1.5 : 1.0,
+                              ),
+                              boxShadow: isFront
+                                  ? [
+                                      BoxShadow(
+                                        color: cs.primary.withValues(
+                                          alpha: 0.35,
+                                        ),
+                                        blurRadius: 14,
+                                        spreadRadius: -2,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: isFront
+                                // The selected type carries its own name in the
+                                // display face, so the current section is
+                                // readable without a separate caption.
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        _kTypeIcons[type]!,
+                                        color: cs.onSurface,
+                                        size: 15,
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 3,
+                                        ),
+                                        child: Text(
+                                          nameOf(type),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontFamily: kMangaDisplayFont,
+                                            fontSize: 10,
+                                            height: 1.05,
+                                            letterSpacing: 0.3,
+                                            color: cs.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Icon(
+                                    _kTypeIcons[type]!,
+                                    color: isDark
+                                        ? cs.onSurface.withValues(alpha: 0.60)
+                                        : cs.onSurface.withValues(alpha: 0.55),
+                                    size: 17,
                                   ),
-                                ]
-                              : null,
-                        ),
-                        child: Icon(
-                          _kTypeIcons[type]!,
-                          color: isFront
-                              ? cs.onSurface
-                              : (isDark
-                                    ? cs.onSurface.withValues(alpha: 0.60)
-                                    : cs.onSurface.withValues(alpha: 0.55)),
-                          size: 20 * scale,
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              );
-            }
-
-            return SizedBox(
-              width: w,
-              height: h,
-              child: Stack(clipBehavior: Clip.none, children: painted),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -450,14 +503,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
     // Category tabs and per-category item counts are user-toggled from the
     // Display menu; the tabs are on by default.
-    final showCategoryTabs = settings == null ||
+    final showCategoryTabs =
+        settings == null ||
         ref.watch(
           libraryShowCategoryTabsStateProvider(
             itemType: _currentType,
             settings: settings,
           ),
         );
-    final showItemCounts = settings != null &&
+    final showItemCounts =
+        settings != null &&
         ref.watch(
           libraryShowNumbersOfItemsStateProvider(
             itemType: _currentType,
@@ -465,7 +520,8 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           ),
         );
     // Highlight the filter icon whenever a filter actually narrows the list.
-    final filtersActive = settings != null &&
+    final filtersActive =
+        settings != null &&
         libraryFiltersActive(
           ref,
           itemType: _currentType,
@@ -486,21 +542,24 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 final active = filtersActive;
                 return Tooltip(
                   message: l10n.filter,
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
                     width: _kActionBtnSize,
                     height: _kActionBtnSize,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: active
-                          ? cs.primary.withValues(alpha: 0.90)
+                          ? cs.primary
                           : (isDark
                                 ? cs.onSurface.withValues(alpha: 0.08)
                                 : cs.onSurface.withValues(alpha: 0.06)),
                     ),
                     child: Icon(
                       Broken.filter,
+                      // Filled accent disc + contrasting glyph: an active
+                      // filter has to be obvious at a glance.
                       color: active
-                          ? cs.onSurface
+                          ? cs.onPrimary
                           : (isDark
                                 ? cs.onSurface.withValues(alpha: 0.60)
                                 : cs.onSurface.withValues(alpha: 0.55)),
@@ -523,146 +582,146 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
     return SafeArea(
       bottom: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Row 1: arc type selector + action icons ────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 14, 14, 0),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final rowWidth = constraints.maxWidth;
-                const actionStripWidth = _kActionBtnSize * 3 + 8 * 2;
-                const selectorGap = 10.0;
-                // Keep the carousel tight — a few slots wide — so the icons sit
-                // close together and the group hugs the left edge. The actions
-                // stay pinned to the right through the [Spacer] below.
-                final selectorWidth =
-                    (rowWidth - actionStripWidth - selectorGap)
-                        .clamp(0.0, 196.0)
-                        .toDouble();
-                return SizedBox(
-                  width: rowWidth,
-                  height: 56,
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      Positioned.fill(
-                        child: AnimatedOpacity(
-                          opacity: (_showSearch && !_searchClosing) ? 0 : 1,
-                          duration: const Duration(milliseconds: 200),
-                          child: IgnorePointer(
-                            ignoring: _showSearch && !_searchClosing,
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: selectorWidth,
-                                  height: 56,
-                                  child: _buildArcTypeSelector(cs, isDark),
-                                ),
-                                const Spacer(),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _iconBtn(
-                                      icon: Broken.search_normal_1,
-                                      onTap: () =>
-                                          unawaited(_toggleSearch()),
-                                      active: _showSearch,
-                                      tooltip: l10n.search,
-                                      rotationTurns: _searchIconRotated
-                                          ? 1
-                                          : 0,
-                                    ),
-                                    const SizedBox(width: _kActionBtnGap),
-                                    filterButton,
-                                    const SizedBox(width: _kActionBtnGap),
-                                    _buildThreeDotsBtn(
-                                      context,
-                                      l10n,
-                                      mangaList,
-                                    ),
-                                  ],
-                                ),
-                              ],
+      child: PopScope(
+        // Back closes the search overlay before it leaves the library: while the
+        // field is open the system back gesture should undo the search, not
+        // navigate away from the tab.
+        canPop: !_showSearch,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _showSearch) unawaited(_toggleSearch());
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Row 1: arc type selector + action icons ────────────────
+            Padding(
+              // 10 px on the leading edge only: the arc's first shoulder is a
+              // circle, so its optical margin is larger than a square icon's and
+              // needs a tighter gutter to look flush with the page edge.
+              padding: const EdgeInsets.fromLTRB(6, 8, 14, 0),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final rowWidth = constraints.maxWidth;
+                  return SizedBox(
+                    width: rowWidth,
+                    height: 52,
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        Positioned.fill(
+                          child: AnimatedOpacity(
+                            opacity: (_showSearch && !_searchClosing) ? 0 : 1,
+                            duration: const Duration(milliseconds: 200),
+                            child: IgnorePointer(
+                              ignoring: _showSearch && !_searchClosing,
+                              child: Row(
+                                children: [
+                                  _buildArcTypeSelector(cs, isDark),
+                                  const Spacer(),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _iconBtn(
+                                        icon: Broken.search_normal_1,
+                                        onTap: () => unawaited(_toggleSearch()),
+                                        active: _showSearch,
+                                        tooltip: l10n.search,
+                                        rotationTurns: _searchIconRotated
+                                            ? 1
+                                            : 0,
+                                      ),
+                                      const SizedBox(width: _kActionBtnGap),
+                                      filterButton,
+                                      const SizedBox(width: _kActionBtnGap),
+                                      _buildThreeDotsBtn(
+                                        context,
+                                        l10n,
+                                        mangaList,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 5,
-                        child: ClipRect(
-                          child: AnimatedContainer(
-                            width: (_showSearch && !_searchClosing)
-                                ? rowWidth
-                                : 0,
-                            height: 46,
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeInOutCubic,
-                            child: (_showSearch || _searchClosing)
-                                ? SizedBox(
-                                    width: rowWidth,
-                                    height: 46,
-                                    child: _buildSearchBar(cs, isDark),
-                                  )
-                                : const SizedBox.shrink(),
+                        Positioned(
+                          right: 0,
+                          top: 3,
+                          child: ClipRect(
+                            child: AnimatedContainer(
+                              width: (_showSearch && !_searchClosing)
+                                  ? rowWidth
+                                  : 0,
+                              height: 46,
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeInOutCubic,
+                              child: (_showSearch || _searchClosing)
+                                  ? SizedBox(
+                                      width: rowWidth,
+                                      height: 46,
+                                      child: _buildSearchBar(cs, isDark),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-            child: Container(
-              height: 1,
-              color: cs.outlineVariant.withValues(alpha: 0.42),
-            ),
-          ),
-
-          // ── Category bar ──────────────────────────────────────────────
-          if (showCategoryTabs)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-              child: _buildCategoryBar(
-                context,
-                cats,
-                cs,
-                isDark,
-                mangaList,
-                showItemCounts,
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              child: Container(
+                height: 1,
+                color: cs.outlineVariant.withValues(alpha: 0.42),
               ),
             ),
 
-          const SizedBox(height: 8),
+            // ── Category bar ──────────────────────────────────────────────
+            if (showCategoryTabs)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                child: _buildCategoryBar(
+                  context,
+                  cats,
+                  cs,
+                  isDark,
+                  mangaList,
+                  showItemCounts,
+                ),
+              ),
 
-          // ── Library content ──────────────────────────────────────────
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onHorizontalDragStart: (_) => _librarySwipeDistance = 0,
-              onHorizontalDragUpdate: (details) {
-                _librarySwipeDistance += details.delta.dx;
-              },
-              onHorizontalDragEnd: _onLibrarySwipeEnd,
-              child: LibraryScreen(
-                key: ValueKey('lib_${_typeIndex}_$extCatId'),
-                itemType: _currentType,
-                presetInput: null,
-                hideOwnAppBar: true,
-                // Keep the embedded library controller in sync when
-                // search closes, so the old query cannot stay applied.
-                externalSearchQuery: _showSearch ? _searchController.text : '',
-                externalCategoryId: extCatId,
+            const SizedBox(height: 8),
+
+            // ── Library content ──────────────────────────────────────────
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onHorizontalDragStart: (_) => _librarySwipeDistance = 0,
+                onHorizontalDragUpdate: (details) {
+                  _librarySwipeDistance += details.delta.dx;
+                },
+                onHorizontalDragEnd: _onLibrarySwipeEnd,
+                child: LibraryScreen(
+                  key: ValueKey('lib_${_typeIndex}_$extCatId'),
+                  itemType: _currentType,
+                  presetInput: null,
+                  hideOwnAppBar: true,
+                  // Keep the embedded library controller in sync when
+                  // search closes, so the old query cannot stay applied.
+                  externalSearchQuery: _showSearch
+                      ? _searchController.text
+                      : '',
+                  externalCategoryId: extCatId,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -798,89 +857,196 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     bool showItemCounts,
   ) {
     final l10n = l10nLocalizations(context)!;
-    int? countFor(int? catId) {
-      if (!showItemCounts) return null;
-      if (catId == null) return mangaList.length;
-      return mangaList
-          .where((m) => m.categories?.contains(catId) ?? false)
-          .length;
-    }
+    final settings = _cachedSettings;
 
-    return Row(
-      children: [
-        Tooltip(
-          message: l10n.manage_categories,
-          child: Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => _showManageCategories(context, cats),
-              child: Container(
-                height: 36,
-                width: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isDark
-                        ? cs.onSurface.withValues(alpha: 0.28)
-                        : cs.outline.withValues(alpha: 0.42),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(
-                  Icons.grid_view_rounded,
-                  size: 17,
-                  color: cs.onSurface.withValues(alpha: 0.62),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(
-                alpha: isDark ? 0.24 : 0.45,
-              ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: isDark
-                    ? cs.onSurface.withValues(alpha: 0.26)
-                    : cs.outline.withValues(alpha: 0.40),
-                width: 1,
-              ),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: selectedLibrarySourcesFilter(_currentType),
+      builder: (context, selectedSources, _) =>
+          ValueListenableBuilder<Set<int>>(
+            valueListenable: selectedLibraryCategoriesFilter(_currentType),
+            builder: (context, selectedCategories, _) {
+              // Numbers follow every filter *except* the category one: each
+              // pill reports its own bucket, so scoping the count to the
+              // selected category made all the other pills read 0.
+              final filtered = _filteredForCounts(
+                settings,
+                mangaList,
+                selectedSources: selectedSources,
+              );
+
+              int? countFor(int? catId) {
+                if (!showItemCounts) return null;
+                if (catId == null) return filtered.length;
+                return filtered
+                    .where((m) => m.categories?.contains(catId) ?? false)
+                    .length;
+              }
+
+              return Row(
                 children: [
-                  _pill(
-                    label: l10n.media_all,
-                    count: countFor(null),
-                    selected: _selectedCatIndex == 0,
-                    onTap: () => setState(() => _selectedCatIndex = 0),
-                    cs: cs,
-                    isDark: isDark,
-                  ),
-                  for (int i = 0; i < cats.length; i++)
-                    _pill(
-                      label: cats[i].name ?? '',
-                      count: countFor(cats[i].id),
-                      selected: _selectedCatIndex == i + 1,
-                      onTap: () => setState(() => _selectedCatIndex = i + 1),
-                      cs: cs,
-                      isDark: isDark,
+                  Tooltip(
+                    message: l10n.manage_categories,
+                    child: Material(
+                      color: Colors.transparent,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _showManageCategories(context, cats),
+                        child: Container(
+                          height: 36,
+                          width: 36,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark
+                                  ? cs.onSurface.withValues(alpha: 0.28)
+                                  : cs.outline.withValues(alpha: 0.42),
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.grid_view_rounded,
+                            size: 17,
+                            color: cs.onSurface.withValues(alpha: 0.62),
+                          ),
+                        ),
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest.withValues(
+                          alpha: isDark ? 0.24 : 0.45,
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: isDark
+                              ? cs.onSurface.withValues(alpha: 0.26)
+                              : cs.outline.withValues(alpha: 0.40),
+                          width: 1,
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _pill(
+                              label: l10n.media_all,
+                              count: countFor(null),
+                              selected: _selectedCatIndex == 0,
+                              onTap: () =>
+                                  setState(() => _selectedCatIndex = 0),
+                              cs: cs,
+                              isDark: isDark,
+                            ),
+                            for (int i = 0; i < cats.length; i++)
+                              _pill(
+                                label: cats[i].name ?? '',
+                                count: countFor(cats[i].id),
+                                selected: _selectedCatIndex == i + 1,
+                                onTap: () =>
+                                    setState(() => _selectedCatIndex = i + 1),
+                                cs: cs,
+                                isDark: isDark,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
-              ),
-            ),
+              );
+            },
+          ),
+    );
+  }
+
+  /// Entries that the grid would display for the current filters, used by the
+  /// category pills so their numbers match the visible content.
+  List<Manga> _filteredForCounts(
+    Settings? settings,
+    List<Manga> mangaList, {
+    required Set<String> selectedSources,
+  }) {
+    if (settings == null) return mangaList;
+    final itemType = _currentType;
+    final downloadedOnly = ref.watch(downloadedOnlyStateProvider);
+    final base = ref.watch(
+      filteredLibraryMangaProvider(
+        data: mangaList,
+        downloadFilterType: ref.watch(
+          mangaFilterDownloadedStateProvider(
+            itemType: itemType,
+            mangaList: mangaList,
+            settings: settings,
           ),
         ),
-      ],
+        unreadFilterType: ref.watch(
+          mangaFilterUnreadStateProvider(
+            itemType: itemType,
+            mangaList: mangaList,
+            settings: settings,
+          ),
+        ),
+        startedFilterType: ref.watch(
+          mangaFilterStartedStateProvider(
+            itemType: itemType,
+            mangaList: mangaList,
+            settings: settings,
+          ),
+        ),
+        bookmarkedFilterType: ref.watch(
+          mangaFilterBookmarkedStateProvider(
+            itemType: itemType,
+            mangaList: mangaList,
+            settings: settings,
+          ),
+        ),
+        completedFilterType: ref.watch(
+          mangaFilterCompletedStateProvider(
+            itemType: itemType,
+            mangaList: mangaList,
+            settings: settings,
+          ),
+        ),
+        trackingFilterType: ref.watch(
+          mangaFilterTrackingStateProvider(
+            itemType: itemType,
+            mangaList: mangaList,
+            settings: settings,
+          ),
+        ),
+        sortType:
+            ref
+                .watch(
+                  sortLibraryMangaStateProvider(
+                    itemType: itemType,
+                    settings: settings,
+                  ),
+                )
+                .index ??
+            0,
+        downloadedOnly: downloadedOnly,
+        searchQuery: _showSearch ? _searchController.text : '',
+        ignoreFiltersOnSearch: false,
+      ),
+    );
+    final scoped = applyLibrarySourceAndCategoryFilters(
+      itemType,
+      base,
+      selectedSources: selectedSources,
+      selectedCategories: const <int>{},
+    );
+    return applyLibraryContentRatingFilter(
+      scoped,
+      ref.watch(libraryContentRatingFilterProvider),
     );
   }
 
@@ -922,10 +1088,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
               Text(
                 '($count)',
                 style: TextStyle(
-                  color: (selected
-                          ? cs.primary
-                          : cs.onSurfaceVariant.withValues(alpha: 0.65))
-                      .withValues(alpha: 0.75),
+                  color:
+                      (selected
+                              ? cs.primary
+                              : cs.onSurfaceVariant.withValues(alpha: 0.65))
+                          .withValues(alpha: 0.75),
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   fontSize: 12,
                 ),

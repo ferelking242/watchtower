@@ -204,10 +204,9 @@ String librarySwipeActionLabel(AppLocalizations l10n, int action) {
 
 class LibrarySwipeLeftNotifier extends Notifier<int> {
   @override
-  // Swipe towards the left edge: mark the first unread chapter (default).
-  // The opposite rightward swipe marks as read — see
-  // `librarySwipeRightProvider`.
-  int build() => _read('swipe_left', 0);
+  // Right-to-left swipe opens the delete dialog (default); the opposite
+  // rightward swipe marks as read — see `librarySwipeRightProvider`.
+  int build() => _read('swipe_left', 9);
 
   void set(int v) {
     _write('swipe_left', v);

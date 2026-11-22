@@ -8,10 +8,10 @@ import 'package:watchtower/providers/l10n_providers.dart';
 
 /// Wraps a library entry so the configured left/right swipe actions run.
 ///
-/// Mirrors Mihon's "Comportement" settings: the left swipe defaults to
-/// "Marquer le chapitre" and the right one to "Marquer comme lu". "Aucun(e)"
-/// disables the gesture for that side. The card is never dismissed — the swipe
-/// fires the action and snaps back, so the entry stays visible.
+/// Defaults, per the "Comportement" settings: a rightward swipe marks the entry
+/// as read, the opposite swipe opens the delete dialog. "Aucun(e)" disables the
+/// gesture for that side. The card is never dismissed — the swipe fires the
+/// action and snaps back, so the entry stays visible.
 class LibrarySwipeWrapper extends ConsumerWidget {
   const LibrarySwipeWrapper({
     super.key,
@@ -70,8 +70,11 @@ class LibrarySwipeWrapper extends ConsumerWidget {
     final leftEnabled = left != 2;
     final rightEnabled = right != 2;
     if (leftEnabled && rightEnabled) return DismissDirection.horizontal;
-    if (leftEnabled) return DismissDirection.startToEnd;
-    if (rightEnabled) return DismissDirection.endToStart;
+    // `startToEnd` is the rightward swipe and drives the *right* action, so a
+    // left-only configuration must expose `endToStart` (and vice versa). These
+    // were swapped, which made a lone enabled side run the disabled one.
+    if (leftEnabled) return DismissDirection.endToStart;
+    if (rightEnabled) return DismissDirection.startToEnd;
     return DismissDirection.none;
   }
 }
@@ -101,22 +104,36 @@ class _SwipeBackground extends StatelessWidget {
     // The background sits behind the card, so the icon/text must mirror the
     // swipe direction to stay on the leading edge of the gesture.
     final mirrored = alignment == Alignment.centerRight;
+    final destructive = action == 7 || action == 9;
     return Container(
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      color: Theme.of(context).colorScheme.primaryContainer,
+      color: destructive
+          ? Theme.of(context).colorScheme.errorContainer
+          : Theme.of(context).colorScheme.primaryContainer,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         textDirection: mirrored ? TextDirection.rtl : TextDirection.ltr,
         children: [
-          Icon(icon, size: 18),
+          Icon(
+            icon,
+            size: 18,
+            color: destructive
+                ? Theme.of(context).colorScheme.onErrorContainer
+                : null,
+          ),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
+              style: TextStyle(
+                fontSize: 12,
+                color: destructive
+                    ? Theme.of(context).colorScheme.onErrorContainer
+                    : null,
+              ),
             ),
           ),
         ],

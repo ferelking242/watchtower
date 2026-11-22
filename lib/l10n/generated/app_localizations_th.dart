@@ -12639,6 +12639,9 @@ class AppLocalizationsTh extends AppLocalizations {
       'Coming soon — no classification metadata is attached to the library entries yet.';
 
   @override
+  String get library_grid_auto => 'Auto';
+
+  @override
   String get library_rating_safe => 'Safe';
 
   @override

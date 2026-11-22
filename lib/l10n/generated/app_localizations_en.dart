@@ -5513,8 +5513,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Scans the files already on disk and fixes the missing entries';
 
   @override
-  String get settings_downloads_not_in_library =>
-      'Downloads not in the library';
+  String get settings_downloads_not_in_library => 'Recover downloads';
 
   @override
   String get settings_downloads_not_in_library_desc =>
@@ -12646,6 +12645,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get library_classification_unavailable =>
       'Coming soon — no classification metadata is attached to the library entries yet.';
+
+  @override
+  String get library_grid_auto => 'Auto';
 
   @override
   String get library_rating_safe => 'Safe';

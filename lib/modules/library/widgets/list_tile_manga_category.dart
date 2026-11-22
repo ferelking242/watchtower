@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' hide Category;
+import 'package:flutter/material.dart';
 import 'package:watchtower/models/category.dart';
 import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/modules/manga/detail/widgets/chapter_filter_list_tile_widget.dart';

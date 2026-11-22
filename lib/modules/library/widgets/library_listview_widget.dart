@@ -41,13 +41,14 @@ class LibraryListViewWidget extends ConsumerWidget {
     final showUnread = ref.watch(libraryShowUnreadChaptersProvider);
     final statsByManga =
         ref.watch(libraryChapterStatsProvider).asData?.value ??
-            const <int, MangaChapterStats>{};
+        const <int, MangaChapterStats>{};
 
     return SuperListViewWidget(
       itemCount: entriesManga.length,
       itemBuilder: (context, index) {
         final entry = entriesManga[index];
-        final entryStats = statsByManga[entry.id] ??
+        final entryStats =
+            statsByManga[entry.id] ??
             const MangaChapterStats(total: 0, unread: 0, downloaded: 0);
         bool isLocalArchive = entry.isLocalArchive ?? false;
         return Consumer(
@@ -114,7 +115,7 @@ class LibraryListViewWidget extends ConsumerWidget {
                         vertical: 4,
                       ),
                       child: Container(
-                        height: 76,
+                        height: 96,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -129,8 +130,8 @@ class LibraryListViewWidget extends ConsumerWidget {
                                     child: Material(
                                       child: Ink.image(
                                         fit: BoxFit.cover,
-                                        width: 56,
-                                        height: 76,
+                                        width: 68,
+                                        height: 96,
                                         image: entry.customCoverImage != null
                                             ? coverMemoryImage(
                                                 entry.customCoverImage
@@ -167,7 +168,12 @@ class LibraryListViewWidget extends ConsumerWidget {
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 10,
                                       ),
-                                      child: Text(entry.name!),
+                                      child: Text(
+                                        entry.name!,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 14.5),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -185,7 +191,7 @@ class LibraryListViewWidget extends ConsumerWidget {
                                       : context.primaryColor,
                                 ),
                                 child: SizedBox(
-                                  height: 30,
+                                  height: 34,
                                   child: Row(
                                     children: [
                                       if (localSource && isLocalArchive)
@@ -202,13 +208,15 @@ class LibraryListViewWidget extends ConsumerWidget {
                                           ),
                                           child: const Padding(
                                             padding: EdgeInsets.symmetric(
-                                              horizontal: 8,
+                                              horizontal: 10,
                                             ),
                                             child: Center(
                                               child: Text(
                                                 "Local",
                                                 style: TextStyle(
                                                   color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                             ),
@@ -226,8 +234,9 @@ class LibraryListViewWidget extends ConsumerWidget {
                                               decoration: BoxDecoration(
                                                 borderRadius:
                                                     const BorderRadius.only(
-                                                      topLeft:
-                                                          Radius.circular(8),
+                                                      topLeft: Radius.circular(
+                                                        8,
+                                                      ),
                                                       bottomLeft:
                                                           Radius.circular(8),
                                                     ),
@@ -238,13 +247,16 @@ class LibraryListViewWidget extends ConsumerWidget {
                                               child: Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                      horizontal: 8,
+                                                      horizontal: 10,
                                                     ),
                                                 child: Center(
                                                   child: Text(
                                                     downloadedCount.toString(),
                                                     style: const TextStyle(
                                                       color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                     ),
                                                   ),
                                                 ),
@@ -254,7 +266,7 @@ class LibraryListViewWidget extends ConsumerWidget {
                                         ),
                                       Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 9,
+                                          horizontal: 11,
                                         ),
                                         child: Center(
                                           child: Text(
@@ -264,6 +276,7 @@ class LibraryListViewWidget extends ConsumerWidget {
                                                 .toString(),
                                             style: const TextStyle(
                                               color: Colors.white,
+                                              fontSize: 12,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -283,13 +296,15 @@ class LibraryListViewWidget extends ConsumerWidget {
                                           ),
                                           child: Padding(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
+                                              horizontal: 10,
                                             ),
                                             child: Center(
                                               child: Text(
                                                 entry.lang!.toUpperCase(),
                                                 style: const TextStyle(
                                                   color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                             ),

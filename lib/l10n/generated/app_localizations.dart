@@ -9726,7 +9726,7 @@ abstract class AppLocalizations {
   /// No description provided for @settings_downloads_not_in_library.
   ///
   /// In en, this message translates to:
-  /// **'Downloads not in the library'**
+  /// **'Recover downloads'**
   String get settings_downloads_not_in_library;
 
   /// No description provided for @settings_downloads_not_in_library_desc.
@@ -22573,6 +22573,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coming soon — no classification metadata is attached to the library entries yet.'**
   String get library_classification_unavailable;
+
+  /// No description provided for @library_grid_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get library_grid_auto;
 
   /// No description provided for @library_rating_safe.
   ///
