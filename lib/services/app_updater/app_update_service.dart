@@ -103,8 +103,9 @@ class WatchtowerUpdateInstaller implements UpdateInstaller {
 
 /// Watchtower's entry point to `app_updater`.
 ///
-/// Sources, in order: CI builds published as GitHub Actions artifacts, then
-/// GitHub Releases. The newest version wins, and a failing source is ignored.
+/// Sources, in order: the app_updater CI feed (when the build embeds
+/// `APP_UPDATER_URL`), GitHub Actions artifacts (only with a token) and GitHub
+/// Releases. The newest version wins, and a failing source is ignored.
 class AppUpdateService {
   AppUpdateService._();
   static final AppUpdateService instance = AppUpdateService._();
@@ -147,7 +148,14 @@ class AppUpdateService {
             branch: 'main',
             token: _token,
           ),
-        GitHubReleasesSource(owner: _owner, repo: _repo, token: _token),
+        // The rolling `android-latest` release is a prerelease and carries the
+        // version in the asset name, so prereleases must be considered here.
+        GitHubReleasesSource(
+          owner: _owner,
+          repo: _repo,
+          token: _token,
+          includePrereleases: true,
+        ),
       ]),
       notifier: const WatchtowerUpdateNotifier(),
       installer: WatchtowerUpdateInstaller(),
