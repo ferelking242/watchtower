@@ -114,6 +114,71 @@ segments/0002.m4s
     });
   });
 
+  group('Separate audio rendition', () {
+    const masterUrl = 'https://cdn.example.test/hls/master.m3u8';
+    const master = """
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio-1",NAME="English",LANGUAGE="en",DEFAULT=NO,URI="audio/en.m3u8"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio-1",NAME="Français",LANGUAGE="fr",DEFAULT=YES,URI="audio/fr.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080,AUDIO="audio-1"
+video/1080.m3u8
+""";
+
+    test('a master with a referenced #EXT-X-MEDIA audio group needs a mux', () {
+      expect(M3u8Downloader.hasSeparateAudioRendition(master), isTrue);
+    });
+
+    test('resolves the default rendition next to the master playlist', () {
+      expect(
+        M3u8Downloader.defaultAudioRenditionUrl(masterUrl, master),
+        'https://cdn.example.test/hls/audio/fr.m3u8',
+      );
+    });
+
+    test('falls back to the first rendition when none is default', () {
+      const noDefault = """
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio-1",NAME="English",URI="audio/en.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,AUDIO="audio-1"
+video/1080.m3u8
+""";
+
+      expect(
+        M3u8Downloader.defaultAudioRenditionUrl(masterUrl, noDefault),
+        'https://cdn.example.test/hls/audio/en.m3u8',
+      );
+    });
+
+    test('muxed variants and unreferenced groups stay on the segment path', () {
+      const muxed = """
+#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080
+video/1080.m3u8
+""";
+      const unreferenced = """
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio-1",NAME="Français",URI="audio/fr.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080
+video/1080.m3u8
+""";
+      const subtitlesOnly = """
+#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Français",URI="subs/fr.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080,SUBTITLES="subs"
+video/1080.m3u8
+""";
+
+      expect(M3u8Downloader.hasSeparateAudioRendition(muxed), isFalse);
+      expect(M3u8Downloader.hasSeparateAudioRendition(unreferenced), isFalse);
+      expect(M3u8Downloader.hasSeparateAudioRendition(subtitlesOnly), isFalse);
+      expect(M3u8Downloader.defaultAudioRenditionUrl(masterUrl, muxed), isNull);
+      expect(
+        M3u8Downloader.defaultAudioRenditionUrl(masterUrl, subtitlesOnly),
+        isNull,
+      );
+    });
+  });
+
   test('HLS progress keeps the byte denominator unknown until merge', () {
     final progress = m3u8ProgressForTesting(
       segment: null,
@@ -207,6 +272,41 @@ segments/0002.m4s
       expect(args, containsAllInOrder(['-c', 'copy']));
       expect(args, containsAllInOrder(['-movflags', '+faststart']));
       expect(args, containsAllInOrder(['-i', '/tmp/video.joined']));
+      // Nothing else is mapped: a muxed variant already carries its audio.
+      expect(args, containsAllInOrder(['-map', '0']));
+      expect(args.where((arg) => arg == '-i').length, 1);
+    });
+
+    test('muxes a separate audio rendition next to the video', () {
+      final args = FfmpegMergeService.buildMuxArguments(
+        inputFile: '/tmp/video.joined',
+        outputFile: '/tmp/video.mp4.part',
+        audioPlaylistUrl: 'https://cdn.example.test/hls/audio/fr.m3u8',
+        headers: {
+          'Referer': 'https://example.test/watch',
+          'User-Agent': 'Watchtower/1.0',
+        },
+      );
+
+      expect(args, containsAllInOrder(['-i', '/tmp/video.joined']));
+      expect(
+        args,
+        containsAllInOrder([
+          '-referer',
+          'https://example.test/watch',
+          '-rw_timeout',
+          '60000000',
+          '-i',
+          'https://cdn.example.test/hls/audio/fr.m3u8',
+        ]),
+      );
+      expect(args, containsAllInOrder(['-user_agent', 'Watchtower/1.0']));
+      // Video from the joined fragments, audio from the rendition only.
+      expect(
+        args,
+        containsAllInOrder(['-map', '0:v:0', '-map', '1:a:0', '-shortest']),
+      );
+      expect(args, containsAllInOrder(['-c', 'copy']));
     });
   });
 

@@ -43,6 +43,10 @@ class M3u8Downloader {
   /// inside the browser session that already holds the clearance for it.
   final int? sourceId;
 
+  /// Audio rendition resolved from the master playlist, muxed in at assembly.
+  /// Null when the video variant carries its own audio.
+  String? _audioPlaylistUrl;
+
   static var httpClient = MClient.httpClient(
     settings: const ClientSettings(
       throwOnStatusCode: false,
@@ -143,11 +147,19 @@ class M3u8Downloader {
       // otherwise we'd "download" the variant playlist URLs as if they were
       // TS segments (which produced a few-KB invalid mp4 file).
       if (m3u8Body.contains('#EXT-X-STREAM-INF')) {
-        final variantUrl = _pickBestVariant(effectiveUrl, m3u8Body);
+        final masterUrl = effectiveUrl;
+        final masterBody = m3u8Body;
+        final variantUrl = _pickBestVariant(masterUrl, masterBody);
         if (variantUrl != null) {
           _log('Master playlist detected, switching to variant: $variantUrl');
           effectiveUrl = variantUrl;
           m3u8Body = await _withRetry(() => _getM3u8Body(effectiveUrl));
+          // The variant holds no audio of its own: the rendition has to be
+          // muxed in at assembly time or the file downloads silent.
+          _audioPlaylistUrl = defaultAudioRenditionUrl(masterUrl, masterBody);
+          if (_audioPlaylistUrl != null) {
+            _log('Separate audio rendition: $_audioPlaylistUrl');
+          }
         }
       }
 
@@ -536,6 +548,8 @@ class M3u8Downloader {
     await FfmpegMergeService.assembleToMp4(
       outputFile: outputFile,
       segmentPaths: segmentPaths,
+      audioPlaylistUrl: _audioPlaylistUrl,
+      headers: _buildEffectiveHeaders(),
     );
   }
 
@@ -644,6 +658,74 @@ class M3u8Downloader {
   @visibleForTesting
   static String? pickBestVariantForTesting(String baseUrl, String body) =>
       _pickBestVariant(baseUrl, body);
+
+  /// Whether the stream carries its audio in a separate `#EXT-X-MEDIA`
+  /// rendition instead of muxing it into the video variant.
+  ///
+  /// The segment path follows the highest-bandwidth variant only, so without
+  /// the rendition below such a stream is written to a silent MP4.
+  @visibleForTesting
+  static bool hasSeparateAudioRendition(String playlist) {
+    final audioGroups = _audioGroups(playlist);
+    if (audioGroups.isEmpty) return false;
+    for (final line in playlist.split('\n')) {
+      if (!line.startsWith('#EXT-X-STREAM-INF')) continue;
+      final group = RegExp(
+        r'AUDIO="([^"]*)"',
+        caseSensitive: false,
+      ).firstMatch(line)?.group(1);
+      if (group != null && audioGroups.contains(group)) return true;
+    }
+    return false;
+  }
+
+  /// Absolute URL of the audio rendition to mux next to the video variant, or
+  /// null when the playlist muxes its own audio.
+  @visibleForTesting
+  static String? defaultAudioRenditionUrl(String baseUrl, String playlist) {
+    if (!hasSeparateAudioRendition(playlist)) return null;
+    final audioGroups = _audioGroups(playlist);
+    String? firstUri;
+    for (final line in playlist.split('\n')) {
+      if (!line.contains('#EXT-X-MEDIA')) continue;
+      if (!RegExp(r'TYPE=AUDIO', caseSensitive: false).hasMatch(line)) continue;
+      final group = RegExp(
+        r'GROUP-ID="([^"]*)"',
+        caseSensitive: false,
+      ).firstMatch(line)?.group(1);
+      if (group == null || !audioGroups.contains(group)) continue;
+      final uri = RegExp(
+        r'URI="([^"]*)"',
+        caseSensitive: false,
+      ).firstMatch(line)?.group(1);
+      if (uri == null || uri.isEmpty) continue;
+      final absolute = Uri.parse(baseUrl).resolve(uri).toString();
+      // The rendition the player would pick by default is the one the
+      // downloaded file must carry.
+      if (RegExp(
+        r'DEFAULT=YES',
+        caseSensitive: false,
+      ).hasMatch(line)) {
+        return absolute;
+      }
+      firstUri ??= absolute;
+    }
+    return firstUri;
+  }
+
+  static Set<String> _audioGroups(String playlist) {
+    final groups = <String>{};
+    for (final line in playlist.split('\n')) {
+      if (!line.contains('#EXT-X-MEDIA')) continue;
+      if (!RegExp(r'TYPE=AUDIO', caseSensitive: false).hasMatch(line)) continue;
+      final group = RegExp(
+        r'GROUP-ID="([^"]*)"',
+        caseSensitive: false,
+      ).firstMatch(line)?.group(1);
+      if (group != null && group.isNotEmpty) groups.add(group);
+    }
+    return groups;
+  }
 
   static String? _pickBestVariant(String baseUrl, String body) {
     final lines = body.split('\n');

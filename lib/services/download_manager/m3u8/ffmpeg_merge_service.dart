@@ -40,6 +40,8 @@ class FfmpegMergeService {
   static Future<void> assembleToMp4({
     required String outputFile,
     required List<String> segmentPaths,
+    String? audioPlaylistUrl,
+    Map<String, String>? headers,
   }) async {
     final workFile = File(intermediatePathFor(outputFile, segmentPaths));
     try {
@@ -52,6 +54,8 @@ class FfmpegMergeService {
         buildMuxArguments(
           inputFile: workFile.path,
           outputFile: outputFile,
+          audioPlaylistUrl: audioPlaylistUrl,
+          headers: headers,
         ),
       );
       if (!result.isSuccess) {
@@ -97,14 +101,25 @@ class FfmpegMergeService {
   static List<String> buildMuxArguments({
     required String inputFile,
     required String outputFile,
+    String? audioPlaylistUrl,
+    Map<String, String>? headers,
   }) => [
     '-hide_banner',
     '-loglevel',
     'error',
     '-i',
     inputFile,
+    // An HLS variant can keep its audio in a separate rendition. FFmpeg then
+    // fetches that playlist itself and muxes the track next to the video;
+    // without it the file is written silent.
+    if (audioPlaylistUrl != null)
+      ..._audioInputArguments(audioPlaylistUrl, headers ?? const {}),
     '-map',
-    '0',
+    audioPlaylistUrl == null ? '0' : '0:v:0',
+    // Stop at the first stream that ends: the rendition is fetched as a whole
+    // playlist, so without this a slightly longer audio track outlives the
+    // video and the file reports a duration nothing plays.
+    if (audioPlaylistUrl != null) ...['-map', '1:a:0', '-shortest'],
     '-c',
     'copy',
     // Force the MP4 muxer instead of relying on the output extension.
@@ -115,6 +130,32 @@ class FfmpegMergeService {
     '-y',
     outputFile,
   ];
+
+  static List<String> _audioInputArguments(
+    String audioPlaylistUrl,
+    Map<String, String> headers,
+  ) {
+    final referer = _headerValue(headers, 'referer');
+    final userAgent = _headerValue(headers, 'user-agent');
+    return [
+      if (userAgent != null) ...['-user_agent', userAgent],
+      if (referer != null) ...['-referer', referer],
+      // A stalled CDN must abort instead of pinning the mux forever (µs).
+      '-rw_timeout',
+      '60000000',
+      '-i',
+      audioPlaylistUrl,
+    ];
+  }
+
+  static String? _headerValue(Map<String, String> headers, String name) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == name && entry.value.trim().isNotEmpty) {
+        return entry.value.trim();
+      }
+    }
+    return null;
+  }
 
   static Future<void> _concatenate({
     required String outputFile,
