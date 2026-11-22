@@ -86,7 +86,6 @@ const List<String> kChallengeMarkers = [
   'verification de securite',
   'sécurité en cours',
   'securite en cours',
-  'un instant',
   'verificando que no eres un robot',
   'verificação de segurança',
   'verificacao de seguranca',
@@ -152,12 +151,46 @@ bool _isCodeOrJsonContentType(String contentType) {
       mimeType.endsWith('+json');
 }
 
+String _htmlVisibleText(String html) {
+  final visible = html
+      .replaceAll(RegExp(r'<!--[\s\S]*?-->'), ' ')
+      .replaceAll(
+        RegExp(r'<script\b[^>]*>[\s\S]*?</script\s*>', caseSensitive: false),
+        ' ',
+      )
+      .replaceAll(
+        RegExp(r'<style\b[^>]*>[\s\S]*?</style\s*>', caseSensitive: false),
+        ' ',
+      )
+      .replaceAll(
+        RegExp(r'<noscript\b[^>]*>[\s\S]*?</noscript\s*>', caseSensitive: false),
+        ' ',
+      )
+      .replaceAll(
+        RegExp(r'<template\b[^>]*>[\s\S]*?</template\s*>', caseSensitive: false),
+        ' ',
+      )
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll(
+        RegExp(r'&nbsp;|&#160;', caseSensitive: false),
+        ' ',
+      )
+      .replaceAll(RegExp(r'&amp;', caseSensitive: false), '&')
+      .replaceAll(RegExp(r'&quot;', caseSensitive: false), '"')
+      .replaceAll(RegExp(r'&#0?39;|&apos;', caseSensitive: false), "'")
+      .replaceAll(RegExp(r'&lt;', caseSensitive: false), '<')
+      .replaceAll(RegExp(r'&gt;', caseSensitive: false), '>');
+  return visible.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
 /// Inspects an HTTP response (status + headers + optional body).
 ///
 /// `403` / `503` alone → pageType [AntiBotPageType.unknown], so the caller
 /// keeps the normal “HTTP error” path instead of a Cloudflare UI. Challenge
-/// body markers are ignored for JavaScript and JSON payloads, where they may
-/// appear as source/data rather than as a page shown to the user.
+/// body markers are checked against visible HTML text, not scripts, styles,
+/// comments, or hidden templates. A site can contain Cloudflare's
+/// `challenge-platform` script, a Turnstile widget, and ordinary copy such as
+/// “un instant” while still returning a usable page.
 AntiBotAssessment assessHttpResponse({
   required int statusCode,
   Map<String, String>? headers,
@@ -170,6 +203,7 @@ AntiBotAssessment assessHttpResponse({
   final cfRay = h['cf-ray'] ?? '';
   final cfMitigated = h['cf-mitigated'] ?? '';
   final contentType = h['content-type'] ?? '';
+  final rawBody = body ?? '';
 
   var cloudflareInvolved = false;
   if (cfRay.isNotEmpty) {
@@ -185,14 +219,32 @@ AntiBotAssessment assessHttpResponse({
     evidence.add('header:cf-mitigated=${cfMitigated.split(',').first.trim()}');
   }
 
+  final isHtml = contentType.contains('html') ||
+      RegExp(
+        r'^\s*(?:<!doctype\s+html|<[a-z][\w:-]*(?:\s|>|/))',
+        caseSensitive: false,
+      ).hasMatch(rawBody);
+  final rawHaystack = _isCodeOrJsonContentType(contentType)
+      ? ''
+      : rawBody.toLowerCase();
   final haystack = _isCodeOrJsonContentType(contentType)
       ? ''
-      : (body ?? '').toLowerCase();
+      : isHtml
+      ? _htmlVisibleText(rawBody).toLowerCase()
+      : rawHaystack;
   final challengeMarkers = _foundMarkers(haystack, kChallengeMarkers);
-  final weakMarkers = _foundMarkers(haystack, kWeakChallengeMarkers);
+  // Weak CDN scripts/widgets are useful evidence on a refusal, but are
+  // routinely embedded in healthy HTML. Inspect the raw markup for those
+  // markers without treating them as a 200-page challenge.
+  final weakMarkers = _foundMarkers(rawHaystack, kWeakChallengeMarkers);
+  final rawStrongChallengeMarkers = _foundMarkers(
+    rawHaystack,
+    const ['cf-challenge-running', 'cf-chl', 'cf_chl'],
+  );
   final blockMarkers = _foundMarkers(haystack, kBlockMarkers);
 
-  final cfOnlyHit = _foundMarkers(haystack, _kCloudflareOnlyMarkers).isNotEmpty;
+  final cfOnlyHit =
+      _foundMarkers(rawHaystack, _kCloudflareOnlyMarkers).isNotEmpty;
   if (cfOnlyHit) cloudflareInvolved = true;
   if (weakMarkers.isNotEmpty) cloudflareInvolved = true;
 
@@ -203,12 +255,19 @@ AntiBotAssessment assessHttpResponse({
   final refusal = statusCode == 403 || statusCode == 429 || statusCode >= 500;
   final weakChallengeConfirmed =
       weakMarkers.isNotEmpty && (challengeRequested || refusal);
+  // Some genuine interstitials put their only specific marker in an inline
+  // script. Honor that evidence on a refusal, but never let script text turn a
+  // successful player page into a challenge.
+  final rawChallengeConfirmed =
+      rawStrongChallengeMarkers.isNotEmpty && (challengeRequested || refusal);
   if (challengeMarkers.isNotEmpty ||
       challengeRequested ||
-      weakChallengeConfirmed) {
+      weakChallengeConfirmed ||
+      rawChallengeConfirmed) {
     if (challengeRequested) evidence.add('header:cf-mitigated=challenge');
     evidence.addAll(challengeMarkers.map((m) => 'body:$m'));
     evidence.addAll(weakMarkers.map((m) => 'body:$m'));
+    evidence.addAll(rawStrongChallengeMarkers.map((m) => 'body:$m'));
     return AntiBotAssessment(
       pageType: AntiBotPageType.challenge,
       cloudflareInvolved: true,
@@ -418,6 +477,7 @@ String antiBotLogLine({
     '[AntiBot]',
     if (url != null && url.isNotEmpty) 'url=${redactUrl(url)}',
     if (statusCode != null) 'status=$statusCode',
+    'httpError=${assessment.isHttpError}',
     if (h['server'] != null) 'server=${h['server']}',
     'cfRayPresent=${(h['cf-ray'] ?? '').isNotEmpty}',
     if (h['content-type'] != null) 'contentType=${h['content-type']}',

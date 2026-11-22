@@ -175,6 +175,71 @@ void main() {
       expect(refused.cloudflareInvolved, isTrue);
     });
 
+    test(
+      'a playable HTML page with generic “un instant” copy is not a challenge',
+      () {
+        final page = assessHttpResponse(
+          statusCode: 200,
+          headers: {
+            'server': 'cloudflare',
+            'cf-ray': 'abc123-CDG',
+            'content-type': 'text/html; charset=utf-8',
+          },
+          body: '<!doctype html><html><head><title>Episode</title>'
+              '<script>const internal = "cf_chl";'
+              'const path = "/cdn-cgi/challenge-platform/scripts/jsd/main.js";'
+              '</script></head><body class="has-player">'
+              '<h1>Episode 706</h1><p>Disponible en un instant.</p>'
+              '<video src="/stream.m3u8"></video>'
+              '<div class="cf-turnstile" data-sitekey="x"></div>'
+              '</body></html>',
+        );
+
+        expect(page.pageType, AntiBotPageType.normal);
+        expect(page.challenge, isFalse);
+        expect(page.cloudflareInvolved, isTrue);
+        expect(page.isHttpError, isFalse);
+      },
+    );
+
+    test(
+      'Cloudflare challenge script markers remain actionable on a refusal',
+      () {
+        final page = assessHttpResponse(
+          statusCode: 403,
+          headers: {
+            'server': 'cloudflare',
+            'content-type': 'text/html; charset=utf-8',
+          },
+          body: '<html><body><script>window.cf_chl_opt = {};'
+              '</script></body></html>',
+        );
+
+        expect(page.pageType, AntiBotPageType.challenge);
+        expect(page.challenge, isTrue);
+        expect(page.evidence, contains('body:cf_chl'));
+      },
+    );
+
+    test('a visible French verification page is still a 200 challenge', () {
+      final page = assessHttpResponse(
+        statusCode: 200,
+        headers: {
+          'server': 'cloudflare',
+          'cf-ray': 'abc123-CDG',
+          'content-type': 'text/html; charset=utf-8',
+        },
+        body: '<html><head><title>Un instant…</title>'
+            '<script src="/cdn-cgi/challenge-platform/chl_page"></script>'
+            '</head><body><p>Vérification de sécurité en cours.</p>'
+            '<p>Activez JavaScript pour continuer.</p></body></html>',
+      );
+
+      expect(page.pageType, AntiBotPageType.challenge);
+      expect(page.challenge, isTrue);
+      expect(page.isHttpError, isFalse);
+    });
+
     test('Test 7: a JSON API 403 is never rewritten as Cloudflare', () {
       final a = assessHttpResponse(
         statusCode: 403,
@@ -407,6 +472,7 @@ void main() {
         headers: {'server': 'cloudflare'},
       );
       expect(line, contains('pageType=unknown'));
+      expect(line, contains('httpError=true'));
       expect(line, isNot(contains('secret')));
     });
   });

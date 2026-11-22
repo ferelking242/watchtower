@@ -157,10 +157,27 @@ Future<String> _toHttpResponse(
   List args, {
   int? sourceId,
 }) async {
+  final traceId = ExtensionHttpTrace.nextId(sourceId);
+  final stopwatch = Stopwatch()..start();
   var url = '<invalid-url>';
   Map<String, String>? headers;
   var requestStarted = false;
   var browserFetchOnError = false;
+
+  void trace(
+    String phase, {
+    String details = '',
+    LogLevel level = LogLevel.debug,
+  }) {
+    AppLogger.log(
+      '[HTTP-TRACE] id=$traceId sourceId=${sourceId ?? "-"} '
+      'phase=$phase${details.isEmpty ? "" : " $details"} '
+      'elapsedMs=${stopwatch.elapsedMilliseconds} url=${redactUrl(url)}',
+      logLevel: level,
+      tag: LogTag.network,
+    );
+  }
+
   try {
     if (args.length < 3) {
       throw FormatException(
@@ -187,6 +204,11 @@ Future<String> _toHttpResponse(
       );
     }
     headers = (rawHeaders as Map?)?.toMapStringString;
+    trace(
+      'start',
+      details: 'method=$method browserFetchOnError=$browserFetchOnError',
+      level: LogLevel.info,
+    );
     final isJson = [
       headers?[HttpHeaders.contentTypeHeader],
       headers?['content-type'],
@@ -207,15 +229,17 @@ Future<String> _toHttpResponse(
       );
     }
 
-    AppLogger.log(
-      '$method $url',
-      logLevel: LogLevel.debug,
-      tag: LogTag.network,
-    );
-
     // ── Web: passe par le proxy Cloudflare pour éviter les erreurs CORS ──────
     if (kIsWeb) {
-      return await _toHttpResponseViaProxy(method, url, headers, body);
+      final result = await _toHttpResponseViaProxy(
+        method,
+        url,
+        headers,
+        body,
+        traceId: traceId,
+      );
+      trace('complete', details: 'transport=web-proxy', level: LogLevel.info);
+      return result;
     }
 
     // ── Native: requête directe ───────────────────────────────────────────────
@@ -227,9 +251,13 @@ Future<String> _toHttpResponse(
         false) {
       request.body = json.encode(body);
       request.headers.addAll(headers ?? {});
-      http.StreamedResponse response = await client.send(request);
+      final response = await ExtensionHttpTrace.run(
+        traceId,
+        () => client.send(request),
+      );
       AppLogger.log(
-        '$method $url → ${response.statusCode}',
+        '$method ${redactUrl(url)} → ${response.statusCode} '
+        'trace=$traceId sourceId=${sourceId ?? "-"}',
         logLevel: response.statusCode >= 400
             ? LogLevel.warning
             : LogLevel.debug,
@@ -246,6 +274,13 @@ Future<String> _toHttpResponse(
       );
       Map<String, dynamic> resMap = res.toJson();
       resMap["body"] = await response.stream.bytesToString();
+      trace(
+        'complete',
+        details:
+            'transport=native status=${response.statusCode} '
+            'bodyChars=${(resMap["body"] as String).length}',
+        level: response.statusCode >= 400 ? LogLevel.warning : LogLevel.info,
+      );
       return jsonEncode(resMap);
     }
     requestStarted = true;
@@ -259,22 +294,53 @@ Future<String> _toHttpResponse(
         BrowserFetchService.nativeProbeIsPointless(url) &&
         !BrowserFetchService.isMissAvMediaUrl(url)) {
       browserAttempted = true;
+      trace(
+        'browser-fallback-start',
+        details: 'reason=host_already_challenged',
+        level: LogLevel.info,
+      );
       final earlyBrowser = await _browserResponseForRefused(
         url,
         headers,
         sourceId,
+        traceId: traceId,
       );
-      if (earlyBrowser != null) return earlyBrowser;
+      if (earlyBrowser != null) {
+        trace(
+          'complete',
+          details: 'returned=browser reason=host_already_challenged',
+          level: LogLevel.info,
+        );
+        return earlyBrowser;
+      }
+      trace(
+        'browser-fallback-unavailable',
+        details: 'reason=host_already_challenged nativeProbe=continuing',
+        level: LogLevel.warning,
+      );
     }
-    final future = switch (method) {
-      "HEAD" => client.head(Uri.parse(url), headers: headers),
-      "GET" => client.get(Uri.parse(url), headers: headers),
-      "POST" => client.post(Uri.parse(url), headers: headers, body: body),
-      "PUT" => client.put(Uri.parse(url), headers: headers, body: body),
-      "DELETE" => client.delete(Uri.parse(url), headers: headers, body: body),
-      _ => client.patch(Uri.parse(url), headers: headers, body: body),
-    };
+    final future = ExtensionHttpTrace.run(
+      traceId,
+      () => switch (method) {
+        "HEAD" => client.head(Uri.parse(url), headers: headers),
+        "GET" => client.get(Uri.parse(url), headers: headers),
+        "POST" => client.post(Uri.parse(url), headers: headers, body: body),
+        "PUT" => client.put(Uri.parse(url), headers: headers, body: body),
+        "DELETE" => client.delete(Uri.parse(url), headers: headers, body: body),
+        _ => client.patch(Uri.parse(url), headers: headers, body: body),
+      },
+    );
     final resp = await future;
+    final assessment = antiBotAssessmentOf(resp);
+    trace(
+      'native-response',
+      details: 'status=${resp.statusCode} pageType=${assessment.pageType.name} '
+          'cloudflare=${assessment.cloudflareInvolved} '
+          'httpError=${assessment.isHttpError}',
+      level: resp.statusCode >= 400 || assessment.challenge || assessment.blocked
+          ? LogLevel.warning
+          : LogLevel.debug,
+    );
 
     // A Cloudflare challenge is a verdict on the *client*, not on the user:
     // the same URL loads in the app's WebView because that engine runs the
@@ -295,30 +361,68 @@ Future<String> _toHttpResponse(
     final mediaRefusal = resp.statusCode >= 400 && isRawMediaUrl(url);
     if (missAvRefusal || mediaRefusal) {
       AppLogger.log(
-        '$method $url → ${resp.statusCode} · media URL answered by mpv, not '
-        'the browser — keeping the native answer (no false challenge)',
+        '$method ${redactUrl(url)} → ${resp.statusCode} · media URL answered '
+        'by mpv, not the browser — keeping the native answer '
+        '(trace=$traceId sourceId=${sourceId ?? "-"})',
         logLevel: LogLevel.debug,
         tag: LogTag.network,
       );
     } else if (method == "GET" &&
-        (antiBotAssessmentOf(resp).challenge ||
+        (assessment.challenge ||
             (browserFetchOnError &&
                 sourceId != null &&
                 resp.statusCode == 403))) {
-      // Remember the verdict so a later call on this host skips the probe.
-      BrowserFetchService.markNativeChallenged(url);
+      final confirmedChallenge = assessment.challenge;
+      final replayReason = confirmedChallenge
+          ? 'anti_bot_challenge'
+          : 'opted_in_http_403';
+      trace(
+        'browser-fallback-start',
+        details: 'reason=$replayReason nativeStatus=${resp.statusCode} '
+            'pageType=${assessment.pageType.name}',
+        level: LogLevel.info,
+      );
+      // Only a positively identified challenge proves that this native client
+      // will be refused again. A generic opted-in HTTP 403 gets one browser
+      // retry, but must not poison later requests or trigger a Cloudflare alert.
+      if (confirmedChallenge) {
+        BrowserFetchService.markNativeChallenged(url);
+      }
       if (!browserAttempted) {
         final browser = await _browserResponseForRefused(
           url,
           headers,
           sourceId,
+          traceId: traceId,
+          nativeStatusCode: resp.statusCode,
+          notifyOnUnavailable: confirmedChallenge,
         );
-        if (browser != null) return browser;
+        if (browser != null) {
+          trace(
+            'complete',
+            details: 'returned=browser nativeStatus=${resp.statusCode}',
+            level: LogLevel.info,
+          );
+          return browser;
+        }
+        trace(
+          'fallback-complete',
+          details: 'outcome=unavailable returning=native '
+              'nativeStatus=${resp.statusCode}',
+          level: LogLevel.warning,
+        );
+      } else {
+        trace(
+          'browser-fallback-skipped',
+          details: 'reason=already_attempted nativeStatus=${resp.statusCode}',
+          level: LogLevel.warning,
+        );
       }
     }
 
     AppLogger.log(
-      '$method $url → ${resp.statusCode}',
+      '$method ${redactUrl(url)} → ${resp.statusCode} '
+      'trace=$traceId sourceId=${sourceId ?? "-"}',
       logLevel: resp.statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
       tag: LogTag.network,
     );
@@ -332,12 +436,20 @@ Future<String> _toHttpResponse(
           : resp.body;
       AppLogger.log(
         resp.statusCode >= 400
-            ? '$method $url · error body: $snippet'
-            : '$method $url · body[0..300]: $snippet',
+            ? '$method ${redactUrl(url)} · error body: $snippet '
+                'trace=$traceId'
+            : '$method ${redactUrl(url)} · body[0..300]: $snippet '
+                'trace=$traceId',
         logLevel: resp.statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
         tag: LogTag.network,
       );
     }
+    trace(
+      'complete',
+      details: 'returned=native status=${resp.statusCode} '
+          'bodyChars=${resp.body.length}',
+      level: resp.statusCode >= 400 ? LogLevel.warning : LogLevel.info,
+    );
     return jsonEncode(resp.toJson());
   } catch (e, st) {
     if (requestStarted &&
@@ -349,17 +461,38 @@ Future<String> _toHttpResponse(
       // before the HTTP client can produce a response. Let only extensions
       // that explicitly opt in replay that GET through their saved browser
       // session; do not broaden this to every extension/network failure.
+      trace(
+        'browser-fallback-start',
+        details: 'reason=native_transport_error errorType=${e.runtimeType}',
+        level: LogLevel.info,
+      );
       final browserResponse = await _browserResponseForRefused(
         url,
         headers,
         sourceId,
+        traceId: traceId,
+        notifyOnUnavailable: false,
       );
-      if (browserResponse != null) return browserResponse;
+      if (browserResponse != null) {
+        trace(
+          'complete',
+          details: 'returned=browser reason=native_transport_error',
+          level: LogLevel.info,
+        );
+        return browserResponse;
+      }
     }
     final argumentTypes = args.map((argument) => argument.runtimeType).join(', ');
+    trace(
+      'transport-error',
+      details: 'errorType=${e.runtimeType} '
+          'browserFetchOnError=$browserFetchOnError',
+      level: LogLevel.error,
+    );
     AppLogger.log(
-      '$method $url → ERROR: $e '
-      '(sourceId=${sourceId ?? "unknown"}, argumentTypes=[$argumentTypes])',
+      '$method ${redactUrl(url)} → ERROR: $e '
+      '(trace=$traceId sourceId=${sourceId ?? "unknown"}, '
+      'argumentTypes=[$argumentTypes])',
       logLevel: LogLevel.error,
       tag: LogTag.network,
       error: e,
@@ -397,10 +530,11 @@ Future<String> _toHttpResponseViaProxy(
   String method,
   String url,
   Map<String, String>? headers,
-  dynamic body,
-) async {
+  dynamic body, {
+  required String traceId,
+}) async {
   AppLogger.log(
-    'WEB-PROXY $method $url',
+    'WEB-PROXY $method ${redactUrl(url)} trace=$traceId',
     logLevel: LogLevel.debug,
     tag: LogTag.network,
   );
@@ -437,7 +571,7 @@ Future<String> _toHttpResponseViaProxy(
     final respBody = proxyJson['body'] as String? ?? '';
 
     AppLogger.log(
-      'WEB-PROXY $method $url → $statusCode',
+      'WEB-PROXY $method ${redactUrl(url)} → $statusCode trace=$traceId',
       logLevel: statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
       tag: LogTag.network,
     );
@@ -447,8 +581,10 @@ Future<String> _toHttpResponseViaProxy(
           : respBody;
       AppLogger.log(
         statusCode >= 400
-            ? 'WEB-PROXY $method $url · error body: $snippet'
-            : 'WEB-PROXY $method $url · body[0..300]: $snippet',
+            ? 'WEB-PROXY $method ${redactUrl(url)} · error body: $snippet '
+                'trace=$traceId'
+            : 'WEB-PROXY $method ${redactUrl(url)} · body[0..300]: $snippet '
+                'trace=$traceId',
         logLevel: statusCode >= 400 ? LogLevel.warning : LogLevel.debug,
         tag: LogTag.network,
       );
@@ -475,7 +611,7 @@ Future<String> _toHttpResponseViaProxy(
     });
   } catch (e, st) {
     AppLogger.log(
-      'WEB-PROXY $method $url → ERROR: $e',
+      'WEB-PROXY $method ${redactUrl(url)} → ERROR: $e trace=$traceId',
       logLevel: LogLevel.error,
       tag: LogTag.network,
       error: e,
@@ -512,12 +648,18 @@ Future<String> _toHttpResponseViaProxy(
 Future<String?> _browserResponseForRefused(
   String url,
   Map<String, String>? headers,
-  int? sourceId,
-) {
+  int? sourceId, {
+  String? traceId,
+  int? nativeStatusCode,
+  bool notifyOnUnavailable = true,
+}) {
   return _browserResponseFor(
     url,
     headers,
     sourceId,
+    traceId: traceId,
+    nativeStatusCode: nativeStatusCode,
+    notifyOnUnavailable: notifyOnUnavailable,
     pageUrl: BrowserFetchService.pageUrlForMissAvMediaRequest(url, headers),
     // A Surrit media request (playlist or segment) refused natively is replayed
     // from the MissAV page: the CDN echoes that origin but sends no
@@ -535,6 +677,9 @@ Future<String?> _browserResponseFor(
   String url,
   Map<String, String>? headers,
   int? sourceId, {
+  String? traceId,
+  int? nativeStatusCode,
+  bool notifyOnUnavailable = true,
   String? pageUrl,
   bool omitCredentials = false,
   String? referrer,
@@ -544,6 +689,8 @@ Future<String?> _browserResponseFor(
     final response = await BrowserFetchService.fetch(
       url,
       sourceId: sourceId,
+      traceId: traceId,
+      notifyOnUnavailable: notifyOnUnavailable,
       headers: headers,
       pageUrl: pageUrl,
       omitCredentials: omitCredentials,
@@ -553,12 +700,36 @@ Future<String?> _browserResponseFor(
     switch (response.outcome) {
       case BrowserFetchOutcome.resolved:
         final result = response.result!;
+        final assessment = assessHttpResponse(
+          statusCode: result.statusCode,
+          headers: const {'content-type': 'text/html; charset=utf-8'},
+          body: result.body,
+        );
+        final browserResponseUsable =
+            result.statusCode < 400 &&
+            !assessment.challenge &&
+            !assessment.blocked;
         AppLogger.log(
-          '[BrowserFetch] ${redactUrl(url)} → ${result.statusCode} served by '
-          'the browser session',
-          logLevel: LogLevel.debug,
+          '[HTTP-TRACE] id=${traceId ?? "-"} '
+          'sourceId=${sourceId ?? "-"} phase=browser-result '
+          'outcome=${browserResponseUsable ? "resolved" : "still_refused"} '
+          'status=${result.statusCode} '
+          'pageType=${assessment.pageType.name} '
+          'cloudflare=${assessment.cloudflareInvolved} '
+          'nativeStatus=${nativeStatusCode ?? "-"} '
+          'bodyChars=${result.body.length} url=${redactUrl(url)}',
+          logLevel: LogLevel.info,
           tag: LogTag.extension_,
         );
+        if (!browserResponseUsable) {
+          if (notifyOnUnavailable) {
+            await BypassNotificationService.instance.notifyChallengeDetected(
+              url: url,
+              sourceId: sourceId,
+            );
+          }
+          return null;
+        }
         return jsonEncode({
           'body': result.body,
           'headers': <String, String>{
@@ -580,17 +751,33 @@ Future<String?> _browserResponseFor(
           },
         });
       case BrowserFetchOutcome.unavailable:
-        // No browser session could unlock this request: the block needs a
-        // human in the panel, so now the user is worth interrupting.
-        await BypassNotificationService.instance.notifyChallengeDetected(
-          url: url,
-          sourceId: sourceId,
+        AppLogger.log(
+          '[HTTP-TRACE] id=${traceId ?? "-"} '
+          'sourceId=${sourceId ?? "-"} phase=browser-result '
+          'outcome=unavailable nativeStatus=${nativeStatusCode ?? "-"} '
+          'notify=$notifyOnUnavailable url=${redactUrl(url)}',
+          logLevel: notifyOnUnavailable
+              ? LogLevel.warning
+              : LogLevel.debug,
+          tag: LogTag.extension_,
         );
+        // Only an independently confirmed challenge should interrupt the user.
+        // A normal 403 or a transport failure may still try the browser, but
+        // its failure is not evidence that Cloudflare blocked the source.
+        if (notifyOnUnavailable) {
+          await BypassNotificationService.instance.notifyChallengeDetected(
+            url: url,
+            sourceId: sourceId,
+          );
+        }
         return null;
     }
   } catch (e, st) {
     AppLogger.log(
-      '[BrowserFetch] ${redactUrl(url)} → ERROR: $e',
+      '[HTTP-TRACE] id=${traceId ?? "-"} '
+      'sourceId=${sourceId ?? "-"} phase=browser-result outcome=error '
+      'nativeStatus=${nativeStatusCode ?? "-"} errorType=${e.runtimeType} '
+      'url=${redactUrl(url)}',
       logLevel: LogLevel.warning,
       tag: LogTag.extension_,
       error: e,

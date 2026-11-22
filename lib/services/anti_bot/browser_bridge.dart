@@ -66,11 +66,31 @@ class BrowserBridge {
     BrowserCaptureRequest request,
   ) async {
     final port = _mainPort;
-    if (port == null) return null;
+    final ticket = ++_ticket;
+    final stopwatch = Stopwatch()..start();
+    if (port == null) {
+      AppLogger.log(
+        '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+        'sourceId=${request.sourceId ?? "-"} phase=worker-unavailable '
+        'reason=bridge_not_connected url=${redactUrl(request.url)}',
+        logLevel: LogLevel.warning,
+        tag: LogTag.extension_,
+      );
+      return null;
+    }
     final reply = ReceivePort();
     try {
+      AppLogger.log(
+        '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+        'sourceId=${request.sourceId ?? "-"} phase=worker-send '
+        'timeoutMs=${request.timeout.inMilliseconds} '
+        'solveTimeoutMs=${request.solveTimeout.inMilliseconds} '
+        'url=${redactUrl(request.url)}',
+        logLevel: LogLevel.info,
+        tag: LogTag.extension_,
+      );
       port.send({
-        'id': ++_ticket,
+        'id': ticket,
         'request': request.toMap(),
         'reply': reply.sendPort,
       });
@@ -81,19 +101,39 @@ class BrowserBridge {
       final error = message['error']?.toString() ?? '';
       if (error.isNotEmpty) {
         AppLogger.log(
-          '[BrowserBridge] ${request.url} — $error',
-          logLevel: LogLevel.debug,
+          '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+          'sourceId=${request.sourceId ?? "-"} phase=worker-result '
+          'outcome=unavailable elapsedMs=${stopwatch.elapsedMilliseconds} '
+          'reason=$error url=${redactUrl(request.url)}',
+          logLevel: LogLevel.warning,
           tag: LogTag.extension_,
         );
         return null;
       }
       final result = message['result'];
       if (result is! Map) return null;
-      return BrowserCaptureResult.fromMap(result.cast<String, dynamic>());
+      final capture = BrowserCaptureResult.fromMap(
+        result.cast<String, dynamic>(),
+      );
+      AppLogger.log(
+        '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+        'sourceId=${request.sourceId ?? "-"} phase=worker-result '
+        'outcome=resolved status=${capture.statusCode} '
+        'bodyChars=${capture.body.length} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} '
+        'url=${redactUrl(request.url)}',
+        logLevel: LogLevel.info,
+        tag: LogTag.extension_,
+      );
+      return capture;
     } catch (error) {
       AppLogger.log(
-        '[BrowserBridge] ${request.url} — $error',
-        logLevel: LogLevel.debug,
+        '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+        'sourceId=${request.sourceId ?? "-"} phase=worker-result '
+        'outcome=error errorType=${error.runtimeType} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} '
+        'url=${redactUrl(request.url)}',
+        logLevel: LogLevel.warning,
         tag: LogTag.extension_,
       );
       return null;
@@ -108,7 +148,16 @@ class BrowserBridge {
     final reply = message['reply'];
     final raw = message['request'];
     if (reply is! SendPort || raw is! Map) return;
+    final ticket = message['id'] as int? ?? -1;
     final request = BrowserCaptureRequest.fromMap(raw.cast<String, dynamic>());
+    final stopwatch = Stopwatch()..start();
+    AppLogger.log(
+      '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+      'sourceId=${request.sourceId ?? "-"} phase=root-start '
+      'url=${redactUrl(request.url)}',
+      logLevel: LogLevel.info,
+      tag: LogTag.extension_,
+    );
     try {
       final result = await BrowserCapture.fetch(request);
       if (result == null) {
@@ -120,7 +169,7 @@ class BrowserBridge {
         // cannot serve a playlist or a segment, so the failure says nothing
         // about Cloudflare and reporting it raised a false "blocked" alert
         // while mpv was already playing the video. Stay silent for those.
-        if (!isRawMediaUrl(request.url)) {
+        if (request.notifyOnUnavailable && !isRawMediaUrl(request.url)) {
           try {
             onBrowserUnavailable?.call(request.url, request.sourceId);
           } catch (_) {
@@ -128,13 +177,35 @@ class BrowserBridge {
           }
         }
       }
+      AppLogger.log(
+        '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+        'sourceId=${request.sourceId ?? "-"} phase=root-result '
+        'outcome=${result == null ? "unavailable" : "resolved"} '
+        'status=${result?.statusCode ?? "-"} '
+        'bodyChars=${result?.body.length ?? 0} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} '
+        'url=${redactUrl(request.url)}',
+        logLevel: result == null ? LogLevel.warning : LogLevel.info,
+        tag: LogTag.extension_,
+      );
       reply.send(
         result == null
             ? {'error': 'the browser could not obtain this page'}
             : {'result': result.toMap()},
       );
     } catch (error) {
-      reply.send({'error': '$error'});
+      AppLogger.log(
+        '[BrowserBridge] ticket=$ticket trace=${request.traceId ?? "-"} '
+        'sourceId=${request.sourceId ?? "-"} phase=root-result '
+        'outcome=error errorType=${error.runtimeType} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} '
+        'url=${redactUrl(request.url)}',
+        logLevel: LogLevel.error,
+        tag: LogTag.extension_,
+      );
+      // The trace already has the redacted URL and elapsed time; returning the
+      // raw exception could re-introduce a signed query string into worker logs.
+      reply.send({'error': error.runtimeType.toString()});
     }
   }
 }

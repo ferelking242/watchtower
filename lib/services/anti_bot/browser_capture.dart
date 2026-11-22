@@ -86,6 +86,8 @@ class BrowserCaptureRequest {
   const BrowserCaptureRequest({
     required this.url,
     this.sourceId,
+    this.traceId,
+    this.notifyOnUnavailable = true,
     this.headers = const <String, String>{},
     this.timeout = const Duration(seconds: 12),
     this.solveTimeout = const Duration(seconds: 30),
@@ -98,6 +100,8 @@ class BrowserCaptureRequest {
 
   final String url;
   final int? sourceId;
+  final String? traceId;
+  final bool notifyOnUnavailable;
   final Map<String, String> headers;
 
   /// Time granted to a single in-page request.
@@ -144,6 +148,8 @@ class BrowserCaptureRequest {
   Map<String, dynamic> toMap() => {
     'url': url,
     'sourceId': sourceId,
+    if (traceId != null) 'traceId': traceId,
+    if (!notifyOnUnavailable) 'notifyOnUnavailable': false,
     'headers': headers,
     'timeoutMs': timeout.inMilliseconds,
     'solveTimeoutMs': solveTimeout.inMilliseconds,
@@ -158,6 +164,8 @@ class BrowserCaptureRequest {
     return BrowserCaptureRequest(
       url: map['url'] as String? ?? '',
       sourceId: map['sourceId'] as int?,
+      traceId: map['traceId'] as String?,
+      notifyOnUnavailable: map['notifyOnUnavailable'] as bool? ?? true,
       headers: (map['headers'] as Map?)?.map(
             (key, value) => MapEntry(key.toString(), value.toString()),
           ) ??

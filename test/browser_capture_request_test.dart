@@ -51,6 +51,8 @@ void main() {
       const request = BrowserCaptureRequest(
         url: 'https://missav.ws/en/new?sort=views',
         sourceId: 1900000218,
+        traceId: 'src1900000218-1',
+        notifyOnUnavailable: false,
         headers: {'Accept': 'text/html'},
         timeout: Duration(seconds: 9),
         solveTimeout: Duration(seconds: 6),
@@ -62,6 +64,8 @@ void main() {
 
       expect(decoded.url, request.url);
       expect(decoded.sourceId, request.sourceId);
+      expect(decoded.traceId, request.traceId);
+      expect(decoded.notifyOnUnavailable, isFalse);
       expect(decoded.headers, request.headers);
       expect(decoded.timeout, request.timeout);
       expect(decoded.solveTimeout, request.solveTimeout);
@@ -106,6 +110,7 @@ void main() {
       final map = request.toMap();
       expect(map.containsKey('pageUrl'), isFalse);
       expect(map.containsKey('binary'), isFalse);
+      expect(map.containsKey('notifyOnUnavailable'), isFalse);
       expect(map.containsKey('omitCredentials'), isFalse);
       expect(map.containsKey('referrer'), isFalse);
       expect(map.containsKey('referrerPolicy'), isFalse);

@@ -195,6 +195,8 @@ class BrowserFetchService {
     int? sourceId,
     Map<String, String>? headers,
     String? pageUrl,
+    String? traceId,
+    bool notifyOnUnavailable = true,
     bool binary = false,
     bool omitCredentials = false,
     String? referrer,
@@ -203,14 +205,24 @@ class BrowserFetchService {
   }) async {
     final host = _hostOf(url);
     if (host == null || !isSupported) {
+      AppLogger.log(
+        '[BrowserFetch] trace=${traceId ?? "-"} sourceId=${sourceId ?? "-"} '
+        'outcome=unavailable reason=${host == null ? "invalid_url" : "engine_unavailable"} '
+        'url=${redactUrl(url)}',
+        logLevel: LogLevel.debug,
+        tag: LogTag.extension_,
+      );
       return const BrowserFetchResponse(BrowserFetchOutcome.unavailable);
     }
 
+    final stopwatch = Stopwatch()..start();
     _inFlightHosts.add(host);
     try {
       final request = BrowserCaptureRequest(
         url: url,
         sourceId: sourceId,
+        traceId: traceId,
+        notifyOnUnavailable: notifyOnUnavailable,
         headers: headers ?? const <String, String>{},
         pageUrl: pageUrl,
         binary: binary,
@@ -224,12 +236,22 @@ class BrowserFetchService {
           : await BrowserBridge.request(request);
       if (result == null) {
         AppLogger.log(
-          '[BrowserFetch] ${redactUrl(url)} — no page from the browser',
-          logLevel: LogLevel.debug,
+          '[BrowserFetch] trace=${traceId ?? "-"} sourceId=${sourceId ?? "-"} '
+          'outcome=unavailable elapsedMs=${stopwatch.elapsedMilliseconds} '
+          'url=${redactUrl(url)}',
+          logLevel: LogLevel.warning,
           tag: LogTag.extension_,
         );
         return const BrowserFetchResponse(BrowserFetchOutcome.unavailable);
       }
+      AppLogger.log(
+        '[BrowserFetch] trace=${traceId ?? "-"} sourceId=${sourceId ?? "-"} '
+        'outcome=resolved status=${result.statusCode} '
+        'bodyChars=${result.body.length} '
+        'elapsedMs=${stopwatch.elapsedMilliseconds} url=${redactUrl(url)}',
+        logLevel: LogLevel.info,
+        tag: LogTag.extension_,
+      );
       _servedAt[host] = DateTime.now();
       while (_servedAt.length > 32) {
         final oldest = _servedAt.entries.reduce(

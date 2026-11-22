@@ -20,6 +20,28 @@ import 'package:watchtower/services/anti_bot/anti_bot_detection.dart';
 import 'package:watchtower/services/http/extension_session_manager.dart';
 import 'package:watchtower/utils/constant.dart';
 
+/// Carries an extension HTTP trace ID through the client's async interceptors.
+class ExtensionHttpTrace {
+  static const Object _requestIdZoneKey = #watchtowerExtensionHttpRequestId;
+  static int _sequence = 0;
+
+  static String nextId(int? sourceId) =>
+      'src${sourceId ?? "app"}-${++_sequence}';
+
+  static String? get currentRequestId =>
+      Zone.current[_requestIdZoneKey] as String?;
+
+  static Future<T> run<T>(
+    String requestId,
+    Future<T> Function() action,
+  ) {
+    return runZoned<Future<T>>(
+      action,
+      zoneValues: {_requestIdZoneKey: requestId},
+    );
+  }
+}
+
 class MClient {
   MClient();
 
@@ -1036,8 +1058,9 @@ class LoggerInterceptor extends InterceptorContract {
   LoggerInterceptor(this.showCloudFlareError);
   bool showCloudFlareError;
 
-  // Per-request start time keyed by "METHOD url"
-  final Map<String, DateTime> _pending = {};
+  // Key by request object, not URL: two concurrent requests to the same URL
+  // must keep their own duration and trace ID.
+  final Expando<_PendingHttpLog> _pending = Expando<_PendingHttpLog>();
 
   static bool _isImage(String url) {
     final p = url.toLowerCase().split('?').first;
@@ -1082,9 +1105,11 @@ class LoggerInterceptor extends InterceptorContract {
 
     if (AppLogger.suppressImages && _isImage(url)) return request;
 
-    _pending['$meth $url'] = DateTime.now();
+    final traceId = ExtensionHttpTrace.currentRequestId;
+    _pending[request] = _PendingHttpLog(DateTime.now(), traceId);
 
     var msg = '→ $meth  ${_short(url)}';
+    if (traceId != null) msg += '  trace=$traceId';
     if (request is Request && request.bodyBytes.isNotEmpty) {
       msg += '  body:${_sz(request.bodyBytes.length)}';
     }
@@ -1112,8 +1137,14 @@ class LoggerInterceptor extends InterceptorContract {
 
     if (AppLogger.suppressImages && _isImage(url)) return response;
 
-    final start = _pending.remove('$meth $url');
-    final ms    = start != null ? DateTime.now().difference(start).inMilliseconds : null;
+    final pending = response.request == null
+        ? null
+        : _pending[response.request!];
+    final traceId =
+        ExtensionHttpTrace.currentRequestId ?? pending?.traceId;
+    final ms = pending != null
+        ? DateTime.now().difference(pending.startedAt).inMilliseconds
+        : null;
     final size  = (response is Response) ? response.bodyBytes.length : null;
     final assessment = showCloudFlareError
         ? antiBotAssessmentOf(response)
@@ -1124,25 +1155,32 @@ class LoggerInterceptor extends InterceptorContract {
     final timePart = ms   != null ? '  ${ms}ms'      : '';
     final sizePart = size != null ? '  ${_sz(size)}' : '';
     final cfPart   = cloudflareChallenge
-        ? '  ⚠ Cloudflare challenge'
+        ? '  ⚠ Cloudflare challenge (HTTP ${status >= 400 ? "failure" : "success"})'
         : antiBotBlock ? '  ⛔ anti-bot block' : '';
 
-    final msg = '← $status$timePart$sizePart  ${_short(url)}$cfPart';
+    final tracePart = traceId == null ? '' : '  trace=$traceId';
+    final msg =
+        '← $status$timePart$sizePart  ${_short(url)}$cfPart$tracePart';
 
-    final level = (cloudflareChallenge || antiBotBlock || status >= 500)
+    // A marker match is only a candidate until the browser replay resolves it.
+    // Do not label a successful 200 response as an HTTP error.
+    final level = status >= 500
         ? LogLevel.error
-        : status >= 400 ? LogLevel.warning : LogLevel.debug;
+        : status >= 400 || cloudflareChallenge || antiBotBlock
+        ? LogLevel.warning
+        : LogLevel.debug;
 
     AppLogger.log(msg, logLevel: level, tag: LogTag.network);
 
     if (cloudflareChallenge || antiBotBlock) {
+      final diagnostic = antiBotLogLine(
+        assessment: assessment,
+        url: url,
+        statusCode: status,
+        headers: response.headers,
+      );
       AppLogger.log(
-        antiBotLogLine(
-          assessment: assessment,
-          url: url,
-          statusCode: status,
-          headers: response.headers,
-        ),
+        traceId == null ? diagnostic : '$diagnostic trace=$traceId',
         logLevel: LogLevel.debug,
         tag: LogTag.network,
       );
@@ -1161,6 +1199,13 @@ class LoggerInterceptor extends InterceptorContract {
     }
     return response;
   }
+}
+
+class _PendingHttpLog {
+  const _PendingHttpLog(this.startedAt, this.traceId);
+
+  final DateTime startedAt;
+  final String? traceId;
 }
 
 /// Evidence-based anti-bot assessment of an HTTP response. A 403/503 alone is
