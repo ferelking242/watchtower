@@ -155,7 +155,9 @@ jobs:
             --tree-shake-icons \
             --split-debug-info=build/symbols \
             --build-name=${{ steps.ver.outputs.name }} \
-            --build-number=${{ steps.ver.outputs.code }}
+            --build-number=${{ steps.ver.outputs.code }} \
+            --dart-define=APP_UPDATER_URL=${{ vars.APP_UPDATER_URL }} \
+            --dart-define=APP_UPDATER_TOKEN=${{ secrets.APP_UPDATER_TOKEN }}
 
       - name: Verify APK signature
         run: |
@@ -238,13 +240,91 @@ jobs:
           echo "SHA-256: $(sha256sum "$APK" | cut -d' ' -f1)"
           echo "Size: $(stat -c '%s' "$APK") bytes"
 
+      # The app compares its installed version with this manifest, so the
+      # version and build number always come from the build itself instead of
+      # being guessed from an artifact name.
+      - name: Write app-update.json manifest
+        env:
+          VERSION: ${{ steps.ver.outputs.name }}
+          BUILD_NUMBER: ${{ steps.ver.outputs.code }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+          SIZE: ${{ steps.checksum.outputs.size }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+
+          manifest = {
+              "version": os.environ["VERSION"],
+              "buildNumber": int(os.environ["BUILD_NUMBER"]),
+              "platform": "android",
+              "channel": "stable",
+              "abi": "arm64-v8a",
+              "sha256": os.environ["SHA256"],
+              "size": int(os.environ["SIZE"]),
+              "publishedAt": datetime.datetime.now(
+                  datetime.timezone.utc
+              ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "releaseNotes": (os.environ.get("COMMIT_MESSAGE") or "").strip(),
+              "releaseUrl": (
+                  "https://github.com/ferelking242/watchtower"
+                  "/releases/tag/android-latest"
+              ),
+          }
+          path = "build/app/outputs/flutter-apk/app-update.json"
+          with open(path, "w", encoding="utf-8") as handle:
+              json.dump(manifest, handle, indent=2)
+              handle.write("\n")
+          print(open(path, encoding="utf-8").read())
+          PY
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v5
         with:
           name: Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release
-          path: build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
+          path: |
+            build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
+            build/app/outputs/flutter-apk/app-update.json
           compression-level: 0
           retention-days: 30
+
+      # Tell app_updater about this build. The app reads the CI feed first, so
+      # an update is offered as soon as the build is green, without waiting for
+      # a release or for the artifact to be downloaded just to read its version.
+      - name: Notify app_updater
+        if: ${{ vars.APP_UPDATER_URL != '' }}
+        env:
+          APP_UPDATER_URL: ${{ vars.APP_UPDATER_URL }}
+          APP_UPDATER_TOKEN: ${{ secrets.APP_UPDATER_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.name }}
+          BUILD_NUMBER: ${{ steps.ver.outputs.code }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          BASE="${APP_UPDATER_URL%/}"
+          APK=build/app/outputs/flutter-apk/Watchtower-${VERSION}-b${BUILD_NUMBER}-arm64-release.apk
+          MANIFEST=build/app/outputs/flutter-apk/app-update.json
+          AUTH=()
+          if [ -n "${APP_UPDATER_TOKEN:-}" ]; then
+            AUTH=(-H "authorization: Bearer ${APP_UPDATER_TOKEN}")
+          fi
+          RESPONSE=$(curl -fsS -X POST "${BASE}/v1/apps/watchtower/builds" \
+            -H 'content-type: application/json' \
+            "${AUTH[@]}" \
+            --data-binary "@${MANIFEST}")
+          echo "Published build: ${RESPONSE}"
+          UPLOAD_URL=$(printf '%s' "${RESPONSE}" | python3 -c \
+            'import json,sys; print(json.load(sys.stdin)["uploadUrl"])')
+          curl -fsS -X PUT "${BASE}${UPLOAD_URL}" \
+            -H 'content-type: application/octet-stream' \
+            -H "x-file-name: $(basename "${APK}")" \
+            -H "x-sha256: ${SHA256}" \
+            "${AUTH[@]}" \
+            --data-binary "@${APK}"
+          echo "Artifact uploaded to ${BASE}${UPLOAD_URL}"
 
       # Rolling release: refresh the android-latest tag + release on every green
       # main build so the downloadable APK always carries the current branding
@@ -264,6 +344,7 @@ jobs:
           NOTES=$(mktemp)
           printf "APK Android arm64 auto depuis \"main\" (logo œil, sans tour).\n\nSHA-256 : %s\nTaille attendue : %s octets (exactement — si le fichier téléchargé est plus petit, il est tronqué et l'installation échoue).\n" "$SUM" "$BYTES" > "$NOTES"
           gh release create android-latest "$APK" "$APK.sha256" \
+            build/app/outputs/flutter-apk/app-update.json \
             --title "Watchtower Android (latest)" \
             --notes-file "$NOTES" \
             --prerelease

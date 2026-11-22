@@ -112,6 +112,12 @@ class AppUpdateService {
   static const String _owner = 'ferelking242';
   static const String _repo = 'watchtower';
 
+  /// Set by CI (`--dart-define=APP_UPDATER_URL=...`) when the build was
+  /// published to an app_updater server. Empty for plain builds.
+  static const String _ciFeedUrl = String.fromEnvironment('APP_UPDATER_URL');
+  static const String _ciFeedToken =
+      String.fromEnvironment('APP_UPDATER_TOKEN');
+
   AppUpdateController? _controller;
   bool _launchChecked = false;
 
@@ -123,13 +129,24 @@ class AppUpdateService {
   AppUpdateController _buildController() {
     final controller = AppUpdateController(
       source: CompositeUpdateSource([
-        GitHubArtifactsSource(
-          owner: _owner,
-          repo: _repo,
-          workflow: 'build-release.yml',
-          branch: 'main',
-          token: _token,
-        ),
+        // The CI feed is the fastest path: the build is announced as soon as
+        // it is green, with the exact version it was compiled with.
+        if (_ciFeedUrl.isNotEmpty)
+          CiFeedSource(
+            endpoint: Uri.parse(_ciFeedUrl),
+            appId: _repo,
+            token: _ciFeedToken.isEmpty ? null : _ciFeedToken,
+          ),
+        // GitHub refuses anonymous artifact downloads, so this source only
+        // runs when the build embeds a read token.
+        if (_token != null)
+          GitHubArtifactsSource(
+            owner: _owner,
+            repo: _repo,
+            workflow: 'build-release.yml',
+            branch: 'main',
+            token: _token,
+          ),
         GitHubReleasesSource(owner: _owner, repo: _repo, token: _token),
       ]),
       notifier: const WatchtowerUpdateNotifier(),
