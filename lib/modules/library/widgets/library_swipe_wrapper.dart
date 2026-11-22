@@ -9,9 +9,9 @@ import 'package:watchtower/providers/l10n_providers.dart';
 /// Wraps a library entry so the configured left/right swipe actions run.
 ///
 /// Defaults, per the "Comportement" settings: a rightward swipe marks the entry
-/// as read, the opposite swipe opens the delete dialog. "Aucun(e)" disables the
-/// gesture for that side. The card is never dismissed — the swipe fires the
-/// action and snaps back, so the entry stays visible.
+/// as read and the opposite swipe marks its first unread chapter. "Aucun(e)"
+/// disables the gesture for that side. The card is never dismissed — the swipe
+/// fires the action and snaps back, so the entry stays visible.
 class LibrarySwipeWrapper extends ConsumerWidget {
   const LibrarySwipeWrapper({
     super.key,
