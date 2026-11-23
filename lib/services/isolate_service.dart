@@ -41,7 +41,17 @@ class _ExtensionWorker {
   StreamSubscription? receiveSub;
   SendPort? sendPort;
   Future<void>? restartFuture;
+
+  /// When this worker's isolate was spawned. A worker that keeps timing out
+  /// used to be killed and rebuilt on every failure, and each rebuild creates
+  /// a fresh QuickJS runtime — the create/destroy churn that shows up as
+  /// `Scudo: corrupted chunk header` aborts on Android.
+  DateTime? spawnedAt;
 }
+
+/// Minimum age before a timed-out worker is replaced. A source that times out
+/// on several shelves at once can otherwise rebuild the same worker in a loop.
+const Duration kMinWorkerAgeBeforeRestart = Duration(seconds: 20);
 
 /// Key of the log-filter message pushed from the root isolate to extension
 /// workers (see `AppLogger.workerFilterSnapshot`). Workers use it to drop the
@@ -235,6 +245,7 @@ class GetIsolateService {
           browserPort: browserPort,
         ),
       );
+      worker.spawnedAt = DateTime.now();
       worker.sendPort = await handshake.future.timeout(
         const Duration(seconds: 20),
         onTimeout: () =>
@@ -318,6 +329,24 @@ class GetIsolateService {
 
   Future<void> _replaceTimedOutWorker(_ExtensionWorker failedWorker) async {
     if (!_workers.contains(failedWorker)) return;
+
+    // Keep the runtime churn bounded: a fresh worker that already timed out is
+    // given time to finish its current call before being rebuilt again.
+    final spawnedAt = failedWorker.spawnedAt;
+    if (spawnedAt != null) {
+      final age = DateTime.now().difference(spawnedAt);
+      if (age < kMinWorkerAgeBeforeRestart) {
+        AppLogger.log(
+          'Timed-out extension worker is ${age.inMilliseconds}ms old; '
+          'waiting ${(kMinWorkerAgeBeforeRestart - age).inMilliseconds}ms '
+          'before replacing it',
+          logLevel: LogLevel.warning,
+          tag: LogTag.extension_,
+        );
+        await Future<void>.delayed(kMinWorkerAgeBeforeRestart - age);
+        if (!_workers.contains(failedWorker)) return;
+      }
+    }
 
     // A timed-out extension call is still running in this isolate. Its
     // per-source service queue would otherwise remain blocked, so replace the
