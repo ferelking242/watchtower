@@ -1396,7 +1396,8 @@ jobs:
           # both workflows use their own run counter, so letting this one win
           # left the badge on an older build than the published APK.
           gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" \
-            -F make_latest=false >/dev/null
+            -f make_latest=false >/dev/null \
+            || echo "::warning::could not keep the Latest badge on the Android build"
 
       - name: Notify ntfy (release published)
         if: success()
