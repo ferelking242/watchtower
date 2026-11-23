@@ -175,10 +175,11 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                               top: 0,
                               left: 0,
                               child: Padding(
-                                padding: const EdgeInsets.all(5),
+                                padding: const EdgeInsets.all(6),
                                 child: Container(
+                                  height: 20,
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(3),
+                                    borderRadius: BorderRadius.circular(7),
                                     color: overlay
                                         ? context.primaryColor.withValues(
                                             alpha: 0.85,
@@ -186,96 +187,113 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                         : context.primaryColor,
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (widget.localSource && isLocalArchive)
                                         Container(
                                           decoration: BoxDecoration(
                                             borderRadius:
                                                 const BorderRadius.only(
-                                                  topLeft: Radius.circular(3),
-                                                  bottomLeft: Radius.circular(
-                                                    3,
-                                                  ),
+                                                  topLeft: Radius.circular(7),
+                                                  bottomLeft: Radius.circular(7),
                                                 ),
                                             color: Theme.of(context).hintColor,
                                           ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 3,
-                                              right: 3,
+                                          child: const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: 5,
                                             ),
-                                            child: Text(
-                                              "Local",
-                                              style: TextStyle(
-                                                color: context
-                                                    .dynamicBlackWhiteColor,
+                                            child: Center(
+                                              child: Text(
+                                                'Local',
+                                                maxLines: 1,
+                                                softWrap: false,
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
                                               ),
                                             ),
                                           ),
                                         ),
                                       if (showUnread)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: 5,
-                                          ),
-                                          child: Consumer(
-                                            builder: (context, ref, child) {
-                                              final downloadedCount =
-                                                  widget.downloadedChapter
-                                                  ? entryStats.downloaded
-                                                  : 0;
+                                        Consumer(
+                                          builder: (context, ref, child) {
+                                            final downloadedCount =
+                                                widget.downloadedChapter
+                                                ? entryStats.downloaded
+                                                : 0;
 
-                                              return Row(
-                                                children: [
-                                                  if (downloadedCount > 0 &&
-                                                      widget.downloadedChapter)
-                                                    Container(
-                                                      decoration: BoxDecoration(
-                                                        borderRadius:
-                                                            const BorderRadius.only(
-                                                              topLeft:
-                                                                  Radius.circular(
-                                                                    3,
-                                                                  ),
-                                                              bottomLeft:
-                                                                  Radius.circular(
-                                                                    3,
-                                                                  ),
-                                                            ),
-                                                        color: Theme.of(
-                                                          context,
-                                                        ).secondaryHeaderColor,
-                                                      ),
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsets.only(
-                                                              left: 3,
-                                                              right: 3,
-                                                            ),
+                                            return Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (downloadedCount > 0 &&
+                                                    widget.downloadedChapter)
+                                                  Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          const BorderRadius.only(
+                                                            topLeft:
+                                                                Radius.circular(
+                                                                  7,
+                                                                ),
+                                                            bottomLeft:
+                                                                Radius.circular(
+                                                                  7,
+                                                                ),
+                                                          ),
+                                                      color: Theme.of(
+                                                        context,
+                                                      ).hintColor,
+                                                    ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 5,
+                                                          ),
+                                                      child: Center(
                                                         child: Text(
                                                           downloadedCount
                                                               .toString(),
+                                                          maxLines: 1,
+                                                          softWrap: false,
+                                                          style:
+                                                              const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontSize: 10.5,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                              ),
                                                         ),
-                                                      ),
-                                                    ),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          left: 3,
-                                                        ),
-                                                    child: Text(
-                                                      entryStats.unread
-                                                          .toString(),
-                                                      style: TextStyle(
-                                                        color: context
-                                                            .dynamicBlackWhiteColor,
                                                       ),
                                                     ),
                                                   ),
-                                                ],
-                                              );
-                                            },
-                                          ),
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                      ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      entryStats.unread
+                                                          .toString(),
+                                                      maxLines: 1,
+                                                      softWrap: false,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10.5,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          },
                                         ),
                                     ],
                                   ),
@@ -287,29 +305,30 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
                                 top: 0,
                                 right: 0,
                                 child: Padding(
-                                  padding: const EdgeInsets.all(5),
+                                  padding: const EdgeInsets.all(6),
                                   child: Container(
-                                    color: context.themeData.cardColor,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(3),
-                                          bottomLeft: Radius.circular(3),
-                                        ),
-                                        color: overlay
-                                            ? Theme.of(context).hintColor
-                                                  .withValues(alpha: 0.85)
-                                            : Theme.of(context).hintColor,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(7),
+                                      color: overlay
+                                          ? Theme.of(
+                                              context,
+                                            ).hintColor.withValues(alpha: 0.85)
+                                          : Theme.of(context).hintColor,
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
                                       ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          left: 3,
-                                          right: 3,
-                                        ),
+                                      child: Center(
                                         child: Text(
                                           entry.lang!.toUpperCase(),
+                                          maxLines: 1,
+                                          softWrap: false,
                                           style: const TextStyle(
                                             color: Colors.white,
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ),

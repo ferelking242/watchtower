@@ -55,23 +55,26 @@ const _kArcSideSize = 27.0;
 
 /// Visible gap between two neighbouring circles. Tight enough that the three
 /// icons read as one cluster, wide enough that they do not melt together.
-const _kArcGap = 6.0;
+const _kArcGap = 4.0;
 const _kArcStep = _kArcFrontSize / 2 + _kArcGap + _kArcSideSize / 2;
 const _kArcWidth = _kArcStep * 2 + _kArcSideSize;
 const _kArcHeight = 46.0;
 const _kArcFrontCentreX = _kArcSideSize / 2 + _kArcStep;
 
 // ─── App-bar action button size ──────────────────────────────────────────────
-// Shared by every right-side action (search / filter / three-dots) so the group
-// reads as one evenly-spaced strip. Two pixels under the front type circle (44)
-// keeps the two clusters at the same visual level, and the gap matches the arc
-// gap so both ends of the header share one rhythm.
-// Same 44 px disc as the front type circle so both ends of the header sit on
-// one baseline, with a hair smaller glyph: the right-hand actions stay a touch
-// lighter than the type selector instead of competing with it.
-const _kActionBtnSize = 44.0;
-const _kActionBtnIconSize = 21.0;
-const _kActionBtnGap = 8.0;
+// The right-hand actions are a *secondary* cluster next to the type arc, so
+// they sit one step smaller (40 vs 44) and tighter (6 vs the arc's gap): equal
+// discs made the two ends compete, and a looser gap read as three unrelated
+// buttons. Their glyphs stay at 20 px so the difference is proportion, not
+// legibility.
+const _kActionBtnSize = 40.0;
+const _kActionBtnIconSize = 20.0;
+const _kActionBtnGap = 6.0;
+
+/// The arc is a circle plus a label hanging below it, while the action row is
+/// just discs. Centring both against the same 60 px row leaves the buttons a
+/// few pixels under the circle's optical centre; this lifts them back up.
+const _kActionRowBaselineLift = 5.0;
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 class MainLibraryScreen extends ConsumerStatefulWidget {
@@ -611,27 +614,33 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                                 children: [
                                   _buildArcTypeSelector(cs, isDark),
                                   const Spacer(),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _iconBtn(
-                                        icon: Broken.search_normal_1,
-                                        onTap: () => unawaited(_toggleSearch()),
-                                        active: _showSearch,
-                                        tooltip: l10n.search,
-                                        rotationTurns: _searchIconRotated
-                                            ? 1
-                                            : 0,
-                                      ),
-                                      const SizedBox(width: _kActionBtnGap),
-                                      filterButton,
-                                      const SizedBox(width: _kActionBtnGap),
-                                      _buildThreeDotsBtn(
-                                        context,
-                                        l10n,
-                                        mangaList,
-                                      ),
-                                    ],
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: _kActionRowBaselineLift,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _iconBtn(
+                                          icon: Broken.search_normal_1,
+                                          onTap: () =>
+                                              unawaited(_toggleSearch()),
+                                          active: _showSearch,
+                                          tooltip: l10n.search,
+                                          rotationTurns: _searchIconRotated
+                                              ? 1
+                                              : 0,
+                                        ),
+                                        const SizedBox(width: _kActionBtnGap),
+                                        filterButton,
+                                        const SizedBox(width: _kActionBtnGap),
+                                        _buildThreeDotsBtn(
+                                          context,
+                                          l10n,
+                                          mangaList,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),

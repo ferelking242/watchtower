@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
@@ -77,13 +76,23 @@ class ContinueReadingButton extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Same glyph family as the rest of the app, so the control reads
-              // as part of the icon set instead of a Material outlier.
+              // Material triangle rather than the Broken `play` glyph: that
+              // one is drawn off-centre inside its box, so it read as a broken
+              // icon inside the pill no matter how it was padded.
               Padding(
                 // Symmetric when the pill stands alone; the badge takes the
                 // right side when it is shown.
-                padding: EdgeInsets.fromLTRB(9, 0, showBadge ? 5 : 9, 0),
-                child: const Icon(Broken.play, size: 17, color: Colors.white),
+                padding: EdgeInsets.fromLTRB(
+                  showBadge ? 10 : 9,
+                  0,
+                  showBadge ? 3 : 8,
+                  0,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  size: 21,
+                  color: Colors.white,
+                ),
               ),
               if (showBadge)
                 Container(
