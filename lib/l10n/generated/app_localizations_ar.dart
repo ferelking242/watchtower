@@ -13205,6 +13205,17 @@ class AppLocalizationsAr extends AppLocalizations {
   String get library_menu_maintenance => 'Maintenance';
 
   @override
+  String get library_display_mode_hint =>
+      'Compact = shorter tiles, Comfortable = taller tiles with the title visible.';
+
+  @override
+  String get library_clear_image_cache => 'Clear image cache';
+
+  @override
+  String get library_clear_image_cache_desc =>
+      'Frees the space used by cached covers and already-read pages';
+
+  @override
   String get library_restore_defaults => 'Restore default settings';
 
   @override

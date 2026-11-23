@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/utils/item_type_icons.dart';
 import 'package:watchtower/eval/model/m_bridge.dart' show botToast;
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/category.dart';
@@ -46,24 +47,31 @@ const _kTypes = <ItemType>[
   ItemType.game,
 ];
 
-// ─── App-bar action button size ──────────────────────────────────────────────
-// Shared by every right-side action (search / filter / three-dots) and used to
-// budget the row width, so the group reads as one evenly-spaced strip. Sized a
-// notch below the selected type circle (46) so the two groups sit at the same
-// visual level without the right-hand icons looking puny.
-const _kActionBtnSize = 40.0;
-const _kActionBtnIconSize = 20.0;
-const _kActionBtnGap = 7.0;
+// ─── Type arc geometry ───────────────────────────────────────────────────────
+// Fixed pixel anchors on the leading edge: the left shoulder sits at x == 0 so
+// the cluster hugs the margin instead of floating in a wide slot.
+const _kArcFrontSize = 44.0;
+const _kArcSideSize = 27.0;
 
-// ─── Type icons (Broken set) ─────────────────────────────────────────────────
-const _kTypeIcons = <ItemType, IconData>{
-  ItemType.anime: Broken.video,
-  ItemType.manga: Broken.book,
-  // A lined prose page; the "story"/"note" glyphs read as a sticky note at the
-  // small size the arc renders them.
-  ItemType.novel: Broken.document_text,
-  ItemType.game: Broken.game,
-};
+/// Visible gap between two neighbouring circles. Tight enough that the three
+/// icons read as one cluster, wide enough that they do not melt together.
+const _kArcGap = 6.0;
+const _kArcStep = _kArcFrontSize / 2 + _kArcGap + _kArcSideSize / 2;
+const _kArcWidth = _kArcStep * 2 + _kArcSideSize;
+const _kArcHeight = 46.0;
+const _kArcFrontCentreX = _kArcSideSize / 2 + _kArcStep;
+
+// ─── App-bar action button size ──────────────────────────────────────────────
+// Shared by every right-side action (search / filter / three-dots) so the group
+// reads as one evenly-spaced strip. Two pixels under the front type circle (44)
+// keeps the two clusters at the same visual level, and the gap matches the arc
+// gap so both ends of the header share one rhythm.
+// Same 44 px disc as the front type circle so both ends of the header sit on
+// one baseline, with a hair smaller glyph: the right-hand actions stay a touch
+// lighter than the type selector instead of competing with it.
+const _kActionBtnSize = 44.0;
+const _kActionBtnIconSize = 21.0;
+const _kActionBtnGap = 8.0;
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 class MainLibraryScreen extends ConsumerStatefulWidget {
@@ -83,7 +91,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   int _selectedCatIndex = 0;
-  double _librarySwipeDistance = 0;
   Settings? _cachedSettings;
   List<Manga> _cachedMangaList = [];
 
@@ -211,18 +218,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     final n = _kTypes.length;
     final l10n = l10nLocalizations(context)!;
 
-    const frontSize = 46.0;
-    const sideSize = 28.0;
-    // Shoulders overlap the front circle's edge instead of leaving a visible
-    // gap, so the three icons read as one tight cluster.
-    const shoulderGap = -7.0;
-    const step = frontSize / 2 + shoulderGap + sideSize / 2;
-    const height = 52.0;
-    const totalWidth = step * 2 + sideSize;
-    const frontX = sideSize / 2 + step;
-    const frontY = 27.0;
-    const sideY = 32.0;
-
     String nameOf(ItemType type) => switch (type) {
       ItemType.anime => l10n.watch,
       ItemType.manga => l10n.manga,
@@ -232,155 +227,168 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
       ItemType.plugin => l10n.browse_plugins,
     };
 
-    return SizedBox(
-      width: totalWidth,
-      height: height,
-      child: Listener(
-        onPointerSignal: (event) {
-          if (event is! PointerScrollEvent) return;
-          final delta = event.scrollDelta.dy != 0
-              ? event.scrollDelta.dy
-              : event.scrollDelta.dx;
-          if (delta == 0) return;
-          _arcStep(delta > 0 ? 1 : -1);
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onHorizontalDragUpdate: (details) {
-            _arcAnim.stop();
-            setState(() => _arcOffset -= details.delta.dx / 64.0);
-          },
-          onHorizontalDragEnd: (details) {
-            final velocity = details.primaryVelocity ?? 0;
-            // A flick advances a whole slot; a slow drag just snaps to the
-            // nearest one (steps == 0), so the front icon is always unambiguous.
-            final steps = velocity.abs() > 250 ? (velocity < 0 ? 1 : -1) : 0;
-            _arcStep(steps);
-          },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (
-                var slotIndex = _arcOffset.round() - 1;
-                slotIndex <= _arcOffset.round() + 1;
-                slotIndex++
-              )
-                Builder(
-                  builder: (context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _kArcWidth,
+          height: _kArcHeight,
+          child: Listener(
+            onPointerSignal: (event) {
+              if (event is! PointerScrollEvent) return;
+              final delta = event.scrollDelta.dy != 0
+                  ? event.scrollDelta.dy
+                  : event.scrollDelta.dx;
+              if (delta == 0) return;
+              _arcStep(delta > 0 ? 1 : -1);
+            },
+            // No horizontal drag here on purpose: a drag on the arc competed
+            // with the per-cover swipe actions in the grid below (the arc's
+            // gesture arena won on short horizontal flicks), so the swipe
+            // silently spun the type selector instead of running the user's
+            // action. Tapping a shoulder still steps the arc, and the pointer
+            // signal above keeps desktop wheel/scroll stepping.
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const frontY = _kArcHeight / 2;
+                  const sideY = _kArcHeight / 2 + 7;
+                  const cx = _kArcFrontCentreX;
+
+                  // Render the three slots around the nearest integer
+                  // position. A slot's distance `d` is continuous, so the two
+                  // end slots are only ever swapped while they sit at
+                  // |d| ~ 1.5 and are fully faded out — the hand-off is
+                  // invisible.
+                  final centre = _arcOffset.round();
+                  final painted = <Widget>[];
+                  for (
+                    var slotIndex = centre - 1;
+                    slotIndex <= centre + 1;
+                    slotIndex++
+                  ) {
                     final d = slotIndex - _arcOffset;
                     final ad = d.abs();
-                    if (ad >= 1.5) return const SizedBox.shrink();
+                    if (ad >= 1.5) continue;
                     final type = _kTypes[((slotIndex % n) + n) % n];
                     // Full opacity at the front, ~0.55 on the shoulders, gone
-                    // at 1.5 — so the hand-off between the two end slots is
-                    // invisible.
+                    // at 1.5.
                     final opacity = ad <= 1.0
                         ? 1.0 - 0.45 * ad
                         : 0.55 * (1.5 - ad) / 0.5;
                     final size =
-                        frontSize + (sideSize - frontSize) * ad.clamp(0.0, 1.0);
+                        _kArcFrontSize +
+                        (_kArcSideSize - _kArcFrontSize) * ad.clamp(0.0, 1.0);
                     final isFront = ad < 0.5;
-                    final x = frontX + d.clamp(-1.5, 1.5) * step;
-                    final y = frontY + (sideY - frontY) * ad.clamp(0.0, 1.0);
+                    final x = cx + d.clamp(-1.5, 1.5) * _kArcStep;
+                    final y =
+                        sideY + (frontY - sideY) * (1.0 - ad.clamp(0.0, 1.0));
 
-                    return Positioned(
-                      left: x - size / 2,
-                      top: y - size / 2,
-                      width: size,
-                      height: size,
-                      child: GestureDetector(
-                        onTap: () {
-                          final diff = slotIndex - _arcOffset.round();
-                          if (diff != 0) _arcStep(diff);
-                        },
-                        child: Opacity(
-                          opacity: opacity.clamp(0.0, 1.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: isFront
-                                  ? LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        cs.primary,
-                                        cs.primary.withValues(alpha: 0.75),
-                                      ],
-                                    )
-                                  : null,
-                              color: isFront
-                                  ? null
-                                  : cs.onSurface.withValues(alpha: 0.05),
-                              border: Border.all(
+                    painted.add(
+                      Positioned(
+                        left: x - size / 2,
+                        top: y - size / 2,
+                        width: size,
+                        height: size,
+                        child: GestureDetector(
+                          onTap: () {
+                            final diff = slotIndex - _arcOffset.round();
+                            if (diff != 0) _arcStep(diff);
+                          },
+                          child: Opacity(
+                            opacity: opacity.clamp(0.0, 1.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: isFront
+                                    ? LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          cs.primary,
+                                          cs.primary.withValues(alpha: 0.75),
+                                        ],
+                                      )
+                                    : null,
                                 color: isFront
-                                    ? cs.primary.withValues(alpha: 0.85)
-                                    : (isDark
-                                          ? cs.onSurface.withValues(alpha: 0.22)
-                                          : cs.outline.withValues(alpha: 0.35)),
-                                width: isFront ? 1.5 : 1.0,
-                              ),
-                              boxShadow: isFront
-                                  ? [
-                                      BoxShadow(
-                                        color: cs.primary.withValues(
-                                          alpha: 0.35,
-                                        ),
-                                        blurRadius: 14,
-                                        spreadRadius: -2,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: isFront
-                                // The selected type carries its own name in the
-                                // display face, so the current section is
-                                // readable without a separate caption.
-                                ? Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        _kTypeIcons[type]!,
-                                        color: cs.onSurface,
-                                        size: 15,
-                                      ),
-                                      const SizedBox(height: 1),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 3,
-                                        ),
-                                        child: Text(
-                                          nameOf(type),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontFamily: kMangaDisplayFont,
-                                            fontSize: 10,
-                                            height: 1.05,
-                                            letterSpacing: 0.3,
-                                            color: cs.onSurface,
+                                    ? null
+                                    : cs.onSurface.withValues(alpha: 0.05),
+                                border: Border.all(
+                                  color: isFront
+                                      ? cs.primary.withValues(alpha: 0.85)
+                                      : (isDark
+                                            ? cs.onSurface.withValues(
+                                                alpha: 0.22,
+                                              )
+                                            : cs.outline.withValues(
+                                                alpha: 0.35,
+                                              )),
+                                  width: isFront ? 1.5 : 1.0,
+                                ),
+                                boxShadow: isFront
+                                    ? [
+                                        BoxShadow(
+                                          color: cs.primary.withValues(
+                                            alpha: 0.35,
                                           ),
+                                          blurRadius: 14,
+                                          spreadRadius: -2,
                                         ),
-                                      ),
-                                    ],
-                                  )
-                                : Icon(
-                                    _kTypeIcons[type]!,
-                                    color: isDark
-                                        ? cs.onSurface.withValues(alpha: 0.60)
-                                        : cs.onSurface.withValues(alpha: 0.55),
-                                    size: 17,
-                                  ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Icon(
+                                itemTypeIcon(type),
+                                color: isFront
+                                    ? cs.onSurface
+                                    : (isDark
+                                          ? cs.onSurface.withValues(alpha: 0.60)
+                                          : cs.onSurface.withValues(
+                                              alpha: 0.55,
+                                            )),
+                                size: isFront ? 22 : 16,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     );
-                  },
-                ),
-            ],
+                  }
+
+                  return Stack(clipBehavior: Clip.none, children: painted);
+                },
+              ),
+            ),
           ),
         ),
-      ),
+        // The type name hangs under the front circle rather than inside it:
+        // the icons stay pure glyphs and the label keeps a readable size.
+        SizedBox(
+          height: 14,
+          width: _kArcWidth,
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Text(
+                nameOf(_kTypes[((_arcOffset.round() % n) + n) % n]),
+                key: ValueKey(_arcOffset.round()),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: kMangaDisplayFont,
+                  fontSize: 11,
+                  height: 1.0,
+                  letterSpacing: 0.4,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface.withValues(alpha: 0.70),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -458,24 +466,6 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
     );
   }
 
-  void _onLibrarySwipeEnd(DragEndDetails details) {
-    final distance = _librarySwipeDistance;
-    _librarySwipeDistance = 0;
-    if (_showSearch) return;
-
-    final velocity = details.primaryVelocity ?? 0;
-    final int direction;
-    if (velocity.abs() >= 300) {
-      direction = velocity < 0 ? 1 : -1;
-    } else if (distance.abs() >= 56) {
-      direction = distance < 0 ? 1 : -1;
-    } else {
-      return;
-    }
-
-    _arcStep(direction);
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = l10nLocalizations(context)!;
@@ -511,8 +501,11 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             settings: settings,
           ),
         );
+    // Counts default to on: before the settings row loads there is no
+    // `Settings` object to read the toggle from, and hiding the numbers for a
+    // frame made the bar visibly jump.
     final showItemCounts =
-        settings != null &&
+        settings == null ||
         ref.watch(
           libraryShowNumbersOfItemsStateProvider(
             itemType: _currentType,
@@ -595,16 +588,16 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
           children: [
             // ── Row 1: arc type selector + action icons ────────────────
             Padding(
-              // 10 px on the leading edge only: the arc's first shoulder is a
-              // circle, so its optical margin is larger than a square icon's and
-              // needs a tighter gutter to look flush with the page edge.
-              padding: const EdgeInsets.fromLTRB(2, 8, 14, 0),
+              // No leading gutter: the arc's left shoulder is a circle whose
+              // optical margin already reads as ~4 px, so any extra padding
+              // pushed the group away from the edge.
+              padding: const EdgeInsets.fromLTRB(0, 6, 12, 0),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final rowWidth = constraints.maxWidth;
                   return SizedBox(
                     width: rowWidth,
-                    height: 52,
+                    height: 60,
                     child: Stack(
                       clipBehavior: Clip.hardEdge,
                       children: [
@@ -647,7 +640,7 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                         ),
                         Positioned(
                           right: 0,
-                          top: 3,
+                          top: 7,
                           child: ClipRect(
                             child: AnimatedContainer(
                               width: (_showSearch && !_searchClosing)
@@ -699,25 +692,19 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
 
             // ── Library content ──────────────────────────────────────────
             Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onHorizontalDragStart: (_) => _librarySwipeDistance = 0,
-                onHorizontalDragUpdate: (details) {
-                  _librarySwipeDistance += details.delta.dx;
-                },
-                onHorizontalDragEnd: _onLibrarySwipeEnd,
-                child: LibraryScreen(
-                  key: ValueKey('lib_${_typeIndex}_$extCatId'),
-                  itemType: _currentType,
-                  presetInput: null,
-                  hideOwnAppBar: true,
-                  // Keep the embedded library controller in sync when
-                  // search closes, so the old query cannot stay applied.
-                  externalSearchQuery: _showSearch
-                      ? _searchController.text
-                      : '',
-                  externalCategoryId: extCatId,
-                ),
+              // No horizontal-drag wrapper here: it stole the gesture from the
+              // per-cover swipe actions, so swiping a cover spun the type arc
+              // instead of running the configured action. The arc has its own
+              // drag handler.
+              child: LibraryScreen(
+                key: ValueKey('lib_${_typeIndex}_$extCatId'),
+                itemType: _currentType,
+                presetInput: null,
+                hideOwnAppBar: true,
+                // Keep the embedded library controller in sync when search
+                // closes, so the old query cannot stay applied.
+                externalSearchQuery: _showSearch ? _searchController.text : '',
+                externalCategoryId: extCatId,
               ),
             ),
           ],
@@ -1085,16 +1072,17 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
             ),
             if (count != null) ...[
               const SizedBox(width: 5),
+              // "Tous (751)" reads at a glance and needs no extra chrome, so
+              // the count is part of the label instead of a separate chip that
+              // crowded the pill on narrow screens.
               Text(
                 '($count)',
                 style: TextStyle(
-                  color:
-                      (selected
-                              ? cs.primary
-                              : cs.onSurfaceVariant.withValues(alpha: 0.65))
-                          .withValues(alpha: 0.75),
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  fontSize: 12,
+                  color: selected
+                      ? cs.primary.withValues(alpha: 0.85)
+                      : cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11.5,
                 ),
               ),
             ],
@@ -1180,6 +1168,9 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                 value: 99,
                 child: Divider(height: 1, indent: 0, endIndent: 0),
               ),
+              // Activity / Maintenance / Library settings are *sub-menus*: the
+              // caret marks them so a tap that opens another panel is not
+              // mistaken for an action that already ran.
               PopupMenuItem<int>(
                 value: 5,
                 child: Row(
@@ -1375,6 +1366,18 @@ class _MainLibraryScreenState extends ConsumerState<MainLibraryScreen>
                     purgeMissingDownloads(onProgress: onProgress),
                 message: (purged) => purgeMissingToastMessage(l10n, purged),
               );
+            },
+          ),
+          _LibraryMenuItem(
+            icon: Broken.gallery_slash,
+            label: l10n.library_clear_image_cache,
+            subtitle: l10n.library_clear_image_cache_desc,
+            onTap: () {
+              Navigator.pop(ctx);
+              PaintingBinding.instance.imageCache
+                ..clear()
+                ..clearLiveImages();
+              botToast(l10n.cache_cleared);
             },
           ),
         ],

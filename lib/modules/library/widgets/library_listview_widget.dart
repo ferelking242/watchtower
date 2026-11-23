@@ -111,11 +111,14 @@ class LibraryListViewWidget extends ConsumerWidget {
                         : Colors.transparent,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        horizontal: 10,
+                        vertical: 6,
                       ),
                       child: Container(
-                        height: 96,
+                        // A list row is the "read the titles" mode: the cover
+                        // has to stay legible next to three lines of text, so
+                        // it is taller than the old 120 px strip.
+                        height: 132,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -127,40 +130,61 @@ class LibraryListViewWidget extends ConsumerWidget {
                                 children: [
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(6),
-                                    child: Material(
-                                      child: Ink.image(
-                                        fit: BoxFit.cover,
-                                        width: 68,
-                                        height: 96,
-                                        image: entry.customCoverImage != null
-                                            ? coverMemoryImage(
-                                                entry.customCoverImage
-                                                    as Uint8List,
-                                                width: 160,
-                                              )
-                                            : CustomExtendedNetworkImageProvider(
-                                                toImgUrl(
-                                                  entry.customCoverFromTracker ??
-                                                      entry.imageUrl!,
-                                                ),
-                                                headers: ref.watch(
-                                                  headersProvider(
-                                                    source: entry.source!,
-                                                    lang: entry.lang!,
-                                                    sourceId: entry.sourceId,
+                                    child: Stack(
+                                      children: [
+                                        Material(
+                                          child: Ink.image(
+                                            fit: BoxFit.cover,
+                                            width: 96,
+                                            height: 132,
+                                            image:
+                                                entry.customCoverImage != null
+                                                ? coverMemoryImage(
+                                                    entry.customCoverImage
+                                                        as Uint8List,
+                                                    width: 160,
+                                                  )
+                                                : CustomExtendedNetworkImageProvider(
+                                                    toImgUrl(
+                                                      entry.customCoverFromTracker ??
+                                                          entry.imageUrl!,
+                                                    ),
+                                                    headers: ref.watch(
+                                                      headersProvider(
+                                                        source: entry.source!,
+                                                        lang: entry.lang!,
+                                                        sourceId:
+                                                            entry.sourceId,
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
+                                            child: InkWell(
+                                              child: Container(
+                                                color:
+                                                    mangaIdsList.contains(
+                                                      entry.id,
+                                                    )
+                                                    ? context.primaryColor
+                                                          .withValues(
+                                                            alpha: 0.4,
+                                                          )
+                                                    : Colors.transparent,
                                               ),
-                                        child: InkWell(
-                                          child: Container(
-                                            color:
-                                                mangaIdsList.contains(entry.id)
-                                                ? context.primaryColor
-                                                      .withValues(alpha: 0.4)
-                                                : Colors.transparent,
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                        // Overlaid on the cover rather than
+                                        // added to the row: the pill used to
+                                        // squeeze the counters on the right.
+                                        if (continueReaderBtn)
+                                          Positioned(
+                                            right: 0,
+                                            bottom: 0,
+                                            child: ContinueReadingButton(
+                                              entry: entry,
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                   Expanded(
@@ -170,9 +194,13 @@ class LibraryListViewWidget extends ConsumerWidget {
                                       ),
                                       child: Text(
                                         entry.name!,
-                                        maxLines: 2,
+                                        maxLines: 3,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 14.5),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          height: 1.3,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -180,10 +208,13 @@ class LibraryListViewWidget extends ConsumerWidget {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.all(5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 5,
+                              ),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(9),
                                   color: overlay
                                       ? context.primaryColor.withValues(
                                           alpha: 0.85,
@@ -191,8 +222,9 @@ class LibraryListViewWidget extends ConsumerWidget {
                                       : context.primaryColor,
                                 ),
                                 child: SizedBox(
-                                  height: 34,
+                                  height: 36,
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (localSource && isLocalArchive)
                                         Container(
@@ -208,15 +240,17 @@ class LibraryListViewWidget extends ConsumerWidget {
                                           ),
                                           child: const Padding(
                                             padding: EdgeInsets.symmetric(
-                                              horizontal: 10,
+                                              horizontal: 11,
                                             ),
                                             child: Center(
                                               child: Text(
                                                 "Local",
+                                                maxLines: 1,
+                                                softWrap: false,
                                                 style: TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: FontWeight.w700,
                                                 ),
                                               ),
                                             ),
@@ -247,16 +281,18 @@ class LibraryListViewWidget extends ConsumerWidget {
                                               child: Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                      horizontal: 10,
+                                                      horizontal: 11,
                                                     ),
                                                 child: Center(
                                                   child: Text(
                                                     downloadedCount.toString(),
+                                                    maxLines: 1,
+                                                    softWrap: false,
                                                     style: const TextStyle(
                                                       color: Colors.white,
                                                       fontSize: 12,
                                                       fontWeight:
-                                                          FontWeight.w600,
+                                                          FontWeight.w700,
                                                     ),
                                                   ),
                                                 ),
@@ -264,20 +300,30 @@ class LibraryListViewWidget extends ConsumerWidget {
                                             );
                                           },
                                         ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 11,
+                                      // The total/unread count is the one the
+                                      // user reads first, so it gets a wider
+                                      // slot than the secondary tags.
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 46,
                                         ),
-                                        child: Center(
-                                          child: Text(
-                                            (showUnread
-                                                    ? entryStats.unread
-                                                    : entryStats.total)
-                                                .toString(),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              (showUnread
+                                                      ? entryStats.unread
+                                                      : entryStats.total)
+                                                  .toString(),
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -296,15 +342,17 @@ class LibraryListViewWidget extends ConsumerWidget {
                                           ),
                                           child: Padding(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
+                                              horizontal: 11,
                                             ),
                                             child: Center(
                                               child: Text(
                                                 entry.lang!.toUpperCase(),
+                                                maxLines: 1,
+                                                softWrap: false,
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: FontWeight.w700,
                                                 ),
                                               ),
                                             ),
@@ -315,8 +363,6 @@ class LibraryListViewWidget extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            if (continueReaderBtn)
-                              ContinueReadingButton(entry: entry),
                           ],
                         ),
                       ),

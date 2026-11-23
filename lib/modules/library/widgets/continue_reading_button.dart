@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import 'package:watchtower/main.dart';
@@ -64,10 +65,10 @@ class ContinueReadingButton extends ConsumerWidget {
           color: context.primaryColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-              spreadRadius: -2,
+              color: Colors.black.withValues(alpha: 0.30),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+              spreadRadius: -3,
             ),
           ],
         ),
@@ -76,13 +77,13 @@ class ContinueReadingButton extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 9),
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  size: 20,
-                  color: Colors.white,
-                ),
+              // Same glyph family as the rest of the app, so the control reads
+              // as part of the icon set instead of a Material outlier.
+              Padding(
+                // Symmetric when the pill stands alone; the badge takes the
+                // right side when it is shown.
+                padding: EdgeInsets.fromLTRB(9, 0, showBadge ? 5 : 9, 0),
+                child: const Icon(Broken.play, size: 17, color: Colors.white),
               ),
               if (showBadge)
                 Container(

@@ -529,42 +529,52 @@ void _radioSheet<T>(
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
+    // Scroll-controlled with a height cap: the default half-screen sheet
+    // clipped the tail of a 10-option list, so the last actions (Supprimer,
+    // Marquer comme non lu) could not be reached at all.
+    isScrollControlled: true,
     builder: (ctx) => SafeArea(
-      child: RadioGroup<T>(
-        groupValue: current,
-        onChanged: (v) {
-          if (v == null) return;
-          onPicked(valueOf(v));
-          Navigator.pop(ctx);
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+        ),
+        child: RadioGroup<T>(
+          groupValue: current,
+          onChanged: (v) {
+            if (v == null) return;
+            onPicked(valueOf(v));
+            Navigator.pop(ctx);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: options
-                    .map(
-                      (o) => RadioListTile<T>(
-                        value: o,
-                        title: Text(labelOf(o)),
-                      ),
-                    )
-                    .toList(),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.only(bottom: 12),
+                  children: options
+                      .map(
+                        (o) => RadioListTile<T>(
+                          value: o,
+                          title: Text(labelOf(o)),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),

@@ -207,10 +207,16 @@ class LibrarySwipeLeftNotifier extends Notifier<int> {
   // Right-to-left swipe marks the first unread chapter (default); the opposite
   // rightward swipe marks the entry as read — see `librarySwipeRightProvider`.
   // Deleting is never a default: it is destructive and needs an explicit pick.
-  int build() => _read('swipe_left', 0);
+  //
+  // The key carries a version suffix because the action *indices* were
+  // reshuffled when the full action list landed: a value persisted by an older
+  // build pointed at a different action, so users kept a destructive or
+  // read-marking swipe they never picked. Bumping the key once restores the
+  // documented defaults.
+  int build() => _read('swipe_left_v2', 0);
 
   void set(int v) {
-    _write('swipe_left', v);
+    _write('swipe_left_v2', v);
     state = v;
   }
 }
@@ -220,10 +226,10 @@ final librarySwipeLeftProvider =
 
 class LibrarySwipeRightNotifier extends Notifier<int> {
   @override
-  int build() => _read('swipe_right', 1); // Marquer comme lu
+  int build() => _read('swipe_right_v2', 1); // Marquer comme lu
 
   void set(int v) {
-    _write('swipe_right', v);
+    _write('swipe_right_v2', v);
     state = v;
   }
 }

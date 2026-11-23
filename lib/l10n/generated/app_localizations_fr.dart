@@ -5572,7 +5572,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'FlareSolverr est un serveur proxy qui utilise un navigateur headless pour résoudre les challenges Cloudflare. Installez-le sur votre machine ou serveur local et entrez son URL ici.';
 
   @override
-  String get settings_reindex_downloads => 'Réindexe les téléchargements';
+  String get settings_reindex_downloads => 'Réindexer les téléchargements';
 
   @override
   String get settings_reindex_downloads_desc =>
@@ -5580,11 +5580,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_downloads_not_in_library =>
-      'Récupérer les téléchargements';
+      'Ajouter les téléchargements manquants';
 
   @override
   String get settings_downloads_not_in_library_desc =>
-      'Ajoute automatiquement à la bibliothèque toutes les séries dont un chapitre est déjà téléchargé';
+      'Ajoute à la bibliothèque les séries téléchargées qui n’y sont pas encore';
 
   @override
   String get settings_clear_database_desc =>
@@ -13346,6 +13346,17 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get library_menu_maintenance => 'Maintenance';
+
+  @override
+  String get library_display_mode_hint =>
+      'Compact = vignettes plus courtes, Confortable = vignettes plus hautes avec le titre visible.';
+
+  @override
+  String get library_clear_image_cache => 'Vider le cache des images';
+
+  @override
+  String get library_clear_image_cache_desc =>
+      'Libère l’espace occupé par les couvertures et les pages déjà lues';
 
   @override
   String get library_restore_defaults => 'Rétablir les réglages par défaut';

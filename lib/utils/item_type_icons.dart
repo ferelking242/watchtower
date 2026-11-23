@@ -15,7 +15,9 @@ IconData itemTypeIcon(ItemType type) {
     case ItemType.manga:
       return Broken.note;
     case ItemType.novel:
-      return Broken.book;
+      // Spread pages: the closed `book`/`book_1` frames read as a plain
+      // rectangle at arc size and collided with the manga page glyph.
+      return Broken.story;
     case ItemType.music:
       return Broken.music_play;
     case ItemType.game:

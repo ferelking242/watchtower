@@ -170,7 +170,9 @@ Future<void> showSwipeDeleteDialog({
 }) async {
   final l10n = l10nLocalizations(context)!;
   var fromLibrary = manga.favorite == true;
-  var fromStorage = false;
+  // Pre-tick "storage" when the series only lives on disk: leaving both boxes
+  // empty made the confirm button do nothing, which read as a broken action.
+  var fromStorage = !fromLibrary;
 
   final confirmed = await showDialog<bool>(
     context: context,
@@ -212,7 +214,11 @@ Future<void> showSwipeDeleteDialog({
                 child: Text(l10n.cancel),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
+                // Nothing ticked means nothing to delete: keep the button
+                // inert instead of closing on a no-op.
+                onPressed: (fromLibrary || fromStorage)
+                    ? () => Navigator.pop(context, true)
+                    : null,
                 child: Text(l10n.ok),
               ),
             ],

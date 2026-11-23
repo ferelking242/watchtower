@@ -394,12 +394,25 @@ class _LibraryFilterSortMenuState extends ConsumerState<LibraryFilterSortMenu> {
         displayMode(DisplayType.comfortableGrid, l10n.comfortable_grid),
         displayMode(DisplayType.coverOnlyGrid, l10n.cover_only_grid),
         displayMode(DisplayType.list, l10n.list),
+        // The two "grid" entries above differ only by tile height, so spell it
+        // out instead of leaving the user to guess.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+          child: Text(
+            l10n.library_display_mode_hint,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.3,
+              color: context.secondaryColor,
+            ),
+          ),
+        ),
 
         // Éléments par ligne
         _displaySection(l10n.grid_size),
         AdaptiveOverlayItem(
           label: gridSize == 0
-              ? l10n.default0
+              ? l10n.library_grid_auto
               : l10n.n_per_row(gridSize.toString()),
           // A stepper instead of a slider: a slider is impossible to land on an
           // exact column count with, which is why picking "1" used to feel like
@@ -796,6 +809,8 @@ class _LibraryFilterSortMenuState extends ConsumerState<LibraryFilterSortMenu> {
         ),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
+          // Same glyph as the Filter entry that leads here: a sub-option must
+          // not look like a different feature from its parent.
           icon: Broken.filter,
           label: context.l10n.common_classification,
           trailing: const Icon(Broken.arrow_right_3, size: 14),
@@ -882,6 +897,9 @@ class _LibraryFilterSortMenuState extends ConsumerState<LibraryFilterSortMenu> {
     final selected = ref.watch(libraryContentRatingFilterProvider);
     final entries = widget.entries;
 
+    // Every entry falls in exactly one bucket: an entry with no adult marker
+    // is safe by default, so the three levels always partition the library and
+    // the filter is usable out of the box instead of reading "bientôt".
     int countFor(String? bucket) {
       if (bucket == null) return entries.length;
       return entries.where((manga) {
@@ -899,9 +917,6 @@ class _LibraryFilterSortMenuState extends ConsumerState<LibraryFilterSortMenu> {
     final safeCount = countFor('safe');
     final suggestiveCount = countFor('suggestive');
     final nsfwCount = countFor('nsfw');
-    // Genres drive classification, so an entry without genres lands in no
-    // bucket at all. Only then is the filter genuinely unusable.
-    final hasMetadata = safeCount + suggestiveCount + nsfwCount > 0;
 
     Widget rating(String bucket, String label, int count) {
       final active = selected.contains(bucket);
@@ -910,7 +925,7 @@ class _LibraryFilterSortMenuState extends ConsumerState<LibraryFilterSortMenu> {
         // Rows stay tappable even at 0: the counts reflect the *current* set of
         // entries, and a user who just imported a title expects the filter to
         // apply to it without waiting for a genre refresh.
-        enabled: hasMetadata,
+        enabled: true,
         trailing: Text(
           '$count',
           style: TextStyle(
@@ -954,23 +969,9 @@ class _LibraryFilterSortMenuState extends ConsumerState<LibraryFilterSortMenu> {
                 .set(<String>{});
           },
         ),
-        if (!hasMetadata)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-            child: Text(
-              l10n.library_classification_unavailable,
-              style: TextStyle(
-                fontSize: 11,
-                height: 1.35,
-                color: context.secondaryColor,
-              ),
-            ),
-          )
-        else ...[
-          rating('safe', l10n.library_rating_safe, safeCount),
-          rating('suggestive', l10n.library_rating_suggestive, suggestiveCount),
-          rating('nsfw', l10n.browse_diag_nsfw, nsfwCount),
-        ],
+        rating('safe', l10n.library_rating_safe, safeCount),
+        rating('suggestive', l10n.library_rating_suggestive, suggestiveCount),
+        rating('nsfw', l10n.browse_diag_nsfw, nsfwCount),
         const AdaptiveOverlayDivider(),
         AdaptiveOverlayItem(
           icon: Broken.close_circle,

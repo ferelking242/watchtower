@@ -12,6 +12,7 @@ import 'package:watchtower/modules/library/providers/library_state_provider.dart
 import 'package:watchtower/modules/library/widgets/library_app_bar.dart';
 import 'package:watchtower/modules/library/widgets/library_body.dart';
 import 'package:watchtower/modules/library/widgets/library_dialogs.dart';
+import 'package:watchtower/modules/library/widgets/library_skeleton.dart';
 import 'package:watchtower/modules/manga/detail/providers/state_providers.dart';
 import 'package:watchtower/modules/more/categories/providers/isar_providers.dart';
 import 'package:watchtower/modules/more/providers/downloaded_only_state_provider.dart';
@@ -113,13 +114,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
           }
           return _useFallbackSettings
               ? _buildWithSettings(Settings())
-              : const ProgressCenter();
+              : const LibraryBootSkeleton();
         }
         final settings = settingsList.first;
         return _buildWithSettings(settings);
       },
       error: (error, _) => ErrorText(error),
-      loading: () => const ProgressCenter(),
+      loading: () => const LibraryBootSkeleton(),
     );
   }
 
@@ -325,15 +326,15 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                   );
                 },
                 error: (error, _) => ErrorText(error),
-                loading: () => const ProgressCenter(),
+                loading: () => const LibrarySkeleton(),
               );
             },
             error: (error, _) => ErrorText(error),
-            loading: () => const ProgressCenter(),
+            loading: () => const LibrarySkeleton(),
           );
         },
         error: (error, _) => ErrorText(error),
-        loading: () => const ProgressCenter(),
+        loading: () => const LibrarySkeleton(),
       ),
       bottomNavigationBar: _buildBottomBar(),
     );

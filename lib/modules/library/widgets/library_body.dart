@@ -8,6 +8,7 @@ import 'package:watchtower/modules/library/providers/library_filter_provider.dar
 import 'package:watchtower/modules/library/providers/library_state_provider.dart';
 import 'package:watchtower/modules/library/widgets/library_filter_sort_menu.dart';
 import 'package:watchtower/modules/library/widgets/library_gridview_widget.dart';
+import 'package:watchtower/modules/library/widgets/library_skeleton.dart';
 import 'package:watchtower/modules/library/widgets/library_listview_widget.dart';
 import 'package:watchtower/modules/more/settings/library/providers/library_settings_provider.dart';
 import 'package:watchtower/modules/widgets/error_text.dart';
@@ -177,7 +178,12 @@ class LibraryBody extends ConsumerWidget {
                         itemType: itemType,
                       );
                     },
-                    child: displayType == DisplayType.list
+                    // `wideList` is the roomier list variant; it renders with
+                    // the list widget too, otherwise it silently fell through
+                    // to the grid and the user's choice was ignored.
+                    child:
+                        displayType == DisplayType.list ||
+                            displayType == DisplayType.wideList
                         ? LibraryListViewWidget(
                             entriesManga: entriesManga,
                             continueReaderBtn: continueReaderBtn,
@@ -202,7 +208,11 @@ class LibraryBody extends ConsumerWidget {
                   );
                 },
                 error: (error, _) => ErrorText(error),
-                loading: () => const ProgressCenter(),
+                // A skeleton of the real grid instead of a centred spinner:
+                // the layout no longer jumps from a blank page to a full grid.
+                loading: () => displayType == DisplayType.list
+                    ? const LibraryListSkeleton()
+                    : const LibrarySkeleton(),
               );
             },
           ),

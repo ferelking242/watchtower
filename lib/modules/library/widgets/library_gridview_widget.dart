@@ -74,14 +74,21 @@ class _LibraryGridViewWidgetState extends State<LibraryGridViewWidget> {
         final gridSize = (rawGridSize == null || rawGridSize == 0)
             ? 3
             : rawGridSize;
+        // Landscape thumbnails, like the video cards on a streaming site. The
+        // comfortable grid is taller because it also carries the title strip;
+        // cover-only has no strip, so it can stay a clean 16:9.
+        final ratio = widget.isCoverOnlyGrid
+            ? 1.78
+            : (widget.isComfortableGrid ? 1.38 : 1.66);
         return GridViewWidget(
           gridSize: gridSize,
-          // Landscape thumbnails, like the video grids on streaming sites: a
-          // 3:2 cover crop instead of a stretched portrait poster, so even a
-          // one-column layout reads as a card rather than a zoomed blur. The
-          // comfortable grid keeps extra vertical room for its title label.
-          childAspectRatio: widget.isComfortableGrid ? 1.32 : 1.5,
-          maxTileWidth: widget.isComfortableGrid ? 210 : 190,
+          childAspectRatio: ratio,
+          // A single column must not blow one cover up to full screen: cap the
+          // tile and let the grid centre itself. One column gets a roomier cap
+          // so the lone card still reads as a card, not a postage stamp.
+          maxTileWidth: gridSize == 1
+              ? 240
+              : (widget.isComfortableGrid ? 210 : 200),
           itemCount: widget.entriesManga.length,
           itemBuilder: (context, index) {
             final entry = widget.entriesManga[index];

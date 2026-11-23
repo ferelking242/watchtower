@@ -9714,7 +9714,7 @@ abstract class AppLocalizations {
   /// No description provided for @settings_reindex_downloads.
   ///
   /// In en, this message translates to:
-  /// **'Reindex the downloads'**
+  /// **'Reindex downloads'**
   String get settings_reindex_downloads;
 
   /// No description provided for @settings_reindex_downloads_desc.
@@ -9726,13 +9726,13 @@ abstract class AppLocalizations {
   /// No description provided for @settings_downloads_not_in_library.
   ///
   /// In en, this message translates to:
-  /// **'Recover downloads'**
+  /// **'Add missing downloads'**
   String get settings_downloads_not_in_library;
 
   /// No description provided for @settings_downloads_not_in_library_desc.
   ///
   /// In en, this message translates to:
-  /// **'Automatically adds to the library every series with a downloaded chapter'**
+  /// **'Adds to the library every downloaded series it is missing'**
   String get settings_downloads_not_in_library_desc;
 
   /// No description provided for @settings_clear_database_desc.
@@ -23465,6 +23465,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Maintenance'**
   String get library_menu_maintenance;
+
+  /// No description provided for @library_display_mode_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact = shorter tiles, Comfortable = taller tiles with the title visible.'**
+  String get library_display_mode_hint;
+
+  /// No description provided for @library_clear_image_cache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear image cache'**
+  String get library_clear_image_cache;
+
+  /// No description provided for @library_clear_image_cache_desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Frees the space used by cached covers and already-read pages'**
+  String get library_clear_image_cache_desc;
 
   /// No description provided for @library_restore_defaults.
   ///
