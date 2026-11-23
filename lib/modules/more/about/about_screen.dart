@@ -13,10 +13,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/models/settings.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'package:watchtower/modules/more/about/update_page.dart';
 import 'package:watchtower/modules/more/about/providers/check_for_update.dart';
-import 'package:watchtower/modules/more/about/providers/download_file_screen.dart';
-import 'package:watchtower/services/fetch_sources_list.dart' show compareVersions;
 import 'package:watchtower/modules/more/about/providers/get_package_info.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
 import 'package:watchtower/modules/widgets/progress_center.dart';
@@ -70,7 +68,6 @@ class AboutScreen extends ConsumerStatefulWidget {
 
 class _AboutScreenState extends ConsumerState<AboutScreen> {
   bool _isCheckingUpdate = false;
-  bool _isCheckingUpdater = false;
   bool? _autoUpdateEnabled;
   bool _autoUpdateBusy = false;
 
@@ -112,27 +109,34 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     );
   }
 
-  /// Runs the app_updater flow on demand, so the notification path can be
-  /// tested without waiting for the launch or periodic check.
-  Future<void> _checkWithUpdater() async {
-    setState(() => _isCheckingUpdater = true);
+  /// Single update entry point: the app_updater flow checks the CI feed, the
+  /// artifacts and the releases, then the update page handles download,
+  /// background download and install.
+  Future<void> _checkNow() async {
+    if (_isCheckingUpdate) return;
+    setState(() => _isCheckingUpdate = true);
+    botToast(_isFrench
+        ? 'Vérification des mises à jour'
+        : 'Checking for updates');
     try {
-      await AppUpdateService.instance.checkAndDownload();
-      final phase = AppUpdateService.instance.lastPhaseName;
+      final info = await AppUpdateService.instance.checkNow();
       if (!mounted) return;
-      final message = switch (phase) {
-        'upToDate' => _isFrench ? 'Application à jour' : 'App is up to date',
-        'available' ||
-        'downloading' ||
-        'readyToInstall' ||
-        'installed' =>
-          _isFrench ? 'Mise à jour téléchargée' : 'Update downloaded',
-        'failed' => _isFrench ? 'Échec de la vérification' : 'Check failed',
-        _ => _isFrench ? 'Vérification terminée' : 'Check finished',
-      };
-      botToast(message);
+      if (info.updateAvailable) {
+        await Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => UpdatePage(initial: info),
+          ),
+        );
+      } else if (info.phase == 'upToDate') {
+        botToast(_isFrench
+            ? 'Vous avez la dernière version : ${info.currentVersion}'
+            : 'You are on the latest version: ${info.currentVersion}');
+      } else {
+        botToast(_isFrench ? 'Vérification impossible' : 'Check failed');
+      }
     } finally {
-      if (mounted) setState(() => _isCheckingUpdater = false);
+      if (mounted) setState(() => _isCheckingUpdate = false);
     }
   }
 
@@ -363,88 +367,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                                       )
                                     : Icon(Icons.chevron_right_rounded,
                                         size: 16, color: cs.onSurface.withValues(alpha: 0.3)),
-                                onTap: _isCheckingUpdate
-                                    ? null
-                                    : () async {
-                                        setState(() => _isCheckingUpdate = true);
-                                        botToast(l10n.searching_for_updates);
-                                        PackageInfo? info;
-                                        try {
-                                          info = await PackageInfo.fromPlatform();
-                                          final result = await checkLatestRelease(forceRefresh: true);
-                                          if (result.$1 == '0.0.0' || result.$1.isEmpty) {
-                                            if (mounted) botToast(l10n.about_up_to_date(info.version));
-                                          } else if (compareVersions(info.version, result.$1) < 0) {
-                                            if (mounted) botToast(l10n.new_update_available);
-                                            await Future.delayed(const Duration(seconds: 1));
-                                            if (mounted) {
-                                              Navigator.of(context, rootNavigator: true).push(
-                                                MaterialPageRoute(
-                                                  fullscreenDialog: true,
-                                                  builder: (_) => DownloadFileScreen(updateAvailable: result),
-                                                ),
-                                              );
-                                            }
-                                          } else {
-                                            if (mounted) botToast(l10n.about_up_to_date(info.version));
-                                          }
-                                        } catch (_) {
-                                          if (mounted) botToast(info != null
-                                              ? l10n.about_up_to_date(info.version)
-                                              : l10n.no_new_updates_available);
-                                        } finally {
-                                          if (mounted) setState(() => _isCheckingUpdate = false);
-                                        }
-                                      },
-                              ),
-                              const Divider(height: 1, indent: 14),
-                              ListTile(
-                                contentPadding:
-                                    const EdgeInsets.fromLTRB(14, 4, 14, 4),
-                                dense: true,
-                                leading: Container(
-                                  width: 32,
-                                  height: 32,
-                                  decoration: BoxDecoration(
-                                    color: cs.primary.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(Icons.bolt_rounded,
-                                      color: cs.primary, size: 16),
-                                ),
-                                title: Text(
-                                  _isFrench
-                                      ? 'Vérifier avec les mises à jour auto'
-                                      : 'Check with automatic updates',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  _isFrench
-                                      ? 'Télécharge en arrière-plan et notifie'
-                                      : 'Downloads in the background and notifies',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: cs.onSurface.withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                trailing: _isCheckingUpdater
-                                    ? SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: cs.primary,
-                                        ),
-                                      )
-                                    : Icon(Icons.chevron_right_rounded,
-                                        size: 16,
-                                        color: cs.onSurface
-                                            .withValues(alpha: 0.3)),
-                                onTap:
-                                    _isCheckingUpdater ? null : _checkWithUpdater,
+                                onTap: _isCheckingUpdate ? null : _checkNow,
                               ),
                             ],
                           ),

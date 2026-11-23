@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:app_updater/app_updater.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:watchtower/core/config/app_config.dart';
+import 'package:watchtower/services/app_updater/update_models.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -204,10 +207,40 @@ class AppUpdateService {
   /// first check ran.
   String? get lastPhaseName => _controller?.state.phase.name;
 
-  /// Checks immediately, bypassing the switch and the interval.
-  Future<void> checkNow() async {
-    await controller.check(manual: true, force: true);
+  /// Every state change, mapped to the plain model used by the UI.
+  Stream<UpdateInfoView> get updates => controller.states.map(_viewOf);
+
+  UpdateInfoView _viewOf(UpdateState state) {
+    final info = state.info;
+    final candidate = state.candidate;
+    return UpdateInfoView(
+      currentVersion: info?.currentVersion ?? '',
+      latestVersion: info?.latestVersion ?? candidate?.version,
+      releaseNotes: info?.releaseNotes ?? candidate?.releaseNotes,
+      sizeBytes: info?.updateSizeBytes ?? candidate?.artifactFor()?.sizeBytes,
+      publishedAt: info?.releaseDate ?? candidate?.publishedAt,
+      updateAvailable: state.updateAvailable,
+      phase: state.phase.name,
+      progress: state.progress,
+      error: state.error,
+    );
   }
+
+  /// Checks immediately, bypassing the switch and the interval.
+  Future<UpdateInfoView> checkNow() async {
+    final state = await controller.check(manual: true, force: true);
+    return _viewOf(state);
+  }
+
+  /// Downloads the candidate found by [checkNow] and reports progress on
+  /// [updates].
+  Future<UpdateInfoView> downloadNow() async {
+    final state = await controller.download();
+    return _viewOf(state);
+  }
+
+  /// Installs the downloaded build (silent when the platform allows it).
+  Future<bool> installNow() => controller.install();
 
   /// Check + background download; the notifier posts the install action.
   Future<void> checkAndDownload() async {
@@ -216,6 +249,59 @@ class AppUpdateService {
 
   /// Installs the file downloaded by [checkAndDownload].
   Future<bool> installPending() => controller.install();
+
+  /// Recent releases, newest first, for the history section.
+  Future<List<UpdateHistoryEntry>> history({int limit = 10}) async {
+    final uri = Uri.parse(
+      'https://api.github.com/repos/$_owner/$_repo/releases?per_page=$limit',
+    );
+    try {
+      final response = await http.get(
+        uri,
+        headers: <String, String>{
+          'Accept': 'application/vnd.github+json',
+          if (_token != null) 'Authorization': 'Bearer $_token',
+        },
+      );
+      if (response.statusCode != 200) return const [];
+      final releases = jsonDecode(response.body);
+      if (releases is! List) return const [];
+
+      final installed = await controller.currentVersion();
+      final entries = <UpdateHistoryEntry>[];
+      for (final raw in releases.whereType<Map>()) {
+        final release = raw.cast<String, dynamic>();
+        if (release['draft'] == true) continue;
+        final version = _releaseVersion(release);
+        if (version == null) continue;
+        entries.add(
+          UpdateHistoryEntry(
+            version: version,
+            publishedAt:
+                DateTime.tryParse(release['published_at']?.toString() ?? ''),
+            notes: release['body']?.toString(),
+            isCurrent: VersionUtils.compare(version, installed) == 0,
+          ),
+        );
+      }
+      return entries;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Version of a release: from its tag, else from its asset names
+  /// (`android-latest` carries the version in the APK name).
+  static String? _releaseVersion(Map<String, dynamic> release) {
+    final fromTag = VersionUtils.normalize(release['tag_name']?.toString());
+    if (fromTag != null) return fromTag;
+    final assets = (release['assets'] as List?) ?? const [];
+    for (final asset in assets.whereType<Map>()) {
+      final version = VersionUtils.normalize(asset['name']?.toString());
+      if (version != null) return version;
+    }
+    return null;
+  }
 
   Future<void> dispose() async {
     await _controller?.dispose();

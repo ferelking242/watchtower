@@ -348,6 +348,44 @@ jobs:
             --title "Watchtower Android (latest)" \
             --notes-file "$NOTES" \
             --prerelease
+
+      # Versioned release so the repository has a real "Latest" Android build
+      # with its changelog. Without it the Latest badge stayed on the last
+      # `v8.1.x` release built by the other workflow, far behind this one.
+      - name: Publish versioned Android release
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/Watchtower-${{ steps.ver.outputs.name }}-b${{ steps.ver.outputs.code }}-arm64-release.apk
+          TAG="android-${{ steps.ver.outputs.name }}"
+          SUM=$(sha256sum "$APK" | cut -d' ' -f1)
+          BYTES=$(stat -c '%s' "$APK")
+          PREV=$(gh release list --limit 100 --json tagName \
+            --jq '[.[] | select(.tagName | startswith("android-"))][0].tagName' \
+            2>/dev/null || true)
+          CHANGELOG=""
+          if [ -n "$PREV" ]; then
+            CHANGELOG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" -f previous_tag_name="$PREV" --jq .body \
+              2>/dev/null || true)
+          else
+            CHANGELOG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$TAG" --jq .body 2>/dev/null || true)
+          fi
+          NOTES=$(mktemp)
+          {
+            printf '%s\n\n' "$CHANGELOG"
+            printf "APK Android arm64 construit depuis \`main\`.\n\n"
+            printf "SHA-256 : %s\n" "$SUM"
+            printf "Taille : %s octets (exactement — un fichier plus petit est tronqué).\n" "$BYTES"
+          } > "$NOTES"
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          git push origin ":refs/tags/${TAG}" 2>/dev/null || true
+          gh release create "$TAG" "$APK" "$APK.sha256" \
+            build/app/outputs/flutter-apk/app-update.json \
+            --title "Watchtower ${{ steps.ver.outputs.name }}" \
+            --notes-file "$NOTES" \
+            --latest
+          echo "Published $TAG as the latest release"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
