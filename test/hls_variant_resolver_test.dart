@@ -32,6 +32,8 @@ seg-2.ts
 ''';
 
 void main() {
+  _separateAudioTests();
+
   // The playlist cache is process-wide and keyed by URL; these tests reuse a
   // few URLs on purpose, so each one must start from a cold cache.
   setUp(HlsPlaylistCache.clear);
@@ -256,6 +258,102 @@ v-360bw.m3u8
         HlsPlaylistCache.get('https://cdn.example/${HlsPlaylistCache.maxEntries * 3 - 1}/master.m3u8'),
         isNotNull,
       );
+    });
+  });
+}
+
+/// Real miraculous.now master: the single 1080p variant carries no audio of
+/// its own — every language is a separate `#EXT-X-MEDIA` rendition.
+const _miraculousMaster = '''
+#EXTM3U
+
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio-1",NAME="English",LANGUAGE="en",AUTOSELECT=YES,DEFAULT=NO,URI="https://internal.example/m3u8.m3u8?action=rewrite&file=ZW4&v=1"
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio-1",NAME="Français",LANGUAGE="fr",AUTOSELECT=YES,DEFAULT=YES,URI="https://internal.example/m3u8.m3u8?action=rewrite&file=ZnI&v=1"
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="Français",LANGUAGE="fr",URI="subs/fr.vtt"
+
+#EXT-X-STREAM-INF:BANDWIDTH=4500000,RESOLUTION=1920x1080,AUDIO="audio-1"
+https://internal.example/m3u8.m3u8?action=rewrite&file=dmlkZW8&v=1
+''';
+
+void _separateAudioTests() {
+  group('HlsVariantResolver separate audio renditions', () {
+    final masterUrl = Uri.parse(
+      'https://internal.example/m3u8.m3u8?lang=fr&s=7&e=701&token=abc',
+    );
+
+    test('detects the audio group referenced by a variant', () {
+      expect(HlsVariantResolver.hasSeparateAudio(_miraculousMaster), isTrue);
+      expect(HlsVariantResolver.hasSeparateAudio(_xnxxMaster), isFalse);
+      expect(HlsVariantResolver.hasSeparateAudio(_mediaPlaylist), isFalse);
+    });
+
+    test('an unreferenced audio group is not "separate audio"', () {
+      final orphan = _miraculousMaster.replaceAll('AUDIO="audio-1"', '');
+      expect(HlsVariantResolver.hasSeparateAudio(orphan), isFalse);
+    });
+
+    test('lists every audio language with its playlist URL', () {
+      final audios = HlsVariantResolver.parseAudioRenditions(
+        _miraculousMaster,
+        masterUrl: masterUrl,
+      );
+
+      expect(audios.map((a) => a.label).toList(), ['English', 'Français']);
+      expect(audios[1].file, contains('file=ZnI'));
+    });
+
+    test('lists subtitle renditions separately', () {
+      final subs = HlsVariantResolver.parseSubtitleRenditions(
+        _miraculousMaster,
+        masterUrl: masterUrl,
+      );
+
+      expect(subs, hasLength(1));
+      expect(subs.single.label, 'Français');
+      expect(
+        subs.single.file,
+        'https://internal.example/subs/fr.vtt',
+      );
+    });
+
+    test('expansion keeps the master entries and attaches the audio', () async {
+      final videos = await expandHlsVariants(
+        [Video('https://internal.example/m3u8.m3u8?lang=fr&t=1', 'Auto', 'https://internal.example/m3u8.m3u8?lang=fr&t=1')],
+        fetchPlaylist: (_) async => _miraculousMaster,
+      );
+
+      expect(videos, hasLength(1));
+      // The URL must stay the master: only it names the audio rendition.
+      expect(videos.single.url, contains('m3u8.m3u8'));
+      expect(videos.single.quality, '1080p');
+      expect(videos.single.audios, hasLength(2));
+      expect(videos.single.subtitles, hasLength(1));
+    });
+
+    test('a per-language entry keeps its label and gains the audio list', () async {
+      const langUrl = 'https://internal.example/m3u8.m3u8?lang=fr&t=1';
+      final videos = await expandHlsVariants(
+        [
+          Video(langUrl, '1080p · Français', langUrl),
+          Video('https://internal.example/m3u8.m3u8?lang=en&t=1', '1080p · English',
+              'https://internal.example/m3u8.m3u8?lang=en&t=1'),
+        ],
+        fetchPlaylist: (_) async => _miraculousMaster,
+      );
+
+      expect(videos.map((v) => v.quality).toList(),
+          ['1080p · Français', '1080p · English']);
+      expect(videos.every((v) => (v.audios ?? []).length == 2), isTrue);
+    });
+
+    test('a muxed master still expands into variants', () async {
+      final videos = await expandHlsVariants(
+        [Video('https://cdn.example/x/y/master.m3u8', 'Auto', 'https://cdn.example/x/y/master.m3u8')],
+        fetchPlaylist: (_) async => _xnxxMaster,
+      );
+
+      expect(videos.length, 6);
+      expect(videos[1].quality, '250p');
     });
   });
 }

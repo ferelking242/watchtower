@@ -34,6 +34,7 @@ import 'package:watchtower/services/download_manager/partial/partial_playback_pl
 import 'package:watchtower/services/download_manager/partial/partial_playback_resolver.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/hls_adaptive_quality.dart';
+import 'package:watchtower/services/hls_variant_resolver.dart';
 import 'package:watchtower/services/player_codec_error.dart';
 import 'package:watchtower/services/downloaded_video_preference.dart'
     as downloaded_video_preference;
@@ -772,6 +773,20 @@ class WatchInlinePlayer {
   Future<String?> _applyAdaptiveQuality(wt.Video video) async {
     if (!_isHlsUrl(video.url)) return null;
     try {
+      // A master that keeps its audio in `#EXT-X-MEDIA` renditions must be
+      // opened as-is: ffmpeg's HLS demuxer only learns about the audio
+      // playlist from the master, so handing it a bare variant plays silent.
+      // The body is already cached by getVideoList's variant expansion.
+      final masterBody = HlsPlaylistCache.get(video.url);
+      if (masterBody != null && HlsVariantResolver.hasSeparateAudio(masterBody)) {
+        AppLogger.log(
+          '[PLAYER] master declares separate audio renditions — keeping it '
+          'instead of opening a video-only variant',
+          logLevel: LogLevel.info,
+          tag: LogTag.watch,
+        );
+        return null;
+      }
       final probe = HlsAdaptiveProbe(
         fetchText: _fetchTextBounded,
         fetchRange: _fetchRangeBounded,

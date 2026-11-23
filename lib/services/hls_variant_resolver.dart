@@ -27,6 +27,9 @@ class HlsVariantResolver {
   /// `NAME="720p"` when the CDN labels its renditions.
   static final _name = RegExp(r'NAME="([^"]*)"');
 
+  /// Any `#EXT-X-MEDIA:` tag; its attribute list is group 1.
+  static final _mediaTag = RegExp(r'#EXT-X-MEDIA:([^\r\n]*)');
+
   /// True when [body] is an HLS master (variant) playlist rather than a media
   /// playlist listing segments.
   static bool isMasterPlaylist(String body) =>
@@ -79,6 +82,97 @@ class HlsVariantResolver {
 
     variants.sort((a, b) => (b.bandwidth ?? 0).compareTo(a.bandwidth ?? 0));
     return variants;
+  }
+
+  /// Audio renditions declared by a master playlist.
+  ///
+  /// `#EXT-X-MEDIA:TYPE=AUDIO` lines describe tracks that live in their own
+  /// playlist: the variant playlists then hold video only. Their `URI` is
+  /// usually signed exactly like the master, so it is resolved against
+  /// [masterUrl] here rather than by the caller.
+  static List<Track> parseAudioRenditions(
+    String body, {
+    required Uri masterUrl,
+  }) =>
+      _parseRenditions(body, masterUrl, 'AUDIO');
+
+  /// Subtitle renditions declared by a master playlist (usually `WebVTT`).
+  static List<Track> parseSubtitleRenditions(
+    String body, {
+    required Uri masterUrl,
+  }) =>
+      _parseRenditions(body, masterUrl, 'SUBTITLES');
+
+  /// True when the variants of [body] carry no audio of their own.
+  ///
+  /// The `AUDIO="group"` attribute on a `#EXT-X-STREAM-INF` line points at an
+  /// `#EXT-X-MEDIA:TYPE=AUDIO` group. Such a variant is video-only: opening
+  /// it directly (instead of the master) plays, and downloads, silent.
+  static bool hasSeparateAudio(String body) {
+    if (!isMasterPlaylist(body)) return false;
+    final groups = <String>{};
+    for (final line in body.split('\n')) {
+      final trimmed = line.trim();
+      if (!trimmed.startsWith(_streamInf)) continue;
+      final audio = _attributes(trimmed)['AUDIO'];
+      if (audio != null && audio.isNotEmpty) groups.add(audio);
+    }
+    if (groups.isEmpty) return false;
+    for (final tag in _mediaTag.allMatches(body)) {
+      final attrs = _attributes(tag.group(1) ?? '');
+      if (attrs['TYPE'] != 'AUDIO') continue;
+      if (groups.contains(attrs['GROUP-ID'])) return true;
+    }
+    return false;
+  }
+
+  static List<Track> _parseRenditions(String body, Uri masterUrl, String type) {
+    final out = <Track>[];
+    for (final tag in _mediaTag.allMatches(body)) {
+      final attrs = _attributes(tag.group(1) ?? '');
+      if (attrs['TYPE'] != type) continue;
+      final uri = attrs['URI'];
+      if (uri == null || uri.isEmpty) continue;
+      final name = (attrs['NAME'] ?? attrs['LANGUAGE'] ?? '').trim();
+      out.add(
+        Track(
+          file: masterUrl.resolve(uri).toString(),
+          label: name.isEmpty ? attrs['LANGUAGE'] : name,
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Splits an attribute list (`KEY="v",KEY2=v2`) without breaking on commas
+  /// inside quoted values.
+  static Map<String, String> _attributes(String raw) {
+    final out = <String, String>{};
+    final buffer = StringBuffer();
+    final parts = <String>[];
+    var quoted = false;
+    for (final unit in raw.runes) {
+      final char = String.fromCharCode(unit);
+      if (char == '"') quoted = !quoted;
+      if (char == ',' && !quoted) {
+        parts.add(buffer.toString());
+        buffer.clear();
+        continue;
+      }
+      buffer.write(char);
+    }
+    if (buffer.isNotEmpty) parts.add(buffer.toString());
+    for (final part in parts) {
+      final eq = part.indexOf('=');
+      if (eq <= 0) continue;
+      final key = part.substring(0, eq).trim();
+      var value = part.substring(eq + 1).trim();
+      if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+        value = value.substring(1, value.length - 1);
+      }
+      out[key] = value;
+    }
+    return out;
   }
 
   static String? _labelFor(String? name, int? height, int? bandwidth) {
@@ -148,6 +242,44 @@ Future<List<Video>> expandHlsVariants(
   final variants = HlsVariantResolver.parseMaster(body, masterUrl: masterUri);
   if (variants.isEmpty) return videos;
 
+  // A master whose variants reference an audio group keeps its audio in
+  // separate `#EXT-X-MEDIA` playlists. Opening a variant then plays (and
+  // downloads) silent, because only the master names the audio rendition.
+  // Keep every master entry as the extension sent it — those entries are the
+  // audio-language choices — and attach the rendition list so the downloader
+  // can mux it.
+  if (HlsVariantResolver.hasSeparateAudio(body)) {
+    final audios = HlsVariantResolver.parseAudioRenditions(
+      body,
+      masterUrl: masterUri,
+    );
+    final subs = HlsVariantResolver.parseSubtitleRenditions(
+      body,
+      masterUrl: masterUri,
+    );
+    final topLabel = variants
+        .where((variant) => variant.bandwidth != null)
+        .fold<HlsVariant?>(null, (best, variant) =>
+            best == null || variant.bandwidth! > best.bandwidth!
+                ? variant
+                : best)
+        ?.label;
+    final masterPath = master.url.split('?').first;
+    return [
+      for (final video in videos)
+        video.url.split('?').first == masterPath
+            ? Video(
+                video.url,
+                _withTopLabel(video.quality, topLabel),
+                video.originalUrl,
+                headers: video.headers,
+                subtitles: subs.isNotEmpty ? subs : video.subtitles,
+                audios: audios,
+              )
+            : video,
+    ];
+  }
+
   // Ascending bitrate: the entries double as fallbacks for the adaptive
   // master, and a fallback should step *down* rather than land on a rendition
   // as heavy as the one that just failed.
@@ -194,6 +326,15 @@ Future<List<Video>> expandHlsVariants(
 bool _looksLikeHls(Video video) {
   final url = video.url.toLowerCase();
   return url.contains('.m3u8') || video.quality.toLowerCase() == 'auto';
+}
+
+/// Replaces an opaque adaptive label ("Auto") with the real top resolution,
+/// keeping any label the extension already made meaningful (a language, say).
+String _withTopLabel(String quality, String? topLabel) {
+  final trimmed = quality.trim();
+  if (topLabel == null || topLabel.isEmpty) return quality;
+  if (trimmed.isEmpty || trimmed.toLowerCase() == 'auto') return topLabel;
+  return quality;
 }
 
 /// Short-lived cache of fetched playlist bodies.
