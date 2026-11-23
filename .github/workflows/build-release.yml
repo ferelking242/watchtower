@@ -366,19 +366,23 @@ jobs:
             2>/dev/null || true)
           CHANGELOG=""
           if [ -n "$PREV" ]; then
-            CHANGELOG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-              -f tag_name="$TAG" -f previous_tag_name="$PREV" --jq .body \
-              2>/dev/null || true)
-          else
-            CHANGELOG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-              -f tag_name="$TAG" --jq .body 2>/dev/null || true)
+            git fetch --depth=1 origin "refs/tags/${PREV}:refs/tags/${PREV}" \
+              >/dev/null 2>&1 || true
+            CHANGELOG=$(git log --pretty='- %s' "${PREV}..HEAD" 2>/dev/null \
+              | head -n 40 || true)
+          fi
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG=$(git log --pretty='- %s' -n 15 HEAD)
           fi
           NOTES=$(mktemp)
           {
-            printf '%s\n\n' "$CHANGELOG"
+            printf "## Nouveautés\n\n%s\n\n" "$CHANGELOG"
             printf "APK Android arm64 construit depuis \`main\`.\n\n"
             printf "SHA-256 : %s\n" "$SUM"
             printf "Taille : %s octets (exactement — un fichier plus petit est tronqué).\n" "$BYTES"
+            if [ -n "$PREV" ]; then
+              printf "\n**Comparaison** : https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...${TAG}\n"
+            fi
           } > "$NOTES"
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
           git push origin ":refs/tags/${TAG}" 2>/dev/null || true
