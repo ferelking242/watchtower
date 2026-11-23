@@ -1391,8 +1391,12 @@ jobs:
           git push origin "$TAG"
           gh release create "$TAG" dist/* \
             --title "Watchtower ${{ steps.ver.outputs.name }}" \
-            --notes-file RELEASE_NOTES.md \
-            --latest
+            --notes-file RELEASE_NOTES.md
+          # The Android CI build (build-release.yml) owns the "Latest" badge:
+          # both workflows use their own run counter, so letting this one win
+          # left the badge on an older build than the published APK.
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/tags/$TAG" \
+            -F make_latest=false >/dev/null
 
       - name: Notify ntfy (release published)
         if: success()
