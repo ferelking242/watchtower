@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
-import 'package:watchtower/services/app_updater/app_update_service.dart';
+import 'package:watchtower/services/app_updater/app_update_service.dart'
+    if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/services/app_updater/update_models.dart';
 
 /// Single update screen: changelog, centered download button, background
