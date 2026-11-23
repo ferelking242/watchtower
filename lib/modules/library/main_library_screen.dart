@@ -62,19 +62,18 @@ const _kArcHeight = 46.0;
 const _kArcFrontCentreX = _kArcSideSize / 2 + _kArcStep;
 
 // ─── App-bar action button size ──────────────────────────────────────────────
-// The right-hand actions are a *secondary* cluster next to the type arc, so
-// they sit one step smaller (40 vs 44) and tighter (6 vs the arc's gap): equal
-// discs made the two ends compete, and a looser gap read as three unrelated
-// buttons. Their glyphs stay at 20 px so the difference is proportion, not
-// legibility.
-const _kActionBtnSize = 40.0;
-const _kActionBtnIconSize = 20.0;
-const _kActionBtnGap = 6.0;
+// Same 44 px disc as the front type circle so both ends of the header sit at
+// one level, with a glyph one step larger (23 vs 22): the left cluster leads
+// with a filled circle, so an equal-size ghost disc reads smaller. The gap is
+// wider than the arc's so three separate actions never look like one cluster.
+const _kActionBtnSize = 44.0;
+const _kActionBtnIconSize = 23.0;
+const _kActionBtnGap = 10.0;
 
-/// The arc is a circle plus a label hanging below it, while the action row is
-/// just discs. Centring both against the same 60 px row leaves the buttons a
-/// few pixels under the circle's optical centre; this lifts them back up.
-const _kActionRowBaselineLift = 5.0;
+/// The arc column is a 46 px circle band plus a 14 px label, so the circle
+/// centres at y = 23 while a bare 44 px disc centres at y = 30. This bottom
+/// padding lifts the action row back onto the circle baseline (30 - b/2 = 23).
+const _kActionRowBaselineLift = 14.0;
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 class MainLibraryScreen extends ConsumerStatefulWidget {
