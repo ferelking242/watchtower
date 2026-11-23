@@ -2824,6 +2824,45 @@ class AppLocalizationsPt extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'Ao vivo';
+
+  @override
+  String get marketplace_live_title => 'TV ao vivo';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Os fornecedores são dados, não código: instalar apenas adiciona uma lista.';
+
+  @override
+  String get marketplace_live_installed => 'Instalados';
+
+  @override
+  String get marketplace_live_available => 'Disponíveis';
+
+  @override
+  String get marketplace_live_empty =>
+      'Nenhum outro fornecedor publicado por agora.';
+
+  @override
+  String get marketplace_live_disabled => 'Desativado';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count canais',
+      one: '$count canal',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name instalado';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override
@@ -16033,6 +16072,45 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get catalog_tab_novels => 'Novels';
+
+  @override
+  String get catalog_tab_live => 'Ao vivo';
+
+  @override
+  String get marketplace_live_title => 'TV ao vivo';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Os provedores são dados, não código: instalar apenas adiciona uma lista.';
+
+  @override
+  String get marketplace_live_installed => 'Instalados';
+
+  @override
+  String get marketplace_live_available => 'Disponíveis';
+
+  @override
+  String get marketplace_live_empty =>
+      'Nenhum outro provedor publicado por enquanto.';
+
+  @override
+  String get marketplace_live_disabled => 'Desativado';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count canais',
+      one: '$count canal',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name instalado';
+  }
 
   @override
   String get marketplace_search_results => 'Search results';

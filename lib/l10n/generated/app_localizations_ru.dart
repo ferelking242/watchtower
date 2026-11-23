@@ -2837,6 +2837,47 @@ class AppLocalizationsRu extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'Прямой эфир';
+
+  @override
+  String get marketplace_live_title => 'Прямой эфир';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Провайдеры — это данные, а не код: установка лишь добавляет плейлист.';
+
+  @override
+  String get marketplace_live_installed => 'Установлены';
+
+  @override
+  String get marketplace_live_available => 'Доступны';
+
+  @override
+  String get marketplace_live_empty =>
+      'Других провайдеров сейчас не опубликовано.';
+
+  @override
+  String get marketplace_live_disabled => 'Отключён';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count канала',
+      many: '$count каналов',
+      few: '$count канала',
+      one: '$count канал',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name установлен';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

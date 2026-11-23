@@ -2798,6 +2798,43 @@ class AppLocalizationsTh extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'ถ่ายทอดสด';
+
+  @override
+  String get marketplace_live_title => 'ทีวีสด';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'ผู้ให้บริการเป็นข้อมูล ไม่ใช่โค้ด การติดตั้งเพียงเพิ่มเพลย์ลิสต์';
+
+  @override
+  String get marketplace_live_installed => 'ติดตั้งแล้ว';
+
+  @override
+  String get marketplace_live_available => 'พร้อมใช้งาน';
+
+  @override
+  String get marketplace_live_empty => 'ยังไม่มีผู้ให้บริการอื่นที่เผยแพร่';
+
+  @override
+  String get marketplace_live_disabled => 'ปิดใช้งาน';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ช่อง',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return 'ติดตั้ง $name แล้ว';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

@@ -16,6 +16,8 @@ import 'package:watchtower/models/catalog_entry.dart';
 import 'package:watchtower/modules/browse/marketplace_palette.dart';
 import 'package:watchtower/modules/browse/marketplace_search_filter.dart';
 import 'package:watchtower/modules/browse/marketplace_skeleton.dart';
+import 'package:watchtower/modules/browse/marketplace_tabs.dart';
+import 'package:watchtower/modules/browse/widgets/marketplace_live_section.dart';
 import 'package:watchtower/models/catalog_shelf.dart';
 import 'package:watchtower/models/catalog_taxonomy.dart';
 import 'package:watchtower/models/manga.dart';
@@ -5148,14 +5150,21 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
       return entry.searchText.contains(query);
     }).toList();
 
-    switch (_tab) {
-      case 1:
-      case 2:
-      case 3:
-      case 4:
-      case 5:
-        list = list.where(_tabMatches).toList();
-        break;
+    if (_tab == _kLiveTab) {
+      // Live providers are not extension entries: the tab renders its own
+      // section, so no catalogue row must leak into it. A search started from
+      // this tab still queries the whole catalogue, like everywhere else.
+      if (!_searching) list = const [];
+    } else {
+      switch (_tab) {
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+        case 5:
+          list = list.where(_tabMatches).toList();
+          break;
+      }
     }
     list.sort((a, b) {
       final aNeedsUpdate = _hasUpdate(a);
@@ -5205,6 +5214,8 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   }
 
   bool _tabMatches(_ExtEntry entry) {
+    // Live providers are not extension entries, so nothing matches this tab.
+    if (_tab == _kLiveTab) return false;
     // Routed on the raw `itemType`, not [ItemType]: subtitle providers publish
     // itemType 7, which the enum cannot represent and which would otherwise
     // fall through to the wrong tab. Legacy entries default their itemType to
@@ -5240,23 +5251,16 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
     return updates;
   }
 
-  static const _tabIcons = [
-    Broken.category,
-    Broken.video,
-    Broken.bookmark,
-    Broken.musicnote,
-    Broken.game,
-    Broken.book_1,
+  /// Live providers are published in their own index and are not `_ExtEntry`
+  /// records, so this tab renders its own section instead of catalogue rows.
+  static int get _kLiveTab => marketplaceLiveTabIndex;
+
+  static List<IconData> get _tabIcons => [
+    for (final tab in MarketplaceTab.values) tab.icon,
   ];
 
-  /// Tab captions, in the same order as [_tabIcons].
   static List<String> _tabLabelsFor(AppLocalizations l10n) => [
-    l10n.catalog_tab_for_you,
-    l10n.catalog_tab_watch,
-    l10n.catalog_tab_manga,
-    l10n.catalog_tab_music,
-    l10n.catalog_tab_games,
-    l10n.catalog_tab_novels,
+    for (final tab in MarketplaceTab.values) tab.label(l10n),
   ];
 
   void _selectTab(int tab) {
@@ -5299,6 +5303,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   /// replaces the hard-coded "Midnight World" / "Midnight Library" rows the
   /// discovery page used to append by hand.
   List<CatalogShelfSpec> _specsForTab(int tab) {
+    if (tab == _kLiveTab) return const <CatalogShelfSpec>[];
     final base = switch (tab) {
       1 => CatalogShelves.watch,
       2 => CatalogShelves.read,
@@ -5539,7 +5544,9 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
         slivers: [
           SliverToBoxAdapter(child: _buildHeader()),
           if (!_searching) _buildTabs(),
-          if (widget.error != null && widget.entries.isEmpty)
+          if (!_searching && _tab == _kLiveTab)
+            const SliverToBoxAdapter(child: MarketplaceLiveSection())
+          else if (widget.error != null && widget.entries.isEmpty)
             SliverFillRemaining(hasScrollBody: false, child: _buildError())
           else if (widget.loading && widget.entries.isEmpty)
             const SliverToBoxAdapter(child: MarketplaceSkeleton())
@@ -5887,6 +5894,7 @@ class _PlayStoreMarketplaceViewState extends State<_PlayStoreMarketplaceView> {
   /// entries in the same deterministic order as its shelves.
   List<_ExtEntry> _featuredForTab(int tab) {
     if (tab == 0) return _featured;
+    if (tab == _kLiveTab) return const [];
     final builder = _shelfBuilder;
     final scoped = _visible.where(_tabMatches).toList();
     if (scoped.isEmpty) return const [];

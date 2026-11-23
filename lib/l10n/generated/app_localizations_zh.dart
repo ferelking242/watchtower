@@ -2731,6 +2731,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => '直播';
+
+  @override
+  String get marketplace_live_title => '直播电视';
+
+  @override
+  String get marketplace_live_subtitle => '提供方是数据而非代码：安装只会添加一个播放列表。';
+
+  @override
+  String get marketplace_live_installed => '已安装';
+
+  @override
+  String get marketplace_live_available => '可用';
+
+  @override
+  String get marketplace_live_empty => '目前没有发布其他提供方。';
+
+  @override
+  String get marketplace_live_disabled => '已禁用';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个频道',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name 已安装';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

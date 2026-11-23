@@ -6,9 +6,10 @@ import 'package:watchtower/modules/live_tv/providers/live_providers.dart';
 
 /// The Live TV catalogue: providers published by the extension repository.
 ///
-/// This is the Live TV counterpart of the Marketplace's Watch tab. Installing
-/// here writes a provider record; it never downloads code, because a provider
-/// is data (a playlist URL or a bundled asset path).
+/// The same catalogue the Marketplace's Live tab shows, reachable from inside
+/// the Live TV module. Installing here writes a provider record; it never
+/// downloads code, because a provider is data (a playlist URL or a bundled
+/// asset path).
 class LiveCatalogSheet extends ConsumerWidget {
   const LiveCatalogSheet({super.key});
 

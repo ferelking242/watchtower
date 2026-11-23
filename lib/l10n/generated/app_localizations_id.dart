@@ -2807,6 +2807,45 @@ class AppLocalizationsId extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'Siaran Langsung';
+
+  @override
+  String get marketplace_live_title => 'TV Langsung';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Penyedia adalah data, bukan kode: memasangnya hanya menambah daftar putar.';
+
+  @override
+  String get marketplace_live_installed => 'Terpasang';
+
+  @override
+  String get marketplace_live_available => 'Tersedia';
+
+  @override
+  String get marketplace_live_empty =>
+      'Belum ada penyedia lain yang diterbitkan.';
+
+  @override
+  String get marketplace_live_disabled => 'Dinonaktifkan';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count saluran',
+      one: '$count saluran',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name terpasang';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

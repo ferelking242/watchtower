@@ -2830,6 +2830,45 @@ class AppLocalizationsFr extends AppLocalizations {
   String get catalog_tab_novels => 'Romans';
 
   @override
+  String get catalog_tab_live => 'Direct';
+
+  @override
+  String get marketplace_live_title => 'Télévision en direct';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Les fournisseurs sont des données, pas du code : installer n\'ajoute qu\'une playlist.';
+
+  @override
+  String get marketplace_live_installed => 'Installés';
+
+  @override
+  String get marketplace_live_available => 'Disponibles';
+
+  @override
+  String get marketplace_live_empty =>
+      'Aucun autre fournisseur n\'est publié pour le moment.';
+
+  @override
+  String get marketplace_live_disabled => 'Désactivé';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chaînes',
+      one: '$count chaîne',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name installé';
+  }
+
+  @override
   String get marketplace_search_results => 'Résultats de recherche';
 
   @override

@@ -2798,6 +2798,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'Live';
+
+  @override
+  String get marketplace_live_title => 'Live TV';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Providers are data, not code: installing one only adds a playlist.';
+
+  @override
+  String get marketplace_live_installed => 'Installed';
+
+  @override
+  String get marketplace_live_available => 'Available';
+
+  @override
+  String get marketplace_live_empty =>
+      'No other provider is published right now.';
+
+  @override
+  String get marketplace_live_disabled => 'Disabled';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count channels',
+      one: '$count channel',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name installed';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

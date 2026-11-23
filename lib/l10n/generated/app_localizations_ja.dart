@@ -2769,6 +2769,43 @@ class AppLocalizationsJa extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'ライブ';
+
+  @override
+  String get marketplace_live_title => 'ライブTV';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'プロバイダーはコードではなくデータです。インストールしてもプレイリストが追加されるだけです。';
+
+  @override
+  String get marketplace_live_installed => 'インストール済み';
+
+  @override
+  String get marketplace_live_available => '利用可能';
+
+  @override
+  String get marketplace_live_empty => '現在公開されている他のプロバイダーはありません。';
+
+  @override
+  String get marketplace_live_disabled => '無効';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$countチャンネル',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name をインストールしました';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

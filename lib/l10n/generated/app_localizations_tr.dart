@@ -2810,6 +2810,45 @@ class AppLocalizationsTr extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'Canlı';
+
+  @override
+  String get marketplace_live_title => 'Canlı TV';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Sağlayıcılar kod değil veridir: kurmak yalnızca bir oynatma listesi ekler.';
+
+  @override
+  String get marketplace_live_installed => 'Kurulu';
+
+  @override
+  String get marketplace_live_available => 'Kullanılabilir';
+
+  @override
+  String get marketplace_live_empty =>
+      'Şu anda yayınlanmış başka sağlayıcı yok.';
+
+  @override
+  String get marketplace_live_disabled => 'Devre dışı';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count kanal',
+      one: '$count kanal',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name kuruldu';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

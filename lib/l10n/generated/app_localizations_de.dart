@@ -2819,6 +2819,45 @@ class AppLocalizationsDe extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'Live';
+
+  @override
+  String get marketplace_live_title => 'Live-TV';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'Anbieter sind Daten, kein Code: Installieren fügt nur eine Playlist hinzu.';
+
+  @override
+  String get marketplace_live_installed => 'Installiert';
+
+  @override
+  String get marketplace_live_available => 'Verfügbar';
+
+  @override
+  String get marketplace_live_empty =>
+      'Derzeit ist kein weiterer Anbieter veröffentlicht.';
+
+  @override
+  String get marketplace_live_disabled => 'Deaktiviert';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Sender',
+      one: '$count Sender',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name installiert';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override

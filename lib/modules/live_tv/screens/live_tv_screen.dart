@@ -20,8 +20,8 @@ enum LiveTab { home, guide, favorites, settings }
 /// The whole module lives behind one broken-hamburger drawer: a home with Top
 /// Picks and the channel list, the EPG guide, favourites, and settings. There is
 /// deliberately no extension marketplace here — providers are installed from
-/// the Marketplace's Watch section, so this screen only ever shows what the
-/// user already has.
+/// the Marketplace's Live tab, so this screen only ever shows what the user
+/// already has.
 class LiveTvScreen extends ConsumerStatefulWidget {
   const LiveTvScreen({super.key, this.initialTab = LiveTab.home});
 

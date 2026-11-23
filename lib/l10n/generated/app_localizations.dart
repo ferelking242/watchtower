@@ -5219,6 +5219,60 @@ abstract class AppLocalizations {
   /// **'Novels'**
   String get catalog_tab_novels;
 
+  /// No description provided for @catalog_tab_live.
+  ///
+  /// In en, this message translates to:
+  /// **'Live'**
+  String get catalog_tab_live;
+
+  /// No description provided for @marketplace_live_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Live TV'**
+  String get marketplace_live_title;
+
+  /// No description provided for @marketplace_live_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Providers are data, not code: installing one only adds a playlist.'**
+  String get marketplace_live_subtitle;
+
+  /// No description provided for @marketplace_live_installed.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed'**
+  String get marketplace_live_installed;
+
+  /// No description provided for @marketplace_live_available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get marketplace_live_available;
+
+  /// No description provided for @marketplace_live_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No other provider is published right now.'**
+  String get marketplace_live_empty;
+
+  /// No description provided for @marketplace_live_disabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get marketplace_live_disabled;
+
+  /// No description provided for @marketplace_live_channels.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} channel} other{{count} channels}}'**
+  String marketplace_live_channels(num count);
+
+  /// No description provided for @marketplace_live_installed_toast.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} installed'**
+  String marketplace_live_installed_toast(Object name);
+
   /// No description provided for @marketplace_search_results.
   ///
   /// In en, this message translates to:

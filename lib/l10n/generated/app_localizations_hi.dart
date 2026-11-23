@@ -2802,6 +2802,44 @@ class AppLocalizationsHi extends AppLocalizations {
   String get catalog_tab_novels => 'Novels';
 
   @override
+  String get catalog_tab_live => 'लाइव';
+
+  @override
+  String get marketplace_live_title => 'लाइव टीवी';
+
+  @override
+  String get marketplace_live_subtitle =>
+      'प्रदाता डेटा हैं, कोड नहीं: इंस्टॉल करने से केवल एक प्लेलिस्ट जुड़ती है।';
+
+  @override
+  String get marketplace_live_installed => 'इंस्टॉल किए गए';
+
+  @override
+  String get marketplace_live_available => 'उपलब्ध';
+
+  @override
+  String get marketplace_live_empty => 'अभी कोई अन्य प्रदाता प्रकाशित नहीं है।';
+
+  @override
+  String get marketplace_live_disabled => 'अक्षम';
+
+  @override
+  String marketplace_live_channels(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count चैनल',
+      one: '$count चैनल',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String marketplace_live_installed_toast(Object name) {
+    return '$name इंस्टॉल हो गया';
+  }
+
+  @override
   String get marketplace_search_results => 'Search results';
 
   @override
