@@ -348,6 +348,8 @@ jobs:
             --title "Watchtower Android (latest)" \
             --notes-file "$NOTES" \
             --prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Versioned release so the repository has a real "Latest" Android build
       # with its changelog. Without it the Latest badge stayed on the last
@@ -387,7 +389,7 @@ jobs:
             --latest
           echo "Published $TAG as the latest release"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Dart symbol files
         if: always()
