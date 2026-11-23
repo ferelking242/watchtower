@@ -80,6 +80,39 @@ class ClientSettings {
           : dnsSettings,
     );
   }
+
+  /// Value equality over the fields that actually reach the native client.
+  ///
+  /// `MClient` pools one native HTTP client per [ClientSettings]. Without this
+  /// every call built a fresh instance, the identity-keyed pool missed, and a
+  /// new reqwest client (with its own connection pool, TLS config and DNS
+  /// cache) was registered in Rust for **every** request — an unbounded native
+  /// leak that also defeated connection reuse.
+  ///
+  /// [timeout] and [baseUrl] are deliberately excluded: neither is part of
+  /// `toRustType()` (`baseUrl` is prefixed per request and `timeout` is unused
+  /// by the native path), so including them would split the pool again on
+  /// every distinct per-request timeout.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ClientSettings &&
+          other.timeoutSettings == timeoutSettings &&
+          other.throwOnStatusCode == throwOnStatusCode &&
+          other.proxySettings == proxySettings &&
+          other.redirectSettings == redirectSettings &&
+          other.tlsSettings == tlsSettings &&
+          other.dnsSettings == dnsSettings;
+
+  @override
+  int get hashCode => Object.hash(
+    timeoutSettings,
+    throwOnStatusCode,
+    proxySettings,
+    redirectSettings,
+    tlsSettings,
+    dnsSettings,
+  );
 }
 
 sealed class ProxySettings {
@@ -91,6 +124,12 @@ sealed class ProxySettings {
 
 class NoProxy extends ProxySettings {
   const NoProxy._();
+
+  @override
+  bool operator ==(Object other) => other is NoProxy;
+
+  @override
+  int get hashCode => (NoProxy).hashCode;
 }
 
 sealed class RedirectSettings {
@@ -106,6 +145,12 @@ sealed class RedirectSettings {
 /// Disables any redirects.
 class NoRedirectSetting extends RedirectSettings {
   const NoRedirectSetting._();
+
+  @override
+  bool operator ==(Object other) => other is NoRedirectSetting;
+
+  @override
+  int get hashCode => (NoRedirectSetting).hashCode;
 }
 
 /// Limits the number of redirects.
@@ -113,6 +158,13 @@ class LimitedRedirects extends RedirectSettings {
   final int maxRedirects;
 
   const LimitedRedirects._(this.maxRedirects);
+
+  @override
+  bool operator ==(Object other) =>
+      other is LimitedRedirects && other.maxRedirects == maxRedirects;
+
+  @override
+  int get hashCode => Object.hash(LimitedRedirects, maxRedirects);
 }
 
 /// TLS settings for the client.
@@ -151,6 +203,38 @@ class TlsSettings {
     this.minTlsVersion,
     this.maxTlsVersion,
   });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! TlsSettings ||
+        other.trustRootCertificates != trustRootCertificates ||
+        other.verifyCertificates != verifyCertificates ||
+        other.clientCertificate != clientCertificate ||
+        other.minTlsVersion != minTlsVersion ||
+        other.maxTlsVersion != maxTlsVersion ||
+        other.trustedRootCertificates.length !=
+            trustedRootCertificates.length) {
+      return false;
+    }
+    for (var i = 0; i < trustedRootCertificates.length; i++) {
+      if (other.trustedRootCertificates[i] != trustedRootCertificates[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    TlsSettings,
+    trustRootCertificates,
+    verifyCertificates,
+    clientCertificate,
+    minTlsVersion,
+    maxTlsVersion,
+    Object.hashAll(trustedRootCertificates),
+  );
 }
 
 /// A client certificate for client authentication / mutual TLS.
@@ -165,6 +249,15 @@ class ClientCertificate {
     required this.certificate,
     required this.privateKey,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      other is ClientCertificate &&
+      other.certificate == certificate &&
+      other.privateKey == privateKey;
+
+  @override
+  int get hashCode => Object.hash(ClientCertificate, certificate, privateKey);
 }
 
 sealed class CustomProxy extends ProxySettings {
@@ -188,6 +281,13 @@ class StaticProxy extends CustomProxy {
 
   const StaticProxy.all(String url)
     : this(url: url, condition: ProxyCondition.all);
+
+  @override
+  bool operator ==(Object other) =>
+      other is StaticProxy && other.url == url && other.condition == condition;
+
+  @override
+  int get hashCode => Object.hash(StaticProxy, url, condition);
 }
 
 class CustomProxyList extends ProxySettings {
@@ -196,6 +296,19 @@ class CustomProxyList extends ProxySettings {
   final List<CustomProxy> proxies;
 
   const CustomProxyList(this.proxies);
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! CustomProxyList) return false;
+    if (other.proxies.length != proxies.length) return false;
+    for (var i = 0; i < proxies.length; i++) {
+      if (other.proxies[i] != proxies[i]) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hashAll([CustomProxyList, ...proxies]);
 }
 
 enum ProxyCondition {
@@ -245,6 +358,19 @@ class TimeoutSettings {
       keepAlivePing: keepAlivePing ?? this.keepAlivePing,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TimeoutSettings &&
+      other.timeout == timeout &&
+      other.connectTimeout == connectTimeout &&
+      other.keepAliveTimeout == keepAliveTimeout &&
+      other.keepAlivePing == keepAlivePing;
+
+  @override
+  int get hashCode =>
+      Object.hash(TimeoutSettings, timeout, connectTimeout, keepAliveTimeout,
+          keepAlivePing);
 }
 
 sealed class DnsSettings {
@@ -274,6 +400,35 @@ class StaticDnsSettings extends DnsSettings {
   final String? fallback;
 
   const StaticDnsSettings._({this.overrides = const {}, this.fallback});
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! StaticDnsSettings ||
+        other.fallback != fallback ||
+        other.overrides.length != overrides.length) {
+      return false;
+    }
+    for (final entry in overrides.entries) {
+      final otherIps = other.overrides[entry.key];
+      if (otherIps == null || otherIps.length != entry.value.length) {
+        return false;
+      }
+      for (var i = 0; i < entry.value.length; i++) {
+        if (otherIps[i] != entry.value[i]) return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    StaticDnsSettings,
+    fallback,
+    Object.hashAll([
+      for (final entry in overrides.entries)
+        Object.hash(entry.key, Object.hashAll(entry.value)),
+    ]),
+  );
 }
 
 /// Dynamic DNS settings and resolver.
@@ -282,6 +437,16 @@ class DynamicDnsSettings extends DnsSettings {
   final Future<List<String>> Function(String host) resolver;
 
   const DynamicDnsSettings._({required this.resolver});
+
+  // The resolver is a closure, so two instances are only interchangeable when
+  // they share it. `MClient` caches one instance per DoH provider so the pool
+  // key stays stable across requests.
+  @override
+  bool operator ==(Object other) =>
+      other is DynamicDnsSettings && identical(other.resolver, resolver);
+
+  @override
+  int get hashCode => Object.hash(DynamicDnsSettings, identityHashCode(resolver));
 }
 
 extension ClientSettingsExt on ClientSettings {

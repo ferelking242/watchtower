@@ -155,9 +155,11 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
   Future<void> _openArchiveItem(ArchiveItem item) async {
     try {
       final fileObj = _archive!.files.firstWhere((f) => _normalizePath(f.name) == item.fullPath);
-      final tempDir = Directory.systemTemp.createTempSync('zip_preview');
+      // Async variants: a synchronous temp-file write blocks the UI isolate
+      // while the bytes are copied to disk (freeze on large entries).
+      final tempDir = await Directory.systemTemp.createTemp('zip_preview');
       final tempFile = File(p.join(tempDir.path, item.name));
-      tempFile.writeAsBytesSync(fileObj.content as List<int>);
+      await tempFile.writeAsBytes(fileObj.content as List<int>, flush: true);
 
       if (mounted) {
         final provider = context.read<FileManagerProvider>();
@@ -178,15 +180,15 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
       if (!item.isDirectory) {
         final fileObj = _archive!.files.firstWhere((f) => _normalizePath(f.name) == item.fullPath);
         final destFile = File(p.join(destDir, item.name));
-        destFile.writeAsBytesSync(fileObj.content as List<int>);
+        await destFile.writeAsBytes(fileObj.content as List<int>, flush: true);
       } else {
         for (final f in _archive!.files) {
           final name = _normalizePath(f.name);
           if (name.startsWith(item.fullPath) && f.isFile) {
             final rel = name.substring(item.fullPath.length);
             final destFile = File(p.join(destDir, item.name, rel));
-            destFile.createSync(recursive: true);
-            destFile.writeAsBytesSync(f.content as List<int>);
+            await destFile.create(recursive: true);
+            await destFile.writeAsBytes(f.content as List<int>, flush: true);
           }
         }
       }
@@ -206,7 +208,7 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final tempDir = Directory.systemTemp.createTempSync('archive_clipboard');
+      final tempDir = await Directory.systemTemp.createTemp('archive_clipboard');
       final List<String> physicalPaths = [];
 
       for (final internalPath in _selectedInternalPaths) {
@@ -215,12 +217,12 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
           final fileObj = _archive!.files.firstWhere((f) => _normalizePath(f.name) == internalPath);
           final fileName = p.basename(internalPath);
           final physicalFile = File(p.join(tempDir.path, fileName));
-          physicalFile.writeAsBytesSync(fileObj.content as List<int>);
+          await physicalFile.writeAsBytes(fileObj.content as List<int>, flush: true);
           physicalPaths.add(physicalFile.path);
         } else {
           final folderName = p.basename(internalPath.substring(0, internalPath.length - 1));
           final targetSubDir = Directory(p.join(tempDir.path, folderName));
-          targetSubDir.createSync(recursive: true);
+          await targetSubDir.create(recursive: true);
           physicalPaths.add(targetSubDir.path);
 
           for (final f in _archive!.files) {
@@ -228,8 +230,8 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
             if (name.startsWith(internalPath) && f.isFile) {
               final rel = name.substring(internalPath.length);
               final destFile = File(p.join(targetSubDir.path, rel));
-              destFile.createSync(recursive: true);
-              destFile.writeAsBytesSync(f.content as List<int>);
+              await destFile.create(recursive: true);
+              await destFile.writeAsBytes(f.content as List<int>, flush: true);
             }
           }
         }
@@ -305,11 +307,11 @@ class _ArchiveViewerScreenState extends State<ArchiveViewerScreen> {
       int successCount = 0;
 
       for (final path in selectedPaths) {
-        final type = FileSystemEntity.typeSync(path);
+        final type = await FileSystemEntity.type(path);
         if (type == FileSystemEntityType.directory) {
           final dir = Directory(path);
           final folderBaseName = p.basename(path);
-          final entities = dir.listSync(recursive: true);
+          final entities = await dir.list(recursive: true).toList();
 
           for (final entity in entities) {
             if (entity is File) {

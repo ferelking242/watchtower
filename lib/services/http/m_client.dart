@@ -56,6 +56,21 @@ class MClient {
       ..connectionTimeout = const Duration(seconds: 30),
   );
   static final Map<rhttp.ClientSettings, Client> rhttpPool = {};
+
+  /// Hard cap on pooled native clients.
+  ///
+  /// [rhttp.ClientSettings] now has value equality, so the pool holds one
+  /// client per real configuration (default, no-proxy, DoH, no-verify TLS …)
+  /// instead of one per call. A misbehaving extension can still vary its
+  /// per-request `connectTimeout` without bound; past this cap the client is
+  /// created for that request only and released with the Dart handle, which
+  /// keeps the static map — and the Rust-side client registry behind it —
+  /// from growing forever.
+  static const int maxPooledRhttpClients = 12;
+
+  /// One cached [DnsSettings] per DoH provider, so the closure inside it keeps
+  /// a stable identity and the pool key does not change per lookup.
+  static final Map<String, DnsSettings> _dohDnsSettings = {};
   static List<MCookie>? _workerCookieSnapshot;
   static String? _workerUserAgentSnapshot;
   static int? _workerExtensionSessionId;
@@ -190,9 +205,17 @@ class MClient {
             verifyCertificates: reqcopyWith?["verifyCertificates"] ?? true,
           ),
         );
-        return rhttpPool.putIfAbsent(settings, () {
-          return rhttp.RhttpCompatibleClient.createSync(settings: settings);
-        });
+        final pooled = rhttpPool[settings];
+        if (pooled != null) return pooled;
+        final created = rhttp.RhttpCompatibleClient.createSync(
+          settings: settings,
+        );
+        // Past the cap the client is request-scoped: it still works, but the
+        // static pool stops growing.
+        if (rhttpPool.length < maxPooledRhttpClients) {
+          rhttpPool[settings] = created;
+        }
+        return created;
       } catch (_) {}
     }
     return defaultClient;
@@ -224,13 +247,20 @@ class MClient {
       // Use DoH resolver with specific provider
       final provider = DoHProviders.byId[doHProviderId];
       if (provider != null) {
-        dnsSettings = DnsSettings.dynamic(
-          resolver: (host) => DoHResolver.resolve(host, provider: provider),
+        dnsSettings = _dohDnsSettings.putIfAbsent(
+          'doh:$doHProviderId',
+          () => DnsSettings.dynamic(
+            resolver: (host) => DoHResolver.resolve(host, provider: provider),
+          ),
         );
       }
     } else if (customDns != null && customDns!.trim().isNotEmpty) {
       // Fallback to custom static DNS
-      dnsSettings = DnsSettings.dynamic(resolver: (host) async => [customDns!]);
+      final address = customDns!.trim();
+      dnsSettings = _dohDnsSettings.putIfAbsent(
+        'static:$address',
+        () => DnsSettings.dynamic(resolver: (host) async => [address]),
+      );
     }
 
     // Apply DNS settings if configured

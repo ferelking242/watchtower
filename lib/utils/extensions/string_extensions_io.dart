@@ -132,19 +132,22 @@ extension StringExtensions on String {
 }
 
 extension NativeStringExtensions on List<String> {
+  /// Builds a NULL-terminated `char**` for a native call.
+  ///
+  /// `malloc.allocate` takes a **byte** count, not an element count: passing
+  /// the number of strings allocated `length` bytes for an array of 8-byte
+  /// pointers, so writing the pointers ran 8× past the allocation and
+  /// corrupted the native heap (the `Scudo: corrupted chunk header` abort).
+  /// One extra slot keeps the array NULL-terminated, as C consumers expect.
   Pointer<Pointer<Int8>> strListToPointer() {
-    final strings = this;
-    List<Pointer<Int8>> int8PointerList = strings
-        .map((str) => str.toNativeUtf8().cast<Int8>())
-        .toList();
-
-    final Pointer<Pointer<Int8>> pointerPointer = malloc.allocate(
-      int8PointerList.length,
+    final pointerPointer = malloc.allocate<Pointer<Int8>>(
+      sizeOf<Pointer<Int8>>() * (length + 1),
     );
 
-    strings.asMap().forEach((index, utf) {
-      pointerPointer[index] = int8PointerList[index];
-    });
+    for (var i = 0; i < length; i++) {
+      pointerPointer[i] = this[i].toNativeUtf8().cast<Int8>();
+    }
+    pointerPointer[length] = nullptr;
 
     return pointerPointer;
   }

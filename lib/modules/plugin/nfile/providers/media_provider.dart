@@ -30,6 +30,29 @@ class ThumbnailCache {
   static final Map<String, Future<Uint8List?>> _pending = {};
   static String? _cacheDir;
 
+  /// Bounds on the in-memory cache.
+  ///
+  /// [init] used to read **every** `.thumb` file of the temporary directory
+  /// into `_cache` with `readAsBytesSync` and never evict. After a few thousand
+  /// browsed assets that is hundreds of megabytes of raw image bytes held for
+  /// the whole session, plus a synchronous directory walk on the UI isolate.
+  /// Thumbnails are now read lazily per key and the memory cache is bounded.
+  static const int _maxEntries = 400;
+  static const int _maxBytes = 24 * 1024 * 1024;
+  static int _cacheBytes = 0;
+
+  static void _remember(String key, Uint8List bytes) {
+    final previous = _cache.remove(key);
+    if (previous != null) _cacheBytes -= previous.length;
+    _cache[key] = bytes;
+    _cacheBytes += bytes.length;
+    while (_cache.isNotEmpty &&
+        (_cache.length > _maxEntries || _cacheBytes > _maxBytes)) {
+      final evicted = _cache.remove(_cache.keys.first);
+      if (evicted != null) _cacheBytes -= evicted.length;
+    }
+  }
+
   static Future<void> init() async {
     if (_cacheDir != null) return;
     try {
@@ -39,22 +62,6 @@ class ThumbnailCache {
         await folder.create(recursive: true);
       }
       _cacheDir = folder.path;
-      try {
-        final files = folder.listSync();
-        for (final f in files) {
-          if (f is File && f.path.endsWith('.thumb')) {
-            final key = f.path
-                .split('/')
-                .last
-                .split('\\')
-                .last
-                .replaceAll('.thumb', '');
-            if (!_cache.containsKey(key)) {
-              _cache[key] = f.readAsBytesSync();
-            }
-          }
-        }
-      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
     } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 
@@ -74,7 +81,7 @@ class ThumbnailCache {
         if (await file.exists()) {
           final bytes = await file.readAsBytes();
           if (bytes.isNotEmpty) {
-            _cache[key] = bytes;
+            _remember(key, bytes);
             _pending.remove(key);
             completer.complete(bytes);
             return bytes;
@@ -86,7 +93,7 @@ class ThumbnailCache {
         const ThumbnailSize.square(300),
       );
       if (data != null && data.isNotEmpty) {
-        _cache[key] = data;
+        _remember(key, data);
         if (_cacheDir != null) {
           final sanitizedKey = key.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
           final file = File('$_cacheDir/$sanitizedKey.thumb');
@@ -110,6 +117,7 @@ class ThumbnailCache {
   static void clear() {
     _cache.clear();
     _pending.clear();
+    _cacheBytes = 0;
     if (_cacheDir != null) {
       try {
         Directory(_cacheDir!).deleteSync(recursive: true);
