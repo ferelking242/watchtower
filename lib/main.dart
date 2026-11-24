@@ -17,6 +17,7 @@ import 'package:watchtower/modules/home/services/home_prewarm.dart';
 import 'package:watchtower/modules/manga/download/providers/download_provider.dart';
 import 'package:watchtower/services/settings_store.dart';
 import 'package:watchtower/services/auto_backup_service.dart';
+import 'package:watchtower/services/diagnostics/diagnostics_service.dart';
 import 'package:watchtower/services/cache_storage_manager.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -268,6 +269,7 @@ void main(List<String> args) async {
           'FlutterError: $msg\n${details.stack}',
           logLevel: LogLevel.error,
         );
+        DiagnosticsService.instance.noteError('FlutterError', details.exception);
       };
 
       // In release, a widget that throws during build renders as an empty grey
@@ -291,6 +293,7 @@ void main(List<String> args) async {
           'PlatformDispatcher error: $msg\n$stack',
           logLevel: LogLevel.error,
         );
+        DiagnosticsService.instance.noteError('PlatformDispatcher', error);
         return true; // handled — prevent app termination
       };
 
@@ -639,6 +642,10 @@ Future<void> _postLaunchInit(StorageProvider storage) async {
   } catch (_) {}
   AppLogger.setLoggingEnabled(logsEnabled);
   await AppLogger.init();
+  // Session marker, crash classification and the UI-stall watchdog. Runs even
+  // when the user turned file logging off: it writes one small JSON file and
+  // is what makes the next launch able to say whether this one died.
+  await DiagnosticsService.instance.start();
   // Start the automatic snapshot of the database, Hive boxes and preferences
   // into <storage root>/.backup, so a reinstall can restore everything.
   if (!kIsWeb) unawaited(AutoBackupService.startAutoBackup());
@@ -1089,7 +1096,7 @@ class _MyAppState extends ConsumerState<MyApp>
         child = DesktopZoom(child: child!);
         // Apply the UI scale from Advanced Settings / the zoom gesture. This is
         // watched as a provider so the tree rebuilds the moment it changes.
-        child = UiScaleScope(child: child!);
+        child = UiScaleScope(child: child);
         return child;
       },
       routeInformationParser: router.routeInformationParser,
@@ -1109,6 +1116,10 @@ class _MyAppState extends ConsumerState<MyApp>
     }
     _linkSubscription?.cancel();
     discordRpc?.destroy();
+    // Desktop closes through this path; on Android the service also marks the
+    // session clean when it receives `detached`. Either way the next launch
+    // must not report a crash.
+    unawaited(DiagnosticsService.instance.markCleanShutdown());
     AppLogger.dispose();
     super.dispose();
   }

@@ -18365,6 +18365,30 @@ abstract class AppLocalizations {
   /// **'Share'**
   String get log_viewer_share;
 
+  /// No description provided for @log_viewer_diagnostics_report.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics report'**
+  String get log_viewer_diagnostics_report;
+
+  /// No description provided for @log_viewer_prev_crash.
+  ///
+  /// In en, this message translates to:
+  /// **'The previous session ended unexpectedly'**
+  String get log_viewer_prev_crash;
+
+  /// No description provided for @log_viewer_prev_crash_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Share the diagnostics report so it can be investigated.'**
+  String get log_viewer_prev_crash_hint;
+
+  /// No description provided for @log_viewer_prev_crash_share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share report'**
+  String get log_viewer_prev_crash_share;
+
   /// No description provided for @log_viewer_refresh.
   ///
   /// In en, this message translates to:

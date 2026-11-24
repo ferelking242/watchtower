@@ -114,6 +114,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:watchtower/remote/remote_mode_screen.dart';
 import 'package:watchtower/remote/remote_setup_screen.dart';
+import 'package:watchtower/services/diagnostics/diagnostics_service.dart';
 part 'router.g.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -193,7 +194,13 @@ class RouterCurrentLocationState extends _$RouterCurrentLocationState {
         // not implement _getsLastRouteFromMatches — throws UnimplementedError
         // when the router tries to serialize route info after navigation.
         final location = _currentLocation();
-        if (location != null) state = location;
+        if (location != null) {
+          state = location;
+          // Breadcrumb for the diagnostics report: a native abort leaves no
+          // Dart stack, so the last route is often the only clue to the screen
+          // that was open when the process died.
+          DiagnosticsService.instance.markRoute(location);
+        }
       });
     });
   }
@@ -572,10 +579,11 @@ class RouterNotifier extends ChangeNotifier {
       builder: (data) => WatchOrderScreen(name: data.$1, track: data.$2),
     ),
     _genericRoute(name: "onboarding", child: const OnboardingScreen()),
-    _genericRoute<ItemType>(
+    _genericRoute<ItemType?>(
       name: "localSources",
       allowNullExtra: true, // opened from Settings without an ItemType
-      builder: (itemType) => LocalBrowserPage(itemType: itemType ?? ItemType.manga),
+      builder: (itemType) =>
+          LocalBrowserPage(itemType: itemType ?? ItemType.manga),
     ),
     _genericRoute<ItemType?>(
       name: "smartLibrary",
@@ -685,7 +693,7 @@ class RouterNotifier extends ChangeNotifier {
     // We guard against null-extra (unless the route opts in via
     // allowNullExtra) and return a fallback widget (SizedBox) so
     // the app at least renders instead of crashing.
-    Widget _safeBuild(BuildContext context, GoRouterState state) {
+    Widget buildRoute(BuildContext context, GoRouterState state) {
       if (builder != null) {
         final extra = state.extra;
         if (extra == null && !allowNullExtra) {
@@ -715,29 +723,29 @@ class RouterNotifier extends ChangeNotifier {
     return GoRoute(
       path: path ?? (name != null ? "/$name" : "/"),
       name: name,
-      builder: _safeBuild,
+      builder: buildRoute,
       pageBuilder: instantNavigationRoutes.contains(name)
           ? (context, state) => CustomTransitionPage<void>(
               key: state.pageKey,
               transitionDuration: Duration.zero,
               reverseTransitionDuration: Duration.zero,
-              child: _safeBuild(context, state),
+              child: buildRoute(context, state),
               transitionsBuilder: (context, animation, secondaryAnimation, child) =>
                   child,
             )
           : useMenuFade
           ? (context, state) => menuFadePage(
               key: state.pageKey,
-              child: _safeBuild(context, state),
+              child: buildRoute(context, state),
             )
           : useBareSettingsTransition
           ? (context, state) => bareSettingsPage(
               key: state.pageKey,
-              child: _safeBuild(context, state),
+              child: buildRoute(context, state),
             )
           : (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
           ? (context, state) {
-              final pageChild = _safeBuild(context, state);
+              final pageChild = buildRoute(context, state);
               return transitionPage(key: state.pageKey, child: pageChild);
             }
           : null,

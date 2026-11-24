@@ -10334,6 +10334,19 @@ class AppLocalizationsTr extends AppLocalizations {
   String get log_viewer_share => 'Share';
 
   @override
+  String get log_viewer_diagnostics_report => 'Diagnostics report';
+
+  @override
+  String get log_viewer_prev_crash => 'The previous session ended unexpectedly';
+
+  @override
+  String get log_viewer_prev_crash_hint =>
+      'Share the diagnostics report so it can be investigated.';
+
+  @override
+  String get log_viewer_prev_crash_share => 'Share report';
+
+  @override
   String get log_viewer_refresh => 'Refresh';
 
   @override

@@ -19,6 +19,8 @@ import 'package:watchtower/main.dart' show isar;
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/providers/storage_provider.dart';
+import 'package:watchtower/services/diagnostics/diagnostics_service.dart';
+import 'package:watchtower/services/diagnostics/session_marker.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
 import 'package:watchtower/utils/arrow_popup_menu.dart';
@@ -47,6 +49,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   Set<String> _availableTags = <String>{};
   Timer? _searchDebounce;
   bool _loading = true;
+  bool _crashBannerDismissed = false;
   bool _autoScroll = true;
   int _logMode = LogMode.normal.index;
   final ScrollController _scroll = ScrollController();
@@ -552,6 +555,109 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     );
   }
 
+  /// Shares the compact report built by [DiagnosticsService]: whether the last
+  /// run died, on which screen, how long the UI stalled, plus the tail of the
+  /// log. Written to a temp file so the receiving app gets an attachment.
+  Future<void> _shareDiagnosticsReport() async {
+    try {
+      final report = DiagnosticsService.instance.buildReport();
+      final dir = await getTemporaryDirectory();
+      final ts = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .split('.')
+          .first;
+      final file = File(path.join(dir.path, 'watchtower_diagnostics_$ts.txt'));
+      await file.writeAsString(report);
+      if (!mounted) return;
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: path.basename(file.path),
+          sharePositionOrigin:
+              box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        botToast(l10nLocalizations(context)!.log_viewer_download_error('$e'));
+      }
+    }
+  }
+
+  /// The one actionable thing the diagnostics can surface: the previous run
+  /// died while the app was on screen. Dismissible for the rest of the session.
+  Widget _buildCrashBanner(ColorScheme cs) {
+    if (_crashBannerDismissed) return const SizedBox.shrink();
+    final service = DiagnosticsService.instance;
+    if (service.previousExit != SessionEndKind.foregroundCrash) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      decoration: BoxDecoration(
+        color: cs.error.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cs.error.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Broken.warning_2, size: 18, color: cs.error),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10nLocalizations(context)!.log_viewer_prev_crash,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10nLocalizations(context)!.log_viewer_prev_crash_hint,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: _shareDiagnosticsReport,
+                  icon: const Icon(Broken.document_upload, size: 16),
+                  label: Text(
+                    l10nLocalizations(context)!.log_viewer_prev_crash_share,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              Broken.close_circle,
+              size: 16,
+              color: cs.onSurface.withValues(alpha: 0.5),
+            ),
+            onPressed: () => setState(() => _crashBannerDismissed = true),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _copyAll() async {
     await Clipboard.setData(ClipboardData(text: _rawContent));
     if (!mounted) return;
@@ -625,6 +731,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                 case 'share':
                   _share();
                   break;
+                case 'report':
+                  _shareDiagnosticsReport();
+                  break;
               }
             },
             itemBuilder: (_) => [
@@ -650,6 +759,16 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   dense: true,
                   leading: const Icon(Broken.share, size: 18),
                   title: Text(l10nLocalizations(context)!.log_viewer_share),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'report',
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Broken.document_upload, size: 18),
+                  title: Text(
+                    l10nLocalizations(context)!.log_viewer_diagnostics_report,
+                  ),
                 ),
               ),
             ],
@@ -774,7 +893,11 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
         ),
       ),
-      body: _loading
+      body: Column(
+        children: [
+          if (!_loading) _buildCrashBanner(cs),
+          Expanded(
+            child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _filtered.isEmpty
               ? Center(
@@ -819,6 +942,9 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                   collapsedSessions: _collapsedSessions,
                   onToggleSession: _toggleSessionCollapse,
                 ),
+          ),
+        ],
+      ),
       floatingActionButton: _loading
           ? null
           : FloatingActionButton.small(

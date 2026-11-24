@@ -10459,6 +10459,20 @@ class AppLocalizationsFr extends AppLocalizations {
   String get log_viewer_share => 'Partager';
 
   @override
+  String get log_viewer_diagnostics_report => 'Rapport de diagnostic';
+
+  @override
+  String get log_viewer_prev_crash =>
+      'La session précédente s’est arrêtée brutalement';
+
+  @override
+  String get log_viewer_prev_crash_hint =>
+      'Partagez le rapport de diagnostic pour l’analyser.';
+
+  @override
+  String get log_viewer_prev_crash_share => 'Partager le rapport';
+
+  @override
   String get log_viewer_refresh => 'Rafraîchir';
 
   @override
