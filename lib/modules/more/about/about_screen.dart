@@ -1256,14 +1256,15 @@ Future<void> _startAria2Download(
 }
 
 Future<void> _importAria2Binary(BuildContext context) async {
+  final l10n = l10nLocalizations(context)!;
   try {
     final result = await FilePicker.pickFiles(
-      dialogTitle: l10nLocalizations(context)!.about_choose_aria2c,
+      dialogTitle: l10n.about_choose_aria2c,
     );
     if (result == null || result.files.isEmpty) return;
     final source = result.files.single.path;
     if (source == null) {
-      botToast(l10nLocalizations(context)!.about_file_unreachable);
+      botToast(l10n.about_file_unreachable);
       return;
     }
     final userOverride = await Aria2BinaryManager.instance.userOverrideDisplayPath();
@@ -1279,10 +1280,9 @@ Future<void> _importAria2Binary(BuildContext context) async {
     try {
       await Aria2BinaryManager.instance.resolveExecutable();
     } catch (_) {}
-    botToast(l10nLocalizations(context)!
-        .about_binary_imported(source.split('/').last));
+    botToast(l10n.about_binary_imported(source.split('/').last));
   } catch (e) {
-    botToast(l10nLocalizations(context)!.about_import_failed('$e'));
+    botToast(l10n.about_import_failed('$e'));
   }
 }
 

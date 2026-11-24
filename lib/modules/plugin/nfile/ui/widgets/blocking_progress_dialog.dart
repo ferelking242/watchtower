@@ -28,9 +28,11 @@ Future<void> Function() showBlockingProgressDialog(
   navigator.push(route);
   var closed = false;
   return () {
-    if (closed) return;
-    closed = true;
-    if (route.isActive) navigator.removeRoute(route);
+    if (!closed) {
+      closed = true;
+      if (route.isActive) navigator.removeRoute(route);
+    }
+    return Future<void>.value();
   };
 }
 
@@ -58,7 +60,7 @@ class _BlockingProgress extends StatelessWidget {
                 if (message != null) ...[
                   const SizedBox(height: 20),
                   Text(
-                    message,
+                    message!,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,

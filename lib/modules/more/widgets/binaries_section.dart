@@ -256,11 +256,15 @@ Future<String?> getBundledBinarySize(String name, String? nativeDir) async {
             if (best == null) throw l10n.binary_empty_zip;
             await dstFile.writeAsBytes(best.content as List<int>, flush: true);
           } finally {
-            await tmpFile.delete().catchError((_) {});
+            try {
+              await tmpFile.delete();
+            } catch (_) {}
           }
         } else {
           await dstFile.writeAsBytes(await tmpFile.readAsBytes(), flush: true);
-          await tmpFile.delete().catchError((_) {});
+          try {
+            await tmpFile.delete();
+          } catch (_) {}
         }
 
         if (!await dstFile.exists() || await dstFile.length() == 0) {

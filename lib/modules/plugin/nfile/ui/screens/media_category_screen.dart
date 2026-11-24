@@ -55,6 +55,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
   Set<String> _selectedFilePaths = {};
   Set<String> _selectedAssetIds = {};
 
+  /// `statSync` costs a syscall per item, and the grid groups by month on every
+  /// rebuild: cache the modification dates for the lifetime of the listing.
+  final Map<String, DateTime> _modifiedCache = <String, DateTime>{};
+
   bool get _isSelectionMode =>
       _selectedFilePaths.isNotEmpty || _selectedAssetIds.isNotEmpty;
 
@@ -1462,22 +1466,34 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
   }
 
   DateTime _getItemDateTime(dynamic item) {
-    if (item is AssetEntity) {
-      return item.createDateTime;
-    } else if (item is SongModel) {
-      try {
-        final f = File(item.data);
-        if (f.existsSync()) {
-          return f.statSync().modified;
-        }
-      } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
-      return DateTime.fromMillisecondsSinceEpoch((item.dateAdded ?? 0) * 1000);
-    } else if (item is FileSystemEntity) {
-      try {
-        return item.statSync().modified;
-      } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
+    if (item is AssetEntity) return item.createDateTime;
+
+    final String? path = item is SongModel
+        ? item.data
+        : item is FileSystemEntity
+            ? item.path
+            : null;
+    if (path == null) return DateTime.fromMillisecondsSinceEpoch(0);
+
+    final cached = _modifiedCache[path];
+    if (cached != null) return cached;
+
+    DateTime modified;
+    try {
+      modified = FileStat.statSync(path).modified;
+    } catch (error) {
+      AppLogger.log(
+        'Ignored error (media_category_screen.dart)',
+        logLevel: LogLevel.debug,
+        tag: LogTag.ui,
+        error: error,
+      );
+      modified = item is SongModel
+          ? DateTime.fromMillisecondsSinceEpoch((item.dateAdded ?? 0) * 1000)
+          : DateTime.fromMillisecondsSinceEpoch(0);
     }
-    return DateTime.fromMillisecondsSinceEpoch(0);
+    _modifiedCache[path] = modified;
+    return modified;
   }
 
   Map<String, List<T>> _groupByMonth<T>(

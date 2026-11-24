@@ -4359,15 +4359,15 @@ class _FullscreenControlsOverlayState
                               return;
                             }
                             _currentQuality = v.quality;
+                            final qualityToast = context.l10n
+                                .player_quality_toast(
+                                  _displayVideoQuality(v.quality),
+                                );
                             setState(() => _showQualityPicker = false);
                             _resetHideTimer();
                             if (widget.onSwitchQuality != null)
                               await widget.onSwitchQuality!(v);
-                            _playerToast(
-                              context.l10n.player_quality_toast(
-                                _displayVideoQuality(v.quality),
-                              ),
-                            );
+                            _playerToast(qualityToast);
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 120),

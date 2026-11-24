@@ -2318,6 +2318,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView>
       ),
     );
 
+    if (!mounted) return;
     Overlay.of(context, rootOverlay: true).insert(_floatingEntry!);
   }
 

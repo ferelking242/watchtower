@@ -588,15 +588,16 @@ class _WatchDownloadSheetState extends ConsumerState<WatchDownloadSheet> {
     }
 
     if (_downloader == _Downloader.external) {
+      // The sheet is gone after this pop; keep the localization object so the
+      // per-chapter warnings can still be shown on the host navigator.
+      final l10n = context.l10n;
       if (mounted) Navigator.pop(context);
       for (final ch in chapters) {
         try {
           final result = await ref.read(getVideoListProvider(episode: ch).future);
           var videos = result.$1;
           if (videos.isEmpty) {
-            botToast(
-              context.l10n.download_sheet_no_link_for(ch.name ?? '?'),
-            );
+            botToast(l10n.download_sheet_no_link_for(ch.name ?? '?'));
             continue;
           }
           if (_selectedLang != null && _langs.length > 1) {

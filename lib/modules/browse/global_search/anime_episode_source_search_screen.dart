@@ -295,6 +295,7 @@ class _AnimeEpisodeSourceSearchScreenState
             updatedAt: DateTime.now().millisecondsSinceEpoch,
           );
 
+      final l10n = context.l10n;
       late final int chapterId;
       await isar.writeTxn(() async {
         final mangaId = await isar.mangas.put(manga);
@@ -311,8 +312,7 @@ class _AnimeEpisodeSourceSearchScreenState
 
         final chapter = Chapter(
           name: extensionEpisode.name ??
-              context.l10n.browse_anime_episode(
-                  '${widget.episode.episodeNumber}'),
+              l10n.browse_anime_episode('${widget.episode.episodeNumber}'),
           url: url,
           mangaId: mangaId,
           dateUpload: extensionEpisode.dateUpload ?? '',

@@ -354,12 +354,12 @@ class _CookieCardState extends State<_CookieCard> {
                             ),
                           ),
                           onPressed: () async {
+                            final deletedMessage =
+                                context.l10n.extension_cookies_deleted(host);
                             await widget.onClear();
                             _ctrl.clear();
                             try {
-                              botToast(
-                                context.l10n.extension_cookies_deleted(host),
-                              )();
+                              botToast(deletedMessage)();
                             } catch (_) {}
                           },
                           icon: const Icon(Broken.trash, size: 16),

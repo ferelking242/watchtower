@@ -916,7 +916,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                         subtitle: 'Clear all remembered "Open With" associations for file viewers',
                         onTap: () async {
                           await PreferencesService.clearAllDefaultOpenActions();
-                          if (mounted) {
+                          if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('All default viewer choices have been reset'),

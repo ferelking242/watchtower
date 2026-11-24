@@ -48,6 +48,7 @@ class _PluginsSectionState extends State<PluginsSection> {
 
   Future<void> _installMpv() async {
     if (_mpvBusy) return;
+    final l10n = context.l10n;
     setState(() {
       _mpvBusy = true;
       _mpvError = null;
@@ -55,7 +56,7 @@ class _PluginsSectionState extends State<PluginsSection> {
     try {
       final directory = await StorageProvider().getMpvDirectory();
       if (directory == null) {
-        throw MpvConfigException(context.l10n.plugins_mpv_config_exception);
+        throw MpvConfigException(l10n.plugins_mpv_config_exception);
       }
       await MpvConfigService.install(directory);
       if (mounted) setState(() => _mpvInstalled = true);

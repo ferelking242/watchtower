@@ -385,7 +385,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
               onPressed: () async {
                 final fileToDelete = _completedFile;
                 await _installApk(_completedFile!);
-                if (mounted) Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
                 // Supprimer l'APK 5 s après le lancement de l'intent.
                 if (fileToDelete != null) {
                   Future.delayed(const Duration(seconds: 5), () async {
@@ -441,7 +441,7 @@ class _DownloadFileScreenState extends ConsumerState<DownloadFileScreen> {
                         launchUrl(Uri.parse(upd.$3),
                             mode: LaunchMode.externalApplication);
                       }
-                      if (mounted) Navigator.pop(context);
+                      if (context.mounted) Navigator.pop(context);
                     },
             ),
             const SizedBox(height: 10),

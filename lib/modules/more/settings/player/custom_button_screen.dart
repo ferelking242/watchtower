@@ -312,6 +312,10 @@ class _CustomButtonScreenState extends ConsumerState<CustomButtonScreen> {
         );
       },
     );
+    titleController.dispose();
+    codePressController.dispose();
+    codeLongPressController.dispose();
+    codeStartupController.dispose();
   }
 
   Future<void> _showDeleteButton(CustomButton customButton) async {

@@ -867,6 +867,7 @@ Future<bool> showAnimeQualityPickerAndQueue({
     return launched;
   }
 
+  if (!context.mounted) return false;
   return queueVideoQualityDownload(
     container: ProviderScope.containerOf(context, listen: false),
     chapter: chapter,
@@ -1436,7 +1437,7 @@ Future<void> downloadChapter(
         _setDownloadStatus(chapterId, 'waiting_wifi');
         log('[ch:$chapterId] waiting for Wi-Fi before starting');
         final context = navigatorKey.currentContext;
-        if (context != null) {
+        if (context != null && context.mounted) {
           botToast(context.l10n.downloads_are_limited_to_wifi);
         }
         callback?.call();

@@ -118,6 +118,7 @@ class _ErrorTextState extends State<ErrorText> {
                     ? null
                     : () async {
                         await Clipboard.setData(ClipboardData(text: text));
+                        if (!context.mounted) return;
                         try {
                           botToast(context.l10n.source_err_copied)();
                         } catch (_) {}

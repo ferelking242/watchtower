@@ -102,6 +102,7 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
   }
 
   Future<void> _saveLayout() async {
+    final l10n = l10nLocalizations(context)!;
     setState(() {
       _saving = true;
       _message = null;
@@ -110,13 +111,13 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
       final decoded = jsonDecode(_controller.text);
       if (decoded is! Map<String, dynamic>) {
         throw FormatException(
-            l10nLocalizations(context)!.browse_layout_root_object);
+            l10n.browse_layout_root_object);
       }
       final formatted = const JsonEncoder.withIndent('  ').convert(decoded);
       final saved = await LayoutRegistry.instance.save(widget.source, formatted);
       if (!saved) {
         throw FormatException(
-            l10nLocalizations(context)!.browse_layout_schema);
+            l10n.browse_layout_schema);
       }
       if (!mounted) return;
       setState(() {
@@ -124,7 +125,7 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
           text: formatted,
           selection: TextSelection.collapsed(offset: formatted.length),
         );
-        _message = l10nLocalizations(context)!.browse_layout_saved;
+        _message = l10n.browse_layout_saved;
         _messageIsError = false;
       });
       final onSaved = widget.onSaved;
@@ -133,14 +134,14 @@ class _LayoutJsonEditorScreenState extends State<LayoutJsonEditorScreen> {
       if (!mounted) return;
       setState(() {
         _message =
-            l10nLocalizations(context)!.browse_layout_invalid_json(error.message);
+            l10n.browse_layout_invalid_json(error.message);
         _messageIsError = true;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _message =
-            l10nLocalizations(context)!.browse_layout_save_failed('$error');
+            l10n.browse_layout_save_failed('$error');
         _messageIsError = true;
       });
     } finally {

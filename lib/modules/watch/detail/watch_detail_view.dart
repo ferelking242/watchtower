@@ -393,6 +393,7 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
   }
 
   Future<void> _downloadAll(List<Chapter> chapters) async {
+    final l10n = context.l10n;
     try {
       for (final ch in chapters) {
         await ref.read(addDownloadToQueueProvider(chapter: ch).future);
@@ -401,11 +402,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           ref.read(downloadQueueStateProvider.notifier).setPaused(id, false);
         }
       }
-      botToast(context.l10n.media_all_episodes_queued);
+      botToast(l10n.media_all_episodes_queued);
     } catch (e) {
-      botToast(
-        context.l10n.media_start_failed(friendlyErrorMessage(e)),
-      );
+      botToast(l10n.media_start_failed(friendlyErrorMessage(e)));
     } finally {
       ref.read(processDownloadsProvider());
     }

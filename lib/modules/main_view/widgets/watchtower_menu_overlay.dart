@@ -323,7 +323,7 @@ class _WatchtowerMenuOverlayState extends ConsumerState<WatchtowerMenuOverlay>
                   cs: cs,
                   onTap: () async {
                     await _close();
-                    if (mounted) {
+                    if (context.mounted) {
                       Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute(
                           fullscreenDialog: true,

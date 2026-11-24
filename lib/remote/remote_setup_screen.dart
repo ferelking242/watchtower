@@ -73,6 +73,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
         return;
       }
 
+      final timeoutMessage = context.l10n.remote_timeout_10;
       setState(() { _testing = true; _error = null; });
 
       try {
@@ -80,9 +81,7 @@ import 'package:watchtower/providers/l10n_providers.dart';
             .get(Uri.parse('$url/api/ping'))
             .timeout(
               const Duration(seconds: 10),
-              onTimeout: () => throw TimeoutException(
-                context.l10n.remote_timeout_10,
-              ),
+              onTimeout: () => throw TimeoutException(timeoutMessage),
             );
 
         if (!mounted) return;
