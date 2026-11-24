@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 
 class CoverViewWidget extends StatelessWidget {
@@ -52,10 +53,15 @@ class CoverViewWidget extends StatelessWidget {
                       ? Stack(
                           fit: StackFit.expand,
                           children: [
+                            const CoverShimmer(),
                             Positioned.fill(
                               child: Image(
                                 image: image!,
                                 fit: BoxFit.cover,
+                                frameBuilder: (context, child, frame, sync) =>
+                                    sync || frame != null
+                                    ? child
+                                    : const SizedBox.shrink(),
                                 errorBuilder: (_, _, _) => const ColoredBox(
                                   color: Color(0xFF1C1C1E),
                                 ),
@@ -64,10 +70,23 @@ class CoverViewWidget extends StatelessWidget {
                             Stack(children: children),
                           ],
                         )
-                      : Ink.image(
-                          fit: BoxFit.cover,
-                          image: image!,
-                          child: Stack(children: children),
+                      : Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            const CoverShimmer(),
+                            Image(
+                              image: image!,
+                              fit: BoxFit.cover,
+                              frameBuilder: (context, child, frame, sync) =>
+                                  sync || frame != null
+                                  ? child
+                                  : const SizedBox.shrink(),
+                              errorBuilder: (_, _, _) => const ColoredBox(
+                                color: Color(0xFF1C1C1E),
+                              ),
+                            ),
+                            Stack(children: children),
+                          ],
                         ),
                 ),
               ),
@@ -76,6 +95,23 @@ class CoverViewWidget extends StatelessWidget {
           if (isComfortableGrid) bottomTextWidget!,
         ],
       ),
+    );
+  }
+}
+
+/// Shimmer painted under every library cover until its first frame lands.
+class CoverShimmer extends StatelessWidget {
+  const CoverShimmer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Shimmer.fromColors(
+      baseColor: isDark ? const Color(0xFF24282C) : const Color(0xFFE9EBEE),
+      highlightColor: isDark
+          ? const Color(0xFF30353A)
+          : const Color(0xFFF4F6F8),
+      child: const ColoredBox(color: Colors.white),
     );
   }
 }

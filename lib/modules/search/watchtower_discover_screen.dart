@@ -346,14 +346,15 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
     _scrollCtrl.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(sideDrawerCloseProvider.notifier).state =
-          () => _drawerKey.currentState?.close();
+      ref
+          .read(sideDrawerCloseProvider.notifier)
+          .set(() => _drawerKey.currentState?.close());
     });
   }
 
   @override
   void dispose() {
-    ref.read(sideDrawerOpenProvider.notifier).state = false;
+    ref.read(sideDrawerOpenProvider.notifier).set(false);
     _shimmerCtrl.dispose();
     _searchCtrl.dispose();
     _searchFocus.dispose();
@@ -964,7 +965,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
     return NamidaInnerDrawer(
       key: _drawerKey,
       onOpenChanged: (open) {
-        ref.read(sideDrawerOpenProvider.notifier).state = open;
+        ref.read(sideDrawerOpenProvider.notifier).set(open);
       },
       borderRadius: 28.0,
       maxPercentage: 0.472,
@@ -972,7 +973,7 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
       drawerChild: WatchDiscoverDrawer(
         onClose: () {
           _drawerKey.currentState?.close();
-          ref.read(sideDrawerOpenProvider.notifier).state = false;
+          ref.read(sideDrawerOpenProvider.notifier).set(false);
         },
       ),
       child: Scaffold(
@@ -991,8 +992,9 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 searchCollapsed: _searchCollapsed && showSearch,
                 onDrawerTap: () {
                   _drawerKey.currentState?.toggle();
-                  ref.read(sideDrawerOpenProvider.notifier).state =
-                      _drawerKey.currentState?.isOpened ?? false;
+                  ref
+                      .read(sideDrawerOpenProvider.notifier)
+                      .set(_drawerKey.currentState?.isOpened ?? false);
                 },
                 moreButton: _buildMoreButton(context, cs, isDark),
                 onSearchTap: _expandSearch,
@@ -1909,15 +1911,15 @@ class _DiscoveryHeader extends StatelessWidget {
         ),
         // ── Row 2: Mode pills (Watch / Manga / Novel / Music / Custom) ──────
         SizedBox(
-          height: 38,
+          height: 48,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
-            padding: const EdgeInsets.fromLTRB(16, 0, 12, 4),
+            padding: const EdgeInsets.fromLTRB(16, 2, 12, 6),
             child: Row(
               children: _DiscoverMode.values.map((m) {
                 return Padding(
-                  padding: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.only(right: 9),
                   child: _ModePill(
                     icon: m.icon,
                     label: m == _DiscoverMode.custom && customSourceName != null
@@ -2814,7 +2816,7 @@ class _ModePill extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: selected
               ? cs.primaryContainer
@@ -2830,7 +2832,7 @@ class _ModePill extends StatelessWidget {
             Builder(
               builder: (ctx) {
                 final w = MediaQuery.of(ctx).size.width;
-                final sz = w < 375 ? 13.0 : (w < 430 ? 15.0 : 16.0);
+                final sz = w < 375 ? 15.0 : (w < 430 ? 17.0 : 18.0);
                 return Icon(
                   icon,
                   size: sz,
@@ -2838,11 +2840,11 @@ class _ModePill extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: 7),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12.5,
+                fontSize: 13.5,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected ? cs.onPrimaryContainer : cs.onSurface.withValues(alpha: 0.65),
               ),

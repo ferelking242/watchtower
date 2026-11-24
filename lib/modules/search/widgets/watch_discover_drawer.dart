@@ -3,7 +3,8 @@
 //   NamidaInkWell → Material+InkWell, multipliedRadius → 8.0
 import 'package:flutter/material.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart' show navigationItemLabel;
+import 'package:watchtower/modules/more/settings/appearance/appearance_screen.dart'
+    show navigationItemLabel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
@@ -17,20 +18,20 @@ import 'package:watchtower/modules/more/settings/appearance/providers/theme_mode
 // ── Broken icon mapping for Watchtower routes ──────────────────────────────────
 const _kRouteIcon = <String, IconData>{
   '/WatchtowerHome': Broken.home_2,
-  '/AnimeLibrary':   Broken.video_square,
-  '/MangaLibrary':   Broken.book_1,
-  '/NovelLibrary':   Broken.book_saved,
-  '/MusicLibrary':   Broken.music_circle,
-  '/GameLibrary':    Broken.game,
-  '/Library':        Broken.archive,
-  '/discover':       Broken.search_normal_1,
-  '/browse':         Broken.global,
-  '/history':        Broken.refresh,
-  '/updates':        Broken.notification_bing,
+  '/AnimeLibrary': Broken.video_square,
+  '/MangaLibrary': Broken.book_1,
+  '/NovelLibrary': Broken.book_saved,
+  '/MusicLibrary': Broken.music_circle,
+  '/GameLibrary': Broken.game,
+  '/Library': Broken.archive,
+  '/discover': Broken.search_normal_1,
+  '/browse': Broken.global,
+  '/history': Broken.refresh,
+  '/updates': Broken.notification_bing,
   '/trackerLibrary': Broken.task_square,
-  '/more':           Broken.setting,
-  '/schedule':       Broken.calendar,
-  '/marketplace':    Broken.shop,
+  '/more': Broken.setting,
+  '/schedule': Broken.calendar,
+  '/marketplace': Broken.shop,
 };
 
 // ── WatchDiscoverDrawer ────────────────────────────────────────────────────────
@@ -41,18 +42,19 @@ class WatchDiscoverDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs      = Theme.of(context).colorScheme;
-    final isDark  = Theme.of(context).brightness == Brightness.dark;
-    final bg      = isDark ? const Color(0xFF0E0E16) : const Color(0xFFF2F2F7);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
-    final navOrder  = ref.watch(navigationOrderStateProvider);
+    final navOrder = ref.watch(navigationOrderStateProvider);
     final hideItems = ref.watch(hideItemsStateProvider);
 
     final visibleRoutes = navOrder
-        .where((r) =>
-            !hideItems.contains(r) &&
-            kWtRouteInfo.containsKey(r) &&
-            !r.startsWith('_'))
+        .where(
+          (r) =>
+              !hideItems.contains(r) &&
+              kWtRouteInfo.containsKey(r) &&
+              !r.startsWith('_'),
+        )
         .toList();
 
     final String location;
@@ -63,31 +65,34 @@ class WatchDiscoverDrawer extends ConsumerWidget {
     }
 
     return Material(
-      color: bg,
+      color: cs.surface,
       child: SafeArea(
         right: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Logo header ──────────────────────────────────────────────────
-            _WatchLogoContainer(cs: cs, isDark: isDark, onTap: onClose),
-
-            // ── Nav list ─────────────────────────────────────────────────────
+            _WatchLogoContainer(cs: cs, onTap: onClose),
+            Center(
+              child: Container(
+                width: 42,
+                height: 1,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                color: cs.outlineVariant.withValues(alpha: 0.45),
+              ),
+            ),
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+                padding: const EdgeInsets.symmetric(vertical: 2),
                 itemCount: visibleRoutes.length,
                 itemBuilder: (context, i) {
-                  final route   = visibleRoutes[i];
-                  final info    = kWtRouteInfo[route]!;
-                  final label = navigationItemLabel(context.l10n, route);
+                  final route = visibleRoutes[i];
+                  final info = kWtRouteInfo[route]!;
                   final isActive = location == route;
-                  final icon    = _kRouteIcon[route] ?? info.$2;
 
                   return _NamidaDrawerListTile(
                     enabled: isActive,
-                    title: label,
-                    icon: icon,
+                    title: navigationItemLabel(context.l10n, route),
+                    icon: _kRouteIcon[route] ?? info.$2,
                     onTap: () {
                       onClose();
                       context.go(route);
@@ -96,47 +101,11 @@ class WatchDiscoverDrawer extends ConsumerWidget {
                 },
               ),
             ),
-
-            // ── Theme mode box (system / clair / sombre) ────────────────
+            const SizedBox(height: 6),
             const _ThemeModeToggleBox(),
-
-            // ── Sleep timer box ────────────────────────────────────────────
-            const _SleepTimerBox(),
-
-            // ── Bottom settings / theme row (always last) ───────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _NamidaDrawerListTile(
-                      enabled: false,
-                      iconSize: 20,
-                      title: context.l10n.theme,
-                      icon: Broken.brush_1,
-                      onTap: () {
-                        onClose();
-                        context.go('/appearance');
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _NamidaDrawerListTile(
-                      enabled: false,
-                      iconSize: 20,
-                      title: context.l10n.settings,
-                      icon: Broken.setting,
-                      onTap: () {
-                        onClose();
-                        context.go('/settings');
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
+            _SleepTimerTile(onClose: onClose),
+            _DrawerBottomActions(onClose: onClose),
+            const SizedBox(height: 12),
           ],
         ),
       ),
@@ -144,113 +113,7 @@ class WatchDiscoverDrawer extends ConsumerWidget {
   }
 }
 
-// ── FR labels (mirrors discover_drawer) ───────────────────────────────────────
-
-
-// ── Sleep timer box ───────────────────────────────────────────────────────────
-
-class _SleepTimerBox extends ConsumerWidget {
-  const _SleepTimerBox();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final remaining = ref.watch(sleepTimerProvider);
-    final active = remaining != null;
-
-    Widget chip(String label, VoidCallback onTap, {bool selected = false}) {
-      return Expanded(
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected
-                  ? cs.primary.withValues(alpha: 0.16)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: selected
-                    ? cs.primary.withValues(alpha: 0.55)
-                    : cs.outline.withValues(alpha: 0.16),
-              ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? cs.primary : cs.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Broken.clock, size: 13, color: cs.onSurfaceVariant),
-              const SizedBox(width: 5),
-              Text(
-                context.l10n.sleep_timer,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const Spacer(),
-              if (active)
-                Text(
-                  context.l10n.sleep_timer_minutes(remaining!.inMinutes),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: cs.primary,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              chip('15', () {
-                ref.read(sleepTimerProvider.notifier).setSleepTimer(
-                  const Duration(minutes: 15),
-                );
-              }, selected: active && remaining!.inMinutes == 15),
-              chip('30', () {
-                ref.read(sleepTimerProvider.notifier).setSleepTimer(
-                  const Duration(minutes: 30),
-                );
-              }, selected: active && remaining!.inMinutes == 30),
-              chip('60', () {
-                ref.read(sleepTimerProvider.notifier).setSleepTimer(
-                  const Duration(minutes: 60),
-                );
-              }, selected: active && remaining!.inMinutes == 60),
-              chip(context.l10n.sleep_timer_off, () {
-                ref.read(sleepTimerProvider.notifier).cancelSleepTimer();
-              }, selected: !active),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Theme mode toggle box ──────────────────────────────────────────────────────
-// Segmented control: Système / Clair / Sombre — placed above Customization/Settings.
+// ── Theme mode segmented box ───────────────────────────────────────────────────
 
 class _ThemeModeToggleBox extends ConsumerWidget {
   const _ThemeModeToggleBox();
@@ -260,85 +123,300 @@ class _ThemeModeToggleBox extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final followSystem = ref.watch(followSystemThemeStateProvider);
     final themeIsDark = ref.watch(themeModeStateProvider);
-
-    // 0 = system, 1 = light, 2 = dark
     final selected = followSystem ? 0 : (themeIsDark ? 2 : 1);
 
-    Widget segment({
-      required int index,
-      required IconData icon,
-      required String label,
-    }) {
-      final active = selected == index;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () {
-            switch (index) {
-              case 0:
-                ref.read(followSystemThemeStateProvider.notifier).set(true);
-              case 1:
-                ref.read(followSystemThemeStateProvider.notifier).set(false);
-                ref.read(themeModeStateProvider.notifier).setLightTheme();
-              case 2:
-                ref.read(followSystemThemeStateProvider.notifier).set(false);
-                ref.read(themeModeStateProvider.notifier).setDarkTheme();
-            }
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: active
-                  ? cs.primary.withValues(alpha: 0.16)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: active
-                    ? cs.primary.withValues(alpha: 0.55)
-                    : cs.outline.withValues(alpha: 0.16),
-                width: 1,
+    void select(int index) {
+      switch (index) {
+        case 0:
+          ref.read(followSystemThemeStateProvider.notifier).set(true);
+        case 1:
+          ref.read(followSystemThemeStateProvider.notifier).set(false);
+          ref.read(themeModeStateProvider.notifier).setLightTheme();
+        case 2:
+          ref.read(followSystemThemeStateProvider.notifier).set(false);
+          ref.read(themeModeStateProvider.notifier).setDarkTheme();
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Container(
+        height: 50,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        ),
+        child: Stack(
+          children: [
+            AnimatedAlign(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.fastOutSlowIn,
+              alignment: selected == 0
+                  ? Alignment.centerLeft
+                  : (selected == 1
+                        ? Alignment.center
+                        : Alignment.centerRight),
+              child: FractionallySizedBox(
+                widthFactor: 1 / 3,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            Row(
               children: [
-                Icon(icon,
-                    size: 18, color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55)),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.55),
+                _segment(
+                  context,
+                  icon: Broken.autobrightness,
+                  label: context.l10n.theme_system,
+                  active: selected == 0,
+                  onTap: () => select(0),
+                ),
+                _segment(
+                  context,
+                  icon: Broken.sun,
+                  label: context.l10n.novel_theme_light,
+                  active: selected == 1,
+                  onTap: () => select(1),
+                ),
+                _segment(
+                  context,
+                  icon: Broken.moon,
+                  label: context.l10n.novel_theme_dark,
+                  active: selected == 2,
+                  onTap: () => select(2),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _segment(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: active ? cs.primary : cs.onSurfaceVariant,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                color: active ? cs.primary : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sleep timer ────────────────────────────────────────────────────────────────
+
+class _SleepTimerTile extends ConsumerWidget {
+  final VoidCallback onClose;
+  const _SleepTimerTile({required this.onClose});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final remaining = ref.watch(sleepTimerProvider);
+
+    return _NamidaDrawerListTile(
+      enabled: false,
+      icon: Broken.timer_1,
+      title: context.l10n.sleep_timer,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      trailing: remaining != null
+          ? Text(
+              context.l10n.sleep_timer_minutes(remaining.inMinutes),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: cs.primary,
+              ),
+            )
+          : Icon(Broken.arrow_right_3, size: 16, color: cs.onSurfaceVariant),
+      onTap: () {
+        onClose();
+        _showSleepTimerDialog(context, ref);
+      },
+    );
+  }
+
+  Future<void> _showSleepTimerDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final cs = Theme.of(context).colorScheme;
+    final remaining = ref.read(sleepTimerProvider);
+
+    await showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cs.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Broken.timer_1, size: 20, color: cs.primary),
+            const SizedBox(width: 8),
+            Text(context.l10n.sleep_timer),
+          ],
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final minutes in const [15, 30, 60, 120])
+              _SleepTimerOption(
+                label: context.l10n.sleep_timer_minutes(minutes),
+                selected: remaining?.inMinutes == minutes,
+                onTap: () {
+                  ref
+                      .read(sleepTimerProvider.notifier)
+                      .setSleepTimer(Duration(minutes: minutes));
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+            const SizedBox(height: 4),
+            _SleepTimerOption(
+              label: context.l10n.sleep_timer_off,
+              selected: remaining == null,
+              onTap: () {
+                ref.read(sleepTimerProvider.notifier).cancelSleepTimer();
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SleepTimerOption extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SleepTimerOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Material(
+        color: selected
+            ? cs.primary.withValues(alpha: 0.14)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? Broken.tick_circle : Broken.clock,
+                  size: 18,
+                  color: selected ? cs.primary : cs.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? cs.primary : cs.onSurface,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
+}
 
+// ── Bottom actions (Namida icon-only row) ──────────────────────────────────────
+
+class _DrawerBottomActions extends StatelessWidget {
+  final VoidCallback onClose;
+  const _DrawerBottomActions({required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
       child: Row(
         children: [
-          segment(
-            index: 0,
-            icon: Broken.autobrightness,
-            label: context.l10n.theme_system,
+          Expanded(
+            child: _NamidaDrawerListTile(
+              enabled: false,
+              isCentered: true,
+              height: 46,
+              title: '',
+              icon: Broken.brush_1,
+              margin: EdgeInsets.zero,
+              onTap: () {
+                onClose();
+                context.go('/appearance');
+              },
+            ),
           ),
-          segment(
-            index: 1,
-            icon: Broken.sun,
-            label: context.l10n.novel_theme_light,
-          ),
-          segment(
-            index: 2,
-            icon: Broken.moon,
-            label: context.l10n.novel_theme_dark,
+          const SizedBox(width: 8),
+          Expanded(
+            child: _NamidaDrawerListTile(
+              enabled: false,
+              isCentered: true,
+              height: 46,
+              title: '',
+              icon: Broken.setting,
+              margin: EdgeInsets.zero,
+              onTap: () {
+                onClose();
+                context.go('/settings');
+              },
+            ),
           ),
         ],
       ),
@@ -353,60 +431,60 @@ class _NamidaDrawerListTile extends StatelessWidget {
   final bool enabled;
   final String title;
   final IconData? icon;
-  final double? width;
   final double? height;
   final EdgeInsetsGeometry margin;
-  final EdgeInsetsGeometry padding;
   final bool isCentered;
-  final double iconSize;
+  final Widget? trailing;
 
   const _NamidaDrawerListTile({
     this.onTap,
     required this.enabled,
     required this.title,
     required this.icon,
-    this.width,
     this.height,
     this.margin = const EdgeInsets.symmetric(horizontal: 12.0, vertical: 3.0),
-    this.padding =
-        const EdgeInsets.symmetric(horizontal: 10.0, vertical: 11.0),
     this.isCentered = false,
-    this.iconSize = 20.0,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cs        = Theme.of(context).colorScheme;
-    final primary   = cs.primary;
-    final cardColor = Theme.of(context).cardColor;
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final primary = cs.primary;
+    final tileColor = enabled
+        ? primary
+        : cs.surfaceContainerHigh.withValues(alpha: 0.55);
+    const radius = 10.0;
 
     return Container(
-      width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: enabled ? primary : cardColor,
-        borderRadius: BorderRadius.circular(8.0),
+        color: tileColor,
+        borderRadius: BorderRadius.circular(radius),
         boxShadow: enabled
             ? [
                 BoxShadow(
-                  color: primary.withAlpha(100),
+                  color: primary.withValues(alpha: 0.3),
                   spreadRadius: 0.2,
-                  blurRadius: 8.0,
-                  offset: const Offset(0.0, 3.0),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ]
             : null,
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(8.0),
+        borderRadius: BorderRadius.circular(radius),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(radius),
           onTap: onTap,
           child: Padding(
-            padding: padding,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 11,
+              vertical: 12,
+            ),
             child: Row(
               mainAxisAlignment: isCentered
                   ? MainAxisAlignment.center
@@ -414,22 +492,27 @@ class _NamidaDrawerListTile extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: enabled ? Colors.white.withAlpha(200) : null,
-                  size: iconSize,
+                  color: enabled ? Colors.white : cs.onSurfaceVariant,
+                  size: 20,
                 ),
                 if (!isCentered && title.isNotEmpty) ...[
-                  const SizedBox(width: 12.0),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       title,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight:
-                            enabled ? FontWeight.w600 : FontWeight.w500,
-                        color: enabled ? Colors.white.withAlpha(230) : null,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: 14.5,
+                        fontWeight: enabled
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: enabled ? Colors.white : cs.onSurface,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  ?trailing,
                 ],
               ],
             ),
@@ -444,26 +527,22 @@ class _NamidaDrawerListTile extends StatelessWidget {
 
 class _WatchLogoContainer extends StatelessWidget {
   final ColorScheme cs;
-  final bool isDark;
   final VoidCallback onTap;
 
-  const _WatchLogoContainer({
-    required this.cs,
-    required this.isDark,
-    required this.onTap,
-  });
+  const _WatchLogoContainer({required this.cs, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final scaffoldBg  = Theme.of(context).scaffoldBackgroundColor;
-    final blendedBg   = Color.alphaBlend(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
+    final blendedBg = Color.alphaBlend(
       scaffoldBg.withValues(alpha: 0.5),
       isDark ? Colors.black : Colors.white,
     );
     final fg = Color.alphaBlend(
       cs.primary.withValues(alpha: 0.1),
-      Theme.of(context).colorScheme.onSurface,
-    ).withValues(alpha: 0.8);
+      cs.onSurface,
+    ).withValues(alpha: 0.82);
 
     return Material(
       color: Colors.transparent,
@@ -471,8 +550,8 @@ class _WatchLogoContainer extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          height: 66,
-          margin: const EdgeInsets.fromLTRB(12, 18, 12, 10),
+          height: 62,
+          margin: const EdgeInsets.fromLTRB(12, 16, 12, 6),
           padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -481,15 +560,21 @@ class _WatchLogoContainer extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color.alphaBlend(blendedBg.withValues(alpha: 0.90), cs.primary),
-                Color.alphaBlend(blendedBg.withValues(alpha: 0.65), cs.primary),
+                Color.alphaBlend(
+                  blendedBg.withValues(alpha: 0.90),
+                  cs.primary,
+                ),
+                Color.alphaBlend(
+                  blendedBg.withValues(alpha: 0.65),
+                  cs.primary,
+                ),
               ],
             ),
             boxShadow: [
               BoxShadow(
-                color: cs.primary.withAlpha(isDark ? 30 : 80),
+                color: cs.primary.withValues(alpha: isDark ? 0.12 : 0.31),
                 spreadRadius: 0.2,
-                blurRadius: 8.0,
+                blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -499,7 +584,7 @@ class _WatchLogoContainer extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(width: 4),
-              Icon(Broken.watch, size: 46, color: fg),
+              Icon(Broken.watch, size: 42, color: fg),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -507,7 +592,7 @@ class _WatchLogoContainer extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 17.5,
                     fontWeight: FontWeight.w800,
-                    color: fg.withValues(alpha: 0.72),
+                    color: fg.withValues(alpha: 0.8),
                     overflow: TextOverflow.fade,
                   ),
                   softWrap: false,

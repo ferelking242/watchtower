@@ -15,6 +15,7 @@ import 'package:watchtower/modules/widgets/listview_widget.dart';
 import 'package:watchtower/modules/library/widgets/library_swipe_wrapper.dart';
 import 'package:watchtower/modules/library/widgets/continue_reading_button.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/modules/widgets/cover_view_widget.dart';
 
 class LibraryListViewWidget extends ConsumerWidget {
   final List<Manga> entriesManga;
@@ -128,15 +129,17 @@ class LibraryListViewWidget extends ConsumerWidget {
                             Expanded(
                               child: Row(
                                 children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Stack(
-                                      children: [
-                                        Material(
-                                          child: Ink.image(
+                                  SizedBox(
+                                    width: 96,
+                                    height: 132,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          const CoverShimmer(),
+                                          Image(
                                             fit: BoxFit.cover,
-                                            width: 96,
-                                            height: 132,
                                             image:
                                                 entry.customCoverImage != null
                                                 ? coverMemoryImage(
@@ -158,33 +161,34 @@ class LibraryListViewWidget extends ConsumerWidget {
                                                       ),
                                                     ),
                                                   ),
-                                            child: InkWell(
-                                              child: Container(
-                                                color:
-                                                    mangaIdsList.contains(
-                                                      entry.id,
-                                                    )
-                                                    ? context.primaryColor
-                                                          .withValues(
-                                                            alpha: 0.4,
-                                                          )
-                                                    : Colors.transparent,
+                                            frameBuilder:
+                                                (context, child, frame, sync) =>
+                                                    sync || frame != null
+                                                    ? child
+                                                    : const SizedBox.shrink(),
+                                            errorBuilder: (_, _, _) =>
+                                                const ColoredBox(
+                                                  color: Color(0xFF1C1C1E),
+                                                ),
+                                          ),
+                                          if (mangaIdsList.contains(entry.id))
+                                            ColoredBox(
+                                              color: context.primaryColor
+                                                  .withValues(alpha: 0.4),
+                                            ),
+                                          // Overlaid on the cover rather than
+                                          // added to the row: the pill used to
+                                          // squeeze the counters on the right.
+                                          if (continueReaderBtn)
+                                            Positioned(
+                                              right: 0,
+                                              bottom: 0,
+                                              child: ContinueReadingButton(
+                                                entry: entry,
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                        // Overlaid on the cover rather than
-                                        // added to the row: the pill used to
-                                        // squeeze the counters on the right.
-                                        if (continueReaderBtn)
-                                          Positioned(
-                                            right: 0,
-                                            bottom: 0,
-                                            child: ContinueReadingButton(
-                                              entry: entry,
-                                            ),
-                                          ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                   Expanded(

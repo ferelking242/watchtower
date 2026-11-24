@@ -2399,15 +2399,15 @@ class _FloatingDockState extends State<_FloatingDock> {
 
     if ((_menuOpen || sideDrawerOpen) && !inSubDock) {
       // The side menu is open: fold the floating dock into a single round
-      // back chip pinned to the bottom-left, clear of the menu sheet.
+      // back chip pinned to the bottom-right, clear of the menu sheet.
       final size = 52.0 * dockScale;
       return AnimatedContainer(
         duration: Duration(milliseconds: dockAnimMs),
         curve: Curves.easeInOut,
         height: totalHeight,
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.centerRight,
         padding: EdgeInsets.only(
-          left: 16,
+          right: 16,
           bottom: _dockBottomPad + bottomPad * 0.5,
           top: 4,
         ),
@@ -2425,7 +2425,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                 HapticFeedback.lightImpact();
                 widget.ref.read(menuOpenProvider.notifier).state = false;
                 widget.ref.read(sideDrawerCloseProvider)?.call();
-                widget.ref.read(sideDrawerOpenProvider.notifier).state = false;
+                widget.ref.read(sideDrawerOpenProvider.notifier).set(false);
               },
               child: Container(
                 width: size,
@@ -2447,7 +2447,7 @@ class _FloatingDockState extends State<_FloatingDock> {
                   ],
                 ),
                 child: Icon(
-                  Broken.arrow_left_2,
+                  Broken.arrow_right_2,
                   size: 22 * dockScale,
                   color: Theme.of(context).colorScheme.primary,
                 ),
