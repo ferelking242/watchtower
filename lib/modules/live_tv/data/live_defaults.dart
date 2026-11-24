@@ -1,36 +1,19 @@
-import 'package:watchtower/modules/live_tv/models/live_provider.dart';
-
-/// The one provider the app ships with.
+/// The app ships no Live TV provider.
 ///
-/// This is a *record*, not a channel list: it names a JSON catalogue bundled in
-/// the assets, so Live TV has something to show on a first launch that has no
-/// network. Every other provider comes from the extension catalogue
-/// (`index/live.json`), which is where providers are actually published — see
-/// [LiveExtensionCatalog].
+/// Live TV is catalogue-driven: every provider is installed from the
+/// Marketplace's Live tab (`index/live.json` in the extensions repository), so
+/// nothing ships inside the app and a channel list can be corrected without a
+/// release.
 ///
-/// Keeping this one bundled provider is what makes the app usable offline. It
-/// holds no URLs of its own, so adding or removing channels is a matter of
-/// regenerating the asset, never of editing Dart.
+/// The provider this class used to ship (`wt-world`, an `assets/live/world.json`
+/// catalogue) was removed for exactly that reason: it made the channel list a
+/// build artifact. [retiredIds] keeps it out of installs that still have it
+/// stored.
 class LiveDefaults {
-  static const bundledId = 'wt-world';
-
-  /// Asset holding the pre-verified world catalogue.
-  static const bundledAsset = 'assets/live/world.json';
-
-  static LiveProvider get bundled => const LiveProvider(
-    id: bundledId,
-    name: 'Watchtower World',
-    kind: LiveProviderKind.bundled,
-    source: bundledAsset,
-    version: '2.0.0',
-    author: 'Watchtower',
-    description:
-        'Catalogue embarqué de chaînes vérifiées, disponible hors ligne. '
-        'Aucun compte requis.',
-    isBundled: true,
-    isBuiltin: true,
-  );
-
-  /// Providers a fresh install starts with.
-  static List<LiveProvider> get installed => [bundled];
+  /// Ids that used to ship with the app and must not survive an upgrade.
+  ///
+  /// Deleting the asset alone is not enough: an install that already stored the
+  /// record would keep pointing at a missing asset and show "catalogue
+  /// introuvable" forever.
+  static const retiredIds = {'wt-world'};
 }

@@ -1,6 +1,4 @@
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:watchtower/modules/live_tv/data/live_defaults.dart';
 import 'package:watchtower/modules/live_tv/sources/json_channel_parser.dart';
 import 'package:watchtower/modules/live_tv/sources/m3u_parser.dart';
 import 'package:watchtower/modules/live_tv/sources/xtream_parser.dart';
@@ -287,19 +285,37 @@ https://a/cnn.m3u8
     });
   });
 
-  group('bundled world catalogue', () {
-  test('the bundled world catalogue is readable and grouped', () async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    final body = await rootBundle.loadString(LiveDefaults.bundledAsset);
-    final channels = JsonChannelParser.parse(
-      body,
-      providerId: LiveDefaults.bundledId,
-    );
+  group('published market catalogue', () {
+    // Shape of the files the extensions repository serves
+    // (assets/live/*.json): a `countries` map of short-keyed entries, exactly
+    // what the Live tab installs. Nothing like this ships in the app.
+    const body = '''
+    {"version":1,"countries":{
+      "France":[{"n":"TF1","l":"https://logo/tf1.png","u":["https://a/tf1.m3u8","https://b/tf1.m3u8"]}],
+      "Brazil":[{"n":"Record","l":"","u":["https://a/record.m3u8"]}]
+    }}''';
 
-    expect(channels.length, greaterThan(1000));
-    expect(channels.any((c) => c.group == 'France'), isTrue);
-    expect(channels.any((c) => c.urls.length > 1), isTrue,
-        reason: 'mirrors are what make a dead stream survivable');
-  }, timeout: const Timeout(Duration(minutes: 2)));
+    test('a grouped market catalogue keeps its groups and mirrors', () {
+      final channels = JsonChannelParser.parse(body, providerId: 'market:iptv');
+
+      expect(channels.map((c) => c.name), ['TF1', 'Record']);
+      expect(channels.map((c) => c.group), ['France', 'Brazil']);
+      expect(channels.first.logoUrl, 'https://logo/tf1.png');
+      expect(
+        channels.first.urls.length,
+        2,
+        reason: 'mirrors are what make a dead stream survivable',
+      );
+    });
+
+    test('a catalogue with no channels yields nothing rather than throwing', () {
+      expect(
+        JsonChannelParser.parse(
+          '{"version":1,"countries":{}}',
+          providerId: 'market:iptv',
+        ),
+        isEmpty,
+      );
+    });
   });
 }

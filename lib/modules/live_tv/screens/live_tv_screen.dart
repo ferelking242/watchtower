@@ -21,7 +21,8 @@ enum LiveTab { home, guide, favorites, settings }
 /// Picks and the channel list, the EPG guide, favourites, and settings. There is
 /// deliberately no extension marketplace here — providers are installed from
 /// the Marketplace's Live tab, so this screen only ever shows what the user
-/// already has.
+/// already has. The app ships no provider of its own: a fresh install is empty
+/// until something is installed from that tab.
 class LiveTvScreen extends ConsumerStatefulWidget {
   const LiveTvScreen({super.key, this.initialTab = LiveTab.home});
 
@@ -323,7 +324,7 @@ class _HomeTab extends ConsumerWidget {
             icon: Icons.tv_off_rounded,
             title: 'Aucune chaîne',
             message:
-                'Installez un fournisseur depuis le Marché, section Watch, '
+                'Installez un fournisseur depuis le Marché, onglet Live TV, '
                 'ou activez-en un dans les réglages.',
           );
         }

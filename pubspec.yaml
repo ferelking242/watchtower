@@ -258,7 +258,6 @@ flutter:
 
   assets:
     - assets/transparent.png
-    - assets/live/world.json
     - assets/animations/
     - assets/trackers_icons/
     - assets/app_icons/

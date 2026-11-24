@@ -27,28 +27,18 @@ class LiveProviderStore {
   Box<dynamic>? get _store =>
       _box ?? (Hive.isBoxOpen(boxName) ? Hive.box(boxName) : null);
 
-  /// Providers to show, builtins merged in.
+  /// Providers to show.
   List<LiveProvider> read() {
     final stored = _readRaw();
     final byId = {for (final provider in stored) provider.id: provider};
 
-    for (final entry in LiveDefaults.installed) {
-      final existing = byId[entry.id];
-      if (existing == null) {
-        byId[entry.id] = entry;
-        continue;
-      }
-      // A builtin is always present, but its user-controlled state is kept.
-      // Its flags come from the declaration, not the stored copy: a record
-      // written before a flag existed would otherwise keep the old default.
-      byId[entry.id] = existing.copyWith(
-        isBuiltin: entry.isBuiltin,
-        isBundled: entry.isBundled,
-        kind: entry.kind,
-        isEnabled: existing.isEnabled,
-        version: existing.version,
-      );
+    // A provider that used to ship with the app points at an asset that no
+    // longer exists; left in place it would fail on every fetch. Dropping it
+    // here (rather than on write) also cleans installs that never write again.
+    for (final id in LiveDefaults.retiredIds) {
+      byId.remove(id);
     }
+
     return _sorted(byId.values.toList());
   }
 

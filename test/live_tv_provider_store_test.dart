@@ -1,8 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:watchtower/modules/live_tv/data/live_defaults.dart';
 import 'package:watchtower/modules/live_tv/data/live_provider_store.dart';
 import 'package:watchtower/modules/live_tv/models/live_provider.dart';
 
@@ -23,29 +23,37 @@ void main() {
 
   LiveProviderStore store() => LiveProviderStore(box: box);
 
-  test('a fresh store ships only the bundled provider', () {
-    final providers = store().read();
+  const seeded = LiveProvider(
+    id: 'market:iptv',
+    name: 'IPTV Pro',
+    kind: LiveProviderKind.m3u,
+    source: 'https://example.com/list.m3u',
+    version: '1.0.0',
+  );
 
-    expect(providers.map((p) => p.id), [LiveDefaults.bundledId]);
-    expect(providers.single.isBuiltin, isTrue);
-    expect(providers.single.isBundled, isTrue);
-    expect(providers.single.kind, LiveProviderKind.bundled);
+  test('a fresh store ships no provider at all', () {
+    expect(store().read(), isEmpty);
   });
 
-  test('the bundled provider reads from an asset, not the network', () {
-    final provider = store().read().single;
+  test('a provider retired from the app is dropped from an upgraded install',
+      () async {
+    // An install that predates the removal still has the record on disk; it
+    // points at an asset the build no longer contains.
+    await box.put(
+      'providers',
+      jsonEncode([
+        {
+          'id': 'wt-world',
+          'name': 'Watchtower World',
+          'kind': 'bundled',
+          'source': 'assets/live/world.json',
+          'isBundled': true,
+          'isBuiltin': true,
+        },
+      ]),
+    );
 
-    expect(provider.source, LiveDefaults.bundledAsset);
-    expect(provider.source, startsWith('assets/'));
-    expect(provider.isEnabled, isTrue);
-  });
-
-  test('builtins are restored even if the stored list lost them', () async {
-    await store().saveAll(const []);
-    final providers = store().read();
-
-    expect(providers, isNotEmpty);
-    expect(providers.map((p) => p.id), contains(LiveDefaults.bundledId));
+    expect(store().read(), isEmpty);
   });
 
   test('a user provider persists across store instances', () async {
@@ -78,28 +86,20 @@ void main() {
     expect(matches.single.name, 'Second');
   });
 
-  test('a builtin cannot be removed, a user provider can', () async {
-    const custom = LiveProvider(
-      id: 'user:gone',
-      name: 'Gone',
-      kind: LiveProviderKind.m3u,
-      source: 'https://a',
-    );
-    await store().save(custom);
+  test('a provider can be removed, and removing twice is harmless', () async {
+    await store().save(seeded);
 
-    await store().remove(custom.id);
-    await store().remove(LiveDefaults.bundledId);
+    await store().remove(seeded.id);
+    await store().remove(seeded.id);
 
-    final ids = store().read().map((p) => p.id);
-    expect(ids, isNot(contains(custom.id)));
-    expect(ids, contains(LiveDefaults.bundledId));
+    expect(store().read(), isEmpty);
   });
 
-  test('disabling a builtin survives a reload', () async {
-    final id = LiveDefaults.bundledId;
-    await store().setEnabled(id, false);
+  test('disabling a provider survives a reload', () async {
+    await store().save(seeded);
+    await store().setEnabled(seeded.id, false);
 
-    expect(store().read().firstWhere((p) => p.id == id).isEnabled, isFalse);
+    expect(store().read().single.isEnabled, isFalse);
   });
 
   LiveProviderCatalogEntry entryFor(
@@ -114,11 +114,8 @@ void main() {
   );
 
   test('applyUpdates upgrades a provider to a newer catalogue version', () async {
-    final id = LiveDefaults.bundledId;
-    await store().saveAll([
-      for (final provider in store().read())
-        provider.id == id ? provider.copyWith(version: '0.9.0') : provider,
-    ]);
+    final id = seeded.id;
+    await store().save(seeded.copyWith(version: '0.9.0'));
 
     final updated = await store().applyUpdates([entryFor(id, version: '1.2.0')]);
 
@@ -129,21 +126,18 @@ void main() {
   });
 
   test('applyUpdates does nothing when versions match', () async {
-    final id = LiveDefaults.bundledId;
+    await store().save(seeded);
     expect(
       await store().applyUpdates([
-        entryFor(id, version: store().read().single.version),
+        entryFor(seeded.id, version: seeded.version),
       ]),
       isEmpty,
     );
   });
 
   test('applyUpdates does not downgrade', () async {
-    final id = LiveDefaults.bundledId;
-    await store().saveAll([
-      for (final provider in store().read())
-        provider.id == id ? provider.copyWith(version: '99.0.0') : provider,
-    ]);
+    final id = seeded.id;
+    await store().save(seeded.copyWith(version: '99.0.0'));
 
     final updated = await store().applyUpdates([entryFor(id, version: '1.2.0')]);
 
@@ -152,11 +146,8 @@ void main() {
   });
 
   test('version comparison is numeric, not lexicographic', () async {
-    final id = LiveDefaults.bundledId;
-    await store().saveAll([
-      for (final provider in store().read())
-        provider.id == id ? provider.copyWith(version: '1.9.0') : provider,
-    ]);
+    final id = seeded.id;
+    await store().save(seeded.copyWith(version: '1.9.0'));
 
     // 1.10.0 is newer than 1.9.0 even though '1.10.0' sorts first as a string.
     final updated = await store().applyUpdates([
@@ -175,27 +166,24 @@ void main() {
     );
   });
 
-  test('unreadable stored json degrades to builtins instead of throwing', () async {
+  test('unreadable stored json degrades to an empty list instead of throwing',
+      () async {
     await box.put('providers', 'not json');
 
-    final providers = store().read();
-    expect(providers.map((p) => p.id), contains(LiveDefaults.bundledId));
+    expect(store().read(), isEmpty);
   });
 
-  test('builtins sort before user providers', () async {
+  test('providers sort by name, case-insensitively', () async {
+    await store().save(seeded.copyWith(name: 'zzz lower'));
     await store().save(
       const LiveProvider(
-        id: 'user:zzz',
-        name: 'Aaa User',
+        id: 'market:aaa',
+        name: 'Aaa Upper',
         kind: LiveProviderKind.m3u,
-        source: 'https://a',
+        source: 'https://b',
       ),
     );
 
-    final providers = store().read();
-    final firstUserIndex = providers.indexWhere((p) => !p.isBuiltin);
-    final lastBuiltinIndex = providers.lastIndexWhere((p) => p.isBuiltin);
-
-    expect(firstUserIndex, greaterThan(lastBuiltinIndex));
+    expect(store().read().map((p) => p.name), ['Aaa Upper', 'zzz lower']);
   });
 }
