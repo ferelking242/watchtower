@@ -16,6 +16,7 @@ import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/utils/constant.dart';
 import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/modules/more/about/providers/logs_state.dart';
+import 'package:watchtower/modules/library/services/library_maintenance.dart';
 import 'package:watchtower/modules/more/settings/advanced/providers/ui_scale_provider.dart';
 import 'package:watchtower/modules/more/settings/general/providers/general_state_provider.dart';
 import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
@@ -24,14 +25,10 @@ import 'package:watchtower/services/cache_storage_manager.dart';
 import 'package:watchtower/services/device_capabilities.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/anti_bot/remote_bypass_service.dart';
-import 'package:watchtower/services/download_manager/media_file_name.dart';
 import 'package:watchtower/utils/extensions/build_context_extensions.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
-import 'package:watchtower/models/download.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
-import 'package:path/path.dart' as p;
-import 'package:watchtower/utils/extensions/string_extensions.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 
 // ─── Hive-backed Advanced Settings helpers ────────────────────────────────────
@@ -479,138 +476,28 @@ class _AdvancedScreenState extends ConsumerState<AdvancedScreen> {
   Future<void> _reindexDownloads() async {
     _toast(context.l10n.settings_reindexing);
     try {
-      final storageProvider = StorageProvider();
-      int fixed = 0;
-      final downloads = await isar.downloads.where().findAll();
-
-      for (final dl in downloads) {
-        if (dl.isDownload == true) continue;
-        dl.chapter.loadSync();
-        final chapter = dl.chapter.value;
-        if (chapter == null) continue;
-        chapter.manga.loadSync();
-        final manga = chapter.manga.value;
-        if (manga == null) continue;
-
-        final mangaDir = await storageProvider.getMangaMainDirectory(chapter);
-        if (mangaDir == null) continue;
-
-        bool fileFound = false;
-        int sizeKb = 0;
-        final chapterName = (chapter.name ?? '').replaceForbiddenCharacters(
-          ' ',
-        ).truncateToBytes(kMaxDownloadNameBytes);
-
-        if (manga.itemType == ItemType.anime) {
-          // Match the downloader's on-disk name (`<title> [360p].mp4`); the
-          // untagged name is checked too so an older file is still measured.
-          final candidates = {
-            animeMp4BaseName(
-              chapterName: chapter.name,
-              chapterId: chapter.id,
-              quality: dl.quality,
-            ),
-            chapterName,
-          };
-          for (final base in candidates) {
-            final mp4 = File(p.join(mangaDir.path, '$base.mp4'));
-            if (mp4.existsSync()) {
-              fileFound = true;
-              sizeKb = (mp4.lengthSync() / 1024).ceil();
-              break;
-            }
-          }
-        } else if (manga.itemType == ItemType.manga) {
-          // Check individual image files in the chapter subfolder.
-          final chapterDir = await storageProvider.getMangaChapterDirectory(
-            chapter,
-            mangaMainDirectory: mangaDir,
-          );
-          if (chapterDir != null && chapterDir.existsSync()) {
-            final imgs = chapterDir
-                .listSync()
-                .where((f) => f.path.endsWith('.jpg'))
-                .toList();
-            if (imgs.isNotEmpty) {
-              fileFound = true;
-              sizeKb = imgs.length;
-            }
-          }
-          // Also accept a CBZ archive.
-          final cbz = File(p.join(mangaDir.path, '${chapter.name}.cbz'));
-          if (!fileFound && cbz.existsSync()) {
-            fileFound = true;
-            sizeKb = (cbz.lengthSync() / 1024).ceil();
-          }
-        } else if (manga.itemType == ItemType.novel) {
-          final html = File(p.join(mangaDir.path, '${chapter.name}.html'));
-          if (html.existsSync()) {
-            fileFound = true;
-            sizeKb = (html.lengthSync() / 1024).ceil();
-          }
-        }
-
-        if (fileFound) {
-          await isar.writeTxn(() async {
-            final record = await isar.downloads.get(dl.id!);
-            if (record != null && record.isDownload != true) {
-              record
-                ..isDownload = true
-                ..isStartDownload = false
-                ..failed = 0;
-              if (sizeKb > 0) {
-                record.succeeded = sizeKb;
-                record.total = sizeKb;
-              }
-              await isar.downloads.put(record);
-            }
-          });
-          fixed++;
-        }
-      }
+      final result = await reindexDownloads();
       if (!mounted) return;
       _toast(
-          context.l10n.settings_reindex_done('$fixed', '${downloads.length}'));
+        context.l10n.settings_reindex_done('${result.fixed}', '${result.total}'),
+      );
     } catch (e) {
+      if (!mounted) return;
       _toast(context.l10n.settings_error);
     }
   }
 
-  /// Finds every fully-downloaded chapter whose parent manga/anime is NOT yet
-  /// in the library (favorite = false) and adds it automatically.
+  /// Adds to the library every fully-downloaded chapter whose parent manga,
+  /// anime or novel is not a favourite yet, plus the archives the sister
+  /// download extension left in the download folder.
   Future<void> _addDownloadsToLibrary() async {
     _toast(context.l10n.settings_checking);
     try {
-      // isar_community can reject filters on nullable bool properties at
-      // runtime. Read the collection without a filter and apply the
-      // predicate in Dart.
-      final downloads = (await isar.downloads.where().findAll())
-          .where((download) => download.isDownload == true)
-          .toList();
-
-      int added = 0;
-      for (final dl in downloads) {
-        dl.chapter.loadSync();
-        final chapter = dl.chapter.value;
-        if (chapter == null) continue;
-        chapter.manga.loadSync();
-        final manga = chapter.manga.value;
-        if (manga == null || manga.id == null || manga.favorite == true) {
-          continue;
-        }
-
-        await isar.writeTxn(() async {
-          final m = await isar.mangas.get(manga.id!);
-          if (m != null && m.favorite != true) {
-            m.favorite = true;
-            await isar.mangas.put(m);
-            added++;
-          }
-        });
-      }
+      final added = await addDownloadedToLibrary();
       if (!mounted) return;
       _toast(context.l10n.settings_added_to_library('$added'));
     } catch (e) {
+      if (!mounted) return;
       _toast(context.l10n.settings_error);
     }
   }

@@ -703,7 +703,7 @@ class _WatchtowerHomeScreenState extends ConsumerState<WatchtowerHomeScreen> {
     ]) {
       if (m.format == 'TV' &&
           (m.episodes ?? 0) >= 24 &&
-          seen.add(m.id ?? out.length)) {
+          seen.add(m.id)) {
         out.add(m);
       }
     }
@@ -1223,35 +1223,6 @@ class _HoloRingPainter extends CustomPainter {
   bool shouldRepaint(_HoloRingPainter old) => old.progress != progress;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sticky pill tabs
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TabsDelegate extends SliverPersistentHeaderDelegate {
-  final int tab;
-  final ValueChanged<int> onChanged;
-  const _TabsDelegate({required this.tab, required this.onChanged});
-
-  static const double _h = 52.0;
-
-  @override
-  double get minExtent => _h;
-  @override
-  double get maxExtent => _h;
-  @override
-  bool shouldRebuild(_TabsDelegate o) =>
-      o.tab != tab || o.onChanged != onChanged;
-
-  @override
-  Widget build(BuildContext ctx, double shrinkOffset, bool overlaps) {
-    final scaffoldBg = Theme.of(ctx).scaffoldBackgroundColor;
-    return Container(
-      height: _h,
-      color: overlaps ? scaffoldBg.withValues(alpha: 0.95) : Colors.transparent,
-      child: _SlidingTabRow(tab: tab, onChanged: onChanged),
-    );
-  }
-}
 
 /// Tab row where the active tab uses a fine-bordered card with bold white text.
 class _SlidingTabRow extends StatelessWidget {
@@ -1483,7 +1454,7 @@ class _Row extends StatelessWidget {
               itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (_, i) => PosterCard(
-                key: ValueKey(items[i].id ?? i),
+                key: ValueKey(items[i].id),
                 item: ContentItem.fromAnilist(items[i]),
                 width: 116,
                 showMediaMetadata: true,
@@ -2000,7 +1971,7 @@ class _ContinueWatchingSection extends StatelessWidget {
                   thumbnailUrl: media.bannerImage,
                   animeCoverUrl: media.bestCover,
                   animeTitle:
-                      media.displayTitle ?? context.l10n.discover_unknown_title,
+                      media.displayTitle,
                   episodeNumber: (index % 24) + 1,
                   progress: EpisodeProgress(value: progress.clamp(0.0, 1.0)),
                 ),
@@ -2547,56 +2518,3 @@ class _TmdbLandscapeRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TMDB ranked row — top-10 with big rank numbers
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TmdbRankedRow extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final List<TmdbMedia> items;
-  final void Function(TmdbMedia) onTap;
-
-  const _TmdbRankedRow({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.items,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty)
-      return const SliverToBoxAdapter(child: SizedBox.shrink());
-    return SliverToBoxAdapter(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(title: title, icon: icon, color: color),
-          SizedBox(
-            height: 200,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: windowSizeClassOf(context).pagePadding),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final media = items[i];
-                final source = 'home-ranked-${title.hashCode}-$i';
-                return RankedCard(
-                  item: ContentItem.fromTmdb(media),
-                  heroTag: tmdbHeroTag(media, source),
-                  rank: i + 1,
-                  onTap: () =>
-                      pushTmdbMediaDetail(context, media, source: source),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
