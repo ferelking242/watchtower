@@ -29,6 +29,8 @@ import 'package:watchtower/services/download_manager/download_settings_service.d
 import 'package:watchtower/services/download_manager/download_size.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/utils/cached_network.dart';
+import 'package:watchtower/utils/log/log.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/utils/cover_url.dart';
 import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/extensions/chapter.dart';
@@ -83,6 +85,16 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   /// the chapter -> manga links (sync reads when they are not loaded yet). The
   /// mapping is immutable for a chapter, so resolving it once is enough.
   final _itemTypeCache = <int, ItemType>{};
+
+  /// Rows the user swiped away, hidden until Isar stops returning them.
+  ///
+  /// `Dismissible` removes its child as soon as `confirmDismiss` says yes, but
+  /// the queue rebuilds from Isar and a delete has to stop the engine and erase
+  /// the files first. Without this the swiped card stayed in the list (and
+  /// Flutter logged a dismissed widget that was still mounted). Ids are dropped
+  /// as soon as the store no longer returns them, so a failed delete puts the
+  /// row back.
+  final _deletedIds = <int>{};
 
   @override
   void initState() {
@@ -497,8 +509,13 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
         }
 
         final allEntries = snapshot.data ?? const <Download>[];
+        if (_deletedIds.isNotEmpty) {
+          final live = {for (final d in allEntries) if (d.id != null) d.id!};
+          _deletedIds.removeWhere((id) => !live.contains(id));
+        }
         final entries = <Download>[];
         for (final d in allEntries) {
+          if (d.id != null && _deletedIds.contains(d.id)) continue;
           if (!d.chapter.isLoaded) d.chapter.loadSync();
           final chapter = d.chapter.value;
           if (chapter == null) continue; // chapitre supprimé → entrée ignorée
@@ -920,7 +937,23 @@ class _DownloadQueueScreenState extends ConsumerState<DownloadQueueScreen>
   void _deleteDownload(Download element, WidgetRef ref) {
     final id = element.id;
     if (id == null) return;
-    unawaited(deleteMediaDownload(ref, id));
+    // The swipe already removed the card from the list, so the row must be gone
+    // from the next build too — deleting the files takes a while.
+    setState(() => _deletedIds.add(id));
+    unawaited(
+      deleteMediaDownload(ref, id).catchError((Object error, StackTrace st) {
+        AppLogger.log(
+          'Delete of download $id failed',
+          logLevel: LogLevel.error,
+          tag: LogTag.download,
+          error: error,
+          stackTrace: st,
+        );
+        if (!mounted) return;
+        setState(() => _deletedIds.remove(id));
+        botToast(context.l10n.download_failed);
+      }),
+    );
   }
 
   /// Open: launch the player/reader for this download.
