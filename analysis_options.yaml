@@ -12,6 +12,8 @@ analyzer:
     unintended_html_in_doc_comment: ignore
   exclude:
     - build/**
+    # Sous-module: Reel a sa propre analyse (et ses propres lints).
+    - reel/**
     - packages/excel/**
     - android/**
     - ios/**
