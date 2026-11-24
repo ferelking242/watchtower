@@ -128,19 +128,43 @@ final liveChannelsProvider =
       }
     });
 
+/// Flattens per-provider channel lists into one, without duplicates.
+///
+/// Providers overlap: the published catalogues are split by origin, so the
+/// genre catalogue repeats most of the country catalogue's streams and
+/// installing both would otherwise list the same channel twice. A channel is
+/// dropped only when *all* of its URLs are already covered, so an entry that
+/// adds a mirror still survives.
+List<LiveChannel> mergeChannels(Iterable<List<LiveChannel>> perProvider) {
+  final merged = <LiveChannel>[];
+  final seen = <String>{};
+  for (final channels in perProvider) {
+    for (final channel in channels) {
+      if (channel.urls.isNotEmpty && channel.urls.every(seen.contains)) {
+        continue;
+      }
+      seen.addAll(channel.urls);
+      merged.add(channel);
+    }
+  }
+  return merged;
+}
+
 /// Channels from every enabled provider, flattened.
 final allLiveChannelsProvider = FutureProvider<List<LiveChannel>>((ref) async {
   final providers = ref.watch(enabledLiveProvidersProvider);
-  final results = <LiveChannel>[];
+  final perProvider = <List<LiveChannel>>[];
   for (final provider in providers) {
     try {
-      results.addAll(await ref.watch(liveChannelsProvider(provider.id).future));
+      perProvider.add(
+        await ref.watch(liveChannelsProvider(provider.id).future),
+      );
     } catch (_) {
       // One dead provider must not empty the whole list.
       continue;
     }
   }
-  return results;
+  return mergeChannels(perProvider);
 });
 
 /// Channel groups of one provider, for the filter chips.
