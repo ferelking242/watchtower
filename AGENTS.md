@@ -1534,6 +1534,28 @@ must not leak into watch code paths or logs:
 
 
 
+## Téléchargement en masse : la box d'abord, le drain derrière
+- **La box ne doit jamais attendre le drain.** « Tout télécharger » couvre toute
+  la liste, mais une liste de suggestions sans fin enchaîne jusqu'à 250 pages à
+  ~1,5 s (un `getCustomList` + un `search` par page) : l'ancien enchaînement
+  « drain complet puis ouverture » laissait la box invisible 7 à 8 minutes. La
+  box s'ouvre donc tout de suite avec `CataloguePageLoader` et
+  `CatalogueDrain` (`catalog_bulk_download_sheet.dart`) : chaque page drainée
+  ajoute ses lignes, et confirmer arrête le drain.
+- Le drain est **parallèle** : `catalogueDrainLanes()` donne une page par
+  worker isolate (cap `kCatalogueDrainLanes` = 4) et chaque lane est épinglée
+  avec `GetIsolateService.runOnWorkerSlot`, parce qu'un runtime de source est
+  sérial *dans* un isolate — sans épinglage les requêtes font la queue et rien
+  ne s'accélère. Sur le web ou avec un seul worker, on retombe sur une page à
+  la fois. Les pages sont fusionnées dans l'ordre et tout ce qui est récupéré
+  après la vraie fin (page vide ou `hasNextPage == false`) est jeté.
+- Un « Télécharger 5/10/25… » passe `limit` : le drain s'arrête au compte
+  demandé au lieu de parcourir la liste entière.
+- Balayage des cartes de la file : droite = supprimer, gauche = action utile
+  contextuelle (pause/reprendre, réessayer si annulé ou échoué, ouvrir si le
+  téléchargement est terminé), via `swipeLeftAction`/`swipeRightAction`. Le
+  fond de swipe suit l'action réellement exécutée, pas l'action configurée.
+
 ## ZeusDL / téléchargement de liens (ne pas régresser)
 - **Un seul moteur = un fichier.** Tout nouveau moteur implémente
   `DownloadEngine` (`lib/services/download_manager/engines/download_engine.dart`)

@@ -26,6 +26,7 @@ import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/services/get_popular.dart';
+import 'package:watchtower/services/isolate_service.dart';
 import 'package:isar_community/isar.dart';
 
 import 'package:watchtower/eval/model/m_chapter.dart';
@@ -3235,24 +3236,92 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
     );
   }
 
-  /// Feeds one more catalogue page to the bulk-download sheet. A page that adds
+  /// Feeds the next catalogue pages to the bulk-download sheet. A page that adds
   /// nothing is not necessarily the end (listings repeat a card across page
   /// boundaries), so the sheet only stops after several consecutive empty
   /// pages.
+  ///
+  /// Several pages are fetched per call, one per worker isolate: a page costs
+  /// two round-trips (the listing call plus its suggestions) and a listing can
+  /// declare hundreds of pages, so walking them one at a time is what made the
+  /// drain look frozen. Pages land in order, and anything fetched past the real
+  /// end is dropped.
   Future<({List<MManga> items, bool hasMore})> _loadNextPageForBulk() async {
     if (!mounted || !_hasMore || _page >= _autoDrainPageCap) {
       return (items: _extensionItems, hasMore: false);
     }
-    await _loadPage();
     // _loadPage is a no-op while a scroll-triggered page is still in flight;
     // waiting for it keeps the drain from reading a half-loaded list as a
     // stalled page and stopping early.
     while (mounted && _loading) {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
+    if (!mounted) return (items: _extensionItems, hasMore: false);
+
+    final lanes = catalogueDrainLanes();
+    if (lanes <= 1) {
+      await _loadPage();
+      while (mounted && _loading) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      return (
+        items: _extensionItems,
+        hasMore: mounted && _hasMore && _page < _autoDrainPageCap,
+      );
+    }
+
+    final version = _extensionRequestVersion;
+    final pages = <int>[];
+    for (var i = 0; i < lanes; i++) {
+      final page = _page + i;
+      if (page >= _autoDrainPageCap) break;
+      pages.add(page);
+    }
+    final workers = getIsolateService.workerCount;
+    final results = await Future.wait([
+      for (var i = 0; i < pages.length; i++)
+        getIsolateService
+            .runOnWorkerSlot(i % workers, () => _fetchExtensionPage(pages[i]))
+            .catchError((Object _) => null),
+    ]);
+    if (!mounted || version != _extensionRequestVersion) {
+      return (items: _extensionItems, hasMore: false);
+    }
+
+    final seen = {
+      for (final item in _extensionItems)
+        item.link ?? item.name ?? '${item.hashCode}',
+    };
+    final fresh = <MManga>[];
+    var consumed = 0;
+    var hasNext = true;
+    for (var i = 0; i < results.length; i++) {
+      final result = results[i];
+      final items = result?.list ?? const <MManga>[];
+      if (items.isEmpty) break;
+      consumed = i + 1;
+      for (final item in items) {
+        if (seen.add(item.link ?? item.name ?? '${item.hashCode}')) {
+          fresh.add(item);
+        }
+      }
+      hasNext = result?.hasNextPage ?? false;
+      if (!hasNext) break;
+    }
+    if (consumed > 0) {
+      setState(() {
+        _extensionItems.addAll(fresh);
+        _page += consumed;
+        _hasMore = hasNext;
+      });
+    }
     return (
       items: _extensionItems,
-      hasMore: mounted && _hasMore && _page < _autoDrainPageCap,
+      hasMore:
+          mounted &&
+          consumed > 0 &&
+          _hasMore &&
+          _page < _autoDrainPageCap,
     );
   }
 

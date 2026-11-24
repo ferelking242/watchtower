@@ -96,6 +96,21 @@ const LinearGradient _kSheetGradient = LinearGradient(
 typedef CataloguePageLoader =
     Future<({List<MManga> items, bool hasMore})> Function();
 
+/// Pages a [CatalogueDrain] fetches at once. A source runtime is serial *inside*
+/// an isolate, so a lane only buys time when it is pinned to another worker
+/// ([GetIsolateService.runOnWorkerSlot]); [kCatalogueDrainLanes] keeps the
+/// concurrency polite for the site.
+const int kCatalogueDrainLanes = 4;
+
+/// Parallel lanes available to a drain: one per healthy extension worker,
+/// capped. Web and single-worker devices fall back to fetching page by page.
+int catalogueDrainLanes() {
+  if (kIsWeb) return 1;
+  final workers = getIsolateService.workerCount;
+  if (workers <= 1) return 1;
+  return workers > kCatalogueDrainLanes ? kCatalogueDrainLanes : workers;
+}
+
 /// Entries a bulk download can actually queue: a collection row (studio,
 /// person…) opens a sub-list instead of a video, and an entry without a link
 /// cannot be resolved.

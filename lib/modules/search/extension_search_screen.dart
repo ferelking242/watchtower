@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/eval/model/filter.dart';
 import 'package:watchtower/eval/model/m_manga.dart';
+import 'package:watchtower/eval/model/m_pages.dart';
 import 'package:watchtower/models/layout_component_registry.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/ui_layout.dart';
@@ -16,12 +17,14 @@ import 'package:watchtower/modules/media/catalog_filter_sheet.dart';
 import 'package:watchtower/modules/media/content_cards.dart';
 import 'package:watchtower/modules/media/media_home_widgets.dart';
 import 'package:watchtower/modules/media/overlay_filter_menu.dart';
+import 'package:watchtower/modules/media/widgets/catalog_bulk_download_sheet.dart';
 import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.dart';
 import 'package:watchtower/modules/search/shared_search_chrome.dart';
 import 'package:watchtower/modules/search/extension_search_preview.dart';
 import 'package:watchtower/modules/watch/home/extension_home_empty_state.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_filter_list.dart';
+import 'package:watchtower/services/isolate_service.dart';
 import 'package:watchtower/services/layout_registry.dart';
 import 'package:watchtower/services/search.dart';
 import 'package:watchtower/utils/adaptive_overlay_menu.dart';
@@ -694,26 +697,91 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     CatalogBulkDownloadAction.downloadsSubMenuHeader => false,
   };
 
-  /// One more result page for the download sheet. A page that adds nothing is
-  /// not proof of the end (some listings repeat a card across a boundary), so
-  /// the sheet only stops after several consecutive empty pages.
+  /// Next result pages for the download sheet. A page that adds nothing is not
+  /// proof of the end (some listings repeat a card across a boundary), so the
+  /// sheet only stops after several consecutive empty pages.
+  ///
+  /// Several pages are fetched per call, one per worker isolate: a page costs
+  /// two round-trips and a listing can declare hundreds of pages, so walking
+  /// them one at a time is what made the drain look frozen. Pages land in
+  /// order and anything fetched past the real end is dropped.
   Future<({List<MManga> items, bool hasMore})> _loadNextResultPage() async {
     final version = _searchRequestVersion;
     if (!mounted || _results == null || !_hasNext) {
       return (items: _results ?? const <MManga>[], hasMore: false);
     }
-    await _loadMore();
-    // _loadMore is a no-op while another page is in flight; waiting for it
-    // keeps the drain from reading a half-loaded list as a stalled page.
+    final lanes = catalogueDrainLanes();
+    // Declared tabs page through their own channel; the plain search path is
+    // the one that can fan out.
+    if (lanes <= 1 || _searchTabs.isNotEmpty) {
+      await _loadMore();
+      // _loadMore is a no-op while another page is in flight; waiting for it
+      // keeps the drain from reading a half-loaded list as a stalled page.
+      while (mounted && _loadingMore && version == _searchRequestVersion) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      final stillValid = mounted && version == _searchRequestVersion;
+      return (
+        items: _results ?? const <MManga>[],
+        hasMore: stillValid && _hasNext,
+      );
+    }
+
     while (mounted && _loadingMore && version == _searchRequestVersion) {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
-    final stillValid = mounted && version == _searchRequestVersion;
+    if (!mounted || version != _searchRequestVersion || _results == null) {
+      return (items: _results ?? const <MManga>[], hasMore: false);
+    }
+    final pages = [for (var i = 0; i < lanes; i++) _page + i];
+    final workers = getIsolateService.workerCount;
+    final results = await Future.wait([
+      for (var i = 0; i < pages.length; i++)
+        getIsolateService
+            .runOnWorkerSlot(i % workers, () => _fetchResultsPage(pages[i]))
+            .catchError((Object _) => null),
+    ]);
+    if (!mounted || version != _searchRequestVersion) {
+      return (items: _results ?? const <MManga>[], hasMore: false);
+    }
+
+    final fresh = <MManga>[];
+    var consumed = 0;
+    var hasNext = true;
+    for (var i = 0; i < results.length; i++) {
+      final result = results[i];
+      final items = result?.list ?? const <MManga>[];
+      if (items.isEmpty) break;
+      consumed = i + 1;
+      for (final item in items) {
+        if (_seen.add(item.link ?? item.name ?? '${item.hashCode}')) {
+          fresh.add(item);
+        }
+      }
+      hasNext = result?.hasNextPage ?? false;
+      if (!hasNext) break;
+    }
+    if (consumed > 0) {
+      setState(() {
+        _results = [...?_results, ...fresh];
+        _page += consumed;
+        _hasNext = hasNext;
+      });
+    }
     return (
       items: _results ?? const <MManga>[],
-      hasMore: stillValid && _hasNext,
+      hasMore: mounted && consumed > 0 && _hasNext,
     );
   }
+
+  Future<MPages?> _fetchResultsPage(int page) => ref.read(
+    searchProvider(
+      source: widget.source,
+      query: _query,
+      page: page,
+      filterList: List<dynamic>.of(_activeFilters),
+    ).future,
+  );
 
   /// Clears the field and keeps the keyboard open. Used as the first step of
   /// the back gesture (see [handleSearchBack]).

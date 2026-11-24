@@ -3514,19 +3514,36 @@ class _GroupedDownloadTabListState
   /// Background revealed while swiping a download card, matching the action
   /// configured for that side. Uses the same icon, colour and label as the
   /// compact swipe panel so a gesture means the same thing everywhere.
+  /// Background of one swipe side. The label follows what the gesture will
+  /// actually do on this row: a finished download has nothing to pause (the
+  /// same swipe opens it), and a cancelled or failed one retries.
   Widget _swipeBackgroundFor(
     SwipeAction action, {
     required Alignment alignment,
     required bool isPaused,
     required bool isCancelled,
+    bool isComplete = false,
+    bool isFailed = false,
   }) {
     final l10n = context.l10n;
     final (IconData icon, String label, Color color) = switch (action) {
-      SwipeAction.pauseResume => (
-        isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-        isPaused ? l10n.queue_resume : l10n.queue_pause,
-        Colors.orange.shade700,
-      ),
+      SwipeAction.pauseResume => isComplete
+          ? (
+              Icons.play_circle_outline_rounded,
+              l10n.home_open,
+              Colors.green.shade700,
+            )
+          : isCancelled || isFailed
+          ? (
+              Icons.replay_rounded,
+              l10n.downloads_swipe_retry,
+              Colors.blueGrey.shade700,
+            )
+          : (
+              isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+              isPaused ? l10n.queue_resume : l10n.queue_pause,
+              Colors.orange.shade700,
+            ),
       SwipeAction.cancel => (
         Icons.close_rounded,
         l10n.downloads_swipe_cancel,
@@ -3689,6 +3706,8 @@ class _GroupedDownloadTabListState
     final retryCount = _queueState.retryCounts[element.id ?? -1] ?? 0;
     final priority = _queueState.priorities[element.id ?? -1] ?? 0;
     final liveProgress = _queueState.liveProgress[element.id ?? -1];
+    final isComplete = element.isDownload ?? false;
+    final isFailed = (element.failed ?? 0) > 0 && !isComplete;
 
     // Swipe sides follow the configured gesture actions ("Balayer à droite" =
     // startToEnd, "Balayer à gauche" = endToStart) instead of the previous
@@ -3715,12 +3734,16 @@ class _GroupedDownloadTabListState
         alignment: Alignment.centerLeft,
         isPaused: isPaused,
         isCancelled: isCancelled,
+        isComplete: isComplete,
+        isFailed: isFailed,
       ),
       secondaryBackground: _swipeBackgroundFor(
         endAction,
         alignment: Alignment.centerRight,
         isPaused: isPaused,
         isCancelled: isCancelled,
+        isComplete: isComplete,
+        isFailed: isFailed,
       ),
       confirmDismiss: (direction) async {
         final action = direction == DismissDirection.startToEnd
@@ -3728,7 +3751,11 @@ class _GroupedDownloadTabListState
             : endAction;
         switch (action) {
           case SwipeAction.pauseResume:
-            if (isCancelled) {
+            if (isComplete) {
+              // Nothing left to pause: the useful action on a finished row is
+              // opening what was downloaded.
+              widget.onOpen(element);
+            } else if (isCancelled || isFailed) {
               widget.onRetry(element);
             } else {
               widget.onPauseResume(element);
