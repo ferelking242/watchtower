@@ -24,7 +24,9 @@ class MetadataPluginSavedTracksNotifier
     ref.watch(metadataPluginsProvider);
     ref.cacheFor();
 
-    await ref.watch(metadataPluginAuthenticatedProvider.future);
+    final authenticated =
+        await ref.watch(metadataPluginAuthenticatedProvider.future);
+    if (!authenticated) return emptyPage();
     return await fetch(0, 20);
   }
 

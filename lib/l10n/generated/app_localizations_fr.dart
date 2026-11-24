@@ -1170,6 +1170,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get uninstall => 'Désinstaller';
 
   @override
+  String get plugin_default_badge => 'Par défaut';
+
+  @override
+  String get plugin_requires_authentication => 'Authentification requise';
+
+  @override
+  String get supports_scrobbling => 'Scrobbling';
+
+  @override
   String uninstall_extension(Object ext) {
     return 'Désinstaller l\'extension $ext?';
   }

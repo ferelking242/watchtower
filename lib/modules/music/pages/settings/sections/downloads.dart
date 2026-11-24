@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +36,7 @@ class SettingsDownloadsSection extends HookConsumerWidget {
 
     return SectionCardWithHeading(
       heading: context.l10n.downloads,
+      icon: Broken.document_download,
       children: [
         ListTile(
           title: Text(context.l10n.download_location),

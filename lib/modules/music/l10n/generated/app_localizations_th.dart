@@ -541,14 +541,11 @@ class AppLocalizationsTh extends AppLocalizations {
   String get bug_issues => 'ข้อผิดพลาด+ปัญหา';
 
   @override
-  String get made_with => 'ทำด้วย❤️ใน บังคลาเทศ🇧🇩';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1475,11 +1472,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get update_available => 'มีการอัปเดต';
 
   @override
-  String get supports_scrobbling => 'รองรับการ scrobbling';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info =>
-      'ปลั๊กอินนี้จะ scrobble เพลงของคุณเพื่อสร้างประวัติการฟังของคุณ';
+  String get plugin_scrobbling_info => 'ส่งประวัติการฟังของคุณ';
 
   @override
   String get default_metadata_source => 'แหล่งเมตาดาต้าพื้นฐาน';
@@ -1549,6 +1545,9 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get input_does_not_match_format => 'อินพุตไม่ตรงกับรูปแบบที่ต้องการ';
+
+  @override
+  String get defaults => 'ค่าเริ่มต้น';
 
   @override
   String get plugins => 'ปลั๊กอิน';

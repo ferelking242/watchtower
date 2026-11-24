@@ -538,14 +538,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bug_issues => 'バグや問題';
 
   @override
-  String get made_with => '❤️ を込めてバングラディシュ🇧🇩で開発';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1453,10 +1450,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get update_available => 'アップデートが利用可能です';
 
   @override
-  String get supports_scrobbling => 'scrobblingに対応';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info => 'このプラグインは、あなたの音楽をscrobbleして視聴履歴を生成します。';
+  String get plugin_scrobbling_info => '再生履歴を送信します。';
 
   @override
   String get default_metadata_source => 'デフォルトメタデータソース';
@@ -1524,6 +1521,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get input_does_not_match_format => '入力が必須フォーマットと一致しません';
+
+  @override
+  String get defaults => 'デフォルト';
 
   @override
   String get plugins => 'プラグイン';

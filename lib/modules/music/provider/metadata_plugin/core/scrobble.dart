@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
 import 'package:watchtower/services/connectivity_service.dart';
@@ -10,7 +11,8 @@ import 'package:watchtower/services/connectivity_service.dart';
 ///
 /// Only plugins that declare the [PluginAbilities.scrobbling] ability (e.g.
 /// MusicBrainz/ListenBrainz) receive scrobbles; when none is configured this
-/// provider is `null` and callers become no-ops.
+/// provider is `null` and callers become no-ops. Scrobbling submits to the
+/// user's ListenBrainz account, so a signed-out session never sends anything.
 class MetadataPluginScrobbleNotifier
     extends Notifier<StreamController<SpotubeTrackObject>?> {
   @override
@@ -22,9 +24,13 @@ class MetadataPluginScrobbleNotifier
         ?.value
         .defaultMetadataPluginConfig;
 
+    final authenticated =
+        ref.watch(metadataPluginAuthenticatedProvider).asData?.value == true;
+
     final plugin = metadataPlugin.asData?.value;
     if (plugin == null ||
         pluginConfig == null ||
+        !authenticated ||
         !pluginConfig.abilities.contains(PluginAbilities.scrobbling)) {
       return null;
     }

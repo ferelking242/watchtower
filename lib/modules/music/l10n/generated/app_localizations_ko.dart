@@ -538,14 +538,11 @@ class AppLocalizationsKo extends AppLocalizations {
   String get bug_issues => '버그 및 이슈';
 
   @override
-  String get made_with => '❤️을 담아 방글라데시에서 만듦';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1457,10 +1454,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get update_available => '업데이트 사용 가능';
 
   @override
-  String get supports_scrobbling => '스크로블링 지원';
+  String get supports_scrobbling => '스크로블링';
 
   @override
-  String get plugin_scrobbling_info => '이 플러그인은 음악을 스크로블하여 청취 기록을 생성합니다.';
+  String get plugin_scrobbling_info => '청취 기록을 전송합니다.';
 
   @override
   String get default_metadata_source => '기본 메타데이터 소스';
@@ -1528,6 +1525,9 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get input_does_not_match_format => '입력이 필요한 형식과 일치하지 않습니다';
+
+  @override
+  String get defaults => '기본값';
 
   @override
   String get plugins => '플러그인';

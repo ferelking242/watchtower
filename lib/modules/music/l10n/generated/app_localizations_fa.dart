@@ -541,14 +541,11 @@ class AppLocalizationsFa extends AppLocalizations {
   String get bug_issues => 'اشکال+مسایل';
 
   @override
-  String get made_with => '🇧🇩ساخته شده با ❤️ در بنگلادش';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1476,11 +1473,10 @@ class AppLocalizationsFa extends AppLocalizations {
   String get update_available => 'به‌روزرسانی در دسترس است';
 
   @override
-  String get supports_scrobbling => 'پشتیبانی از اسکراب‌بلینگ';
+  String get supports_scrobbling => 'اسکراب‌بلینگ';
 
   @override
-  String get plugin_scrobbling_info =>
-      'این افزونه موسیقی شما را اسکراب می‌کند تا تاریخچهٔ شنیداری‌تان را تولید کند.';
+  String get plugin_scrobbling_info => 'تاریخچهٔ شنیداری را می‌فرستد.';
 
   @override
   String get default_metadata_source => 'منبع پیش‌فرض فراداده';
@@ -1552,6 +1548,9 @@ class AppLocalizationsFa extends AppLocalizations {
   @override
   String get input_does_not_match_format =>
       'ورودی با قالب مورد نیاز تطابق ندارد';
+
+  @override
+  String get defaults => 'پیش‌فرض‌ها';
 
   @override
   String get plugins => 'افزونه‌ها';

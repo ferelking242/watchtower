@@ -541,14 +541,11 @@ class AppLocalizationsFi extends AppLocalizations {
   String get bug_issues => 'Bugit+Ongelmat';
 
   @override
-  String get made_with => 'Tehty ❤️ Bangladeshista 🇧🇩';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1479,11 +1476,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get update_available => 'Päivitys saatavilla';
 
   @override
-  String get supports_scrobbling => 'Tukee scrobblingia';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info =>
-      'Tämä lisäosa scrobblaa musiikkisi luodakseen kuunteluhistoriasi.';
+  String get plugin_scrobbling_info => 'Lähettää kuunteluhistoriasi.';
 
   @override
   String get default_metadata_source => 'Oletusarvoinen metatietolähde';
@@ -1553,6 +1549,9 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get input_does_not_match_format => 'Syöte ei vastaa vaadittua muotoa';
+
+  @override
+  String get defaults => 'Oletukset';
 
   @override
   String get plugins => 'Laajennukset';

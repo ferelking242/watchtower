@@ -543,14 +543,11 @@ class AppLocalizationsTa extends AppLocalizations {
   String get bug_issues => 'பிழை_சிக்கல்கள்';
 
   @override
-  String get made_with => 'வங்காளதேசத்திலிருந்து🇧🇩 ❤️ உருவாக்கப்பட்டது';
-
-  @override
-  String get kingkor_roy_tirtho => 'கிங்கர் ராய் திர்தோ';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year கிங்கர் ராய் திர்தோ';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1490,11 +1487,10 @@ class AppLocalizationsTa extends AppLocalizations {
   String get update_available => 'புதுப்பிப்பு உள்ளது';
 
   @override
-  String get supports_scrobbling => 'ஸ்க்ரோப்ளிங்கை ஆதரிக்கிறது';
+  String get supports_scrobbling => 'ஸ்க்ரோப்ளிங்';
 
   @override
-  String get plugin_scrobbling_info =>
-      'இந்த பிளகின் உங்கள் கேட்பதின் வரலாற்றை உருவாக்க உங்கள் இசையை ஸ்க்ரோப்ள் செய்கிறது.';
+  String get plugin_scrobbling_info => 'கேட்பு வரலாற்றை அனுப்புகிறது.';
 
   @override
   String get default_metadata_source => 'இயல்புநிலை மெட்டாடேட்டா மூலம்';
@@ -1567,6 +1563,9 @@ class AppLocalizationsTa extends AppLocalizations {
   @override
   String get input_does_not_match_format =>
       'உள்ளீடு தேவையான வடிவத்துடன் பொருந்தவில்லை';
+
+  @override
+  String get defaults => 'இயல்புகள்';
 
   @override
   String get plugins => 'செருகுநிரல்கள்';

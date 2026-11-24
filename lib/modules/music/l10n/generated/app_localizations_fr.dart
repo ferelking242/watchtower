@@ -546,14 +546,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get bug_issues => 'Bugs + Problèmes';
 
   @override
-  String get made_with => 'Fabriqué avec ❤️ au Bangladesh🇧🇩';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1485,18 +1482,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get third_party => 'Tiers';
 
   @override
-  String get plugin_requires_authentication =>
-      'Le plugin nécessite une authentification';
+  String get plugin_requires_authentication => 'Authentification requise';
 
   @override
   String get update_available => 'Mise à jour disponible';
 
   @override
-  String get supports_scrobbling => 'Supporte le scrobbling';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info =>
-      'Ce plugin scrobble votre musique pour générer votre historique d\'écoute.';
+  String get plugin_scrobbling_info => 'Envoie votre historique d\'écoute.';
 
   @override
   String get default_metadata_source => 'Source de métadonnées par défaut';
@@ -1573,6 +1568,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'L\'entrée ne correspond pas au format requis';
 
   @override
+  String get defaults => 'Par défaut';
+
+  @override
   String get plugins => 'Plugins';
 
   @override
@@ -1593,7 +1591,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Télécharger le plugin à partir d\'un fichier';
 
   @override
-  String get installed => 'Installé';
+  String get installed => 'Installés';
 
   @override
   String get available_plugins => 'Plugins disponibles';
@@ -1647,11 +1645,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get plugins_install_in_marketplace =>
-      'Extensions and plugins are installed from the Marketplace.';
+      'Les extensions et plugins s\'installent depuis la Marketplace.';
 
   @override
   String no_installed_plugins(String type) {
-    return 'No $type plugins installed yet.';
+    return 'Aucun plugin $type installé.';
   }
 
   @override

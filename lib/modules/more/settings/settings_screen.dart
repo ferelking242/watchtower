@@ -177,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: l10n.settings_music_hub,
         subtitle: l10n.settings_music_hub_subtitle,
         icon: Broken.music_playlist,
-        route: '/MusicLibrary',
+        route: '/MusicHubSettings',
         keywords: ['musique', 'music', 'audio', 'namida'],
       ),
       if (kIsWeb)

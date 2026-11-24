@@ -33,6 +33,7 @@ class SettingsPlaybackSection extends HookConsumerWidget {
 
     return SectionCardWithHeading(
       heading: context.l10n.playback,
+      icon: Broken.play_circle,
       children: [
         AdaptiveSelectTile<YoutubeClientEngine>(
           secondary: const Icon(MusicIcons.engine),

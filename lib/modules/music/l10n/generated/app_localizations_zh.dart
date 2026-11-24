@@ -536,14 +536,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get bug_issues => '缺陷和问题报告';
 
   @override
-  String get made_with => '于孟加拉🇧🇩用 ❤️ 发电';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1448,10 +1445,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get update_available => '有可用更新';
 
   @override
-  String get supports_scrobbling => '支持 Scrobbling';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info => '此插件会 scrobble 您的音乐以生成您的收听历史记录。';
+  String get plugin_scrobbling_info => '发送你的收听记录。';
 
   @override
   String get default_metadata_source => '默认元数据源';
@@ -1518,6 +1515,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get input_does_not_match_format => '输入与所需格式不匹配';
+
+  @override
+  String get defaults => '默认';
 
   @override
   String get plugins => '插件';
@@ -2134,14 +2134,11 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get bug_issues => '缺陷與問題報告';
 
   @override
-  String get made_with => '於孟加拉🇧🇩用 ❤️ 發電';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -3047,10 +3044,10 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get update_available => '有可用的更新';
 
   @override
-  String get supports_scrobbling => '支援 Scrobbling';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info => '此外掛程式會 Scrobble 您的音樂以產生您的收聽記錄。';
+  String get plugin_scrobbling_info => '傳送你的收聽紀錄。';
 
   @override
   String get default_metadata_source => '預設中繼資料來源';
@@ -3117,6 +3114,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get input_does_not_match_format => '輸入不符合所需格式';
+
+  @override
+  String get defaults => '預設';
 
   @override
   String get plugins => '外掛程式';

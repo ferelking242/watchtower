@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
@@ -17,6 +18,7 @@ class SettingsDesktopSection extends HookConsumerWidget {
 
     return SectionCardWithHeading(
       heading: context.l10n.desktop,
+      icon: Broken.monitor,
       children: [
         AdaptiveSelectTile<CloseBehavior>(
           secondary: const Icon(MusicIcons.close),

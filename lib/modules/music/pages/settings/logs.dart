@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/modules/media/app_ui_components.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
 import 'package:watchtower/modules/music/components/button/back_button.dart';
-import 'package:watchtower/modules/music/components/inter_scrollbar/inter_scrollbar.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/provider/logs/logs_provider.dart';
 import 'package:watchtower/modules/music/services/logger/logger.dart';
@@ -18,62 +15,101 @@ class LogsPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, ref) {
-    final controller = useScrollController();
     final logsQuery = ref.watch(logsProvider);
+    final cs = Theme.of(context).colorScheme;
 
-    return SafeArea(
-      bottom: false,
-      child: Scaffold(
-        appBar: AppBar(
-          leading: MusicBackButton(),
-          title: Text(context.l10n.logs),
-          actions: [
-            IconButton(
-              icon: const Icon(MusicIcons.clipboard),
-              onPressed: () async {
-                final logsSnapshot = await ref.read(logsProvider.future);
-                await Clipboard.setData(ClipboardData(text: logsSnapshot));
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(context.l10n.copied_to_clipboard("")),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              },
-            ),
-            IconButton(
-              icon: const Icon(MusicIcons.trash),
-              onPressed: () async {
-                ref.invalidate(logsProvider);
-                final logsFile = await AppLogger.getLogsPath();
-                await logsFile.writeAsString("");
-              },
-            ),
-          ],
-        ),
-        body: SafeArea(
-          child: switch (logsQuery) {
-            AsyncData(:final value) => InterScrollbar(
-                controller: controller,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(8.0),
-                  controller: controller,
-                  child: Card(child: SelectableText(value)),
-                ),
-              ),
-            AsyncError(:final error) => switch (error) {
-                StateError() => AppEmptyState(
-                    icon: Broken.document_text,
-                    title: context.l10n.no_logs_found,
-                    message: context.l10n.search_to_get_results,
+    return SettingsSubpageScaffold(
+      title: context.l10n.logs,
+      showSearch: false,
+      leading: const MusicBackButton(),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Broken.document_text, size: 20),
+            tooltip: context.l10n.copy_to_clipboard,
+            onPressed: () async {
+              final snapshot = await ref.read(logsProvider.future);
+              await Clipboard.setData(ClipboardData(text: snapshot));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(context.l10n.copied_to_clipboard('')),
+                    behavior: SnackBarBehavior.floating,
                   ),
-                _ => Center(child: Text(error.toString())),
-              },
-            _ => const Center(child: CircularProgressIndicator()),
-          },
+                );
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Broken.trash, size: 20),
+            tooltip: context.l10n.delete,
+            onPressed: () async {
+              ref.invalidate(logsProvider);
+              final logsFile = await AppLogger.getLogsPath();
+              await logsFile.writeAsString("");
+            },
+          ),
+        ],
+      ),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            child: switch (logsQuery) {
+              AsyncData(:final value) =>
+                value.trim().isEmpty
+                    ? _LogsEmpty(message: context.l10n.no_logs_found)
+                    : SelectableText(
+                        value,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.45,
+                          fontFamily: 'monospace',
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+              AsyncError(:final error) => _LogsEmpty(
+                message: error is StateError
+                    ? context.l10n.no_logs_found
+                    : error.toString(),
+              ),
+              _ => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            },
+          ),
         ),
+      ],
+    );
+  }
+}
+
+class _LogsEmpty extends StatelessWidget {
+  const _LogsEmpty({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 40, 16, 16),
+      child: Column(
+        children: [
+          Icon(
+            Broken.document_text,
+            size: 34,
+            color: cs.onSurfaceVariant.withValues(alpha: .5),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+          ),
+        ],
       ),
     );
   }

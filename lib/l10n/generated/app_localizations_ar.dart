@@ -1172,6 +1172,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String get uninstall => 'إلغاء التثبيت';
 
   @override
+  String get plugin_default_badge => 'Default';
+
+  @override
+  String get plugin_requires_authentication => 'Authentication required';
+
+  @override
+  String get supports_scrobbling => 'Scrobbling';
+
+  @override
   String uninstall_extension(Object ext) {
     return 'هل ترغب في إلغاء تثبيت امتداد $ext؟';
   }

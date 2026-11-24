@@ -19,8 +19,12 @@ class MetadataPluginSavedAlbumNotifier
 
   @override
   build() async {
-    await ref.watch(metadataPluginAuthenticatedProvider.future);
     ref.watch(metadataPluginsProvider);
+    final authenticated =
+        await ref.watch(metadataPluginAuthenticatedProvider.future);
+    // Saved items live on the user's account: signed out there is nothing to
+    // fetch, and the plugin endpoints would answer 401/404.
+    if (!authenticated) return emptyPage();
     return await fetch(0, 20);
   }
 

@@ -2,220 +2,155 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/core/icon_fonts/broken_icons.dart';
-import 'package:watchtower/modules/media/app_ui_components.dart';
-import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/modules/more/settings/widgets/settings_subpage_scaffold.dart';
+import 'package:watchtower/modules/music/components/button/back_button.dart';
 import 'package:watchtower/modules/music/extensions/context.dart';
 import 'package:watchtower/modules/music/models/metadata/metadata.dart';
 import 'package:watchtower/modules/music/modules/metadata_plugins/installed_plugin.dart';
+import 'package:watchtower/modules/music/modules/settings/section_card_with_heading.dart';
 import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
 import 'package:watchtower/modules/music/utils/open_marketplace.dart';
-import 'package:watchtower/widgets/shimmer_skeleton.dart';
 
-/// Music plugin manager.
+/// Music plugins installed on this device.
 ///
-/// Installation, updates and the browseable catalogue live in the Watchtower
-/// Extension Marketplace — the single entry point for every extension. This
-/// screen only lists the plugins that are actually *installed* and exposes
-/// their configuration (default provider, sign-in, removal).
+/// The list is read from the plugin database, so it shows exactly what the user
+/// installed from the Marketplace (or the plugins Watchtower ships) and nothing
+/// else — no hardcoded catalogue, no placeholder providers. Installing,
+/// updating and browsing all happen in the Marketplace, which is the single
+/// entry point for every extension.
 class SettingsMetadataProviderPage extends HookConsumerWidget {
   const SettingsMetadataProviderPage({super.key});
 
   @override
   Widget build(BuildContext context, ref) {
-    final tabState = useState<int>(0);
-    final theme = Theme.of(context);
-
+    final query = useState<String>('');
     final plugins = ref.watch(metadataPluginsProvider);
-    final installedPlugins = useMemoized<List<PluginConfiguration>?>(() {
-      final all = plugins.asData?.value.plugins;
-      if (all == null) return null;
-      if (tabState.value == 0) return all;
-      return all.where((d) {
-        return d.abilities.contains(
-          tabState.value == 1
-              ? PluginAbilities.metadata
-              : PluginAbilities.audioSource,
-        );
-      }).toList();
-    }, [tabState.value, plugins.asData?.value]);
+    final state = plugins.asData?.value;
 
-    return SafeArea(
-      bottom: false,
-      child: Scaffold(
-        appBar: AppBar(title: Text(context.l10n.plugins)),
-        body: CustomScrollView(
-          slivers: [
-            // Where to install: the Marketplace owns installation.
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Card(
-                  child: ListTile(
-                    leading: Icon(
-                      Broken.element_4,
-                      color: theme.colorScheme.primary,
-                    ),
-                    title: Text(context.l10n.browse_marketplace),
-                    subtitle:
-                        Text(context.l10n.plugins_install_in_marketplace),
-                    trailing: const Icon(Broken.arrow_right_3),
-                    onTap: () => openMarketplace(context),
+    final q = query.value.trim().toLowerCase();
+    final installed = [
+      for (final plugin in state?.plugins ?? const <PluginConfiguration>[])
+        if (q.isEmpty ||
+            plugin.name.toLowerCase().contains(q) ||
+            plugin.author.toLowerCase().contains(q))
+          plugin,
+    ];
+
+    return SettingsSubpageScaffold(
+      title: context.l10n.plugins,
+      searchHint: context.l10n.search,
+      onSearchChanged: (value) => query.value = value,
+      leading: const MusicBackButton(),
+      slivers: [
+        if (state == null)
+          const SliverToBoxAdapter(child: _PluginsSkeleton())
+        else if (installed.isEmpty)
+          SliverToBoxAdapter(child: _EmptyInstalled(hasQuery: q.isNotEmpty))
+        else ...[
+          // Every row below is an installed plugin, so a section header saying
+          // "Installed" only repeated what the page already guarantees.
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final plugin in installed)
+                  MetadataInstalledPluginItem(
+                    plugin: plugin,
+                    isDefaultMetadata:
+                        state.defaultMetadataPluginConfig?.slug == plugin.slug,
+                    isDefaultAudioSource:
+                        state.defaultAudioSourcePluginConfig?.slug ==
+                        plugin.slug,
                   ),
-                ),
-              ),
+              ],
             ),
-
-            // Filter chips (All / Metadata / Audio source)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final (i, label) in [
-                        context.l10n.all,
-                        context.l10n.metadata,
-                        context.l10n.audio_source,
-                      ].indexed) ...[
-                        FilterChip(
-                          label: Text(label),
-                          selected: tabState.value == i,
-                          onSelected: (_) => tabState.value = i,
-                          showCheckmark: false,
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ],
-                  ),
-                ),
+          ),
+          if (q.isEmpty)
+            SliverToBoxAdapter(child: _DefaultsSection(state: state)),
+        ],
+        SliverToBoxAdapter(
+          child: SectionCardWithHeading(
+            heading: context.l10n.browse_marketplace,
+            icon: Broken.shop,
+            children: [
+              ListTile(
+                title: Text(context.l10n.browse_marketplace),
+                subtitle: Text(context.l10n.plugins_install_in_marketplace),
+                trailing: const Icon(Broken.arrow_right_3),
+                onTap: () => openMarketplace(context),
               ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
-            SliverToBoxAdapter(
-              child: AppSectionHeader(title: context.l10n.installed),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-            if (plugins.isLoading && plugins.asData?.value == null)
-              SliverList.builder(
-                itemCount: 3,
-                itemBuilder: (context, _) => const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: ShimmerSkeleton(
-                    enabled: true,
-                    child: _PluginSkeletonCard(),
-                  ),
-                ),
-              )
-            else if ((installedPlugins ?? const []).isEmpty)
-              SliverToBoxAdapter(child: _EmptyInstalled(tab: tabState.value))
-            else
-              SliverList.separated(
-                itemCount: installedPlugins!.length,
-                separatorBuilder: (context, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final plugin = installedPlugins[index];
-                  final isDefaultMetadata =
-                      plugins.asData!.value.defaultMetadataPluginConfig?.slug ==
-                          plugin.slug;
-                  final isDefaultAudioSource = plugins.asData!.value
-                          .defaultAudioSourcePluginConfig?.slug ==
-                      plugin.slug;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: MetadataInstalledPluginItem(
-                      plugin: plugin,
-                      isDefaultMetadata: isDefaultMetadata,
-                      isDefaultAudioSource: isDefaultAudioSource,
-                    ),
-                  );
-                },
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-            // Disclaimer
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              MusicIcons.warning,
-                              size: 16,
-                              color: theme.colorScheme.error,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              context.l10n.disclaimer,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          context.l10n.third_party_plugin_dmca_notice,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      ],
     );
   }
 }
 
-class _EmptyInstalled extends StatelessWidget {
-  const _EmptyInstalled({required this.tab});
+/// Which plugin fills each slot, as one compact row per ability. Switching is
+/// done from the per-plugin overflow menu, so these rows stay read-only.
+class _DefaultsSection extends StatelessWidget {
+  const _DefaultsSection({required this.state});
 
-  /// 0 = all, 1 = metadata, 2 = audio source.
-  final int tab;
+  final MetadataPluginState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCardWithHeading(
+      heading: context.l10n.defaults,
+      icon: Broken.setting_2,
+      children: [
+        _DefaultRow(
+          icon: Broken.discount_shape,
+          label: context.l10n.metadata,
+          value: state.defaultMetadataPluginConfig?.name,
+        ),
+        _DefaultRow(
+          icon: Broken.musicnote,
+          label: context.l10n.audio_source,
+          value: state.defaultAudioSourcePluginConfig?.name,
+        ),
+      ],
+    );
+  }
+}
+
+class _DefaultRow extends StatelessWidget {
+  const _DefaultRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? value;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final label = switch (tab) {
-      1 => context.l10n.metadata,
-      2 => context.l10n.audio_source,
-      _ => context.l10n.plugins,
-    };
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Row(
         children: [
-          Icon(
-            Broken.element_4,
-            size: 40,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.l10n.no_installed_plugins(label),
-            textAlign: TextAlign.center,
-            style: TextStyle(color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.tonalIcon(
-            onPressed: () => openMarketplace(context),
-            icon: const Icon(Broken.element_4),
-            label: Text(context.l10n.browse_marketplace),
+          Icon(icon, size: 16, color: cs.onSurfaceVariant),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value ?? context.l10n.none,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 13,
+                color: value == null ? cs.onSurfaceVariant : cs.primary,
+                fontWeight: value == null ? null : FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -223,53 +158,75 @@ class _EmptyInstalled extends StatelessWidget {
   }
 }
 
-class _PluginSkeletonCard extends StatelessWidget {
-  const _PluginSkeletonCard();
+class _EmptyInstalled extends StatelessWidget {
+  const _EmptyInstalled({required this.hasQuery});
+
+  final bool hasQuery;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 12,
-                    width: 140,
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 10,
-                    width: 220,
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 40, 32, 16),
+      child: Column(
+        children: [
+          Icon(
+            hasQuery ? Broken.search_normal : Broken.element_4,
+            size: 34,
+            color: cs.onSurfaceVariant.withValues(alpha: .5),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            hasQuery
+                ? context.l10n.nothing_found
+                : context.l10n.no_installed_plugins(context.l10n.plugins),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _PluginsSkeleton extends StatelessWidget {
+  const _PluginsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget bar(double width) => Container(
+      width: width,
+      height: 10,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+      ),
+    );
+    return Column(
+      children: [
+        for (var i = 0; i < 2; i++)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [bar(120), const SizedBox(height: 6), bar(70)],
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

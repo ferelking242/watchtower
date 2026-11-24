@@ -1,6 +1,6 @@
 /// credits:
 ///
-/// Kingkor Roy Tirtho => English, Bengali
+/// Watchtower => English, Bengali
 /// ChatGPT (GPT 3.5) XD => Hindi, French
 /// maboroshin@github => Japanese
 /// iceyear@github => Simplified Chinese

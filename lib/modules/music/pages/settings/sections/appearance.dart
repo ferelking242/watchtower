@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:watchtower/modules/music/collections/music_icons.dart';
@@ -62,6 +63,7 @@ class SettingsAppearanceSection extends HookConsumerWidget {
 
     return SectionCardWithHeading(
       heading: context.l10n.appearance,
+      icon: Broken.brush_2,
       children: children,
     );
   }

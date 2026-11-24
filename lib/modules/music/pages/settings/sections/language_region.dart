@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -32,6 +33,7 @@ class SettingsLanguageRegionSection extends HookConsumerWidget {
 
     return SectionCardWithHeading(
       heading: context.l10n.language_region,
+      icon: Broken.global,
       children: [
         AdaptiveSelectTile<Locale>(
           value: preferences.locale,

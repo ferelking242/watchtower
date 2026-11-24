@@ -17,6 +17,7 @@ class SettingsAccountSection extends HookConsumerWidget {
 
     return SectionCardWithHeading(
       heading: context.l10n.account,
+      icon: Broken.profile_2user,
       children: [
         ListTile(
           title: Text(context.l10n.plugins),

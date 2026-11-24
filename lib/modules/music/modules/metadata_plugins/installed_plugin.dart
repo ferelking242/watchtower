@@ -1,546 +1,348 @@
 import 'dart:io';
 
-  import 'package:flutter/material.dart';
-  import 'package:hooks_riverpod/hooks_riverpod.dart';
-  import 'package:watchtower/modules/music/collections/music_icons.dart';
-  import 'package:watchtower/modules/music/components/markdown/markdown.dart';
-  import 'package:watchtower/modules/music/extensions/constrains.dart';
-  import 'package:watchtower/modules/music/extensions/context.dart';
-  import 'package:watchtower/modules/music/models/metadata/metadata.dart';
-  import 'package:watchtower/modules/music/modules/metadata_plugins/plugin_update_available_dialog.dart';
-  import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
-  import 'package:watchtower/modules/music/provider/metadata_plugin/core/catalogue.dart';
-  import 'package:watchtower/modules/music/provider/metadata_plugin/core/support.dart';
-  import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
-  import 'package:watchtower/modules/music/provider/metadata_plugin/updater/update_checker.dart';
-  import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
+import 'package:watchtower/modules/music/collections/music_icons.dart';
+import 'package:watchtower/modules/music/components/markdown/markdown.dart';
+import 'package:watchtower/modules/music/extensions/context.dart';
+import 'package:watchtower/modules/music/models/metadata/metadata.dart';
+import 'package:watchtower/modules/music/modules/metadata_plugins/plugin_update_available_dialog.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/core/auth.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/core/catalogue.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/core/support.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/metadata_plugin_provider.dart';
+import 'package:watchtower/modules/music/provider/metadata_plugin/updater/update_checker.dart';
 
-  final validAbilities = {
-    PluginAbilities.metadata: ("Metadata", MusicIcons.album),
-    PluginAbilities.audioSource: ("Audio Source", MusicIcons.music),
-  };
+/// One installed music plugin, rendered as a single compact settings row.
+///
+/// Everything comes from the installed archive (name, author, version,
+/// abilities) plus app state (default slot, sign-in, update), so the row never
+/// claims a plugin the user does not have. Abilities are icon-only with a
+/// tooltip: a sentence like "This plugin scrobbles your music to generate your
+/// listening history" would wrap to three lines and blow the row up in every
+/// language.
+class MetadataInstalledPluginItem extends HookConsumerWidget {
+  final PluginConfiguration plugin;
+  final bool isDefaultMetadata;
+  final bool isDefaultAudioSource;
 
-  Widget _withTheme(ThemeData data, Widget child) =>
-      Theme(data: data, child: child);
+  const MetadataInstalledPluginItem({
+    super.key,
+    required this.plugin,
+    required this.isDefaultMetadata,
+    required this.isDefaultAudioSource,
+  });
 
-  Widget _badgePrimary(BuildContext context,
-      {Widget? leading, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: leading != null
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 4,
-              children: [
-                IconTheme(
-                  data: IconThemeData(
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                  child: leading,
-                ),
-                DefaultTextStyle(
-                  style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                  child: child,
-                ),
-              ],
-            )
-          : DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-              child: child,
-            ),
-    );
-  }
+  @override
+  Widget build(BuildContext context, ref) {
+    final cs = Theme.of(context).colorScheme;
+    final pluginsNotifier = ref.watch(metadataPluginsProvider.notifier);
 
-  Widget _badgeSecondary(
-    BuildContext context, {
-    Widget? leading,
-    required Widget child,
-    VoidCallback? onPressed,
-  }) {
-    Widget content = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: leading != null
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 4,
-              children: [
-                IconTheme(
-                  data: IconThemeData(
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  ),
-                  child: leading,
-                ),
-                DefaultTextStyle(
-                  style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                        color:
-                            Theme.of(context).colorScheme.onSecondaryContainer,
-                      ),
-                  child: child,
-                ),
-              ],
-            )
-          : DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                  ),
-              child: child,
-            ),
-    );
-    if (onPressed != null) {
-      return GestureDetector(onTap: onPressed, child: content);
-    }
-    return content;
-  }
+    final isDefault = isDefaultMetadata || isDefaultAudioSource;
+    final needsAuth = plugin.abilities.contains(PluginAbilities.authentication);
+    final scrobbles = plugin.abilities.contains(PluginAbilities.scrobbling);
 
-  class MetadataInstalledPluginItem extends HookConsumerWidget {
-    final PluginConfiguration plugin;
-    final bool isDefaultMetadata;
-    final bool isDefaultAudioSource;
-    /// Optional brand icon (e.g. the marketplace entry's iconUrl). Used when
-    /// the plugin archive ships no logo.png so we never fall back to a
-    /// generic placeholder for known providers.
-    final String? iconUrl;
-    const MetadataInstalledPluginItem({
-      super.key,
-      required this.plugin,
-      required this.isDefaultMetadata,
-      required this.isDefaultAudioSource,
-      this.iconUrl,
-    });
+    final isAuthenticated =
+        (isDefaultMetadata &&
+            ref.watch(metadataPluginAuthenticatedProvider).asData?.value ==
+                true) ||
+        (isDefaultAudioSource &&
+            ref.watch(audioSourcePluginAuthenticatedProvider).asData?.value ==
+                true);
 
-    @override
-    Widget build(BuildContext context, ref) {
-      final mediaQuery = MediaQuery.sizeOf(context);
+    final updateAvailable = switch ((isDefaultMetadata, isDefaultAudioSource)) {
+      (true, _) => ref.watch(metadataPluginUpdateCheckerProvider),
+      (false, true) => ref.watch(audioSourcePluginUpdateCheckerProvider),
+      _ => null,
+    };
+    final update = updateAvailable?.asData?.value;
 
-      final metadataPlugin = ref.watch(metadataPluginProvider);
-      final audioSourcePlugin = ref.watch(audioSourcePluginProvider);
-      final pluginSnapshot = switch ((isDefaultMetadata, isDefaultAudioSource)) {
-        (true, _) => metadataPlugin,
-        (false, true) => audioSourcePlugin,
-        _ => null,
-      };
+    final repoUrl = plugin.repository != null
+        ? Uri.tryParse(plugin.repository!)
+        : null;
+    final isOfficial =
+        repoUrl?.host == "github.com" &&
+        repoUrl?.pathSegments.firstOrNull == kOfficialPluginOwner;
 
-      final pluginsNotifier = ref.watch(metadataPluginsProvider.notifier);
-
-      final requiresAuth = (isDefaultMetadata || isDefaultAudioSource) &&
-          plugin.abilities.contains(PluginAbilities.authentication);
-      final supportsScrobbling = isDefaultMetadata &&
-          plugin.abilities.contains(PluginAbilities.scrobbling);
-
-      final isMetadataAuthenticatedSnapshot =
-          ref.watch(metadataPluginAuthenticatedProvider);
-      final isAudioSourceAuthenticatedSnapshot =
-          ref.watch(audioSourcePluginAuthenticatedProvider);
-      final isAuthenticated = (isDefaultMetadata &&
-              isMetadataAuthenticatedSnapshot.asData?.value == true) ||
-          (isDefaultAudioSource &&
-              isAudioSourceAuthenticatedSnapshot.asData?.value == true);
-
-      final metadataUpdateAvailable =
-          ref.watch(metadataPluginUpdateCheckerProvider);
-      final audioSourceUpdateAvailable =
-          ref.watch(audioSourcePluginUpdateCheckerProvider);
-      final updateAvailable = switch ((isDefaultMetadata, isDefaultAudioSource)) {
-        (true, _) => metadataUpdateAvailable,
-        (false, true) => audioSourceUpdateAvailable,
-        _ => null,
-      };
-      final hasUpdate = updateAvailable?.asData?.value != null;
-
-      final themeData = Theme.of(context);
-
-      return Card(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          spacing: 12,
+    return InkWell(
+      onTap: needsAuth ? () => _toggleAuth(ref, isAuthenticated) : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 4, 10),
+        child: Row(
           children: [
-            FutureBuilder(
-              future: pluginsNotifier.getLogoPath(plugin),
-              builder: (context, snapshot) {
-                final repoUrl = plugin.repository != null
-                    ? Uri.tryParse(plugin.repository!)
-                    : null;
-                final repoOwner = repoUrl?.pathSegments.firstOrNull;
-
-                final isOfficial = repoUrl?.host == "github.com" &&
-                    repoOwner == kOfficialPluginOwner;
-
-                return ListTile(
-                  leading: _PluginLogo(
-                    logoFile: snapshot.data,
-                    iconUrl: iconUrl,
-                    plugin: plugin,
-                  ),
-                  title: Text(plugin.name),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 8,
+            _PluginLogo(
+              logo: useMemoized(() => pluginsNotifier.getLogoPath(plugin), [
+                plugin.slug,
+                plugin.version,
+              ]),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
                     children: [
-                      Text(plugin.description),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final ability in plugin.abilities)
-                            if (validAbilities.keys.contains(ability))
-                              _badgeSecondary(
-                                context,
-                                leading: Icon(validAbilities[ability]!.$2),
-                                child: Text(validAbilities[ability]!.$1),
-                              ),
-                        ],
+                      Flexible(
+                        child: Text(
+                          plugin.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
-                      if (repoUrl != null)
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (isOfficial)
-                              _badgePrimary(
-                                context,
-                                leading: const Icon(MusicIcons.done),
-                                child: Text(context.l10n.official),
-                              )
-                            else ...[
-                              Text(context.l10n.author_name(plugin.author)),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .errorContainer,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  spacing: 4,
-                                  children: [
-                                    Icon(
-                                      MusicIcons.warning,
-                                      size: 14,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onErrorContainer,
-                                    ),
-                                    Text(
-                                      context.l10n.third_party,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall!
-                                          .copyWith(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onErrorContainer,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            _badgeSecondary(
-                              context,
-                              leading: const Icon(MusicIcons.connect),
-                              child: Text(repoUrl.host),
-                              onPressed: () {
-                                launchUrl(repoUrl);
-                              },
-                            ),
-                            _badgeSecondary(
-                              context,
-                              child: Padding(
-                                padding: const EdgeInsets.all(1),
-                                child: Text(
-                                  "${context.l10n.version}: ${plugin.version}",
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
+                      if (isDefault) ...[
+                        const SizedBox(width: 5),
+                        Icon(Broken.tick_circle, size: 13, color: cs.primary),
+                      ],
                     ],
                   ),
-                  trailing: IconButton(
-                    onPressed: () async {
-                      await pluginsNotifier.removePlugin(plugin);
-                    },
-                    icon: Icon(
-                      MusicIcons.trash,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                  const SizedBox(height: 1),
+                  Text(
+                    [
+                      isOfficial ? 'Watchtower' : context.l10n.third_party,
+                      'v${plugin.version}',
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant),
                   ),
-                );
-              },
+                ],
+              ),
             ),
-            if ((requiresAuth && !isAuthenticated) ||
-                hasUpdate ||
-                supportsScrobbling)
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondary,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  spacing: 12,
-                  children: [
-                    if (requiresAuth && !isAuthenticated)
-                      Row(
-                        spacing: 8,
-                        children: [
-                          Icon(
-                            MusicIcons.warning,
-                            color: Theme.of(context).colorScheme.tertiary,
-                          ),
-                          Text(context.l10n.plugin_requires_authentication),
-                        ],
-                      ),
-                    if (hasUpdate)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ListTile(
-                          leading: const Icon(MusicIcons.update),
-                          title: Text(context.l10n.update_available),
-                          subtitle: Text(
-                            updateAvailable!.asData!.value!.version,
-                          ),
-                          trailing: FilledButton(
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                builder: (ctx) => _withTheme(
-                                  themeData,
-                                  MetadataPluginUpdateAvailableDialog(
-                                    plugin: plugin,
-                                    update: updateAvailable.asData!.value!,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Text(context.l10n.update),
-                          ),
-                        ),
-                      ),
-                    if (supportsScrobbling)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ListTile(
-                          leading: const Icon(MusicIcons.info),
-                          title: Text(context.l10n.supports_scrobbling),
-                          subtitle: Text(context.l10n.plugin_scrobbling_info),
-                        ),
-                      )
-                  ],
+            if (scrobbles)
+              Tooltip(
+                message: context.l10n.supports_scrobbling,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(
+                    Broken.musicnote,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.spaceBetween,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (plugin.abilities.contains(PluginAbilities.metadata))
-                      TextButton(
-                        onPressed: !isDefaultMetadata
-                            ? () async {
-                                await pluginsNotifier
-                                    .setDefaultMetadataPlugin(plugin);
-                              }
-                            : null,
-                        child: Text(
-                          isDefaultMetadata
-                              ? context.l10n.default_metadata_source
-                              : context.l10n.set_default_metadata_source,
-                        ),
-                      ),
-                    if (plugin.abilities.contains(PluginAbilities.audioSource))
-                      TextButton(
-                        onPressed: !isDefaultAudioSource
-                            ? () async {
-                                await pluginsNotifier
-                                    .setDefaultAudioSourcePlugin(plugin);
-                              }
-                            : null,
-                        child: Text(
-                          isDefaultAudioSource
-                              ? context.l10n.default_audio_source
-                              : context.l10n.set_default_audio_source,
-                        ),
-                      ),
-                  ],
+            if (needsAuth)
+              Tooltip(
+                message: isAuthenticated
+                    ? context.l10n.logout
+                    : context.l10n.plugin_requires_authentication,
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  iconSize: 18,
+                  onPressed: () => _toggleAuth(ref, isAuthenticated),
+                  icon: Icon(
+                    isAuthenticated ? Broken.logout : Broken.login,
+                    color: isAuthenticated ? cs.primary : cs.onSurfaceVariant,
+                  ),
                 ),
-                Row(
-                  mainAxisSize:
-                      mediaQuery.smAndUp ? MainAxisSize.min : MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  spacing: 8,
-                  children: [
-                    if (isDefaultMetadata || isDefaultAudioSource)
-                      Consumer(builder: (context, ref, _) {
-                        final metadataSupportTextSnapshot =
-                            ref.watch(metadataPluginSupportTextProvider);
-                        final audioSourceSupportTextSnapshot =
-                            ref.watch(audioSourcePluginSupportTextProvider);
-
-                        final supportTextSnapshot =
-                            switch ((isDefaultMetadata, isDefaultAudioSource)) {
-                          (true, _) => metadataSupportTextSnapshot,
-                          (false, true) => audioSourceSupportTextSnapshot,
-                          _ => null,
-                        };
-
-                        if ((supportTextSnapshot?.asData?.value.isEmpty ??
-                            true)) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return TextButton.icon(
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => _withTheme(
-                                themeData,
-                                AlertDialog(
-                                  title: Text(context.l10n.support),
-                                  content: AppMarkdown(
-                                    data: supportTextSnapshot!.asData!.value,
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.of(ctx).pop();
-                                      },
-                                      child: Text(context.l10n.close),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(MusicIcons.info),
-                          label: Text(context.l10n.support),
-                        );
-                      }),
-                    if ((isDefaultMetadata || isDefaultAudioSource) &&
-                        requiresAuth &&
-                        !isAuthenticated)
-                      FilledButton.icon(
-                        onPressed: pluginSnapshot?.asData?.value != null
-                            ? () async {
-                                final plugin = pluginSnapshot?.asData?.value;
-                                if (plugin == null) return;
-                                await plugin.auth.authenticate();
-                              }
-                            : null,
-                        icon: pluginSnapshot?.isLoading == true
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(MusicIcons.login),
-                        label: Text(context.l10n.login),
-                      )
-                    else if ((isDefaultMetadata || isDefaultAudioSource) &&
-                        requiresAuth &&
-                        isAuthenticated)
-                      FilledButton.icon(
-                        onPressed: () async {
-                          await pluginSnapshot?.asData?.value?.auth.logout();
-                        },
-                        icon: const Icon(MusicIcons.logout),
-                        label: Text(context.l10n.logout),
+              ),
+            if (update != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                iconSize: 18,
+                tooltip: context.l10n.update,
+                icon: const Icon(Broken.refresh),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (ctx) => MetadataPluginUpdateAvailableDialog(
+                    plugin: plugin,
+                    update: update,
+                  ),
+                ),
+              ),
+            PopupMenuButton<String>(
+              icon: const Icon(Broken.more_2, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onSelected: (value) async {
+                switch (value) {
+                  case "metadata":
+                    await pluginsNotifier.setDefaultMetadataPlugin(plugin);
+                  case "audio":
+                    await pluginsNotifier.setDefaultAudioSourcePlugin(plugin);
+                  case "support":
+                    final text =
+                        ref
+                            .read(metadataPluginSupportTextProvider)
+                            .asData
+                            ?.value ??
+                        "";
+                    if (text.isEmpty || !context.mounted) return;
+                    await showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(context.l10n.support),
+                        content: AppMarkdown(data: text),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: Text(context.l10n.close),
+                          ),
+                        ],
                       ),
-                  ],
-                )
+                    );
+                  case "repo":
+                    if (repoUrl != null) launchUrl(repoUrl);
+                  case "remove":
+                    await pluginsNotifier.removePlugin(plugin);
+                }
+              },
+              itemBuilder: (context) => [
+                if (plugin.abilities.contains(PluginAbilities.metadata))
+                  PopupMenuItem(
+                    value: "metadata",
+                    enabled: !isDefaultMetadata,
+                    child: _MenuRow(
+                      icon: Broken.discount_shape,
+                      label: context.l10n.metadata,
+                      checked: isDefaultMetadata,
+                    ),
+                  ),
+                if (plugin.abilities.contains(PluginAbilities.audioSource))
+                  PopupMenuItem(
+                    value: "audio",
+                    enabled: !isDefaultAudioSource,
+                    child: _MenuRow(
+                      icon: Broken.musicnote,
+                      label: context.l10n.audio_source,
+                      checked: isDefaultAudioSource,
+                    ),
+                  ),
+                if (isDefault)
+                  PopupMenuItem(
+                    value: "support",
+                    child: _MenuRow(
+                      icon: Broken.info_circle,
+                      label: context.l10n.support,
+                    ),
+                  ),
+                if (repoUrl != null)
+                  PopupMenuItem(
+                    value: "repo",
+                    child: _MenuRow(icon: Broken.link, label: repoUrl.host),
+                  ),
+                PopupMenuItem(
+                  value: "remove",
+                  child: _MenuRow(
+                    icon: Broken.trash,
+                    label: context.l10n.delete,
+                    color: cs.error,
+                  ),
+                ),
               ],
-            )
+            ),
           ],
         ),
-      );
-    }
+      ),
+    );
   }
 
-  /// Known music providers → brand icon URL (used when the plugin ships no
-  /// logo.png so the installed list still shows the real brand icon, in its
-  /// real brand colors).
-  String _brandIconUrlFor(PluginConfiguration plugin) {
-    const brands = <String, String>{
-      'spotify': 'https://img.icons8.com/color/128/spotify.png',
-      'youtube-audio': 'https://img.icons8.com/color/128/youtube.png',
-      'youtube-music': 'https://img.icons8.com/color/128/youtube-music.png',
-      'apple-music': 'https://img.icons8.com/color/128/apple-music.png',
-      'deezer': 'https://img.icons8.com/color/128/deezer.png',
-      'musicbrainz':
-          'https://www.google.com/s2/favicons?domain=musicbrainz.org&sz=128',
-      'flac': 'https://img.icons8.com/color/128/audio-wave.png',
-    };
-    return brands[plugin.slug] ??
-        'https://img.icons8.com/color/128/${plugin.slug}.png';
-  }
-
-  class _PluginLogo extends StatelessWidget {
-    final File? logoFile;
-    final String? iconUrl;
-    final PluginConfiguration plugin;
-    const _PluginLogo({
-      this.logoFile,
-      this.iconUrl,
-      required this.plugin,
-    });
-
-    Widget _placeholder(BuildContext context) => Container(
-          height: 36,
-          width: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondary,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(MusicIcons.plugin, size: 20),
-        );
-
-    @override
-    Widget build(BuildContext context) {
-      if (logoFile != null) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.file(logoFile!, width: 36, height: 36),
-        );
+  Future<void> _toggleAuth(WidgetRef ref, bool isAuthenticated) async {
+    // Only the default plugin instance is live, so signing in from another row
+    // promotes it first; otherwise the button would silently do nothing.
+    if (!isDefaultMetadata && !isDefaultAudioSource) {
+      final notifier = ref.read(metadataPluginsProvider.notifier);
+      if (plugin.abilities.contains(PluginAbilities.metadata)) {
+        await notifier.setDefaultMetadataPlugin(plugin);
+      } else if (plugin.abilities.contains(PluginAbilities.audioSource)) {
+        await notifier.setDefaultAudioSourcePlugin(plugin);
       }
-      final url = iconUrl ?? _brandIconUrlFor(plugin);
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          url,
-          width: 36,
-          height: 36,
-          fit: BoxFit.cover,
-          loadingBuilder: (_, child, progress) => progress == null
-              ? child
-              : _placeholder(context),
-          errorBuilder: (_, _, _) => _placeholder(context),
-        ),
-      );
+    }
+
+    final provider = isDefaultAudioSource && !isDefaultMetadata
+        ? audioSourcePluginProvider
+        : metadataPluginProvider;
+    final snapshot = await ref.read(provider.future);
+    if (snapshot == null) return;
+
+    if (isAuthenticated) {
+      await snapshot.auth.logout();
+    } else {
+      await snapshot.auth.authenticate();
     }
   }
+}
 
-  
+class _MenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final bool checked;
+
+  const _MenuRow({
+    required this.icon,
+    required this.label,
+    this.color,
+    this.checked = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(label, style: TextStyle(color: color)),
+        ),
+        if (checked)
+          Icon(
+            Broken.tick_circle,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+      ],
+    );
+  }
+}
+
+/// Brand icon for a plugin: the archive's own logo.png when it ships one, else
+/// a neutral plugin glyph. A missing or unreadable image falls back to the
+/// glyph, so the row never shows a broken icon.
+class _PluginLogo extends StatelessWidget {
+  final Future<File?> logo;
+
+  const _PluginLogo({required this.logo});
+
+  Widget _placeholder(BuildContext context) => Container(
+    width: 32,
+    height: 32,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: const Icon(MusicIcons.plugin, size: 16),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<File?>(
+      future: logo,
+      builder: (context, snapshot) {
+        final file = snapshot.data;
+        if (file != null) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              file,
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _placeholder(context),
+            ),
+          );
+        }
+        return _placeholder(context);
+      },
+    );
+  }
+}

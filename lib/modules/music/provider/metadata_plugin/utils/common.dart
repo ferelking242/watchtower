@@ -22,6 +22,17 @@ mixin MetadataPluginMixin<K>
 
     return plugin;
   }
+
+  /// Empty page used when the current plugin has nothing per-user to show.
+  SpotubePaginationResponseObject<K> emptyPage([int limit = 20]) {
+    return SpotubePaginationResponseObject<K>(
+      limit: limit,
+      nextOffset: null,
+      total: 0,
+      hasMore: false,
+      items: <K>[],
+    );
+  }
 }
 
 extension CacheForExtension on Ref {

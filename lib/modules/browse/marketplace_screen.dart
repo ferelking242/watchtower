@@ -598,7 +598,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
 
   Future<void> _refreshInstalled() async {
     try {
-      final allSrcs = await isar.sources.buildQuery<Source>().findAll();
+      final allSrcs = await isar.sources.where().findAll();
       final sources = allSrcs.where((s) => s.isAdded == true).toList();
       for (final source in sources) {
         source.hydrateExtendedMetadata();
@@ -1296,8 +1296,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
     });
 
     if (widget.initialSection != MarketplaceSection.plugins) {
-      final isSearchRoute =
-          widget.initialSection == MarketplaceSection.search;
+      final isSearchRoute = widget.initialSection == MarketplaceSection.search;
       return PopScope<void>(
         // Search is a standalone GoRouter destination. Keep the Android/system
         // back action inside Marketplace instead of popping the app shell.
@@ -1439,7 +1438,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
                     child: Switch(
                       value: _showNsfw,
                       onChanged: (v) =>
-                          ref.read(showNSFWStateProvider.notifier).state = v,
+                          ref.read(showNSFWStateProvider.notifier).set(v),
                       activeThumbColor: Colors.red.shade400,
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -2370,107 +2369,101 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
         pluginsData.defaultMetadataPluginConfig?.slug == config.slug;
     final isDefaultAudioSource =
         pluginsData.defaultAudioSourcePluginConfig?.slug == config.slug;
+    final needsAuth = config.abilities.contains(PluginAbilities.authentication);
+    final scrobbles = config.abilities.contains(PluginAbilities.scrobbling);
+
     showModalBottomSheet(
       context: context,
+      showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
               Text(
                 config.name,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: cs.onSurface,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
-                config.author,
-                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                '${config.author} · v${config.version}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               if (config.abilities.contains(PluginAbilities.metadata))
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    isDefaultMetadata
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: isDefaultMetadata ? cs.primary : cs.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    context.l10n.marketplace_default_metadata_provider,
-                  ),
-                  subtitle: Text(
-                    isDefaultMetadata
-                        ? context.l10n.marketplace_currently_default
-                        : context.l10n.marketplace_set_default_provider,
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                  ),
+                _SheetAction(
+                  icon: Broken.discount_shape,
+                  label: isDefaultMetadata
+                      ? context.l10n.plugin_default_badge
+                      : context.l10n.marketplace_topic_metadata,
+                  active: isDefaultMetadata,
                   onTap: isDefaultMetadata
                       ? null
                       : () async {
                           await notifier.setDefaultMetadataPlugin(config);
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                            setState(() {});
-                          }
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          setState(() {});
                         },
                 ),
               if (config.abilities.contains(PluginAbilities.audioSource))
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    isDefaultAudioSource
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: isDefaultAudioSource
-                        ? cs.primary
-                        : cs.onSurfaceVariant,
-                  ),
-                  title: Text(context.l10n.marketplace_default_audio_source),
-                  subtitle: Text(
-                    isDefaultAudioSource
-                        ? context.l10n.marketplace_currently_default
-                        : context.l10n.marketplace_set_default_audio_source,
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
-                  ),
+                _SheetAction(
+                  icon: Broken.musicnote,
+                  label: isDefaultAudioSource
+                      ? context.l10n.plugin_default_badge
+                      : context.l10n.marketplace_topic_audio_source,
+                  active: isDefaultAudioSource,
                   onTap: isDefaultAudioSource
                       ? null
                       : () async {
                           await notifier.setDefaultAudioSourcePlugin(config);
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                            setState(() {});
-                          }
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          setState(() {});
                         },
                 ),
-              const Divider(height: 24),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.delete_outline, color: cs.error),
-                title: Text(
-                  context.l10n.uninstall,
-                  style: TextStyle(color: cs.error),
+              if (needsAuth || scrobbles)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 6),
+                  child: Row(
+                    children: [
+                      if (needsAuth)
+                        Tooltip(
+                          message: context.l10n.plugin_requires_authentication,
+                          child: Icon(
+                            Broken.login,
+                            size: 15,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      if (needsAuth && scrobbles) const SizedBox(width: 10),
+                      if (scrobbles)
+                        Tooltip(
+                          message: context.l10n.supports_scrobbling,
+                          child: Icon(
+                            Broken.musicnote,
+                            size: 15,
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+              const Divider(height: 12),
+              _SheetAction(
+                icon: Broken.trash,
+                label: context.l10n.uninstall,
+                color: cs.error,
                 onTap: () async {
                   await notifier.removePlugin(config);
                   await _refreshInstalled();
@@ -2519,6 +2512,50 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen>
       _withUpdatesOnly = false;
       _sortBy = 'alpha';
     });
+  }
+}
+
+class _SheetAction extends StatelessWidget {
+  const _SheetAction({
+    required this.icon,
+    required this.label,
+    this.onTap,
+    this.active = false,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool active;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fg = color ?? (active ? cs.primary : cs.onSurface);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: fg),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 14, color: fg),
+              ),
+            ),
+            if (active) Icon(Broken.tick_circle, size: 16, color: cs.primary),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -2813,11 +2850,7 @@ class _TagChip extends StatelessWidget {
   final String label;
   final ColorScheme cs;
   final Color? color;
-  const _TagChip({
-    required this.label,
-    required this.cs,
-    this.color,
-  });
+  const _TagChip({required this.label, required this.cs, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -3668,9 +3701,7 @@ class _MarketplaceFilterButton extends StatelessWidget {
       icon: Icon(
         Broken.filter,
         size: 19,
-        color: active
-            ? cs.primary
-            : cs.onSurface.withValues(alpha: 0.45),
+        color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.45),
       ),
     );
   }
@@ -7221,11 +7252,7 @@ class _HeaderIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onTap,
-      icon: Icon(
-        icon,
-        color: MarketplacePalette.of(context).text,
-        size: 23,
-      ),
+      icon: Icon(icon, color: MarketplacePalette.of(context).text, size: 23),
       visualDensity: VisualDensity.compact,
     );
   }

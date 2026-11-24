@@ -447,7 +447,7 @@ final List<SettingsSearchEntry> kSettingsSearchIndex = [
   SettingsSearchEntry(
     page: (l10n) => l10n.settings_music_hub,
     title: (l10n) => l10n.settings_music_hub,
-    route: '/MusicLibrary',
+    route: '/MusicHubSettings',
     keywords: ['musique', 'music', 'audio'],
   ),
   // ── Mode distant ─────────────────────────────────────────────────────────

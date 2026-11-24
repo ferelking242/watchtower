@@ -2165,6 +2165,24 @@ abstract class AppLocalizations {
   /// **'Uninstall'**
   String get uninstall;
 
+  /// No description provided for @plugin_default_badge.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get plugin_default_badge;
+
+  /// No description provided for @plugin_requires_authentication.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication required'**
+  String get plugin_requires_authentication;
+
+  /// No description provided for @supports_scrobbling.
+  ///
+  /// In en, this message translates to:
+  /// **'Scrobbling'**
+  String get supports_scrobbling;
+
   /// No description provided for @uninstall_extension.
   ///
   /// In en, this message translates to:

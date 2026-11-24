@@ -65,7 +65,7 @@ class MetadataPluginState {
     return {
       "plugins": plugins.map((e) => e.toJson()).toList(),
       "default_metadata_plugin": defaultMetadataPlugin,
-      "default_audio_source_plugin": defaultAudioSourcePlugin
+      "default_audio_source_plugin": defaultAudioSourcePlugin,
     };
   }
 
@@ -106,11 +106,9 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         .select()
         .watch()
         .asyncMap((event) => toStatePlugins(event))
-        .listen(
-      (newState) {
-        state = AsyncValue.data(newState);
-      },
-    );
+        .listen((newState) {
+          state = AsyncValue.data(newState);
+        });
     ref.onDispose(() => subscription.cancel());
 
     // Re-read so the returned state reflects any bundled-plugin inserts.
@@ -138,9 +136,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         repository: plugin.repository,
         apis: plugin.apis
             .map(
-              (e) => PluginApis.values.firstWhereOrNull(
-                (api) => api.name == e,
-              ),
+              (e) => PluginApis.values.firstWhereOrNull((api) => api.name == e),
             )
             .nonNulls
             .toList(),
@@ -155,10 +151,12 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       );
 
       final pluginExtractionDir = await _getPluginExtractionDir(pluginConfig);
-      final pluginJsonFile =
-          File(join(pluginExtractionDir.path, "plugin.json"));
-      final pluginBinaryFile =
-          File(join(pluginExtractionDir.path, "plugin.out"));
+      final pluginJsonFile = File(
+        join(pluginExtractionDir.path, "plugin.json"),
+      );
+      final pluginBinaryFile = File(
+        join(pluginExtractionDir.path, "plugin.out"),
+      );
 
       if (!await pluginExtractionDir.exists() ||
           !await pluginJsonFile.exists() ||
@@ -173,7 +171,8 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       // Hetu bytecode). Keeping them would poison the default selection and
       // every load attempt would fail with "plugin bytecode is invalid".
       final binaryBytes = await pluginBinaryFile.readAsBytes();
-      final isStub = binaryBytes.length < 100 ||
+      final isStub =
+          binaryBytes.length < 100 ||
           (binaryBytes.length >= 11 &&
               String.fromCharCodes(binaryBytes.take(11)) == "WTPLUG_STUB");
       if (isStub) {
@@ -224,12 +223,15 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       }
       PluginConfiguration pluginConfig;
       try {
-        pluginConfig =
-            await extractPluginArchive(byteData.buffer.asUint8List());
+        pluginConfig = await extractPluginArchive(
+          byteData.buffer.asUint8List(),
+        );
       } catch (_) {
         // Corrupt or incompatible bundled plugin — skip silently.
         continue;
       }
+      final migrated = await _adoptRenamedAuthor(pluginConfig);
+
       bool freshlyAdded = false;
       try {
         await addPlugin(pluginConfig);
@@ -237,8 +239,9 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       } on MetadataPluginException catch (e) {
         if (e.errorCode == MetadataPluginErrorCode.duplicatePlugin) {
           if (await isPluginUpdate(pluginConfig)) {
-            final oldConfig = pluginState.plugins
-                .firstWhereOrNull((p) => p.slug == pluginConfig.slug);
+            final oldConfig = pluginState.plugins.firstWhereOrNull(
+              (p) => p.slug == pluginConfig.slug,
+            );
             if (oldConfig == null) continue;
             final isDefaultMetadata =
                 oldConfig == pluginState.defaultMetadataPluginConfig;
@@ -266,11 +269,13 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       }
 
       // Auto-set this bundled plugin as the default when:
-      // (a) no default audio-source plugin is configured yet, or
-      // (b) the plugin exists in DB but was never selected (e.g. corrupted state).
+      // (a) no default audio-source plugin is configured yet,
+      // (b) the plugin exists in DB but was never selected (e.g. corrupted state), or
+      // (c) it just replaced an install that was published under another author
+      //     and held this slot — the user already chose this plugin.
       if (freshlyAdded &&
           pluginConfig.abilities.contains(PluginAbilities.audioSource) &&
-          pluginState.defaultAudioSourcePlugin < 0) {
+          (pluginState.defaultAudioSourcePlugin < 0 || migrated.audioSource)) {
         try {
           await setDefaultAudioSourcePlugin(pluginConfig);
         } catch (_) {}
@@ -279,7 +284,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       // Same repair for the metadata plugin slot.
       if (freshlyAdded &&
           pluginConfig.abilities.contains(PluginAbilities.metadata) &&
-          pluginState.defaultMetadataPlugin < 0) {
+          (pluginState.defaultMetadataPlugin < 0 || migrated.metadata)) {
         try {
           await setDefaultMetadataPlugin(pluginConfig);
         } catch (_) {}
@@ -287,19 +292,64 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     }
   }
 
+  /// Removes a previous install of the same plugin that was published under a
+  /// different author, and reports which default slots it held.
+  ///
+  /// Plugins are identified by name + author, so a rebranded build (the bundled
+  /// MusicBrainz plugin moved from the upstream author to `Watchtower`) looked
+  /// like a brand-new plugin: the old copy stayed installed and kept the
+  /// default slot, so the user kept running the stale bytecode — the one that
+  /// surfaced `DioException … 401` in the Music Hub — while the fixed build sat
+  /// unused next to it. Renaming the author is the same plugin, so the old
+  /// install is dropped and its slots are handed to the new build.
+  Future<({bool metadata, bool audioSource})> _adoptRenamedAuthor(
+    PluginConfiguration bundled,
+  ) async {
+    final previous =
+        await (database.pluginsTable.select()..where(
+              (tbl) =>
+                  tbl.name.equals(bundled.name) &
+                  tbl.entryPoint.equals(bundled.entryPoint) &
+                  tbl.author.equals(bundled.author).not(),
+            ))
+            .get();
+
+    var metadata = false;
+    var audioSource = false;
+
+    for (final record in previous) {
+      metadata = metadata || record.selectedForMetadata;
+      audioSource = audioSource || record.selectedForAudioSource;
+
+      final oldConfig = PluginConfiguration(
+        name: record.name,
+        author: record.author,
+        description: record.description,
+        version: record.version,
+        entryPoint: record.entryPoint,
+        pluginApiVersion: record.pluginApiVersion,
+        repository: record.repository,
+        apis: const [],
+        abilities: const [],
+      );
+      final oldDir = await _getPluginExtractionDir(oldConfig);
+      if (oldDir.existsSync()) {
+        try {
+          await oldDir.delete(recursive: true);
+        } catch (_) {}
+      }
+      await database.pluginsTable.deleteOne(record);
+    }
+
+    return (metadata: metadata, audioSource: audioSource);
+  }
+
   Uri _getGithubReleasesUrl(String repoUrl) {
     final parsedUri = Uri.parse(repoUrl);
     final uri = parsedUri.replace(
       host: "api.github.com",
-      pathSegments: [
-        "repos",
-        ...parsedUri.pathSegments,
-        "releases",
-      ],
-      queryParameters: {
-        "per_page": "1",
-        "page": "1",
-      },
+      pathSegments: ["repos", ...parsedUri.pathSegments, "releases"],
+      queryParameters: {"per_page": "1", "page": "1"},
     );
 
     return uri;
@@ -315,10 +365,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         ...parsedUri.pathSegments,
         "releases",
       ],
-      queryParameters: {
-        "limit": "1",
-        "page": "1",
-      },
+      queryParameters: {"limit": "1", "page": "1"},
     );
 
     return uri;
@@ -361,11 +408,8 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
 
   /// Root directory where all metadata plugins are stored.
   Future<Directory> _getPluginRootDir() async => Directory(
-        join(
-          (await getApplicationSupportDirectory()).path,
-          "metadata-plugins",
-        ),
-      );
+    join((await getApplicationSupportDirectory()).path, "metadata-plugins"),
+  );
 
   /// Directory where the plugin will be extracted.
   /// This is a unique directory for each plugin version.
@@ -381,24 +425,25 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
 
   Future<PluginConfiguration> extractPluginArchive(List<int> bytes) async {
     final archive = ZipDecoder().decodeBytes(bytes);
-    final pluginJson = archive
-        .firstWhereOrNull((file) => file.isFile && file.name == "plugin.json");
+    final pluginJson = archive.firstWhereOrNull(
+      (file) => file.isFile && file.name == "plugin.json",
+    );
 
     if (pluginJson == null) {
       throw MetadataPluginException.pluginConfigJsonNotFound();
     }
     final pluginConfig = PluginConfiguration.fromJson(
-      jsonDecode(
-        utf8.decode(pluginJson.content as List<int>),
-      ) as Map<String, dynamic>,
+      jsonDecode(utf8.decode(pluginJson.content as List<int>))
+          as Map<String, dynamic>,
     );
 
     // Reject placeholder "stub" plugins (e.g. an entry published in a
     // marketplace repo before its real implementation exists). Their
     // plugin.out is a marker, not real Hetu bytecode, so installing them
     // would silently break the "no default provider" screen afterwards.
-    final pluginOut = archive
-        .firstWhereOrNull((file) => file.isFile && file.name == "plugin.out");
+    final pluginOut = archive.firstWhereOrNull(
+      (file) => file.isFile && file.name == "plugin.out",
+    );
     if (pluginOut != null) {
       final head = pluginOut.content as List<int>;
       if (head.length >= 11 &&
@@ -416,10 +461,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       if (file.isFile) {
         final filename = file.name;
         final data = file.content as List<int>;
-        final extractedFile = File(join(
-          pluginExtractionDir.path,
-          filename,
-        ));
+        final extractedFile = File(join(pluginExtractionDir.path, filename));
         await extractedFile.create(recursive: true);
         await extractedFile.writeAsBytes(data);
       }
@@ -445,10 +487,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     try {
       final headRes = await globalDio.head(
         url,
-        options: Options(
-          validateStatus: (_) => true,
-          followRedirects: true,
-        ),
+        options: Options(validateStatus: (_) => true, followRedirects: true),
       );
       // Dio normalises header names to lowercase.
       final contentType =
@@ -522,13 +561,15 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   Future<void> addPlugin(PluginConfiguration plugin) async {
     _assertPluginApiCompatibility(plugin);
 
-    final pluginRes = await (database.pluginsTable.select()
-          ..where(
-            (tbl) =>
-                tbl.name.equals(plugin.name) & tbl.author.equals(plugin.author),
-          )
-          ..limit(1))
-        .get();
+    final pluginRes =
+        await (database.pluginsTable.select()
+              ..where(
+                (tbl) =>
+                    tbl.name.equals(plugin.name) &
+                    tbl.author.equals(plugin.author),
+              )
+              ..limit(1))
+            .get();
 
     if (pluginRes.isNotEmpty) {
       throw MetadataPluginException.duplicatePlugin();
@@ -539,12 +580,14 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     // becomes the default metadata provider, the first audio source becomes
     // the default audio source. A later plugin must NOT silently steal the
     // slot — the user changes it from Hub > Music > Settings > Plugins.
-    final existingDefaultMetadata = await (database.pluginsTable.select()
-          ..where((tbl) => tbl.selectedForMetadata.equals(true)))
-        .get();
-    final existingDefaultAudioSource = await (database.pluginsTable.select()
-          ..where((tbl) => tbl.selectedForAudioSource.equals(true)))
-        .get();
+    final existingDefaultMetadata =
+        await (database.pluginsTable.select()
+              ..where((tbl) => tbl.selectedForMetadata.equals(true)))
+            .get();
+    final existingDefaultAudioSource =
+        await (database.pluginsTable.select()
+              ..where((tbl) => tbl.selectedForAudioSource.equals(true)))
+            .get();
 
     await database.pluginsTable.insertOne(
       PluginsTableCompanion.insert(
@@ -586,26 +629,26 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       throw MetadataPluginException.invalidPluginConfiguration();
     }
 
-    final existing = await (database.pluginsTable.select()
-          ..where(
-            (tbl) =>
-                tbl.name.equals(oldPlugin.name) &
-                tbl.author.equals(oldPlugin.author),
-          )
-          ..limit(1))
-        .get();
+    final existing =
+        await (database.pluginsTable.select()
+              ..where(
+                (tbl) =>
+                    tbl.name.equals(oldPlugin.name) &
+                    tbl.author.equals(oldPlugin.author),
+              )
+              ..limit(1))
+            .get();
     if (existing.isEmpty) {
       await addPlugin(updatedPlugin);
       return;
     }
 
     final oldRecord = existing.first;
-    await (database.pluginsTable.update()
-          ..where(
-            (tbl) =>
-                tbl.name.equals(oldPlugin.name) &
-                tbl.author.equals(oldPlugin.author),
-          ))
+    await (database.pluginsTable.update()..where(
+          (tbl) =>
+              tbl.name.equals(oldPlugin.name) &
+              tbl.author.equals(oldPlugin.author),
+        ))
         .write(
           PluginsTableCompanion(
             description: Value(updatedPlugin.description),
@@ -613,9 +656,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
             entryPoint: Value(updatedPlugin.entryPoint),
             apis: Value(updatedPlugin.apis.map((api) => api.name).toList()),
             abilities: Value(
-              updatedPlugin.abilities
-                  .map((ability) => ability.name)
-                  .toList(),
+              updatedPlugin.abilities.map((ability) => ability.name).toList(),
             ),
             pluginApiVersion: Value(updatedPlugin.pluginApiVersion),
             repository: Value(updatedPlugin.repository),
@@ -625,9 +666,7 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
             ),
             selectedForAudioSource: Value(
               oldRecord.selectedForAudioSource &&
-                  updatedPlugin.abilities.contains(
-                    PluginAbilities.audioSource,
-                  ),
+                  updatedPlugin.abilities.contains(PluginAbilities.audioSource),
             ),
           ),
         );
@@ -639,14 +678,16 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     if (pluginExtractionDir.existsSync()) {
       await pluginExtractionDir.delete(recursive: true);
     }
-    await database.pluginsTable.deleteWhere((tbl) =>
-        tbl.name.equals(plugin.name) & tbl.author.equals(plugin.author));
+    await database.pluginsTable.deleteWhere(
+      (tbl) => tbl.name.equals(plugin.name) & tbl.author.equals(plugin.author),
+    );
 
     // Same here, if the removed plugin is the default plugin
     // set the first available plugin as the default plugin
     // only when there is 1 remaining plugin
     if (state.valueOrNull?.defaultMetadataPluginConfig == plugin) {
-      final remainingPlugins = state.valueOrNull?.plugins.where(
+      final remainingPlugins =
+          state.valueOrNull?.plugins.where(
             (p) =>
                 p.slug != plugin.slug &&
                 p.abilities.contains(PluginAbilities.metadata),
@@ -659,7 +700,8 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     }
 
     if (state.valueOrNull?.defaultAudioSourcePluginConfig == plugin) {
-      final remainingPlugins = state.valueOrNull?.plugins.where(
+      final remainingPlugins =
+          state.valueOrNull?.plugins.where(
             (p) =>
                 p.slug != plugin.slug &&
                 p.abilities.contains(PluginAbilities.audioSource),
@@ -673,14 +715,15 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
   }
 
   Future<bool> isPluginUpdate(PluginConfiguration newPlugin) async {
-    final pluginRes = await (database.pluginsTable.select()
-          ..where(
-            (tbl) =>
-                tbl.name.equals(newPlugin.name) &
-                tbl.author.equals(newPlugin.author),
-          )
-          ..limit(1))
-        .get();
+    final pluginRes =
+        await (database.pluginsTable.select()
+              ..where(
+                (tbl) =>
+                    tbl.name.equals(newPlugin.name) &
+                    tbl.author.equals(newPlugin.author),
+              )
+              ..limit(1))
+            .get();
 
     if (pluginRes.isEmpty) {
       return false;
@@ -726,8 +769,9 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
         plugin == state.valueOrNull?.defaultMetadataPluginConfig;
     final isDefaultAudioSource =
         plugin == state.valueOrNull?.defaultAudioSourcePluginConfig;
-    final pluginUpdatedConfig =
-        await downloadAndCachePlugin(update.downloadUrl);
+    final pluginUpdatedConfig = await downloadAndCachePlugin(
+      update.downloadUrl,
+    );
 
     if (pluginUpdatedConfig.name != plugin.name ||
         pluginUpdatedConfig.author != plugin.author) {
@@ -751,16 +795,15 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
       "Must be a metadata plugin",
     );
 
-    await database.pluginsTable
-        .update()
-        .write(const PluginsTableCompanion(selectedForMetadata: Value(false)));
-
-    await (database.pluginsTable.update()
-          ..where((tbl) =>
-              tbl.name.equals(plugin.name) & tbl.author.equals(plugin.author)))
-        .write(
-      const PluginsTableCompanion(selectedForMetadata: Value(true)),
+    await database.pluginsTable.update().write(
+      const PluginsTableCompanion(selectedForMetadata: Value(false)),
     );
+
+    await (database.pluginsTable.update()..where(
+          (tbl) =>
+              tbl.name.equals(plugin.name) & tbl.author.equals(plugin.author),
+        ))
+        .write(const PluginsTableCompanion(selectedForMetadata: Value(true)));
   }
 
   Future<void> setDefaultAudioSourcePlugin(PluginConfiguration plugin) async {
@@ -770,14 +813,16 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
     );
 
     await database.pluginsTable.update().write(
-        const PluginsTableCompanion(selectedForAudioSource: Value(false)));
-
-    await (database.pluginsTable.update()
-          ..where((tbl) =>
-              tbl.name.equals(plugin.name) & tbl.author.equals(plugin.author)))
-        .write(
-      const PluginsTableCompanion(selectedForAudioSource: Value(true)),
+      const PluginsTableCompanion(selectedForAudioSource: Value(false)),
     );
+
+    await (database.pluginsTable.update()..where(
+          (tbl) =>
+              tbl.name.equals(plugin.name) & tbl.author.equals(plugin.author),
+        ))
+        .write(
+          const PluginsTableCompanion(selectedForAudioSource: Value(true)),
+        );
   }
 
   Future<Uint8List> getPluginByteCode(PluginConfiguration plugin) async {
@@ -807,85 +852,84 @@ class MetadataPluginNotifier extends AsyncNotifier<MetadataPluginState> {
 
 final metadataPluginsProvider =
     AsyncNotifierProvider<MetadataPluginNotifier, MetadataPluginState>(
-  MetadataPluginNotifier.new,
-);
-
-final metadataPluginProvider = FutureProvider<MetadataPlugin?>(
-  (ref) async {
-    final pluginsState = await ref.watch(
-      metadataPluginsProvider
-          .selectAsync((data) => data),
+      MetadataPluginNotifier.new,
     );
-    final youtubeEngine = ref.read(youtubeEngineProvider);
 
-    var defaultPlugin = pluginsState.defaultMetadataPluginConfig;
+final metadataPluginProvider = FutureProvider<MetadataPlugin?>((ref) async {
+  final pluginsState = await ref.watch(
+    metadataPluginsProvider.selectAsync((data) => data),
+  );
+  final youtubeEngine = ref.read(youtubeEngineProvider);
 
-    // Auto-select first available metadata plugin when no default is set
-    if (defaultPlugin == null && pluginsState.plugins.isNotEmpty) {
-      final firstMetadata = pluginsState.plugins.firstWhere(
-        (p) => p.abilities.contains(PluginAbilities.metadata),
-        orElse: () => pluginsState.plugins.first,
-      );
-      if (firstMetadata.abilities.contains(PluginAbilities.metadata)) {
-        defaultPlugin = firstMetadata;
-        // Persist the auto-selection so it sticks across rebuilds
+  var defaultPlugin = pluginsState.defaultMetadataPluginConfig;
+
+  // Auto-select first available metadata plugin when no default is set
+  if (defaultPlugin == null && pluginsState.plugins.isNotEmpty) {
+    final firstMetadata = pluginsState.plugins.firstWhere(
+      (p) => p.abilities.contains(PluginAbilities.metadata),
+      orElse: () => pluginsState.plugins.first,
+    );
+    if (firstMetadata.abilities.contains(PluginAbilities.metadata)) {
+      defaultPlugin = firstMetadata;
+      // Persist the auto-selection so it sticks across rebuilds
+      try {
+        final notifier = ref.read(metadataPluginsProvider.notifier);
+        await notifier.setDefaultMetadataPlugin(firstMetadata);
+      } catch (_) {}
+    }
+  }
+
+  if (defaultPlugin == null) {
+    return null;
+  }
+
+  try {
+    final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+    final pluginByteCode = await pluginsNotifier.getPluginByteCode(
+      defaultPlugin,
+    );
+
+    return await MetadataPlugin.create(
+      youtubeEngine,
+      defaultPlugin,
+      pluginByteCode,
+    );
+  } catch (error, stack) {
+    AppLogger.log.e(
+      "Metadata plugin '${defaultPlugin.slug}' failed to load",
+      error: error,
+      stackTrace: stack,
+    );
+    // Degrade gracefully instead of rethrowing: consumers await
+    // `metadataPluginProvider.future`, so a throw escapes the provider
+    // as an unhandled zone error and crashes the app (watchtower ntfy
+    // reports). First try the next usable metadata plugin so metadata
+    // still works even if the configured plugin is stub/incompatible.
+    final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
+    for (final candidate in pluginsState.plugins) {
+      if (identical(candidate, defaultPlugin)) continue;
+      if (!candidate.abilities.contains(PluginAbilities.metadata)) continue;
+      try {
+        final candidateByteCode = await pluginsNotifier.getPluginByteCode(
+          candidate,
+        );
+        final plugin = await MetadataPlugin.create(
+          youtubeEngine,
+          candidate,
+          candidateByteCode,
+        );
+        // Persist the working fallback so it sticks across rebuilds.
         try {
-          final notifier = ref.read(metadataPluginsProvider.notifier);
-          await notifier.setDefaultMetadataPlugin(firstMetadata);
+          await pluginsNotifier.setDefaultMetadataPlugin(candidate);
         } catch (_) {}
+        return plugin;
+      } catch (_) {
+        // try the next candidate
       }
     }
-
-    if (defaultPlugin == null) {
-      return null;
-    }
-
-    try {
-      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
-      final pluginByteCode =
-          await pluginsNotifier.getPluginByteCode(defaultPlugin);
-
-      return await MetadataPlugin.create(
-        youtubeEngine,
-        defaultPlugin,
-        pluginByteCode,
-      );
-    } catch (error, stack) {
-      AppLogger.log.e(
-        "Metadata plugin '${defaultPlugin.slug}' failed to load",
-        error: error,
-        stackTrace: stack,
-      );
-      // Degrade gracefully instead of rethrowing: consumers await
-      // `metadataPluginProvider.future`, so a throw escapes the provider
-      // as an unhandled zone error and crashes the app (watchtower ntfy
-      // reports). First try the next usable metadata plugin so metadata
-      // still works even if the configured plugin is stub/incompatible.
-      final pluginsNotifier = ref.read(metadataPluginsProvider.notifier);
-      for (final candidate in pluginsState.plugins) {
-        if (identical(candidate, defaultPlugin)) continue;
-        if (!candidate.abilities.contains(PluginAbilities.metadata)) continue;
-        try {
-          final candidateByteCode =
-              await pluginsNotifier.getPluginByteCode(candidate);
-          final plugin = await MetadataPlugin.create(
-            youtubeEngine,
-            candidate,
-            candidateByteCode,
-          );
-          // Persist the working fallback so it sticks across rebuilds.
-          try {
-            await pluginsNotifier.setDefaultMetadataPlugin(candidate);
-          } catch (_) {}
-          return plugin;
-        } catch (_) {
-          // try the next candidate
-        }
-      }
-      return null;
-    }
-  },
-);
+    return null;
+  }
+});
 
 /// A loaded audio-source plugin paired with the configuration it was loaded
 /// from, so callers can identify it by [PluginConfiguration.slug] after the
@@ -924,8 +968,9 @@ List<PluginConfiguration> orderAudioSourceConfigs(MetadataPluginState state) {
 ///
 /// Plugins that fail to load (missing bytecode, API mismatch, stub) are logged
 /// and skipped rather than poisoning the list.
-final audioSourceBackendsProvider =
-    FutureProvider<List<AudioSourceBackend>>((ref) async {
+final audioSourceBackendsProvider = FutureProvider<List<AudioSourceBackend>>((
+  ref,
+) async {
   final pluginsState = await ref.watch(
     metadataPluginsProvider.selectAsync((data) => data),
   );
@@ -971,9 +1016,7 @@ final audioSourceBackendsProvider =
 /// Kept for callers that only need "the" audio source (quality presets, auth,
 /// support text); playback itself uses [audioSourceBackendsProvider] so it can
 /// fall back to the remaining providers.
-final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>(
-  (ref) async {
-    final backends = await ref.watch(audioSourceBackendsProvider.future);
-    return backends.firstOrNull?.plugin;
-  },
-);
+final audioSourcePluginProvider = FutureProvider<MetadataPlugin?>((ref) async {
+  final backends = await ref.watch(audioSourceBackendsProvider.future);
+  return backends.firstOrNull?.plugin;
+});

@@ -1146,19 +1146,13 @@ abstract class AppLocalizations {
   /// No description provided for @made_with.
   ///
   /// In en, this message translates to:
-  /// **'Made with ❤️ in Bangladesh🇧🇩'**
+  /// **'Made with ❤️ by Watchtower'**
   String get made_with;
-
-  /// No description provided for @kingkor_roy_tirtho.
-  ///
-  /// In en, this message translates to:
-  /// **'Kingkor Roy Tirtho'**
-  String get kingkor_roy_tirtho;
 
   /// No description provided for @copyright.
   ///
   /// In en, this message translates to:
-  /// **'© 2021-{current_year} Kingkor Roy Tirtho'**
+  /// **'© 2021-{current_year} Watchtower'**
   String copyright(Object current_year);
 
   /// No description provided for @license.
@@ -2820,7 +2814,7 @@ abstract class AppLocalizations {
   /// No description provided for @plugin_requires_authentication.
   ///
   /// In en, this message translates to:
-  /// **'Plugin requires authentication'**
+  /// **'Authentication required'**
   String get plugin_requires_authentication;
 
   /// No description provided for @update_available.
@@ -2832,13 +2826,13 @@ abstract class AppLocalizations {
   /// No description provided for @supports_scrobbling.
   ///
   /// In en, this message translates to:
-  /// **'Supports scrobbling'**
+  /// **'Scrobbling'**
   String get supports_scrobbling;
 
   /// No description provided for @plugin_scrobbling_info.
   ///
   /// In en, this message translates to:
-  /// **'This plugin scrobbles your music to generate your listening history.'**
+  /// **'Sends your listening history.'**
   String get plugin_scrobbling_info;
 
   /// No description provided for @default_metadata_source.
@@ -2966,6 +2960,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Input doesn\'t match the required format'**
   String get input_does_not_match_format;
+
+  /// No description provided for @defaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Defaults'**
+  String get defaults;
 
   /// No description provided for @plugins.
   ///

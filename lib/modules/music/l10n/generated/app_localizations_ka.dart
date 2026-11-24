@@ -542,14 +542,11 @@ class AppLocalizationsKa extends AppLocalizations {
   String get bug_issues => 'Bug+Issues';
 
   @override
-  String get made_with => 'Made with ❤️ in Bangladesh🇧🇩';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1483,11 +1480,10 @@ class AppLocalizationsKa extends AppLocalizations {
   String get update_available => 'განახლება ხელმისაწვდომია';
 
   @override
-  String get supports_scrobbling => 'მხარს უჭერს სქრობლინგს';
+  String get supports_scrobbling => 'სქრობლინგი';
 
   @override
-  String get plugin_scrobbling_info =>
-      'ეს პლაგინი აწარმოებს თქვენი მუსიკის სქრობლინგს, რათა შექმნას თქვენი მოსმენის ისტორია.';
+  String get plugin_scrobbling_info => 'აგზავნის მოსმენის ისტორიას.';
 
   @override
   String get default_metadata_source => 'ნაგულისხმევი მეტამონაცემების წყარო';
@@ -1561,6 +1557,9 @@ class AppLocalizationsKa extends AppLocalizations {
   @override
   String get input_does_not_match_format =>
       'შეყვანა არ ემთხვევა საჭირო ფორმატს';
+
+  @override
+  String get defaults => 'ნაგულისხმევი';
 
   @override
   String get plugins => 'პლაგინები';

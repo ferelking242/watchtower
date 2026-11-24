@@ -541,14 +541,11 @@ class AppLocalizationsVi extends AppLocalizations {
   String get bug_issues => 'Báo cáo lỗi';
 
   @override
-  String get made_with => 'Được làm bằng ❤️ ở Băng-la-đét';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1485,11 +1482,10 @@ class AppLocalizationsVi extends AppLocalizations {
   String get update_available => 'Có bản cập nhật';
 
   @override
-  String get supports_scrobbling => 'Hỗ trợ scrobbling';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info =>
-      'Plugin này scrobble nhạc của bạn để tạo lịch sử nghe của bạn.';
+  String get plugin_scrobbling_info => 'Gửi lịch sử nghe của bạn.';
 
   @override
   String get default_metadata_source => 'Nguồn siêu dữ liệu mặc định';
@@ -1562,6 +1558,9 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get input_does_not_match_format =>
       'Đầu vào không khớp với định dạng yêu cầu';
+
+  @override
+  String get defaults => 'Mặc định';
 
   @override
   String get plugins => 'Tiện ích bổ sung';

@@ -250,6 +250,13 @@ class RouterNotifier extends ChangeNotifier {
           name: "MusicLibraryPage",
           child: const MusicDiscoveryScreen(initialRoute: 'library'),
         ),
+        // Watchtower → Réglages → Music Hub: opens the music module straight on
+        // its own settings page (same page as the gear icon inside the hub)
+        // instead of dropping the user on the hub home.
+        _genericRoute(
+          name: "MusicHubSettings",
+          child: const MusicDiscoveryScreen(initialRoute: 'settings'),
+        ),
         _genericRoute(name: "GameLibrary", child: const GameDiscoveryScreen()),
         // Page plugin dédiée supprimée : les extensions vivent dans le
         // Marketplace (onglet Music pour metadata/audio-source, onglet
@@ -684,6 +691,7 @@ class RouterNotifier extends ChangeNotifier {
       'MusicLibrary',
       'MusicSearch',
       'MusicLibraryPage',
+      'MusicHubSettings',
       'GameLibrary',
       'WatchtowerHome',
     };

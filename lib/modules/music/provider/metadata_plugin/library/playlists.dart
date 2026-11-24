@@ -22,12 +22,12 @@ class MetadataPluginSavedPlaylistsNotifier
 
   @override
   build() async {
-    await ref.watch(metadataPluginAuthenticatedProvider.future);
     ref.watch(metadataPluginsProvider);
+    final authenticated =
+        await ref.watch(metadataPluginAuthenticatedProvider.future);
+    if (!authenticated) return emptyPage();
 
-    final playlists = await fetch(0, 20);
-
-    return playlists;
+    return await fetch(0, 20);
   }
 
   void updatePlaylist(SpotubeSimplePlaylistObject playlist) {

@@ -539,14 +539,11 @@ class AppLocalizationsCs extends AppLocalizations {
   String get bug_issues => 'Chyby+Problémy';
 
   @override
-  String get made_with => 'Vytvořeno s ❤️ v Bangladéši🇧🇩';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1477,11 +1474,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get update_available => 'Aktualizace dostupná';
 
   @override
-  String get supports_scrobbling => 'Podpora scrobblování';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info =>
-      'Tento plugin scrobbles vaši hudbu pro vytvoření historie poslechů.';
+  String get plugin_scrobbling_info => 'Odesílá historii poslechu.';
 
   @override
   String get default_metadata_source => 'Výchozí zdroj metadat';
@@ -1554,6 +1550,9 @@ class AppLocalizationsCs extends AppLocalizations {
   @override
   String get input_does_not_match_format =>
       'Vstup neodpovídá požadovanému formátu';
+
+  @override
+  String get defaults => 'Výchozí';
 
   @override
   String get plugins => 'Pluginy';

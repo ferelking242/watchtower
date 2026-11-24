@@ -543,14 +543,11 @@ class AppLocalizationsEu extends AppLocalizations {
   String get bug_issues => 'Erroreak eta arazoak';
 
   @override
-  String get made_with => 'Bangladesh🇧🇩-en ❤️-z egina';
-
-  @override
-  String get kingkor_roy_tirtho => 'Kingkor Roy Tirtho';
+  String get made_with => 'Made with ❤️ by Watchtower';
 
   @override
   String copyright(Object current_year) {
-    return '© 2021-$current_year Kingkor Roy Tirtho';
+    return '© 2021-$current_year Watchtower';
   }
 
   @override
@@ -1486,11 +1483,10 @@ class AppLocalizationsEu extends AppLocalizations {
   String get update_available => 'Eguneratze bat dago eskuragarri';
 
   @override
-  String get supports_scrobbling => 'Scrobbling-a onartzen du';
+  String get supports_scrobbling => 'Scrobbling';
 
   @override
-  String get plugin_scrobbling_info =>
-      'Plugin honek zure musika scrobbled egiten du zure entzuteen historia sortzeko.';
+  String get plugin_scrobbling_info => 'Entzute-historia bidaltzen du.';
 
   @override
   String get default_metadata_source => 'Metadatu-iturburu lehenetsia';
@@ -1565,6 +1561,9 @@ class AppLocalizationsEu extends AppLocalizations {
   @override
   String get input_does_not_match_format =>
       'Sarrera ezin da beharrezko formatutik desberdina izan';
+
+  @override
+  String get defaults => 'Berezkoak';
 
   @override
   String get plugins => 'Pluginak';

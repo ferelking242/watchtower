@@ -1,3 +1,4 @@
+import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -16,6 +17,7 @@ class SettingsAboutSection extends HookConsumerWidget {
     final preferencesNotifier = ref.watch(userPreferencesProvider.notifier);
     return SectionCardWithHeading(
       heading: context.l10n.about,
+      icon: Broken.info_circle,
       children: [
         ListTile(
           title: Text(context.l10n.check_for_updates),

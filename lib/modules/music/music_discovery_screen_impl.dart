@@ -33,6 +33,11 @@ class _MusicDiscoveryScreenState extends State<MusicDiscoveryScreen> {
         return const [RootAppRoute(children: [SearchRoute()])];
       case 'library':
         return const [RootAppRoute(children: [LibraryRoute()])];
+      case 'settings':
+        // Home stays under Settings so the page's back chevron returns to the
+        // hub home — the same stack the hub's own gear icon builds — instead of
+        // popping the whole music module back to Watchtower's settings.
+        return const [RootAppRoute(children: [HomeRoute(), SettingsRoute()])];
       default:
         if (_doneGettingStarted()) {
           return const [RootAppRoute(children: [HomeRoute()])];
