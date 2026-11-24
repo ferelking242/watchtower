@@ -58,8 +58,10 @@ class _ReelHostScreenState extends ConsumerState<ReelHostScreen> {
     Map<String, dynamic>? json;
     try {
       await LayoutRegistry.instance.load(widget.source);
-      if (widget.source.providesHome &&
-          !LayoutRegistry.instance.has(widget.source)) {
+      // The shell decision lives in the layout, so a declared but missing
+      // layout must be fetched before deciding — otherwise the first open of
+      // an extension falls back to the old screens and never mounts Reel.
+      if (!LayoutRegistry.instance.has(widget.source)) {
         await LayoutDownloader.instance.download(widget.source);
       }
       final raw = await LayoutRegistry.instance.readJson(widget.source);
