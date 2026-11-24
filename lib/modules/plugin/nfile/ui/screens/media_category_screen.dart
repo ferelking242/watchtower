@@ -1687,6 +1687,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
               child: Image.file(
                 File(path),
                 fit: BoxFit.cover,
+                // Decode at grid size: a full-resolution photo costs tens of
+                // MB of image cache per tile and thrashes the cache while the
+                // grid scrolls.
+                cacheWidth: 512,
                 width: double.infinity,
                 height: double.infinity,
                 errorBuilder: (context, error, stackTrace) => Container(
@@ -2810,6 +2814,7 @@ class _CachedImageTileState extends State<_CachedImageTile> {
               ? Image.memory(
                   _thumbnail!,
                   key: const ValueKey('img'),
+                  cacheWidth: 512,
                   fit: BoxFit.cover,
                   width: double.infinity,
                   height: double.infinity,
@@ -2905,6 +2910,7 @@ class _CachedVideoTileState extends State<_CachedVideoTile> {
                   ? Image.memory(
                       _thumbnail!,
                       key: const ValueKey('vid'),
+                      cacheWidth: 512,
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
@@ -3168,6 +3174,7 @@ class _ApkThumbnailState extends State<_ApkThumbnail> {
         borderRadius: BorderRadius.circular(10),
         child: Image.memory(
           _apkIcon!,
+          cacheWidth: 132,
           fit: BoxFit.cover,
           width: 44,
           height: 44,
