@@ -303,6 +303,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
       children: [
         _backHeader(l10n.browse_filter_content_nsfw),
         AdaptiveOverlayItem(
+          icon: Broken.global,
           label: l10n.browse_all_content,
           selected: _filters.nsfw == BrowseNsfwFilter.all,
           onTap: () {
@@ -311,6 +312,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           },
         ),
         AdaptiveOverlayItem(
+          icon: Broken.eye,
           label: l10n.browse_sfw_only,
           selected: _filters.nsfw == BrowseNsfwFilter.sfw,
           onTap: () {
@@ -319,6 +321,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
           },
         ),
         AdaptiveOverlayItem(
+          icon: Broken.eye_slash,
           label: l10n.browse_nsfw_only,
           selected: _filters.nsfw == BrowseNsfwFilter.nsfw,
           onTap: () {
@@ -337,6 +340,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
       children: [
         _backHeader(l10n.language),
         AdaptiveOverlayItem(
+          icon: Broken.global,
           label: l10n.browse_filter_all_languages,
           selected: _filters.language == null,
           onTap: () {
@@ -346,6 +350,7 @@ class _BrowseSourceFilterMenuState extends State<BrowseSourceFilterMenu> {
         ),
         for (final language in _languages)
           AdaptiveOverlayItem(
+            icon: Broken.language_square,
             label: language.toUpperCase(),
             selected: _filters.language == language,
             onTap: () {

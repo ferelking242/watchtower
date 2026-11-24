@@ -434,7 +434,7 @@ class _ExtensionFilterOverlayState extends State<ExtensionFilterOverlay> {
                     setState(() => _optionSearchQuery = value),
                 decoration: InputDecoration(
                   hintText: context.l10n.media_search_option,
-                  prefixIcon: const Icon(Icons.search, size: 18),
+                  prefixIcon: const Icon(Broken.search_normal_1, size: 18),
                   isDense: true,
                   filled: true,
                   fillColor: Theme.of(

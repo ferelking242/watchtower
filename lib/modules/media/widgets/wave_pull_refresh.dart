@@ -87,7 +87,13 @@ class _WavePullRefreshState extends State<WavePullRefresh>
       onNotification: _onNotification,
       child: Stack(
         children: [
-          widget.child,
+          // Keep the page pinned: no glow, no stretch, no content shift.
+          ScrollConfiguration(
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(overscroll: false),
+            child: widget.child,
+          ),
           Positioned(
             top: 0,
             left: 0,
