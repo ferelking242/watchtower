@@ -1,14 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:watchtower/eval/model/m_bridge.dart';
 import 'package:watchtower/services/app_updater/app_update_service.dart'
     if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
 import 'package:watchtower/services/app_updater/update_models.dart';
 
-/// Single update screen: changelog, centered download button, background
-/// download, "later" and the history of previous releases.
+/// Full-screen update sheet: changelog rendered like Mihon's update screen,
+/// download / later actions pinned at the bottom and the release history.
 class UpdatePage extends StatefulWidget {
   const UpdatePage({super.key, required this.initial});
 
@@ -19,11 +20,14 @@ class UpdatePage extends StatefulWidget {
 }
 
 class _UpdatePageState extends State<UpdatePage> {
+  static const _historyPreview = 4;
+
   late UpdateInfoView _info = widget.initial;
   StreamSubscription<UpdateInfoView>? _subscription;
   late final Future<List<UpdateHistoryEntry>> _history =
       AppUpdateService.instance.history();
   bool _busy = false;
+  bool _showAllHistory = false;
 
   bool get _isFrench => Localizations.localeOf(context).languageCode == 'fr';
 
@@ -48,9 +52,7 @@ class _UpdatePageState extends State<UpdatePage> {
       final state = await AppUpdateService.instance.downloadNow();
       if (!mounted) return;
       if (state.phase == 'failed') {
-        botToast(_isFrench
-            ? 'Téléchargement impossible'
-            : 'Download failed');
+        botToast(_isFrench ? 'Téléchargement impossible' : 'Download failed');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -64,9 +66,7 @@ class _UpdatePageState extends State<UpdatePage> {
       final started = await AppUpdateService.instance.installNow();
       if (!mounted) return;
       if (!started) {
-        botToast(_isFrench
-            ? 'Installation impossible'
-            : 'Installation failed');
+        botToast(_isFrench ? 'Installation impossible' : 'Installation failed');
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -92,211 +92,226 @@ class _UpdatePageState extends State<UpdatePage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF161B22) : Colors.white;
-    final border = cs.outlineVariant.withValues(alpha: 0.35);
+    final background =
+        isDark ? const Color(0xFF12151A) : cs.surfaceContainerLowest;
 
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text(
-          _isFrench ? 'Mise à jour' : 'Update',
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
-        children: [
-          _header(cs, surface, border),
-          const SizedBox(height: 16),
-          _notesCard(cs, surface, border),
-          const SizedBox(height: 20),
-          _primaryAction(cs),
-          const SizedBox(height: 10),
-          if (!_info.isReady && !_info.isDownloading)
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _downloadInBackground,
-              icon: const Icon(Icons.cloud_download_outlined, size: 18),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(46),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              label: Text(
-                _isFrench
-                    ? 'Télécharger en arrière-plan'
-                    : 'Download in the background',
-                style: GoogleFonts.inter(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+      backgroundColor: background,
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            ListView(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+              children: [
+                _header(cs),
+                const SizedBox(height: 22),
+                _notes(cs),
+                const SizedBox(height: 24),
+                _historySection(cs),
+              ],
             ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              _isFrench ? 'Plus tard' : 'Later',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: cs.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          _historySection(cs, surface, border),
-        ],
-      ),
-    );
-  }
-
-  Widget _header(ColorScheme cs, Color surface, Color border) {
-    final latest = _info.latestVersion ?? '';
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: border),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: cs.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(Icons.system_update_alt_rounded,
-                color: cs.primary, size: 30),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _isFrench ? 'Nouvelle version disponible' : 'New version available',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _pill(
-                _isFrench
-                    ? 'Actuelle ${_info.currentVersion}'
-                    : 'Current ${_info.currentVersion}',
-                cs.onSurface.withValues(alpha: 0.55),
-                cs,
-              ),
-              Icon(Icons.arrow_forward_rounded,
-                  size: 16, color: cs.onSurface.withValues(alpha: 0.4)),
-              _pill(
-                _isFrench ? 'Nouvelle $latest' : 'New $latest',
-                cs.primary,
-                cs,
-                filled: true,
-              ),
-            ],
-          ),
-          if (_info.sizeBytes != null || _info.publishedAt != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              [
-                if (_info.sizeBytes != null) _formatBytes(_info.sizeBytes!),
-                if (_info.publishedAt != null) _formatDate(_info.publishedAt!),
-              ].join(' · '),
-              style: GoogleFonts.inter(
-                fontSize: 11.5,
-                color: cs.onSurface.withValues(alpha: 0.45),
+            Positioned(
+              top: 4,
+              right: 6,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded),
+                tooltip: _isFrench ? 'Fermer' : 'Close',
+                onPressed: () => Navigator.of(context).pop(),
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _pill(String text, Color color, ColorScheme cs, {bool filled = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: filled ? color.withValues(alpha: 0.14) : null,
-        border: Border.all(color: color.withValues(alpha: 0.45)),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w600,
-          color: filled ? color : color,
         ),
       ),
+      bottomNavigationBar: _bottomBar(cs, isDark),
     );
   }
 
-  Widget _notesCard(ColorScheme cs, Color surface, Color border) {
-    final notes = (_info.releaseNotes ?? '').trim();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: border),
-      ),
+  Widget _header(ColorScheme cs) {
+    final latest = _info.latestVersion ?? '';
+    final details = [
+      if (_info.sizeBytes != null) _formatBytes(_info.sizeBytes!),
+      if (_info.publishedAt != null) _formatDate(_info.publishedAt!),
+    ].join('  ·  ');
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(Icons.verified_rounded, color: cs.primary, size: 34),
+          ),
+          const SizedBox(height: 20),
           Text(
-            _isFrench ? 'Nouveautés' : "What's new",
+            _isFrench ? 'Mise à jour disponible !' : 'Update available!',
             style: GoogleFonts.inter(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
+              fontSize: 27,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.6,
+              height: 1.15,
             ),
           ),
           const SizedBox(height: 8),
-          SelectableText(
-            notes.isEmpty
-                ? (_isFrench
-                    ? 'Pas de notes de version pour cette build.'
-                    : 'No release notes for this build.')
-                : notes,
-            style: GoogleFonts.inter(
-              fontSize: 12.5,
-              height: 1.45,
-              color: cs.onSurface.withValues(alpha: 0.75),
-            ),
+          Row(
+            children: [
+              Text(
+                'v$latest',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+              Text(
+                '   ·   ',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: cs.onSurface.withValues(alpha: 0.25),
+                ),
+              ),
+              Text(
+                _isFrench
+                    ? 'installée : ${_info.currentVersion}'
+                    : 'installed: ${_info.currentVersion}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: cs.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+            ],
           ),
+          if (details.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              details,
+              style: GoogleFonts.inter(
+                fontSize: 11.5,
+                color: cs.onSurface.withValues(alpha: 0.4),
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
+          Divider(color: cs.outlineVariant.withValues(alpha: 0.35), height: 1),
         ],
+      ),
+    );
+  }
+
+  Widget _notes(ColorScheme cs) {
+    final notes = _cleanNotes(_info.releaseNotes ?? '');
+    if (notes.isEmpty) {
+      return Text(
+        _isFrench
+            ? 'Pas de notes de version pour cette build.'
+            : 'No release notes for this build.',
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          height: 1.5,
+          color: cs.onSurface.withValues(alpha: 0.55),
+        ),
+      );
+    }
+    return _NotesMarkdown(data: notes, cs: cs);
+  }
+
+  Widget _bottomBar(ColorScheme cs, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF12151A) : cs.surface,
+        border: Border(
+          top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.25)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _primaryAction(cs),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        side: BorderSide(
+                          color: cs.outlineVariant.withValues(alpha: 0.6),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        _isFrench ? 'Pas maintenant' : 'Not now',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!_info.isReady && !_info.isDownloading) ...[
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 56,
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : _downloadInBackground,
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          side: BorderSide(
+                            color: cs.outlineVariant.withValues(alpha: 0.6),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Tooltip(
+                          message: _isFrench
+                              ? 'Télécharger en arrière-plan'
+                              : 'Download in the background',
+                          child: Icon(
+                            Icons.cloud_download_outlined,
+                            size: 20,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _primaryAction(ColorScheme cs) {
     if (_info.isReady) {
-      return FilledButton.icon(
+      return FilledButton(
         onPressed: _busy ? null : _install,
-        icon: const Icon(Icons.install_mobile_rounded, size: 20),
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(50),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(25),
           ),
         ),
-        label: Text(
+        child: Text(
           _isFrench ? 'Installer' : 'Install',
-          style: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
+          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
         ),
       );
     }
@@ -304,18 +319,17 @@ class _UpdatePageState extends State<UpdatePage> {
     if (_info.isDownloading) {
       final progress = _info.progress;
       return Container(
-        height: 52,
+        height: 50,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: cs.primary.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.primary.withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(25),
         ),
-        child: Column(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(
-              width: 150,
+              width: 120,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: LinearProgressIndicator(
@@ -325,13 +339,11 @@ class _UpdatePageState extends State<UpdatePage> {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(width: 12),
             Text(
-              progress == null
-                  ? (_isFrench ? 'Téléchargement…' : 'Downloading…')
-                  : '${(progress * 100).round()} %',
+              progress == null ? '…' : '${(progress * 100).round()} %',
               style: GoogleFonts.inter(
-                fontSize: 11.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: cs.primary,
               ),
@@ -341,64 +353,70 @@ class _UpdatePageState extends State<UpdatePage> {
       );
     }
 
-    final size = _info.sizeBytes;
-    return FilledButton.icon(
+    return FilledButton(
       onPressed: _busy ? null : _download,
-      icon: const Icon(Icons.download_rounded, size: 20),
       style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(52),
+        minimumSize: const Size.fromHeight(50),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(25),
         ),
       ),
-      label: Text(
-        size == null
-            ? (_isFrench ? 'Télécharger' : 'Download')
-            : (_isFrench
-                ? 'Télécharger (${_formatBytes(size)})'
-                : 'Download (${_formatBytes(size)})'),
-        style: GoogleFonts.inter(
-          fontSize: 15,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Text(
+        _isFrench ? 'Télécharger' : 'Download',
+        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
       ),
     );
   }
 
-  Widget _historySection(ColorScheme cs, Color surface, Color border) {
+  Widget _historySection(ColorScheme cs) {
     return FutureBuilder<List<UpdateHistoryEntry>>(
       future: _history,
       builder: (context, snapshot) {
-        final entries = snapshot.data ?? const <UpdateHistoryEntry>[];
-        if (entries.isEmpty) return const SizedBox.shrink();
+        final all = snapshot.data ?? const <UpdateHistoryEntry>[];
+        if (all.isEmpty) return const SizedBox.shrink();
+        final visible =
+            _showAllHistory ? all : all.take(_historyPreview).toList();
+        final hidden = all.length - visible.length;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _isFrench ? 'Historique' : 'History',
+              _isFrench ? 'Versions précédentes' : 'Previous versions',
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                color: cs.onSurface.withValues(alpha: 0.5),
+                letterSpacing: 0.4,
+                color: cs.onSurface.withValues(alpha: 0.45),
               ),
             ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: border),
+            const SizedBox(height: 6),
+            for (var i = 0; i < visible.length; i++) ...[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  color: cs.outlineVariant.withValues(alpha: 0.25),
+                ),
+              _historyTile(visible[i], cs),
+            ],
+            if (hidden > 0 || _showAllHistory)
+              TextButton(
+                onPressed: () =>
+                    setState(() => _showAllHistory = !_showAllHistory),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                child: Text(
+                  _showAllHistory
+                      ? (_isFrench ? 'Réduire' : 'Show less')
+                      : (_isFrench
+                          ? 'Afficher tout ($hidden)'
+                          : 'Show all ($hidden)'),
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: cs.primary,
+                  ),
+                ),
               ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < entries.length; i++) ...[
-                    if (i > 0) const Divider(height: 1, indent: 14),
-                    _historyTile(entries[i], cs),
-                  ],
-                ],
-              ),
-            ),
           ],
         );
       },
@@ -406,18 +424,19 @@ class _UpdatePageState extends State<UpdatePage> {
   }
 
   Widget _historyTile(UpdateHistoryEntry entry, ColorScheme cs) {
-    final notes = (entry.notes ?? '').trim();
+    final notes = _cleanNotes(entry.notes ?? '');
     return ExpansionTile(
-      tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-      childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 12),
       shape: const Border(),
       collapsedShape: const Border(),
+      minTileHeight: 50,
       title: Row(
         children: [
           Text(
             entry.version,
             style: GoogleFonts.inter(
-              fontSize: 13,
+              fontSize: 13.5,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -447,30 +466,65 @@ class _UpdatePageState extends State<UpdatePage> {
               _formatDate(entry.publishedAt!),
               style: GoogleFonts.inter(
                 fontSize: 11,
-                color: cs.onSurface.withValues(alpha: 0.45),
+                color: cs.onSurface.withValues(alpha: 0.4),
               ),
             ),
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            notes.isEmpty
-                ? (_isFrench ? 'Pas de notes.' : 'No notes.')
-                : notes,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              height: 1.4,
-              color: cs.onSurface.withValues(alpha: 0.7),
+        if (notes.isEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _isFrench ? 'Pas de notes.' : 'No notes.',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
             ),
-          ),
-        ),
+          )
+        else
+          _NotesMarkdown(data: notes, cs: cs, compact: true),
       ],
     );
   }
 
-  static String _formatBytes(int bytes) {
+  /// Drops the technical trailer CI appends to the release body (APK name,
+  /// checksum, size, compare link) and the duplicated section heading, so the
+  /// screen only shows the changelog itself.
+  static String _cleanNotes(String raw) {
+    final lines = raw.split('\n');
+    final kept = <String>[];
+    for (final line in lines) {
+      final trimmed = line.trim().toLowerCase();
+      if (trimmed.startsWith('apk android') ||
+          trimmed.startsWith('sha-256') ||
+          trimmed.startsWith('sha256') ||
+          trimmed.startsWith('taille :') ||
+          trimmed.startsWith('taille attendue') ||
+          trimmed.startsWith('**comparaison**') ||
+          trimmed.startsWith('build automatique') ||
+          trimmed.startsWith('built automatically')) {
+        continue;
+      }
+      kept.add(line);
+    }
+    var text = kept.join('\n').trim();
+    text = text.replaceFirst(
+      RegExp(r'^#{1,3}\s*(nouveautés|what.?s new|changes?)\s*\n+',
+          caseSensitive: false),
+      '',
+    );
+    text = text.replaceFirst(
+      RegExp(r'^#\s*Watchtower\s+[\d.]+\s*\n+', caseSensitive: false),
+      '',
+    );
+    return text.trim();
+  }
+
+  String _formatBytes(int bytes) {
+    final separator = _isFrench ? ',' : '.';
     if (bytes >= 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+      final value = (bytes / (1024 * 1024)).toStringAsFixed(1);
+      return '${value.replaceAll('.', separator)} Mo';
     }
     if (bytes >= 1024) return '${(bytes / 1024).toStringAsFixed(0)} Ko';
     return '$bytes o';
@@ -480,5 +534,99 @@ class _UpdatePageState extends State<UpdatePage> {
     final local = date.toLocal();
     String two(int value) => value.toString().padLeft(2, '0');
     return '${two(local.day)}/${two(local.month)}/${local.year}';
+  }
+}
+
+class _NotesMarkdown extends StatelessWidget {
+  const _NotesMarkdown({
+    required this.data,
+    required this.cs,
+    this.compact = false,
+  });
+
+  final String data;
+  final ColorScheme cs;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = cs.onSurface.withValues(alpha: 0.82);
+    final heading = cs.onSurface.withValues(alpha: 0.95);
+    final size = compact ? 12.0 : 13.0;
+    final mono = GoogleFonts.jetBrainsMono(
+      fontSize: size - 1,
+      color: cs.primary,
+      backgroundColor: cs.primary.withValues(alpha: 0.08),
+    );
+
+    return MarkdownBody(
+      data: data,
+      selectable: false,
+      styleSheet: MarkdownStyleSheet(
+        p: GoogleFonts.inter(fontSize: size, height: 1.55, color: body),
+        pPadding: EdgeInsets.zero,
+        a: GoogleFonts.inter(
+          fontSize: size,
+          height: 1.55,
+          color: cs.primary,
+          decoration: TextDecoration.underline,
+        ),
+        strong: GoogleFonts.inter(
+          fontSize: size,
+          height: 1.55,
+          fontWeight: FontWeight.w700,
+          color: heading,
+        ),
+        em: GoogleFonts.inter(
+          fontSize: size,
+          height: 1.55,
+          fontStyle: FontStyle.italic,
+          color: body,
+        ),
+        code: mono,
+        h1: GoogleFonts.inter(
+          fontSize: size + 6,
+          fontWeight: FontWeight.w600,
+          color: heading,
+          letterSpacing: -0.3,
+        ),
+        h2: GoogleFonts.inter(
+          fontSize: size + 3,
+          fontWeight: FontWeight.w600,
+          color: heading,
+          letterSpacing: -0.2,
+        ),
+        h3: GoogleFonts.inter(
+          fontSize: size + 1,
+          fontWeight: FontWeight.w700,
+          color: heading,
+        ),
+        h1Padding: const EdgeInsets.only(top: 12, bottom: 4),
+        h2Padding: const EdgeInsets.only(top: 14, bottom: 4),
+        h3Padding: const EdgeInsets.only(top: 10, bottom: 2),
+        listBullet: GoogleFonts.inter(
+          fontSize: size,
+          height: 1.55,
+          color: cs.onSurface.withValues(alpha: 0.5),
+        ),
+        listIndent: 18,
+        blockSpacing: 8,
+        codeblockPadding: const EdgeInsets.all(10),
+        codeblockDecoration: BoxDecoration(
+          color: cs.onSurface.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        blockquoteDecoration: BoxDecoration(
+          color: cs.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        blockquotePadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        horizontalRuleDecoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          ),
+        ),
+      ),
+    );
   }
 }

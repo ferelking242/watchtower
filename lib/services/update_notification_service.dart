@@ -15,10 +15,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:watchtower/router/router.dart';
 import 'package:watchtower/models/source.dart';
+import 'package:watchtower/modules/more/about/update_page.dart';
 import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/app_updater/app_update_service.dart'
     if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
+import 'package:watchtower/services/app_updater/update_models.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/utils/log/logger.dart';
@@ -386,6 +388,12 @@ class WatchtowerNotificationService {
     if (_dispatchSeriesAction(response)) return;
     if (_dispatchMediaDownloadAction(response)) return;
     final actionId = response.actionId;
+    // Update notifications carry their own payload: tapping the body opens the
+    // update page, it never installs or downloads behind the user's back.
+    if (response.payload?.contains('"type":"app_update"') == true) {
+      unawaited(_handleAppUpdateAction(response));
+      return;
+    }
     final isExtensionUpdate =
         response.payload?.contains('"type":"extension_updates"') == true;
     final isNewExtensions =
@@ -810,6 +818,51 @@ class WatchtowerNotificationService {
     return 0;
   }
 
+  Future<void> _handleAppUpdateAction(NotificationResponse response) async {
+    switch (response.actionId) {
+      case _kActionInstall:
+        await _installPending();
+      case _kActionWhatsNew:
+        final url = _pendingReleaseUrl;
+        if (url != null) {
+          await launchUrl(
+            Uri.parse(url),
+            mode: LaunchMode.externalApplication,
+          );
+        }
+      default:
+        await _openUpdatePage();
+    }
+  }
+
+  /// Opens the dedicated update page; used by the notification body and by the
+  /// "Télécharger" action so the user always sees the changelog first.
+  Future<void> _openUpdatePage() async {
+    UpdateInfoView info;
+    try {
+      info = await AppUpdateService.instance.checkNow();
+    } catch (e) {
+      AppLogger.log(
+        '_openUpdatePage check failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+      return;
+    }
+    for (var attempt = 0; attempt < 12; attempt++) {
+      final context = navigatorKey.currentContext;
+      if (context != null && context.mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => UpdatePage(initial: info),
+          ),
+        );
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+  }
+
   Future<void> _openMediaNotification(NotificationResponse response) async {
     Map<String, dynamic>? data;
     if (response.payload != null && response.payload!.isNotEmpty) {
@@ -971,6 +1024,7 @@ class WatchtowerNotificationService {
         'Mise à jour disponible !',
         version,
         NotificationDetails(android: androidDetails, iOS: iosDetails),
+        payload: jsonEncode(const {'type': 'app_update'}),
       );
     } catch (e) {
       AppLogger.log(
@@ -1165,6 +1219,7 @@ class WatchtowerNotificationService {
         'Watchtower $version prêt à installer',
         'Appuyez pour installer',
         NotificationDetails(android: androidDetails, iOS: iosDetails),
+        payload: jsonEncode(const {'type': 'app_update'}),
       );
     } catch (e) {
       AppLogger.log(
