@@ -502,11 +502,17 @@ List<Video> _applySourcePreferences(Source? source, List<Video> videos) {
   if (source == null || videos.length < 2 || source.id == null) return videos;
 
   try {
-    final qualityPreference =
-        getSourcePreferenceEntry(extensionDefaultQualityKey, source.id!);
+    final qualityPreference = getSourcePreferenceEntry(
+      extensionDefaultQualityKey,
+      source.id!,
+      seedExtensionDefaults: false,
+    );
     final quality = qualityPreference.listPreference;
-    final fallbackPreference =
-        getSourcePreferenceEntry(extensionQualityFallbackKey, source.id!);
+    final fallbackPreference = getSourcePreferenceEntry(
+      extensionQualityFallbackKey,
+      source.id!,
+      seedExtensionDefaults: false,
+    );
     final fallback = fallbackPreference.listPreference;
     final desired = quality == null ||
             quality.valueIndex == null ||
@@ -523,8 +529,11 @@ List<Video> _applySourcePreferences(Source? source, List<Video> videos) {
         ? 'lower'
         : fallback.entryValues![fallback.valueIndex!];
 
-    final languagePreference =
-        getSourcePreferenceEntry(extensionLanguagesKey, source.id!);
+    final languagePreference = getSourcePreferenceEntry(
+      extensionLanguagesKey,
+      source.id!,
+      seedExtensionDefaults: false,
+    );
     final selectedLanguages =
         languagePreference.multiSelectListPreference?.values
             ?.map((value) => value.toLowerCase())

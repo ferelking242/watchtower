@@ -46,6 +46,19 @@ class ExtensionServiceRegistry {
     return _cache.putIfAbsent(key, () => getExtensionService(source));
   }
 
+  /// The cached service for [source], or null when none was built yet.
+  ///
+  /// Callers that must not pay a QuickJS boot — anything running on the UI
+  /// isolate, where a second engine and its FFI trampoline crash the process
+  /// in native code — use this instead of [get]. A missing entry means "not
+  /// answered yet", never "boot it here".
+  static ExtensionService? peek(Source source) {
+    final key = _key(source);
+    final signature = _signature(source);
+    if (_signatures[key] != null && _signatures[key] != signature) return null;
+    return _cache[key];
+  }
+
   /// Injects a pre-built [service] for [source], bypassing the JS/Dart runtime
   /// factory. Test-only: lets a unit test drive the queue without booting
   /// QuickJS, so the scheduling/dispatch contract can be asserted directly.

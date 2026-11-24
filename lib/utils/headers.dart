@@ -32,15 +32,23 @@ Map<String, String> _computeHeaders({
     if (fromSource != null && fromSource.isNotEmpty) {
       headers.addAll((jsonDecode(fromSource) as Map).toMapStringString!);
     }
-    try {
-      // Reuse the cached runtime: calling `getExtensionService` directly and
-      // then disposing it (as before) destroyed the interpreter other cards
-      // were about to use and forced a fresh QuickJS boot for each of them.
-      headers.addAll(ExtensionServiceRegistry.get(mSource).getHeaders());
-    } catch (_) {
-      // A source without a runnable `getHeaders` (or a runtime that failed to
-      // boot) must not take the whole grid down: fall back to the static
-      // headers declared by the source.
+    // Never *boot* an extension runtime here. `headersProvider` is watched
+    // from every visible cover and from the watch banner, i.e. on the UI
+    // isolate, and `ExtensionServiceRegistry.get` would build a second QuickJS
+    // engine with its own FFI trampoline next to the worker's — the native
+    // SIGSEGV seen right after `getVideoList` returned (crash frames
+    // `js_channel` <- `JS_Eval` <- `anon:FfiCallbackMetadata::TrampolinePage`).
+    //
+    // A runtime that already exists is reused: `peek` never creates one, so a
+    // source whose `getHeaders` is dynamic still contributes when its engine
+    // is up, and a cold one simply falls back to the static headers above.
+    final service = ExtensionServiceRegistry.peek(mSource);
+    if (service != null) {
+      try {
+        headers.addAll(service.getHeaders());
+      } catch (_) {
+        // A source without a runnable `getHeaders` must not take the grid down.
+      }
     }
   }
 

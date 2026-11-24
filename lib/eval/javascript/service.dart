@@ -141,6 +141,10 @@ class JsExtensionService implements ExtensionService {
   void _init() {
     if (_isInitialized) return;
     _extDebug('$_id · init START');
+    // Creating the engine installs the FFI callback trampoline, which is the
+    // first point where a native fault can kill the process with no Dart
+    // unwind. Get the trail on disk before handing control over.
+    AppLogger.flushSync();
     runtime = getJavascriptRuntime(
       stackSize: JsRuntimeConfig.stackSizeBytes,
       timeout: JsRuntimeConfig.executionTimeoutMs,

@@ -33,6 +33,12 @@ import 'package:watchtower/modules/more/settings/player/providers/player_prefs_p
 import 'package:watchtower/services/download_manager/partial/partial_playback_plan.dart';
 import 'package:watchtower/services/download_manager/partial/partial_playback_resolver.dart';
 import 'package:watchtower/services/get_video_list.dart';
+import 'package:watchtower/services/anti_bot/browser_fetch.dart';
+import 'package:watchtower/services/anti_bot/cloudflare_challenge_bus.dart';
+import 'package:watchtower/services/anti_bot/anti_bot_detection.dart'
+    show isRawMediaUrl;
+import 'package:watchtower/services/http/persisted_request_metadata.dart'
+    show safeUrlOriginForLog;
 import 'package:watchtower/services/hls_adaptive_quality.dart';
 import 'package:watchtower/services/hls_variant_resolver.dart';
 import 'package:watchtower/services/player_codec_error.dart';
@@ -772,6 +778,20 @@ class WatchInlinePlayer {
   /// than before.
   Future<String?> _applyAdaptiveQuality(wt.Video video) async {
     if (!_isHlsUrl(video.url)) return null;
+    // A host that already refused this app's HTTP stack will refuse the probe
+    // too: the verdict is on the TLS fingerprint, not the request. Probing it
+    // only burns the 5 s timeout before `open()` — the delay users see between
+    // tapping a MissAV episode and the first frame. mpv opens the master itself
+    // and switches renditions internally, so skipping the plan costs nothing.
+    if (BrowserFetchService.nativeProbeIsPointless(video.url)) {
+      AppLogger.log(
+        '[PLAYER] ABR probe skipped: ${safeUrlOriginForLog(video.url)} already '
+        'refused the native client  ← opening the master directly',
+        logLevel: LogLevel.debug,
+        tag: LogTag.watch,
+      );
+      return null;
+    }
     try {
       // A master that keeps its audio in `#EXT-X-MEDIA` renditions must be
       // opened as-is: ffmpeg's HLS demuxer only learns about the audio
@@ -1630,6 +1650,14 @@ class WatchInlinePlayer {
         logLevel: LogLevel.error,
         tag: LogTag.watch,
       );
+      // A CDN that refuses the player's own client (Surrit behind MissAV) is
+      // never reported through the HTTP layer: media URLs are deliberately
+      // excluded from the "blocked by Cloudflare" alert, because a WebView
+      // cannot serve a playlist. That left the player stuck on a failed load
+      // with no way forward — the inline panel only ever opened for page
+      // requests. Surface the challenge here instead, on the exact stream that
+      // failed, so the bypass panel is reachable from the player box.
+      _publishMediaChallenge(videos);
       _notifyLoadFailed();
     } catch (e, st) {
       loadFailed = true;
@@ -1647,6 +1675,40 @@ class WatchInlinePlayer {
   void _notifyLoadFailed() {
     if (_isDisposed) return;
     onLoadFailed?.call();
+  }
+
+  /// Raises the inline bypass panel when the failed stream came from an
+  /// anti-bot CDN.
+  ///
+  /// Only the *page* a user browses is worth replaying in a WebView; a refused
+  /// playlist is not, which is why the HTTP layer stays silent on media URLs.
+  /// But "silent" left a dead end on the one case this app cannot play around:
+  /// the CDN refuses the native client and the user has no way to open the
+  /// panel from the player. The page that hosts the stream is what the panel
+  /// loads — the MissAV detail page carried by the entry's Referer — so the
+  /// clearance cookie lands in the session mpv then reuses.
+  ///
+  /// No `sourceId` is published: the chapter row carries none, and the detail
+  /// screen treats a null id as "show it anyway", which is what we want here.
+  void _publishMediaChallenge(List<wt.Video> videos) {
+    if (_isDisposed) return;
+    for (final video in videos) {
+      final url = video.url;
+      if (!BrowserFetchService.isMissAvMediaUrl(url) && !isRawMediaUrl(url)) {
+        continue;
+      }
+      final page = BrowserFetchService.missAvMediaReferrer(url, video.headers) ??
+          _activeChapter?.url ??
+          url;
+      AppLogger.log(
+        '[PLAYER] media refused by an anti-bot CDN — opening the inline '
+        'challenge panel  page=${safeUrlOriginForLog(page)}',
+        logLevel: LogLevel.info,
+        tag: LogTag.watch,
+      );
+      CloudflareChallengeBus.instance.publish(page);
+      return;
+    }
   }
 
   /// Seeks to [startPosition] once the media is open (resume from History),

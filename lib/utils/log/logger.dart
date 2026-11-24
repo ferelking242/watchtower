@@ -482,9 +482,15 @@ class AppLogger {
     // Safety net: even a DEBUG-only trail reaches disk within ~120 ms, so a
     // crash that bypasses Dart's error handling still leaves the last lines on
     // disk. Cancelled in [dispose].
+    //
+    // The drain is synchronous on purpose: an `await`ed write can be suspended
+    // by a native SIGSEGV before it reaches the OS, which is how the trail used
+    // to stop one line short of the crash. `writeAsStringSync` completes before
+    // the timer callback returns, so nothing is left in Dart when the process
+    // dies.
     _periodicFlushTimer ??= Timer.periodic(
       _kCrashSafeFlushInterval,
-      (_) => unawaited(_drainPendingLines(flush: true)),
+      (_) => flushSync(),
     );
   }
 

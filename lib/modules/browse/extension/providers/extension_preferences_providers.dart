@@ -121,7 +121,11 @@ dynamic getPreferenceValue(int sourceId, String key) {
   return sourcePreference.multiSelectListPreference?.values;
 }
 
-SourcePreference getSourcePreferenceEntry(String key, int sourceId) {
+SourcePreference getSourcePreferenceEntry(
+  String key,
+  int sourceId, {
+  bool seedExtensionDefaults = true,
+}) {
   final db = _db;
 
   // ── Isolate path: no DB → return an empty preference safely ──────────────
@@ -140,6 +144,15 @@ SourcePreference getSourcePreferenceEntry(String key, int sourceId) {
       .findFirstSync();
 
   if (sourcePreference == null) {
+    // Seeding the defaults asks the extension for its preference list, which
+    // boots a QuickJS runtime *on the calling isolate*. On the UI isolate that
+    // means a second engine and FFI trampoline next to the worker's, and a
+    // playback-time caller (the quality picker) crashed the app in native code
+    // right after `getVideoList` returned: SIGBUS/BUS_ADRALN jumping into a
+    // recycled `FfiCallbackMetadata::TrampolinePage`. Callers on a hot path
+    // opt out and simply see "no preference set yet"; the defaults are seeded
+    // when the user opens the extension's settings page.
+    if (!seedExtensionDefaults) return SourcePreference()..key = key;
     final source = db.sources.getSync(sourceId);
     if (source == null) {
       return SourcePreference()..key = key;

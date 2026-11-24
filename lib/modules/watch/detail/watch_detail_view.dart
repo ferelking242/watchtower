@@ -695,6 +695,13 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
             onChallenge: _challengeTabVisible ? () => _selectTab(_challengeTabIndex) : null,
           ),
 
+        // A refused media CDN is solved *inside* the player box: the user asked
+        // for the challenge there instead of in a tab they have to find, and it
+        // is where the failed stream is. The panel replaces the cover on the
+        // same surface, so clearing it retries playback in place.
+        if (_player.loadFailed && !_player.hasVideoUrl && _challengeTabVisible)
+          _buildInlinePlayerChallenge(chapters),
+
         // In-player toast — bottom of the surface, MovieBox style.
         if (_playerToastMsg != null)
           Positioned(
@@ -1820,7 +1827,9 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
               behavior: HitTestBehavior.opaque,
               // Three-dot "more" glyph, no chip behind it: the icon alone sits
               // flush next to the "Fourni par <extension>" credit.
-              child: Icon(Broken.more_2, size: 22, color: _textPrimary),
+              // `more` is the horizontal ⋯ ; `more_2` is a triangular layout
+              // that read as a share icon at this size.
+              child: Icon(Broken.more, size: 22, color: _textPrimary),
             ),
           ],
         ),
@@ -3294,6 +3303,68 @@ class _WatchDetailViewState extends ConsumerState<WatchDetailView>
           },
         );
       },
+    );
+  }
+
+  /// The challenge panel, rendered directly over the player surface.
+  ///
+  /// [CloudflareBypassPanel.bounded] is set so the panel takes the height the
+  /// player box gives it instead of its default 300 px, which overflowed the
+  /// banner on small screens. Solving the challenge retries the same episode
+  /// without leaving the screen.
+  Widget _buildInlinePlayerChallenge(List<Chapter> chapters) {
+    final challenge = _pendingChallenge!;
+    final ordered = _sortedEpisodes(chapters);
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.72),
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Broken.shield_search, size: 16, color: Colors.orange),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'Cloudflare',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: _dismissChallenge,
+                  behavior: HitTestBehavior.opaque,
+                  child: const Icon(Icons.close_rounded,
+                      size: 18, color: Colors.white70),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: CloudflareBypassPanel(
+                url: challenge.url,
+                sourceId: challenge.sourceId ?? widget.manga.sourceId,
+                compact: true,
+                bounded: true,
+                onResolved: () {
+                  _dismissChallenge();
+                  _retryLoadedEpisode(ordered);
+                },
+                onPageHealthy: () {
+                  _dismissChallenge();
+                  _retryLoadedEpisode(ordered);
+                },
+                onRetry: () => _retryLoadedEpisode(ordered),
+                onClose: _dismissChallenge,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

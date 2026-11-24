@@ -322,6 +322,15 @@ class RouterNotifier extends ChangeNotifier {
       name: "mangaHome",
       builder: (id) {
         final source = id.$1!;
+        // A video extension (itemType 1) belongs on the watch home even when it
+        // declares no `uiLayout`: `providesHome` is false for those, and the
+        // old fallback sent them to `MangaHomeScreen`, which renders a manga
+        // listing — the "extension home" button looked dead because it landed
+        // on an empty screen. `WatchExtensionHomeScreen` renders the built-in
+        // watch layout for exactly that case.
+        if (source.itemType == ItemType.anime) {
+          return WatchExtensionHomeScreen(source: source);
+        }
         return source.providesHome
             ? WatchExtensionHomeScreen(source: source)
             : MangaHomeScreen(source: source, isLatest: id.$2);
