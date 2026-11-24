@@ -18,6 +18,7 @@ import '../ui/screens/document_viewer_screen.dart';
 import '../ui/screens/archive_viewer_screen.dart';
 import '../ui/screens/database_reader_screen.dart';
 import '../services/archive_service.dart';
+import '../services/paste_plan.dart';
 import '../services/apk_installer_service.dart';
 import '../ui/widgets/extract_archive_dialog.dart';
 import '../core/utils.dart';
@@ -1939,12 +1940,19 @@ class FileManagerProvider extends ChangeNotifier {
     }
 
     try {
-      // 1. Calculate total size and gather all files
+      // 1. Walk the sources and size them up in a background isolate, then
+      // build the copy list here: enumerating a folder with thousands of media
+      // files used to cost one blocking `stat` per file on the UI isolate.
       int totalBytes = 0;
       final List<Map<String, dynamic>> itemsToProcess = [];
+      final plan = await compute(
+        buildPastePlan,
+        List<String>.of(_clipboardPaths),
+      );
 
-      for (final srcPath in _clipboardPaths) {
-        final type = FileSystemEntity.typeSync(srcPath);
+      for (final planned in plan) {
+        final srcPath = planned['path'] as String;
+        final isDir = planned['kind'] == 'dir';
         final isSameFolder = p.dirname(srcPath) == currentPath;
 
         if (isSameFolder && _isCut) {
@@ -1961,62 +1969,46 @@ class FileManagerProvider extends ChangeNotifier {
           return;
         }
 
-        if (type == FileSystemEntityType.file) {
-          final file = File(srcPath);
-          final size = file.lengthSync();
+        if (!isDir) {
+          final size = planned['size'] as int;
           totalBytes += size;
-          
+
           String destPath = p.join(currentPath, p.basename(srcPath));
           if (isSameFolder && !_isCut) {
             destPath = _getCopyUniquePath(destPath, false);
           }
 
           itemsToProcess.add({
-            'source': file,
+            'source': srcPath,
             'destPath': destPath,
             'size': size,
             'isDir': false,
           });
-        } else if (type == FileSystemEntityType.directory) {
-          final dir = Directory(srcPath);
-          
+        } else {
           String topDestPath = p.join(currentPath, p.basename(srcPath));
           if (isSameFolder && !_isCut) {
             topDestPath = _getCopyUniquePath(topDestPath, true);
           }
 
           itemsToProcess.add({
-            'source': dir,
+            'source': srcPath,
             'destPath': topDestPath,
             'size': 0,
             'isDir': true,
           });
 
-          try {
-            final entities = dir.listSync(recursive: true, followLinks: false);
-            for (final entity in entities) {
-              final relPath = p.relative(entity.path, from: srcPath);
-              final destPath = p.join(topDestPath, relPath);
-              
-              if (entity is Directory) {
-                itemsToProcess.add({
-                  'source': entity,
-                  'destPath': destPath,
-                  'size': 0,
-                  'isDir': true,
-                });
-              } else if (entity is File) {
-                final size = entity.lengthSync();
-                totalBytes += size;
-                itemsToProcess.add({
-                  'source': entity,
-                  'destPath': destPath,
-                  'size': size,
-                  'isDir': false,
-                });
-              }
-            }
-          } catch (_) {}
+          for (final entry in planned['entries'] as List) {
+            final rel = entry['rel'] as String;
+            final entryIsDir = entry['isDir'] as bool;
+            final size = entry['size'] as int;
+            if (!entryIsDir) totalBytes += size;
+            itemsToProcess.add({
+              'source': p.join(srcPath, rel),
+              'destPath': p.join(topDestPath, rel),
+              'size': size,
+              'isDir': entryIsDir,
+            });
+          }
         }
       }
 
@@ -2047,12 +2039,12 @@ class FileManagerProvider extends ChangeNotifier {
         }
 
         final item = itemsToProcess[i];
-        final source = item['source'];
+        final String sourcePath = item['source'];
         String destPath = item['destPath'];
         final int size = item['size'];
         final bool isDir = item['isDir'];
 
-        final fileName = p.basename(source.path);
+        final fileName = p.basename(sourcePath);
 
         // Check if this item is within a skipped directory tree
         bool isSkipped = false;
@@ -2084,7 +2076,7 @@ class FileManagerProvider extends ChangeNotifier {
               response = await ConflictDialog.show(
                 context,
                 fileName: fileName,
-                sourceFile: File(source.path),
+                sourceFile: File(sourcePath),
                 destFile: File(destPath),
               );
 
@@ -2134,7 +2126,7 @@ class FileManagerProvider extends ChangeNotifier {
           continue;
         }
 
-        final isTopLevel = _clipboardPaths.contains(source.path);
+        final isTopLevel = _clipboardPaths.contains(sourcePath);
         if (isTopLevel) {
           finalTopLevelDestPaths.add(finalDestPath);
         }
@@ -2164,7 +2156,7 @@ class FileManagerProvider extends ChangeNotifier {
             await parentDir.create(recursive: true);
           }
 
-          final srcFile = source as File;
+          final srcFile = File(sourcePath);
           final destFile = File(finalDestPath);
 
           if (_isCut) {
