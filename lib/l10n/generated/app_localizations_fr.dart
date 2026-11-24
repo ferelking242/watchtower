@@ -8517,12 +8517,12 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String media_weight_partial(Object size) {
-    return '$size connus · estimation partielle';
+    return '$size connus · poids partiel';
   }
 
   @override
   String media_weight_total(Object size) {
-    return '≈ $size au total';
+    return '$size au total';
   }
 
   @override

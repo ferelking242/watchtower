@@ -14882,13 +14882,13 @@ abstract class AppLocalizations {
   /// No description provided for @media_weight_partial.
   ///
   /// In en, this message translates to:
-  /// **'{size} known · partial estimate'**
+  /// **'{size} known · partial weight'**
   String media_weight_partial(Object size);
 
   /// No description provided for @media_weight_total.
   ///
   /// In en, this message translates to:
-  /// **'≈ {size} total'**
+  /// **'{size} total'**
   String media_weight_total(Object size);
 
   /// No description provided for @media_no_video_selected.

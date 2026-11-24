@@ -10,7 +10,6 @@ import 'package:watchtower/models/manga.dart';
 import 'package:watchtower/models/source.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/modules/watch/detail/download/video_file_meta.dart';
-import 'package:watchtower/modules/watch/detail/download/video_meta_cache.dart';
 
 /// Reduces a quality label to its resolution digits (e.g. `"1080p60"` → `1080`).
 ///
@@ -31,35 +30,23 @@ String? formatVideoBytes(int? bytes) {
 
 /// Size of one concrete stream, without downloading it.
 ///
-/// * HLS media playlist → weight of its segments (exact when the playlist
-///   declares `#EXT-X-BYTERANGE`, estimated from a few `Content-Range` probes
-///   otherwise).
-/// * Direct file → exact `Content-Range` total.
-///
-/// Both go through the shared per-URL cache, so a size measured for the
-/// download sheet is reused here and never probed twice.
+/// The sheet never shows a guess: a direct file answers its exact
+/// `Content-Range` total, an HLS stream the exact sum of its segments, and
+/// anything that cannot be measured (a master playlist has no single size, or
+/// a stream longer than [kMaxExactSizeSegments]) answers null so the row shows
+/// no number instead of a wrong one.
 Future<String?> probeStreamSize(Video video) async {
   return formatVideoBytes(await probeStreamSizeBytes(video));
 }
 
-/// Byte estimate for one concrete stream, without downloading it.
+/// EXACT byte count of one concrete stream, or null when it cannot be known.
 ///
 /// Keeping the byte count lets the batch sheet total selected videos instead
 /// of adding already-rounded display strings.
 Future<int?> probeStreamSizeBytes(Video video) async {
   try {
     if (isHlsUrl(video.url)) {
-      final meta = await cachedHlsMeta(video.url, video.headers);
-      final playlist = meta?.playlistBytesEstimate;
-      if (playlist != null && playlist > 0) return playlist;
-      final tracks = meta?.tracks ?? const [];
-      if (tracks.isNotEmpty) {
-        final best = tracks
-            .map((track) => track.estimatedBytes ?? 0)
-            .fold<int>(0, math.max);
-        return best > 0 ? best : null;
-      }
-      return null;
+      return await fetchHlsExactSize(video.url, video.headers);
     }
     final bytes = await fetchDirectFileSize(video.url, video.headers);
     return bytes != null && bytes > 0 ? bytes : null;
@@ -68,6 +55,10 @@ Future<int?> probeStreamSizeBytes(Video video) async {
     return null;
   }
 }
+
+/// Whether [video] is fetched through the HLS pipeline (segment list) rather
+/// than as one progressive file.
+bool isHlsStream(Video video) => isHlsUrl(video.url);
 
 /// Byte estimates for every distinct resolution in [videos].
 Future<Map<String, int>> probeFormatSizeBytes(

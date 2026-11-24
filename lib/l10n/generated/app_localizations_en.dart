@@ -8395,12 +8395,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String media_weight_partial(Object size) {
-    return '$size known · partial estimate';
+    return '$size known · partial weight';
   }
 
   @override
   String media_weight_total(Object size) {
-    return '≈ $size total';
+    return '$size total';
   }
 
   @override

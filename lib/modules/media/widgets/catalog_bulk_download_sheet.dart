@@ -73,11 +73,14 @@ class BulkDownloadPlan {
         sum + (item.estimatedBytesPerVideo == null ? item.chapters.length : 0),
   );
 
+  /// Exact total of the videos whose stream could be weighed. Never an
+  /// estimate: videos whose stream could not be measured are counted as
+  /// "unknown" instead of being folded into a made-up number.
   String get estimatedSizeSummary {
     final label = formatVideoBytes(totalEstimatedBytes);
     if (label == null) return 'Poids indisponible';
-    if (unestimatedVideos > 0) return '$label connus · estimation partielle';
-    return '≈ $label au total';
+    if (unestimatedVideos > 0) return '$label connus · $unestimatedVideos inconnus';
+    return '$label au total';
   }
 }
 
@@ -230,6 +233,12 @@ class _ResolvedVideo {
   /// [probeFormatSizeBytes] so the row renders before the probes finish.
   Map<String, int> sizeBytesByResolution = {};
   Set<String> completedSizeResolutions = {};
+
+  /// Stream of every resolution the extension published, so a size can be
+  /// measured when the user picks that format.
+  Map<String, Video> videosByResolution = const {};
+
+  /// Resolution key of the stream an "Auto" download would take.
   String? autoResolutionKey;
 
   /// Resolutions already downloaded for this item. They are removed from the
@@ -332,24 +341,21 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     return found.toList()..sort();
   }
 
+  /// Formats offered by the header box: the resolutions the rows' extensions
+  /// actually returned, never the static `source.videoQualities` list. That
+  /// list is a hint about the source in general, so offering it here promised
+  /// downloads this episode does not publish (and the engine then failed).
   List<String> get _formats {
-    final values = <String>{
-      for (final quality in widget.source.videoQualities ?? const <String>[])
-        if (_normQuality(quality).trim().isNotEmpty) _normQuality(quality),
-      for (final row in _rows) ...row.qualities,
-    };
+    final values = <String>{for (final row in _rows) ...row.qualities};
     return values.toList()..sort((a, b) => _resRank(a).compareTo(_resRank(b)));
   }
 
+  /// Formats offered for one row: what [getVideoList] returned for its first
+  /// episode, minus the resolutions already in the library. Empty means the
+  /// extension published nothing measurable, and the row only offers "Auto".
   List<String> _qualitiesFor(_ResolvedVideo row) {
-    final source = row.qualities.isNotEmpty
-        ? row.qualities
-        : (widget.source.videoQualities ?? const <String>[])
-              .map(_normQuality)
-              .where((quality) => quality.trim().isNotEmpty)
-              .toList();
     final filtered = [
-      for (final quality in source)
+      for (final quality in row.qualities)
         if (!row.downloadedKeys.contains(resolutionKey(quality))) quality,
     ];
     return filtered.toSet().toList()
@@ -566,9 +572,23 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         row.qualities = _qualitiesFor(row);
       }
       row.languages = languages.toList()..sort();
-      row.autoResolutionKey = videos.isEmpty
+      row.videosByResolution = {
+        for (final video in videos)
+          if (resolutionKey(video.quality).isNotEmpty)
+            resolutionKey(video.quality): video,
+      };
+      // "Auto" is not a stream: the engine takes the progressive file when the
+      // episode publishes one, else the adaptive entry. Following that choice
+      // here keeps the row's weight the weight of what will be downloaded.
+      final defaultVideo = videos.isEmpty
           ? null
-          : resolutionKey(videos.first.quality);
+          : videos.firstWhere(
+              (video) => !isHlsStream(video),
+              orElse: () => videos.first,
+            );
+      row.autoResolutionKey = defaultVideo == null
+          ? null
+          : resolutionKey(defaultVideo.quality);
       // Drop resolutions already in the library so the picker never offers a
       // second download of the same quality (the engine refuses it anyway).
       // Only for single-episode items: the library lookup is manga-wide, so a
@@ -610,13 +630,31 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     }
   }
 
+  /// Measures the weights of the formats worth showing.
+  ///
+  /// A progressive file answers its exact size in one request, so every one is
+  /// measured. An HLS stream costs one request per segment, so only the
+  /// selected rendition is weighed — the others show no number rather than an
+  /// estimate, and get measured if the user picks them ([_ensureRowSize]).
   Future<void> _probeRowSizes(_ResolvedVideo row, List<Video> videos) async {
+    final targets = <String, Video>{};
+    for (final video in videos) {
+      final key = resolutionKey(video.quality);
+      if (key.isEmpty || isHlsStream(video)) continue;
+      targets.putIfAbsent(key, () => video);
+    }
+    final selectedKey = _selectedResolutionKey(row);
+    final selected = selectedKey == null
+        ? null
+        : row.videosByResolution[selectedKey];
+    if (selected != null) targets[selectedKey!] = selected;
+    if (targets.isEmpty) return;
     row.sizesLoading = true;
     if (mounted) setState(() {});
     try {
       final sizes = await probeFormatSizeBytes(
-        videos,
-        priorityResolutionKey: _selectedResolutionKey(row),
+        targets.values.toList(),
+        priorityResolutionKey: selectedKey,
         onProbeComplete: (key, bytes) {
           if (!mounted) return;
           setState(() {
@@ -627,6 +665,34 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
       );
       if (!mounted) return;
       setState(() => row.sizeBytesByResolution.addAll(sizes));
+    } finally {
+      row.sizesLoading = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// Weighs one format of [row] on demand, after the user picked it.
+  Future<void> _ensureRowSize(_ResolvedVideo row) async {
+    final key = _selectedResolutionKey(row);
+    if (key == null) return;
+    if (row.sizeBytesByResolution.containsKey(key) ||
+        row.completedSizeResolutions.contains(key)) {
+      return;
+    }
+    final video = row.videosByResolution[key];
+    if (video == null) return;
+    row.sizesLoading = true;
+    if (mounted) setState(() {});
+    try {
+      final sizes = await probeFormatSizeBytes(
+        [video],
+        priorityResolutionKey: key,
+      );
+      if (!mounted) return;
+      setState(() {
+        row.completedSizeResolutions.add(key);
+        row.sizeBytesByResolution.addAll(sizes);
+      });
     } finally {
       row.sizesLoading = false;
       if (mounted) setState(() {});
@@ -778,11 +844,30 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         children: [
           _header(cs),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-              itemCount: _rows.length,
-              itemBuilder: (context, i) => _rowCard(_rows[i], cs),
-            ),
+            child: _rows.isEmpty
+                ? Center(
+                    child: Text(
+                      context.l10n.media_no_video_selected,
+                      style: TextStyle(color: cs.onSurfaceVariant),
+                    ),
+                  )
+                : ReorderableListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    // The card itself is the long-press handle: the queue order
+                    // is the download order, so moving an entry up starts it
+                    // sooner.
+                    buildDefaultDragHandles: false,
+                    itemCount: _rows.length,
+                    onReorder: _reorderRows,
+                    itemBuilder: (context, i) {
+                      final row = _rows[i];
+                      return ReorderableDelayedDragStartListener(
+                        key: ObjectKey(row),
+                        index: i,
+                        child: _swipeableRowCard(row, cs),
+                      );
+                    },
+                  ),
           ),
           _footer(cs),
         ],
@@ -1002,6 +1087,90 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     );
   }
 
+  /// Moves a row up or down. The order is the enqueue order, so it is also the
+  /// order the downloads start in.
+  void _reorderRows(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final row = _rows.removeAt(oldIndex);
+      _rows.insert(newIndex, row);
+    });
+  }
+
+  /// Swipe on a row: right drops the entry from this batch, left selects every
+  /// episode of the entry (or clears them when all were selected). Both act
+  /// without opening the card, which is what makes a long batch editable.
+  Widget _swipeableRowCard(_ResolvedVideo row, ColorScheme cs) {
+    return Dismissible(
+      key: ObjectKey(row),
+      direction: DismissDirection.horizontal,
+      dismissThresholds: const {
+        DismissDirection.startToEnd: 0.28,
+        DismissDirection.endToStart: 0.28,
+      },
+      background: _rowSwipeBackground(cs, remove: true),
+      secondaryBackground: _rowSwipeBackground(cs, remove: false),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Removing the row from the plan is the whole point: the drain never
+          // re-emits an entry it already handed over.
+          setState(() => _rows.remove(row));
+          return true;
+        }
+        _toggleRowSelection(row);
+        return false;
+      },
+      child: _rowCard(row, cs),
+    );
+  }
+
+  void _toggleRowSelection(_ResolvedVideo row) {
+    setState(() {
+      final visible = row.visibleIndices;
+      if (visible.every(row.selected.contains)) {
+        row.selected.removeAll(visible);
+      } else {
+        row.selected.addAll(visible);
+      }
+    });
+  }
+
+  Widget _rowSwipeBackground(ColorScheme cs, {required bool remove}) {
+    final l10n = context.l10n;
+    final color = remove ? mbRed : _kSheetGradient.colors.first;
+    final label = remove
+        ? l10n.media_remove_from_list
+        : l10n.media_check_all;
+    final icon = remove
+        ? Icons.delete_outline_rounded
+        : Icons.checklist_rounded;
+    final children = [
+      Icon(icon, color: color, size: 20),
+      const SizedBox(width: 8),
+      Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      alignment: remove ? Alignment.centerLeft : Alignment.centerRight,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: remove ? children : children.reversed.toList(),
+      ),
+    );
+  }
+
   Widget _rowCard(_ResolvedVideo row, ColorScheme cs) {
     if (row.loading) return _skeletonRow(cs);
     final isSeries = row.chapters.length > 1;
@@ -1034,16 +1203,33 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          subtitle: Text(
-            row.loading || row.formatsLoading
-                ? context.l10n.media_formats_loading
-                : row.error != null
-                ? context.l10n.media_format_unavailable
-                : _rowSubtitle(context, row, isSeries),
-            style: TextStyle(
-              color: row.error != null ? mbRed : cs.onSurfaceVariant,
-              fontSize: 11.5,
-            ),
+          subtitle: Row(
+            children: [
+              // Discoverability for the two gestures the card answers to:
+              // long-press moves it (queue order = download order), swipes
+              // remove it or toggle its episodes.
+              Icon(
+                Icons.drag_indicator_rounded,
+                size: 13,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  row.loading || row.formatsLoading
+                      ? context.l10n.media_formats_loading
+                      : row.error != null
+                      ? context.l10n.media_format_unavailable
+                      : _rowSubtitle(context, row, isSeries),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: row.error != null ? mbRed : cs.onSurfaceVariant,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ),
+            ],
           ),
           trailing: _qualityBox(
             row,
@@ -1181,10 +1367,12 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         : unit;
     final parts = <String>[base];
     final perVideo = _selectedSizeBytes(row);
+    // Exact weight of the measured stream; a row whose stream could not be
+    // weighed simply shows no number.
     final size = perVideo == null
         ? null
         : formatVideoBytes(perVideo * row.selected.length);
-    if (size != null) parts.add('≈ $size');
+    if (size != null) parts.add(size);
     if (row.downloadedKeys.isNotEmpty)
       parts.add(context.l10n.media_already_downloaded_hidden);
     return parts.join(' · ');
@@ -1276,7 +1464,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                         ),
                       ),
                   ],
-                  onChanged: (v) => setState(() => row.quality = v),
+                  onChanged: (v) {
+                    setState(() => row.quality = v);
+                    unawaited(_ensureRowSize(row));
+                  },
                 ),
               ),
             ),

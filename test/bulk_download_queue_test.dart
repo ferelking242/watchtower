@@ -119,6 +119,7 @@ void main() {
       expect(plan.totalEstimatedBytes, 120 * mb);
       expect(plan.unestimatedVideos, 0);
       expect(plan.estimatedSizeSummary, contains('120.0MB'));
+      expect(plan.estimatedSizeSummary, isNot(contains('≈')));
     });
 
     test('multiplies series estimates and reports unknown video sizes', () {
@@ -129,7 +130,10 @@ void main() {
       expect(plan.totalVideos, 3);
       expect(plan.totalEstimatedBytes, 50 * mb);
       expect(plan.unestimatedVideos, 1);
-      expect(plan.estimatedSizeSummary, contains('estimation partielle'));
+      // Never an estimate: the unknown video is counted, not averaged in.
+      expect(plan.estimatedSizeSummary, contains('50.0MB'));
+      expect(plan.estimatedSizeSummary, contains('1 inconnus'));
+      expect(plan.estimatedSizeSummary, isNot(contains('≈')));
     });
   });
 }

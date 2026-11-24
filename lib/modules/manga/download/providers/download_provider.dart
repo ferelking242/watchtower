@@ -15,6 +15,12 @@ import 'package:watchtower/models/chapter.dart';
 import 'package:watchtower/models/download.dart';
 import 'package:watchtower/models/settings.dart';
 import 'package:watchtower/models/video.dart';
+import 'package:watchtower/modules/watch/detail/download/quality_selection.dart';
+
+/// Re-exported so the screens that already import this provider (batch sheet,
+/// catalogue menu) keep resolving [QualityFallback] without a second import.
+export 'package:watchtower/modules/watch/detail/download/quality_selection.dart'
+    show QualityFallback;
 import 'package:watchtower/modules/manga/download/providers/convert_to_cbz.dart';
 import 'package:watchtower/services/anti_bot/anti_bot_detection.dart' show isCloudflareError;
 import 'package:watchtower/services/anti_bot/challenge_inbox.dart';
@@ -641,42 +647,6 @@ bool _isDirectLink(String url) {
 /// instead of blindly downloading `videosUrls.first`.
 final Map<int, String> chapterPreferredOriginalUrl = {};
 
-/// Reduces a quality string to just its resolution digits (e.g. "1080p",
-/// "1080P", "1080", "FHD 1080p60" → "1080"). Used to match a quality chosen
-/// in one UI (which may format labels differently, e.g. uppercase "P") against
-/// quality strings from a completely different source/episode's video list,
-/// without depending on either side's exact label formatting.
-String _qualityDigits(String raw) {
-  final m = RegExp(r'(\d{3,4})').firstMatch(raw);
-  if (m != null) return m.group(1)!;
-  return raw.trim().toLowerCase();
-}
-
-/// Picks the video whose resolution is the closest to [targetDigits] in the
-/// direction asked by [fallback] (higher → smallest resolution above the
-/// target, lower → largest below it). Returns null for [QualityFallback.exact]
-/// or when nothing matches in the requested direction.
-Video? _nearestQualityVideo(List<Video> videos, int targetDigits, QualityFallback fallback) {
-  if (fallback == QualityFallback.exact || targetDigits <= 0) return null;
-  Video? best;
-  int? bestDigits;
-  for (final video in videos) {
-    final digits = int.tryParse(_qualityDigits(video.quality));
-    if (digits == null) continue;
-    final fits = fallback == QualityFallback.higher ? digits > targetDigits : digits < targetDigits;
-    if (!fits) continue;
-    final closer = bestDigits == null
-        ? true
-        : fallback == QualityFallback.higher
-        ? digits < bestDigits
-        : digits > bestDigits;
-    if (closer) {
-      best = video;
-      bestDigits = digits;
-    }
-  }
-  return best;
-}
 
 /// Persist one download row per selected resolution while keeping every
 /// resolution attached to the same series and episode identity.
@@ -690,7 +660,7 @@ Chapter prepareVideoQualityDownloadChapter(
   }
   ensureChapterLinksLoaded(source);
   final sourceManga = resolveChapterManga(source);
-  final requestedKey = _qualityDigits(quality);
+  final requestedKey = qualityDigits(quality);
 
   // Query by the indexed `mangaId` instead of scanning every chapter row in
   // the database: this runs on the UI isolate for each episode a user queues.
@@ -707,7 +677,7 @@ Chapter prepareVideoQualityDownloadChapter(
     }
     final existing = isar.downloads.getSync(candidate.id!);
     final existingQuality = existing?.quality;
-    if (existingQuality != null && _qualityDigits(existingQuality) == requestedKey) {
+    if (existingQuality != null && qualityDigits(existingQuality) == requestedKey) {
       chapterPreferredQuality[candidate.id!] = quality;
       if (language != null && language.isNotEmpty) {
         chapterPreferredLang[candidate.id!] = language;
@@ -807,9 +777,6 @@ final Map<int, String> chapterPreferredQuality = {};
 /// download rather than silently grab another resolution).
 final Map<int, QualityFallback> chapterPreferredQualityFallback = {};
 
-/// Resolution-selection strategy when the requested quality is not published
-/// by an episode's video list.
-enum QualityFallback { exact, higher, lower }
 
 /// User-chosen language label (e.g. 'VF', 'VOSTFR', 'EN'), keyed by
 /// chapter.id. Applied by [downloadChapter] BEFORE quality matching so the
@@ -2546,38 +2513,59 @@ Future<void> downloadChapter(
         // silently fell back to the first entry (often 1080p/auto), so a user
         // asking for 360p could end up with a 1 GB file. The batch header can
         // opt into "prendre la supérieure/inférieure" instead.
+        //
+        // The match runs against EVERY format the episode publishes, not only
+        // the pool the pipeline would have preferred: XVideos answers 360p and
+        // 720p as HLS renditions next to one direct "MP4 SD", and picking 360p
+        // used to fail with "résolution indisponible" because the direct pool
+        // holds no 360p at all. The chosen entry then decides the pipeline.
         final preferredQuality = chapter.id != null
             ? chapterPreferredQuality[chapter.id!] ?? isar.downloads.getSync(chapter.id!)?.quality
             : null;
         final preferredQualityDigits = preferredQuality == null
             ? null
-            : _qualityDigits(preferredQuality);
-        if (preferredQuality != null && videosUrls.isNotEmpty) {
-          final exactMatches = videosUrls
-              .where((v) => _qualityDigits(v.quality) == preferredQualityDigits)
-              .toList();
-          if (exactMatches.isEmpty) {
-            final fallback = chapter.id == null
-                ? QualityFallback.exact
-                : chapterPreferredQualityFallback[chapter.id!] ?? QualityFallback.exact;
-            final targetDigits = int.tryParse(preferredQualityDigits ?? '') ?? 0;
-            final substitute = _nearestQualityVideo(videosUrls, targetDigits, fallback);
-            if (substitute == null) {
-              throw StateError(
-                'La résolution ${preferredQuality} n’est pas disponible pour '
-                'cet épisode.',
-              );
-            }
-            videosUrls = [substitute];
-          } else {
-            videosUrls = exactMatches;
+            : qualityDigits(preferredQuality);
+        if (preferredQuality != null && value.$1.isNotEmpty) {
+          final allVideos = value.$1;
+          final fallback = chapter.id == null
+              ? QualityFallback.exact
+              : chapterPreferredQualityFallback[chapter.id!] ?? QualityFallback.exact;
+          final chosen = selectPreferredVideo(
+            videos: allVideos,
+            preferredQuality: preferredQuality,
+            fallback: fallback,
+            preferredPool: videosUrls,
+          );
+          if (chosen == null) {
+            throw StateError(
+              'La résolution ${preferredQuality} n’est pas disponible pour '
+              'cet épisode (formats : ${allVideos.map((v) => v.quality).join(", ")}).',
+            );
           }
+          videosUrls = [chosen];
+          // The pick decides how the stream is fetched: an HLS rendition goes
+          // through the segment downloader even when a direct file exists.
+          final chosenIsDirect = isPlayableDirect(chosen);
+          nonM3U8File = chosenIsDirect;
+          hasM3U8File = !chosenIsDirect;
           // One-shot: clear so a future re-download asks again.
           chapterPreferredQuality.remove(chapter.id!);
           chapterPreferredQualityFallback.remove(chapter.id!);
         }
         if (videosUrls.isNotEmpty) {
+          // A rendition picked from the expanded master carries no subtitle
+          // list of its own (the master names them), so fall back to the first
+          // entry that does instead of downloading without subtitles.
           subtitles = videosUrls.first.subtitles;
+          if (subtitles == null || subtitles.isEmpty) {
+            for (final video in value.$1) {
+              final candidate = video.subtitles;
+              if (candidate != null && candidate.isNotEmpty) {
+                subtitles = candidate;
+                break;
+              }
+            }
+          }
           final videoUri = Uri.tryParse(videosUrls.first.originalUrl);
           final referer = videoUri != null ? '${videoUri.scheme}://${videoUri.host}' : null;
           if (hasM3U8File) {

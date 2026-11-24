@@ -423,6 +423,57 @@ Future<int?> _estimateHlsPlaylistSize(
   return ((sum / weighed).round()) * count;
 }
 
+/// Segments a stream may weigh before the exact probe gives up.
+///
+/// A size is a display detail: measuring a 3-hour stream segment by segment
+/// would fire thousands of requests, so past this cap the caller is told
+/// "unknown" instead of being handed a made-up number.
+const int kMaxExactSizeSegments = 400;
+
+/// EXACT byte total of one HLS stream, or null when it cannot be measured.
+///
+/// * A master playlist has no single size (the player picks a variant), so it
+///   answers null rather than the bitrate × duration guess the player used to
+///   display as if it were real.
+/// * A media playlist answers the sum of its `#EXT-X-BYTERANGE` when every
+///   segment declares one, else the sum of each segment's `Content-Range`
+///   (one byte-range request per segment, bounded by [kMaxExactSizeSegments]).
+///   Any failed probe makes the whole answer null: a partial sum is a wrong
+///   number, not a size.
+Future<int?> fetchHlsExactSize(
+  String url,
+  Map<String, String>? headers,
+) async {
+  final body = await httpGetText(url, headers);
+  if (body == null) return null;
+  if (HlsVariantResolver.isMasterPlaylist(body)) return null;
+
+  final declared = _sumByterangeDeclarations(body);
+  if (declared != null) return declared;
+
+  final uri = Uri.parse(url);
+  final segments = <String>[
+    for (final line in body.split('\n'))
+      if (line.trim().isNotEmpty && !line.trim().startsWith('#'))
+        uri.resolveUri(Uri.parse(line.trim())).toString(),
+  ];
+  if (segments.isEmpty) return null;
+  if (segments.length > kMaxExactSizeSegments) return null;
+
+  final sizes = await mapParallel<String, int?>(
+    segments,
+    kNetworkConcurrency,
+    (segment) => fetchDirectFileSize(segment, headers),
+    propagateErrors: false,
+  );
+  var total = 0;
+  for (final size in sizes) {
+    if (size == null || size <= 0) return null;
+    total += size;
+  }
+  return total > 0 ? total : null;
+}
+
 /// Métadonnées d'un fichier direct ; [fallbackDuration] = durée connue
 /// (persistée par le lecteur) pour complète l'affichage.
 Future<VideoFileMeta> fetchVideoFileMeta(
