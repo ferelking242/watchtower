@@ -278,8 +278,14 @@ Future<int?> fetchDirectFileSize(
         request.headers.set('range', 'bytes=0-0');
         final response =
             await request.close().timeout(const Duration(seconds: 15));
-        // On ne lit pas le corps : seules les entêtes nous intéressent.
-        await response.drain<void>().timeout(const Duration(seconds: 15));
+        // Only the headers matter. A server that honours the range answers
+        // 206 with a single byte (drain it, the connection stays reusable); a
+        // server that ignores it answers 200 with the WHOLE file, so the body
+        // is dropped instead of downloaded — this probe now runs once per
+        // segment when an HLS stream is weighed.
+        if (response.statusCode == 206) {
+          await response.drain<void>().timeout(const Duration(seconds: 15));
+        }
         if (response.statusCode ~/ 100 != 2) {
           if (response.statusCode >= 500) {
             throw HttpStatusException(response.statusCode, url);
