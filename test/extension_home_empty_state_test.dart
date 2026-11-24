@@ -256,6 +256,35 @@ void main() {
     expect(refreshes, 0);
   });
 
+  testWidgets('a source that answered 523 shows its code and an illustration', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('fr'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ExtensionHomeEmptyState(
+          onRetry: () async {},
+          onRefresh: () async {},
+          header: const SizedBox.shrink(),
+          error: Exception('HTTP 523 https://miraculous.now/fr/episodes?s=7'),
+        ),
+      ),
+    );
+
+    // An origin that is down is not an empty catalogue: the surface must show
+    // the real code with the drawn illustration, never the "nothing here" glyph.
+    expect(
+      find.byKey(const ValueKey('extension-empty-illustration')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('extension-empty-kaomoji')), findsNothing);
+    expect(find.text('Erreur HTTP 523'), findsOneWidget);
+    expect(find.text('Erreur serveur (HTTP 523)'), findsOneWidget);
+    expect(find.text('Réessayer'), findsOneWidget);
+  });
+
   testWidgets('pull-to-refresh invokes the supplied refresh callback', (
     tester,
   ) async {

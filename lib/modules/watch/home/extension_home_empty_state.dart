@@ -311,6 +311,11 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
       widget.error,
     );
     final isPlainEmpty = widget.error == null && !challengeDetected;
+    // Anything that is not an anti-bot challenge means the source itself
+    // did not answer: the surface must read as a broken source, not as an
+    // empty catalogue.
+    final isSourceDown =
+        widget.error != null && !challengeDetected && !cloudflareApiBlocked;
     // A generic HTTP failure shows its real code in the title, so the separate
     // chip would only duplicate it. Challenge / API-block states keep the chip
     // because their title is a category, not a code.
@@ -360,9 +365,11 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   // One single empty-state surface for every
-                                  // case (plain empty, HTTP failure, anti-bot):
-                                  // the kaomoji replaces the old error page
-                                  // with its separate “!” icon.
+                                  // case (plain empty, HTTP failure, anti-bot).
+                                  // A source that answered with a status gets a
+                                  // drawn illustration: the glyph alone reads
+                                  // as “no content”, which is exactly the wrong
+                                  // message for a 52x.
                                   Center(
                                     child: Semantics(
                                       label: isPlainEmpty
@@ -376,17 +383,29 @@ class _ExtensionHomeEmptyStateState extends State<ExtensionHomeEmptyState> {
                                           : context
                                                 .l10n
                                                 .source_err_source_connection_failed,
-                                      child: KaomojiEmpty(
-                                        key: const ValueKey(
-                                          'extension-empty-kaomoji',
-                                        ),
-                                        kaomoji: isPlainEmpty
-                                            ? '(´・ω・`)'
-                                            : challengeDetected
-                                                ? '(・_・;)'
-                                                : '(×_×)',
-                                        size: glyphSize,
-                                      ),
+                                      child: isSourceDown
+                                          ? _SourceDownIllustration(
+                                              key: const ValueKey(
+                                                'extension-empty-illustration',
+                                              ),
+                                              size: glyphSize * 1.9,
+                                              label:
+                                                  httpStatusCode != null &&
+                                                      httpStatusCode > 0
+                                                  ? 'HTTP $httpStatusCode'
+                                                  : null,
+                                            )
+                                          : KaomojiEmpty(
+                                              key: const ValueKey(
+                                                'extension-empty-kaomoji',
+                                              ),
+                                              kaomoji: isPlainEmpty
+                                                  ? '(´・ω・`)'
+                                                  : challengeDetected
+                                                  ? '(・_・;)'
+                                                  : '(×_×)',
+                                              size: glyphSize,
+                                            ),
                                     ),
                                   ),
                                   SizedBox(height: challengeDetected ? 10 : 14),
@@ -786,5 +805,62 @@ class _ExtensionAppleRefreshDotsState extends State<_ExtensionAppleRefreshDots>
     final distance = (phase - index * math.pi / 4) % (math.pi * 2);
     final shortest = math.min(distance, math.pi * 2 - distance);
     return (1 - shortest / (math.pi / 2)).clamp(0.0, 1.0).toDouble();
+  }
+}
+
+/// Drawn stand-in for “the source did not answer”: a crossed-out cloud over a
+/// tinted disc, with the HTTP status underneath. Vector rather than a bundled
+/// animation, so it stays sharp on every screen and costs nothing to decode.
+class _SourceDownIllustration extends StatelessWidget {
+  const _SourceDownIllustration({required this.size, this.label, super.key});
+
+  final double size;
+
+  /// HTTP status to print under the cloud, when the source answered with one.
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.error;
+    final status = label;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: .13),
+              border: Border.all(color: accent.withValues(alpha: .28)),
+            ),
+            child: SizedBox.square(dimension: size),
+          ),
+          Icon(Icons.cloud_off_rounded, size: size * .46, color: accent),
+          if (status != null)
+            Positioned(
+              bottom: size * .17,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0B0B11),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: accent.withValues(alpha: .45)),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .3,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

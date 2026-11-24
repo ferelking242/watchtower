@@ -137,9 +137,26 @@ class FfmpegMergeService {
   ) {
     final referer = _headerValue(headers, 'referer');
     final userAgent = _headerValue(headers, 'user-agent');
+    // The remaining headers matter as much as the referer: a rendition gated on
+    // a signed session answers 403 without its cookie, and ffmpeg then writes
+    // the video with no audio track at all. `-user_agent` / `-referer` cannot
+    // carry those, so they travel as one CRLF-joined block for the next input.
+    final extraHeaders = headers.entries
+        .where((entry) {
+          final name = entry.key.toLowerCase();
+          return name != 'referer' &&
+              name != 'user-agent' &&
+              entry.value.trim().isNotEmpty;
+        })
+        .map(
+          (entry) =>
+              '${entry.key}: ${entry.value.replaceAll(RegExp(r'[\r\n]'), ' ').trim()}\r\n',
+        )
+        .join();
     return [
       if (userAgent != null) ...['-user_agent', userAgent],
       if (referer != null) ...['-referer', referer],
+      if (extraHeaders.isNotEmpty) ...['-headers', extraHeaders],
       // A stalled CDN must abort instead of pinning the mux forever (µs).
       '-rw_timeout',
       '60000000',

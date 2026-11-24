@@ -308,6 +308,29 @@ video/1080.m3u8
       );
       expect(args, containsAllInOrder(['-c', 'copy']));
     });
+
+    test('forwards the session cookie to the audio rendition', () {
+      final args = FfmpegMergeService.buildMuxArguments(
+        inputFile: '/tmp/video.joined',
+        outputFile: '/tmp/video.mp4.part',
+        audioPlaylistUrl: 'https://cdn.example.test/hls/audio/fr.m3u8',
+        headers: {
+          'User-Agent': 'Watchtower/1.0',
+          'Referer': 'https://example.test/watch',
+          'Cookie': 'PHPSESSID=abc123; lang=fr',
+        },
+      );
+
+      // A rendition behind a signed session answers 403 without its cookie, and
+      // ffmpeg then muxes no audio at all. The block must land before its `-i`.
+      final headerFlag = args.indexOf('-headers');
+      expect(headerFlag, isNot(-1), reason: 'cookie header must be forwarded');
+      final block = args[headerFlag + 1];
+      expect(block, contains('Cookie: PHPSESSID=abc123; lang=fr'));
+      expect(block, isNot(contains('User-Agent')));
+      expect(block, isNot(contains('Referer')));
+      expect(headerFlag, lessThan(args.indexOf('https://cdn.example.test/hls/audio/fr.m3u8')));
+    });
   });
 
   group('HLS merge cleanup', () {
