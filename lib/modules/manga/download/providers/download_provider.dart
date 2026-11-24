@@ -1520,6 +1520,10 @@ Future<void> downloadChapter(
             seriesTitle: mangaForRegistry?.name ?? chapter.name ?? '',
             chapterTitle: chapter.name ?? 'Téléchargement',
             itemType: mangaForRegistry?.itemType.name ?? ItemType.manga.name,
+            coverUrl: mangaForRegistry?.imageUrl,
+            source: mangaForRegistry?.source,
+            lang: mangaForRegistry?.lang,
+            sourceId: mangaForRegistry?.sourceId,
           ),
         );
         isar.writeTxnSync(() {
@@ -2151,10 +2155,13 @@ Future<void> downloadChapter(
       }
 
       if (!progress.isCompleted && chapter.id != null && !skipFrequentMangaByteEffects) {
+        // The poster and the extension that serves it must come from the same
+        // record, or the card asks a hotlink-protected CDN without its headers.
+        final noticeManga = resolveChapterManga(chapter) ?? chapter.manga.value;
         unawaited(
           WatchtowerNotificationService.instance.showMediaDownloadProgress(
             chapterId: chapter.id!,
-            seriesTitle: chapter.manga.value?.name ?? chapter.name ?? '',
+            seriesTitle: noticeManga?.name ?? chapter.name ?? '',
             chapterTitle: chapter.name ?? 'Téléchargement',
             itemType: progress.itemType.name,
             completed: progress.itemType == ItemType.manga ? writtenSucceeded : progress.completed,
@@ -2162,7 +2169,10 @@ Future<void> downloadChapter(
             downloadedBytes: liveDownloadedBytes,
             totalBytes: liveTotalBytes,
             speedMbs: _speedEmaMbs,
-            coverUrl: resolveChapterManga(chapter)?.imageUrl,
+            coverUrl: noticeManga?.imageUrl,
+            source: noticeManga?.source,
+            lang: noticeManga?.lang,
+            sourceId: noticeManga?.sourceId,
           ),
         );
       }
@@ -2173,7 +2183,7 @@ Future<void> downloadChapter(
       final chapterTitle = chapter.name?.trim().isNotEmpty == true
           ? chapter.name!.trim()
           : 'Téléchargement';
-      final chapterManga = resolveChapterManga(chapter);
+      final chapterManga = resolveChapterManga(chapter) ?? chapter.manga.value;
       final seriesTitle = chapterManga?.name?.trim().isNotEmpty == true
           ? chapterManga!.name!.trim()
           : chapterTitle;
@@ -2219,6 +2229,9 @@ Future<void> downloadChapter(
             quality: chapterPreferredQuality[chapter.id] ?? '',
             coverPath: WatchtowerNotificationService.instance.primeCoverPath(
               chapterManga?.imageUrl,
+              source: chapterManga?.source,
+              lang: chapterManga?.lang,
+              sourceId: chapterManga?.sourceId,
             ),
             force: progress.isCompleted,
           ),
@@ -2244,6 +2257,9 @@ Future<void> downloadChapter(
             subtitle: pageProgress == null ? baseSubtitle : '$baseSubtitle · $pageProgress',
             coverPath: WatchtowerNotificationService.instance.primeCoverPath(
               chapterManga?.imageUrl,
+              source: chapterManga?.source,
+              lang: chapterManga?.lang,
+              sourceId: chapterManga?.sourceId,
             ),
             force: progress.isCompleted,
           ),
@@ -2320,6 +2336,9 @@ Future<void> downloadChapter(
             totalBytes: exactTotalBytes,
             speedMbs: _speedEmaMbs,
             coverUrl: chapterManga?.imageUrl,
+            source: chapterManga?.source,
+            lang: chapterManga?.lang,
+            sourceId: chapterManga?.sourceId,
           ),
         );
       }
@@ -2680,6 +2699,10 @@ Future<void> downloadChapter(
             seriesTitle: manga.name ?? chapter.name ?? '',
             chapterTitle: chapter.name ?? 'Téléchargement',
             itemType: itemType.name,
+            coverUrl: manga.imageUrl,
+            source: manga.source,
+            lang: manga.lang,
+            sourceId: manga.sourceId,
           ),
         );
       }
@@ -3465,6 +3488,10 @@ Future<void> downloadChapter(
             seriesTitle: mangaForRegistry?.name ?? chapter.name ?? '',
             chapterTitle: chapter.name ?? 'Téléchargement',
             itemType: mangaForRegistry?.itemType.name ?? ItemType.manga.name,
+            coverUrl: mangaForRegistry?.imageUrl,
+            source: mangaForRegistry?.source,
+            lang: mangaForRegistry?.lang,
+            sourceId: mangaForRegistry?.sourceId,
           ),
         );
       }

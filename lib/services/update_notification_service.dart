@@ -24,6 +24,7 @@ import 'package:watchtower/services/app_updater/update_models.dart';
 import 'package:watchtower/services/connectivity_service.dart';
 import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
+import 'package:watchtower/utils/headers.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 const int _kUpdateNotifId = 9910;
@@ -98,6 +99,40 @@ const String _kMediaDownloadSeriesCategory = 'media_download_series';
 /// Retry requests written by the notification background isolate and replayed
 /// by the app isolate, which owns the download queue.
 const String _kPendingMediaRetriesKey = 'pending_media_download_retries';
+/// Per-series record of the finished state already presented. Android offers no
+/// dismissal callback, so "this exact result has been shown" is what makes a
+/// swipe final and stops a relaunch from resurrecting the card.
+const String _kSeriesShownKeyPrefix = 'series_card_shown_';
+
+/// Whether a persisted chapter notice should come back after a restart.
+///
+/// Only work that is still live is worth restoring. A finished chapter is
+/// history, and a failed one is history too: restoring either is what kept
+/// "Chapter 169 — Échec" on screen for days and what made a swiped card return.
+/// A paused transfer is resumable, so it is kept.
+@visibleForTesting
+bool mediaNoticeShouldBeRestored({
+  required bool isCompleted,
+  required bool isFailed,
+}) => !isCompleted && !isFailed;
+
+/// Identity of a series card's terminal state.
+///
+/// Posting the same signature twice is what resurrected a dismissed card, so
+/// the service compares it against the last one it presented. The chapter ids
+/// are part of it: a later batch that also ends 3/3 is new work and must get its
+/// own card, not be mistaken for the one already shown.
+@visibleForTesting
+String seriesTerminalSignature({
+  required List<int> chapterIds,
+  required int done,
+  required int total,
+  required int failed,
+  required int paused,
+}) {
+  final ids = [...chapterIds]..sort();
+  return '${ids.join(',')}|$done/$total|f$failed|p$paused';
+}
 
 /// Groups every chapter of the same work under one parent notification.
 ///
@@ -112,6 +147,49 @@ String seriesKeyFor({
   if (title.isEmpty) return '$type:unknown';
   return '$type:$title';
 }
+
+/// Whether a series card should show a "done/total" counter.
+///
+/// A counter only means something once several items of the same work are
+/// queued. A lone download has no batch to count, and the placeholder counters
+/// used while metadata is fetched (0/1, then 1/1) are what produced the
+/// "1/1 chapitre" card for a single video.
+bool seriesShowsUnitCounts(int total) => total > 1;
+
+/// Noun naming what a series card counts.
+///
+/// Every card said "chapitres" regardless of type, so a video batch read
+/// "3 chapitres" next to episode downloads.
+String seriesUnitLabel(String itemType, int total) {
+  final plural = total > 1;
+  switch (itemType.trim().toLowerCase()) {
+    case 'anime':
+      return plural ? 'épisodes' : 'épisode';
+    case 'music':
+      return plural ? 'pistes' : 'piste';
+    case 'game':
+      return plural ? 'jeux' : 'jeu';
+    default:
+      return plural ? 'chapitres' : 'chapitre';
+  }
+}
+
+/// Shortens a series title to what a collapsed notification card can show.
+///
+/// Android ellipsises at its own width, usually mid-word. Cutting at a word
+/// boundary and appending "…" keeps the part the user can recognise, and it is
+/// also what the card body can rely on instead of relying on the OS width.
+String abbreviateNotificationTitle(String title, {int maxLength = 38}) {
+  final trimmed = title.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  final head = trimmed.substring(0, maxLength);
+  final lastSpace = head.lastIndexOf(' ');
+  final cut = lastSpace >= maxLength ~/ 2
+      ? head.substring(0, lastSpace)
+      : head;
+  return '${cut.trimRight()}…';
+}
+
 const String _kMediaDownloadPausedCategory = 'media_download_paused';
 const String _kMediaDownloadFailedCategory = 'media_download_failed';
 
@@ -1275,15 +1353,29 @@ class WatchtowerNotificationService {
   /// Cover bytes for a series card. Misses are cached as well: a 133-chapter
   /// batch shares one poster, and a dead URL must not be re-fetched on every
   /// progress tick.
-  Future<Uint8List?> _coverBytes(String? url) async {
+  ///
+  /// [headers] carries the extension's own Referer/UA. Most sources serve their
+  /// posters from a hotlink-protected CDN, so a bare request comes back 403 and
+  /// the card renders without artwork — which is exactly what the tray showed.
+  Future<Uint8List?> _coverBytes(
+    String? url, {
+    Map<String, String>? headers,
+  }) async {
     final trimmed = url?.trim() ?? '';
     if (trimmed.isEmpty) return null;
-    if (_coverCache.containsKey(trimmed)) return _coverCache[trimmed];
+    final withHeaders = headers != null && headers.isNotEmpty;
+    // The plain fetch and the header-bearing fetch must not share a cache slot:
+    // caching a 403 from the bare attempt would keep the artwork missing for
+    // the rest of the session.
+    final key = withHeaders ? '$trimmed#h' : trimmed;
+    if (_coverCache.containsKey(key)) return _coverCache[key];
     Uint8List? bytes;
     try {
       final response = await MClient.init(
         reqcopyWith: {'useDartHttpClient': true},
-      ).get(Uri.parse(trimmed)).timeout(const Duration(seconds: 8));
+      ).get(Uri.parse(trimmed), headers: headers).timeout(
+        const Duration(seconds: 8),
+      );
       if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
         bytes = response.bodyBytes;
       }
@@ -1292,10 +1384,10 @@ class WatchtowerNotificationService {
     }
     if (_coverCache.length > 32) _coverCache.clear();
     // An oversized poster is dropped rather than held for the whole session.
-    _coverCache[trimmed] = (bytes != null && bytes.length <= 2 * 1024 * 1024)
+    _coverCache[key] = (bytes != null && bytes.length <= 2 * 1024 * 1024)
         ? bytes
         : null;
-    return _coverCache[trimmed];
+    return _coverCache[key];
   }
 
   /// Writes the series cover to the icon cache and returns its path.
@@ -1303,21 +1395,48 @@ class WatchtowerNotificationService {
   /// The Android foreground service reads a file path instead of receiving
   /// bitmap bytes over the method channel on every progress tick. Failures are
   /// silent: a card without artwork is fine, a missing card is not.
-  Future<String?> coverFilePath(String? url) async {
+  Future<String?> coverFilePath(
+    String? url, {
+    Map<String, String>? headers,
+  }) async {
     final trimmed = url?.trim() ?? '';
     if (trimmed.isEmpty) return null;
-    final cached = _coverFilePaths[trimmed];
+    final withHeaders = headers != null && headers.isNotEmpty;
+    final cacheKey = withHeaders ? '$trimmed#h' : trimmed;
+    final cached = _coverFilePaths[cacheKey];
     if (cached != null && await File(cached).exists()) return cached;
-    final bytes = await _coverBytes(trimmed);
+    final bytes = await _coverBytes(trimmed, headers: headers);
     if (bytes == null) return null;
     try {
       final dir = await IconCacheService.instance.cacheDir;
-      final digest = sha256.convert(utf8.encode(trimmed)).toString();
+      final digest = sha256.convert(utf8.encode(cacheKey)).toString();
       final file = File(p.join(dir.path, 'cover_$digest.img'));
       await file.writeAsBytes(bytes, flush: true);
-      _coverFilePaths[trimmed] = file.path;
+      _coverFilePaths[cacheKey] = file.path;
       return file.path;
     } catch (_) {
+      return null;
+    }
+  }
+
+  /// Extension headers for a poster, or null when the source is unknown (a
+  /// local archive, or a notice persisted before the source was recorded).
+  Map<String, String>? _coverHeadersFor(
+    String? source, {
+    String? lang,
+    int? sourceId,
+  }) {
+    final sourceName = source?.trim() ?? '';
+    if (sourceName.isEmpty) return null;
+    try {
+      final headers = headersForSource(
+        source: sourceName,
+        lang: lang ?? '',
+        sourceId: sourceId,
+      );
+      return headers.isEmpty ? null : headers;
+    } catch (_) {
+      // A source whose runtime cannot boot must not block the card.
       return null;
     }
   }
@@ -1325,14 +1444,22 @@ class WatchtowerNotificationService {
   /// Synchronous view of [coverFilePath] for the progress path, which cannot
   /// await. The first call kicks off resolution and returns null; the next
   /// progress tick finds the file ready.
-  String? primeCoverPath(String? url) {
+  String? primeCoverPath(
+    String? url, {
+    String? source,
+    String? lang,
+    int? sourceId,
+  }) {
     final trimmed = url?.trim() ?? '';
     if (trimmed.isEmpty) return null;
-    final cached = _coverFilePaths[trimmed];
+    final headers = _coverHeadersFor(source, lang: lang, sourceId: sourceId);
+    final cacheKey = headers != null ? '$trimmed#h' : trimmed;
+    final cached = _coverFilePaths[cacheKey];
     if (cached != null) return cached;
-    if (_coverFilePending.add(trimmed)) {
+    if (_coverFilePending.add(cacheKey)) {
       unawaited(
-        coverFilePath(trimmed).whenComplete(() => _coverFilePending.remove(trimmed)),
+        coverFilePath(trimmed, headers: headers)
+            .whenComplete(() => _coverFilePending.remove(cacheKey)),
       );
     }
     return null;
@@ -1353,6 +1480,50 @@ class WatchtowerNotificationService {
     return children;
   }
 
+  /// True when this exact finished state has already been presented for
+  /// [seriesKey].
+  ///
+  /// Android's notification plugin exposes no dismissal callback, and polling
+  /// the active list on every render is both costly and racy. Re-posting only
+  /// when the *content* changed gives the same guarantee for less: a finished
+  /// card is posted once, so swiping it away is final, and a relaunch does not
+  /// bring it back because the stored signature still matches.
+  Future<bool> _terminalStateAlreadyShown(
+    String seriesKey,
+    String signature,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      return prefs.getString('$_kSeriesShownKeyPrefix$seriesKey') == signature;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _markTerminalStateShown(
+    String seriesKey,
+    String signature,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString('$_kSeriesShownKeyPrefix$seriesKey') != signature) {
+        await prefs.setString('$_kSeriesShownKeyPrefix$seriesKey', signature);
+      }
+    } catch (_) {}
+  }
+
+  /// Forgets what was presented for [seriesKey], so new work on the same title
+  /// shows a fresh card instead of being suppressed by an old signature.
+  Future<void> _clearTerminalStateShown(String seriesKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString('$_kSeriesShownKeyPrefix$seriesKey') != null) {
+        await prefs.remove('$_kSeriesShownKeyPrefix$seriesKey');
+      }
+    } catch (_) {}
+  }
+
   /// Posts the single per-series card that every chapter of that work reports
   /// into. A series with a live chapter posts nothing here: Android already
   /// shows the foreground service for active transfers, and a second card for
@@ -1367,10 +1538,17 @@ class WatchtowerNotificationService {
         await _plugin.cancel(id);
         _seriesNotificationIds.remove(seriesKey);
         _seriesNotificationIdFutures.remove(seriesKey);
+        // The outcome this card reported is gone with it. Keeping the
+        // signature would swallow the card for a retry that ends the same way.
+        await _clearTerminalStateShown(seriesKey);
         return;
       }
       if (children.any((child) => child.isOngoing)) {
         await _plugin.cancel(id);
+        // Work is live again: allow a new card once it settles, and drop the
+        // remembered result so this run's outcome is not mistaken for the old
+        // one.
+        await _clearTerminalStateShown(seriesKey);
         return;
       }
 
@@ -1378,20 +1556,57 @@ class WatchtowerNotificationService {
       final done = children.where((child) => child.isCompleted).length;
       final failed = children.where((child) => child.isFailed).length;
       final paused = children.where((child) => child.isPaused).length;
+
+      // Everything here is terminal. Post the outcome once: re-posting the same
+      // result is what made a swiped card come back, and what resurrected
+      // yesterday's finished series on every launch.
+      final signature = seriesTerminalSignature(
+        chapterIds: children.map((child) => child.id).toList(growable: false),
+        done: done,
+        total: total,
+        failed: failed,
+        paused: paused,
+      );
+      if (await _terminalStateAlreadyShown(seriesKey, signature)) {
+        return;
+      }
       final seriesTitle = children
           .map((child) => child.seriesTitle.trim())
           .firstWhere((title) => title.isNotEmpty, orElse: () => '');
-      final title = seriesTitle.isNotEmpty
-          ? seriesTitle
-          : children.first.chapterTitle.trim().isNotEmpty
-          ? children.first.chapterTitle.trim()
-          : 'Watchtower';
+      // Long light-novel / manga titles are wider than the card, so Android
+      // ellipsised them mid-word. Abbreviate here to keep the readable head.
+      final title = abbreviateNotificationTitle(
+        seriesTitle.isNotEmpty
+            ? seriesTitle
+            : children.first.chapterTitle.trim().isNotEmpty
+            ? children.first.chapterTitle.trim()
+            : 'Watchtower',
+      );
 
+      // A single-chapter batch is one video or one chapter: "1/1 chapitres"
+      // reads like a bug and is what the user saw on video downloads. The
+      // chapter counter is only meaningful when several chapters of the same
+      // work were queued, so anything else reports its state instead.
+      final showsCounts = seriesShowsUnitCounts(total);
       final percent = total == 0 ? 0 : ((done / total) * 100).round();
-      final details = <String>['$done/$total chapitres'];
-      if (done < total) details.add('$percent %');
-      if (failed > 0) details.add('$failed échec${failed > 1 ? 's' : ''}');
-      if (paused > 0) details.add('$paused en pause');
+      final details = <String>[];
+      if (showsCounts) {
+        final unit = seriesUnitLabel(children.first.itemType, total);
+        details.add('$done/$total $unit');
+        if (done < total) details.add('$percent %');
+        if (failed > 0) {
+          details.add('$failed échec${failed > 1 ? 's' : ''}');
+        }
+        if (paused > 0) details.add('$paused en pause');
+      } else if (failed > 0) {
+        details.add(failed > 1 ? '$failed échecs' : 'Échec');
+      } else if (paused > 0) {
+        details.add('En pause');
+      } else if (done >= total) {
+        details.add('Terminé');
+      } else {
+        details.add('$percent %');
+      }
       final body = details.join(' · ');
 
       const maxLines = 12;
@@ -1410,13 +1625,24 @@ class WatchtowerNotificationService {
           .where((child) => child.isFailed)
           .map((child) => child.id)
           .toList(growable: false);
+      // Pick the poster from a child that knows its extension, so the request
+      // can carry that extension's headers instead of being refused by the CDN.
+      final coverChild = children.firstWhere(
+        (child) =>
+            (child.coverUrl?.trim().isNotEmpty ?? false) &&
+            (child.source?.trim().isNotEmpty ?? false),
+        orElse: () => children.firstWhere(
+          (child) => child.coverUrl?.trim().isNotEmpty ?? false,
+          orElse: () => children.first,
+        ),
+      );
       final cover = await _coverBytes(
-        children
-            .map((child) => child.coverUrl)
-            .firstWhere(
-              (url) => url?.trim().isNotEmpty == true,
-              orElse: () => null,
-            ),
+        coverChild.coverUrl,
+        headers: _coverHeadersFor(
+          coverChild.source,
+          lang: coverChild.lang,
+          sourceId: coverChild.sourceId,
+        ),
       );
       final filePath = children
           .map((child) => child.filePath)
@@ -1485,6 +1711,7 @@ class WatchtowerNotificationService {
           if (filePath?.isNotEmpty == true) 'path': filePath,
         }),
       );
+      await _markTerminalStateShown(seriesKey, signature);
     } catch (e) {
       AppLogger.log(
         'Rendering the series download notification failed: $e',
@@ -1520,12 +1747,15 @@ class WatchtowerNotificationService {
             await prefs.remove(key);
             continue;
           }
-          // A finished chapter is kept for a day so the card can still report
-          // the result, then forgotten: a series that finished yesterday must
-          // not reappear as a permanent card on the next launch.
-          if (notice.isCompleted &&
-              DateTime.now().difference(notice.lastShownAt) >
-                  const Duration(hours: 24)) {
+          // Only a live transfer is worth restoring. A finished or failed
+          // chapter is history: restoring it is what kept "Chapter 169 — Échec"
+          // on screen for days, and what brought back a card the user had
+          // already swiped away. The download queue screen remains the place to
+          // retry, so nothing is lost by dropping these here.
+          if (!mediaNoticeShouldBeRestored(
+            isCompleted: notice.isCompleted,
+            isFailed: notice.isFailed,
+          )) {
             await prefs.remove(key);
             continue;
           }
@@ -1554,10 +1784,17 @@ class WatchtowerNotificationService {
   ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        '$_kMediaDownloadNoticeKeyPrefix$chapterId',
-        jsonEncode(notice.toJson()),
-      );
+      final key = '$_kMediaDownloadNoticeKeyPrefix$chapterId';
+      // A terminal notice is never restored, so persisting it only grows the
+      // store and leaves stale "Échec" rows to resurrect after an upgrade.
+      if (!mediaNoticeShouldBeRestored(
+        isCompleted: notice.isCompleted,
+        isFailed: notice.isFailed,
+      )) {
+        await prefs.remove(key);
+        return;
+      }
+      await prefs.setString(key, jsonEncode(notice.toJson()));
     } catch (e) {
       AppLogger.log(
         'Persisting media download notice failed for chapter $chapterId: $e',
@@ -1583,6 +1820,9 @@ class WatchtowerNotificationService {
     double speedMbs = 0,
     String? filePath,
     String? coverUrl,
+    String? source,
+    String? lang,
+    int? sourceId,
     bool isCompleted = false,
     bool isPaused = false,
     bool isFailed = false,
@@ -1617,6 +1857,9 @@ class WatchtowerNotificationService {
         speedMbs: speedMbs,
         filePath: filePath ?? previous?.filePath,
         coverUrl: coverUrl ?? previous?.coverUrl,
+        source: source ?? previous?.source,
+        lang: lang ?? previous?.lang,
+        sourceId: sourceId ?? previous?.sourceId,
         isCompleted: isCompleted,
         isPaused: isPaused,
         isFailed: isFailed,
@@ -1657,6 +1900,9 @@ class WatchtowerNotificationService {
     int? totalBytes,
     double speedMbs = 0,
     String? coverUrl,
+    String? source,
+    String? lang,
+    int? sourceId,
   }) async {
     await showMediaDownloadProgress(
       chapterId: chapterId,
@@ -1670,6 +1916,9 @@ class WatchtowerNotificationService {
       speedMbs: speedMbs,
       filePath: filePath,
       coverUrl: coverUrl,
+      source: source,
+      lang: lang,
+      sourceId: sourceId,
       isCompleted: true,
     );
   }
@@ -1692,6 +1941,9 @@ class WatchtowerNotificationService {
       speedMbs: notice.speedMbs,
       filePath: notice.filePath,
       coverUrl: notice.coverUrl,
+      source: notice.source,
+      lang: notice.lang,
+      sourceId: notice.sourceId,
       isPaused: isPaused,
     );
   }
@@ -1701,10 +1953,17 @@ class WatchtowerNotificationService {
     String? seriesTitle,
     String? chapterTitle,
     String? itemType,
+    String? coverUrl,
+    String? source,
+    String? lang,
+    int? sourceId,
   }) async {
     final notice = _mediaDownloadNotices[chapterId];
     if (notice == null) {
       if (chapterTitle == null || itemType == null) return;
+      // A chapter that never reported progress still needs its source, or the
+      // failure card asks the CDN for the poster without the extension headers
+      // and renders blank.
       await showMediaDownloadProgress(
         chapterId: chapterId,
         seriesTitle: seriesTitle ?? chapterTitle,
@@ -1712,6 +1971,10 @@ class WatchtowerNotificationService {
         itemType: itemType,
         completed: 0,
         total: 1,
+        coverUrl: coverUrl,
+        source: source,
+        lang: lang,
+        sourceId: sourceId,
         isFailed: true,
       );
       return;
@@ -1728,6 +1991,9 @@ class WatchtowerNotificationService {
       speedMbs: notice.speedMbs,
       filePath: notice.filePath,
       coverUrl: notice.coverUrl,
+      source: notice.source,
+      lang: notice.lang,
+      sourceId: notice.sourceId,
       isFailed: true,
     );
   }
@@ -2048,6 +2314,9 @@ class _MediaDownloadNotice {
     required this.speedMbs,
     required this.filePath,
     required this.coverUrl,
+    this.source,
+    this.lang,
+    this.sourceId,
     required this.isCompleted,
     required this.isPaused,
     required this.isFailed,
@@ -2069,6 +2338,13 @@ class _MediaDownloadNotice {
   final double speedMbs;
   final String? filePath;
   final String? coverUrl;
+
+  /// Extension the poster comes from. Its CDN is usually hotlink-protected, so
+  /// the cover request must carry the extension's own headers; null for local
+  /// archives and for notices restored from a build that did not record it.
+  final String? source;
+  final String? lang;
+  final int? sourceId;
   final bool isCompleted;
   final bool isPaused;
   final bool isFailed;
@@ -2089,6 +2365,9 @@ class _MediaDownloadNotice {
     'speedMbs': speedMbs,
     'filePath': filePath,
     'coverUrl': coverUrl,
+    'source': source,
+    'lang': lang,
+    'sourceId': sourceId,
     'isCompleted': isCompleted,
     'isPaused': isPaused,
     'isFailed': isFailed,
@@ -2127,6 +2406,9 @@ class _MediaDownloadNotice {
       speedMbs: readDouble('speedMbs'),
       filePath: json['filePath'] as String?,
       coverUrl: json['coverUrl'] as String?,
+      source: json['source'] as String?,
+      lang: json['lang'] as String?,
+      sourceId: readInt('sourceId'),
       isCompleted: json['isCompleted'] == true,
       isPaused: json['isPaused'] == true,
       isFailed: json['isFailed'] == true,

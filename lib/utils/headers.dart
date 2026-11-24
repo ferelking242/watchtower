@@ -55,9 +55,13 @@ Map<String, String> _computeHeaders({
   return headers;
 }
 
-@riverpod
-Map<String, String> headers(
-  Ref ref, {
+/// Extension headers without a [Ref], for callers that run outside the widget
+/// tree (the download notification service fetches series covers from the same
+/// hotlink-protected CDNs the library grid does).
+///
+/// Shares [headersProvider]'s memo, so a cover fetch never boots a second
+/// QuickJS runtime for a source the grid already resolved.
+Map<String, String> headersForSource({
   required String source,
   required String lang,
   required int? sourceId,
@@ -70,4 +74,14 @@ Map<String, String> headers(
     key,
     () => _computeHeaders(source: source, lang: lang, sourceId: sourceId),
   );
+}
+
+@riverpod
+Map<String, String> headers(
+  Ref ref, {
+  required String source,
+  required String lang,
+  required int? sourceId,
+}) {
+  return headersForSource(source: source, lang: lang, sourceId: sourceId);
 }
