@@ -80,9 +80,9 @@ Future<ReindexResult> reindexDownloads({
       };
       for (final base in candidates) {
         final mp4 = File(p.join(mangaDir.path, '$base.mp4'));
-        if (mp4.existsSync()) {
+        if (await mp4.exists()) {
           fileFound = true;
-          sizeKb = (mp4.lengthSync() / 1024).ceil();
+          sizeKb = (await mp4.length() / 1024).ceil();
           break;
         }
       }
@@ -91,9 +91,9 @@ Future<ReindexResult> reindexDownloads({
         chapter,
         mangaMainDirectory: mangaDir,
       );
-      if (chapterDir != null && chapterDir.existsSync()) {
-        final imgs = chapterDir
-            .listSync()
+      if (chapterDir != null && await chapterDir.exists()) {
+        final imgs = await chapterDir
+            .list(followLinks: false)
             .where((f) => f.path.endsWith('.jpg'))
             .toList();
         if (imgs.isNotEmpty) {
@@ -102,15 +102,15 @@ Future<ReindexResult> reindexDownloads({
         }
       }
       final cbz = File(p.join(mangaDir.path, '${chapter.name}.cbz'));
-      if (!fileFound && cbz.existsSync()) {
+      if (!fileFound && await cbz.exists()) {
         fileFound = true;
-        sizeKb = (cbz.lengthSync() / 1024).ceil();
+        sizeKb = (await cbz.length() / 1024).ceil();
       }
     } else if (manga.itemType == ItemType.novel) {
       final html = File(p.join(mangaDir.path, '${chapter.name}.html'));
-      if (html.existsSync()) {
+      if (await html.exists()) {
         fileFound = true;
-        sizeKb = (html.lengthSync() / 1024).ceil();
+        sizeKb = (await html.length() / 1024).ceil();
       }
     }
 
@@ -158,7 +158,7 @@ Future<int> addDownloadedToLibrary({MaintenanceProgress? onProgress}) async {
 
   // Then import whatever the sister extension left on disk.
   final root = await _downloadRoot();
-  if (root == null || !root.existsSync()) return added;
+  if (root == null || !await root.exists()) return added;
 
   // Files that already back a Download record are Watchtower's own downloads
   // and must not be imported a second time as local entries.
@@ -168,9 +168,9 @@ Future<int> addDownloadedToLibrary({MaintenanceProgress? onProgress}) async {
     if (path != null && path.isNotEmpty) tracked.add(p.normalize(path));
   }
 
-  final mediaFiles = _collectMediaFiles(
+  final mediaFiles = (await _collectMediaFiles(
     root,
-  ).where((f) => !tracked.contains(p.normalize(f.path))).toList();
+  )).where((f) => !tracked.contains(p.normalize(f.path))).toList();
   final total = mediaFiles.length;
   onProgress?.call(0, total);
 
@@ -221,6 +221,16 @@ Future<int> addDownloadedToLibrary({MaintenanceProgress? onProgress}) async {
     );
 
     try {
+      // Sizes are read before the transaction opens: a stat per file inside
+      // the write txn keeps it open long enough to block the download queue.
+      final sizesKb = <String, String>{};
+      for (final file in files) {
+        var kb = 0;
+        try {
+          kb = (await file.length() / 1024).ceil();
+        } catch (_) {}
+        sizesKb[file.path] = '$kb';
+      }
       await isar.writeTxn(() async {
         final id = await isar.mangas.put(manga);
         final chapters = <Chapter>[];
@@ -231,7 +241,7 @@ Future<int> addDownloadedToLibrary({MaintenanceProgress? onProgress}) async {
               name: p.basenameWithoutExtension(file.path),
               url: '',
               archivePath: file.path,
-              downloadSize: '${(file.lengthSync() / 1024).ceil()}',
+              downloadSize: sizesKb[file.path] ?? '0',
             )..manga.value = manga,
           );
         }
@@ -284,24 +294,28 @@ Future<Directory?> _downloadRoot() async {
 
 /// Recursively lists media files under [root], skipping anything below the
 /// noise-size gate (thumbnails, samples, cover art).
-List<File> _collectMediaFiles(Directory root) {
+///
+/// Asynchronous on purpose: the walk covers the whole download folder, and the
+/// blocking version froze the UI for seconds on libraries with thousands of
+/// files.
+Future<List<File>> _collectMediaFiles(Directory root) async {
   final result = <File>[];
-  void walk(Directory dir, int depth) {
+  Future<void> walk(Directory dir, int depth) async {
     if (depth > 4) return;
-    List<FileSystemEntity> children;
+    final List<FileSystemEntity> children;
     try {
-      children = dir.listSync(followLinks: false);
+      children = await dir.list(followLinks: false).toList();
     } catch (_) {
       return;
     }
     for (final child in children) {
       if (child is Directory) {
-        walk(child, depth + 1);
+        await walk(child, depth + 1);
       } else if (child is File) {
         final ext = p.extension(child.path).toLowerCase();
         if (!_kImportExtensions.contains(ext)) continue;
         try {
-          if (child.lengthSync() < _kMinimumImportBytes) continue;
+          if (await child.length() < _kMinimumImportBytes) continue;
         } catch (_) {
           continue;
         }
@@ -310,7 +324,7 @@ List<File> _collectMediaFiles(Directory root) {
     }
   }
 
-  walk(root, 0);
+  await walk(root, 0);
   return result;
 }
 
@@ -386,13 +400,15 @@ Future<int> purgeMissingDownloads({MaintenanceProgress? onProgress}) async {
         chapter,
         mangaMainDirectory: mangaDir,
       );
-      if (chapterDir != null && chapterDir.existsSync()) {
-        fileFound = chapterDir.listSync().any((f) => f.path.endsWith('.jpg'));
+      if (chapterDir != null && await chapterDir.exists()) {
+        fileFound = await chapterDir
+            .list(followLinks: false)
+            .any((f) => f.path.endsWith('.jpg'));
       }
       if (!fileFound) {
-        fileFound = File(
+        fileFound = await File(
           p.join(mangaDir.path, '${chapter.name}.cbz'),
-        ).existsSync();
+        ).exists();
       }
     } else if (manga.itemType == ItemType.anime) {
       final candidates = {
@@ -403,13 +419,17 @@ Future<int> purgeMissingDownloads({MaintenanceProgress? onProgress}) async {
         ),
         chapterName,
       };
-      fileFound = candidates.any(
-        (base) => File(p.join(mangaDir.path, '$base.mp4')).existsSync(),
-      );
+      fileFound = false;
+      for (final base in candidates) {
+        if (await File(p.join(mangaDir.path, '$base.mp4')).exists()) {
+          fileFound = true;
+          break;
+        }
+      }
     } else {
-      fileFound = File(
+      fileFound = await File(
         p.join(mangaDir.path, '${chapter.name}.html'),
-      ).existsSync();
+      ).exists();
     }
 
     if (!fileFound) {

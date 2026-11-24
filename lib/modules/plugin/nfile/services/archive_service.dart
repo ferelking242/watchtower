@@ -461,7 +461,6 @@ class ArchiveService {
 
       archiveFile.writeAsBytesSync(newArchiveBytes);
       return true;
-      return false;
     } catch (e) {
       debugPrint('Error adding to archive: $e');
       return false;
@@ -571,7 +570,6 @@ class ArchiveService {
 
       archiveFile.writeAsBytesSync(newArchiveBytes);
       return true;
-      return false;
     } catch (e) {
       debugPrint('Error deleting from archive: $e');
       return false;
