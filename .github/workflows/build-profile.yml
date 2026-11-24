@@ -20,6 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
+          submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
           # 50 commits suffisent pour le changelog (le tag précédent est rarement plus loin)
           fetch-depth: 50

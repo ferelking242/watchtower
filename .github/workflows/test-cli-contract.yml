@@ -79,6 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
+          submodules: recursive
           lfs: true
 
       - uses: subosito/flutter-action@v2

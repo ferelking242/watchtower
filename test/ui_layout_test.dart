@@ -6,6 +6,47 @@ import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.da
 import 'package:watchtower/modules/watch/home/extension_episode_card_adapter.dart';
 
 void main() {
+
+  group('renderer and capabilities', () {
+    test('reads the reel renderer declared by an extension', () {
+      final layout = UiLayout.fromJson({
+        'schemaVersion': 1,
+        'renderer': 'reel',
+        'capabilities': {'live': true, 'likes': false, 'comments': false},
+        'home': {'sections': <dynamic>[]},
+      });
+
+      expect(layout.renderer, UiRenderer.reel);
+      expect(layout.isReel, isTrue);
+      expect(layout.capabilities.likes, isFalse);
+      expect(layout.capabilities.comments, isFalse);
+      // An omitted key must stay permissive: a missing capability is not a
+      // reason to hide an action the extension may support.
+      expect(layout.capabilities.shares, isTrue);
+      expect(layout.capabilities.download, isFalse);
+    });
+
+    test('defaults to the watch renderer with every capability on', () {
+      final layout = UiLayout.fromJson({
+        'schemaVersion': 1,
+        'home': {'sections': <dynamic>[]},
+      });
+
+      expect(layout.renderer, UiRenderer.watch);
+      expect(layout.isReel, isFalse);
+      expect(layout.capabilities.toJson(), UiCapabilities.all.toJson());
+    });
+
+    test('an unknown renderer name never breaks the layout', () {
+      final layout = UiLayout.fromJson({
+        'schemaVersion': 1,
+        'renderer': 'some-future-shell',
+        'home': {'sections': <dynamic>[]},
+      });
+
+      expect(layout.renderer, UiRenderer.watch);
+    });
+  });
   test('keeps the extension section order and presentation metadata', () {
     final layout = UiLayout.fromJson({
       'schemaVersion': 2,

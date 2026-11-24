@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Check out Watchtower test script
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Test Eporner result validation
         run: python3 -m unittest discover -s scripts -p 'test_eporner_*.py'

@@ -33,13 +33,19 @@ Response _error(String msg, {int status = 500}) =>
 
 class RemoteApiHandler {
   final ProviderContainer ref;
-  RemoteApiHandler(this.ref);
+
+  /// `true` for in-process callers (the Reel shell). The network API keeps the
+  /// default `false`: NSFW sources are never listed nor served over HTTP.
+  final bool allowNsfw;
+
+  RemoteApiHandler(this.ref, {this.allowNsfw = false});
 
   // ── NSFW gating ────────────────────────────────────────────────────────
   // This API surface can be reached by third-party client apps, so NSFW
   // sources are never listed nor servable through it, regardless of the
   // user's in-app NSFW toggle. This is a hard exclusion, not a preference.
   Response? _nsfwBlocked(Source? source) {
+    if (allowNsfw) return null;
     if (source?.isNsfw == true) {
       return _error('Source not available via API', status: 403);
     }
@@ -48,12 +54,10 @@ class RemoteApiHandler {
 
   Future<Response> getSources(Request req) async {
     try {
-      final sources = isar.sources
-          .filter()
-          .isActiveEqualTo(true)
-          .isAddedEqualTo(true)
-          .isNsfwEqualTo(false)
-          .findAllSync();
+      final query = isar.sources.filter().isActiveEqualTo(true).isAddedEqualTo(true);
+      final sources = allowNsfw
+          ? query.findAllSync()
+          : query.isNsfwEqualTo(false).findAllSync();
       return _json({'sources': sources.map(_sourceToMap).toList()});
     } catch (e) { return _error(e.toString()); }
   }

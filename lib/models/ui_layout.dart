@@ -4,6 +4,78 @@
 
 import 'package:watchtower/models/layout_component_registry.dart';
 
+/// Which host screen draws the extension.
+enum UiRenderer {
+  /// Watch home/browse/player screens (default).
+  watch,
+
+  /// Reel vertical feed shell.
+  reel;
+
+  static UiRenderer fromName(String? name) => switch (name) {
+        'reel' => UiRenderer.reel,
+        _ => UiRenderer.watch,
+      };
+}
+
+/// Affordances the extension really supports.
+///
+/// The extension declares them in `ui-layouts/<slug>.json`. A surface must not
+/// show an action the extension does not declare: a like button on a source
+/// with no like endpoint is a lie.
+class UiCapabilities {
+  const UiCapabilities({
+    this.live = true,
+    this.views = true,
+    this.likes = true,
+    this.comments = true,
+    this.shares = true,
+    this.sounds = true,
+    this.download = false,
+    this.follow = true,
+  });
+
+  final bool live;
+  final bool views;
+  final bool likes;
+  final bool comments;
+  final bool shares;
+  final bool sounds;
+  final bool download;
+  final bool follow;
+
+  static const all = UiCapabilities();
+
+  factory UiCapabilities.fromJson(Map<String, dynamic> json) {
+    bool read(String key, bool fallback) {
+      final value = json[key];
+      return value is bool ? value : fallback;
+    }
+
+    return UiCapabilities(
+      live: read('live', true),
+      views: read('views', true),
+      likes: read('likes', true),
+      comments: read('comments', true),
+      shares: read('shares', true),
+      sounds: read('sounds', true),
+      download: read('download', false),
+      follow: read('follow', true),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'live': live,
+        'views': views,
+        'likes': likes,
+        'comments': comments,
+        'shares': shares,
+        'sounds': sounds,
+        'download': download,
+        'follow': follow,
+      };
+}
+
 /// Root layout for an extension. Loaded once from disk; cached in LayoutRegistry.
 class UiLayout {
   final int schemaVersion;
@@ -18,7 +90,17 @@ class UiLayout {
     this.browse,
     this.detail,
     this.player,
+    this.renderer = UiRenderer.watch,
+    this.capabilities = UiCapabilities.all,
   });
+
+  /// Host screen that draws this extension.
+  final UiRenderer renderer;
+
+  /// Affordances the extension declares.
+  final UiCapabilities capabilities;
+
+  bool get isReel => renderer == UiRenderer.reel;
 
   factory UiLayout.fromJson(Map<String, dynamic> json) => UiLayout(
     schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
@@ -34,6 +116,10 @@ class UiLayout {
     player: json['player'] != null
         ? PlayerLayout.fromJson(json['player'] as Map<String, dynamic>)
         : null,
+    renderer: UiRenderer.fromName(json['renderer'] as String?),
+    capabilities: json['capabilities'] is Map<String, dynamic>
+        ? UiCapabilities.fromJson(json['capabilities'] as Map<String, dynamic>)
+        : UiCapabilities.all,
   );
 
   /// No custom home sections — extension uses standard Popular/Latest/Search.
