@@ -22,6 +22,8 @@ import 'package:watchtower/modules/manga/home/widgets/manga_home_card_adapter.da
 import 'package:watchtower/modules/watch/home/extension_episode_card_adapter.dart';
 import 'package:watchtower/modules/watch/home/extension_chapter_card_adapter.dart';
 import 'package:watchtower/modules/widgets/manga_image_card_widget.dart';
+import 'package:watchtower/modules/anti_bot/cloudflare_bypass_panel.dart';
+import 'package:watchtower/services/anti_bot/cloudflare_challenge_bus.dart';
 import 'package:watchtower/services/get_custom_list.dart';
 import 'package:watchtower/services/get_latest_updates.dart';
 import 'package:watchtower/services/get_popular.dart';
@@ -111,6 +113,14 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
   int _layoutEditorRevision = 0;
   final Set<String> _loggedRequestErrors = {};
 
+  /// A Cloudflare refusal reported for this extension while the feed is up.
+  ///
+  /// The empty state can host the bypass panel, but MissAV answers a challenge
+  /// on its media CDN while its shelves load fine — the "Battre le challenge"
+  /// notification action then pushed to a home with no panel at all, which read
+  /// as a dead button. The overlay below is independent of the feed state.
+  CloudflareChallenge? _challenge;
+
   Source get source => widget.source;
 
   @override
@@ -126,6 +136,33 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
     );
     _feedController.addListener(_updateCompactHeader);
     if (!widget.isLocalLibrary) _loadLayout();
+    CloudflareChallengeBus.instance.challenge.addListener(_onChallengeChanged);
+    final pending = CloudflareChallengeBus.instance.challenge.value;
+    if (pending != null && _challengeAppliesTo(pending)) _challenge = pending;
+  }
+
+  /// True when [challenge] concerns this extension. A refusal with no source id
+  /// is shown anyway: it is the only signal we have.
+  bool _challengeAppliesTo(CloudflareChallenge challenge) {
+    final id = challenge.sourceId;
+    if (id == null || source.id == null) return true;
+    return id == source.id;
+  }
+
+  void _onChallengeChanged() {
+    final challenge = CloudflareChallengeBus.instance.challenge.value;
+    if (!mounted) return;
+    if (challenge == null || !_challengeAppliesTo(challenge)) {
+      if (_challenge == null) return;
+      setState(() => _challenge = null);
+      return;
+    }
+    setState(() => _challenge = challenge);
+  }
+
+  void _dismissChallenge() {
+    CloudflareChallengeBus.instance.clear();
+    if (mounted) setState(() => _challenge = null);
   }
 
   Future<void> _loadLayout() {
@@ -600,6 +637,8 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
 
   @override
   void dispose() {
+    CloudflareChallengeBus.instance.challenge
+        .removeListener(_onChallengeChanged);
     _feedController
       ..removeListener(_updateCompactHeader)
       ..dispose();
@@ -618,7 +657,75 @@ class _WatchExtensionHomeScreenState extends ConsumerState<WatchExtensionHomeScr
     return ExtensionImageHeaders(
       headers: headers,
       sourceId: source.id,
-      child: _buildBody(context),
+      child: Stack(
+        children: [
+          _buildBody(context),
+          if (_challenge != null) _buildChallengeOverlay(_challenge!),
+        ],
+      ),
+    );
+  }
+
+  /// Inline bypass panel over the live feed.
+  ///
+  /// Shown for a refusal reported while the home has content — the case the
+  /// empty-state panel cannot cover. Solving the challenge here persists the
+  /// clearance and the panel offers its own retry, so the feed is refreshed in
+  /// place instead of the user being sent to a screen with no challenge on it.
+  Widget _buildChallengeOverlay(CloudflareChallenge challenge) {
+    return Positioned.fill(
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.72),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+                child: Row(
+                  children: [
+                    const Icon(Broken.shield_search,
+                        size: 18, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Cloudflare',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: _dismissChallenge,
+                      icon: const Icon(Icons.close_rounded,
+                          size: 20, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CloudflareBypassPanel(
+                  url: challenge.url,
+                  sourceId: challenge.sourceId ?? source.id,
+                  compact: true,
+                  bounded: true,
+                  onResolved: () {
+                    _dismissChallenge();
+                    unawaited(_refresh());
+                  },
+                  onPageHealthy: () {
+                    _dismissChallenge();
+                    unawaited(_refresh());
+                  },
+                  onRetry: _refresh,
+                  onClose: _dismissChallenge,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
