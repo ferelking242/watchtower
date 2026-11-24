@@ -783,7 +783,11 @@ class WatchInlinePlayer {
     // only burns the 5 s timeout before `open()` — the delay users see between
     // tapping a MissAV episode and the first frame. mpv opens the master itself
     // and switches renditions internally, so skipping the plan costs nothing.
-    if (BrowserFetchService.nativeProbeIsPointless(video.url)) {
+    // Surrit is the same case but is deliberately *not* marked as challenged
+    // (its refusal is not a challenge the browser can clear), so it is matched
+    // on the host directly.
+    if (BrowserFetchService.nativeProbeIsPointless(video.url) ||
+        BrowserFetchService.isMissAvMediaUrl(video.url)) {
       AppLogger.log(
         '[PLAYER] ABR probe skipped: ${safeUrlOriginForLog(video.url)} already '
         'refused the native client  ← opening the master directly',
