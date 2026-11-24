@@ -26,11 +26,17 @@ class ReelHostScreen extends ConsumerStatefulWidget {
     required this.source,
     this.listId = '',
     this.startGifId,
+    this.fallback,
   });
 
   final Source source;
   final String listId;
   final String? startGifId;
+
+  /// Screen used when the extension does not declare the Reel renderer.
+  /// Defaults to the vertical video list, which is what the `reel` route did
+  /// before the shell existed.
+  final Widget? fallback;
 
   @override
   ConsumerState<ReelHostScreen> createState() => _ReelHostScreenState();
@@ -83,16 +89,18 @@ class _ReelHostScreenState extends ConsumerState<ReelHostScreen> {
     if (layout == null || !layout.isReel) {
       // Extensions that did not opt into the Reel renderer keep the historical
       // screens, so installing this build never changes how they behave.
-      return ReelScreen(
-        source: widget.source,
-        listId: widget.listId,
-        startGifId: widget.startGifId,
-      );
+      return widget.fallback ??
+          ReelScreen(
+            source: widget.source,
+            listId: widget.listId,
+            startGifId: widget.startGifId,
+          );
     }
 
     final container = ProviderScope.containerOf(context, listen: false);
     final transport = ReelLocalTransport(
       RemoteApiHandler(container, allowNsfw: true),
+      sourceId: widget.source.id?.toString(),
     );
 
     return ReelHostedApp(

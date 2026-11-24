@@ -315,7 +315,13 @@ class RouterNotifier extends ChangeNotifier {
     ),
     _genericRoute<Source>(
       name: "watchExtensionHome",
-      builder: (source) => WatchExtensionHomeScreen(source: source),
+      // The extension decides: a source declaring "renderer": "reel" opens the
+      // vertical shell, the others keep their section-based home.
+      builder: (source) => ReelHostScreen(
+        source: source,
+        listId: '',
+        fallback: WatchExtensionHomeScreen(source: source),
+      ),
     ),
     // Person search: works of a single author/artist within one extension.
     // The author name is passed as the initial search query and the results

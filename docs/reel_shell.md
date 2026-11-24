@@ -43,6 +43,11 @@ The extension declares it in `ui-layouts/<slug>.json`:
   endpoint, no live tab when the source has no live catalogue. Omitted keys stay
   permissive, `download` defaults to `false`.
 
+The home entry (`watchExtensionHome`) goes through the same dispatcher: a source
+declaring `reel` opens the shell, every other source opens its section-based
+home unchanged. Inside the shell, `/api/sources` is narrowed to the mounted
+extension so a failing feed can never silently play another extension's videos.
+
 ## Wiring
 
 | Piece | File |
