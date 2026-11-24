@@ -41,6 +41,7 @@ import 'package:watchtower/utils/isar_batch.dart';
 import 'package:watchtower/ui/responsive/breakpoints.dart';
 import 'package:watchtower/utils/log/log_overlay.dart';
 import 'package:watchtower/modules/main_view/widgets/watchtower_menu_overlay.dart';
+import 'package:watchtower/modules/main_view/providers/side_drawer_provider.dart';
 import 'package:watchtower/modules/music/widgets/music_mini_player.dart';
 import 'package:watchtower/modules/music/provider/audio_player/audio_player.dart';
 
@@ -2386,6 +2387,7 @@ class _FloatingDockState extends State<_FloatingDock> {
 
     final isGlass = widget.ref.read(navDockStyleProvider) == 'immersive';
     final editMode = widget.ref.watch(navEditModeProvider);
+    final sideDrawerOpen = widget.ref.watch(sideDrawerOpenProvider);
 
     // In expanded Hub / Marketplace navigation, detach Back and Menu into
     // their own mini pills flanking the content pill.
@@ -2395,7 +2397,7 @@ class _FloatingDockState extends State<_FloatingDock> {
             items.first.route == '_disableMarketplaceSwitch' ||
             items.first.route == '_nfileBack');
 
-    if (_menuOpen && !inSubDock) {
+    if ((_menuOpen || sideDrawerOpen) && !inSubDock) {
       // The side menu is open: fold the floating dock into a single round
       // back chip pinned to the bottom-left, clear of the menu sheet.
       final size = 52.0 * dockScale;
@@ -2422,6 +2424,8 @@ class _FloatingDockState extends State<_FloatingDock> {
               onTap: () {
                 HapticFeedback.lightImpact();
                 widget.ref.read(menuOpenProvider.notifier).state = false;
+                widget.ref.read(sideDrawerCloseProvider)?.call();
+                widget.ref.read(sideDrawerOpenProvider.notifier).state = false;
               },
               child: Container(
                 width: size,
@@ -3147,7 +3151,8 @@ class _RoundedOrClassicDock extends StatelessWidget {
             child: base,
           )
         : base;
-    final menuOpen = ref.watch(menuOpenProvider);
+    final menuOpen =
+        ref.watch(menuOpenProvider) || ref.watch(sideDrawerOpenProvider);
     // Blur + semi-transparent background (background opacity set in _ClassicDock)
     return AnimatedSlide(
       duration: const Duration(milliseconds: 240),

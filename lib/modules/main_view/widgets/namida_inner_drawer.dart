@@ -19,6 +19,7 @@ class NamidaInnerDrawer extends StatefulWidget {
   final double borderRadius;
   final double maxPercentage;
   final bool initiallySwipeable;
+  final ValueChanged<bool>? onOpenChanged;
 
   const NamidaInnerDrawer({
     super.key,
@@ -30,6 +31,7 @@ class NamidaInnerDrawer extends StatefulWidget {
     this.borderRadius = 0,
     this.maxPercentage = 0.472,
     this.initiallySwipeable = true,
+    this.onOpenChanged,
   });
 
   @override
@@ -99,12 +101,14 @@ class NamidaInnerDrawerState extends State<NamidaInnerDrawer>
 
   void _openDrawer() {
     _isOpened = true;
+    widget.onOpenChanged?.call(true);
     controller.animateTo(_upperBoundRx.value,
         duration: widget.duration, curve: widget.curve);
   }
 
   void _closeDrawer() {
     _isOpened = false;
+    widget.onOpenChanged?.call(false);
     controller.animateTo(controller.lowerBound,
         duration: widget.duration, curve: widget.curve);
   }

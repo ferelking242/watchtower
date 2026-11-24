@@ -25,6 +25,7 @@ import 'package:watchtower/core/icon_fonts/broken_icons.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/l10n/generated/app_localizations.dart';
 import 'package:watchtower/modules/main_view/widgets/namida_inner_drawer.dart';
+import 'package:watchtower/modules/main_view/providers/side_drawer_provider.dart';
 import 'package:watchtower/modules/search/widgets/watch_discover_drawer.dart';
 import 'package:watchtower/ui/widgets/namida_app_bar.dart';
 import 'package:watchtower/modules/widgets/offline_content_state.dart';
@@ -343,10 +344,16 @@ class _WatchtowerDiscoverScreenState extends ConsumerState<WatchtowerDiscoverScr
     _shimmer = CurvedAnimation(parent: _shimmerCtrl, curve: Curves.linear);
     _fetchResults(reset: true);
     _scrollCtrl.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(sideDrawerCloseProvider.notifier).state =
+          () => _drawerKey.currentState?.close();
+    });
   }
 
   @override
   void dispose() {
+    ref.read(sideDrawerOpenProvider.notifier).state = false;
     _shimmerCtrl.dispose();
     _searchCtrl.dispose();
     _searchFocus.dispose();
@@ -956,10 +963,18 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
 
     return NamidaInnerDrawer(
       key: _drawerKey,
+      onOpenChanged: (open) {
+        ref.read(sideDrawerOpenProvider.notifier).state = open;
+      },
       borderRadius: 28.0,
       maxPercentage: 0.472,
       initiallySwipeable: true,
-      drawerChild: WatchDiscoverDrawer(onClose: () => _drawerKey.currentState?.close()),
+      drawerChild: WatchDiscoverDrawer(
+        onClose: () {
+          _drawerKey.currentState?.close();
+          ref.read(sideDrawerOpenProvider.notifier).state = false;
+        },
+      ),
       child: Scaffold(
         floatingActionButton: _showFab ? _buildFab(cs) : null,
         body: SafeArea(
@@ -974,7 +989,11 @@ query ($type: MediaType, $sort: [MediaSort], $isAdult: Boolean, $search: String,
                 cs: cs,
                 isDark: isDark,
                 searchCollapsed: _searchCollapsed && showSearch,
-                onDrawerTap: () => _drawerKey.currentState?.toggle(),
+                onDrawerTap: () {
+                  _drawerKey.currentState?.toggle();
+                  ref.read(sideDrawerOpenProvider.notifier).state =
+                      _drawerKey.currentState?.isOpened ?? false;
+                },
                 moreButton: _buildMoreButton(context, cs, isDark),
                 onSearchTap: _expandSearch,
                 onModeChanged: (m) {
