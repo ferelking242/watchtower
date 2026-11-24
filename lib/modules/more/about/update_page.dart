@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,6 +18,40 @@ class UpdatePage extends StatefulWidget {
 
   @override
   State<UpdatePage> createState() => _UpdatePageState();
+}
+
+/// Drops the technical trailer CI appends to the release body (APK name,
+/// checksum, size, compare link) and the duplicated section heading, so the
+/// update screen only shows the changelog itself.
+@visibleForTesting
+String cleanReleaseNotes(String raw) {
+  final lines = raw.split('\n');
+  final kept = <String>[];
+  for (final line in lines) {
+    final trimmed = line.trim().toLowerCase();
+    if (trimmed.startsWith('apk android') ||
+        trimmed.startsWith('sha-256') ||
+        trimmed.startsWith('sha256') ||
+        trimmed.startsWith('taille :') ||
+        trimmed.startsWith('taille attendue') ||
+        trimmed.startsWith('**comparaison**') ||
+        trimmed.startsWith('build automatique') ||
+        trimmed.startsWith('built automatically')) {
+      continue;
+    }
+    kept.add(line);
+  }
+  var text = kept.join('\n').trim();
+  text = text.replaceFirst(
+    RegExp(r'^#{1,3}\s*(nouveautés|what.?s new|changes?)\s*\n+',
+        caseSensitive: false),
+    '',
+  );
+  text = text.replaceFirst(
+    RegExp(r'^#\s*Watchtower\s+[\d.]+\s*\n+', caseSensitive: false),
+    '',
+  );
+  return text.trim();
 }
 
 class _UpdatePageState extends State<UpdatePage> {
@@ -205,7 +240,7 @@ class _UpdatePageState extends State<UpdatePage> {
   }
 
   Widget _notes(ColorScheme cs) {
-    final notes = _cleanNotes(_info.releaseNotes ?? '');
+    final notes = cleanReleaseNotes(_info.releaseNotes ?? '');
     if (notes.isEmpty) {
       return Text(
         _isFrench
@@ -424,7 +459,7 @@ class _UpdatePageState extends State<UpdatePage> {
   }
 
   Widget _historyTile(UpdateHistoryEntry entry, ColorScheme cs) {
-    final notes = _cleanNotes(entry.notes ?? '');
+    final notes = cleanReleaseNotes(entry.notes ?? '');
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(bottom: 12),
@@ -485,39 +520,6 @@ class _UpdatePageState extends State<UpdatePage> {
           _NotesMarkdown(data: notes, cs: cs, compact: true),
       ],
     );
-  }
-
-  /// Drops the technical trailer CI appends to the release body (APK name,
-  /// checksum, size, compare link) and the duplicated section heading, so the
-  /// screen only shows the changelog itself.
-  static String _cleanNotes(String raw) {
-    final lines = raw.split('\n');
-    final kept = <String>[];
-    for (final line in lines) {
-      final trimmed = line.trim().toLowerCase();
-      if (trimmed.startsWith('apk android') ||
-          trimmed.startsWith('sha-256') ||
-          trimmed.startsWith('sha256') ||
-          trimmed.startsWith('taille :') ||
-          trimmed.startsWith('taille attendue') ||
-          trimmed.startsWith('**comparaison**') ||
-          trimmed.startsWith('build automatique') ||
-          trimmed.startsWith('built automatically')) {
-        continue;
-      }
-      kept.add(line);
-    }
-    var text = kept.join('\n').trim();
-    text = text.replaceFirst(
-      RegExp(r'^#{1,3}\s*(nouveautés|what.?s new|changes?)\s*\n+',
-          caseSensitive: false),
-      '',
-    );
-    text = text.replaceFirst(
-      RegExp(r'^#\s*Watchtower\s+[\d.]+\s*\n+', caseSensitive: false),
-      '',
-    );
-    return text.trim();
   }
 
   String _formatBytes(int bytes) {
