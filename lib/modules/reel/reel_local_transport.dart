@@ -26,8 +26,9 @@ class ReelLocalTransport implements ReelTransport {
     String path, {
     Map<String, String>? query,
   }) async {
-    final uri = Uri.parse('http://reel.local$path')
-        .replace(queryParameters: query);
+    final uri = Uri.parse(
+      'http://reel.local$path',
+    ).replace(queryParameters: query);
     final response = await _dispatch(uri.pathSegments, Request('GET', uri));
     final body = await response.readAsString();
 
@@ -56,10 +57,7 @@ class ReelLocalTransport implements ReelTransport {
     return mine.isEmpty ? payload : {...payload, 'sources': mine};
   }
 
-  Future<Response> _dispatch(
-    List<String> segments,
-    Request request,
-  ) async {
+  Future<Response> _dispatch(List<String> segments, Request request) async {
     // /api/sources
     if (segments.length == 2 && segments[1] == 'sources') {
       return _handler.getSources(request);
@@ -86,7 +84,9 @@ class ReelLocalTransport implements ReelTransport {
           return Response.notFound('Reel transport: unknown operation');
       }
     }
-    return Response.notFound('Reel transport: unknown path /${segments.join('/')}');
+    return Response.notFound(
+      'Reel transport: unknown path /${segments.join('/')}',
+    );
   }
 
   @override
