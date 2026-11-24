@@ -91,7 +91,6 @@ class _ConflictDialogState extends State<ConflictDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accentColor = theme.colorScheme.primary;
 
     return AlertDialog(
       title: Row(

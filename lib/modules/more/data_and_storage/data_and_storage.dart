@@ -1,14 +1,7 @@
-import 'dart:io' if (dart.library.js_interop) 'package:watchtower/utils/io_stub.dart';
-import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watchtower/eval/model/m_bridge.dart';
-import 'package:watchtower/modules/more/data_and_storage/providers/auto_backup.dart';
-import 'package:watchtower/modules/more/data_and_storage/providers/backup_compression.dart';
-import 'package:watchtower/modules/more/data_and_storage/providers/restore.dart';
 import 'package:watchtower/modules/more/data_and_storage/providers/storage_usage.dart';
 import 'package:watchtower/modules/more/settings/downloads/providers/downloads_state_provider.dart';
 import 'package:watchtower/providers/l10n_providers.dart';
@@ -20,15 +13,12 @@ class DataAndStorage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final backupFrequency = ref.watch(backupFrequencyStateProvider);
-    final autoBackupLocation = ref.watch(autoBackupLocationStateProvider);
     final downloadLocationState = ref.watch(downloadLocationStateProvider);
     final totalChapterCacheSize = ref.watch(totalChapterCacheSizeStateProvider);
     final clearChapterCacheOnAppLaunch = ref.watch(
       clearChapterCacheOnAppLaunchStateProvider,
     );
     final l10n = l10nLocalizations(context)!;
-    final compression = ref.watch(backupCompressionLevelProvider);
     return Scaffold(
       appBar: AppBar(title: Text(l10n.data_and_storage)),
       body: SingleChildScrollView(
@@ -192,16 +182,4 @@ class DataAndStorage extends ConsumerWidget {
       ),
     );
   }
-}
-
-List<String> _getBackupFrequencyList(BuildContext context) {
-  final l10n = l10nLocalizations(context)!;
-  return [
-    l10n.off,
-    l10n.every_6_hours,
-    l10n.every_12_hours,
-    l10n.daily,
-    l10n.every_2_days,
-    l10n.weekly,
-  ];
 }

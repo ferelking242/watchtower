@@ -118,11 +118,18 @@ class ThumbnailCache {
     _cache.clear();
     _pending.clear();
     _cacheBytes = 0;
-    if (_cacheDir != null) {
-      try {
-        Directory(_cacheDir!).deleteSync(recursive: true);
-      } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
+    final dir = _cacheDir;
+    if (dir != null) {
+      // A thumbnail cache holds thousands of files; deleting it synchronously
+      // froze the UI for seconds when the user cleared the cache.
+      unawaited(_deleteCacheDir(Directory(dir)));
     }
+  }
+
+  static Future<void> _deleteCacheDir(Directory dir) async {
+    try {
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } catch (error) { AppLogger.log('Ignored error (media_provider.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
   }
 }
 

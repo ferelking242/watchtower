@@ -306,28 +306,29 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
   Future<void> _handlePaste() async {
     final fm = context.read<FileManagerProvider>();
     if (!fm.hasClipboard) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final media = context.read<MediaProvider>();
 
-    String destDir = '/storage/emulated/0/Download';
-    if (widget.mediaType == MediaType.documents)
-      destDir = '/storage/emulated/0/Documents';
-    if (widget.mediaType == MediaType.archives)
-      destDir = '/storage/emulated/0/Download';
-    if (widget.mediaType == MediaType.apks)
-      destDir = '/storage/emulated/0/Download';
+    final destDir = widget.mediaType == MediaType.documents
+        ? '/storage/emulated/0/Documents'
+        : '/storage/emulated/0/Download';
 
     final dir = Directory(destDir);
-    if (!dir.existsSync()) dir.createSync(recursive: true);
+    if (!await dir.exists()) await dir.create(recursive: true);
 
-    int pastedCount = 0;
+    // Copies run through the async API: a few hundred megabytes of photos
+    // copied synchronously would block the UI isolate long enough for the
+    // system to declare the app unresponsive.
+    var pastedCount = 0;
     for (final src in fm.clipboardPaths) {
       try {
         final f = File(src);
-        if (f.existsSync()) {
+        if (await f.exists()) {
           final target = '${dir.path}/${src.split('/').last}';
           if (fm.isCut) {
-            f.renameSync(target);
+            await f.rename(target);
           } else {
-            f.copySync(target);
+            await f.copy(target);
           }
           pastedCount++;
         }
@@ -335,10 +336,10 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
     }
 
     fm.clearClipboard();
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(content: Text('Pasted $pastedCount items to $destDir')),
     );
-    await context.read<MediaProvider>().loadMedia(forceRefresh: true);
+    await media.loadMedia(forceRefresh: true);
   }
 
   Future<void> _handleShare() async {
@@ -569,8 +570,9 @@ class _MediaCategoryScreenState extends State<MediaCategoryScreen>
           final f = await match.file;
           if (f != null) {
             if (count == 1) fullPath = f.path;
-            if (count == 1 && nameDisplay.isEmpty)
+            if (count == 1 && nameDisplay.isEmpty) {
               nameDisplay = f.path.split('/').last;
+            }
             try {
               final FileStat st = f.statSync();
               totalBytes += st.size;
@@ -2998,7 +3000,6 @@ class FolderGridItem extends StatefulWidget {
 class _FolderGridItemState extends State<FolderGridItem> {
   AssetEntity? _firstAsset;
   int _count = 0;
-  bool _loading = true;
 
   @override
   void initState() {
@@ -3015,15 +3016,11 @@ class _FolderGridItemState extends State<FolderGridItem> {
           setState(() {
             _firstAsset = assets.first;
             _count = count;
-            _loading = false;
           });
           return;
         }
       }
     } catch (error) { AppLogger.log('Ignored error (media_category_screen.dart)', logLevel: LogLevel.debug, tag: LogTag.ui, error: error); }
-    if (mounted) {
-      setState(() => _loading = false);
-    }
   }
 
   @override

@@ -86,15 +86,15 @@ class RecycleBinService {
   static Future<void> moveToTrash(String path, {bool useRoot = false}) async {
     // Ensure trash directory exists
     final trashDir = Directory(trashDirectoryPath);
-    if (!trashDir.existsSync()) {
-      trashDir.createSync(recursive: true);
+    if (!await trashDir.exists()) {
+      await trashDir.create(recursive: true);
     }
 
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final trashPath = p.join(trashDirectoryPath, id);
 
-    final fileExists = File(path).existsSync();
-    final dirExists = Directory(path).existsSync();
+    final fileExists = await File(path).exists();
+    final dirExists = await Directory(path).exists();
     final isDirectory = dirExists;
 
     if (!fileExists && !dirExists) {
@@ -107,7 +107,7 @@ class RecycleBinService {
       if (isDirectory) {
         size = await _getFolderSize(path);
       } else {
-        size = File(path).lengthSync();
+        size = await File(path).length();
       }
     } catch (_) {}
 
@@ -154,8 +154,8 @@ class RecycleBinService {
 
     // Ensure parent directory exists
     final parentDir = Directory(p.dirname(destPath));
-    if (!parentDir.existsSync()) {
-      parentDir.createSync(recursive: true);
+    if (!await parentDir.exists()) {
+      await parentDir.create(recursive: true);
     }
 
     final isRestricted = destPath.toLowerCase().contains('/android/data') || destPath.toLowerCase().contains('/android/obb');
@@ -208,7 +208,7 @@ class RecycleBinService {
 
   static Future<void> emptyBin({bool useRoot = false}) async {
     final trashDir = Directory(trashDirectoryPath);
-    if (trashDir.existsSync()) {
+    if (await trashDir.exists()) {
       try {
         await trashDir.delete(recursive: true);
       } catch (_) {}
@@ -245,7 +245,7 @@ class RecycleBinService {
       final dir = Directory(path);
       await for (final entity in dir.list(recursive: true, followLinks: false)) {
         if (entity is File) {
-          totalSize += entity.lengthSync();
+          totalSize += await entity.length();
         }
       }
     } catch (_) {}
@@ -255,8 +255,8 @@ class RecycleBinService {
   static Future<void> _copyDirectory(String source, String destination) async {
     final sourceDir = Directory(source);
     final destinationDir = Directory(destination);
-    if (!destinationDir.existsSync()) {
-      destinationDir.createSync(recursive: true);
+    if (!await destinationDir.exists()) {
+      await destinationDir.create(recursive: true);
     }
     await for (final entity in sourceDir.list(recursive: false)) {
       final name = p.basename(entity.path);

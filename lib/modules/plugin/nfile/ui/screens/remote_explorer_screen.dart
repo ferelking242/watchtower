@@ -15,14 +15,6 @@ import '../../services/remote/webdav_client.dart';
 import '../../services/remote/lan_client.dart';
 import '../../services/remote/saf_client.dart';
 
-// Clipboard for remote→local operations
-class _RemoteClipboard {
-  final List<RemoteFileItem> items;
-  final bool isCut;
-
-  const _RemoteClipboard({required this.items, required this.isCut});
-}
-
 class RemoteExplorerScreen extends StatefulWidget {
   final NetworkConnectionModel connection;
 
@@ -404,7 +396,6 @@ class _RemoteExplorerScreenState extends State<RemoteExplorerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        final theme = Theme.of(ctx);
         return AlertDialog(
           title: const Text(
             'Delete Item',
@@ -540,7 +531,6 @@ class _RemoteExplorerScreenState extends State<RemoteExplorerScreen> {
   void _showItemActions(RemoteFileItem item) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final provider = context.read<FileManagerProvider>();
 
     showModalBottomSheet(
       context: context,
@@ -826,10 +816,11 @@ class _RemoteExplorerScreenState extends State<RemoteExplorerScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
             onPressed: () {
-              if (_currentPath != widget.connection.rootPath)
+              if (_currentPath != widget.connection.rootPath) {
                 _navigateUp();
-              else
+              } else {
                 Navigator.pop(context);
+              }
             },
           ),
           title: Column(
