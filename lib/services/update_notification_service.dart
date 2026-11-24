@@ -6,7 +6,9 @@ import 'dart:io'
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path/path.dart' as p;
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +19,7 @@ import 'package:watchtower/services/extension_catalog_notifications.dart';
 import 'package:watchtower/services/http/m_client.dart';
 import 'package:watchtower/services/app_updater/app_update_service.dart'
     if (dart.library.js_interop) 'package:watchtower/services/app_updater/app_update_service_web.dart';
+import 'package:watchtower/services/icon_cache_service.dart';
 import 'package:watchtower/services/silent_installer_service.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
@@ -27,7 +30,11 @@ const int _kMediaDownloadSummaryNotifId = 9913;
 const int _kExtensionUpdateNotifId = 9914;
 const int _kNewExtensionNotifId = 9915;
 const int _kLibraryUpdateNotifId = 9916;
-const String _kMediaDownloadGroupKey = 'watchtower_media_downloads';
+/// Shares the native foreground service's group so Android merges the series
+/// cards into the single stack the download service already owns. Two distinct
+/// groups (the old `watchtower_media_downloads`) is what made every download
+/// appear twice in the tray.
+const String _kMediaDownloadGroupKey = 'com.watchtower.app.DOWNLOADS';
 const String _kMediaDownloadNoticeKeyPrefix = 'media_download_notice_';
 int _nextMediaNotifId =
     1000000000 + (DateTime.now().millisecondsSinceEpoch % 1000000000);
@@ -81,7 +88,27 @@ const String _kActionMediaPause = 'action_media_pause';
 const String _kActionMediaResume = 'action_media_resume';
 const String _kActionMediaCancel = 'action_media_cancel';
 const String _kActionMediaRetry = 'action_media_retry';
+/// Retries every failed chapter of a series card at once.
+const String _kActionMediaRetryAll = 'action_media_retry_all';
 const String _kMediaDownloadActiveCategory = 'media_download_active';
+const String _kMediaDownloadSeriesCategory = 'media_download_series';
+/// Retry requests written by the notification background isolate and replayed
+/// by the app isolate, which owns the download queue.
+const String _kPendingMediaRetriesKey = 'pending_media_download_retries';
+
+/// Groups every chapter of the same work under one parent notification.
+///
+/// The item type is part of the key so a manga and an anime sharing a title
+/// never collapse into the same card.
+String seriesKeyFor({
+  required String seriesTitle,
+  required String itemType,
+}) {
+  final title = seriesTitle.trim().toLowerCase();
+  final type = itemType.trim().toLowerCase();
+  if (title.isEmpty) return '$type:unknown';
+  return '$type:$title';
+}
 const String _kMediaDownloadPausedCategory = 'media_download_paused';
 const String _kMediaDownloadFailedCategory = 'media_download_failed';
 
@@ -111,6 +138,8 @@ class WatchtowerNotificationService {
   Future<String?> Function()? _extensionUpdateInstaller;
   Future<void> Function(int chapterId, MediaDownloadNotificationAction action)?
   _mediaDownloadActionHandler;
+  Future<void> Function(String seriesKey, List<int> chapterIds)?
+  _mediaSeriesActionHandler;
   Future<void> Function(DownloadQueueNotificationAction action)?
   _downloadQueueActionHandler;
   String? _pendingDownloadUrl;
@@ -119,6 +148,15 @@ class WatchtowerNotificationService {
   final Map<int, int> _mediaNotificationIds = {};
   final Map<int, Future<int>> _mediaNotificationIdFutures = {};
   final Map<int, _MediaDownloadNotice> _mediaDownloadNotices = {};
+  /// One parent notification per series, keyed by [seriesKey].
+  final Map<String, int> _seriesNotificationIds = {};
+  final Map<String, Future<int>> _seriesNotificationIdFutures = {};
+  /// Decoded cover bytes, so a progress tick never re-downloads the poster.
+  final Map<String, Uint8List?> _coverCache = {};
+  /// On-disk covers, so the native service can attach artwork by path.
+  final Map<String, String> _coverFilePaths = {};
+  /// Guards against re-resolving the same cover on every progress tick.
+  final Set<String> _coverFilePending = {};
 
   bool get _supported => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
@@ -131,6 +169,16 @@ class WatchtowerNotificationService {
     handler,
   ) {
     _mediaDownloadActionHandler = handler;
+  }
+
+  /// Registers the handler behind the series card's headless "Réessayer".
+  ///
+  /// It receives the series key and every failed chapter id so one tap retries
+  /// the whole series without opening the app.
+  void registerMediaSeriesActionHandler(
+    Future<void> Function(String seriesKey, List<int> chapterIds) handler,
+  ) {
+    _mediaSeriesActionHandler = handler;
   }
 
   /// Registers the handler backing the bulk-queue notification's pause /
@@ -218,6 +266,17 @@ class WatchtowerNotificationService {
                   DarwinNotificationActionOption.foreground,
                   DarwinNotificationActionOption.destructive,
                 },
+              ),
+            ],
+          ),
+          DarwinNotificationCategory(
+            _kMediaDownloadSeriesCategory,
+            actions: <DarwinNotificationAction>[
+              // No `foreground` option: the retry must run without raising the
+              // app, matching the headless Android action.
+              DarwinNotificationAction.plain(
+                _kActionMediaRetryAll,
+                'Réessayer',
               ),
             ],
           ),
@@ -324,6 +383,7 @@ class WatchtowerNotificationService {
 
   void _handleAction(NotificationResponse response) {
     if (_dispatchQueueAction(response)) return;
+    if (_dispatchSeriesAction(response)) return;
     if (_dispatchMediaDownloadAction(response)) return;
     final actionId = response.actionId;
     final isExtensionUpdate =
@@ -409,6 +469,117 @@ class WatchtowerNotificationService {
         stackTrace: stackTrace,
       );
       return false;
+    }
+  }
+
+  /// Handles "Réessayer" on a series card. The action is declared headless, so
+  /// this normally runs in the notification engine's background isolate where
+  /// no download scheduler exists: the request is persisted and replayed by the
+  /// app's own isolate, so the app never comes to the foreground.
+  bool _dispatchSeriesAction(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload == null || !payload.contains('"type":"media_download_series"')) {
+      return false;
+    }
+    // Only the explicit "Réessayer" button retries. Tapping the card body (no
+    // action id) or "Ouvrir" opens the queue: a series spans many chapters, so
+    // there is no single reader to jump to.
+    if (response.actionId != _kActionMediaRetryAll) {
+      unawaited(_openDownloadQueue());
+      return true;
+    }
+
+    Map<String, dynamic> decoded;
+    try {
+      final raw = jsonDecode(payload);
+      if (raw is! Map) return false;
+      decoded = Map<String, dynamic>.from(raw);
+    } catch (_) {
+      return false;
+    }
+    final seriesKey = decoded['seriesKey'] as String? ?? '';
+    final retryIds = (decoded['retry'] as List?)
+        ?.whereType<num>()
+        .map((value) => value.toInt())
+        .toList(growable: false);
+    if (seriesKey.isEmpty || retryIds == null || retryIds.isEmpty) return true;
+
+    final handler = _mediaSeriesActionHandler;
+    if (handler != null) {
+      unawaited(
+        handler(seriesKey, retryIds).catchError((Object error, StackTrace st) {
+          AppLogger.log(
+            'Series retry action failed',
+            logLevel: LogLevel.error,
+            tag: LogTag.download,
+            error: error,
+            stackTrace: st,
+          );
+        }),
+      );
+      return true;
+    }
+    unawaited(_queuePendingRetry(seriesKey, retryIds));
+    return true;
+  }
+
+  /// Appends a retry request for [ids]. Called from the notification background
+  /// isolate, which can reach SharedPreferences but not the download queue.
+  Future<void> _queuePendingRetry(String seriesKey, List<int> ids) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final pending =
+          prefs.getStringList(_kPendingMediaRetriesKey) ?? <String>[];
+      pending.add(
+        jsonEncode(<String, dynamic>{
+          'seriesKey': seriesKey,
+          'ids': ids,
+          'at': DateTime.now().millisecondsSinceEpoch,
+        }),
+      );
+      await prefs.setStringList(_kPendingMediaRetriesKey, pending);
+    } catch (e) {
+      AppLogger.log(
+        'Queueing a pending retry failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.download,
+      );
+    }
+  }
+
+  /// Replays the retries queued by the notification isolate. Cheap enough to
+  /// poll: SharedPreferences serves the values from memory after one `reload`.
+  Future<void> drainPendingRetries() async {
+    final handler = _mediaSeriesActionHandler;
+    if (handler == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      final pending = prefs.getStringList(_kPendingMediaRetriesKey);
+      if (pending == null || pending.isEmpty) return;
+      await prefs.remove(_kPendingMediaRetriesKey);
+      for (final entry in pending) {
+        try {
+          final decoded = jsonDecode(entry);
+          if (decoded is! Map) continue;
+          final seriesKey = decoded['seriesKey'] as String? ?? '';
+          final ids = (decoded['ids'] as List?)
+              ?.whereType<num>()
+              .map((value) => value.toInt())
+              .toList(growable: false);
+          if (seriesKey.isEmpty || ids == null || ids.isEmpty) continue;
+          await handler(seriesKey, ids);
+        } catch (e) {
+          AppLogger.log(
+            'Replaying a queued retry failed: $e',
+            logLevel: LogLevel.warning,
+            tag: LogTag.download,
+          );
+        }
+      }
+    } catch (_) {
+      // Preference storage is unavailable; the next tick retries.
     }
   }
 
@@ -1014,31 +1185,253 @@ class WatchtowerNotificationService {
     } catch (_) {}
   }
 
-  Future<int> _mediaNotificationIdForChapter(int chapterId) {
-    final cachedId = _mediaNotificationIds[chapterId];
-    if (cachedId != null) return Future<int>.value(cachedId);
-    return _mediaNotificationIdFutures.putIfAbsent(chapterId, () async {
+  Future<int> _seriesNotificationIdFor(String seriesKey) {
+    final cached = _seriesNotificationIds[seriesKey];
+    if (cached != null) return Future<int>.value(cached);
+    return _seriesNotificationIdFutures.putIfAbsent(seriesKey, () async {
       try {
         final prefs = await SharedPreferences.getInstance();
-        final key = 'media_download_notification_id_$chapterId';
-        final storedId = prefs.getInt(key);
-        if (storedId != null &&
-            storedId >= 1000000000 &&
-            storedId <= 1999999999 &&
-            storedId != _kMediaDownloadSummaryNotifId) {
-          _mediaNotificationIds[chapterId] = storedId;
-          return storedId;
+        final key = 'series_download_notification_id_$seriesKey';
+        final stored = prefs.getInt(key);
+        if (stored != null &&
+            stored >= 1000000000 &&
+            stored <= 1999999999 &&
+            stored != _kMediaDownloadSummaryNotifId) {
+          _seriesNotificationIds[seriesKey] = stored;
+          return stored;
         }
         final id = await _allocateMediaNotificationId();
         await prefs.setInt(key, id);
-        _mediaNotificationIds[chapterId] = id;
+        _seriesNotificationIds[seriesKey] = id;
         return id;
       } catch (_) {
         final id = await _allocateMediaNotificationId();
-        _mediaNotificationIds[chapterId] = id;
+        _seriesNotificationIds[seriesKey] = id;
         return id;
       }
     });
+  }
+
+  /// Cover bytes for a series card. Misses are cached as well: a 133-chapter
+  /// batch shares one poster, and a dead URL must not be re-fetched on every
+  /// progress tick.
+  Future<Uint8List?> _coverBytes(String? url) async {
+    final trimmed = url?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    if (_coverCache.containsKey(trimmed)) return _coverCache[trimmed];
+    Uint8List? bytes;
+    try {
+      final response = await MClient.init(
+        reqcopyWith: {'useDartHttpClient': true},
+      ).get(Uri.parse(trimmed)).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+        bytes = response.bodyBytes;
+      }
+    } catch (_) {
+      bytes = null;
+    }
+    if (_coverCache.length > 32) _coverCache.clear();
+    // An oversized poster is dropped rather than held for the whole session.
+    _coverCache[trimmed] = (bytes != null && bytes.length <= 2 * 1024 * 1024)
+        ? bytes
+        : null;
+    return _coverCache[trimmed];
+  }
+
+  /// Writes the series cover to the icon cache and returns its path.
+  ///
+  /// The Android foreground service reads a file path instead of receiving
+  /// bitmap bytes over the method channel on every progress tick. Failures are
+  /// silent: a card without artwork is fine, a missing card is not.
+  Future<String?> coverFilePath(String? url) async {
+    final trimmed = url?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    final cached = _coverFilePaths[trimmed];
+    if (cached != null && await File(cached).exists()) return cached;
+    final bytes = await _coverBytes(trimmed);
+    if (bytes == null) return null;
+    try {
+      final dir = await IconCacheService.instance.cacheDir;
+      final digest = sha256.convert(utf8.encode(trimmed)).toString();
+      final file = File(p.join(dir.path, 'cover_$digest.img'));
+      await file.writeAsBytes(bytes, flush: true);
+      _coverFilePaths[trimmed] = file.path;
+      return file.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Synchronous view of [coverFilePath] for the progress path, which cannot
+  /// await. The first call kicks off resolution and returns null; the next
+  /// progress tick finds the file ready.
+  String? primeCoverPath(String? url) {
+    final trimmed = url?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    final cached = _coverFilePaths[trimmed];
+    if (cached != null) return cached;
+    if (_coverFilePending.add(trimmed)) {
+      unawaited(
+        coverFilePath(trimmed).whenComplete(() => _coverFilePending.remove(trimmed)),
+      );
+    }
+    return null;
+  }
+
+  /// Every chapter belonging to one series, ordered so the card reads as
+  /// "what is left" above "what is done".
+  List<_MediaDownloadNotice> _seriesChildren(String seriesKey) {
+    final children = _mediaDownloadNotices.values
+        .where((notice) => notice.seriesKey == seriesKey)
+        .toList();
+    int rank(_MediaDownloadNotice n) =>
+        n.isOngoing ? 0 : n.isFailed ? 1 : n.isPaused ? 2 : 3;
+    children.sort((a, b) {
+      final byRank = rank(a).compareTo(rank(b));
+      return byRank != 0 ? byRank : a.chapterTitle.compareTo(b.chapterTitle);
+    });
+    return children;
+  }
+
+  /// Posts the single per-series card that every chapter of that work reports
+  /// into. A series with a live chapter posts nothing here: Android already
+  /// shows the foreground service for active transfers, and a second card for
+  /// the same transfer is exactly the duplicate the tray used to show.
+  Future<void> _renderSeries(String seriesKey) async {
+    if (!_supported) return;
+    try {
+      if (!_initialized) await init();
+      final children = _seriesChildren(seriesKey);
+      final id = await _seriesNotificationIdFor(seriesKey);
+      if (children.isEmpty) {
+        await _plugin.cancel(id);
+        _seriesNotificationIds.remove(seriesKey);
+        _seriesNotificationIdFutures.remove(seriesKey);
+        return;
+      }
+      if (children.any((child) => child.isOngoing)) {
+        await _plugin.cancel(id);
+        return;
+      }
+
+      final total = children.length;
+      final done = children.where((child) => child.isCompleted).length;
+      final failed = children.where((child) => child.isFailed).length;
+      final paused = children.where((child) => child.isPaused).length;
+      final seriesTitle = children
+          .map((child) => child.seriesTitle.trim())
+          .firstWhere((title) => title.isNotEmpty, orElse: () => '');
+      final title = seriesTitle.isNotEmpty
+          ? seriesTitle
+          : children.first.chapterTitle.trim().isNotEmpty
+          ? children.first.chapterTitle.trim()
+          : 'Watchtower';
+
+      final percent = total == 0 ? 0 : ((done / total) * 100).round();
+      final details = <String>['$done/$total chapitres'];
+      if (done < total) details.add('$percent %');
+      if (failed > 0) details.add('$failed échec${failed > 1 ? 's' : ''}');
+      if (paused > 0) details.add('$paused en pause');
+      final body = details.join(' · ');
+
+      const maxLines = 12;
+      final lines = <String>[
+        for (final child in children.take(maxLines))
+          child.chapterTitle.trim().isEmpty
+              ? _mediaProgressLabel(child)
+              : '${child.chapterTitle.trim()} — ${_mediaProgressLabel(child)}',
+      ];
+      if (total > maxLines) {
+        final rest = total - maxLines;
+        lines.add('… et $rest autre${rest > 1 ? 's' : ''}');
+      }
+
+      final retryIds = children
+          .where((child) => child.isFailed)
+          .map((child) => child.id)
+          .toList(growable: false);
+      final cover = await _coverBytes(
+        children
+            .map((child) => child.coverUrl)
+            .firstWhere(
+              (url) => url?.trim().isNotEmpty == true,
+              orElse: () => null,
+            ),
+      );
+      final filePath = children
+          .map((child) => child.filePath)
+          .firstWhere(
+            (path) => path?.trim().isNotEmpty == true,
+            orElse: () => null,
+          );
+
+      final androidDetails = AndroidNotificationDetails(
+        _kDownloadChannelId,
+        _kDownloadChannelName,
+        channelDescription: 'Progression de chaque téléchargement Watchtower',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+        groupKey: _kMediaDownloadGroupKey,
+        onlyAlertOnce: true,
+        ongoing: paused > 0,
+        autoCancel: paused == 0,
+        playSound: false,
+        enableVibration: false,
+        showProgress: true,
+        maxProgress: 100,
+        progress: percent,
+        largeIcon: cover != null ? ByteArrayAndroidBitmap(cover) : null,
+        styleInformation: InboxStyleInformation(
+          lines,
+          contentTitle: title,
+          summaryText: body,
+        ),
+        actions: [
+          if (retryIds.isNotEmpty)
+            const AndroidNotificationAction(
+              _kActionMediaRetryAll,
+              'Réessayer',
+              // Headless: the retry is queued and replayed by the app's own
+              // isolate, so tapping it never drags the user to the queue.
+              showsUserInterface: false,
+              cancelNotification: false,
+            ),
+          const AndroidNotificationAction(
+            _kActionPlay,
+            'Ouvrir',
+            showsUserInterface: true,
+            cancelNotification: false,
+          ),
+        ],
+      );
+      final iosDetails = DarwinNotificationDetails(
+        threadIdentifier: seriesKey,
+        categoryIdentifier: retryIds.isEmpty
+            ? null
+            : _kMediaDownloadSeriesCategory,
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: false,
+      );
+      await _plugin.show(
+        id,
+        title,
+        body,
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+        payload: jsonEncode(<String, dynamic>{
+          'type': 'media_download_series',
+          'seriesKey': seriesKey,
+          'retry': retryIds,
+          if (filePath?.isNotEmpty == true) 'path': filePath,
+        }),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'Rendering the series download notification failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
   }
 
   Future<void> _restoreMediaDownloadNotices() async {
@@ -1067,34 +1460,25 @@ class WatchtowerNotificationService {
             await prefs.remove(key);
             continue;
           }
-          _mediaNotificationIds[chapterId] = notice.id;
+          // A finished chapter is kept for a day so the card can still report
+          // the result, then forgotten: a series that finished yesterday must
+          // not reappear as a permanent card on the next launch.
+          if (notice.isCompleted &&
+              DateTime.now().difference(notice.lastShownAt) >
+                  const Duration(hours: 24)) {
+            await prefs.remove(key);
+            continue;
+          }
           _mediaDownloadNotices[chapterId] = notice;
         } catch (_) {
           await prefs.remove(key);
         }
       }
-      for (final entry in _mediaDownloadNotices.entries.toList(
-        growable: false,
-      )) {
-        final notice = entry.value;
-        if (!notice.isOngoing && !notice.isPaused) continue;
-        await showMediaDownloadProgress(
-          chapterId: entry.key,
-          seriesTitle: notice.seriesTitle,
-          chapterTitle: notice.chapterTitle,
-          itemType: notice.itemType,
-          completed: notice.completed,
-          total: notice.total,
-          downloadedBytes: notice.downloadedBytes,
-          totalBytes: notice.totalBytes,
-          speedMbs: notice.speedMbs,
-          filePath: notice.filePath,
-          isPaused: notice.isPaused,
-          forceUpdate: true,
-          updateSummary: false,
-        );
+      for (final seriesKey in _mediaDownloadNotices.values
+          .map((notice) => notice.seriesKey)
+          .toSet()) {
+        await _renderSeries(seriesKey);
       }
-      await _updateMediaDownloadSummary();
     } catch (e) {
       AppLogger.log(
         'Restoring media download notices failed: $e',
@@ -1123,9 +1507,10 @@ class WatchtowerNotificationService {
     }
   }
 
-  /// Posts or updates the notification for one chapter. A stable notification
-  /// id means progress updates replace that chapter's notice instead of
-  /// creating a new notice for every image or video segment.
+  /// Records one chapter's state and refreshes its series card. A stable
+  /// per-series notification id keeps the whole work as a single tray entry no
+  /// matter how many chapters it contains — posting one card per chapter is
+  /// what produced 133 notifications for a 133-chapter batch.
   Future<void> showMediaDownloadProgress({
     required int chapterId,
     required String seriesTitle,
@@ -1137,6 +1522,7 @@ class WatchtowerNotificationService {
     int? totalBytes,
     double speedMbs = 0,
     String? filePath,
+    String? coverUrl,
     bool isCompleted = false,
     bool isPaused = false,
     bool isFailed = false,
@@ -1146,7 +1532,10 @@ class WatchtowerNotificationService {
     if (!_supported) return;
     try {
       if (!_initialized) await init();
-      final id = await _mediaNotificationIdForChapter(chapterId);
+      final seriesKey = seriesKeyFor(
+        seriesTitle: seriesTitle,
+        itemType: itemType,
+      );
       final previous = _mediaDownloadNotices[chapterId];
       // A chapter already reported as finished must never be dragged back to an
       // in-progress/paused notice by a late, duplicated or re-queued progress
@@ -1156,7 +1545,8 @@ class WatchtowerNotificationService {
       }
       final now = DateTime.now();
       final notice = _MediaDownloadNotice(
-        id: id,
+        id: chapterId,
+        seriesKey: seriesKey,
         seriesTitle: seriesTitle.trim(),
         chapterTitle: chapterTitle.trim(),
         itemType: itemType,
@@ -1165,7 +1555,8 @@ class WatchtowerNotificationService {
         downloadedBytes: downloadedBytes,
         totalBytes: totalBytes,
         speedMbs: speedMbs,
-        filePath: filePath,
+        filePath: filePath ?? previous?.filePath,
+        coverUrl: coverUrl ?? previous?.coverUrl,
         isCompleted: isCompleted,
         isPaused: isPaused,
         isFailed: isFailed,
@@ -1184,132 +1575,7 @@ class WatchtowerNotificationService {
       }
       notice.lastShownAt = now;
       await _persistMediaDownloadNotice(chapterId, notice);
-
-      if (Platform.isAndroid && notice.isOngoing) {
-        // The foreground service is the one Android must keep visible while
-        // downloading. Showing this per-chapter progress notice as well creates
-        // two cards for the same transfer and the two bars can disagree.
-        await _plugin.cancel(id);
-        if (updateSummary) await _updateMediaDownloadSummary();
-        return;
-      }
-
-      final displayTitle = notice.seriesTitle.trim().isNotEmpty
-          ? notice.seriesTitle.trim()
-          : notice.chapterTitle.trim().isNotEmpty
-          ? notice.chapterTitle.trim()
-          : 'Watchtower';
-      final progressPercent = _mediaProgressPercent(notice);
-      final chapterLabel = notice.chapterTitle.trim();
-      final progressLabel = _mediaProgressLabel(notice);
-      final body = [
-        if (chapterLabel.isNotEmpty && chapterLabel != displayTitle)
-          chapterLabel,
-        progressLabel,
-      ].join(' · ');
-      final androidDetails = AndroidNotificationDetails(
-        _kDownloadChannelId,
-        _kDownloadChannelName,
-        channelDescription: 'Progression de chaque téléchargement Watchtower',
-        importance: isTerminal ? Importance.defaultImportance : Importance.low,
-        priority: isTerminal ? Priority.defaultPriority : Priority.low,
-        ticker: displayTitle,
-        groupKey: _kMediaDownloadGroupKey,
-        onlyAlertOnce: true,
-        // Keep the notice pinned while the chapter is downloading OR paused:
-        // it must not be swipeable until the download truly finishes. Only a
-        // completed/failed notice is user-dismissible.
-        ongoing: !isCompleted && !isFailed,
-        autoCancel: isCompleted || isFailed,
-        playSound: false,
-        enableVibration: false,
-        showProgress: !isTerminal && progressPercent != null,
-        maxProgress: 100,
-        progress: progressPercent ?? 0,
-        styleInformation: BigTextStyleInformation(
-          body,
-          contentTitle: displayTitle,
-        ),
-        actions: isCompleted
-            ? const [
-                AndroidNotificationAction(
-                  _kActionPlay,
-                  'Ouvrir',
-                  showsUserInterface: true,
-                  cancelNotification: false,
-                ),
-              ]
-            : isFailed
-            ? const [
-                AndroidNotificationAction(
-                  _kActionMediaRetry,
-                  'Réessayer',
-                  showsUserInterface: true,
-                  cancelNotification: false,
-                ),
-                AndroidNotificationAction(
-                  _kActionMediaCancel,
-                  'Annuler',
-                  showsUserInterface: true,
-                  cancelNotification: false,
-                ),
-              ]
-            : isPaused
-            ? const [
-                AndroidNotificationAction(
-                  _kActionMediaResume,
-                  'Reprendre',
-                  showsUserInterface: true,
-                  cancelNotification: false,
-                ),
-                AndroidNotificationAction(
-                  _kActionMediaCancel,
-                  'Annuler',
-                  showsUserInterface: true,
-                  cancelNotification: false,
-                ),
-              ]
-            : const [
-                AndroidNotificationAction(
-                  _kActionMediaPause,
-                  'Pause',
-                  showsUserInterface: true,
-                  cancelNotification: false,
-                ),
-                AndroidNotificationAction(
-                  _kActionMediaCancel,
-                  'Annuler',
-                  showsUserInterface: true,
-                  cancelNotification: false,
-                ),
-              ],
-      );
-      final iosDetails = DarwinNotificationDetails(
-        threadIdentifier: _kMediaDownloadGroupKey,
-        categoryIdentifier: isCompleted
-            ? null
-            : isFailed
-            ? _kMediaDownloadFailedCategory
-            : isPaused
-            ? _kMediaDownloadPausedCategory
-            : _kMediaDownloadActiveCategory,
-        presentAlert: isCompleted || isFailed,
-        presentBadge: false,
-        presentSound: false,
-      );
-      await _plugin.show(
-        id,
-        displayTitle,
-        body,
-        NotificationDetails(android: androidDetails, iOS: iosDetails),
-        payload: jsonEncode(<String, dynamic>{
-          'type': 'media_download',
-          'chapterId': chapterId,
-          'itemType': itemType,
-          if (filePath?.isNotEmpty == true) 'path': filePath,
-        }),
-      );
-      if (updateSummary) await _updateMediaDownloadSummary();
+      if (updateSummary) await _renderSeries(seriesKey);
     } catch (e) {
       AppLogger.log(
         'showMediaDownloadProgress failed: $e',
@@ -1330,6 +1596,7 @@ class WatchtowerNotificationService {
     int? downloadedBytes,
     int? totalBytes,
     double speedMbs = 0,
+    String? coverUrl,
   }) async {
     await showMediaDownloadProgress(
       chapterId: chapterId,
@@ -1342,6 +1609,7 @@ class WatchtowerNotificationService {
       totalBytes: totalBytes,
       speedMbs: speedMbs,
       filePath: filePath,
+      coverUrl: coverUrl,
       isCompleted: true,
     );
   }
@@ -1363,6 +1631,7 @@ class WatchtowerNotificationService {
       totalBytes: notice.totalBytes,
       speedMbs: notice.speedMbs,
       filePath: notice.filePath,
+      coverUrl: notice.coverUrl,
       isPaused: isPaused,
     );
   }
@@ -1398,6 +1667,7 @@ class WatchtowerNotificationService {
       totalBytes: notice.totalBytes,
       speedMbs: notice.speedMbs,
       filePath: notice.filePath,
+      coverUrl: notice.coverUrl,
       isFailed: true,
     );
   }
@@ -1527,16 +1797,17 @@ class WatchtowerNotificationService {
     if (!_supported) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final id =
-          notice?.id ??
-          _mediaNotificationIds[chapterId] ??
-          prefs.getInt('media_download_notification_id_$chapterId');
-      if (id != null) await _plugin.cancel(id);
+      await prefs.remove('$_kMediaDownloadNoticeKeyPrefix$chapterId');
+      // Legacy per-chapter ids from builds that posted one card per chapter.
+      final legacyId = prefs.getInt('media_download_notification_id_$chapterId');
+      if (legacyId != null) {
+        await _plugin.cancel(legacyId);
+        await prefs.remove('media_download_notification_id_$chapterId');
+      }
       _mediaNotificationIds.remove(chapterId);
       _mediaNotificationIdFutures.remove(chapterId);
-      await prefs.remove('$_kMediaDownloadNoticeKeyPrefix$chapterId');
-      await prefs.remove('media_download_notification_id_$chapterId');
-      await _updateMediaDownloadSummary();
+      final seriesKey = notice?.seriesKey;
+      if (seriesKey != null) await _renderSeries(seriesKey);
     } catch (e) {
       AppLogger.log(
         'cancelMediaDownloadNotification failed: $e',
@@ -1546,30 +1817,6 @@ class WatchtowerNotificationService {
     }
   }
 
-  int? _mediaProgressPercent(_MediaDownloadNotice notice) {
-    if (notice.itemType == 'anime' &&
-        notice.totalBytes != null &&
-        notice.totalBytes! > 0 &&
-        notice.downloadedBytes != null) {
-      return ((notice.downloadedBytes! / notice.totalBytes!) * 100)
-          .round()
-          .clamp(0, 100)
-          .toInt();
-    }
-    if (notice.itemType == 'anime' && notice.total > 1) {
-      return ((notice.completed / notice.total) * 100)
-          .round()
-          .clamp(0, 100)
-          .toInt();
-    }
-    if (notice.itemType == 'manga' && notice.total > 1) {
-      return ((notice.completed / notice.total) * 100)
-          .round()
-          .clamp(0, 100)
-          .toInt();
-    }
-    return null;
-  }
 
   String _mediaProgressLabel(_MediaDownloadNotice notice) {
     if (notice.isFailed) return 'Échec';
@@ -1623,106 +1870,6 @@ class WatchtowerNotificationService {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} Go';
   }
 
-  Future<void> _updateMediaDownloadSummary() async {
-    if (!_supported || !Platform.isAndroid) return;
-    final notices = _mediaDownloadNotices.values.toList(growable: false);
-    final active = notices.where((notice) => notice.isOngoing).toList();
-    // Android already has the mandatory foreground-service notification for
-    // active transfers. A second Flutter notification for each same transfer
-    // was creating duplicate, conflicting progress entries in the tray.
-    if (notices.isEmpty || active.isNotEmpty || notices.length == 1) {
-      await _plugin.cancel(_kMediaDownloadSummaryNotifId);
-      return;
-    }
-
-    final paused = notices.where((notice) => notice.isPaused).toList();
-    final failed = notices.where((notice) => notice.isFailed).toList();
-    final completed = notices.where((notice) => notice.isCompleted).toList();
-    final visible = active.isNotEmpty
-        ? active
-        : paused.isNotEmpty
-        ? paused
-        : failed.isNotEmpty
-        ? failed
-        : completed;
-
-    late final String title;
-    late final String body;
-    if (active.length == 1) {
-      title = active.single.seriesTitle.isNotEmpty
-          ? active.single.seriesTitle
-          : active.single.chapterTitle;
-      body =
-          '${active.single.chapterTitle} · ${_mediaProgressLabel(active.single)}';
-    } else if (active.length > 1) {
-      title = '${active.length} téléchargements en cours';
-      body = active
-          .take(5)
-          .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
-          .join(' • ');
-    } else if (paused.isNotEmpty) {
-      title = paused.length == 1
-          ? 'Téléchargement en pause'
-          : '${paused.length} téléchargements en pause';
-      body = paused
-          .take(5)
-          .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
-          .join(' • ');
-    } else if (failed.isNotEmpty) {
-      title = failed.length == 1
-          ? 'Échec du téléchargement'
-          : '${failed.length} téléchargements en échec';
-      body = failed.reversed
-          .take(5)
-          .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
-          .join(' • ');
-    } else {
-      title = completed.length == 1
-          ? 'Téléchargement terminé'
-          : '${completed.length} téléchargements terminés';
-      body = completed.reversed
-          .take(5)
-          .map((notice) => '${notice.seriesTitle} · ${notice.chapterTitle}')
-          .join(' • ');
-    }
-
-    final androidDetails = AndroidNotificationDetails(
-      _kDownloadChannelId,
-      _kDownloadChannelName,
-      channelDescription: 'Progression de chaque téléchargement Watchtower',
-      importance: active.isNotEmpty
-          ? Importance.low
-          : Importance.defaultImportance,
-      priority: active.isNotEmpty ? Priority.low : Priority.defaultPriority,
-      groupKey: _kMediaDownloadGroupKey,
-      setAsGroupSummary: true,
-      onlyAlertOnce: true,
-      // The group summary stays pinned as long as any chapter is downloading
-      // or paused so it cannot be dismissed before the queue is really done.
-      ongoing: active.isNotEmpty || paused.isNotEmpty,
-      autoCancel: active.isEmpty && paused.isEmpty,
-      playSound: false,
-      enableVibration: false,
-      styleInformation: InboxStyleInformation(
-        visible
-            .take(5)
-            .map(
-              (notice) =>
-                  '${notice.seriesTitle} · ${notice.chapterTitle} — '
-                  '${_mediaProgressLabel(notice)}',
-            )
-            .toList(),
-        contentTitle: title,
-      ),
-    );
-    await _plugin.show(
-      _kMediaDownloadSummaryNotifId,
-      title,
-      body,
-      NotificationDetails(android: androidDetails),
-      payload: jsonEncode(const <String, dynamic>{'type': 'download_group'}),
-    );
-  }
 
   void _requestAndroidPermissionWhenReady(
     AndroidFlutterLocalNotificationsPlugin? androidPlugin,
@@ -1774,6 +1921,7 @@ class WatchtowerNotificationService {
 class _MediaDownloadNotice {
   _MediaDownloadNotice({
     required this.id,
+    required this.seriesKey,
     required this.seriesTitle,
     required this.chapterTitle,
     required this.itemType,
@@ -1783,6 +1931,7 @@ class _MediaDownloadNotice {
     required this.totalBytes,
     required this.speedMbs,
     required this.filePath,
+    required this.coverUrl,
     required this.isCompleted,
     required this.isPaused,
     required this.isFailed,
@@ -1790,6 +1939,10 @@ class _MediaDownloadNotice {
   });
 
   final int id;
+
+  /// Identity of the parent (one manga/series), so every chapter of the same
+  /// work collapses under a single notification instead of one card each.
+  final String seriesKey;
   final String seriesTitle;
   final String chapterTitle;
   final String itemType;
@@ -1799,6 +1952,7 @@ class _MediaDownloadNotice {
   final int? totalBytes;
   final double speedMbs;
   final String? filePath;
+  final String? coverUrl;
   final bool isCompleted;
   final bool isPaused;
   final bool isFailed;
@@ -1808,6 +1962,7 @@ class _MediaDownloadNotice {
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'id': id,
+    'seriesKey': seriesKey,
     'seriesTitle': seriesTitle,
     'chapterTitle': chapterTitle,
     'itemType': itemType,
@@ -1817,6 +1972,7 @@ class _MediaDownloadNotice {
     'totalBytes': totalBytes,
     'speedMbs': speedMbs,
     'filePath': filePath,
+    'coverUrl': coverUrl,
     'isCompleted': isCompleted,
     'isPaused': isPaused,
     'isFailed': isFailed,
@@ -1836,9 +1992,16 @@ class _MediaDownloadNotice {
 
     final id = readInt('id');
     if (id == null || id < 1000000000 || id > 1999999999) return null;
+    final seriesTitle = json['seriesTitle'] as String? ?? '';
     return _MediaDownloadNotice(
       id: id,
-      seriesTitle: json['seriesTitle'] as String? ?? '',
+      seriesKey:
+          json['seriesKey'] as String? ??
+          seriesKeyFor(
+            seriesTitle: seriesTitle,
+            itemType: json['itemType'] as String? ?? 'manga',
+          ),
+      seriesTitle: seriesTitle,
       chapterTitle: json['chapterTitle'] as String? ?? '',
       itemType: json['itemType'] as String? ?? 'manga',
       completed: readInt('completed') ?? 0,
@@ -1847,6 +2010,7 @@ class _MediaDownloadNotice {
       totalBytes: readInt('totalBytes'),
       speedMbs: readDouble('speedMbs'),
       filePath: json['filePath'] as String?,
+      coverUrl: json['coverUrl'] as String?,
       isCompleted: json['isCompleted'] == true,
       isPaused: json['isPaused'] == true,
       isFailed: json['isFailed'] == true,

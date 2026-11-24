@@ -456,11 +456,13 @@ package com.watchtower.app
                   val speedMbs = call.argument<Number>("speedMbs")?.toDouble() ?: 0.0
                   val etaSeconds = call.argument<Number>("etaSeconds")?.toInt()
                   val quality = call.argument<String>("quality") ?: ""
+                  val coverPath = call.argument<String>("coverPath")
                   when (call.method) {
                       "start"  -> {
                           DownloadForegroundService.start(
                               applicationContext, count, title, subtitle, progress,
                               downloadedBytes, totalBytes, speedMbs, etaSeconds, quality,
+                              coverPath,
                           )
                           result.success(null)
                       }
@@ -468,6 +470,7 @@ package com.watchtower.app
                           DownloadForegroundService.update(
                               applicationContext, count, title, subtitle, progress,
                               downloadedBytes, totalBytes, speedMbs, etaSeconds, quality,
+                              coverPath,
                           )
                           result.success(null)
                       }

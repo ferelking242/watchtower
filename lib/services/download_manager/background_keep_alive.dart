@@ -36,6 +36,7 @@ class BackgroundKeepAlive {
   static double _lastNotificationSpeedMbs = -1;
   static int? _lastNotificationEtaSeconds;
   static String _lastNotificationQuality = '';
+  static String _lastNotificationCoverPath = '';
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -67,9 +68,14 @@ class BackgroundKeepAlive {
     double speedMbs = 0,
     int? etaSeconds,
     String quality = '',
+    String? coverPath,
     bool force = false,
   }) async {
     if (!kIsWeb && Platform.isAndroid) {
+      // Normalise before comparing: a null cover must equal the empty string
+      // the field starts with, or every tick would look like a change and
+      // defeat the throttle below.
+      final cover = coverPath ?? '';
       final now = DateTime.now();
       final progressChanged = progress != _lastNotificationProgress;
       final titleChanged = title != _lastNotificationTitle;
@@ -82,7 +88,8 @@ class BackgroundKeepAlive {
           totalBytes != _lastNotificationTotalBytes ||
           speedMbs != _lastNotificationSpeedMbs ||
           etaSeconds != _lastNotificationEtaSeconds ||
-          quality != _lastNotificationQuality;
+          quality != _lastNotificationQuality ||
+          cover != _lastNotificationCoverPath;
       final elapsed = _lastNotificationUpdate == null
           ? const Duration(seconds: 1)
           : now.difference(_lastNotificationUpdate!);
@@ -105,6 +112,7 @@ class BackgroundKeepAlive {
       _lastNotificationSpeedMbs = speedMbs;
       _lastNotificationEtaSeconds = etaSeconds;
       _lastNotificationQuality = quality;
+      _lastNotificationCoverPath = cover;
       try {
         await _ch.invokeMethod<void>('update', {
           'count': count,
@@ -116,6 +124,7 @@ class BackgroundKeepAlive {
           'speedMbs': speedMbs,
           'etaSeconds': etaSeconds,
           'quality': quality,
+          if (cover.isNotEmpty) 'coverPath': cover,
         });
       } catch (_) {}
     }
@@ -134,6 +143,7 @@ class BackgroundKeepAlive {
     _lastNotificationSpeedMbs = -1;
     _lastNotificationEtaSeconds = null;
     _lastNotificationQuality = '';
+    _lastNotificationCoverPath = '';
     if (!kIsWeb && Platform.isAndroid) {
       try {
         await _ch.invokeMethod<void>('stop');

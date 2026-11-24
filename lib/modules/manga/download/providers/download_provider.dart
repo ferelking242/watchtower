@@ -400,6 +400,35 @@ Future<void> handleMediaDownloadNotificationActionFromContainer(
   MediaDownloadNotificationAction action,
 ) => _handleMediaDownloadNotificationAction(ref.read, chapterId, action);
 
+/// Retries every failed chapter of one series card.
+///
+/// Each chapter goes through the same retry path as the per-chapter button, so
+/// the queue, the persisted offsets and the rate-limit parking behave
+/// identically — only the trigger differs.
+Future<void> handleMediaSeriesRetryFromContainer(
+  ProviderContainer ref,
+  String seriesKey,
+  List<int> chapterIds,
+) async {
+  for (final chapterId in chapterIds) {
+    try {
+      await _handleMediaDownloadNotificationAction(
+        ref.read,
+        chapterId,
+        MediaDownloadNotificationAction.retry,
+      );
+    } catch (error, stackTrace) {
+      AppLogger.log(
+        '[ch:$chapterId] series retry failed',
+        logLevel: LogLevel.error,
+        tag: LogTag.download,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+}
+
 Future<void> _handleMediaDownloadNotificationAction(
   ProviderRead ref,
   int chapterId,
@@ -2115,6 +2144,7 @@ Future<void> downloadChapter(
             downloadedBytes: liveDownloadedBytes,
             totalBytes: liveTotalBytes,
             speedMbs: _speedEmaMbs,
+            coverUrl: resolveChapterManga(chapter)?.imageUrl,
           ),
         );
       }
@@ -2169,6 +2199,9 @@ Future<void> downloadChapter(
             speedMbs: _speedEmaMbs,
             etaSeconds: etaSeconds,
             quality: chapterPreferredQuality[chapter.id] ?? '',
+            coverPath: WatchtowerNotificationService.instance.primeCoverPath(
+              chapterManga?.imageUrl,
+            ),
             force: progress.isCompleted,
           ),
         );
@@ -2191,6 +2224,9 @@ Future<void> downloadChapter(
             title: notificationTitle,
             progress: pct,
             subtitle: pageProgress == null ? baseSubtitle : '$baseSubtitle · $pageProgress',
+            coverPath: WatchtowerNotificationService.instance.primeCoverPath(
+              chapterManga?.imageUrl,
+            ),
             force: progress.isCompleted,
           ),
         );
@@ -2265,6 +2301,7 @@ Future<void> downloadChapter(
             downloadedBytes: exactDownloadedBytes,
             totalBytes: exactTotalBytes,
             speedMbs: _speedEmaMbs,
+            coverUrl: chapterManga?.imageUrl,
           ),
         );
       }

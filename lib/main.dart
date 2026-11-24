@@ -809,6 +809,19 @@ class _MyAppState extends ConsumerState<MyApp>
       (chapterId, action) =>
           handleMediaDownloadNotificationAction(ref, chapterId, action),
     );
+    // The series card's retry is a headless action: it can arrive from the
+    // notification engine's background isolate, so the request is replayed here
+    // where the download queue actually lives.
+    WatchtowerNotificationService.instance.registerMediaSeriesActionHandler(
+      (seriesKey, chapterIds) => handleMediaSeriesRetryFromContainer(
+        ProviderScope.containerOf(context, listen: false),
+        seriesKey,
+        chapterIds,
+      ),
+    );
+    unawaited(
+      WatchtowerNotificationService.instance.drainPendingRetries(),
+    );
     // A Cloudflare refusal first seen while replaying a request from an
     // extension/download worker is reported to the root isolate (the only one
     // that can raise a notification) through the browser bridge.
@@ -913,6 +926,10 @@ class _MyAppState extends ConsumerState<MyApp>
       // nothing dispatches them, so the batch looks dead until the user opens
       // the queue screen. Kick the scheduler again whenever work is pending.
       if (!kIsWeb) unawaited(_resumePendingDownloads());
+      // Replay any retry requested from a notification while the app was away.
+      if (!kIsWeb) {
+        unawaited(WatchtowerNotificationService.instance.drainPendingRetries());
+      }
     }
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {

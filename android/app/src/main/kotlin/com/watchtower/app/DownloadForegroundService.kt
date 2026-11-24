@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -48,6 +50,10 @@ class DownloadForegroundService : Service() {
         const val EXTRA_SPEED_MBS = "speed_mbs"
         const val EXTRA_ETA_SECONDS = "eta_seconds"
         const val EXTRA_QUALITY = "quality"
+        // Absolute path of the series cover, so the card can show the artwork.
+        // A file path rather than a bitmap: decoding once here beats shipping
+        // pixel data through the method channel on every progress tick.
+        const val EXTRA_COVER_PATH = "cover_path"
         private const val GROUP_KEY = "com.watchtower.app.DOWNLOADS"
 
         // ── Static helpers called from MainActivity MethodChannel ─────────────
@@ -55,7 +61,8 @@ class DownloadForegroundService : Service() {
         fun start(context: Context, count: Int = 0, title: String = "Téléchargement en cours…",
                   subtitle: String = "", progress: Int = -1, downloadedBytes: Long = 0,
                   totalBytes: Long? = null, speedMbs: Double = 0.0,
-                  etaSeconds: Int? = null, quality: String = "") {
+                  etaSeconds: Int? = null, quality: String = "",
+                  coverPath: String? = null) {
             val i = intent(context, ACTION_START).apply {
                 putExtra(EXTRA_COUNT,    count)
                 putExtra(EXTRA_TITLE,   title)
@@ -66,6 +73,7 @@ class DownloadForegroundService : Service() {
                 putExtra(EXTRA_SPEED_MBS, speedMbs)
                 etaSeconds?.let { putExtra(EXTRA_ETA_SECONDS, it) }
                 putExtra(EXTRA_QUALITY, quality)
+                coverPath?.let { putExtra(EXTRA_COVER_PATH, it) }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 context.startForegroundService(i)
@@ -76,7 +84,8 @@ class DownloadForegroundService : Service() {
         fun update(context: Context, count: Int, title: String = "Téléchargement en cours…",
                    subtitle: String = "", progress: Int = -1, downloadedBytes: Long = 0,
                    totalBytes: Long? = null, speedMbs: Double = 0.0,
-                   etaSeconds: Int? = null, quality: String = "") {
+                   etaSeconds: Int? = null, quality: String = "",
+                   coverPath: String? = null) {
             val i = intent(context, ACTION_UPDATE).apply {
                 putExtra(EXTRA_COUNT,    count)
                 putExtra(EXTRA_TITLE,   title)
@@ -87,6 +96,7 @@ class DownloadForegroundService : Service() {
                 putExtra(EXTRA_SPEED_MBS, speedMbs)
                 etaSeconds?.let { putExtra(EXTRA_ETA_SECONDS, it) }
                 putExtra(EXTRA_QUALITY, quality)
+                coverPath?.let { putExtra(EXTRA_COVER_PATH, it) }
             }
             context.startService(i)
         }
@@ -131,9 +141,10 @@ class DownloadForegroundService : Service() {
                 val etaSeconds = intent.getIntExtra(EXTRA_ETA_SECONDS, -1)
                     .takeIf { it >= 0 }
                 val quality = intent.getStringExtra(EXTRA_QUALITY) ?: ""
+                val coverPath = intent.getStringExtra(EXTRA_COVER_PATH)
                 val notif = buildNotif(
                     count, title, subtitle, progress, downloadedBytes,
-                    totalBytes, speedMbs, etaSeconds, quality,
+                    totalBytes, speedMbs, etaSeconds, quality, coverPath,
                 )
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     // Android 14+ requires the foreground service type to be declared
@@ -154,11 +165,12 @@ class DownloadForegroundService : Service() {
                 val etaSeconds = intent.getIntExtra(EXTRA_ETA_SECONDS, -1)
                     .takeIf { it >= 0 }
                 val quality = intent.getStringExtra(EXTRA_QUALITY) ?: ""
+                val coverPath = intent.getStringExtra(EXTRA_COVER_PATH)
                 nm.notify(
                     NOTIF_ID,
                     buildNotif(
                         count, title, subtitle, progress, downloadedBytes,
-                        totalBytes, speedMbs, etaSeconds, quality,
+                        totalBytes, speedMbs, etaSeconds, quality, coverPath,
                     ),
                 )
                 if (count > 1) {
@@ -192,6 +204,7 @@ class DownloadForegroundService : Service() {
         speedMbs: Double = 0.0,
         etaSeconds: Int? = null,
         quality: String = "",
+        coverPath: String? = null,
     ): Notification {
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val pi = PendingIntent.getActivity(
@@ -257,6 +270,8 @@ class DownloadForegroundService : Service() {
             )
         }
 
+        decodeCover(coverPath)?.let { builder.setLargeIcon(it) }
+
         return builder.build()
     }
 
@@ -271,6 +286,28 @@ class DownloadForegroundService : Service() {
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+
+    // Progress ticks arrive several times a second, so the decoded poster is
+    // memoised: decoding the same file on every tick would burn CPU for a
+    // notification the user is not even looking at most of the time.
+    private var coverCachePath: String? = null
+    private var coverCacheBitmap: Bitmap? = null
+
+    // Decodes the series cover, returning null for a missing or unreadable
+    // file so a broken poster never hides the notification itself.
+    private fun decodeCover(path: String?): Bitmap? {
+        val trimmed = path?.trim().orEmpty()
+        if (trimmed.isEmpty()) return null
+        if (trimmed == coverCachePath) return coverCacheBitmap
+        val decoded = try {
+            BitmapFactory.decodeFile(trimmed)
+        } catch (e: Throwable) {
+            null
+        }
+        coverCachePath = trimmed
+        coverCacheBitmap = decoded
+        return decoded
+    }
 
     private fun formatBytes(bytes: Long): String = when {
         bytes >= 1024L * 1024L * 1024L ->
