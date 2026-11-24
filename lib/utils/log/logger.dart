@@ -192,15 +192,6 @@ enum LogMode {
 
 class AppLogger {
   static late File _logFile;
-  // dynamic to accept both dart:io.IOSink (native) and stub IOSink (web)
-  static late dynamic _sink;
-
-  /// Set once [_sink] reported an asynchronous failure (or was closed under
-  /// us). Writing again would only re-raise the same "File closed" on
-  /// [IOSink.done], which nothing awaits, so it surfaces as an unhandled zone
-  /// error every single flush. The synchronous crash-path writer keeps working
-  /// regardless: it bypasses the sink entirely.
-  static bool _sinkBroken = false;
   static bool _initialized = false;
 
   // ── In-memory filter state ──────────────────────────────────────────────────
@@ -473,7 +464,6 @@ class AppLogger {
       }
     } catch (_) {}
 
-    _openSink();
     _initialized = true;
 
     await _writeSessionHeader();
@@ -578,32 +568,16 @@ class AppLogger {
 
   /// Joins the buffered entries into one batch and appends it to the session
   /// file. Batches are serialised through [_fileWriteQueue] so entries can
-  /// never interleave on disk. When [flush] is set the sink is flushed too, so
-  /// the batch reaches the OS before the caller returns to the event loop.
-  static Future<void> _drainPendingLines({bool flush = false}) {
-    if (_pendingLines.isEmpty) {
-      return flush ? _flushSink() : _fileWriteQueue;
-    }
+  /// never interleave on disk.
+  static Future<void> _drainPendingLines() {
+    if (_pendingLines.isEmpty) return _fileWriteQueue;
     final batch = '${_pendingLines.join('\n')}\n';
     _pendingLines.clear();
     _pendingChars = 0;
     _fileWriteQueue = _fileWriteQueue
         .then((_) => _appendToLogFile(batch))
         .catchError((Object _) {});
-    if (flush) {
-      _fileWriteQueue = _fileWriteQueue.then((_) => _flushSink());
-    }
     return _fileWriteQueue;
-  }
-
-  static Future<void> _flushSink() async {
-    if (!_initialized || _sinkBroken) return;
-    try {
-      await _sink.flush();
-    } catch (_) {
-      // Keep the in-memory logs available if the file sink has been closed.
-      _sinkBroken = true;
-    }
   }
 
   /// Waits for all queued entries to reach the current log file.
@@ -613,13 +587,6 @@ class AppLogger {
     _logFlushTimer = null;
     await _drainPendingLines();
     await _fileWriteQueue;
-    if (!_initialized || _sinkBroken) return;
-    try {
-      await _sink.flush();
-    } catch (_) {
-      // Keep the in-memory logs available if the file sink has been closed.
-      _sinkBroken = true;
-    }
   }
 
   /// Writes every buffered line to disk *synchronously*, right now.
@@ -636,76 +603,34 @@ class AppLogger {
     _drainPendingLinesSync();
   }
 
-  /// Appends one batch, recreating the folder, file and sink if they went away
-  /// while the app was running.
+  /// Appends one batch to the log file.
+  ///
+  /// Always synchronous, and the only writer: routing batches through the
+  /// buffered sink *and* through [flushSync]'s direct append let the two
+  /// reorder — a batch queued on the sink could land after a later batch
+  /// written synchronously, so the trail read out of order exactly around the
+  /// lines that matter (the last ones before a crash).
   static Future<void> _appendToLogFile(String batch) async {
-    if (_sinkBroken) {
-      // Fall through to the synchronous writer instead of writing into a sink
-      // whose `done` already completed with an error.
-      _appendBatchSync(batch);
-      return;
-    }
-    try {
-      _sink.write(batch);
-    } catch (_) {
-      try {
-        await _reopenLogSink();
-        _sink.write(batch);
-      } catch (_) {
-        // Entries remain available in the in-memory ring and live stream.
-        _sinkBroken = true;
-        _appendBatchSync(batch);
-      }
-    }
+    _appendBatchSync(batch);
   }
 
-  /// Synchronous append used whenever the sink is unusable. Never throws: it
-  /// runs from error paths and from the crash-path flush.
+  /// Synchronous append. Never throws: it runs from error paths and from the
+  /// crash-path flush.
   static void _appendBatchSync(String batch) {
     try {
       _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: true);
     } catch (_) {
-      // Nothing left to try: the entry stays in the in-memory ring.
+      // The folder or file can be deleted while the app runs (the user clears
+      // storage, a cleaner wipes the cache dir). Recreate both once and retry:
+      // losing every later line to a missing directory is worse than one extra
+      // stat on a path that only runs after a failure.
+      try {
+        _logFile.parent.createSync(recursive: true);
+        _logFile.writeAsStringSync(batch, mode: FileMode.append, flush: true);
+      } catch (_) {
+        // Nothing left to try: the entry stays in the in-memory ring.
+      }
     }
-  }
-
-  static Future<void> _reopenLogSink() async {
-    try {
-      await _sink.flush();
-    } catch (_) {
-      // A deleted or already-closed sink is replaced below.
-    }
-    try {
-      await _sink.close();
-    } catch (_) {
-      // Same: the sink is unusable, a fresh one is opened below.
-    }
-    await _logFile.parent.create(recursive: true);
-    if (!await _logFile.exists()) {
-      await _logFile.create(recursive: true);
-    }
-    _openSink();
-  }
-
-  /// Opens the log sink and makes sure its [IOSink.done] failure is consumed.
-  ///
-  /// `done` completes with the first write error and is not awaited anywhere,
-  /// so an unhandled "FileSystemException: File closed" reached
-  /// `runZonedGuarded` on every flush once the file had been closed under the
-  /// app. Listening here turns that into a flag instead of a repeating zone
-  /// error, and the synchronous writer takes over.
-  static void _openSink() {
-    final sink = _logFile.openWrite(mode: FileMode.append);
-    _sink = sink;
-    _sinkBroken = false;
-    unawaited(
-      sink.done.then<void>(
-        (_) {},
-        onError: (Object _) {
-          _sinkBroken = true;
-        },
-      ),
-    );
   }
 
   // Call this after changing settings in the UI to update in-memory filters
@@ -903,11 +828,6 @@ class AppLogger {
     _periodicFlushTimer?.cancel();
     _periodicFlushTimer = null;
     await flush();
-    try {
-      await _sink.close();
-    } catch (_) {
-      // Already closed or broken: nothing to release.
-    }
     _initialized = false;
   }
 }
