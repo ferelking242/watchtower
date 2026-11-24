@@ -119,6 +119,7 @@ const String _kActionQueuePause = 'action_queue_pause';
 const String _kActionQueueResume = 'action_queue_resume';
 const String _kActionQueueCancel = 'action_queue_cancel';
 const int _kQueueNotificationId = 880041;
+const int _kCatalogueNotificationId = 880042;
 const String _kQueueNotificationCategory = 'download_queue';
 
 enum MediaDownloadNotificationAction { pause, resume, cancel, retry }
@@ -1849,6 +1850,62 @@ class WatchtowerNotificationService {
     try {
       await _plugin.cancel(_kQueueNotificationId);
     } catch (_) {}
+  }
+
+  /// Ongoing card for the catalogue drain that runs *before* a bulk download.
+  ///
+  /// Draining paginates the whole extension listing (up to 250 pages), which
+  /// takes minutes on a source that answers ~1s per page. The card is shown as
+  /// soon as the download sheet opens and cancelled once the sheet has every
+  /// page, so the wait is visible outside the app instead of looking frozen.
+  Future<void> showCatalogueLoadingProgress({
+    required int items,
+    required int pages,
+    required bool finished,
+  }) async {
+    if (!_supported) return;
+    if (!_initialized) await init();
+    try {
+      if (finished) {
+        await _plugin.cancel(_kCatalogueNotificationId);
+        return;
+      }
+      final androidDetails = AndroidNotificationDetails(
+        _kDownloadChannelId,
+        _kDownloadChannelName,
+        channelDescription: 'Progression de chaque téléchargement Watchtower',
+        importance: Importance.low,
+        priority: Priority.low,
+        onlyAlertOnce: true,
+        showProgress: true,
+        indeterminate: true,
+        ongoing: true,
+        autoCancel: false,
+        playSound: false,
+        enableVibration: false,
+      );
+      final iosDetails = DarwinNotificationDetails(
+        threadIdentifier: _kQueueNotificationCategory,
+        presentAlert: false,
+        presentBadge: false,
+        presentSound: false,
+      );
+      await _plugin.show(
+        _kCatalogueNotificationId,
+        'Chargement du catalogue',
+        pages > 0
+            ? '$items élément(s) · page $pages'
+            : '$items élément(s)',
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
+        payload: jsonEncode(const <String, dynamic>{'type': 'catalogue_load'}),
+      );
+    } catch (e) {
+      AppLogger.log(
+        'showCatalogueLoadingProgress failed: $e',
+        logLevel: LogLevel.warning,
+        tag: LogTag.network,
+      );
+    }
   }
 
   Future<void> cancelMediaDownloadNotification(int chapterId) async {

@@ -8574,6 +8574,11 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String media_catalogue_loading(Object count) {
+    return 'Chargement du catalogue · $count éléments';
+  }
+
+  @override
   String media_fetching(Object count) {
     return 'Récupération · $count éléments';
   }

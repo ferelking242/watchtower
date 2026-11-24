@@ -14975,6 +14975,12 @@ abstract class AppLocalizations {
   /// **'Fetching in parallel · {count} items'**
   String media_fetching_parallel(Object count);
 
+  /// No description provided for @media_catalogue_loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading the catalogue · {count} items'**
+  String media_catalogue_loading(Object count);
+
   /// No description provided for @media_fetching.
   ///
   /// In en, this message translates to:

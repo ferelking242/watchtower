@@ -1969,27 +1969,30 @@ abstract final class CatalogBulkDownload {
     WidgetRef ref,
     Source? source,
     List<MManga> items,
-    CatalogBulkDownloadAction action,
-  ) {
+    CatalogBulkDownloadAction action, {
+    CataloguePageLoader? loadMore,
+  }) {
     switch (action) {
       case CatalogBulkDownloadAction.download:
-        run(context, ref, source, items, count: 10);
+        run(context, ref, source, items, count: 10, loadMore: loadMore);
       case CatalogBulkDownloadAction.downloadAll:
-        run(context, ref, source, items);
+        run(context, ref, source, items, loadMore: loadMore);
       case CatalogBulkDownloadAction.download5:
-        run(context, ref, source, items, count: 5);
+        run(context, ref, source, items, count: 5, loadMore: loadMore);
       case CatalogBulkDownloadAction.download10:
-        run(context, ref, source, items, count: 10);
+        run(context, ref, source, items, count: 10, loadMore: loadMore);
       case CatalogBulkDownloadAction.download25:
-        run(context, ref, source, items, count: 25);
+        run(context, ref, source, items, count: 25, loadMore: loadMore);
       case CatalogBulkDownloadAction.download50:
-        run(context, ref, source, items, count: 50);
+        run(context, ref, source, items, count: 50, loadMore: loadMore);
       case CatalogBulkDownloadAction.download100:
-        run(context, ref, source, items, count: 100);
+        run(context, ref, source, items, count: 100, loadMore: loadMore);
       case CatalogBulkDownloadAction.download250:
-        run(context, ref, source, items, count: 250);
+        run(context, ref, source, items, count: 250, loadMore: loadMore);
       case CatalogBulkDownloadAction.downloadCustom:
-        unawaited(_promptCustomCount(context, ref, source, items));
+        unawaited(
+          _promptCustomCount(context, ref, source, items, loadMore: loadMore),
+        );
       case CatalogBulkDownloadAction.downloadsSubMenuHeader:
         // Titre du groupe, non actionnable.
         break;
@@ -2062,26 +2065,33 @@ abstract final class CatalogBulkDownload {
     ),
   ];
 
-  static List<MManga> _downloadTargets(List<MManga> items) => [
-    for (final item in items)
-      if (item.link?.trim().isNotEmpty == true &&
-          ExtensionCollectionRoute.fromItem(item) == null)
-        item,
-  ];
+  static List<MManga> _downloadTargets(List<MManga> items) =>
+      items.where(isBulkDownloadTarget).toList();
 
   static Future<void> _promptCustomCount(
     BuildContext context,
     WidgetRef ref,
     Source? source,
-    List<MManga> items,
-  ) async {
+    List<MManga> items, {
+    CataloguePageLoader? loadMore,
+  }) async {
     final l10n = context.l10n;
     final available = _downloadTargets(items).length;
-    if (available == 0) {
+    if (available == 0 && loadMore == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.media_nothing_downloadable)),
       );
       return;
+    }
+
+    // With a page loader the rest of the catalogue is still unknown, so the
+    // count is not clamped to the rows already on screen.
+    final knownCount = available > 0;
+    int resolveCount(String raw) {
+      final number = int.parse(raw.trim());
+      return knownCount
+          ? clampCatalogDownloadCount(number, available)
+          : number;
     }
 
     final formKey = GlobalKey<FormState>();
@@ -2096,8 +2106,10 @@ abstract final class CatalogBulkDownload {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(context.l10n.media_max_available(available)),
-              const SizedBox(height: 12),
+              if (knownCount) ...[
+                Text(context.l10n.media_max_available(available)),
+                const SizedBox(height: 12),
+              ],
               TextFormField(
                 controller: controller,
                 autofocus: true,
@@ -2117,10 +2129,7 @@ abstract final class CatalogBulkDownload {
                 onFieldSubmitted: (_) {
                   if (!formKey.currentState!.validate()) return;
                   Navigator.of(dialogContext).pop(
-                    clampCatalogDownloadCount(
-                      int.parse(controller.text.trim()),
-                      available,
-                    ),
+                    resolveCount(controller.text),
                   );
                 },
               ),
@@ -2135,12 +2144,7 @@ abstract final class CatalogBulkDownload {
           FilledButton(
             onPressed: () {
               if (!formKey.currentState!.validate()) return;
-              Navigator.of(dialogContext).pop(
-                clampCatalogDownloadCount(
-                  int.parse(controller.text.trim()),
-                  available,
-                ),
-              );
+              Navigator.of(dialogContext).pop(resolveCount(controller.text));
             },
             child: Text(context.l10n.media_continue),
           ),
@@ -2149,7 +2153,14 @@ abstract final class CatalogBulkDownload {
     );
     controller.dispose();
     if (requested == null || !context.mounted) return;
-    await run(context, ref, source, items, count: requested);
+    await run(
+      context,
+      ref,
+      source,
+      items,
+      count: requested,
+      loadMore: loadMore,
+    );
   }
 
   static Widget _menuRow(IconData icon, String label) => Row(
@@ -2158,12 +2169,17 @@ abstract final class CatalogBulkDownload {
 
   /// Récupère les vidéos du lot en parallèle (pool de créateurs), avec une
   /// boîte de progression annulable ; chaque chapitre est mis en file.
+  ///
+  /// [loadMore] keeps feeding the configuration sheet with the remaining
+  /// catalogue pages while it is already open, so "Tout télécharger" shows its
+  /// box immediately instead of after a multi-minute drain.
   static Future<void> run(
     BuildContext context,
     WidgetRef ref,
     Source? source,
     List<MManga> catalogueItems, {
     int? count,
+    CataloguePageLoader? loadMore,
   }) async {
     final l10n = context.l10n;
     if (source == null) {
@@ -2174,7 +2190,7 @@ abstract final class CatalogBulkDownload {
     }
     final available = _downloadTargets(catalogueItems);
     final targets = count == null ? available : available.take(count).toList();
-    if (targets.isEmpty) {
+    if (targets.isEmpty && loadMore == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.media_nothing_downloadable)),
       );
@@ -2188,6 +2204,8 @@ abstract final class CatalogBulkDownload {
       ref: ref,
       source: source,
       items: targets,
+      limit: count,
+      loadMore: loadMore,
     );
     if (plan == null || plan.items.isEmpty) return;
     if (!context.mounted) return;
@@ -2197,6 +2215,16 @@ abstract final class CatalogBulkDownload {
       estimatedSizeSummary: plan.estimatedSizeSummary,
     );
     BulkEnqueueController.active = controller;
+    // The card appears with the box, not only when the box is sent to the
+    // background: the enqueue can run for minutes.
+    unawaited(
+      WatchtowerNotificationService.instance.showDownloadQueueProgress(
+        done: 0,
+        total: controller.total,
+        paused: false,
+        finished: false,
+      ),
+    );
     final titles = [
       for (final entry in plan.items)
         ...entry.chapters.map((chapter) {
@@ -2706,10 +2734,9 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
   bool _hasMore = true;
   int _page = 1;
 
-  /// Safety valve for the pre-download drain, so a paginating extension that
+  /// Safety valve for the bulk-download drain, so a paginating extension that
   /// never reports the last page cannot spin forever.
   static const int _autoDrainPageCap = 250;
-  Future<void>? _drainTask;
 
   late CatalogFilterState _filter;
   String _searchQuery = '';
@@ -3172,9 +3199,10 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
 
   // ── Menu 3 points (même composant que la barre de la page Librairie) ──────
 
-  /// Menu entry point: before a bulk download, drain every remaining page so
-  /// "Tout télécharger" (and the counts shown in its sheet) covers the whole
-  /// catalogue rather than only the cards already on screen.
+  /// Menu entry point. A bulk download covers the whole catalogue, but the
+  /// remaining pages are fetched *by the sheet* once it is open (see
+  /// [_loadNextPageForBulk]): draining here first kept the box hidden for the
+  /// whole pagination, several minutes on a source like XNXX.
   Future<void> _onListMenuAction(CatalogBulkDownloadAction action) async {
     final isBulk =
         action == CatalogBulkDownloadAction.downloadAll ||
@@ -3186,10 +3214,6 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
         action == CatalogBulkDownloadAction.download100 ||
         action == CatalogBulkDownloadAction.download250 ||
         action == CatalogBulkDownloadAction.downloadCustom;
-    if (isBulk && _isExtension && _selectedExtensionItems.isEmpty) {
-      await _drainAllPages();
-      if (!mounted) return;
-    }
     if (!mounted) return;
     // TMDB/AniList entries are metadata only: downloads need an extension.
     if (!_isExtension && isBulk) {
@@ -3198,42 +3222,38 @@ class _TmdbMoviesListScreenState extends ConsumerState<TmdbMoviesListScreen> {
       );
       return;
     }
+    final hasSelection = _selectedExtensionItems.isNotEmpty;
     CatalogBulkDownload.handleMenu(
       context,
       ref,
       widget.extensionSource,
-      _selectedExtensionItems.isEmpty
-          ? _extensionItems
-          : _selectedExtensionItems,
+      hasSelection ? _selectedExtensionItems : _extensionItems,
       action,
+      loadMore: isBulk && _isExtension && !hasSelection
+          ? _loadNextPageForBulk
+          : null,
     );
   }
 
-  /// Loads every remaining page one after another. A page that adds nothing is
-  /// not necessarily the end (listings repeat a card across page boundaries),
-  /// so it only stops after several consecutive empty pages.
-  Future<void> _drainAllPages() {
-    final inFlight = _drainTask;
-    if (inFlight != null) return inFlight;
-    final task = _drainAllPagesOnce();
-    _drainTask = task;
-    return task.whenComplete(() {
-      if (identical(_drainTask, task)) _drainTask = null;
-    });
-  }
-
-  Future<void> _drainAllPagesOnce() async {
-    var stalls = 0;
-    while (mounted && _hasMore && !_loading && _page < _autoDrainPageCap) {
-      final before = _extensionItems.length;
-      await _loadPage();
-      if (!mounted || !_hasMore) return;
-      stalls = _extensionItems.length == before ? stalls + 1 : 0;
-      if (stalls >= 3) {
-        if (mounted) setState(() => _hasMore = false);
-        return;
-      }
+  /// Feeds one more catalogue page to the bulk-download sheet. A page that adds
+  /// nothing is not necessarily the end (listings repeat a card across page
+  /// boundaries), so the sheet only stops after several consecutive empty
+  /// pages.
+  Future<({List<MManga> items, bool hasMore})> _loadNextPageForBulk() async {
+    if (!mounted || !_hasMore || _page >= _autoDrainPageCap) {
+      return (items: _extensionItems, hasMore: false);
     }
+    await _loadPage();
+    // _loadPage is a no-op while a scroll-triggered page is still in flight;
+    // waiting for it keeps the drain from reading a half-loaded list as a
+    // stalled page and stopping early.
+    while (mounted && _loading) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    return (
+      items: _extensionItems,
+      hasMore: mounted && _hasMore && _page < _autoDrainPageCap,
+    );
   }
 
   // ── Filtres appliqués aux items affichés ─────────────────────────────────

@@ -2564,6 +2564,7 @@
   "media_episodes_ratio": "{selected}/{total} épisodes",
   "media_one_video": "1 vidéo",
   "media_fetching_parallel": "Récupération en parallèle · {count} éléments",
+  "media_catalogue_loading": "Chargement du catalogue · {count} éléments",
   "media_fetching": "Récupération · {count} éléments",
   "media_n_videos_size": "{count} vidéos · {size}",
   "media_comments_count": "{count} commentaires",

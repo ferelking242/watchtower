@@ -81,7 +81,6 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   int _page = 1;
   bool _hasNext = true;
   bool _loadingMore = false;
-  Future<void>? _drainTask;
   final _seen = <String>{};
 
   late TabController _tabs;
@@ -668,18 +667,17 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
   }
 
   /// Bulk downloads act on the whole result set, not only the pages already
-  /// loaded, so every remaining page is fetched first.
+  /// loaded. The remaining pages are fetched by the download sheet once it is
+  /// open, so the box shows up on the tap instead of after the pagination.
   Future<void> _onDownloadMenuAction(CatalogBulkDownloadAction action) async {
-    if (_isBulkDownload(action)) {
-      await _drainAllResults();
-      if (!mounted || _results == null) return;
-    }
+    if (!mounted || _results == null) return;
     CatalogBulkDownload.handleMenu(
       context,
       ref,
       widget.source,
       _results ?? const [],
       action,
+      loadMore: _isBulkDownload(action) ? _loadNextResultPage : null,
     );
   }
 
@@ -696,30 +694,25 @@ class _ExtensionSearchScreenState extends ConsumerState<ExtensionSearchScreen>
     CatalogBulkDownloadAction.downloadsSubMenuHeader => false,
   };
 
-  /// Pulls page after page until the extension reports no more results, the
-  /// screen changes (new query / tab), or several pages in a row add nothing —
-  /// a stalled page is not proof of the end, since some listings repeat a card.
-  Future<void> _drainAllResults() async {
-    final inFlight = _drainTask;
-    if (inFlight != null) return inFlight;
-    final task = _drainAllResultsOnce();
-    _drainTask = task;
-    return task.whenComplete(() {
-      if (identical(_drainTask, task)) _drainTask = null;
-    });
-  }
-
-  Future<void> _drainAllResultsOnce() async {
-    var stalls = 0;
-    while (mounted && _hasNext && !_loadingMore && _results != null) {
-      final version = _searchRequestVersion;
-      final before = _results!.length;
-      await _loadMore();
-      if (!mounted || version != _searchRequestVersion) return;
-      if (_loadingMore) return;
-      stalls = (_results?.length ?? before) == before ? stalls + 1 : 0;
-      if (stalls >= 3) return;
+  /// One more result page for the download sheet. A page that adds nothing is
+  /// not proof of the end (some listings repeat a card across a boundary), so
+  /// the sheet only stops after several consecutive empty pages.
+  Future<({List<MManga> items, bool hasMore})> _loadNextResultPage() async {
+    final version = _searchRequestVersion;
+    if (!mounted || _results == null || !_hasNext) {
+      return (items: _results ?? const <MManga>[], hasMore: false);
     }
+    await _loadMore();
+    // _loadMore is a no-op while another page is in flight; waiting for it
+    // keeps the drain from reading a half-loaded list as a stalled page.
+    while (mounted && _loadingMore && version == _searchRequestVersion) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    final stillValid = mounted && version == _searchRequestVersion;
+    return (
+      items: _results ?? const <MManga>[],
+      hasMore: stillValid && _hasNext,
+    );
   }
 
   /// Clears the field and keeps the keyboard open. Used as the first step of

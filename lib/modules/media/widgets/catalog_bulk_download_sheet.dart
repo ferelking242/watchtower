@@ -17,9 +17,11 @@ import 'package:watchtower/providers/l10n_providers.dart';
 import 'package:watchtower/modules/media/widgets/bulk_download_formats.dart';
 import 'package:watchtower/modules/media/widgets/download_unit.dart';
 import 'package:watchtower/modules/more/download_queue/moviebox_card_widgets.dart';
+import 'package:watchtower/modules/watch/home/extension_collection_route.dart';
 import 'package:watchtower/services/get_detail.dart';
 import 'package:watchtower/services/get_video_list.dart';
 import 'package:watchtower/services/isolate_service.dart';
+import 'package:watchtower/services/update_notification_service.dart';
 import 'package:watchtower/models/video.dart';
 import 'package:watchtower/utils/cached_network.dart';
 import 'package:watchtower/utils/concurrency.dart';
@@ -85,22 +87,114 @@ const LinearGradient _kSheetGradient = LinearGradient(
   colors: [Color(0xFF1EA7EF), Color(0xFF36E07D)],
 );
 
+/// Fetches one more catalogue page for a bulk download.
+///
+/// The sheet opens first and calls this while it is already on screen, so the
+/// box never waits for the drain: paginating a whole extension listing (up to
+/// 250 pages, ~1s each) used to delay the sheet by several minutes. Returns the
+/// entries known so far and whether the catalogue has more pages.
+typedef CataloguePageLoader =
+    Future<({List<MManga> items, bool hasMore})> Function();
+
+/// Entries a bulk download can actually queue: a collection row (studio,
+/// person…) opens a sub-list instead of a video, and an entry without a link
+/// cannot be resolved.
+bool isBulkDownloadTarget(MManga item) =>
+    item.link?.trim().isNotEmpty == true &&
+    ExtensionCollectionRoute.fromItem(item) == null;
+
+/// Pulls the remaining catalogue pages one by one for a bulk download.
+///
+/// The download sheet is already open when this runs, so the drain never gates
+/// the box: every page is merged into [items] and handed to [onPage], which
+/// appends the matching rows. A page that adds nothing is not proof of the end
+/// (listings repeat a card across a page boundary), so it only stops after
+/// [maxStalls] consecutive empty pages.
+class CatalogueDrain {
+  CatalogueDrain({
+    required this.loadMore,
+    this.onPage,
+    this.limit,
+    this.maxStalls = 3,
+  });
+
+  final CataloguePageLoader loadMore;
+  final void Function(List<MManga> fresh, int pages)? onPage;
+
+  /// Row cap for the "Télécharger N" entries; null means every entry.
+  final int? limit;
+  final int maxStalls;
+
+  /// Downloadable entries collected so far, deduplicated by link.
+  final List<MManga> items = [];
+
+  /// Pages fetched so far, including the ones that added nothing.
+  int pages = 0;
+
+  bool _stopped = false;
+
+  bool get stopped => _stopped;
+
+  void stop() => _stopped = true;
+
+  Future<void> run() async {
+    final cap = limit;
+    var stalls = 0;
+    while (!_stopped) {
+      if (cap != null && items.length >= cap) return;
+      final before = items.length;
+      final page = await loadMore();
+      if (_stopped) return;
+      pages++;
+      final fresh = _merge(page.items, cap);
+      if (fresh.isNotEmpty) onPage?.call(fresh, pages);
+      if (!page.hasMore) return;
+      stalls = items.length == before ? stalls + 1 : 0;
+      if (stalls >= maxStalls) return;
+    }
+  }
+
+  List<MManga> _merge(List<MManga> batch, int? cap) {
+    final known = {for (final item in items) item.link ?? item.name ?? ''};
+    final fresh = <MManga>[];
+    for (final item in batch) {
+      if (!isBulkDownloadTarget(item)) continue;
+      if (!known.add(item.link ?? item.name ?? '')) continue;
+      if (cap != null && items.length + fresh.length >= cap) break;
+      fresh.add(item);
+    }
+    items.addAll(fresh);
+    return fresh;
+  }
+}
+
 /// Opens the batch configuration sheet: one row per catalogue video with its
 /// own quality box, plus a header that applies a single quality/language to the
 /// whole batch. Returns null when the user backs out.
+///
+/// [limit] caps the rows (the "Télécharger N" entries) and [loadMore] lets the
+/// sheet keep filling itself from the remaining catalogue pages while the user
+/// reads the rows already there.
 Future<BulkDownloadPlan?> showCatalogBulkDownloadSheet({
   required BuildContext context,
   required WidgetRef ref,
   required Source source,
   required List<MManga> items,
+  int? limit,
+  CataloguePageLoader? loadMore,
 }) {
   return showModalBottomSheet<BulkDownloadPlan>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     elevation: 0,
-    builder: (_) =>
-        _CatalogBulkDownloadSheet(ref: ref, source: source, items: items),
+    builder: (_) => _CatalogBulkDownloadSheet(
+      ref: ref,
+      source: source,
+      items: items,
+      limit: limit,
+      loadMore: loadMore,
+    ),
   );
 }
 
@@ -132,6 +226,10 @@ class _ResolvedVideo {
   List<String> seasons = const [];
   bool loading = true;
   String? error;
+
+  /// Set once [getDetail] was attempted, so the resolve loop can tell a row
+  /// that was just appended from one already handled.
+  bool resolved = false;
 
   /// Whether the row's episode list is unfolded (drives the chevron).
   bool expanded = false;
@@ -175,11 +273,19 @@ class _CatalogBulkDownloadSheet extends StatefulWidget {
     required this.ref,
     required this.source,
     required this.items,
+    this.limit,
+    this.loadMore,
   });
 
   final WidgetRef ref;
   final Source source;
   final List<MManga> items;
+
+  /// Row cap for the "Télécharger N" entries; null means every entry.
+  final int? limit;
+
+  /// Fetches the next catalogue page while the sheet is open.
+  final CataloguePageLoader? loadMore;
 
   @override
   State<_CatalogBulkDownloadSheet> createState() =>
@@ -192,6 +298,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   QualityFallback _bulkFallback = QualityFallback.higher;
   String? _bulkLanguage;
   String? _bulkSeason;
+
+  /// True while the remaining catalogue pages are still being fetched.
+  bool _draining = false;
+  CatalogueDrain? _drain;
+  int _drainedPages = 0;
 
   static final RegExp _languageInQuality = RegExp(
     r'\b(VOSTFR|VOSTA|MULTI|ENGLISH|FRENCH|FRANÇAIS|SPANISH|ESPAÑOL|'
@@ -241,9 +352,6 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
     return values.toList()..sort();
   }
 
-  bool get _resolvingRows =>
-      _rows.any((row) => row.loading || row.formatsLoading);
-
   /// Manga (and webtoon) chapters are page galleries, not streams: there is no
   /// quality, no language track and no season to pick. The quality/language
   /// boxes are hidden and the rows keep only the chapter list.
@@ -252,10 +360,27 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   @override
   void initState() {
     super.initState();
-    _rows = widget.items.map(_ResolvedVideo.new).toList();
+    _rows = [for (final item in widget.items) _ResolvedVideo(item)];
     unawaited(_resolveAll());
+    if (widget.loadMore != null) unawaited(_drainCatalogue());
   }
 
+  @override
+  void dispose() {
+    _drain?.stop();
+    unawaited(
+      WatchtowerNotificationService.instance.showCatalogueLoadingProgress(
+        items: _rows.length,
+        pages: _drainedPages,
+        finished: true,
+      ),
+    );
+    super.dispose();
+  }
+
+  /// Keeps resolving rows until the drain is over, so pages appended while the
+  /// sheet is open are resolved as they arrive instead of waiting for a second
+  /// pass at the end.
   Future<void> _resolveAll() async {
     // Each extension runtime is non-reentrant. Pin independent catalogue
     // entries to separate isolates so their getDetail/getVideoList calls can
@@ -266,45 +391,106 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
         : (getIsolateService.workerCount > 0
               ? getIsolateService.workerCount
               : 1);
-    await forEachParallelWithWorkerSlots(
-      _rows,
-      workerCount,
-      (row, workerSlot) =>
-          getIsolateService.runOnWorkerSlot(workerSlot, () => _resolveOne(row)),
-    );
+    while (mounted) {
+      final pending = [
+        for (final row in _rows)
+          if (!row.resolved) row,
+      ];
+      if (pending.isEmpty) {
+        if (!_draining) return;
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+        continue;
+      }
+      await forEachParallelWithWorkerSlots(
+        pending,
+        workerCount,
+        (row, workerSlot) =>
+            getIsolateService.runOnWorkerSlot(workerSlot, () => _resolveOne(row)),
+      );
+    }
   }
 
-  Future<void> _resolveOne(_ResolvedVideo row) async {
-    final url = row.item.link?.trim();
-    if (url == null || url.isEmpty) {
-      row
-        ..loading = false
-        ..error = 'Lien manquant';
-      return;
-    }
+  /// Fills the sheet page after page. The box is already on screen, so the
+  /// drain only appends rows — it never gates the user.
+  Future<void> _drainCatalogue() async {
+    final loadMore = widget.loadMore;
+    if (loadMore == null) return;
+    // Plain assignment: this starts from initState, so the first build already
+    // sees the banner.
+    _draining = true;
+    unawaited(_publishCatalogueNotice());
+    final drain = CatalogueDrain(
+      loadMore: loadMore,
+      limit: widget.limit,
+      onPage: (fresh, pages) {
+        _drainedPages = pages;
+        if (mounted) {
+          setState(() => _rows.addAll(fresh.map(_ResolvedVideo.new)));
+        }
+        unawaited(_publishCatalogueNotice());
+      },
+    );
+    _drain = drain;
     try {
-      final detail = await widget.ref.read(
-        getDetailProvider(url: url, source: widget.source).future,
+      await drain.run();
+    } catch (_) {
+      // A failing page ends the drain: what is loaded stays downloadable.
+    } finally {
+      _draining = false;
+      if (mounted) setState(() {});
+      unawaited(
+        WatchtowerNotificationService.instance.showCatalogueLoadingProgress(
+          items: _rows.length,
+          pages: _drainedPages,
+          finished: true,
+        ),
       );
-      final chapters = [
-        for (final c in detail.chapters ?? const <MChapter>[])
-          if ((c.url ?? '').trim().isNotEmpty) c,
-      ];
-      row.detail = detail;
-      row.chapters = chapters;
-      row.seasons = _seasonsOf(chapters);
-      row.selected = {for (var i = 0; i < chapters.length; i++) i};
-      row.season = _bulkSeason;
-      row.selected = {...row.visibleIndices};
+    }
+  }
+
+  Future<void> _publishCatalogueNotice() =>
+      WatchtowerNotificationService.instance.showCatalogueLoadingProgress(
+        items: _rows.length,
+        pages: _drainedPages,
+        finished: false,
+      );
+
+  Future<void> _resolveOne(_ResolvedVideo row) async {
+    try {
+      final url = row.item.link?.trim();
+      if (url == null || url.isEmpty) {
+        row
+          ..loading = false
+          ..error = 'Lien manquant';
+        return;
+      }
+      try {
+        final detail = await widget.ref.read(
+          getDetailProvider(url: url, source: widget.source).future,
+        );
+        final chapters = [
+          for (final c in detail.chapters ?? const <MChapter>[])
+            if ((c.url ?? '').trim().isNotEmpty) c,
+        ];
+        row.detail = detail;
+        row.chapters = chapters;
+        row.seasons = _seasonsOf(chapters);
+        row.selected = {for (var i = 0; i < chapters.length; i++) i};
+        row.season = _bulkSeason;
+        row.selected = {...row.visibleIndices};
+        row.loading = false;
+        if (mounted) setState(() {});
+        await _loadVideoOptions(row, detail);
+      } catch (e) {
+        row
+          ..loading = false
+          ..error = e.toString();
+      }
+    } finally {
+      row.resolved = true;
       row.loading = false;
       if (mounted) setState(() {});
-      await _loadVideoOptions(row, detail);
-    } catch (e) {
-      row
-        ..loading = false
-        ..error = e.toString();
     }
-    if (mounted) setState(() => row.loading = false);
   }
 
   Future<void> _loadVideoOptions(_ResolvedVideo row, MManga detail) async {
@@ -532,6 +718,8 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   }
 
   void _confirm() {
+    // Stop paginating: the plan only carries rows that are already resolved.
+    _drain?.stop();
     final items = <BulkDownloadItem>[];
     for (final row in _rows) {
       if (row.detail == null) continue;
@@ -598,11 +786,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               Expanded(
                 child: Text(
                   context.l10n.media_download_n_items(
-                    widget.items.length,
+                    _rows.length,
                     catalogEntryUnitLabel(
                       context.l10n,
                       widget.source.itemType,
-                      widget.items.length,
+                      _rows.length,
                     ),
                   ),
                   style: TextStyle(
@@ -618,6 +806,7 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               ),
             ],
           ),
+          if (_draining) _catalogueLoadingBanner(cs),
           // Manga chapters carry neither a quality, a fallback language nor a
           // season; the four boxes only add noise. Everything is already
           // selected, so the sheet opens straight on the chapter list.
@@ -701,6 +890,53 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
               ],
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// Live line for the remaining catalogue pages, so the sheet itself says why
+  /// rows keep appearing (and the download button already works meanwhile).
+  Widget _catalogueLoadingBanner(ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 13,
+                height: 13,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: cs.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.l10n.media_catalogue_loading(_rows.length),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              minHeight: 2.5,
+              backgroundColor: cs.surfaceContainerHighest,
+              color: cs.primary,
+            ),
+          ),
         ],
       ),
     );
@@ -1047,8 +1283,10 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
   }
 
   Widget _footer(ColorScheme cs) {
-    final enabled =
-        !_resolvingRows && !_selectedSizesLoading && _totalSelected > 0;
+    // The drain keeps appending rows for minutes, so the button follows what is
+    // ready instead of staying greyed out: confirming stops the drain and
+    // queues the rows already resolved.
+    final enabled = _totalSelected > 0;
     return SafeArea(
       top: false,
       child: Padding(
@@ -1083,11 +1321,11 @@ class _CatalogBulkDownloadSheetState extends State<_CatalogBulkDownloadSheet> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _resolvingRows
+                      _totalSelected == 0
                           ? (kIsWeb
-                                ? context.l10n.media_fetching(widget.items.length)
+                                ? context.l10n.media_fetching(_rows.length)
                                 : context.l10n.media_fetching_parallel(
-                                    widget.items.length,
+                                    _rows.length,
                                   ))
                           : _isMangaLike
                           // Manga pages have no measurable size up front.

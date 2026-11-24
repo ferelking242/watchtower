@@ -8446,6 +8446,11 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
+  String media_catalogue_loading(Object count) {
+    return 'Loading the catalogue · $count items';
+  }
+
+  @override
   String media_fetching(Object count) {
     return 'Fetching · $count items';
   }

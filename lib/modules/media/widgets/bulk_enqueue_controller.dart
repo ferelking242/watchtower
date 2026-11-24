@@ -35,6 +35,11 @@ class BulkEnqueueController extends ChangeNotifier {
 
   Completer<void>? _resumeGate;
 
+  /// Last percentage pushed to the queue notification, so the card is not
+  /// refreshed for every single item.
+  int _lastNoticePercent = -1;
+  bool? _lastNoticePaused;
+
   double get progress => total > 0 ? (done / total).clamp(0.0, 1.0) : 0.0;
 
   int get remaining => (total - done).clamp(0, total);
@@ -96,18 +101,26 @@ class BulkEnqueueController extends ChangeNotifier {
 
   void _publish() {
     notifyListeners();
-    if (backgrounded && !finished) {
-      unawaited(
-        WatchtowerNotificationService.instance.showDownloadQueueProgress(
-          done: done,
-          total: total,
-          paused: paused,
-          finished: finished,
-          queued: queued,
-          failed: failed,
-        ),
-      );
-    }
+    // The notification is not limited to the "send to background" case: a run
+    // can last for minutes, and the card is the only sign of progress once the
+    // app is not in the foreground. It is only refreshed on a whole-percent
+    // step (or a pause change) so a 1000-video batch does not push 1000
+    // notification updates.
+    if (finished) return;
+    final percent = total > 0 ? ((done / total) * 100).floor() : 0;
+    if (percent == _lastNoticePercent && paused == _lastNoticePaused) return;
+    _lastNoticePercent = percent;
+    _lastNoticePaused = paused;
+    unawaited(
+      WatchtowerNotificationService.instance.showDownloadQueueProgress(
+        done: done,
+        total: total,
+        paused: paused,
+        finished: finished,
+        queued: queued,
+        failed: failed,
+      ),
+    );
   }
 
   /// Entry point used by the notification action handler (background taps).

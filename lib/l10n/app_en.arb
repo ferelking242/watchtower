@@ -2843,6 +2843,7 @@
   "media_episodes_ratio": "{selected}/{total} episodes",
   "media_one_video": "1 video",
   "media_fetching_parallel": "Fetching in parallel · {count} items",
+  "media_catalogue_loading": "Loading the catalogue · {count} items",
   "media_fetching": "Fetching · {count} items",
   "media_n_videos_size": "{count} videos · {size}",
   "media_comments_count": "{count} comments",
