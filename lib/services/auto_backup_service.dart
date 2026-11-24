@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watchtower/main.dart';
 import 'package:watchtower/providers/storage_provider.dart';
 import 'package:watchtower/services/atomic_snapshot_file.dart';
+import 'package:watchtower/services/isar_open_guard.dart';
 import 'package:watchtower/utils/log/logger.dart';
 
 /// Automatic, uninstall-surviving snapshot of everything the app needs to
@@ -31,8 +32,9 @@ class AutoBackupService {
   /// Hidden cache folder holding the automatic snapshot, at the storage root.
   static const String backupDirName = '.backup';
 
-  static const String _isarFileName = 'watchtowerDb.isar';
-  static const String _schemaVersionFileName = 'watchtowerDb.schema_version';
+  static const String _dbName = 'watchtowerDb';
+  static const String _isarFileName = '$_dbName.isar';
+  static const String _schemaVersionFileName = '$_dbName.schema_version';
   static const String _hiveSnapshotName = 'hive_boxes.json';
   static const String _prefsSnapshotName = 'shared_preferences.json';
   static const String _manifestName = 'manifest.json';
@@ -197,6 +199,17 @@ class AutoBackupService {
         await versionBackup.copy(p.join(dbDir.path, _schemaVersionFileName));
       }
 
+      // The schema fingerprint travels with the snapshot so the open guard can
+      // refuse a database that a newer build no longer understands.
+      final fingerprintBackup = File(
+        p.join(dir.path, IsarOpenGuard.fingerprintFileName(_dbName)),
+      );
+      if (fingerprintBackup.existsSync()) {
+        await fingerprintBackup.copy(
+          p.join(dbDir.path, IsarOpenGuard.fingerprintFileName(_dbName)),
+        );
+      }
+
       // 2 — SharedPreferences (safe to restore before the UI starts).
       await _restorePreferences(dir);
 
@@ -302,6 +315,14 @@ class AutoBackupService {
         final versionFile = File(p.join(dbDir.path, _schemaVersionFileName));
         if (versionFile.existsSync()) {
           await versionFile.copy(p.join(dir.path, _schemaVersionFileName));
+        }
+        final fingerprintFile = File(
+          p.join(dbDir.path, IsarOpenGuard.fingerprintFileName(_dbName)),
+        );
+        if (fingerprintFile.existsSync()) {
+          await fingerprintFile.copy(
+            p.join(dir.path, IsarOpenGuard.fingerprintFileName(_dbName)),
+          );
         }
       }
 

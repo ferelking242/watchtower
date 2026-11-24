@@ -27,6 +27,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path/path.dart' as path;
 import 'package:watchtower/utils/constant.dart';
+import 'package:watchtower/services/isar_open_guard.dart';
+import 'package:watchtower/utils/log/logger.dart';
 import 'package:watchtower/services/watchtower_storage_layout.dart';
 
 class StorageProvider {
@@ -539,32 +541,23 @@ class StorageProvider {
       }
     }
 
-    // ── Version-gated DB protection ─────────────────────────────────────
-    // isar_get_offsets crashes with SIGBUS (uncatchable in Dart) when the
-    // on-disk DB was created with a different schema (stale build data).
-    // We store a tiny version file next to the DB and wipe the DB files
-    // before opening if the version doesn't match — guaranteeing a clean slate.
+    // ── Guarded DB open ─────────────────────────────────────────────────
+    // `isar_get_offsets` copies the native property offsets into a buffer
+    // sized by the Dart schema, and an abort there kills the process before
+    // Dart can catch it (see the note on `IsarOpenGuard`). The guard sets
+    // aside a database built from another schema, and one that killed the
+    // previous launch, so a stale or damaged DB cannot crash-loop the app.
     const kCurrentDbVersion =
         '14'; // +LocalIndexer music kind/tags (schema enum change forces wipe)
-    final versionFile = File('${dir!.path}/watchtowerDb.schema_version');
-    try {
-      final storedVersion = await versionFile.exists()
-          ? await versionFile.readAsString()
-          : null;
-      if (storedVersion != kCurrentDbVersion) {
-        debugPrint(
-          '[initDB] DB version mismatch ($storedVersion→$kCurrentDbVersion) — wiping stale files',
-        );
-        for (final suffix in ['.isar', '.isar.lock', '.isar.tmp']) {
-          try {
-            final f = File('${dir!.path}/watchtowerDb$suffix');
-            if (await f.exists()) await f.delete();
-          } catch (_) {}
-        }
-        await versionFile.writeAsString(kCurrentDbVersion);
-      }
-    } catch (e) {
-      debugPrint('[initDB] version-check error (non-fatal): $e');
+    final guard = IsarOpenGuard(dir!, salt: kCurrentDbVersion);
+    final recovery = await guard.prepareOpen(schemas);
+    if (recovery != IsarOpenRecovery.none) {
+      debugPrint('[initDB] Isar open guard: ${recovery.name}');
+      AppLogger.log(
+        'Isar open guard set the previous database aside (${recovery.name})',
+        logLevel: LogLevel.warning,
+        tag: LogTag.maintenance,
+      );
     }
     // ─────────────────────────────────────────────────────────────────────
 
@@ -579,15 +572,27 @@ class StorageProvider {
     // keep the default 1024 MB (plenty of RAM, no mmap eviction issue).
     final maxSizeMiB = Platform.isIOS ? 256 : 1024;
 
+    Future<Isar> openGuarded() async {
+      await guard.markOpening();
+      try {
+        final opened = await Isar.open(
+          schemas,
+          directory: dir!.path,
+          name: "watchtowerDb",
+          inspector: inspector,
+          maxSizeMiB: maxSizeMiB,
+        );
+        await guard.openSucceeded();
+        return opened;
+      } catch (_) {
+        await guard.openFailed();
+        rethrow;
+      }
+    }
+
     Isar isar;
     try {
-      isar = await Isar.open(
-        schemas,
-        directory: dir!.path,
-        name: "watchtowerDb",
-        inspector: inspector,
-        maxSizeMiB: maxSizeMiB,
-      );
+      isar = await openGuarded();
     } catch (e) {
       final eMsg = e.toString();
       debugPrint(
@@ -602,13 +607,7 @@ class StorageProvider {
 
       // Step 3: first retry on a clean slate.
       try {
-        isar = await Isar.open(
-          schemas,
-          directory: dir!.path,
-          name: "watchtowerDb",
-          inspector: inspector,
-          maxSizeMiB: maxSizeMiB,
-        );
+        isar = await openGuarded();
       } catch (e2) {
         debugPrint(
           '[initDB] retry-1 failed ($e2) — evicting again, waiting 500ms, final attempt',
@@ -619,13 +618,7 @@ class StorageProvider {
         await Future.delayed(const Duration(milliseconds: 500));
 
         // Step 4: final attempt — let it throw if the DB is unrecoverable.
-        isar = await Isar.open(
-          schemas,
-          directory: dir!.path,
-          name: "watchtowerDb",
-          inspector: inspector,
-          maxSizeMiB: maxSizeMiB,
-        );
+        isar = await openGuarded();
       }
     }
 

@@ -96,6 +96,9 @@ jobs:
       - name: Run corrupted Settings record repair tests
         run: flutter test test/settings_store_test.dart
 
+      - name: Run Isar open guard tests
+        run: flutter test test/isar_open_guard_test.dart
+
       - name: Run chapter list index regression tests
         run: flutter test test/chapter_download_selection_test.dart
 
