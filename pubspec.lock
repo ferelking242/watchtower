@@ -1903,6 +1903,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.13.0"
+  material_symbols_icons:
+    dependency: transitive
+    description:
+      name: material_symbols_icons
+      sha256: bd513edc2bc9b034108d5518c48cf5cebbb67d0653728cc452368cb27ca80bb0
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2960.0"
   media_kit:
     dependency: "direct main"
     description:
@@ -2429,7 +2437,7 @@ packages:
       path: reel
       relative: true
     source: path
-    version: "1.0.0+1"
+    version: "1.1.0+2"
   rfc_6901:
     dependency: transitive
     description:
