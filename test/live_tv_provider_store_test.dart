@@ -56,6 +56,45 @@ void main() {
     expect(store().read(), isEmpty);
   });
 
+  test('a provider renamed in the catalogue keeps its install', () async {
+    // The five verified catalogues shipped with a `wiflix-` prefix that was
+    // later dropped. An install that saved the old id must still read back
+    // under the new one, or the Marketplace would offer it as not installed
+    // while the stale record keeps fetching.
+    await box.put(
+      'providers',
+      jsonEncode([
+        {
+          'id': 'wiflix-iptv-org',
+          'name': 'IPTV-org — Monde vérifié',
+          'kind': 'json',
+          'source': 'https://example.com/iptv-org-world.json',
+          'version': '1.0.0',
+        },
+      ]),
+    );
+
+    final providers = store().read();
+    expect(providers, hasLength(1));
+    expect(providers.single.id, 'iptv-org');
+    expect(providers.single.source, 'https://example.com/iptv-org-world.json');
+  });
+
+  test('renaming does not resurrect a provider the user deleted', () async {
+    await box.put(
+      'providers',
+      jsonEncode([
+        {'id': 'wt-world', 'name': 'Watchtower World', 'kind': 'bundled',
+          'source': 'assets/live/world.json'},
+        {'id': 'wiflix-free-tv', 'name': 'Free-TV', 'kind': 'json',
+          'source': 'https://example.com/free-tv-world.json'},
+      ]),
+    );
+
+    final providers = store().read();
+    expect(providers.map((p) => p.id), ['free-tv']);
+  });
+
   test('a user provider persists across store instances', () async {
     const custom = LiveProvider(
       id: 'user:abc',

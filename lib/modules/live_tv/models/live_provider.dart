@@ -146,6 +146,7 @@ class LiveProvider {
   final DateTime? lastFetchedAt;
 
   LiveProvider copyWith({
+    String? id,
     String? name,
     LiveProviderKind? kind,
     String? source,
@@ -162,7 +163,7 @@ class LiveProvider {
     DateTime? lastFetchedAt,
   }) {
     return LiveProvider(
-      id: id,
+      id: id ?? this.id,
       name: name ?? this.name,
       kind: kind ?? this.kind,
       source: source ?? this.source,

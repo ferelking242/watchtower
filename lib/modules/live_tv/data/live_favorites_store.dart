@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive/hive.dart';
+import 'package:watchtower/modules/live_tv/data/live_defaults.dart';
 
 /// Favourited channels, kept as `LiveChannel.id` strings.
 ///
@@ -23,8 +24,21 @@ class LiveFavoritesStore {
     if (raw is! List) return {};
     return {
       for (final id in raw)
-        if (id is String && id.isNotEmpty) id,
+        if (id is String && id.isNotEmpty) _migrate(id),
     };
+  }
+
+  /// Rewrites a favourite saved under a since-renamed provider id.
+  ///
+  /// `LiveChannel.id` is `<providerId>:<identity>`, so renaming a provider
+  /// silently orphans every channel starred under it — the star would simply
+  /// stop resolving, with nothing on screen explaining why.
+  static String _migrate(String channelId) {
+    final colon = channelId.indexOf(':');
+    if (colon <= 0) return channelId;
+    final providerId = channelId.substring(0, colon);
+    final renamed = LiveDefaults.renamedIds[providerId];
+    return renamed == null ? channelId : '$renamed${channelId.substring(colon)}';
   }
 
   Future<void> write(Set<String> ids) async {

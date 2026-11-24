@@ -30,13 +30,17 @@ class LiveProviderStore {
   /// Providers to show.
   List<LiveProvider> read() {
     final stored = _readRaw();
-    final byId = {for (final provider in stored) provider.id: provider};
+    final byId = <String, LiveProvider>{};
 
     // A provider that used to ship with the app points at an asset that no
     // longer exists; left in place it would fail on every fetch. Dropping it
     // here (rather than on write) also cleans installs that never write again.
-    for (final id in LiveDefaults.retiredIds) {
-      byId.remove(id);
+    for (final provider in stored) {
+      if (LiveDefaults.retiredIds.contains(provider.id)) continue;
+      final renamed = LiveDefaults.renamedIds[provider.id];
+      byId[renamed ?? provider.id] = renamed == null
+          ? provider
+          : provider.copyWith(id: renamed);
     }
 
     return _sorted(byId.values.toList());
